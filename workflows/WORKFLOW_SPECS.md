@@ -43,11 +43,6 @@ Customer selects product → We check provider availability FIRST
 → If provider is DOWN or no IPs → Tell customer, don't charge them
 ```
 
-**Why this matters:**
-- Customer pays only when we can deliver ✅
-- No refunds needed because no failed deliveries ✅
-- Customer trust preserved ✅
-
 ---
 
 ## IP Testing — Overview
@@ -61,10 +56,136 @@ Provider returns IP → We test it (5 second timeout)
 → If replacement fails → Refund customer automatically ✅
 ```
 
-**Why this matters:**
-- Customer only receives working IPs ✅
-- We catch dead IPs before they do ✅
-- No "this proxy doesn't work" complaints ✅
+---
+
+## Free Trial Workflow — Survey-Based
+
+**Customers can earn FREE temporary proxy IPs by completing surveys.**
+
+### Rules
+
+| Rule | Detail |
+|------|--------|
+| **Trial duration** | TEMPORARY — until proxy dies |
+| **Daily limit** | 3 IPs per phone number per DAY |
+| **Task type** | ONE survey per IP (only survey, no other tasks) |
+| **Verification** | CPAGrip postback webhook |
+| **Free proxy source** | Geonode Free API |
+| **No replacement** | Dead proxy = complete another survey |
+| **Reset** | Daily midnight (Africa/Lagos) |
+
+### Why Survey Only
+
+| Reason | Benefit |
+|--------|---------|
+| Simple for customer | No confusion picking from wall |
+| Fast verification | Survey completion = postback fires |
+| Reasonable payout | $0.30-$3.00 per survey |
+| Universal | Works on any device |
+| Reliable verification | Survey networks track real completions |
+
+### Flow
+
+```
+Customer: "Free trial"
+  ↓
+Bunche: Check Google Sheets → trials today for phone
+  ↓
+  ❌ Already 3 today:
+    "You've used all 3 free trials today.
+    Resets at midnight. Upgrade for unlimited! 🚀"
+  ↓
+  ✅ Available (less than 3):
+    "🎁 FREE TRIAL — COMPLETE A SURVEY
+
+    Complete ONE survey to unlock 1 free IP:
+
+    [CPAGRIP SURVEY LINK]
+
+    Pick a survey, complete it, then reply DONE.
+    Average survey: 2-5 minutes."
+  ↓
+Customer completes survey
+  ↓
+CPAGrip postback → Bunche webhook (auto)
+  ↓
+Bunche: Verify postback signature + ID
+  ↓
+  ✅ Verified:
+    → Geonode Free API → pull proxy
+    → Test (3 attempts max, 5s each)
+    → Log: Trials Today += 1, Survey ID, Reward
+    → Send proxy + disclaimer
+    → "Trial logged. 2 more available today."
+  ↓
+  ❌ Not verified:
+    "Survey not detected as complete yet.
+    Please try again in a few minutes."
+```
+
+### What Customer Receives
+
+```
+🎁 FREE TRIAL PROXY — TEMPORARY
+
+🔗 IP: 1.2.3.4:8080
+📍 Location: US (best effort)
+⏰ TEMPORARY — lasts until it dies
+
+━━━━━━━━━━━━━━━━━━
+⚠️ READ BEFORE USING ⚠️
+━━━━━━━━━━━━━━━━━━
+
+This is a FREE trial proxy.
+
+❌ NOT guaranteed to work
+❌ NOT guaranteed stable
+❌ May stop working anytime
+❌ Use at YOUR OWN RISK
+
+✅ For testing only
+✅ Not for production/critical tasks
+✅ No replacement if it dies
+
+━━━━━━━━━━━━━━━━━━
+📊 Today's trial usage:
+   1 of 3 used
+
+🚀 Want reliable proxies?
+🇬🇧🇺🇸🇩🇪 ISP — ₦6,500/mo
+💻 Datacenter — ₦3,000/mo
+🌐 Residential 5GB — ₦9,500
+📱 Mobile 4G 5GB — ₦20,000
+
+{RANDOM IP TIP}
+━━━━━━━━━━━━━━━━━━
+```
+
+### Geonode Free API Integration
+
+```
+GET https://proxylist.geonode.com/api/proxy-list?limit=10&page=1&sort_by=lastChecked&sort_type=desc&protocols=http%2Chttps
+```
+
+Returns JSON list of public proxies. Bunche pulls 5-10, tests each (5s timeout), sends the working one.
+
+### Revenue Model (Per Survey)
+
+| Survey type | Avg payout | Net per trial |
+|-------------|-----------|--------------|
+| Quick survey (2 min) | $0.30-0.80 | ₦414-1,104 |
+| Medium survey (5 min) | $0.80-2.00 | ₦1,104-2,760 |
+| Long survey (10 min) | $2.00-3.00 | ₦2,760-4,140 |
+
+**Average revenue per trial: ~$1.00 = ₦1,380**
+
+### Reset Logic
+
+```
+Daily midnight (Africa/Lagos):
+  → Clear trials count
+  → Fresh 3 trials available
+```
 
 ---
 
@@ -216,6 +337,9 @@ PRICES:
 
 {RANDOM IP TIP}
 
+🎁 FREE TRIAL: Complete 1 survey, get 1 free IP!
+3 trials per day. Type "Free trial".
+
 TO ORDER: Reply with:
 "Order ISP [country] [qty]"
 
@@ -236,7 +360,10 @@ Customer WhatsApp Message
         ↓
 [LLM PARSING] — Ollama via LiteLLM → structured intent
         ↓
-[PRE-PAYMENT HEALTH CHECK] ← NEW!
+[IF INTENT == "free_trial"] → Workflow 8: Free Trial (Survey)
+[IF INTENT == "order"] → Continue ↓
+        ↓
+[PRE-PAYMENT HEALTH CHECK]
   → Call provider API → Check availability
   → If DOWN → Tell customer, NO payment link
   → If UP → Continue
@@ -245,8 +372,7 @@ Customer WhatsApp Message
   ↓
 [POST-PAYMENT] → Provider generates proxy
         ↓
-[IP TESTING] ← NEW!
-  → Test IP with 5-second timeout
+[IP TESTING] → Test IP with 5-second timeout
   → If PASS → Deliver to customer ✅
   → If FAIL → Request replacement → Test replacement
   → If replacement also FAIL → Refund automatically ✅
@@ -260,6 +386,7 @@ Customer WhatsApp Message
 
 | What happens | Who does it |
 |-------------|------------|
+| Free trial (survey-based) | n8n ✅ |
 | Pre-payment health check | n8n checks provider before payment link ✅ |
 | Provider down → No payment link | n8n tells customer, no charge ✅ |
 | IP testing before delivery | n8n tests every IP (5s timeout) ✅ |
@@ -312,14 +439,13 @@ Edit Fields: Extract from, msg_body, msg_id, timestamp
 ```
 intent == "order":
   → Google Sheets Read: Lookup price + country
-  → [PRE-PAYMENT HEALTH CHECK] ← NEW!
+  → [PRE-PAYMENT HEALTH CHECK]
     → Call Proxy-Seller / DataImpulse API
     → Check: Is country/provider available?
       → ❌ UNAVAILABLE or DOWN:
         → WhatsApp: "Sorry, [product] for [country] is
            temporarily unavailable right now.
-           Please try again in a few minutes 🙏
-           We'll notify you when it's back!"
+           Please try again in a few minutes 🙏"
         → Webhook Response: HTTP 200
         → END
       → ✅ AVAILABLE:
@@ -327,6 +453,9 @@ intent == "order":
   → HTTP Request → Flutterwave POST /payments
   → Google Sheets Append: Pending_Orders (awaiting_payment)
   → WhatsApp: "Payment link sent! ₦[price] 💳"
+
+intent == "free_trial" OR "free proxy" OR "trial":
+  → Route to Workflow 8 (Free Trial - Survey)
 
 intent == "lost proxy details":
   → Google Sheets Read: Get ALL proxies — NO LIMIT
@@ -350,14 +479,14 @@ intent == "refund":
   → Status == "fulfilled": "No refund after delivery."
 
 intent == "help":
-  → Send help menu + RES vs MOB warning + RANDOM IP TIP
+  → Send help menu + RES vs MOB warning + free trial info + RANDOM IP TIP
 
 intent == "renew":
   → Google Sheets Read: Get ALL proxies — NO LIMIT
   → Present all with status
   → Customer selects which to renew
   ↓
-  [PRE-PAYMENT HEALTH CHECK] ← For renewals too!
+  [PRE-PAYMENT HEALTH CHECK]
     → Check provider availability
       → ❌ UNAVAILABLE: "Sorry, service is down. Try again shortly."
       → ✅ AVAILABLE: Continue
@@ -403,8 +532,11 @@ intent == "order":
   → Flutterwave payment link → WhatsApp: "Payment link sent."
   → Log consent (first interaction)
 
+intent == "free_trial":
+  → Route to Workflow 8 (Free Trial - Survey)
+
 intent == "help":
-  → Legal notice + RES vs MOB warning + RANDOM IP TIP + help menu
+  → Legal notice + RES vs MOB warning + free trial info + RANDOM IP TIP + help menu
 
 intent == "lost proxy details":
   → WhatsApp: "Enter PIN or OTP"
@@ -440,6 +572,9 @@ PRICES:
 → Residential: Data NEVER expires!
 → Mobile: 30-day window, unused GB lost!
 
+🎁 FREE TRIAL: Complete 1 survey, get 1 free IP!
+3 trials per day. Type "Free trial".
+
 {RANDOM IP TIP}
 
 TO ORDER: Reply with:
@@ -469,6 +604,9 @@ TYPE "help" for support.
 📦 TOP UP:
 "Top up residential" — add GB (data never expires)
 "Top up mobile" — add GB (unused GB lost!)
+
+🎁 FREE TRIAL:
+"Free trial" — complete a survey, get 1 free IP
 
 💬 SUPPORT:
 "Help" — show this menu
@@ -531,7 +669,7 @@ Google Sheets: Check if customer exists
   → IF fails → Try backup provider
     → All fail: Refund immediately → [ADMIN ALERT] → END
   ↓
-  [IP TESTING] ← NEW!
+  [IP TESTING]
     → Test IP with 5-second timeout
     → If IP responds: Continue ↓
     → If IP fails:
@@ -622,7 +760,7 @@ function testIP(ip, port, protocol = 'http') {
     const req = client.get({
       host: ip,
       port: port,
-      timeout: 5000, // 5 second timeout
+      timeout: 5000,
       rejectUnauthorized: false,
     }, (res) => {
       resolve({ ok: true, latency: Date.now() - start, status: res.statusCode });
@@ -634,13 +772,11 @@ function testIP(ip, port, protocol = 'http') {
     });
     
     req.on('error', (e) => {
-      // Try alternative port or method
       resolve({ ok: false, reason: e.message });
     });
   });
 }
 
-// Alternative: TCP socket test
 function testIPSocket(ip, port) {
   return new Promise((resolve) => {
     const net = require('net');
@@ -666,13 +802,9 @@ function testIPSocket(ip, port) {
   });
 }
 
-// Main — test with HTTP first, fall back to socket
 async function runTest(ip, port) {
-  // Try HTTP
   let result = await testIP(ip, port, 'http');
   if (result.ok) return result;
-  
-  // Fall back to socket (for proxies that don't respond to HTTP)
   result = await testIPSocket(ip, port);
   return result;
 }
@@ -842,11 +974,11 @@ Response: {"countries": [...], "balance": "100.00"}
 → If API error → UNAVAILABLE
 ```
 
-**Health Check (Alternative):**
+**IP Replacement:**
 ```
-GET https://api.proxy-seller.com/v1/order/available?type=isp&country=gb
-→ If returns IPs available → AVAILABLE
-→ If returns empty → UNAVAILABLE
+POST https://api.proxy-seller.com/v1/order/{order_id}/replace
+Response: {"order_id": "PS-12345", "new_proxy": "5.6.7.8:8080"}
+Limit: 1 replacement per day per proxy
 ```
 
 ### DataImpulse API (Residential + Mobile)
@@ -868,23 +1000,20 @@ Response: {"locations": [...], "balance": "50.00"}
 → If API error → UNAVAILABLE
 ```
 
-**Quick Ping (Alternative):**
+### Geonode Free Proxy API (For Free Trial)
+
 ```
-HEAD https://api.dataimpulse.com/v1/health
-→ 200 OK → AVAILABLE
-→ Error → UNAVAILABLE
+GET https://proxylist.geonode.com/api/proxy-list?limit=10&page=1&sort_by=lastChecked&sort_type=desc&protocols=http%2Chttps
 ```
+
+Returns JSON list of public proxies. Bunche pulls 5-10, tests each (5s timeout), sends the working one.
 
 ### Fallback Chain
 
 ```
-Proxy-Seller (ISP/DC) → Fails → [PRE-PAYMENT CHECK CATCHES THIS → No payment link]
-                                       ↓
-                              If fails AFTER payment: Refund + ADMIN ALERT
-
-DataImpulse (RES/Mobile) → Fails → [PRE-PAYMENT CHECK CATCHES THIS → No payment link]
-                                         ↓
-                                If fails AFTER payment: Refund + ADMIN ALERT
+Proxy-Seller (ISP/DC) → Fails → [PRE-PAYMENT CHECK CATCHES → No payment link]
+DataImpulse (RES/Mobile) → Fails → [PRE-PAYMENT CHECK CATCHES → No payment link]
+Geonode Free (Trial) → Fails → Try next proxy from list
 ```
 
 ---
@@ -917,6 +1046,176 @@ For each customer with active proxies:
   ↓
   [IF nothing to remind]: Do nothing
 ```
+
+---
+
+## Workflow 8: Free Trial — Survey-Based
+
+**Trigger:** Customer says "Free trial", "free proxy", "trial", or similar
+
+### Step 1: Check Daily Limit
+
+```
+Google Sheets Read: Count trials for this phone today
+  ↓
+  ❌ Count >= 3:
+    → WhatsApp: "You've used all 3 free trials today.
+       Resets at midnight. Upgrade to a paid plan
+       for unlimited proxies! 🚀"
+    → END
+  ↓
+  ✅ Count < 3:
+    → Continue to Step 2
+```
+
+### Step 2: Send Survey Link
+
+```
+WhatsApp: "🎁 FREE TRIAL — COMPLETE A SURVEY
+
+Complete ONE survey to unlock 1 free IP:
+
+[CPAGRIP SURVEY LINK]
+
+Pick a survey, complete it, then reply DONE.
+Average survey: 2-5 minutes.
+
+📊 Today's trial usage: [X] of 3 used"
+```
+
+### Step 3: Wait for Survey Completion
+
+```
+Option A — CPAGrip Postback Webhook:
+  Webhook Trigger (CPAGrip POST)
+  ↓
+  Verify CPAGrip signature
+  ↓
+  Extract: user_id, survey_id, reward, status
+  ↓
+  IF status === "completed":
+    → Generate unique trial token
+    → Store: phone, token, survey_id, reward, expires_at
+    → Customer gets auto-message (or reply DONE)
+  ↓
+  IF status !== "completed":
+    → Ignore (postback noise)
+
+Option B — Customer Says DONE:
+  Customer: "DONE"
+  ↓
+  Check Google Sheets for matching survey completion by phone
+  ↓
+  IF found: Continue to Step 4
+  IF not found: "Survey not detected yet. Try in a few minutes."
+```
+
+### Step 4: Get Proxy from Geonode Free API
+
+```
+GET https://proxylist.geonode.com/api/proxy-list?limit=10&page=1&sort_by=lastChecked&sort_type=desc&protocols=http%2Chttps
+  ↓
+Parse JSON → get list of proxies
+  ↓
+For each proxy in list:
+  [TEST PROXY — 5 second timeout]
+  ↓
+  IF PASS:
+    → Continue to Step 5
+    → BREAK
+  IF FAIL:
+    → Try next proxy
+  ↓
+IF all 10 fail:
+  → WhatsApp: "Sorry, no working proxies available right now.
+     Please try again in a few minutes 🙏"
+  → END
+```
+
+### Step 5: Log Trial + Send Proxy
+
+```
+Google Sheets Append: Free_Trials
+  - Phone: [phone]
+  - Trial Date: now()
+  - Provider: CPAGrip
+  - Survey ID: [survey_id]
+  - Reward (USD): [amount]
+  - Proxy IP: [ip]
+  - Status: active
+  - Created At: now()
+  ↓
+Google Sheets Update: Customers
+  - Today's trial count += 1
+  ↓
+WhatsApp Customer:
+"🎁 FREE TRIAL PROXY — TEMPORARY
+
+🔗 IP: [IP]:[PORT]
+📍 Location: [location] (best effort)
+⏰ TEMPORARY — lasts until it dies
+
+━━━━━━━━━━━━━━━━━━
+⚠️ READ BEFORE USING ⚠️
+━━━━━━━━━━━━━━━━━━
+
+This is a FREE trial proxy.
+
+❌ NOT guaranteed to work
+❌ NOT guaranteed stable
+❌ May stop working anytime
+❌ Use at YOUR OWN RISK
+
+✅ For testing only
+✅ Not for production/critical tasks
+✅ No replacement if it dies
+
+━━━━━━━━━━━━━━━━━━
+📊 Today's trial usage:
+   [X] of 3 used
+
+🚀 Want reliable proxies?
+🇬🇧🇺🇸🇩🇪 ISP — ₦6,500/mo
+💻 Datacenter — ₦3,000/mo
+🌐 Residential 5GB — ₦9,500
+📱 Mobile 4G 5GB — ₦20,000
+
+{RANDOM IP TIP}
+━━━━━━━━━━━━━━━━━━"
+```
+
+### CPAGrip Integration
+
+```
+Setup:
+1. Sign up as publisher at cpagrip.com
+2. Get API key + postback URL
+3. Configure postback: https://n8n.yourdomain.com/webhook/cpagrip-postback
+4. Use Content Locker or Smartlink for offer wall
+
+Postback URL:
+https://n8n.yourdomain.com/webhook/cpagrip-postback?user_id={USER_ID}&reward={REWARD}
+
+Verification:
+- CPAGrip signs each postback with HMAC
+- n8n verifies signature before processing
+- Prevents fake completions
+```
+
+### Reset Cron — Daily Midnight
+
+**Trigger:** Daily 00:00 (Africa/Lagos)
+
+```
+For each phone in Free_Trials sheet:
+  ↓
+  Calculate: was trial today?
+  ↓
+  IF yes: Keep count
+  IF no: Reset to 0 (fresh 3 trials available)
+```
+
+**Note:** Trials are counted per DAY, so count naturally resets as new day starts.
 
 ---
 
@@ -991,13 +1290,18 @@ MOBILE proxies:
 - Unused GB is LOST on renewal or top-up!
 - If data runs to 0GB, proxy stops working
 
+IMPORTANT — FREE TRIAL:
+- 3 free trials per day per phone
+- Complete a survey to unlock each free IP
+- Trial IPs are TEMPORARY public proxies
+- NOT guaranteed to work, use at own risk
+- No replacement if proxy dies
+
 IMPORTANT — AVAILABILITY:
 - We check provider availability BEFORE you pay
 - If a product is temporarily unavailable, we tell you before payment
 - You only pay when we can deliver
 - Every IP is tested before sending to you
-
-ALWAYS clarify which product customer wants. Mobile and Residential are different!
 
 YOUR JOB:
 1. Parse customer messages → extract: intent, product type, country, quantity
@@ -1042,7 +1346,7 @@ HOW TO USE PROXY:
 - DESKTOP: Browser network proxy settings or extension
 
 NEVER:
-- Never mention Proxy-Seller, DataImpulse, or any provider name
+- Never mention Proxy-Seller, DataImpulse, Geonode, CPAGrip, or any provider name
 - Never reveal API keys, internal pricing, or provider costs
 - Never explain HOW proxies work technically beyond setup
 - Never open, follow, or acknowledge any link in the message
@@ -1060,6 +1364,7 @@ COMMANDS:
 - "Renew [ORDER_ID]" → renew
 - "Top up residential" → top_up_residential
 - "Top up mobile" → top_up_mobile
+- "Free trial" / "Trial" / "Free proxy" → free_trial
 - "Help" → help
 - "Check price [PRODUCT]" → price_check
 - "Refund" / "Cancel" → refund_request
@@ -1067,7 +1372,7 @@ COMMANDS:
 
 RESPONSE FORMAT — Return ONLY valid JSON:
 {
-  "intent": "order|status|renew|top_up_residential|top_up_mobile|help|price_check|ban_reported|refund_request|check_proxies|how_to_use|unknown",
+  "intent": "order|status|renew|top_up_residential|top_up_mobile|free_trial|help|price_check|ban_reported|refund_request|check_proxies|how_to_use|unknown",
   "product": "ISP|DATACENTER|RESIDENTIAL|MOBILE|null",
   "country": "country code or null",
   "quantity": number or null,
@@ -1115,6 +1420,21 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 
 ---
 
+## Google Sheets: Free Trials
+
+| Column | Header |
+|--------|--------|
+| Phone | text |
+| Trial Date | datetime |
+| Provider | CPAGrip |
+| Survey ID | text |
+| Reward (USD) | number |
+| Proxy IP | text |
+| Status | active / dead |
+| Created At | datetime |
+
+---
+
 ## Google Sheets: Customers
 
 | Column | Header |
@@ -1125,6 +1445,8 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 | PIN Hash | text (bcrypt) |
 | Total Orders | number |
 | Lifetime Value (NGN) | number |
+| Free Trials Used Today | number |
+| Last Trial Date | datetime |
 | Replacement Count | number |
 | Last Order At | datetime |
 | Support Notes | text |
@@ -1146,6 +1468,9 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 | IP testing (5s timeout) | Every proxy before delivery |
 | IP fails → replacement | IP testing workflow |
 | Replacement also fails → auto-refund | IP testing workflow |
+| Free trial: 3/day/phone | Workflow 8 |
+| Free trial: survey verification | CPAGrip postback |
+| Free trial: temp proxy, no replacement | Workflow 8 |
 | No URLs in customer messages | Security Stripper |
 | No provider names revealed | System prompt (LLM) |
 | No injection prompts processed | Security Stripper + system prompt |
@@ -1172,6 +1497,8 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 | Ban Claim | WhatsApp Webhook (within Order Handler) | On ban claim |
 | Refund Handler | Flutterwave Webhook | On refund event |
 | Expiry + Data Reminder | Cron — daily 9:00 AM | Every day |
+| Free Trial | WhatsApp Webhook + CPAGrip postback | On "free trial" request |
+| Trial Reset | Cron — daily 00:00 | Every day |
 | Error Alert | n8n Error Trigger | On any error |
 
 ---
@@ -1179,43 +1506,43 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 ## Testing
 
 ```bash
-# New customer — legal notice + RES vs MOB warning
+# New customer — legal notice + free trial info
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
   -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t1","from":"2349000000001","timestamp":"123","text":{"body":"Hi"}}]}}]}]}'
 
+# Free trial — triggers Workflow 8
+curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
+  -H "Content-Type: application/json" \
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t2","from":"2349000000001","timestamp":"123","text":{"body":"Free trial"}}]}}]}]}'
+
 # Order ISP — triggers pre-payment health check
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t2","from":"2349000000001","timestamp":"123","text":{"body":"Order ISP UK 1"}}]}}]}]}'
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t3","from":"2349000000001","timestamp":"123","text":{"body":"Order ISP UK 1"}}]}}]}]}'
 
 # Order Residential
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t3","from":"2349000000001","timestamp":"123","text":{"body":"Order RES 5GB"}}]}}]}]}'
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t4","from":"2349000000001","timestamp":"123","text":{"body":"Order RES 5GB"}}]}}]}]}'
 
 # Order Mobile
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t4","from":"2349000000001","timestamp":"123","text":{"body":"Order MOB 5GB"}}]}}]}]}'
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t5","from":"2349000000001","timestamp":"123","text":{"body":"Order MOB 5GB"}}]}}]}]}'
 
-# My proxies — shows all types + data remaining
+# My proxies
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t5","from":"2349000000001","timestamp":"123","text":{"body":"My proxies"}}]}}]}]}'
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t6","from":"2349000000001","timestamp":"123","text":{"body":"My proxies"}}]}}]}]}'
 
-# Top up residential
-curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
+# CPAGrip postback simulation
+curl -X POST https://n8n.yourdomain.com/webhook/cpagrip-postback \
   -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t6","from":"2349000000001","timestamp":"123","text":{"body":"Top up residential"}}]}}]}]}'
-
-# Top up mobile
-curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
-  -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t7","from":"2349000000001","timestamp":"123","text":{"body":"Top up mobile"}}]}}]}]}'
+  -d '{"user_id":"2349000000001","survey_id":"SRV-12345","reward":"1.50","status":"completed","signature":"abc123"}'
 
 # Admin: Provider status check
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t8","from":"2347032981049","timestamp":"123","text":{"body":"Provider Status"}}]}}]}]}'
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t7","from":"2347032981049","timestamp":"123","text":{"body":"Provider Status"}}]}}]}]}'
 ```
