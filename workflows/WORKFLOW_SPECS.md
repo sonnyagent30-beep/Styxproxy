@@ -1,29 +1,24 @@
 # Bunche — n8n Workflow Specifications
-*Complete step-by-step specs for all 4 n8n workflows*
+*Zero-inventory, fully on-demand. Every proxy is bought via API after customer pays.*
 
 ---
 
-## Before You Start
+## Credentials to Create in n8n
 
-### n8n Credentials to Create First
-
-| Credential Name | Type | Fields |
-|---------------|------|--------|
+| Name | Type | Auth |
+|------|------|------|
 | `flutterwave-api` | HTTP Header Auth | `Authorization: Bearer FLUTTERWAVE_SECRET_KEY` |
 | `whatsapp-api` | HTTP Header Auth | `Authorization: Bearer WHATSAPP_ACCESS_TOKEN` |
 | `google-sheets-service` | Google Cloud Service Account | Service Account JSON |
-| `iproyal-api` | HTTP Header Auth | `Authorization: Bearer IPROYAL_API_KEY` |
-| `nodemaven-api` | HTTP Query Auth | `Authorization: Bearer NODEMAVEN_API_KEY` |
-| `proxyseller-api` | HTTP Query Auth | `Authorization: Bearer PROXYSELLER_API_KEY` |
+| `proxyseller-api` | HTTP Header Auth | `Authorization: Bearer PROXYSELLER_API_KEY` |
+| `okeyproxy-api` | HTTP Header Auth | `Authorization: Bearer OKEYPROXY_API_KEY` |
+| `dataimpulse-api` | HTTP Header Auth | `Authorization: Bearer DATAIMPULSE_API_KEY` |
 
 ---
 
 ## Workflow 1: Order Handler (WhatsApp Incoming)
 
-**Trigger:** WhatsApp Business API webhook (`POST /webhook/whatsapp-incoming`)
-**Purpose:** Parse incoming message → validate → generate payment link → send to customer
-
-### Flow
+**Trigger:** `POST /webhook/whatsapp-incoming`
 
 ```
 Webhook Trigger (WhatsApp POST)
@@ -36,32 +31,34 @@ Switch: Route by command
   ├── "renew" → Renewal flow
   ├── "help" → Help menu
   └── Default → Unknown command
-  ↓
+  
 (If order)
+  ↓
 Parse: Extract proxy_type, country, quantity from message
   ↓
-Google Sheets Read Row: Check if customer is blocked
+Google Sheets Read Row: Check if customer is blocked (Customers sheet)
   ↓
 If blocked → WhatsApp: "Your account is restricted"
   ↓
-Google Sheets Read Row: Lookup price in Inventory
+Google Sheets Read Row: Lookup price in Pricing sheet
   ↓
-If not available → WhatsApp: "Product not available"
+If not available → WhatsApp: "Sorry, [country] is currently unavailable"
   ↓
 Edit Fields: Generate order_id, tx_ref
   ↓
 HTTP Request → Flutterwave POST /payments
   ↓
-Google Sheets Append Row: Create order (status: pending)
+Google Sheets Append Row: Pending_Orders (status: awaiting_payment)
   ↓
 WhatsApp Send Message: Payment link to customer
   ↓
-Webhook Response: HTTP 200 "ok"
+Webhook Response: HTTP 200
 ```
 
 ### Message Parsing
 
 Customer sends: `Order ISP UK 1`
+
 ```
 parts = msg_body.split(" ")  → ["Order", "ISP", "UK", "1"]
 proxy_type = parts[1].toUpperCase()  → "ISP"
@@ -69,69 +66,83 @@ country = parts[2].toUpperCase()     → "UK"
 quantity = parseInt(parts[3])         → 1
 ```
 
-### Plan Codes
+### Country Code Map
 
-| Message | Plan Code |
-|---------|-----------|
-| `Order ISP UK 1` | ISP-UK |
-| `Order ISP US 1` | ISP-US |
-| `Order ISP NG 1` | ISP-NG |
-| `Order RES 5GB` | RES-5GB-NG |
-| `Order MOB NG 1` | MOB-NG |
-| `Order DC 1` | DC-US |
+| Message | Plan Code | Country Code |
+|---------|-----------|-------------|
+| UK, GB | ISP-UK | gb |
+| US | ISP-US | us |
+| Germany, DE | ISP-DE | de |
+| France, FR | ISP-FR | fr |
+| Canada, CA | ISP-CA | ca |
+| Netherlands, NL | ISP-NL | nl |
+| Japan, JP | ISP-JP | jp |
+| Australia, AU | ISP-AU | au |
+| Brazil, BR | ISP-BR | br |
+| India, IN | ISP-IN | in |
+| Singapore, SG | ISP-SG | sg |
+| South Africa, ZA | ISP-ZA | za |
+| Mexico, MX | ISP-MX | mx |
+| South Korea, KR | ISP-KR | kr |
+| Italy, IT | ISP-IT | it |
+| Spain, ES | ISP-ES | es |
+| RES 5GB | RES-5GB | — |
+| MOB 5GB | MOB-5GB | — |
 
 ---
 
 ## Workflow 2: Payment Confirmation (Flutterwave Webhook)
 
-**Trigger:** Flutterwave webhook (`POST /webhook/flutterwave`)
-**Purpose:** Payment confirmed → verify → fulfill → deliver
-
-### Flow
+**Trigger:** `POST /webhook/flutterwave`
 
 ```
 Webhook Trigger (Flutterwave POST)
   ↓
-Code Node: Verify Flutterwave-Signature header (HMAC SHA256)
+Code Node: Verify Flutterwave-Signature (HMAC SHA256)
   ↓
 IF event !== "charge.completed" OR status !== "successful":
   → Respond 200 "ignored"
   ↓
-Edit Fields: Extract tx_ref, amount, customer_phone, meta
+Edit Fields: Extract tx_ref, amount, customer.phone, meta
   ↓
-Google Sheets Read Row: Find order by Payment Reference (tx_ref)
+Google Sheets Read Row: Find order by Payment Reference (Pending_Orders)
   ↓
 IF order not found → Log error, respond 200
   ↓
-IF Payment Status !== "pending":
+IF Status !== "awaiting_payment":
   → Respond 200 "already processed" (idempotency)
   ↓
-Google Sheets Update Row: Payment Status = "paid", Paid At = now
+Google Sheets Update Row: Status = "paid_pending_fulfillment"
   ↓
-Switch: Route by proxy type to appropriate provider
-  ├── ISP → IPRoyal API
-  ├── Residential → NodeMaven API
-  ├── Mobile → Proxy-Seller API
-  └── DC → IPRoyal API
+Switch: Route by Plan Code to provider
+  ├── ISP-* → Proxy-Seller API
+  ├── RES-* → OkeyProxy API
+  ├── MOB-* → DataImpulse API
+  └── DC-* → Proxy-Seller API
   ↓
 HTTP Request → Provider API (POST /orders)
   ↓
-IF Provider API fails → Call backup provider
+IF Provider API fails → Try backup provider
+  ├── Proxy-Seller fails → OkeyProxy
+  ├── OkeyProxy fails → IPRoyal
   ↓
-IF All providers fail → Initiate refund, alert admin
+IF All fail:
+  → Initiate Flutterwave refund
+  → Alert admin via WhatsApp
+  → Mark order "failed"
   ↓
 Edit Fields: Parse credentials from provider response
   ↓
-Google Sheets Update Row: Payment Status = "fulfilled", Proxy Details = creds
-  ↓
-Google Sheets Update Row: Deduct from Inventory
+Google Sheets Update Row: Status = "fulfilled", Proxy Details = creds
   ↓
 Google Sheets Append/Update: Add/update Customer
   ↓
 WhatsApp Send Message: Credentials to customer
+  ↓
+Webhook Response: HTTP 200
 ```
 
-### Flutterwave Signature Verification (Node.js / Code Node)
+### Signature Verification (Code Node)
 
 ```javascript
 const crypto = require('crypto');
@@ -153,66 +164,80 @@ return body;
 
 ---
 
-## Workflow 3: Proxy Fulfillment (Provider API Calls)
+## Workflow 3: Proxy Fulfillment (Provider APIs)
 
-### IPRoyal API Call
+### Proxy-Seller API (Primary for ISP + DC)
 
 ```
-POST https://api.iproyal.com/v2/reseller/orders
-Headers: Authorization: Bearer {{ $credentials.iproyal-api }}
+POST https://api.proxy-seller.com/v1/orders
+Headers: Authorization: Bearer {{ $credentials.proxyseller-api }}
 Content-Type: application/json
 
 Body:
 {
-  "product_id": "isp",
+  "type": "isp",
   "country": "gb",
   "quantity": 1,
-  "months": 1
+  "period": 30
 }
 
 Response:
 {
-  "order_id": "ORD-12345",
+  "order_id": "PS-12345",
   "status": "active",
-  "credentials": [
+  "proxies": [
     {
       "ip": "203.0.113.42",
       "port": 8080,
       "username": "cust12345",
-      "password": "secretpass"
+      "password": "secretpass",
+      "expires_at": "2026-07-26"
     }
   ]
 }
 ```
 
-### NodeMaven API Call
+### OkeyProxy API (Residential)
 
 ```
-POST https://api.nodemaven.com/v1/orders
-Headers: Authorization: Bearer {{ $credentials.nodemaven-api }}
+POST https://api.okeyproxy.com/v1/order
+Headers: Authorization: Bearer {{ $credentials.okeyproxy-api }}
 Content-Type: application/json
 
 Body:
 {
-  "product": "residential",
-  "country": "ng",
-  "quantity": 1,
-  "session": true
+  "type": "residential",
+  "country": "global",
+  "traffic": "5GB"
 }
 ```
 
-### Provider Fallback Logic
+### DataImpulse API (Mobile)
 
 ```
-Primary: IPRoyal
-  → If fails or returns error:
-    → Secondary: NodeMaven
-      → If fails:
-        → Tertiary: Proxy-Seller
-          → If all fail:
-            → Initiate Flutterwave refund
-            → Alert admin via WhatsApp
-            → Mark order as "refunded"
+POST https://api.dataimpulse.com/v1/order
+Headers: Authorization: Bearer {{ $credentials.dataimpulse-api }}
+Content-Type: application/json
+
+Body:
+{
+  "type": "mobile",
+  "country": "us",
+  "traffic": "5GB"
+}
+```
+
+### Fallback Chain
+
+```
+Proxy-Seller
+  → Fails
+    → OkeyProxy (if ISP or DC)
+    → DataImpulse (if Mobile)
+      → Fails
+        → Initiate refund
+        → Alert admin
+        → Mark order failed
 ```
 
 ---
@@ -221,58 +246,48 @@ Primary: IPRoyal
 
 **Trigger:** Flutterwave webhook (refund events)
 
-### Flow
-
 ```
-Webhook Trigger (Flutterwave POST)
+Webhook Trigger
   ↓
-Code Node: Verify signature (same as Workflow 2)
+Code Node: Verify signature
   ↓
 IF event !== "refund.initiated" AND event !== "refund.completed":
   → Respond 200 "ignored"
   ↓
-Edit Fields: Extract tx_ref, amount, customer_phone
+Edit Fields: Extract tx_ref, amount
   ↓
-Google Sheets Read Row: Find order
+Google Sheets Read Row: Find order (Pending_Orders)
   ↓
-IF order.Payment Status === "fulfilled":
-  → HTTP Request → Provider API: DELETE /orders/{order_id}
+IF Status == "fulfilled":
+  → HTTP Request → Provider API: revoke/cancel order
   ↓
-Google Sheets Update Row: Payment Status = "refunded"
+Google Sheets Update Row: Status = "refunded"
   ↓
 WhatsApp Send Message:
   "✅ Refund Processed
-  
-  Your refund of ₦{amount} for Order {order_id} has been initiated.
-  It will appear in your account within 5–7 business days.
-  
-  Sorry for the inconvenience."
+  Your refund of ₦{amount} for {order_id} will appear in 5–7 business days."
 ```
 
 ---
 
 ## Error Workflow: Admin Alert
 
-**Trigger:** n8n Error Trigger (runs on any workflow error)
-
-### Flow
+**Trigger:** n8n Error Trigger
 
 ```
 n8n Error Trigger
   ↓
-Edit Fields: Get workflow_name, error_message, execution_id
-  ↓
-WhatsApp Send Message to Admin:
+WhatsApp Send to Admin:
   "🔴 Workflow Error
   
   Workflow: {workflow_name}
   Error: {error_message}
-  Execution ID: {execution_id}
+  Execution: {execution_id}
   
-  Check n8n: https://n8n.yourdomain.com/executions"
+  Check: https://n8n.yourdomain.com/executions"
 ```
 
-**Setup:** n8n → Settings → Workflows → Error Workflow → select this workflow
+*Set in n8n → Settings → Error Workflow*
 
 ---
 
@@ -287,11 +302,10 @@ WhatsApp Send Message to Admin:
 
 ---
 
-## Testing the Workflows
-
-### Test Order Handler (curl)
+## Testing
 
 ```bash
+# Test Order Handler
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
   -d '{
@@ -310,13 +324,11 @@ curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   }'
 ```
 
-### Test Payment Webhook
-
 Flutterwave Dashboard → Settings → Webhooks → Send Test → `charge.completed`
 
 ---
 
-## n8n Settings for Production
+## n8n Production Settings
 
 | Setting | Value |
 |---------|-------|
