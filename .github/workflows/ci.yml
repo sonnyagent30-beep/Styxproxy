@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check all required files exist
+        run: |
+          for f in docs/BUILD_PACKAGE.md docs/TOOLS_CHECKLIST.md docs/GOOGLE_SHEETS_SETUP.md \
+                    docs/FLUTTERWAVE_WHATSAPP_SETUP.md docs/PROVIDER_SETUP_GUIDE.md \
+                    docs/OPERATIONAL_RUNBOOK.md \
+                    legal/TERMS_OF_SERVICE.md legal/PRIVACY_POLICY.md legal/ACCEPTABLE_USE_POLICY.md \
+                    workflows/WORKFLOW_SPECS.md; do
+            if [ ! -f "$f" ]; then echo "MISSING: $f"; exit 1; fi
+          done
+          echo "All required files present."
