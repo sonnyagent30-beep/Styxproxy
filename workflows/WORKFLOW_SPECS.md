@@ -38,7 +38,7 @@ Customer requests refund
         ↓
 n8n checks: Is proxy fulfilled?
   → NO (not yet generated): Approve refund automatically
-  → YES (already delivered): 
+  → YES (already delivered):
     → WhatsApp: "Refunds are not available after
                  a proxy is delivered. If your proxy
                  has a technical issue, please send
@@ -95,6 +95,61 @@ n8n checks: Is IP still active?
 
 ---
 
+## Reminder System
+
+**Automated expiry reminders — 3 days before expiry:**
+
+```
+Bunche → Customer (WhatsApp):
+
+👋 Hey [Name]!
+
+Your proxies are expiring soon!
+
+━━━━━━━━━━━━━━━━━━
+[ALL proxies with expiry in ≤7 days]
+━━━━━━━━━━━━━━━━━━
+🇬🇧 UK DC #1 — ORD-XXXXX — 3 days left
+🇬🇧 UK DC #2 — ORD-XXXXX — 3 days left
+🇺🇸 US Residential — ORD-XXXXX — 3 days left
+🇦🇺 AU ISP — ORD-XXXXX — 3 days left
+🇩🇪 Germany ISP — ORD-XXXXX — 3 days left
+━━━━━━━━━━━━━━━━━━
+
+Want to renew? Just say "Renew" and
+I'll set it up — same IPs, no changes! 🔄
+```
+
+**Rules:**
+- Show ALL proxies expiring within 7 days — NO LIMIT
+- All proxies from the same order share the SAME expiry date (normalized at fulfillment)
+- If customer has NO proxies expiring within 7 days → no reminder sent
+
+---
+
+## Expiry Date Normalization
+
+**BUG FIX: All proxies from the same order MUST share the same expiry date.**
+
+When multiple proxies are fulfilled in one order:
+1. Provider API returns each proxy with its own `expires_at`
+2. n8n normalizes ALL proxies in that order to the SAME `Expires At` date
+3. The date used = the FIRST proxy's expiry (or today's date + plan duration)
+
+```
+Provider response (raw):
+  Proxy 1: expires_at = "2026-07-04T10:00:00Z"
+  Proxy 2: expires_at = "2026-07-04T10:00:15Z"  ← 15 seconds later
+  Proxy 3: expires_at = "2026-07-04T10:00:22Z"  ← 22 seconds later
+
+After normalization:
+  Proxy 1: Expires At = "2026-07-26"
+  Proxy 2: Expires At = "2026-07-26"  ← Same
+  Proxy 3: Expires At = "2026-07-26"  ← Same
+```
+
+---
+
 ## Legal Notice
 
 **New customers only** — displayed once when a new phone number first messages Bunche.
@@ -146,6 +201,8 @@ Customer WhatsApp Message
         ↓
 Provider API → Proxy credentials
         ↓
+[EXPIRY NORMALIZATION] — All proxies in same order → same Expires At date
+        ↓
 PDF receipt generated
         ↓
 WhatsApp delivery to customer
@@ -164,6 +221,8 @@ WhatsApp delivery to customer
 | Lost proxy details (known number) | n8n fully automated ✅ |
 | Renewal (IP still active) | n8n fully automated ✅ — same IP extended |
 | Renewal (IP expired) | n8n generates new proxy ✅ — new credentials |
+| Reminder (expiry within 7 days) | n8n sends — ALL proxies shown, NO LIMIT ✅ |
+| Expiry date normalization | n8n normalizes all proxies in same order ✅ |
 | Refund request (proxy not yet sent) | n8n approves automatically ✅ |
 | Refund request (proxy already sent) | n8n declines → admin reviews ⚠️ |
 | Ban claim with screenshot | Admin review needed ⚠️ |
@@ -226,8 +285,13 @@ intent == "order":
   → Webhook Response: HTTP 200
 
 intent == "lost proxy details":
-  → Google Sheets Read: Get proxy details
-  → WhatsApp: Send proxy details directly
+  → Google Sheets Read: Get ALL proxy details for this customer — NO LIMIT
+  → WhatsApp: Send all proxy details
+  → Webhook Response: HTTP 200
+
+intent == "check proxies" OR "my proxies":
+  → Google Sheets Read: Get ALL proxy details for this customer — NO LIMIT
+  → Present all active proxies with expiry dates
   → Webhook Response: HTTP 200
 
 intent == "ban reported" OR "ip blocked":
@@ -254,8 +318,8 @@ intent == "help":
   → Webhook Response: HTTP 200
 
 intent == "renew":
-  → Google Sheets Read: Get customer's active orders
-  → Present list of active orders to customer
+  → Google Sheets Read: Get ALL proxy details for this customer — NO LIMIT
+  → Present list of ALL proxies with expiry dates
   → Customer selects which to renew
   → Google Sheets Read: Check if selected order's IP is still active (compare today vs expiry date)
   ↓
@@ -418,6 +482,7 @@ Google Sheets Read Row: Check if customer exists (by phone)
       IF All fail:
         → Initiate refund → [ADMIN ALERT] → Mark failed
   → Edit Fields: Parse credentials from provider response
+  → [EXPIRY NORMALIZATION] — Set ALL proxies in this order to SAME Expires At date
   → Google Sheets Update Row: Status = "fulfilled", Proxy Details = creds
   → Google Sheets Append/Update: Add/update Customer
   → [PDF GENERATION] — Generate receipt PDF
@@ -426,6 +491,27 @@ Google Sheets Read Row: Check if customer exists (by phone)
 WhatsApp: "⚠️ No refunds once proxy is delivered. Replacement only within 24hrs if banned."
   ↓
 Webhook Response: HTTP 200
+```
+
+### Expiry Normalization Code
+
+```javascript
+// After receiving provider response with multiple proxies
+const providerProxies = $json.proxies || [$json]; // Array of proxies
+const firstExpiry = providerProxies[0].expires_at;
+
+// Normalize ALL proxies to the same expiry date
+const normalizedProxies = providerProxies.map((proxy, index) => ({
+  ...proxy,
+  expires_at: firstExpiry, // Same expiry for all in same order
+  order_index: index + 1
+}));
+
+return {
+  proxies: normalizedProxies,
+  shared_expires_at: firstExpiry,
+  count: normalizedProxies.length
+};
 ```
 
 ### Recovery Setup Messages (First Purchase Only)
@@ -642,6 +728,47 @@ WhatsApp Send Message:
 
 ---
 
+## Workflow 7: Expiry Reminder Cron
+
+**Trigger:** Cron — runs daily at 9:00 AM (Africa/Lagos)
+
+```
+Cron Trigger — Every day 9:00 AM
+  ↓
+[FOR EACH customer with expiring proxies]
+  ↓
+Google Sheets Read: Get all customers with active proxies
+  → For each customer, read all orders where Status == "fulfilled"
+  → Filter: Expires At within next 7 days (today + 7 days)
+  → NO LIMIT on results — get ALL expiring proxies
+  ↓
+[IF any proxies expiring within 7 days]
+  → WhatsApp (customer):
+"👋 Hey [Name]!
+
+Your proxies are expiring soon!
+
+━━━━━━━━━━━━━━━━━━
+[ALL proxies with expiry in ≤7 days — NO LIMIT]
+━━━━━━━━━━━━━━━━━━
+🇬🇧 UK DC #1 — ORD-XXXXX — 3 days left
+🇬🇧 UK DC #2 — ORD-XXXXX — 3 days left
+🇬🇧 UK DC #3 — ORD-XXXXX — 3 days left
+🇬🇧 UK DC #4 — ORD-XXXXX — 3 days left
+🇺🇸 US Residential — ORD-XXXXX — 3 days left
+🇦🇺 AU ISP — ORD-XXXXX — 3 days left
+🇩🇪 Germany ISP — ORD-XXXXX — 3 days left
+━━━━━━━━━━━━━━━━━━
+
+Want to renew? Just say "Renew" and
+I'll set it up — same IPs, no changes! 🔄"
+  ↓
+[IF no proxies expiring within 7 days]
+  → Do nothing — no reminder sent
+```
+
+---
+
 ## Error Workflow: Admin Alert
 
 **Trigger:** n8n Error Trigger
@@ -748,6 +875,7 @@ ORDER VALID COMMANDS:
 - "Order MOB [QTY]GB" → extract: product=MOBILE, qty
 - "Order DC [COUNTRY] [QTY]" → extract: product=DATACENTER, country, qty
 - "Status [ORDER_ID]" → intent=status
+- "My proxies" OR "Check proxies" → intent=check_proxies
 - "Renew [ORDER_ID]" → intent=renew
 - "Help" → intent=help
 - "Check price [PRODUCT]" → intent=price_check
@@ -760,7 +888,7 @@ IF MESSAGE IS NOT A VALID COMMAND:
 
 RESPONSE FORMAT — Return ONLY valid JSON:
 {
-  "intent": "order|status|renew|help|price_check|ban_reported|refund_request|unknown",
+  "intent": "order|status|renew|help|price_check|ban_reported|refund_request|check_proxies|unknown",
   "product": "ISP|RESIDENTIAL|MOBILE|DATACENTER|null",
   "country": "country code or null",
   "quantity": number or null,
@@ -799,6 +927,8 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 
 **Status Values:**
 `awaiting_payment` | `paid_pending_fulfillment` | `fulfilled` | `ban_pending_review` | `replaced` | `failed` | `refund_pending` | `refunded` | `rejected` | `cancelled` | `expired`
+
+**IMPORTANT:** When multiple proxies are in one order, ALL share the SAME `Expires At` date (normalized).
 
 ---
 
@@ -843,6 +973,9 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 | No refund after delivery | Workflow enforces — admin override only |
 | Legal notice only on first interaction | Workflow checks new vs returning |
 | Renewal checks IP expiry | Active = same IP extended; Expired = new proxy |
+| Expiry date normalization | All proxies in same order → same Expires At |
+| Reminder shows ALL proxies | NO LIMIT — all proxies with ≤7 days to expiry |
+| Lost proxy details | Returns ALL proxies for customer — NO LIMIT |
 
 ---
 
@@ -855,6 +988,7 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 | Admin Command Handler | WhatsApp Webhook (admin number) | On admin message |
 | Ban Claim | WhatsApp Webhook (within Order Handler) | On ban claim |
 | Refund Handler | Flutterwave Webhook | On refund event |
+| Expiry Reminder | Cron — daily 9:00 AM | Every day |
 | Error Alert | n8n Error Trigger | On any error |
 
 ---
@@ -872,26 +1006,32 @@ curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
   -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t2","from":"2349000000001","timestamp":"123","text":{"body":"Order ISP UK 1"}}]}}]}]}'
 
-# Scenario 3: Admin checks pending
+# Scenario 3: Check all proxies (no limit)
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t3","from":"2347032981049","timestamp":"123","text":{"body":"Pending"}}]}}]}]}'
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t3","from":"2349000000001","timestamp":"123","text":{"body":"My proxies"}}]}}]}]}'
 
-# Scenario 4: Admin force-refund (exemption)
+# Scenario 4: Admin checks pending
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t4","from":"2347032981049","timestamp":"123","text":{"body":"Force-Refund ORD-2026-XXXXX"}}]}}]}]}'
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t4","from":"2347032981049","timestamp":"123","text":{"body":"Pending"}}]}}]}]}'
 
-# Scenario 5: Customer requests refund after delivery
+# Scenario 5: Admin force-refund (exemption)
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t5","from":"2349000000001","timestamp":"123","text":{"body":"I want a refund"}}]}}]}]}'
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t5","from":"2347032981049","timestamp":"123","text":{"body":"Force-Refund ORD-2026-XXXXX"}}]}}]}]}'
 
-# Scenario 6: Customer renewal — IP still active
+# Scenario 6: Customer requests refund after delivery
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
-  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t6","from":"2349000000001","timestamp":"123","text":{"body":"Renew ORD-2026-XXXXX"}}]}}]}]}'
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t6","from":"2349000000001","timestamp":"123","text":{"body":"I want a refund"}}]}}]}]}'
 
-# Scenario 7: Customer renewal — IP expired (new proxy generated)
-# Same as above but order's Expires At is in the past
+# Scenario 7: Customer renewal — IP still active
+curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
+  -H "Content-Type: application/json" \
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t7","from":"2349000000001","timestamp":"123","text":{"body":"Renew ORD-2026-XXXXX"}}]}}]}]}'
+
+# Scenario 8: Multi-proxy order (all same expiry)
+# Simulate provider returning 4 proxies with different timestamps
+# n8n should normalize all to same Expires At date
 ```
