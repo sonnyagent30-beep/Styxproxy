@@ -1,7 +1,7 @@
 # Bunche — Workflow Specifications
 
 **Last Updated:** 2026-06-26
-**SHA:** data-alert-v1-referral
+**SHA:** bitlock-fix
 **Status:** Planning Complete — Ready for Implementation
 
 ---
@@ -276,7 +276,7 @@ Mobile 5GB purchased January 1
 **Trigger:** Customer types "free trial" or "give me trial"
 **Purpose:** Deliver free proxy after Bitlock.ai verification
 
-> **Note:** Free trials use Bitlock.ai for human verification instead of CPAGrip, due to Bitlock.ai's superior anti-bot algorithm that prevents abuse while maintaining a smooth user experience.
+> **Note:** Free trials use **Bitlock.ai** for human verification. Bitlock.ai has a stronger anti-bot algorithm than CPAGrip, which reduces trial abuse while keeping the user flow smooth. Each successful verification credits a small payment to Bunche's Bitlock.ai account.
 
 ```
 [Customer asks for free trial]
@@ -312,6 +312,15 @@ Mobile 5GB purchased January 1
         ↓
 [Log to free_trials] → increment free_trials_used_today
 ```
+
+**Why Bitlock.ai over CPAGrip:**
+
+| Reason | Detail |
+|--------|--------|
+| **Anti-bot** | Better detection → fewer fake trial completions |
+| **User experience** | Smoother flow, fewer drop-offs |
+| **Payouts** | Direct to Bunche's Bitlock.ai balance |
+| **Reliability** | Lower false-rejection rate |
 
 ---
 
@@ -486,7 +495,7 @@ ip_hash = sha256(ip).substring(0, 20)         // Never log plain IP
     SET referral_credit_ngn = referral_credit_ngn + $credit
     WHERE phone = referred_by_phone
   → UPDATE orders SET referral_credit_earned_ngn = $credit
-  → Send WhatsApp to referrer: "You earned referral credit!"
+  → Send WhatsApp to referrer: "🎉 You earned referral credit!"
   → Log event to customer_audit_log
         ↓
 [IF no referral OR not first order]
@@ -590,7 +599,7 @@ Bunche: "How much data?"
   ↓
 Customer: "5GB"
   ↓
-Bunche: "Sending payment link..."
+Bunche: "Sending payment link... 💳"
   ↓
 Payment confirmed
   ↓
@@ -599,13 +608,14 @@ Payment confirmed
   ↓
 [PDF] → Receipt
   ↓
-WhatsApp: "Top up confirmed!
+WhatsApp: "✅ Top up confirmed!
+
 [PRODUCT] Proxy:
 🔗 IP: [IP]
 📦 [X]GB fresh allocation
 ⏰ [Mobile: "Expires [NEW DATE]"]
 
-Your proxy is back online!"
+Your proxy is back online! 🔄"
 ```
 
 ### Data Status Check
@@ -684,8 +694,6 @@ All webhooks verified before processing:
 | Flutterwave | HMAC-SHA256 (verif-hash) |
 | Bitlock.ai | HMAC-SHA256 (signature param) |
 
----
-
 ### Rate Limiting (3 Layers)
 
 | Layer | What It Catches |
@@ -693,8 +701,6 @@ All webhooks verified before processing:
 | Cloudflare | DDoS, bots, mass attacks |
 | Nginx | Persistent attackers, per-endpoint limits |
 | Redis in n8n | Customer spam, phone-based limits |
-
----
 
 ### Payment Idempotency
 
