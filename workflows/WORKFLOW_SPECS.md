@@ -274,7 +274,9 @@ Mobile 5GB purchased January 1
 ### Workflow 8: Free Trial (Opt-In)
 
 **Trigger:** Customer types "free trial" or "give me trial"
-**Purpose:** Deliver free proxy after survey completion
+**Purpose:** Deliver free proxy after Bitlock.ai verification
+
+> **Note:** Free trials use Bitlock.ai for human verification instead of CPAGrip, due to Bitlock.ai's superior anti-bot algorithm that prevents abuse while maintaining a smooth user experience.
 
 ```
 [Customer asks for free trial]
@@ -293,9 +295,9 @@ Mobile 5GB purchased January 1
         ↓
 [Customer reads disclaimer] → [Customer replies "Done"]
         ↓
-[Show CPAGrip survey link]
+[Show Bitlock.ai verification link]
         ↓
-[Customer completes survey] → [CPAGrip postback]
+[Customer completes Bitlock.ai verification] → [Bitlock.ai postback]
         ↓
 [Verify postback signature]
         ↓
@@ -480,11 +482,11 @@ ip_hash = sha256(ip).substring(0, 20)         // Never log plain IP
 [IF yes AND customer.total_orders == 1 (first order for referred customer)]
   → Calculate: referral_credit = order_amount_paid × 0.05
   → Add credit to referrer's account:
-    UPDATE customers 
+    UPDATE customers
     SET referral_credit_ngn = referral_credit_ngn + $credit
     WHERE phone = referred_by_phone
   → UPDATE orders SET referral_credit_earned_ngn = $credit
-  → Send WhatsApp to referrer: "🎉 You earned referral credit!"
+  → Send WhatsApp to referrer: "You earned referral credit!"
   → Log event to customer_audit_log
         ↓
 [IF no referral OR not first order]
@@ -588,7 +590,7 @@ Bunche: "How much data?"
   ↓
 Customer: "5GB"
   ↓
-Bunche: "Sending payment link... 💳"
+Bunche: "Sending payment link..."
   ↓
 Payment confirmed
   ↓
@@ -597,14 +599,13 @@ Payment confirmed
   ↓
 [PDF] → Receipt
   ↓
-WhatsApp: "✅ Top up confirmed!
-
+WhatsApp: "Top up confirmed!
 [PRODUCT] Proxy:
 🔗 IP: [IP]
 📦 [X]GB fresh allocation
 ⏰ [Mobile: "Expires [NEW DATE]"]
 
-Your proxy is back online! 🔄"
+Your proxy is back online!"
 ```
 
 ### Data Status Check
@@ -681,7 +682,7 @@ All webhooks verified before processing:
 |---------|-------------|
 | WhatsApp | HMAC-SHA256 (X-Hub-Signature-256) |
 | Flutterwave | HMAC-SHA256 (verif-hash) |
-| CPAGrip | HMAC-SHA256 (signature param) |
+| Bitlock.ai | HMAC-SHA256 (signature param) |
 
 ---
 
