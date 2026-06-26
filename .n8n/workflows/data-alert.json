@@ -1,0 +1,145 @@
+{
+  "name": "Data Alert Escalation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "da-trigger",
+      "name": "Cron: Every 15 Minutes",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, customer_phone, product_type, provider, ip_address, data_total_gb, data_remaining_gb, expires_at",
+        "conditions": "status = 'fulfilled' AND provider = 'DataImpulse' AND data_remaining_gb > 0"
+      },
+      "id": "da-query",
+      "name": "Query Active DataImpulse Orders",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate alert thresholds\nconst orders = $input.all();\nconst results = [];\n\nfor (const order of orders) {\n  const o = order.json;\n  const pct = (o.data_remaining_gb / o.data_total_gb) * 100;\n  \n  let threshold = null;\n  if (pct <= 5) threshold = 5;\n  else if (pct <= 10) threshold = 10;\n  else if (pct <= 20) threshold = 20;\n  \n  if (threshold) {\n    results.push({\n      ...o,\n      pct_remaining: Math.round(pct * 10) / 10,\n      threshold\n    });\n  }\n}\n\nreturn results.map(r => ({ json: r }));"
+      },
+      "id": "da-calc",
+      "name": "Calculate Thresholds",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "data_alert_history",
+        "columns": "order_id, threshold_pct, alert_sent_at",
+        "conditions": "order_id = '{{$json.order_id}}' AND threshold_pct = {{$json.threshold}}"
+      },
+      "id": "da-check-history",
+      "name": "Check Alert History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "id": "no-alert-sent",
+              "leftValue": "={{$json.length}}",
+              "rightValue": 0,
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "da-filter-new",
+      "name": "Filter: New Alert Needed",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Select message template by threshold\nconst order = $input.first().json;\nconst threshold = order.threshold;\nconst pct = order.pct_remaining;\n\nconst messages = {\n  20: `📊 Data Running Low — [Name]\n\nYour ${order.product_type} Proxy:\n🔗 IP: ${order.ip_address}\n📦 ${order.data_remaining_gb}GB of ${order.data_total_gb}GB used (~${pct}% left)\n\n💡 You're using more data than expected.\nWant to top up? Just say \"Top up\" 📱`,\n  \n  10: `⚠️ Data Running Very Low — [Name]\n\nYour ${order.product_type} Proxy:\n🔗 IP: ${order.ip_address}\n📦 Only ${order.data_remaining_gb}GB remaining (~${pct}% left)\n\n🚨 Time to top up!\nSay \"Top up\" to add more data 📱`,\n\n  5: `🚨 LAST WARNING — [Name]\n\nYour ${order.product_type} Proxy:\n🔗 IP: ${order.ip_address}\n📦 Just ${order.data_remaining_gb}GB left (~${pct}%)!\n🔴 Proxy stops when data runs out.\n\nTOP UP NOW — say \"Top up\" 📱`\n};\n\nreturn [{ json: { ...order, message: messages[threshold] || messages[5] } }];"
+      },
+      "id": "da-select-template",
+      "name": "Select Message Template",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "message": "={{$json.message}}",
+        "extraOptions": {}
+      },
+      "id": "da-send-alert",
+      "name": "Send Alert via WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "data_alert_history",
+        "columns": "order_id, threshold_pct, message_type, alert_sent_at",
+        "values": "'{{$json.order_id}}', {{$json.threshold}}, 'warning', NOW()"
+      },
+      "id": "da-log-alert",
+      "name": "Log Alert to PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1400, 0]
+    }
+  ],
+  "connections": {
+    "Cron: Every 15 Minutes": {
+      "main": [[{ "node": "Query Active DataImpulse Orders", "type": "main", "index": 0 }]]
+    },
+    "Query Active DataImpulse Orders": {
+      "main": [[{ "node": "Calculate Thresholds", "type": "main", "index": 0 }]]
+    },
+    "Calculate Thresholds": {
+      "main": [[{ "node": "Check Alert History", "type": "main", "index": 0 }]]
+    },
+    "Check Alert History": {
+      "main": [[{ "node": "Filter: New Alert Needed", "type": "main", "index": 0 }]]
+    },
+    "Filter: New Alert Needed": {
+      "main": [
+        [{ "node": "Select Message Template", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Select Message Template": {
+      "main": [[{ "node": "Send Alert via WhatsApp", "type": "main", "index": 0 }]]
+    },
+    "Send Alert via WhatsApp": {
+      "main": [[{ "node": "Log Alert to PostgreSQL", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": ["data", "alert", "cron"]
+}
