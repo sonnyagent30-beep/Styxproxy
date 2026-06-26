@@ -1,0 +1,361 @@
+{
+  "name": "Order Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-incoming",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "whatsapp-trigger",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "webhook": "={{$parameters.webhook}}"
+      },
+      "id": "signature-verify",
+      "name": "Verify WhatsApp Signature",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [200, 0],
+      "notes": "HMAC-SHA256 verification of X-Hub-Signature-256 header"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "success": [
+            {
+              "index": 2
+            }
+          ],
+          "error": [
+            {
+              "index": 99
+            }
+          ]
+        }
+      },
+      "id": "rate-limit",
+      "name": "Rate Limit Check",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [400, 0],
+      "notes": "Check Redis for phone-based rate limit. Reject if >20 msgs/min."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.minimax.chat/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.MINIMAX_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "MiniMax-M2"
+            },
+            {
+              "name": "messages",
+              "value": [
+                {
+                  "role": "system",
+                  "content": "You are Bunche, a WhatsApp proxy reseller assistant. Parse customer messages and extract intent. Available intents: order, renewal, status, help, free_trial, recovery, how_to_use, check_data, referral_share, unknown. Respond with JSON: { intent, entities, original_message }"
+                },
+                {
+                  "role": "user",
+                  "content": "={{$json.body.message.text}}"
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "llm-parse",
+      "name": "MiniMax LLM Parser",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [600, 0],
+      "notes": "Extract intent + entities from customer message"
+    },
+    {
+      "parameters": {
+        "fileName": "={{$json.id}}",
+        "data": "={{$json}}",
+        "options": {}
+      },
+      "id": "idempotency",
+      "name": "Idempotency Check",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [800, 0],
+      "notes": "Store webhook message_id in Redis. Skip if already processed."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "intent-order",
+              "leftValue": "={{$json.choices[0].message.content}}",
+              "rightValue": "order",
+              "operation": "equals"
+            }
+          ],
+          "options": {
+            "caseSensitive": true
+          }
+        },
+        "options": {}
+      },
+      "id": "switch-order",
+      "name": "Switch: Order",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1000, -200],
+      "notes": "Route to order flow"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "intent-help",
+              "leftValue": "={{$json.choices[0].message.content}}",
+              "rightValue": "help",
+              "operation": "equals"
+            }
+          ],
+          "options": {
+            "caseSensitive": true
+          }
+        },
+        "options": {}
+      },
+      "id": "switch-help",
+      "name": "Switch: Help",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1000, 0],
+      "notes": "Route to help flow"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "intent-check_data",
+              "leftValue": "={{$json.choices[0].message.content}}",
+              "rightValue": "check_data",
+              "operation": "equals"
+            }
+          ],
+          "options": {
+            "caseSensitive": true
+          }
+        },
+        "options": {}
+      },
+      "id": "switch-data",
+      "name": "Switch: Check Data",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1000, 200],
+      "notes": "Route to data status flow"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "intent-fallback",
+              "leftValue": "={{$json.choices[0].message.content}}",
+              "rightValue": "unknown",
+              "operation": "equals"
+            }
+          ],
+          "options": {
+            "caseSensitive": true
+          }
+        },
+        "options": {}
+      },
+      "id": "switch-unknown",
+      "name": "Switch: Unknown",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1000, 400],
+      "notes": "Route to fallback"
+    },
+    {
+      "parameters": {
+        "message": "🇳🇬 **Bunche Proxy**\n\nI can help you with:\n\n🛒 **Order** — ISP, Residential, Mobile, Datacenter\n💳 **Check Status** — Track your order\n💰 **Pricing** — See all plans\n❓ **Help** — How to get started\n🔗 **Free Trial** — Get a free proxy\n\nWhat would you like to do?",
+        "extraOptions": {
+          "delay": 500
+        }
+      },
+      "id": "reply-help",
+      "name": "Help Reply",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1200, 0],
+      "notes": "Send help menu"
+    },
+    {
+      "parameters": {
+        "message": "🤖 I'm not sure I understood that. Could you rephrase?\n\nYou can say things like:\n- \"Order ISP UK\"\n- \"Check my order status\"\n- \"Help\"\n- \"How do I use proxies?\"",
+        "extraOptions": {
+          "delay": 500
+        }
+      },
+      "id": "reply-unknown",
+      "name": "Fallback Reply",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1200, 400],
+      "notes": "Fallback for unrecognized intent"
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify WhatsApp Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify WhatsApp Signature": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limit Check": {
+      "main": [
+        [
+          {
+            "node": "MiniMax LLM Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MiniMax LLM Parser": {
+      "main": [
+        [
+          {
+            "node": "Idempotency Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Idempotency Check": {
+      "main": [
+        [
+          {
+            "node": "Switch: Order",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch: Help",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch: Check Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch: Unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Help": {
+      "main": [
+        [
+          {
+            "node": "Help Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Unknown": {
+      "main": [
+        [
+          {
+            "node": "Fallback Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": ["whatsapp", "order", "llm"]
+}
