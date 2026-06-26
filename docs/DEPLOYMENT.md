@@ -17,8 +17,12 @@ Before starting, you need:
 | WhatsApp Business API | business.whatsapp.com | Free receive / ~$0.05/outbound |
 | Proxy-Seller account + API key | proxy-seller.com | ~$20–30 credit |
 | DataImpulse account + API key | dataimpulse.com | ~$15–20 credit |
+| Cloudflare R2 account | dash.cloudflare.com | Free tier (10GB) |
+| age (encryption tool) | `apt install age` or github.com/FiloSottile/age | Free |
+| rclone (R2 upload) | rclone.org/install | Free |
+| UptimeRobot account | uptimerobot.com | Free tier (50 monitors) |
 
-**Total setup cost: ~$65 in provider credits + ~$15–20/mo VPS**
+**Total setup cost: ~$65 in provider credits + ~$15–20/mo VPS + free monitoring**
 
 ---
 
@@ -69,6 +73,57 @@ systemctl enable docker
 
 ```bash
 apt install docker-compose -y
+```
+
+### 1.5 Install age (backup encryption)
+
+```bash
+apt install age -y
+# OR build from source:
+# git clone https://github.com/FiloSottile/age
+# cd age && ./build.sh
+```
+
+### 1.6 Install rclone (R2 uploads)
+
+```bash
+curl https://rclone.org/install.sh | sudo bash
+```
+
+### 1.7 Generate Backup Keypair (ONE TIME)
+
+```bash
+# Generate keypair
+age-keygen -o /root/bunche-backup-private.key
+
+# This creates a file like:
+#   # created: 2026-06-26T22:30:00Z
+#   # public key: age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#   AGE-SECRET-KEY-1xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# EXTRACT public key (copy this to backup.conf later):
+grep "public key" /root/bunche-backup-private.key
+
+# SAVE PRIVATE KEY to 1Password AND to a paper copy in a fireproof safe
+# Then DELETE from VPS — it should never live here permanently
+# (You re-upload to VPS only during a restore operation)
+cat /root/bunche-backup-private.key  # Copy to 1Password NOW
+shred -u /root/bunche-backup-private.key
+```
+
+### 1.8 Configure rclone for R2
+
+```bash
+rclone config
+# Name: r2
+# Type: s3
+# Provider: Cloudflare
+# Access key ID: (from R2 dashboard)
+# Secret access key: (from R2 dashboard)
+# Endpoint: https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com
+
+# Test it:
+rclone lsd r2:
 ```
 
 ---
@@ -125,7 +180,18 @@ sudo -u postgres psql -U bunche -d bunche -h localhost
 # (all CREATE TABLE statements)
 ```
 
-### 3.4 Install Redis
+### 3.4 Set Up pgpass (for backup script)
+
+```bash
+# /root/.pgpass — root can connect without password prompt
+cat > /root/.pgpass << EOF
+localhost:5432:bunche:bunche:YOUR_BUNCHE_DB_PASSWORD
+EOF
+chmod 600 /root/.pgpass
+chown root:root /root/.pgpass
+```
+
+### 3.5 Install Redis
 
 ```bash
 apt install redis-server -y
@@ -136,7 +202,7 @@ systemctl start redis
 redis-cli CONFIG SET requirepass "YOUR_REDIS_PASSWORD"
 ```
 
-### 3.5 Install pgBouncer
+### 3.6 Install pgBouncer (SCALE-1)
 
 ```bash
 apt install pgbouncer -y
@@ -277,7 +343,14 @@ systemctl reload nginx
 3. Set Verify Token: (same as `WHATSAPP_VERIFY_TOKEN` in your .env)
 4. Subscribe to: `messages` (message_received)
 
-### 6.3 Test Webhooks
+### 6.3 Bitlock.ai Webhook
+
+1. Go to: dashboard.bitlock.ai → Postbacks
+2. Set Webhook URL: `https://n8n.yourdomain.com/webhook/bitlock-postback`
+3. Enable HMAC signature verification
+4. Save the secret to `.env` as `BITLOCK_WEBHOOK_SECRET`
+
+### 6.4 Test Webhooks
 
 ```bash
 # Test Flutterwave webhook manually
@@ -298,7 +371,9 @@ curl -X POST https://n8n.yourdomain.com/webhook/flutterwave \
 **Workflows to import:**
 - Order Handler (WhatsApp trigger)
 - Payment Confirmation (Flutterwave webhook)
-- Refund Handler (Flutterwave webhook)
+- Data Alert Escalation (cron every 15 min)
+- Referral Credit Processor (sub-workflow)
+- Daily Summary (cron at 23:55 Lagos)
 - Error Alert (n8n Error Trigger)
 
 ---
@@ -324,38 +399,88 @@ docker-compose up -d
 
 ## Step 9: Set Up Backups
 
+### 9.1 Create Backup Config
+
 ```bash
-# Create backup directory
+mkdir -p /etc/bunche
+cp scripts/backup.conf.example /etc/bunche/backup.conf
+nano /etc/bunche/backup.conf
+# Fill in:
+#   BACKUP_PUBLIC_KEY (from Step 1.7)
+#   POSTGRES_USER, POSTGRES_DB (usually 'bunche')
+#   BACKUP_DIR (recommend /backup/bunche)
+#   RCLONE_REMOTE (r2:bunche-backups/daily)
+#   ALERT_WEBHOOK_URL (your backup-alert webhook)
+#   RETENTION_DAYS_LOCAL (7)
+
+chmod 600 /etc/bunche/backup.conf
+```
+
+### 9.2 Create Backup Directory + Scripts
+
+```bash
 mkdir -p /backup/bunche
 
-# Create backup script
-nano /usr/local/bin/backup-bunche.sh
-```
+# Copy scripts from repo
+curl -o /usr/local/bin/backup-bunche.sh \
+  https://raw.githubusercontent.com/sonnyagent30-beep/bunche/main/scripts/backup-bunche.sh
+curl -o /usr/local/bin/backup-monthly-archive.sh \
+  https://raw.githubusercontent.com/sonnyagent30-beep/bunche/main/scripts/backup-monthly-archive.sh
 
-```bash
-#!/bin/bash
-# Daily PostgreSQL backup
-DATE=$(date +%Y%m%d)
-pg_dump -U bunche -h localhost bunche | gzip > /backup/bunche/bunche_${DATE}.sql.gz
-
-# Upload to R2
-rclone copy /backup/bunche/bunche_${DATE}.sql.gz r2:bunche-backups/
-
-# Delete local backups older than 30 days
-find /backup/bunche -name "bunche_*.sql.gz" -mtime +30 -delete
-```
-
-```bash
 chmod +x /usr/local/bin/backup-bunche.sh
+chmod +x /usr/local/bin/backup-monthly-archive.sh
+```
 
-# Add to crontab — run at 2 AM daily
+### 9.3 Schedule Daily Backup (02:00)
+
+```bash
 crontab -e
-# Add: 0 2 * * * /usr/local/bin/backup-bunche.sh >> /var/log/backup.log 2>&1
+# Add these lines:
+0 2 * * * /usr/local/bin/backup-bunche.sh >> /var/log/bunche-backup.log 2>&1
+5 2 1 * * /usr/local/bin/backup-monthly-archive.sh >> /var/log/bunche-backup.log 2>&1
+```
+
+### 9.4 Schedule Monthly Verification (1st of month, 02:30)
+
+```bash
+crontab -e
+# Add this line:
+30 2 1 * * /usr/local/bin/backup-bunche.sh --verify >> /var/log/bunche-backup.log 2>&1
+```
+
+### 9.5 Schedule Backup Freshness Check (03:00 daily)
+
+```bash
+cat > /usr/local/bin/check-backup-freshness.sh << 'EOF'
+#!/bin/bash
+LATEST=$(find /backup/bunche -name "bunche_*.dump.age" -mtime -1 | head -1)
+if [ -z "$LATEST" ]; then
+  curl -sS -X POST "https://n8n.yourdomain.com/webhook/backup-alert" \
+    -H "Content-Type: application/json" \
+    -d '{"severity":"high","message":"No backup file found in last 24h"}'
+fi
+EOF
+chmod +x /usr/local/bin/check-backup-freshness.sh
+
+crontab -e
+# Add: 0 3 * * * /usr/local/bin/check-backup-freshness.sh >> /var/log/bunche-backup.log 2>&1
 ```
 
 ---
 
-## Step 10: Firewall Setup
+## Step 10: Set Up Monitoring (UptimeRobot)
+
+See `docs/MONITORING.md` for full setup. Summary:
+
+1. Create free account at uptimerobot.com
+2. Add HTTP(s) monitor: `https://n8n.yourdomain.com/healthz`, 5-min interval
+3. Create n8n webhook to receive UptimeRobot alerts
+4. Configure webhook alert contact in UptimeRobot
+5. Test by stopping n8n briefly
+
+---
+
+## Step 11: Firewall Setup
 
 ```bash
 # Allow only necessary ports
@@ -380,13 +505,19 @@ sudo -u postgres psql -c "SELECT 1"
 
 # Redis
 redis-cli -a YOUR_REDIS_PASSWORD PING
+
+# Backup freshness
+ls -la /backup/bunche/ | tail -5
+
+# R2 bucket
+rclone ls r2:bunche-backups/daily/ | tail -5
 ```
 
 ### Automated Health Monitoring
 
-The n8n workflows include error alerting — you get a WhatsApp message when anything fails.
-
-For additional monitoring, see `docs/SECURITY_PLAN.md` → Layer 7: Monitoring + Alerting.
+UptimeRobot alerts on n8n downtime.
+Backup freshness cron alerts if no backup in 24h.
+Workflow errors alert via WhatsApp (Error Alert workflow).
 
 ---
 
@@ -422,6 +553,27 @@ docker-compose down
 docker-compose up -d
 ```
 
+### Database Rollback
+
+```bash
+# Restore from backup (see ADR-005 §"Restore Procedure")
+# 1. Stop n8n
+cd /opt/bunche && docker-compose down
+
+# 2. Decrypt backup
+age --decrypt /backup/bunche/bunche_2026-06-26.dump.age > /tmp/restore.dump
+
+# 3. Drop + recreate DB
+sudo -u postgres dropdb bunche
+sudo -u postgres createdb bunche -O bunche
+
+# 4. Restore
+pg_restore --dbname=postgres --create /tmp/restore.dump
+
+# 5. Restart n8n
+cd /opt/bunche && docker-compose up -d
+```
+
 ### Emergency: Pause Everything
 
 ```bash
@@ -451,8 +603,27 @@ Check these daily — always keep credit above $10:
 - [ ] Check provider credit balances
 - [ ] Check any pending orders older than 5 minutes
 - [ ] Confirm all workflows are ACTIVE in n8n
+- [ ] Check UptimeRobot status page (no incidents)
 
 See `docs/OPERATIONAL_RUNBOOK.md` for full operations guide.
+
+---
+
+## Weekly Operations Checklist
+
+- [ ] Run audit queries from `docs/SECURITY_RUNBOOK.md` §2
+- [ ] Check backup sizes are consistent (no anomalies)
+- [ ] Review n8n execution logs for warnings
+- [ ] Check Flutterwave dashboard for failed transactions
+
+---
+
+## Monthly Operations Checklist
+
+- [ ] Verify monthly backup ran successfully (auto-verified by --verify cron)
+- [ ] Rotate scheduled secrets per `docs/SECURITY_RUNBOOK.md` §1
+- [ ] Review `docs/SECRET_ROTATION_LOG.md` and log this month's rotations
+- [ ] Update this checklist with new operational learnings
 
 ---
 
@@ -464,13 +635,17 @@ See `docs/OPERATIONAL_RUNBOOK.md` for full operations guide.
 | `https://n8n.yourdomain.com/healthz` | Health check |
 | `rave.flutterwave.com` | Payments dashboard |
 | `business.whatsapp.com` | WhatsApp Business console |
+| `dash.cloudflare.com` | Cloudflare + R2 |
+| `uptimerobot.com/dashboard` | Uptime monitoring |
 
 | Command | What it does |
-|---------|-------------|
+|---------|---------------|
 | `cd /opt/bunche && docker-compose restart` | Restart n8n |
 | `cd /opt/bunche && docker-compose logs -f` | View n8n logs |
 | `systemctl restart nginx` | Reload Nginx |
 | `sudo -u postgres psql -U bunche -d bunche` | Open DB console |
+| `/usr/local/bin/backup-bunche.sh` | Manual backup |
+| `/usr/local/bin/backup-bunche.sh --verify` | Test restore |
 
 ---
 
@@ -500,3 +675,23 @@ systemctl status postgresql
 # Test connection
 sudo -u postgres psql -U bunche -d bunche -h localhost -c "SELECT 1"
 ```
+
+### Backup failures
+```bash
+# Check backup log
+tail -50 /var/log/bunche-backup.log
+
+# Test rclone
+rclone lsd r2:
+
+# Test age decryption (you need the private key uploaded temporarily)
+age --decrypt /backup/bunche/bunche_2026-06-26.dump.age > /tmp/test.dump
+pg_restore --list /tmp/test.dump | head -20
+rm /tmp/test.dump
+# IMPORTANT: re-shred the private key after test
+```
+
+### UptimeRobot showing false alerts
+1. Check n8n logs for slow startup (first request after idle)
+2. Increase UptimeRobot timeout to 30s (already configured)
+3. Set "consecutive failures" to 2 (10-min grace)
