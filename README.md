@@ -1,90 +1,83 @@
-# Bunche — Automated WhatsApp Proxy Retail Platform
+# Bunche 🤝
 
-> **Bunche** = Nigerian Pidgin for "plenty" / "bundle." Sell ISP, Residential, Mobile, and Datacenter proxies to Nigerian customers — via WhatsApp, powered by n8n automation.
+**WhatsApp proxy reseller for the Nigerian market. Fully automated.**
 
-**Status:** Planning complete → Ready to build
-
----
-
-## What This Is
-
-A fully automated proxy resale business that runs on WhatsApp:
-- Customer messages `Order ISP UK 1` on WhatsApp
-- n8n generates a Flutterwave payment link and sends it back
-- Customer pays via transfer, card, USSD, or QR
-- n8n receives webhook → calls provider API → delivers proxy credentials
-- **Entire process: under 2 minutes. Fully automated.**
+Zero inventory. Zero upfront cost. Customer pays first → you buy proxy → deliver.
 
 ---
 
-## Quick Facts
-
-| | |
-|--|--|
-| **Business Model** | Proxy resale (no inventory, no own proxy infrastructure) |
-| **Market** | Nigeria + West Africa |
-| **Customers** | Social media managers, e-commerce sellers, forex traders, web scrapers |
-| **Interface** | WhatsApp Business API |
-| **Automation** | n8n workflow engine (self-hosted on VPS) |
-| **Payments** | Flutterwave (NGN — transfer, card, USSD, QR) |
-| **Database** | Google Sheets (Orders, Inventory, Customers, Providers) |
-| **Proxy Supply** | IPRoyal, NodeMaven, Proxy-Seller (APIs) |
-| **Margin** | 100–300% on all products |
-
----
-
-## Directory Structure
+## How It Works
 
 ```
-Bunche/
-├── README.md
-├── LICENSE
-├── .github/workflows/ci.yml
-├── .n8n/workflows/          ← n8n JSON exports go here
-├── docs/
-│   ├── BUILD_PACKAGE.md     ← Master build guide (start here)
-│   ├── TOOLS_CHECKLIST.md
-│   ├── GOOGLE_SHEETS_SETUP.md
-│   ├── FLUTTERWAVE_WHATSAPP_SETUP.md
-│   ├── PROVIDER_SETUP_GUIDE.md
-│   └── OPERATIONAL_RUNBOOK.md
-├── legal/
-│   ├── TERMS_OF_SERVICE.md
-│   ├── PRIVACY_POLICY.md
-│   └── ACCEPTABLE_USE_POLICY.md
-└── workflows/
-    └── WORKFLOW_SPECS.md   ← Step-by-step n8n build specs
+Customer messages "Order ISP UK 1" on WhatsApp
+        ↓
+Bunche sends Flutterwave payment link
+        ↓
+Customer pays ₦6,500
+        ↓
+Flutterwave webhook → Bunche calls provider API
+        ↓
+Proxy credentials delivered on WhatsApp (< 2 min)
 ```
 
 ---
 
-## How to Build
+## Products
 
-See `docs/BUILD_PACKAGE.md` for the complete step-by-step guide.
-
-**TL;DR:**
-1. Get a VPS + domain
-2. Set up Flutterwave + WhatsApp Business API
-3. Create Google Sheets (4 tabs)
-4. Open IPRoyal account + fund with ~$50
-5. Install n8n on VPS via Docker
-6. Build the 4 n8n workflows
-7. Test end-to-end
-8. Launch
+| Product | Price | Provider | Tracking |
+|---------|-------|----------|----------|
+| ISP (UK/US/DE/FR/CA) | ₦6,500/mo | Proxy-Seller | Expires on date |
+| ISP (JP/AU/BR/SG) | ₦7,500/mo | Proxy-Seller | Expires on date |
+| Residential 5GB | ₦5,000 | DataImpulse | No time expiry — lasts until GB used |
+| Residential 10GB | ₦9,000 | DataImpulse | No time expiry |
+| Mobile 4G 5GB | ₦20,000 | DataImpulse | 30-day window to use GB |
+| Mobile 4G 10GB | ₦35,000 | DataImpulse | 30-day window to use GB |
+| Datacenter | ₦2,500/mo | Proxy-Seller | Expires on date |
 
 ---
 
-## Current Status
+## Architecture
 
-- ✅ Research complete
-- ✅ Strategy defined
-- ✅ Legal docs drafted
-- ✅ Build docs complete
-- ✅ n8n workflow specs complete
-- ✅ GitHub repo initialized
-- 🟡 VPS not yet accessed
-- 🟡 Waiting for account registrations
+```
+WhatsApp → Cloudflare → Nginx → n8n → PostgreSQL + Redis
+                                      ↓
+                               MiniMax M2 (LLM)
+                                      ↓
+                          Proxy-Seller / DataImpulse API
+```
+
+- **n8n**: Workflow engine (Docker on VPS)
+- **PostgreSQL**: Customers, orders, audit logs
+- **Redis**: Caching, sessions, rate limiting
+- **MiniMax M2**: LLM for intent parsing and responses
+- **Flutterwave**: Payment processing
+- **Cloudflare R2**: File storage (screenshots, receipts)
 
 ---
 
-*Built with Sonny (Hermes Agent) for Dannion Creative Hub*
+## Quick Start
+
+1. Clone repo
+2. Copy `.env.example` → `.env` and fill in values
+3. Follow `docs/DEPLOYMENT.md` for full setup
+
+---
+
+## Docs
+
+| File | What it covers |
+|------|---------------|
+| `docs/DEPLOYMENT.md` | Full VPS deployment guide |
+| `docs/ARCHITECTURE_PLAN.md` | System architecture |
+| `docs/DATABASE_SCHEMA.md` | PostgreSQL schema |
+| `docs/SECURITY_PLAN.md` | Security implementation |
+| `docs/REFERRAL_SYSTEM.md` | Referral system spec |
+| `workflows/WORKFLOW_SPECS.md` | 15 workflows documented |
+
+---
+
+## Legal
+
+- `legal/TERMS_OF_SERVICE.md`
+- `legal/PRIVACY_POLICY.md`
+- `legal/ACCEPTABLE_USE_POLICY.md`
