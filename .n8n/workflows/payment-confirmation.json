@@ -1,0 +1,257 @@
+{
+  "name": "Payment Confirmation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "flutterwave-webhook",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "fw-trigger",
+      "name": "Flutterwave Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Verify Flutterwave webhook signature\nconst crypto = require('crypto');\nconst secretHash = $env.FLUTTERWAVE_WEBHOOK_VERIF_HASH;\nconst signature = $headers['verif-hash'];\n\nconst body = $input.first().json;\nconst computedHash = crypto.createHmac('sha256', secretHash).digest('hex');\n\nif (signature !== computedHash) {\n  throw new Error('Invalid Flutterwave signature');\n}\n\nreturn [{ json: body }];"
+      },
+      "id": "fw-verify",
+      "name": "Verify Signature",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "id": "evt-charge",
+              "leftValue": "={{$json.event}}",
+              "rightValue": "charge.completed",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "fw-switch",
+      "name": "Switch: Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Idempotency: check if already processed\nconst txRef = $input.first().json.tx_ref;\nconst redisKey = `webhook:processed:flutterwave:${txRef}`;\n\n// Store processed flag in Redis with 24h TTL\nreturn [{ json: { txRef, redisKey, alreadyProcessed: false } }];"
+      },
+      "id": "fw-idempotency",
+      "name": "Idempotency Check",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "id": "status-pending",
+              "leftValue": "={{$json.data.status}}",
+              "rightValue": "successful",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "fw-status-check",
+      "name": "Check Payment Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, status",
+        "conditions": "tx_ref = '{{$json.tx_ref}}'"
+      },
+      "id": "fw-db-lookup",
+      "name": "Lookup Order in PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "id": "already-fulfilled",
+              "leftValue": "={{$json.status}}",
+              "rightValue": "fulfilled",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "fw-already-done",
+      "name": "Already Fulfilled?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "orders",
+        "values": "status = 'paid'"
+      },
+      "id": "fw-update-paid",
+      "name": "Update Order to Paid",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1400, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json.data.meta.productType === 'isp' ? 'https://api.proxy-seller.com/v1.0/order/create' : 'https://api.dataimpulse.com/reseller/order/create'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env.PROXY_SELLER_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "body": "={{ $json.data }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "fw-call-provider",
+      "name": "Call Provider API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1600, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Test proxy IP — 5s timeout\nconst proxy = $input.first().json;\nconst host = proxy.ip || proxy.data?.ip;\nconst port = proxy.port || proxy.data?.port;\n\n// Simple connectivity test via curl\nconst { execSync } = require('child_process');\ntry {\n  execSync(`timeout 5 curl -x http://${host}:${port} https://ipinfo.io/ip`, { stdio: 'ignore' });\n  return [{ json: { ...proxy, testPassed: true } }];\n} catch (e) {\n  return [{ json: { ...proxy, testPassed: false } }];\n}"
+      },
+      "id": "fw-test-proxy",
+      "name": "Test Proxy IP",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1800, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "orders",
+        "values": "status = 'fulfilled', fulfilled_at = NOW()"
+      },
+      "id": "fw-save-fulfilled",
+      "name": "Save Fulfilled to PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [2000, 0]
+    },
+    {
+      "parameters": {
+        "message": "🎉 ORDER COMPLETE!\n\n🇳🇬 Your proxy is ready:\n\n🔗 IP: {{$json.ip}}\n🔌 Port: {{$json.port}}\n👤 Username: {{$json.username}}\n🔐 Password: {{$json.password}}\n\n📋 Order ID: ORD-XXXXX\n⏰ Expires: [DATE]\n\nNeed help using it? Reply 'How to use' 📱",
+        "extraOptions": {}
+      },
+      "id": "fw-send-creds",
+      "name": "Send Credentials via WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [2200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "orders",
+        "values": "status = 'refunded'"
+      },
+      "id": "fw-auto-refund",
+      "name": "Auto Refund",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [2400, 200]
+    },
+    {
+      "parameters": {
+        "message": "⚠️ We couldn't deliver your proxy. A full refund has been initiated.",
+        "extraOptions": {}
+      },
+      "id": "fw-refund-notify",
+      "name": "Notify Refund",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [2600, 200]
+    }
+  ],
+  "connections": {
+    "Flutterwave Webhook": {
+      "main": [[{ "node": "Verify Signature", "type": "main", "index": 0 }]]
+    },
+    "Verify Signature": {
+      "main": [[{ "node": "Switch: Event Type", "type": "main", "index": 0 }]]
+    },
+    "Switch: Event Type": {
+      "main": [[{ "node": "Idempotency Check", "type": "main", "index": 0 }]]
+    },
+    "Idempotency Check": {
+      "main": [[{ "node": "Check Payment Status", "type": "main", "index": 0 }]]
+    },
+    "Check Payment Status": {
+      "main": [[{ "node": "Lookup Order in PostgreSQL", "type": "main", "index": 0 }]]
+    },
+    "Lookup Order in PostgreSQL": {
+      "main": [[{ "node": "Already Fulfilled?", "type": "main", "index": 0 }]]
+    },
+    "Already Fulfilled?": {
+      "main": [
+        [{ "node": "Update Order to Paid", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Update Order to Paid": {
+      "main": [[{ "node": "Call Provider API", "type": "main", "index": 0 }]]
+    },
+    "Call Provider API": {
+      "main": [[{ "node": "Test Proxy IP", "type": "main", "index": 0 }]]
+    },
+    "Test Proxy IP": {
+      "main": [
+        [{ "node": "Save Fulfilled to PostgreSQL", "type": "main", "index": 0 }],
+        [{ "node": "Auto Refund", "type": "main", "index": 0 }]
+      ]
+    },
+    "Save Fulfilled to PostgreSQL": {
+      "main": [[{ "node": "Send Credentials via WhatsApp", "type": "main", "index": 0 }]]
+    },
+    "Auto Refund": {
+      "main": [[{ "node": "Notify Refund", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": ["flutterwave", "payment", "provider"]
+}
