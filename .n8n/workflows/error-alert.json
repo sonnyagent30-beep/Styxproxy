@@ -1,0 +1,94 @@
+{
+  "name": "Error Alert",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ea-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Determine severity and extract key info\nconst error = $input.first().json;\nconst execution = error.execution;\nconst workflow = error.workflow;\n\nlet severity = 'low';\nconst errorMessage = error.message || '';\nconst workflowName = workflow?.name || 'Unknown';\nconst nodeName = error.node?.name || 'Unknown';\n\n// Critical: payment processed but proxy not delivered\nif (errorMessage.includes('provider') && errorMessage.includes('failed')) {\n  severity = 'critical';\n}\n// High: webhook failed or provider API down\nelse if (errorMessage.includes('webhook') || errorMessage.includes('API')) {\n  severity = 'high';\n}\n// Medium: timeout, rate limit\nelse if (errorMessage.includes('timeout') || errorMessage.includes('rate limit')) {\n  severity = 'medium';\n}\n\nreturn [{\n  json: {\n    severity,\n    workflowName,\n    nodeName,\n    errorMessage: errorMessage.substring(0, 500),\n    executionId: execution?.id,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "ea-classify",
+      "name": "Classify Error Severity",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "error_log",
+        "columns": "error_message, severity, workflow_name, node_name, execution_id, created_at",
+        "values": "'{{$json.errorMessage}}', '{{$json.severity}}', '{{$json.workflowName}}', '{{$json.nodeName}}', '{{$json.executionId}}', NOW()"
+      },
+      "id": "ea-log",
+      "name": "Log to PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "id": "critical-high",
+              "leftValue": "={{$json.severity}}",
+              "rightValue": "critical",
+              "operation": "equals"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutputs": ["always"]
+        }
+      },
+      "id": "ea-severity-filter",
+      "name": "Filter: Critical/High",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "message": "🔴 Bunche Error — {{$json.severity}}\n━━━━━━━━━━━━━━━\n\n⚠️ Workflow: {{$json.workflowName}}\n📍 Node: {{$json.nodeName}}\n\n{{$json.errorMessage}}\n\n⏰ {{$json.timestamp}}\n🆔 {{$json.executionId}}\n\nAction required.",
+        "extraOptions": {}
+      },
+      "id": "ea-alert-admin",
+      "name": "Alert Admin",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [800, 0]
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [[{ "node": "Classify Error Severity", "type": "main", "index": 0 }]]
+    },
+    "Classify Error Severity": {
+      "main": [[{ "node": "Log to PostgreSQL", "type": "main", "index": 0 }]]
+    },
+    "Log to PostgreSQL": {
+      "main": [[{ "node": "Filter: Critical/High", "type": "main", "index": 0 }]]
+    },
+    "Filter: Critical/High": {
+      "main": [
+        [{ "node": "Alert Admin", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": ["error", "alert", "admin"]
+}
