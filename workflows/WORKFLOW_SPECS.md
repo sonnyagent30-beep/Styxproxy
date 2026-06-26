@@ -427,6 +427,9 @@ Customer WhatsApp Message
         ↓
 [SECURITY LAYER] — Strip links, files, jailbreak attempts
         ↓
+[LOG: Customer_Audit_Log entry — msg_received]
+[Correlation ID: msg_id from webhook]
+        ↓
 [CHECK: New customer?] → YES → Legal notice → Workflow 1b
                        → NO  → Workflow 1a
         ↓
@@ -463,6 +466,10 @@ Customer WhatsApp Message
 | Refund request (our fault) | n8n declines → admin ⚠️ |
 | Ban claim with screenshot | Admin review ⚠️ |
 | Admin commands | Admin handles ⚠️ |
+| **All events logged to Customer_Audit_Log** | **Workflow 11** ✅ |
+| **All errors logged to Error_Log** | **Workflow 11** ✅ |
+| **Provider health monitored** | **Workflow 12** ✅ |
+| **Daily summary generated** | **Workflow 13** ✅ |
 
 ---
 
@@ -480,6 +487,13 @@ Customer WhatsApp Message
 | `Force-Refund ORD-XXXXX` | Admin override |
 | `Pending` | List all pending actions |
 | `Provider Status` | Check health of all providers |
+| `Errors` | List open errors |
+| `Errors critical` | List critical errors |
+| `Resolve ERR-XXXXX` | Mark error as resolved |
+| `Ignore ERR-XXXXX` | Mark as ignored |
+| `Logs [phone]` | Show customer audit log (hashed) |
+| `Provider log` | Recent provider health checks |
+| `Daily summary` | Today's metrics |
 
 ---
 
@@ -489,6 +503,7 @@ Customer WhatsApp Message
 Webhook Trigger (WhatsApp POST)
   ↓
 Edit Fields: Extract from, msg_body, msg_id, timestamp
+[LOG: msg_received — correlation_id = msg_id]
   ↓
 [SECURITY LAYER] — Strip links, files, injection
   ↓
@@ -509,36 +524,44 @@ intent == "order":
       → ❌ UNAVAILABLE or DOWN:
         → WhatsApp: "Sorry, [product] for [country] is
            temporarily unavailable right now."
+        → [LOG: order_failed — provider_unavailable]
         → END
       → ✅ AVAILABLE:
         → Continue ↓
   → HTTP Request → Flutterwave POST /payments
   → Google Sheets Append: Pending_Orders (awaiting_payment)
+  → [LOG: order_created]
   → WhatsApp: "Payment link sent! ₦[price] 💳"
 
 intent == "lost proxy details":
   → Google Sheets Read: Get ALL proxies — NO LIMIT
   → WhatsApp: Send all proxy details + RANDOM IP TIP
+  → [LOG: details_sent]
 
 intent == "my proxies" OR "check data":
   → Google Sheets Read: Get ALL proxies — NO LIMIT
   → WhatsApp: All proxies + status + RANDOM IP TIP
+  → [LOG: check_proxies]
 
 intent == "check expiry" OR "days left":
   → Google Sheets Read: Get ALL proxies — NO LIMIT
   → Show all with days / data remaining
+  → [LOG: check_expiry]
 
 intent == "ban reported" OR "ip blocked":
   → Was order within 24hrs?
     → YES: "Send screenshot." → Save → ban_pending_review → [ADMIN ALERT]
     → NO: "Replacement only within 24hrs."
+  → [LOG: ban_reported]
 
 intent == "refund":
   → Status == "awaiting_payment": Cancel, refund
   → Status == "fulfilled": "No refund after delivery."
+  → [LOG: refund_request]
 
 intent == "help":
   → Send help menu + RES vs MOB warning + RANDOM IP TIP
+  → [LOG: help_sent]
 
 intent == "renew":
   → Google Sheets Read: Get ALL proxies — NO LIMIT
@@ -555,6 +578,7 @@ intent == "renew":
   [IF Residential]: Fresh GB, old data preserved
   [IF Mobile]: Fresh GB, old unused GB LOST
   → WhatsApp: Confirmation + type-specific warning + RANDOM IP TIP
+  → [LOG: renewal_completed]
 
 intent == "top up residential":
   → Google Sheets Read: Find residential proxy
@@ -563,6 +587,7 @@ intent == "top up residential":
   → Generate payment link
   → Payment confirmed → Add GB → Data Remaining updated
   → WhatsApp: "✅ Top up confirmed!" + RANDOM IP TIP
+  → [LOG: topup_completed]
 
 intent == "top up mobile":
   → Google Sheets Read: Find mobile proxy
@@ -571,17 +596,21 @@ intent == "top up mobile":
   → Generate payment link
   → Payment confirmed → Add GB → Proxy reactivated
   → WhatsApp: "✅ Top up confirmed! ⚠️" + RANDOM IP TIP
+  → [LOG: topup_completed]
 
 intent == "free_trial" OR "trial" OR "free proxy" OR "free IP" OR "give me the free trial" OR "i want the free trial" OR "send me free trial":
   → Check daily limit
   → If eligible: Send disclaimer + survey link
   → If not eligible: "You've used all 3 free trials today."
+  → [LOG: free_trial_requested]
 
 intent == "how to use" OR "setup proxy" OR "configure":
   → Send proxy setup guide + RANDOM IP TIP
+  → [LOG: how_to_use_sent]
 
 Default:
   → LLM reply
+  → [LOG: llm_response]
 ```
 
 ### Workflow 1b: New Customer
@@ -595,23 +624,28 @@ intent == "order":
   → Google Sheets Read: Lookup price
   → Flutterwave payment link → WhatsApp: "Payment link sent."
   → Log consent (first interaction)
+  → [LOG: order_created — new_customer]
 
 intent == "free_trial" OR "trial" OR "free proxy" OR "free IP" OR "give me the free trial" OR "i want the free trial" OR "send me free trial":
   → Check daily limit
   → If eligible: Send disclaimer + survey link
   → If not eligible: "You've used all 3 free trials today."
+  → [LOG: free_trial_requested]
 
 intent == "help":
   → Legal notice + RES vs MOB warning + RANDOM IP TIP + help menu
+  → [LOG: help_sent]
 
 intent == "lost proxy details":
   → WhatsApp: "Enter PIN or OTP"
     → PIN verify / OTP verify
       → Match: Send details + RANDOM IP TIP
       → Fail 3x: [ADMIN ALERT]
+  → [LOG: recovery_attempt — method, success/fail]
 
 Default:
   → LLM reply
+  → [LOG: llm_response]
 ```
 
 ### Legal Notice (First Message Only — NO Free Trial Mention)
@@ -727,9 +761,11 @@ Type "help" anytime.
 Webhook Trigger (Flutterwave POST)
   ↓
 Verify Flutterwave-Signature
+[LOG: payment_webhook_received]
   ↓
 IF event !== "charge.completed" OR status !== "successful":
   → Respond 200 "ignored"
+  → [LOG: payment_ignored]
   ↓
 Edit Fields: Extract tx_ref, amount, phone, meta
   ↓
@@ -737,18 +773,22 @@ Google Sheets: Find order by tx_ref
   ↓
 IF Status !== "awaiting_payment":
   → Respond 200 "already processed"
+  → [LOG: payment_duplicate]
   ↓
 Google Sheets Update: Status = "paid_pending_fulfillment"
+[LOG: payment_received]
   ↓
 Google Sheets: Check if customer exists
   ↓
 [IF NEW CUSTOMER — First purchase]
   → Recovery setup: PIN or OTP → Store name → Log consent
+  → [LOG: customer_first_purchase]
   ↓
 [IF NEW ORDER (not renewal)]
   → Provider API → Proxy credentials
   → IF fails → Try backup provider
     → All fail: Refund immediately → [ADMIN ALERT] → END
+    → [LOG: provider_failure]
   ↓
   [IP TESTING]
     → Test IP with 5-second timeout
@@ -762,22 +802,26 @@ Google Sheets: Check if customer exists
           → WhatsApp: "We're so sorry! The proxy
              we generated had an issue. Your payment
              has been automatically refunded."
+          → [LOG: ip_test_failed — refunded]
           → Respond HTTP 200 → END
   ↓
   [IF ISP or DC]:
     → [EXPIRY NORMALIZATION] — All → same Expires At
     → Google Sheets: Status = "fulfilled"
     → [PDF] → WhatsApp: Details + Receipt + RANDOM IP TIP
+    → [LOG: proxy_delivered — ISP/DC]
   ↓
   [IF RESIDENTIAL]:
     → Google Sheets: Data Total = [X]GB, Data Remaining = [X]GB, Data Expires = "never"
     → Google Sheets: Status = "active"
     → [PDF] → WhatsApp: Details + Receipt + "data never expires" + RANDOM IP TIP
+    → [LOG: proxy_delivered — Residential]
   ↓
   [IF MOBILE]:
     → Google Sheets: Data Total = [X]GB, Data Remaining = [X]GB, Data Expires = today + 30 days
     → Google Sheets: Status = "active"
     → [PDF] → WhatsApp: Details + Receipt + mobile warning + RANDOM IP TIP
+    → [LOG: proxy_delivered — Mobile]
   ↓
 [IF ISP/DC RENEWAL — IP active]:
   → [IP TESTING] → Test existing IP before extending
@@ -785,19 +829,22 @@ Google Sheets: Check if customer exists
     → If IP fails: Generate replacement → Test → Deliver
   → Google Sheets Update: Status = "fulfilled"
   → WhatsApp: "✅ Extended! Same IP." + RANDOM IP TIP
-  ↓
+  → [LOG: renewal_delivered]
+
 [IF ISP/DC RENEWAL — IP expired]:
   → Provider API: Generate NEW proxy
   → [IP TESTING] → Test new IP (5s)
     → If PASS: Deliver + RANDOM IP TIP
     → If FAIL: Refund immediately + [ADMIN ALERT]
   → WhatsApp: "✅ New proxy ready!" + RANDOM IP TIP
-  ↓
+  → [LOG: renewal_new_ip]
+
 [IF RESIDENTIAL RENEWAL]:
   → Fresh GB added to pool
   → Google Sheets Update: Data Remaining += [X]GB
   → WhatsApp: "✅ Residential renewed! +[X]GB. 📦 Total: [Y]GB. 💡" + RANDOM IP TIP
-  ↓
+  → [LOG: renewal_residential]
+
 [IF MOBILE RENEWAL]:
   → Fresh GB — old unused GB LOST
   → [PRE-PAYMENT HEALTH CHECK] → Check DataImpulse
@@ -805,7 +852,8 @@ Google Sheets: Check if customer exists
     → If UP: Continue
   → Google Sheets Update: Data Total = [X]GB, Data Remaining = [X]GB, Data Expires = today + 30 days
   → WhatsApp: "✅ Mobile renewed! ⚠️ Old unused GB lost." + RANDOM IP TIP
-  ↓
+  → [LOG: renewal_mobile]
+
 [IF RESIDENTIAL TOP-UP]:
   → [PRE-PAYMENT HEALTH CHECK] → DataImpulse
     → If DOWN: Refund + notify
@@ -813,7 +861,8 @@ Google Sheets: Check if customer exists
   → Provider API: Add GB to order
   → Google Sheets Update: Data Remaining += [X]GB
   → WhatsApp: "✅ Top up confirmed! +[X]GB. Total: [Y]GB. 💡" + RANDOM IP TIP
-  ↓
+  → [LOG: topup_residential]
+
 [IF MOBILE TOP-UP]:
   → [PRE-PAYMENT HEALTH CHECK] → DataImpulse
     → If DOWN: Refund + notify
@@ -821,7 +870,8 @@ Google Sheets: Check if customer exists
   → Provider API: Add GB to order
   → Google Sheets Update: Data Remaining = [X]GB, Data Expires = today + 30 days
   → WhatsApp: "✅ Top up confirmed! ⚠️" + RANDOM IP TIP
-  ↓
+  → [LOG: topup_mobile]
+
 Respond HTTP 200
 ```
 
@@ -892,6 +942,7 @@ Password: [pass]
 [CHECK: Is admin number?] → NO → Workflow 1
   ↓
 Parse command:
+[LOG: admin_command]
 "Pending" → List all pending actions
 "Approve ORD-XXXXX" → Route: ban → replace; refund → refund
 "Reject ORD-XXXXX [reason]" → Reject, notify customer
@@ -901,6 +952,12 @@ Parse command:
 "Refund ORD-XXXXX" → Check status → refund or warn
 "Force-Refund ORD-XXXXX" → Admin override
 "Provider Status" → Check all providers → Report
+"Errors" → List open errors
+"Errors critical" → List critical errors
+"Resolve ERR-XXXXX" → Mark resolved
+"Logs [phone]" → Show customer audit log (hashed)
+"Provider log" → Show recent provider health
+"Daily summary" → Today's metrics
 Default → "Unknown command. Type 'Pending'."
 ```
 
@@ -916,6 +973,7 @@ Was order within 24hrs?
   → YES: "Send screenshot of ban message."
     → Save → ban_pending_review
     → [ADMIN ALERT] → Admin approves/rejects
+[LOG: ban_claim]
 ```
 
 ---
@@ -954,6 +1012,7 @@ IF Status == "fulfilled":
 Google Sheets: Status = "refunded"
   ↓
 WhatsApp: "✅ Refund processed. ₦{amount} in 5–7 days."
+[LOG: refund_processed]
 ```
 
 ---
@@ -968,6 +1027,7 @@ For each customer with active proxies:
   [FOR ISP/DC]: Expires At ≤ 7 days → Reminder
   [FOR Residential]: Data Remaining ≤ 1GB → Warning; 0GB → Exhausted
   [FOR Mobile]: Data ≤ 1GB → Warning; 0GB → Exhausted; Expires ≤ 3 days → Reminder
+[LOG: reminder_sent]
 ```
 
 ---
@@ -979,9 +1039,11 @@ For each customer with active proxies:
 ### Step 1: Check Daily Limit
 ```
 Google Sheets Read: Count trials for this phone today
+[LOG: free_trial_check]
   ↓
   ❌ Count >= 3:
     → WhatsApp: "You've used all 3 free trials today."
+    → [LOG: free_trial_limit_hit]
     → END
   ↓
   ✅ Count < 3:
@@ -1022,6 +1084,7 @@ Complete ONE survey to unlock your IP:
 After completing, reply DONE"
   ↓
 Log: Disclaimer Accepted = true
+[LOG: free_trial_disclaimer_sent]
 ```
 
 ### Step 3: Survey Completion
@@ -1031,6 +1094,7 @@ Log: Disclaimer Accepted = true
 Webhook Trigger (POST)
   ↓
 Verify HMAC signature
+[LOG: survey_postback_received]
   ↓
 Extract: user_id (phone), survey_id, reward, status
   ↓
@@ -1063,6 +1127,7 @@ For each proxy:
   ↓
 IF all fail:
   → WhatsApp: "Sorry, no working proxies available right now. Please try again in a few minutes 🙏"
+  → [LOG: free_trial_no_working_proxies]
   → END
 ```
 
@@ -1116,6 +1181,7 @@ This is a PUBLIC open proxy.
 
 {RANDOM IP TIP}
 ━━━━━━━━━━━━━━━━━━"
+[LOG: free_trial_delivered]
 ```
 
 ---
@@ -1123,9 +1189,6 @@ This is a PUBLIC open proxy.
 ## Workflow 9: Free Trial Follow-Up (15-Minute Idle Cron)
 
 **Trigger:** Cron every 1 minute
-
-### Purpose
-Find customers who browsed but didn't buy, idle 15+ minutes, and offer them a free trial.
 
 ### Flow
 
@@ -1140,6 +1203,7 @@ Google Sheets Read: Find customers where:
   - Free Trial Declined Today = false
   - Free Trials Used Today < 3
   - Blocked = false
+[LOG: free_trial_offer_check]
   ↓
 For each match:
   → WhatsApp: "👋 Hey! Still thinking about it?
@@ -1159,14 +1223,8 @@ For each match:
   → Google Sheets Update: 
     - Free Trial Offer Sent Today = true
     - Free Trial Offer Sent At = now
+  → [LOG: free_trial_offer_sent]
 ```
-
-### Why This Works
-- Only targets browsing-but-not-buying customers
-- 15-min delay feels natural, not pushy
-- Filters out customers with active subscriptions (focus on their current order)
-- One offer per day (not spam)
-- Easy opt-out (NO)
 
 ---
 
@@ -1183,7 +1241,216 @@ For each customer in Customers sheet:
   - Free Trial Declined Today = false
   ↓
 Done — fresh day, fresh 3 trials per customer
+[LOG: trial_reset]
 ```
+
+---
+
+## Workflow 11: Bunche Logger (Persistent Logging)
+
+**Trigger:** Multiple — receives log events from all workflows
+
+### Purpose
+Persistent logging of all Bunche events to Google Sheets for tracking, debugging, and audit.
+
+### Logging Schema (Standard — Applied From Scale Planning LOGS-3)
+
+```json
+{
+  "timestamp": "2026-06-26T14:48:13Z",
+  "level": "INFO",
+  "request_id": "wa_msg_a1b2c3d4e5f6",
+  "service": "bunche-n8n",
+  "workflow": "workflow_1_order_handler",
+  "customer_id_hash": "cust_8f3a2b",  // Hashed phone — never plain
+  "action": "order_received",
+  "resource": "ORD-12345",
+  "ip_hash": "iph_xxxx",  // Hashed if used
+  "duration_ms": 145,
+  "msg": "Order ISP UK 1 received",
+  "context": {
+    "product": "ISP",
+    "country": "GB",
+    "quantity": 1
+  },
+  "error": null,
+  "version": "1.0.0"
+}
+```
+
+### PII Redaction (Applied From LOGS-12)
+
+**NEVER log raw:**
+- Phone numbers (hash with sha256, first 8 chars)
+- Customer names (hash)
+- IP addresses (hash)
+- Order credentials
+- PIN/OTP codes
+- API keys/tokens
+- Payment references (only last 4 chars)
+- Survey reward amounts (only show ID)
+
+### Correlation ID (Applied From LOGS-2)
+
+- Use WhatsApp `msg_id` as correlation ID for incoming messages
+- Generate `bunche_<12hex>` for outbound events
+- Propagate through all related workflows
+- Echo back in admin queries
+
+### Retention Policy (Applied From LOGS-14)
+
+| Tier | Storage | Retention |
+|------|---------|-----------|
+| Hot | n8n database | 7 days |
+| Cold | Google Sheets (Customer_Audit_Log, Error_Log) | 90 days |
+| Archive | Cloudflare R2 | 1 year (compliance) |
+
+### Sheets Created
+
+#### Sheet: Customer_Audit_Log
+
+| Column | Header |
+|--------|--------|
+| Timestamp | datetime |
+| Request ID | text |
+| Customer Hash | text (hashed phone) |
+| Event Type | text |
+| Order ID | text |
+| Workflow | text |
+| Status | success / failure |
+| Details (JSON) | text |
+
+#### Sheet: Error_Log
+
+| Column | Header |
+|--------|--------|
+| Timestamp | datetime |
+| Workflow Name | text |
+| Node Name | text |
+| Error Type | text |
+| Error Message | text |
+| Error Stack | text |
+| Execution ID | text |
+| Customer Hash | text |
+| Order ID | text |
+| Severity | critical / high / medium / low |
+| Status | open / investigating / resolved / ignored |
+| Resolved By | text |
+| Resolved At | datetime |
+| Resolution Notes | text |
+
+### Severity Classification
+
+| Severity | Examples | Action |
+|----------|----------|--------|
+| **Critical** | Payment processed but proxy not delivered | Auto-refund + admin alert |
+| **High** | Provider down, webhook signature failed | Admin alert |
+| **Medium** | Rate limit hit, timeout, IP test failed once | Just log |
+| **Low** | Cosmetic warnings, info logs | Just log |
+
+### Flow
+
+```
+Other workflows → Call Bunche Logger with event data
+  ↓
+n8n Code Node: Apply PII redaction + format schema
+  ↓
+Google Sheets Append: Customer_Audit_Log (or Error_Log)
+  ↓
+[IF severity >= high]
+  → Send WhatsApp to admin
+  → [LOG: admin_alert_sent]
+```
+
+---
+
+## Workflow 12: Provider Health Logger
+
+**Trigger:** Cron every 5 minutes
+
+### Purpose
+Continuously monitor provider health and detect degradation.
+
+### Flow
+
+```
+Cron Trigger (every 5 minutes)
+[LOG: provider_health_check_start]
+  ↓
+For each provider (Proxy-Seller, DataImpulse, Geonode, CPAGrip):
+  ↓
+  [HTTP GET health endpoint]
+  [Measure response time]
+  ↓
+  IF success:
+    → Log: provider, health_check, success, latency
+  IF failure:
+    → Log: provider, health_check, failure, error
+    → IF 3 consecutive failures: Send admin alert
+      → [LOG: provider_alert_sent]
+  ↓
+End
+[LOG: provider_health_check_end]
+```
+
+### Admin Alert Message
+
+```
+🔴 Provider Health Alert
+
+Provider: [name]
+3 consecutive failures detected
+Last error: [message]
+Last check: [timestamp]
+
+Reply "Provider Status" for full details.
+```
+
+---
+
+## Workflow 13: Daily Summary Log
+
+**Trigger:** Cron daily at 23:55 (Africa/Lagos)
+
+### Flow
+
+```
+Cron Trigger (23:55 daily)
+[LOG: daily_summary_start]
+  ↓
+Google Sheets Read: Today's Customer_Audit_Log
+  ↓
+Calculate:
+  - Total orders today
+  - Total revenue today
+  - Total errors today
+  - Total refunds today
+  - New customers today
+  - Free trials used today
+  ↓
+Append row to Daily_Summary sheet
+[LOG: daily_summary_saved]
+  ↓
+IF errors today > 5:
+  → Send admin alert
+  → [LOG: daily_alert_sent]
+IF revenue today < expected threshold (₦10,000):
+  → Send admin alert
+```
+
+### Sheet: Daily_Summary
+
+| Column | Header |
+|--------|--------|
+| Date | date |
+| Total Orders | number |
+| Total Revenue (NGN) | number |
+| Total Errors | number |
+| Critical Errors | number |
+| Total Refunds | number |
+| New Customers | number |
+| Free Trials Used | number |
+| Provider Downtime (min) | number |
 
 ---
 
@@ -1191,9 +1458,82 @@ Done — fresh day, fresh 3 trials per customer
 
 ```
 n8n Error Trigger
+[LOG: error_triggered — auto]
   ↓
-WhatsApp (admin): "🔴 Workflow Error — {workflow_name} — {error_message}"
+Edit Fields: Extract
+  - workflow_name
+  - error_message
+  - error_stack
+  - execution_id
+  - timestamp
+  - node_name
+  ↓
+Determine severity:
+  - critical: payment_failed, ip_test_failed, proxy_delivery_blocked
+  - high: provider_down, webhook_signature_failed
+  - medium: rate_limit_hit, timeout
+  - low: cosmetic_warning, info_log
+  ↓
+Google Sheets Append: Error_Log
+  ↓
+[CHECK: Severity >= high?]
+  → YES: Send WhatsApp to admin
+  → NO: Just log
+  ↓
+Log also sent to: Customer_Audit_Log if customer context exists
 ```
+
+### Admin Alert Message
+
+```
+🔴 Bunche Error Detected
+
+Workflow: [name]
+Severity: [level]
+Time: [timestamp]
+
+Error: [message]
+
+Customer: [hash] (if applicable)
+Order: [ORD-XXXXX] (if applicable)
+
+Auto-logged to Error_Log.
+Reply "Details" for full stack trace.
+```
+
+---
+
+## Health Check Endpoint (Applied From MON-1)
+
+```
+GET /health
+  ↓
+Check:
+  - n8n process alive
+  - Database (Google Sheets API) reachable
+  - All providers reachable (lightweight ping)
+  - Disk space OK
+  - Memory OK
+  ↓
+Return:
+{
+  "status": "healthy" | "degraded" | "down",
+  "version": "1.0.0",
+  "uptime_sec": 12345,
+  "providers": {
+    "proxy_seller": "up",
+    "data_impulse": "up",
+    "geonode": "up",
+    "cpagrip": "up"
+  },
+  "last_check": "2026-06-26T14:48:13Z"
+}
+```
+
+**External monitoring:** UptimeRobot free tier (Applied From MON-3)
+- 50 monitors, 1-min interval, 5 global locations
+- Monitor: `https://bunche.com/health`
+- Alert: WhatsApp admin on failure
 
 ---
 
@@ -1222,12 +1562,16 @@ const stripped = input
   .trim()
   .substring(0, 500);
 
-return {
-  original: input,
-  cleaned: stripped,
-  hasLink: /https?:\/\//.test(input),
-  hasInjection: /ignore|disregard|system prompt|<\|.*?\|>/i.test(input)
-};
+// PII Redactor for logs
+function redactForLog(data) {
+  return {
+    ...data,
+    phone_hash: data.phone ? sha256(data.phone).slice(0, 8) : null,
+    name_hash: data.name ? sha256(data.name).slice(0, 8) : null,
+    // NEVER log: raw phone, name, IP, credentials, PIN, OTP
+    payment_ref: data.payment_ref ? `...${data.payment_ref.slice(-4)}` : null,
+  };
+}
 ```
 
 ---
@@ -1383,35 +1727,110 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 
 ---
 
+## Google Sheets: Customer_Audit_Log
+
+| Column | Header |
+|--------|--------|
+| Timestamp | datetime |
+| Request ID | text |
+| Customer Hash | text |
+| Event Type | text |
+| Order ID | text |
+| Workflow | text |
+| Status | success / failure |
+| Details (JSON) | text |
+
+---
+
+## Google Sheets: Error_Log
+
+| Column | Header |
+|--------|--------|
+| Timestamp | datetime |
+| Workflow Name | text |
+| Node Name | text |
+| Error Type | text |
+| Error Message | text |
+| Error Stack | text |
+| Execution ID | text |
+| Customer Hash | text |
+| Order ID | text |
+| Severity | critical / high / medium / low |
+| Status | open / investigating / resolved / ignored |
+| Resolved By | text |
+| Resolved At | datetime |
+| Resolution Notes | text |
+
+---
+
+## Google Sheets: Provider_Log
+
+| Column | Header |
+|--------|--------|
+| Timestamp | datetime |
+| Provider | text |
+| Event Type | text |
+| Status | text |
+| Details | text |
+| Latency (ms) | number |
+| Response Code | text |
+
+---
+
+## Google Sheets: Daily_Summary
+
+| Column | Header |
+|--------|--------|
+| Date | date |
+| Total Orders | number |
+| Total Revenue (NGN) | number |
+| Total Errors | number |
+| Critical Errors | number |
+| Total Refunds | number |
+| New Customers | number |
+| Free Trials Used | number |
+| Provider Downtime (min) | number |
+
+---
+
 ## Security Checklist
 
-| Rule | Enforced Where |
-|------|---------------|
-| Free trial: NOT advertised upfront | Legal notice + LLM system prompt |
-| Free trial: Only offered after 15-min idle | Workflow 9 cron |
-| Free trial: Customer opts in explicitly | Workflow 8 |
-| Free trial: Disclaimer accepted before survey | Workflow 8 |
-| Free trial: Survey verified via postback | Workflow 8 |
-| Free trial: 3/day/phone | Workflow 8 + Customer sheet |
-| Free trial: temp proxy, no replacement | Workflow 8 |
-| Free trial: NO provider name in completion message | LLM system prompt + Workflow 8 |
-| Pre-payment health check | Every order + renewal + top-up |
-| No payment link if provider down | Pre-payment check |
-| IP testing (5s timeout) | Every proxy before delivery |
-| IP fails → replacement | IP testing workflow |
-| Replacement also fails → auto-refund | IP testing workflow |
-| No URLs in customer messages | Security Stripper |
-| No provider names revealed | System prompt (LLM) |
-| No injection prompts processed | Security Stripper + system prompt |
-| LLM output validated as JSON | n8n validation node |
-| PIN stored hashed | bcrypt hash |
-| Max 3 verification attempts | Counted before admin escalation |
-| Admin only on exception | Admin Workflow |
-| No refund after delivery | Workflow enforces |
-| Random IP tips | Rotate |
-| ISP/DC: Same order → same Expires At | Expiry normalization |
-| RES: Data never expires | Every RES message |
-| Mobile: 30-day window, no rollover | Every mobile message |
+| Rule | Enforced Where | Scale Planning Task |
+|------|---------------|---------------------|
+| Free trial: NOT advertised upfront | Legal notice + LLM system prompt | — |
+| Free trial: Only offered after 15-min idle | Workflow 9 cron | — |
+| Free trial: Customer opts in explicitly | Workflow 8 | — |
+| Free trial: Disclaimer accepted before survey | Workflow 8 | — |
+| Free trial: Survey verified via postback | Workflow 8 | — |
+| Free trial: 3/day/phone | Workflow 8 + Customer sheet | — |
+| Free trial: temp proxy, no replacement | Workflow 8 | — |
+| Free trial: NO provider name in completion message | LLM system prompt + Workflow 8 | — |
+| Pre-payment health check | Every order + renewal + top-up | — |
+| No payment link if provider down | Pre-payment check | — |
+| IP testing (5s timeout) | Every proxy before delivery | — |
+| IP fails → replacement | IP testing workflow | — |
+| Replacement also fails → auto-refund | IP testing workflow | — |
+| No URLs in customer messages | Security Stripper | — |
+| No provider names revealed | System prompt (LLM) | — |
+| No injection prompts processed | Security Stripper + system prompt | — |
+| LLM output validated as JSON | n8n validation node | — |
+| PIN stored hashed | bcrypt hash | AUTH-3 |
+| Max 3 verification attempts | Counted before admin escalation | — |
+| Admin only on exception | Admin Workflow | — |
+| No refund after delivery | Workflow enforces | — |
+| Random IP tips | Rotate | — |
+| ISP/DC: Same order → same Expires At | Expiry normalization | — |
+| RES: Data never expires | Every RES message | — |
+| Mobile: 30-day window, no rollover | Every mobile message | — |
+| **PII redacted in logs** | **Workflow 11 redactor** | **LOGS-12** |
+| **Correlation ID per request** | **Workflow 11** | **LOGS-2** |
+| **Standardized log schema** | **Workflow 11** | **LOGS-3** |
+| **No secrets in logs** | **Workflow 11 redactor** | **SEC-5** |
+| **Health check endpoint** | **/health route** | **MON-1** |
+| **External uptime monitoring** | **UptimeRobot** | **MON-3** |
+| **Log retention policy** | **Workflow 11** | **LOGS-14** |
+| **All errors caught and logged** | **Error Workflow → Workflow 11** | **ERROR-1** |
+| **Centralized error handler** | **Error Workflow** | **ERROR-5** |
 
 ---
 
@@ -1429,6 +1848,9 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 | Free Trial Follow-Up | Cron — every 1 minute | When customer idle 15 min |
 | Trial Reset | Cron — daily 00:00 | Every day |
 | Survey Postback | Webhook | On survey completion |
+| Bunche Logger | Called from all workflows | Every event |
+| Provider Health Logger | Cron — every 5 minutes | Every 5 min |
+| Daily Summary | Cron — daily 23:55 | Every day |
 | Error Alert | n8n Error Trigger | On any error |
 
 ---
@@ -1436,7 +1858,10 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 ## Testing
 
 ```bash
-# New customer — legal notice (NO free trial mention)
+# Health check
+curl -X GET https://bunche.com/health
+
+# New customer — legal notice
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
   -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t1","from":"2349000000001","timestamp":"123","text":{"body":"Hi"}}]}}]}]}'
@@ -1471,3 +1896,48 @@ curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
   -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t6","from":"2349000000001","timestamp":"123","text":{"body":"Order ISP UK 1"}}]}}]}]}'
 ```
+
+---
+
+## Scale Planning Tasks Applied to Bunche
+
+| Task ID | Task | Implementation |
+|---------|------|----------------|
+| **DOC-1** | README + .env.example | Bunche repo has both |
+| **DOC-2** | AGENTS.md | To be created |
+| **SEC-2** | .env pattern | All secrets in .env (n8n credentials) |
+| **SEC-5** | No secrets in logs | Workflow 11 redactor |
+| **SEC-7** | Key rotation | Provider keys: 90-day rotation policy |
+| **SEC-9** | App Security Principles | Bunche security checklist embedded |
+| **ERROR-1** | try/catch all flows | n8n error workflow + Workflow 11 |
+| **ERROR-4** | Custom error messages | WhatsApp messages instead of pages |
+| **ERROR-5** | Centralized redactor | Workflow 11 PII redaction |
+| **LOGS-2** | Correlation ID | `msg_id` as correlation ID |
+| **LOGS-3** | Standard schema | Bunche schema (defined above) |
+| **LOGS-12** | No PII in logs | PII redactor in Workflow 11 |
+| **LOGS-13** | Log schema standard | Documented in Workflow 11 |
+| **LOGS-14** | Retention policy | Hot 7d / Cold 90d / Archive 1yr |
+| **MON-1** | /health endpoint | Implemented above |
+| **MON-3** | External monitoring | UptimeRobot recommended |
+| **BRANCH-1** | GitHub Flow | Already using on bunche repo |
+| **BRANCH-3** | Main branch protection | To be configured |
+| **DEPS-3** | package-lock.json | Required in CI |
+| **SCALE-8** | K6 load test | Webhook burst test recommended |
+| **TRUST-3** | Audit NEXT_PUBLIC_ vars | N/A — no Next.js |
+| **TRUST-9** | npm audit | Apply to CI when dependencies added |
+
+## Scale Planning Tasks NOT Applicable to Bunche
+
+| Task | Why N/A |
+|------|--------|
+| ROLL-1 through ROLL-7 (MT5 Bridge health/rollback) | Bunche is not MT5 Bridge |
+| MON-2 (Windows VPS check) | No Windows VPS for Bunche |
+| AUTH-1 through AUTH-5 (NextAuth/2FA) | No accounts = no auth needed |
+| ERROR-2 (React error boundaries) | No React frontend |
+| LOGS-4, LOGS-5 (Next.js logging) | No Next.js |
+| PERF-1 through PERF-6 (UI perf) | No UI — WhatsApp interface |
+| MEDIA-1 through MEDIA-8 (image storage) | No media |
+| CANARY-1 through CANARY-9 (canary releases) | WhatsApp webhook = single deployment |
+| BROWSE-1 through BROWSE-9 (browser security) | No browser app |
+| SOC-1 through SOC-10 (enterprise SOC2) | Not enterprise yet |
+| SVC-1 through SVC-7 (service auth) | Simpler stack — direct webhooks |
