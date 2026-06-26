@@ -1,0 +1,168 @@
+{
+  "name": "Referral Credit Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "message": "={{$json.message}}",
+        "extraOptions": {}
+      },
+      "id": "rc-trigger",
+      "name": "Sub-workflow Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "id": "has-referral",
+              "leftValue": "={{$json.referred_by_phone}}",
+              "rightValue": "",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "rc-check-referral",
+      "name": "Is Referred Order?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "phone, total_orders",
+        "conditions": "phone = '{{$json.customer_phone}}'"
+      },
+      "id": "rc-check-order-count",
+      "name": "Check Order Count",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "id": "first-order",
+              "leftValue": "={{$json.total_orders}}",
+              "rightValue": 1,
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "rc-first-order",
+      "name": "First Order Only?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate 5% referral credit\nconst order = $input.first().json;\nconst amount = order.amount_paid || order.price_kobo / 100;\nconst credit = Math.round(amount * 0.05 * 100) / 100;\n\nreturn [{ json: { ...order, referral_credit: credit } }];"
+      },
+      "id": "rc-calc-credit",
+      "name": "Calculate 5% Credit",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "customers",
+        "values": "referral_credit_ngn = referral_credit_ngn + {{$json.referral_credit}}"
+      },
+      "id": "rc-add-credit",
+      "name": "Add Credit to Referrer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "orders",
+        "values": "referral_credit_earned_ngn = {{$json.referral_credit}}"
+      },
+      "id": "rc-log-order",
+      "name": "Log Credit on Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "name",
+        "conditions": "phone = '{{$json.referred_by_phone}}'"
+      },
+      "id": "rc-get-referrer-name",
+      "name": "Get Referrer Name",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1400, 0]
+    },
+    {
+      "parameters": {
+        "message": "🎉 You earned referral credit!\n\n{{$json.referred_customer_name}} just completed their first order.\n\nThey bought: {{$json.product_type}}\nOrder value: ₦{{$json.amount_paid}}\n\nYour credit earned: ₦{{$json.referral_credit}}\n\nYour total referral credit: ₦{{$json.new_total_credit}}\n\nKeep sharing your name — every first purchase = more credit! 🔗",
+        "extraOptions": {}
+      },
+      "id": "rc-notify-referrer",
+      "name": "Notify Referrer",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1600, 0]
+    }
+  ],
+  "connections": {
+    "Sub-workflow Trigger": {
+      "main": [[{ "node": "Is Referred Order?", "type": "main", "index": 0 }]]
+    },
+    "Is Referred Order?": {
+      "main": [
+        [{ "node": "Check Order Count", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Check Order Count": {
+      "main": [[{ "node": "First Order Only?", "type": "main", "index": 0 }]]
+    },
+    "First Order Only?": {
+      "main": [
+        [{ "node": "Calculate 5% Credit", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Calculate 5% Credit": {
+      "main": [
+        [{ "node": "Add Credit to Referrer", "type": "main", "index": 0 }]
+      ]
+    },
+    "Add Credit to Referrer": {
+      "main": [[{ "node": "Log Credit on Order", "type": "main", "index": 0 }]]
+    },
+    "Log Credit on Order": {
+      "main": [[{ "node": "Get Referrer Name", "type": "main", "index": 0 }]]
+    },
+    "Get Referrer Name": {
+      "main": [[{ "node": "Notify Referrer", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": ["referral", "credit", "sub-workflow"]
+}
