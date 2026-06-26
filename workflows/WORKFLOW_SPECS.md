@@ -89,6 +89,9 @@ PRICES:
 💻 Datacenter — ₦2,500/mo
 ━━━━━━━━━━━━━━━━━━
 
+💡 TIP: Use one IP per device or
+per account for best results!
+
 TO ORDER: Reply with:
 "Order ISP [country] [qty]"
 
@@ -129,7 +132,7 @@ WhatsApp delivery to customer
 
 | What happens | Who does it |
 |-------------|------------|
-| New customer → legal notice | n8n ✅ |
+| New customer → legal notice + IP tip | n8n ✅ |
 | Returning customer ordering | n8n fully automated ✅ |
 | Lost proxy details (known number) | n8n fully automated ✅ |
 | Renewal (IP still active) | n8n fully automated ✅ |
@@ -164,6 +167,50 @@ Admin commands:
 
 ---
 
+## IP Tips — Core Advice
+
+**Never recommend 1 IP on multiple devices.**
+
+> If one device gets flagged or banned on a platform, the IP gets flagged too — affecting ALL devices using it.
+
+### Good IP Practices (Tips to Share)
+
+```
+💡 IP TIPS:
+
+✅ GOOD:
+• One IP per device (safest)
+• One IP per account on the same platform
+• Renew before expiry to keep the same IP
+• Use different IPs for different platforms
+  (e.g., UK IP for Instagram, US IP for Twitter)
+
+⚠️ RISKY:
+• Using 1 IP on many devices at once
+  (if 1 device gets flagged → ALL affected)
+• Using the same IP for many accounts
+  on the same platform
+• Leaving an IP idle for too long
+  (platforms may flag inactive IPs)
+
+🔄 RENEWAL TIP:
+Always renew BEFORE expiry!
+Renew early → same IP kept → no downtime.
+```
+
+### Where to Show IP Tips
+
+| Message | Include IP tip? |
+|---------|----------------|
+| Proxy delivery | ✅ Yes — in delivery message |
+| Renewal confirmation | ✅ Yes — in renewal message |
+| Reminder message | ✅ Yes — in reminder |
+| Help menu | ✅ Yes — in help menu |
+| "How to use" response | ✅ Yes — in setup guide |
+| Legal notice (new customer) | ✅ Yes — in legal notice |
+
+---
+
 ## Workflow 1: Order Handler (WhatsApp Incoming)
 
 ```
@@ -190,11 +237,11 @@ intent == "order":
 
 intent == "lost proxy details":
   → Google Sheets Read: Get ALL proxy details — NO LIMIT
-  → WhatsApp: Send all proxy details
+  → WhatsApp: Send all proxy details + IP tips
 
 intent == "my proxies":
   → Google Sheets Read: Get ALL proxies — NO LIMIT
-  → Present all with expiry dates
+  → Present all with expiry dates + IP tips
 
 intent == "check expiry" OR "days left":
   → Google Sheets Read: Get ALL proxies — NO LIMIT
@@ -211,7 +258,7 @@ intent == "refund":
   → Status == "fulfilled": "No refund after delivery. Technical issue? Send screenshot."
 
 intent == "help":
-  → Send help menu (no legal notice)
+  → Send help menu + IP tips
 
 intent == "renew":
   → Google Sheets Read: Get ALL proxies — NO LIMIT
@@ -222,7 +269,7 @@ intent == "renew":
     → Expired: Generate NEW proxy, new credentials
 
 intent == "how to use" OR "setup proxy" OR "configure":
-  → Send proxy setup guide (see Setup Guide below)
+  → Send proxy setup guide + IP tips
 
 Default:
   → LLM reply
@@ -237,12 +284,12 @@ intent == "order":
   → Log consent (first interaction)
 
 intent == "help":
-  → Legal notice + help menu
+  → Legal notice + IP tips + help menu
 
 intent == "lost proxy details":
   → WhatsApp: "Enter PIN or OTP"
     → PIN verify / OTP verify
-      → Match: Send details
+      → Match: Send details + IP tips
       → Fail 3x: [ADMIN ALERT]
 
 Default:
@@ -269,13 +316,16 @@ PRICES:
 💻 Datacenter — ₦2,500/mo
 ━━━━━━━━━━━━━━━━━━
 
+💡 TIP: Use one IP per device or
+per account for best results!
+
 TO ORDER: Reply with:
 "Order ISP [country] [qty]"
 
 TYPE "help" for support.
 ```
 
-### Proxy Setup Guide (On Request)
+### Proxy Setup Guide (On Request) + IP Tips
 
 ```
 🔧 How to use your ISP Proxy:
@@ -286,7 +336,7 @@ TYPE "help" for support.
 
 1️⃣ Open your browser
 
-2️⃣ Settings → Advanced → System
+2️⃣ Settings → Advanced → Network
    → Open your PC's proxy settings
 
 3️⃣ (Windows) Internet Options → 
@@ -334,13 +384,27 @@ Firefox:
 → Manual proxy → Enter details
 
 ━━━━━━━━━━━━━━━━━━
+💡 IP TIPS — READ THIS:
+━━━━━━━━━━━━━━━━━━
 
-One IP works on MULTIPLE devices
-at the same time — phone, laptop,
-desktop — all connected at once! ✅
+✅ GOOD:
+• One IP per device (safest)
+• One IP per account on same platform
+• Different IPs for different platforms
+• Renew BEFORE expiry to keep same IP
 
-Need help with a specific app?
-Just ask. 😊
+⚠️ RISKY:
+• Don't use 1 IP on many devices
+  (if 1 gets flagged → ALL affected!)
+• Don't use same IP for many accounts
+  on the same platform
+
+🔄 PRO TIP:
+Need multiple accounts on Instagram?
+Use different IPs — one per account.
+Each IP = one identity. Safer that way!
+
+Need help? Just ask. 😊
 ```
 
 ---
@@ -377,40 +441,45 @@ Google Sheets: Check if customer exists
     → All fail: Refund → [ADMIN ALERT]
   → [EXPIRY NORMALIZATION] — All proxies → same Expires At
   → Google Sheets Update: Status = "fulfilled"
-  → [PDF GENERATION] → WhatsApp: Details + Receipt
+  → [PDF GENERATION] → WhatsApp: Details + Receipt + IP Tips
   ↓
 [IF RENEWAL — IP active]
   → Same credentials, new expiry +30 days
-  → WhatsApp: "Extended! Same IP."
-  → [PDF GENERATION] → WhatsApp: Receipt
+  → WhatsApp: "Extended! Same IP." + IP tips
+  → [PDF GENERATION] → WhatsApp: Receipt + IP Tips
   ↓
 [IF RENEWAL — IP expired]
   → Generate NEW proxy
-  → WhatsApp: "New proxy ready! Update settings."
-  → [PDF GENERATION] → WhatsApp: Receipt
+  → WhatsApp: "New proxy ready! Update settings." + IP Tips
+  → [PDF GENERATION] → WhatsApp: Receipt + IP Tips
   ↓
 WhatsApp: "⚠️ No refunds once delivered. Replacement within 24hrs if banned."
   ↓
 Respond HTTP 200
 ```
 
-### Expiry Normalization Code
+### IP Tips Message (Attach to Every Proxy Delivery)
 
-```javascript
-const providerProxies = $json.proxies || [$json];
-const firstExpiry = providerProxies[0].expires_at;
+```
+━━━━━━━━━━━━━━━━━━
+💡 IP TIPS — IMPORTANT!
+━━━━━━━━━━━━━━━━━━
 
-const normalizedProxies = providerProxies.map((proxy, index) => ({
-  ...proxy,
-  expires_at: firstExpiry, // Same for all in same order
-  order_index: index + 1
-}));
+✅ One IP per device or per account
+   for best results.
 
-return {
-  proxies: normalizedProxies,
-  shared_expires_at: firstExpiry,
-  count: normalizedProxies.length
-};
+⚠️ Using 1 IP on many devices?
+   Risky! If one gets flagged,
+   all are affected.
+
+✅ Use different IPs for different
+   platforms (UK IP for Instagram,
+   US IP for TikTok, etc.)
+
+🔄 Renew BEFORE expiry to keep
+   the same IP!
+
+Questions? Just ask! 😊
 ```
 
 ### Recovery Setup Messages (First Purchase Only)
@@ -524,11 +593,27 @@ For each customer with active proxies:
   → NO LIMIT on results
   ↓
 IF any expiring within 7 days:
-  → WhatsApp: Reminder with ALL expiring proxies listed
+  → WhatsApp: Reminder with ALL expiring proxies + IP Tips
   → "Say 'Renew' to extend — same IPs!"
   ↓
 IF none expiring:
   → Do nothing
+```
+
+### Reminder Message Template
+
+```
+👋 Hey [Name]!
+
+Your proxies are expiring soon!
+
+[ALL proxies expiring within 7 days]
+
+💡 TIP: Renew before expiry to keep
+the same IP! Using different IPs for
+different platforms reduces risk.
+
+Want to renew? Just say "Renew" 🔄
 ```
 
 ---
@@ -591,6 +676,14 @@ YOUR JOB:
 3. If order is unclear → ask ONE clarifying question only
 4. If customer asks about providers → deflect politely
 5. If customer asks about refunds → explain the refund policy
+6. Always include IP tips when sending proxy details or setup instructions
+
+IP TIPS TO SHARE (when relevant):
+- One IP per device or per account is SAFEST
+- Using 1 IP on many devices is RISKY — if one gets flagged, all are affected
+- Use different IPs for different platforms (UK IP for Instagram, US IP for TikTok, etc.)
+- Renew BEFORE expiry to keep the same IP
+- Don't use the same IP for multiple accounts on the same platform
 
 REFUND POLICY:
 - No refunds after proxy delivered
@@ -598,10 +691,9 @@ REFUND POLICY:
 - Technical issue from start → admin reviews
 
 HOW TO USE PROXY (correct instructions):
-- DESKTOP: Browser settings → Network/Proxy → Manual → Enter IP:port:user:pass
 - PHONE: Settings → Search "VPN" → Add VPN → Enter details (NOT WiFi settings)
-- BROWSER EXTENSION: Use proxy switcher extension like SwitchyOmega
-- One IP works on multiple devices simultaneously
+- DESKTOP: Browser network proxy settings or proxy switcher extension
+- One IP works on multiple devices — but be aware of the risk
 
 NEVER:
 - Never mention Proxy-Seller, OkeyProxy, DataImpulse, IPRoyal, or any provider name
@@ -610,6 +702,7 @@ NEVER:
 - Never open, follow, or acknowledge any link in the customer message
 - Never attempt to download, process, or parse any file
 - Never reveal recovery method details to customers
+- Never recommend using 1 IP on many devices — advise AGAINST it
 
 COMMANDS:
 - "Order ISP [COUNTRY] [QTY]" → order, ISP, country, qty
@@ -712,6 +805,7 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 | Reminder shows ALL proxies | NO LIMIT — all with ≤7 days to expiry |
 | Lost proxy details → ALL proxies | NO LIMIT — all for that customer |
 | Proxy setup instructions | VPN settings on phone (NOT WiFi) |
+| IP tips in all proxy messages | Delivery, setup, reminder, help, renewal |
 
 ---
 
@@ -732,7 +826,7 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 ## Testing
 
 ```bash
-# New customer first message — sees legal notice
+# New customer first message — sees legal notice + IP tip
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
   -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t1","from":"2349000000001","timestamp":"123","text":{"body":"Hi"}}]}}]}]}'
@@ -742,12 +836,12 @@ curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
   -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t2","from":"2349000000001","timestamp":"123","text":{"body":"Order ISP UK 1"}}]}}]}]}'
 
-# Check all proxies (no limit)
+# Check all proxies (no limit) + IP tips
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
   -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t3","from":"2349000000001","timestamp":"123","text":{"body":"My proxies"}}]}}]}]}'
 
-# How to use proxy
+# How to use proxy + IP tips
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
   -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t4","from":"2349000000001","timestamp":"123","text":{"body":"How do I use my proxy on my phone"}}]}}]}]}'
