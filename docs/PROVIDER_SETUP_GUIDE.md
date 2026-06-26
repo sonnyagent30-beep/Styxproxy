@@ -1,135 +1,158 @@
 # Bunche — Provider Setup Guide
-*Step-by-step guide for setting up proxy provider API accounts*
+*Zero-inventory, on-demand only. Three providers cover all product types.*
 
 ---
 
 ## Provider Strategy
 
-| Provider | Role | Best For |
-|----------|------|---------|
-| **IPRoyal** | Primary | ISP proxies (UK, US, NG) |
-| **NodeMaven** | Secondary | Residential proxies |
-| **Proxy-Seller** | Tertiary | Mobile, wide country coverage |
-| **Bright Data / Oxylabs** | Enterprise backup | Rare countries, large volume |
+| Provider | Role | Product Types | Countries |
+|----------|------|--------------|-----------|
+| **Proxy-Seller** | Primary | ISP, Datacenter | 220+ |
+| **OkeyProxy** | Secondary | Residential | 200+ |
+| **DataImpulse** | Tertiary | Mobile 4G | Global |
 
 ---
 
-## 1. IPRoyal Setup (Primary)
+## 1. Proxy-Seller (Primary — ISP + Datacenter)
+
+**Best for:** ISP proxies (all countries), Datacenter proxies
+**Why:** Cheapest ISP at $1.50–3/IP, 220+ countries, instant API
 
 ### 1.1 Create Account
-1. Go to **iproyal.com**
-2. Sign Up → Create reseller account
-3. Use a dedicated email: `proxies@yourdomain.com`
+1. Go to **proxy-seller.com**
+2. Sign Up → Reseller account
+3. Use a dedicated email
 
 ### 1.2 Fund Account
-1. Dashboard → **Billing**
-2. Minimum deposit: **$25** (recommended: $50-100 to start)
+1. Dashboard → Billing
+2. Minimum deposit: **$20** to start
 3. Payment: Card, Crypto, Bank transfer
 
 ### 1.3 Get API Key
-1. Dashboard → **API**
-2. Copy your **Reseller API Key**
-3. Add to n8n as `iproyal-api` credential
+1. Dashboard → API section
+2. Enable API access
+3. Copy the API key
+4. Add to n8n as `proxyseller-api`
 
 ### 1.4 Test API
 
 ```bash
-curl -X GET "https://api.iproyal.com/v2/reseller/account" \
+curl -X GET "https://api.proxy-seller.com/v1/account" \
   -H "Authorization: Bearer YOUR_API_KEY"
-# Expected: {"balance": 50.00, "currency": "USD"}
+# Expected: {"balance": 20.00, "currency": "USD"}
 ```
 
 ### 1.5 Order Test Proxy
 
 ```bash
-curl -X POST "https://api.iproyal.com/v2/reseller/orders" \
+curl -X POST "https://api.proxy-seller.com/v1/orders" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"product_id": "isp", "country": "gb", "quantity": 1, "months": 1}'
+  -d '{"type": "isp", "country": "gb", "quantity": 1, "period": 30}'
 
 # Response:
 # {
-#   "order_id": "ORD-12345",
+#   "order_id": "PS-12345",
 #   "status": "active",
-#   "credentials": [{"ip": "203.0.113.42", "port": 8080, "username": "cust12345", "password": "secretpass"}]
+#   "proxies": [{"ip": "203.0.113.42", "port": 8080, "username": "user", "password": "pass", "expires_at": "2026-07-26"}]
 # }
 ```
 
-### 1.6 IPRoyal Product IDs
-
-| Product | product_id |
-|---------|-----------|
-| ISP Proxy | `isp` |
-| Residential | `residential` |
-| Datacenter | `datacenter` |
-| Mobile | `mobile` |
-
 ---
 
-## 2. NodeMaven Setup (Secondary)
+## 2. OkeyProxy (Secondary — Residential)
+
+**Best for:** Residential proxies, global coverage
+**Why:** 150M+ IPs, $0.35/GB, 200+ countries, fast API
 
 ### 2.1 Create Account
-1. **nodemaven.com** → Get Started
-2. Create reseller account
+1. Go to **okeyproxy.com**
+2. Sign Up
 
 ### 2.2 Fund + Get API Key
-1. Dashboard → Billing → Add Funds (min $25)
-2. Dashboard → API Access → Generate API key
+1. Dashboard → Billing → Add Funds (min $10)
+2. Dashboard → API → Copy API key
+3. Add to n8n as `okeyproxy-api`
 
 ### 2.3 Test API
 
 ```bash
-curl -X GET "https://api.nodemaven.com/v1/account" \
+curl -X GET "https://api.okeyproxy.com/v1/account" \
   -H "Authorization: Bearer YOUR_API_KEY"
-# Response: {"status": "ok", "balance": 25.00}
 ```
 
 ### 2.4 Order Test Proxy
 
 ```bash
-curl -X POST "https://api.nodemaven.com/v1/orders" \
+curl -X POST "https://api.okeyproxy.com/v1/order" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"product": "residential", "country": "ng", "quantity": 1, "session": true}'
+  -d '{"type": "residential", "country": "us", "traffic": "5GB"}'
 ```
 
 ---
 
-## 3. Proxy-Seller Setup (Tertiary)
+## 3. DataImpulse (Tertiary — Mobile 4G)
+
+**Best for:** Mobile 4G/LTE proxies
+**Why:** $2/GB, credit never expires, global coverage
 
 ### 3.1 Create Account
-1. **proxy-seller.com**
-2. Register → choose Reseller Program
+1. Go to **dataimpulse.com**
+2. Sign Up
 
-### 3.2 Get API Key
-1. Dashboard → API section
-2. Enable API access
-3. Copy API key
+### 3.2 Fund + Get API Key
+1. Dashboard → Billing → Add Funds (min $15)
+2. Dashboard → API → Copy key
+3. Add to n8n as `dataimpulse-api`
 
 ### 3.3 Test API
 
 ```bash
-curl -X GET "https://api.proxy-seller.com/v1/account" \
-  -H "X-API-Key: YOUR_API_KEY"
+curl -X GET "https://api.dataimpulse.com/v1/account" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+### 3.4 Order Test Proxy
+
+```bash
+curl -X POST "https://api.dataimpulse.com/v1/order" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type": "mobile", "country": "us", "traffic": "5GB"}'
 ```
 
 ---
 
-## 4. n8n Credential Setup
+## n8n Credentials Setup
 
-Create credentials in **n8n → Settings → Credentials**:
+Create these in **n8n → Settings → Credentials**:
 
-| Credential Name | Type | Auth |
-|---------------|------|------|
-| `iproyal-api` | HTTP Header Auth | `Authorization: Bearer YOUR_IPROYAL_KEY` |
-| `nodemaven-api` | HTTP Query Auth | `Authorization: Bearer YOUR_NODEMAVEN_KEY` |
-| `proxyseller-api` | HTTP Query Auth | `X-API-Key: YOUR_PROXYSELLER_KEY` |
+| Name | Type | Auth |
+|------|------|------|
+| `proxyseller-api` | HTTP Header Auth | `Authorization: Bearer YOUR_KEY` |
+| `okeyproxy-api` | HTTP Header Auth | `Authorization: Bearer YOUR_KEY` |
+| `dataimpulse-api` | HTTP Header Auth | `Authorization: Bearer YOUR_KEY` |
 
 ---
 
-## 5. Nigeria-Specific Notes
+## Country Coverage Summary
 
-- **NG (Nigeria) ISP proxies:** IPRoyal has these. Important for local e-commerce (Jumia, Jiji).
-- **NG Mobile proxies:** Check Proxy-Seller or NodeMaven for MTN/Airtel 4G IPs.
-- **Exchange rate:** Check current NGN/USD rate before pricing. NGN weakness = raise prices.
-- **Jumia:** Nigerian e-commerce. Good target customer. They detect proxies aggressively — recommend ISP > Residential for this use case.
+| Provider | Countries | Notes |
+|---------|-----------|-------|
+| Proxy-Seller | 220+ | ISP + DC. All major countries. |
+| OkeyProxy | 200+ | Residential. Global. |
+| DataImpulse | Global | Mobile 4G. Credit never expires. |
+
+---
+
+## Initial Credit to Load
+
+| Provider | Minimum | Recommended |
+|---------|---------|-------------|
+| Proxy-Seller | $20 | $30 |
+| OkeyProxy | $10 | $15 |
+| DataImpulse | $15 | $20 |
+| **Total** | **$45** | **$65** |
+
+Load $65 across all three. This covers ~20–30 orders before you need to top up.
