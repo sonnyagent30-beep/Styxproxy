@@ -1,18 +1,63 @@
 # Bunche — Workflow Specifications
 
 **Last Updated:** 2026-06-26
-**SHA:** updated-to-security-and-arch
+**SHA:** data-alert-v1
 **Status:** Planning Complete — Ready for Implementation
 
 ---
 
 ## Table of Contents
 
-1. [Workflows](#workflows)
-2. [Security](#security)
-3. [Architecture](#architecture)
-4. [Admin Authentication](#admin-authentication)
-5. [PII Handling](#pii-handling)
+1. [Products & Data Model](#products--data-model)
+2. [Workflows](#workflows)
+3. [Data Alert System](#data-alert-system)
+4. [Security](#security)
+5. [Architecture](#architecture)
+6. [Admin Authentication](#admin-authentication)
+7. [PII Handling](#pii-handling)
+
+---
+
+## Products & Data Model
+
+### Providers
+
+| Provider | Products | Role |
+|----------|---------|------|
+| **Proxy-Seller** | ISP, Datacenter | Primary |
+| **DataImpulse** | Residential, Mobile | Secondary |
+
+### Products & Tracking
+
+| Product | Provider | Billing | Tracking | Expiry |
+|---------|----------|---------|----------|--------|
+| ISP | Proxy-Seller | Per month | Time-based | Yes — expires on date |
+| DC | Proxy-Seller | Per month | Time-based | Yes — expires on date |
+| Residential | DataImpulse | Per GB | Data-based | **No time expiry — runs until GB is used up** |
+| Mobile | DataImpulse | Per GB | Data-based | 30-day window to use GB |
+
+### Residential — No Time Expiry
+
+Residential proxies from DataImpulse **do not expire by time**. They last until the allocated GB is fully used. There is no expiry date.
+
+```
+Residential 5GB purchased January 1
+  → Works until 5GB is used up
+  → No expiry date
+  → Customer can track: "I've used X.X GB of 5GB"
+```
+
+### Mobile — 30-Day Window + Data Cap
+
+Mobile proxies have both a **data cap** AND a **30-day window** to use it.
+
+```
+Mobile 5GB purchased January 1
+  → 5GB of data to use
+  → Must use it within 30 days (expires January 31)
+  → If data runs out before day 30 → proxy stops
+  → If day 30 arrives with data left → unused data is lost
+```
 
 ---
 
@@ -36,10 +81,9 @@
         ├── free_trial → [Free Trial Flow]
         ├── recovery → [Recovery Flow]
         ├── how_to_use → [Setup Guide Flow]
+        ├── check_data → [Data Status Flow]
         └── unknown → [Fallback]
 ```
-
-**See:** Full Order Flow documented separately in WORKFLOW_SPECS.md
 
 ---
 
@@ -70,8 +114,6 @@
         ↓
 [Update PostgreSQL] → status = 'fulfilled', fulfilled_at = NOW()
 ```
-
-**See:** Full Payment Flow documented separately in WORKFLOW_SPECS.md
 
 ---
 
@@ -110,8 +152,6 @@
 | Medium | Block, Unblock, Resolve, Details | Fresh PIN |
 | High | Refund, Force-Refund, Approve, Reject | PIN + TOTP |
 
-**See:** Admin Authentication section below.
-
 ---
 
 ### Workflow 4: Ban Claim
@@ -140,12 +180,6 @@
 
 **Purpose:** Proxy generation, testing, and health monitoring
 
-**Providers:**
-- Proxy-Seller (ISP + DC)
-- DataImpulse (Residential + Mobile)
-- Geonode (Free trial proxies)
-- CPAGrip (Free trial survey verification)
-
 **Pre-Order Health Check:**
 ```
 [Customer selects product] → [Ping provider API] → [IF down] → "Try again later"
@@ -159,6 +193,17 @@
 [IF FAIL] → Replace via API (max 2 attempts)
         ↓
 [IF all FAIL] → Auto-refund + log to error_log
+```
+
+**Data Fetch (for Data Alert tracking):**
+```
+[Cron: Every 15 minutes]
+        ↓
+[For each active DataImpulse order]
+  → GET /reseller/order/{id} or /status endpoint
+  → Extract: data_used_gb, data_remaining_gb
+  → Update PostgreSQL: data_used_gb, data_remaining_gb
+  → IF data_remaining_gb changed → Log event
 ```
 
 **Daily Health Cron:**
@@ -192,32 +237,32 @@
 
 ---
 
-### Workflow 7: Expiry + Data Reminder Cron
+### Workflow 7: Expiry + Data Alert Cron
 
 **Trigger:** Daily cron at 9 AM (Africa/Lagos)
-**Purpose:** Notify customers before proxy expires or data runs low
+**Purpose:** Notify customers before ISP/DC expires. Data alerts handled by Workflow 14.
 
 ```
 [Cron: Daily 09:00 Lagos]
         ↓
-[Query PostgreSQL] → Orders expiring in 3 days + active
+[Query PostgreSQL] → ISP and DC orders expiring in 3 days + active
         ↓
-[For each order]
+[For each ISP/DC order]
+  → IF expires_at <= NOW + 3 days AND expires_at > NOW
+  → Send expiry reminder
         ↓
-[IF data_remaining_gb <= 1GB AND data_remaining_gb > 0] → Data warning
-[IF data_remaining_gb <= 0 AND status = 'active'] → Data exhausted notice
-[IF expires_at <= NOW + 3 days AND expires_at > NOW] → Expiry reminder
+[Query PostgreSQL] → Mobile orders expiring in 3 days + data remaining > 0
         ↓
-[Send WhatsApp] → Reminder message
+[For each Mobile order]
+  → IF data_expires <= NOW + 3 days AND data_remaining_gb > 0
+  → Send expiry reminder
 ```
 
-**Reminders:**
+**ISP/DC Reminder:**
 
 | Type | Trigger | Message |
 |------|---------|---------|
 | Expiry warning | 3 days before | "Your proxy expires in 3 days. Renew to keep [IP]." |
-| Data warning | ≤1GB remaining | "Your proxy has 1GB remaining." |
-| Data exhausted | 0GB | "Your proxy data is exhausted. Top up to continue." |
 
 ---
 
@@ -251,7 +296,7 @@
         ↓
 [Check idempotency] → [IF duplicate] → Return 200
         ↓
-[Pull from Geonode Free API]
+[Pull from Proxy-Seller or DataImpulse free allocation]
         ↓
 [Test proxy] → 5s timeout
         ↓
@@ -259,28 +304,6 @@
 [IF FAIL] → "Proxy unavailable. Try again."
         ↓
 [Log to free_trials] → increment free_trials_used_today
-```
-
-**Disclaimer message:**
-```
-🎁 FREE TRIAL — DISCLAIMER
-
-Before we send your free IP, please read:
-
-⚠️ FREE TRIAL TERMS ⚠️
-
-This free trial uses PUBLIC PROXIES from external sources.
-By accepting, you agree:
-
-❌ NOT guaranteed to work
-❌ NOT guaranteed stable
-❌ May stop working at any moment
-❌ Not for production/critical use
-❌ No replacement if proxy dies
-❌ Used entirely at YOUR OWN RISK
-
-✅ Bunche is NOT responsible for proxy performance
-✅ For testing our service only
 ```
 
 ---
@@ -306,7 +329,7 @@ By accepting, you agree:
 [Update: free_trial_offer_sent_today = true]
 ```
 
-**Note:** Customer must ASK for free trial before we send proxy. This cron only OFFERS the trial — doesn't send the proxy automatically.
+**Note:** Customer must ASK for free trial before we send proxy. This cron only OFFERS the trial.
 
 ---
 
@@ -402,6 +425,202 @@ ip_hash = sha256(ip).substring(0, 20)         // Never log plain IP
 
 ---
 
+### Workflow 14: Data Alert Escalation Cron
+
+**Trigger:** Cron every 15 minutes
+**Purpose:** Send escalating alerts as data runs low. Only for Residential and Mobile (DataImpulse).
+
+```
+[Cron: Every 15 minutes]
+        ↓
+[Query PostgreSQL] → All active Residential and Mobile orders
+        ↓
+[For each data order]
+  → Fetch latest data_remaining_gb from PostgreSQL
+  → Calculate: data_pct = (data_remaining_gb / data_total_gb) × 100
+  → Check alert_history for last alert sent at this threshold
+        ↓
+[IF data_pct <= 20% AND no alert sent at 20%] → Send 20% alert
+[IF data_pct <= 10% AND no alert sent at 10%] → Send 10% alert
+[IF data_pct <= 5% AND no alert sent at 5%] → Send 5% alert
+[IF data_remaining_gb == 0 AND no alert sent at 0%] → Send exhausted alert
+        ↓
+[Mark alert as sent in alert_history]
+```
+
+**Alert Escalation Schedule:**
+
+| Threshold | Trigger | Message Type |
+|-----------|---------|--------------|
+| **20%** | `remaining_gb <= total_gb × 0.20` | First warning |
+| **10%** | `remaining_gb <= total_gb × 0.10` | Second warning |
+| **5%** | `remaining_gb <= total_gb × 0.05` | Final warning |
+| **0GB** | `remaining_gb == 0` | Exhausted — proxy inactive |
+
+**Each alert is sent only ONCE at each threshold.**
+
+---
+
+## Data Alert System
+
+### Alert Message Templates
+
+**20% — First Warning:**
+```
+📊 Data Running Low — [Name]
+
+Your [PRODUCT] Proxy:
+🔗 IP: [IP]
+📦 [X.X]GB of [X]GB used (~[X]% left)
+⏰ [Residential: "No expiry date" | Mobile: "Expires [DATE]"]
+
+💡 You're using more data than expected.
+Want to top up? Just say "Top up" 📱
+```
+
+**10% — Second Warning:**
+```
+⚠️ Data Running Very Low — [Name]
+
+Your [PRODUCT] Proxy:
+🔗 IP: [IP]
+📦 Only [X.X]GB remaining (~[X]% left)
+⏰ [Mobile: "Expires [DATE]"]
+
+🚨 Time to top up!
+Say "Top up" to add more data 📱
+```
+
+**5% — Final Warning:**
+```
+🚨 LAST WARNING — [Name]
+
+Your [PRODUCT] Proxy:
+🔗 IP: [IP]
+📦 Just [X.X]GB left (~[X]%!)
+🔴 Proxy stops when data runs out.
+
+TOP UP NOW — say "Top up" 📱
+```
+
+**0GB — Exhausted:**
+```
+🔴 DATA EXHAUSTED — [Name]
+
+Your [PRODUCT] Proxy:
+🔗 IP: [IP]
+📦 0GB remaining
+⏰ [Mobile: "Expired [DATE]" | Residential: "No expiry"]
+
+🔴 PROXY IS INACTIVE.
+
+Say "Top up" to restore access 📱
+```
+
+**Mobile + Expiry Approaching (both at once):**
+```
+🔴⚠️ DATA LOW + EXPIRY SOON — [Name]
+
+Your Mobile Proxy:
+🔗 IP: [IP]
+📦 [X.X]GB remaining
+⏰ Expires in [X] days
+
+Two problems:
+1. Data running low
+2. Proxy expires soon
+
+Options:
+1️⃣ Top up now — restore access + extend expiry
+2️⃣ Wait for expiry — lose unused data
+
+Which? 📱
+```
+
+### Top-Up Flow
+
+```
+Customer: "Top up"
+  ↓
+Bunche: "How much data?"
+
+[Mobile options]
+  5GB = ₦20,000
+  10GB = ₦35,000
+
+[Residential options]
+  5GB = ₦5,000
+  10GB = ₦9,000
+
+⚠️ Mobile: Any unused GB from current plan will be LOST on top-up!
+  ↓
+Customer: "5GB"
+  ↓
+Bunche: "Sending payment link... 💳"
+  ↓
+Payment confirmed
+  ↓
+[IF Residential] → Add GB to existing proxy
+[IF Mobile] → Add GB to existing proxy + extend to 30 days from today
+  ↓
+[PDF] → Receipt
+  ↓
+WhatsApp: "✅ Top up confirmed!
+
+[PRODUCT] Proxy:
+🔗 IP: [IP]
+📦 [X]GB fresh allocation
+⏰ [Mobile: "Expires [NEW DATE]"]
+
+Your proxy is back online! 🔄"
+```
+
+### Data Status Check
+
+```
+Customer: "Check my data"
+  ↓
+[IF Residential found]
+  → "📊 Your Residential Data
+
+🔗 IP: [IP]
+📦 [X.X]GB of [X]GB used
+📌 Remaining: [X.X]GB
+⏰ No time expiry — lasts until GB runs out"
+
+[IF Mobile found]
+  → "📊 Your Mobile Data
+
+🔗 IP: [IP]
+📦 [X.X]GB of [X]GB used
+📌 Remaining: [X.X]GB
+⏰ Expires: [DATE] ([X] days left)"
+
+[IF both]
+  → Show both
+
+[IF neither]
+  → "You don't have any data proxies yet.
+      Want to order one? Reply 'Help' for options."
+```
+
+### Data Alert Tracking Table
+
+```sql
+CREATE TABLE data_alert_history (
+    id SERIAL PRIMARY KEY,
+    order_id VARCHAR(20) REFERENCES orders(order_id),
+    threshold_pct INT,          -- 20, 10, 5, 0
+    alert_sent_at TIMESTAMPTZ DEFAULT NOW(),
+    message_type VARCHAR(20)     -- 'first_warning', 'second_warning', 'final_warning', 'exhausted'
+);
+
+CREATE INDEX idx_alert_history_order ON data_alert_history(order_id);
+CREATE INDEX idx_alert_history_threshold ON data_alert_history(order_id, threshold_pct);
+```
+
+---
+
 ## Security
 
 ### Webhook Signature Verification
@@ -414,8 +633,6 @@ All webhooks verified before processing:
 | Flutterwave | HMAC-SHA256 (verif-hash) |
 | CPAGrip | HMAC-SHA256 (signature param) |
 
-**See:** `docs/SECURITY_PLAN.md` for implementation.
-
 ---
 
 ### Rate Limiting (3 Layers)
@@ -426,13 +643,9 @@ All webhooks verified before processing:
 | Nginx | Persistent attackers, per-endpoint limits |
 | Redis in n8n | Customer spam, phone-based limits |
 
-**See:** `docs/SECURITY_PLAN.md` for limits and implementation.
-
 ---
 
 ### Payment Idempotency
-
-Every webhook checked for duplicates:
 
 ```
 [Webhook received]
@@ -452,8 +665,6 @@ Every webhook checked for duplicates:
 [Mark as processed in Redis + PostgreSQL]
 ```
 
-**See:** `docs/SECURITY_PLAN.md` for implementation.
-
 ---
 
 ## Architecture
@@ -471,11 +682,11 @@ Customer WhatsApp
         ↓
 [Redis — caching + sessions + rate limits]
         ↓
-[PostgreSQL — data]
+[PostgreSQL — customers, orders, audit logs]
         ↓
 [MiniMax M2 API — LLM]
         ↓
-[Provider APIs — Proxy-Seller, DataImpulse, Geonode, CPAGrip]
+[Provider APIs — Proxy-Seller, DataImpulse]
         ↓
 [WhatsApp reply]
 ```
@@ -492,7 +703,7 @@ Self-hosted on VPS. Replaces Google Sheets.
 |------|-----|---------|
 | LLM response | 24h | 80% cache hit rate |
 | Webhook idempotency | 24h | Prevent duplicates |
-| Admin sessions | 15m | Session management |
+| Admin sessions | 30m | Session management |
 | Fresh PIN | 2m | Medium-risk auth |
 | Rate limits | Sliding | Anti-abuse |
 
@@ -504,8 +715,6 @@ Replaces Ollama. API-compatible with OpenAI.
 Base URL: https://api.minimax.chat/v1
 Model: MiniMax-M2
 ```
-
-**See:** `docs/ARCHITECTURE_PLAN.md`
 
 ---
 
@@ -559,8 +768,6 @@ Admin sends message
 | Medium | Block, Unblock, Resolve, Details | Fresh PIN (2 min) |
 | High | Refund, Force-Refund, Approve, Reject | PIN + TOTP |
 
-**See:** `docs/SECURITY_PLAN.md` for full implementation.
-
 ---
 
 ## PII Handling
@@ -601,47 +808,17 @@ Admin sends message
 
 ---
 
-## Free Trial Flow (Complete)
-
-```
-[Customer: Hi]
-        ↓
-[Bunche: Legal notice]
-        ↓
-[Customer: Do you have free trial?]
-        ↓
-[Bunche: Yes! Here's how it works...]
-        ↓
-[Customer: Okay]
-        ↓
-[Customer: Give me the free trial]
-        ↓
-[Bunche: Free trial disclaimer + survey link]
-        ↓
-[Customer: Done]
-        ↓
-[Bunche: Verifies survey completion]
-        ↓
-[IF valid] → [Pull from Geonode Free]
-        ↓
-[Send proxy to customer]
-        ↓
-[Customer: Thank you]
-        ↓
-[Bunche: You're welcome!]
-```
-
----
-
 ## Products & Pricing
 
-| Product | Price | Provider |
-|---------|-------|----------|
-| ISP | ₦6,500/mo | Proxy-Seller |
-| Premium ISP | ₦7,500/mo | Proxy-Seller |
-| DC | ₦3,000/mo | Proxy-Seller |
-| Residential 5GB | ₦9,500 | DataImpulse |
-| Mobile 4G 5GB | ₦20,000 | DataImpulse |
+| Product | Price | Provider | Tracking |
+|---------|-------|----------|----------|
+| ISP | ₦6,500/mo | Proxy-Seller | Time (expires on date) |
+| Premium ISP | ₦7,500/mo | Proxy-Seller | Time |
+| DC | ₦3,000/mo | Proxy-Seller | Time |
+| Residential 5GB | ₦5,000 | DataImpulse | Data (no time expiry) |
+| Residential 10GB | ₦9,000 | DataImpulse | Data |
+| Mobile 4G 5GB | ₦20,000 | DataImpulse | Data + 30-day window |
+| Mobile 4G 10GB | ₦35,000 | DataImpulse | Data + 30-day window |
 
 **Exchange rate:** ₦1,380/$1
 
@@ -649,12 +826,10 @@ Admin sends message
 
 ## Provider Health Endpoints
 
-| Provider | Health Check | Order Endpoint |
-|----------|-------------|----------------|
-| Proxy-Seller | GET /balance | POST /api/v1/order/create |
-| DataImpulse | GET /locations | POST /reseller/order/create |
-| Geonode | GET /api/status | GET /api/proxy-list |
-| CPAGrip | GET /publisher/dashboard | Postback URL |
+| Provider | Health Check | Order Endpoint | Data Status |
+|----------|-------------|----------------|-------------|
+| Proxy-Seller | GET /balance | POST /api/v1/order/create | N/A (time-based) |
+| DataImpulse | GET /account | POST /reseller/order/create | GET /reseller/order/{id} — returns used_gb + remaining_gb |
 
 ---
 
@@ -696,6 +871,7 @@ Admin sends message
 | 11 | Bunche Logger | Planned |
 | 12 | Provider Health Logger | Planned |
 | 13 | Daily Summary | Planned |
+| 14 | Data Alert Escalation | Planned |
 
 ---
 
