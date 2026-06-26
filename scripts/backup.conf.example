@@ -1,0 +1,52 @@
+# ============================================
+# Bunche Backup Configuration
+# ============================================
+# Copy to /etc/bunche/backup.conf on VPS
+# chmod 600 — root only
+# ============================================
+
+# PostgreSQL connection
+POSTGRES_HOST=localhost
+POSTGRES_USER=bunche
+POSTGRES_DB=bunche
+# Password is read from ~/.pgpass — see DEPLOYMENT.md for setup
+# Format: hostname:port:database:username:password
+
+# Where backups live locally (before R2 upload)
+BACKUP_DIR=/backup/bunche
+
+# age public key for encryption
+# Generate keypair ONCE and store private key in:
+#   - 1Password
+#   - Paper copy in fireproof safe
+#   - Anywhere EXCEPT this server
+# Generate: age-keygen -o bunche-backup-private.key
+# Public key is in bunche-backup-private.key — extract it
+BACKUP_PUBLIC_KEY="age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# rclone remote for R2 upload
+# Set up rclone config first:
+#   rclone config
+#   Name: r2
+#   Type: s3
+#   Provider: Cloudflare
+#   Access key ID: from R2 dashboard
+#   Secret access key: from R2 dashboard
+#   Endpoint: https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com
+RCLONE_REMOTE="r2:bunche-backups/daily"
+
+# Where the daily summary n8n webhook lives (for size-alert notifications)
+ALERT_WEBHOOK_URL="https://n8n.yourdomain.com/webhook/backup-alert"
+
+# How long to keep local backups before deleting
+RETENTION_DAYS_LOCAL=7
+
+# ============================================
+# Notes:
+# ============================================
+# - R2 bucket lifecycle rule deletes objects older than 90 days
+# - First backup of each month is duplicated to r2:bunche-backups/monthly/
+#   (handled by a separate cron, see backup-monthly-archive.sh)
+# - Restore procedure: see ADR-005 §"Restore Procedure"
+# - Monthly verification: cron on 1st of month runs
+#   /usr/local/bin/backup-bunche.sh --verify
