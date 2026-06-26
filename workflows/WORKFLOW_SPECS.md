@@ -50,6 +50,51 @@ n8n checks: Is proxy fulfilled?
 
 ---
 
+## Renewal Policy
+
+**Two scenarios — different handling:**
+
+| Situation | What Happens | Customer Action Needed? |
+|-----------|-------------|------------------------|
+| **IP still active** (not expired) | Same IP extended, same credentials | ❌ No — seamless |
+| **IP expired** (past expiry date) | NEW proxy generated, NEW credentials | ✅ Yes — update settings |
+
+### Before Expiry (Active)
+
+```
+Customer: "Renew"
+        ↓
+n8n checks: Is IP still active?
+  → YES (not expired):
+    → Generate payment link (same price)
+    → Payment confirmed
+    → Extend expiry date (+30 days)
+    → SAME credentials sent
+    → WhatsApp: "Your proxy has been extended.
+                 Same IP — no changes needed."
+```
+
+### After Expiry (Expired)
+
+```
+Customer: "Renew"
+        ↓
+n8n checks: Is IP still active?
+  → NO (expired):
+    → WhatsApp: "Your previous proxy has expired.
+                 I'll generate a new one for you.
+                 You'll receive new credentials."
+    → Generate payment link
+    → Payment confirmed
+    → Generate NEW proxy via provider API
+    → NEW credentials sent
+    → WhatsApp: "Your new proxy is ready!
+                 ⚠️ Please update your settings
+                 with the new details."
+```
+
+---
+
 ## Legal Notice
 
 **New customers only** — displayed once when a new phone number first messages Bunche.
@@ -117,6 +162,8 @@ WhatsApp delivery to customer
 | New customer → legal notice | n8n ✅ |
 | Returning customer ordering | n8n fully automated ✅ |
 | Lost proxy details (known number) | n8n fully automated ✅ |
+| Renewal (IP still active) | n8n fully automated ✅ — same IP extended |
+| Renewal (IP expired) | n8n generates new proxy ✅ — new credentials |
 | Refund request (proxy not yet sent) | n8n approves automatically ✅ |
 | Refund request (proxy already sent) | n8n declines → admin reviews ⚠️ |
 | Ban claim with screenshot | Admin review needed ⚠️ |
@@ -160,7 +207,7 @@ Edit Fields: Extract from, msg_body, msg_id, timestamp
   ↓
 [CHECK: Is admin number?] → YES → Route to Admin Workflow
   ↓
-[CHECK: Existing customer?] → YES → Skip to Workflow 1a
+[CHECK: Existing customer?] → YES → Workflow 1a
                            → NO  → Show legal notice → Workflow 1b
 ```
 
@@ -207,10 +254,31 @@ intent == "help":
   → Webhook Response: HTTP 200
 
 intent == "renew":
-  → Show their active orders
-  → Let customer select which to renew
-  → Generate payment link
-  → Webhook Response: HTTP 200
+  → Google Sheets Read: Get customer's active orders
+  → Present list of active orders to customer
+  → Customer selects which to renew
+  → Google Sheets Read: Check if selected order's IP is still active (compare today vs expiry date)
+  ↓
+  [IF IP STILL ACTIVE]
+    → Generate payment link
+    → Payment confirmed → Extend expiry date (+30 days from today)
+    → SAME credentials sent
+    → WhatsApp: "✅ Your proxy has been extended!
+                 Same IP — no changes needed on your end."
+    → Webhook Response: HTTP 200
+  ↓
+  [IF IP EXPIRED]
+    → WhatsApp: "Your previous proxy has expired.
+                 I'll generate a new one for you.
+                 You'll receive new credentials."
+    → Generate payment link
+    → Payment confirmed
+    → HTTP Request → Provider API: Generate NEW proxy
+    → NEW credentials sent
+    → WhatsApp: "✅ Your new proxy is ready!
+                 ⚠️ Please update your settings
+                 with the new details."
+    → Webhook Response: HTTP 200
 
 Default:
   → WhatsApp: LLM reply
@@ -324,27 +392,38 @@ Google Sheets Read Row: Check if customer exists (by phone)
   → Wait for name → Store in Customers sheet
   → Google Sheets: Log consent (ToS/Privacy/AUP agreed at first message)
   ↓
-[IF RETURNING CUSTOMER]
+[IF RETURNING CUSTOMER — New order]
   → No recovery setup — skip
   ↓
-HTTP Request → Provider API (POST /orders)
+[IF RETURNING CUSTOMER — Renewal (IP active)]
+  → SAME credentials reused, expiry extended
+  → WhatsApp: "✅ Extension confirmed! Your proxy
+               is now valid until [NEW DATE]."
+  → Google Sheets Update: Fulfilled At = now, Status = "fulfilled"
+  → [PDF GENERATION] → WhatsApp: Receipt
+  → Webhook Response: HTTP 200
   ↓
-IF Provider API fails → Try backup provider
-  Proxy-Seller → OkeyProxy → DataImpulse
-    IF All fail:
-      → Initiate refund → [ADMIN ALERT] → Mark failed
+[IF RETURNING CUSTOMER — Renewal (IP expired)]
+  → NEW proxy generated via provider API
+  → NEW credentials sent
+  → WhatsApp: "✅ New proxy ready! ⚠️ Update your
+               settings with the new details."
+  → [PDF GENERATION] → WhatsApp: Receipt
+  → Webhook Response: HTTP 200
   ↓
-Edit Fields: Parse credentials from provider response
+[IF NEW ORDER (not renewal)]
+  → HTTP Request → Provider API (POST /orders)
+  → IF Provider API fails → Try backup provider
+    Proxy-Seller → OkeyProxy → DataImpulse
+      IF All fail:
+        → Initiate refund → [ADMIN ALERT] → Mark failed
+  → Edit Fields: Parse credentials from provider response
+  → Google Sheets Update Row: Status = "fulfilled", Proxy Details = creds
+  → Google Sheets Append/Update: Add/update Customer
+  → [PDF GENERATION] — Generate receipt PDF
+  → WhatsApp Send Message: Proxy details + PDF receipt
   ↓
-Google Sheets Update Row: Status = "fulfilled", Proxy Details = creds
-  ↓
-Google Sheets Append/Update: Add/update Customer
-  ↓
-[PDF GENERATION] — Generate receipt PDF
-  ↓
-WhatsApp Send Message: Proxy details + PDF receipt
-  ↓
-[IMPORTANT] → WhatsApp: "⚠️ No refunds once proxy is delivered. Replacement only within 24hrs if banned."
+WhatsApp: "⚠️ No refunds once proxy is delivered. Replacement only within 24hrs if banned."
   ↓
 Webhook Response: HTTP 200
 ```
@@ -430,8 +509,8 @@ Edit Fields: Extract from, msg_body
   → WhatsApp (admin): "✅ Unblocked [phone]"
 
 "Details ORD-XXXXX":
-  → Google Sheets Read: Get full order details
-  → WhatsApp (admin): Send full order summary
+  → Google Sheets Read: Get full order details + check if IP expired
+  → WhatsApp (admin): Send full order summary including expiry status
 
 "Refund ORD-XXXXX":
   → Google Sheets Read: Check order status
@@ -707,6 +786,7 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 | Provider Order ID | text |
 | Proxy Credentials | text |
 | Status | text |
+| Expires At | datetime |
 | Ban Reported | boolean |
 | Screenshot URL | text |
 | Ban Verified | admin_review_pending / verified / rejected |
@@ -718,7 +798,7 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 | Cost (USD) | number |
 
 **Status Values:**
-`awaiting_payment` | `paid_pending_fulfillment` | `fulfilled` | `ban_pending_review` | `replaced` | `failed` | `refund_pending` | `refunded` | `rejected` | `cancelled`
+`awaiting_payment` | `paid_pending_fulfillment` | `fulfilled` | `ban_pending_review` | `replaced` | `failed` | `refund_pending` | `refunded` | `rejected` | `cancelled` | `expired`
 
 ---
 
@@ -762,6 +842,7 @@ RESPONSE FORMAT — Return ONLY valid JSON:
 | Admin only on exception | Admin Workflow triggered only on exception |
 | No refund after delivery | Workflow enforces — admin override only |
 | Legal notice only on first interaction | Workflow checks new vs returning |
+| Renewal checks IP expiry | Active = same IP extended; Expired = new proxy |
 
 ---
 
@@ -805,4 +886,12 @@ curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
 curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
   -H "Content-Type: application/json" \
   -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t5","from":"2349000000001","timestamp":"123","text":{"body":"I want a refund"}}]}}]}]}'
+
+# Scenario 6: Customer renewal — IP still active
+curl -X POST https://n8n.yourdomain.com/webhook/whatsapp-incoming \
+  -H "Content-Type: application/json" \
+  -d '{"entry":[{"changes":[{"value":{"messages":[{"id":"t6","from":"2349000000001","timestamp":"123","text":{"body":"Renew ORD-2026-XXXXX"}}]}}]}]}'
+
+# Scenario 7: Customer renewal — IP expired (new proxy generated)
+# Same as above but order's Expires At is in the past
 ```
