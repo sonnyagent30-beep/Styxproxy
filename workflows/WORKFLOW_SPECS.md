@@ -1,7 +1,7 @@
 # Bunche — Workflow Specifications
 
 **Last Updated:** 2026-06-26
-**SHA:** data-alert-v1
+**SHA:** data-alert-v1-referral
 **Status:** Planning Complete — Ready for Implementation
 
 ---
@@ -11,10 +11,11 @@
 1. [Products & Data Model](#products--data-model)
 2. [Workflows](#workflows)
 3. [Data Alert System](#data-alert-system)
-4. [Security](#security)
-5. [Architecture](#architecture)
-6. [Admin Authentication](#admin-authentication)
-7. [PII Handling](#pii-handling)
+4. [Referral System](#referral-system)
+5. [Security](#security)
+6. [Architecture](#architecture)
+7. [Admin Authentication](#admin-authentication)
+8. [PII Handling](#pii-handling)
 
 ---
 
@@ -82,6 +83,7 @@ Mobile 5GB purchased January 1
         ├── recovery → [Recovery Flow]
         ├── how_to_use → [Setup Guide Flow]
         ├── check_data → [Data Status Flow]
+        ├── referral_share → [Share Name Flow]
         └── unknown → [Fallback]
 ```
 
@@ -113,6 +115,9 @@ Mobile 5GB purchased January 1
 [Send WhatsApp] → Proxy credentials + PDF receipt
         ↓
 [Update PostgreSQL] → status = 'fulfilled', fulfilled_at = NOW()
+        ↓
+[IF new customer] → Ask for name → Save → Show referral name
+[IF referred order AND first purchase] → Process referral credit → Notify referrer
 ```
 
 ---
@@ -148,7 +153,7 @@ Mobile 5GB purchased January 1
 
 | Level | Commands | Auth |
 |-------|----------|------|
-| Low | Pending, Provider Status, Errors, Daily Summary | Session |
+| Low | Pending, Provider Status, Errors, Daily Summary, Referral Stats | Session |
 | Medium | Block, Unblock, Resolve, Details | Fresh PIN |
 | High | Refund, Force-Refund, Approve, Reject | PIN + TOTP |
 
@@ -416,6 +421,7 @@ ip_hash = sha256(ip).substring(0, 20)         // Never log plain IP
   - Total refunds today
   - New customers today
   - Free trials used today
+  - Referral purchases today
         ↓
 [INSERT INTO daily_summary]
         ↓
@@ -458,6 +464,32 @@ ip_hash = sha256(ip).substring(0, 20)         // Never log plain IP
 | **0GB** | `remaining_gb == 0` | Exhausted — proxy inactive |
 
 **Each alert is sent only ONCE at each threshold.**
+
+---
+
+### Workflow 15: Referral Credit Processor
+
+**Trigger:** Sub-step in Workflow 2 (after order fulfilled)
+**Purpose:** Credit referrer after referred customer's first purchase completes
+
+```
+[Order fulfilled — payment confirmed]
+        ↓
+[Check: Is this a referred order? (referred_by_phone exists?)]
+        ↓
+[IF yes AND customer.total_orders == 1 (first order for referred customer)]
+  → Calculate: referral_credit = order_amount_paid × 0.05
+  → Add credit to referrer's account:
+    UPDATE customers 
+    SET referral_credit_ngn = referral_credit_ngn + $credit
+    WHERE phone = referred_by_phone
+  → UPDATE orders SET referral_credit_earned_ngn = $credit
+  → Send WhatsApp to referrer: "🎉 You earned referral credit!"
+  → Log event to customer_audit_log
+        ↓
+[IF no referral OR not first order]
+  → Continue normally (no action needed)
+```
 
 ---
 
@@ -621,6 +653,24 @@ CREATE INDEX idx_alert_history_threshold ON data_alert_history(order_id, thresho
 
 ---
 
+## Referral System
+
+See `docs/REFERRAL_SYSTEM.md` for the full referral system specification.
+
+**Quick summary:**
+
+| Element | Detail |
+|---------|--------|
+| **Referral code** | Customer's own name/nickname |
+| **Reward** | Referrer earns 5% of referred person's first order |
+| **Credit form** | Discount on referrer's next IP purchase |
+| **Who can refer** | Any customer with a name saved |
+| **Applies to** | First-time referral purchases only |
+| **Credit expiry** | Never — stays until used |
+| **Self-referral** | Blocked |
+
+---
+
 ## Security
 
 ### Webhook Signature Verification
@@ -764,7 +814,7 @@ Admin sends message
 
 | Level | Commands | Auth |
 |-------|----------|------|
-| Low | Pending, Provider Status, Errors, Daily Summary | Active session |
+| Low | Pending, Provider Status, Errors, Daily Summary, Referral Stats | Active session |
 | Medium | Block, Unblock, Resolve, Details | Fresh PIN (2 min) |
 | High | Refund, Force-Refund, Approve, Reject | PIN + TOTP |
 
@@ -841,6 +891,7 @@ Admin sends message
 | Provider Status | Low | Show provider health |
 | Errors | Low | Show recent errors |
 | Daily Summary | Low | Show today's metrics |
+| Referral Stats | Low | Show referral totals, top referrers |
 | Block [phone] [reason] | Medium | Block customer |
 | Unblock [phone] | Medium | Unblock customer |
 | Resolve ERR-XXXXX | Medium | Mark error resolved |
@@ -872,11 +923,13 @@ Admin sends message
 | 12 | Provider Health Logger | Planned |
 | 13 | Daily Summary | Planned |
 | 14 | Data Alert Escalation | Planned |
+| 15 | Referral Credit Processor | Planned |
 
 ---
 
 ## See Also
 
+- `docs/REFERRAL_SYSTEM.md` — Full referral system specification
 - `docs/ARCHITECTURE_PLAN.md` — Full architecture plan
 - `docs/SECURITY_PLAN.md` — Security implementation details
 - `docs/DATABASE_SCHEMA.md` — PostgreSQL schema
