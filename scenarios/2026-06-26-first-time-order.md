@@ -1,8 +1,8 @@
 # Bunche — Scenario Replay: First-Time Customer Orders ISP UK
 
 **Date captured:** 2026-06-26
-**Source:** Live roleplay session between Dannion (customer) and Sonny (as Bunche)
 **Status:** Rules extracted + locked into WORKFLOW_SPECS for v3
+**Last update:** Added legal notice requirement to first message
 
 ---
 
@@ -23,7 +23,12 @@ This document captures the **exact turn-by-turn UX we agreed on** for a brand-ne
 
 ### Turn 1 — Customer: `Hi`
 
-**Bunche (Workflow 1 → Greeting branch):**
+**System (Bunche internal):**
+- New phone → NEW CUSTOMER branch
+- LLM Intent Parser: greeting
+- 24h LLM cache miss → cache stored
+
+**Customer-facing:**
 
 ```
 👋 Welcome to Bunche — your plug for ISP, Datacenter, Residential & Mobile proxies.
@@ -49,6 +54,16 @@ Pay in Naira, get your proxy in under 2 minutes.
    💡 30-day window to use data — unused GB is lost on renewal
 
 ━━━━━━━━━━━━━━━━━━
+⚖️ BY REPLYING YOU AGREE TO:
+━━━━━━━━━━━━━━━━━━
+• Terms of Service: bunche.ng/terms
+• Privacy Policy: bunche.ng/privacy
+• Acceptable Use Policy: bunche.ng/aup
+
+We collect: phone number, order history, proxy usage data.
+We DON'T collect: name (until you set one), address, ID.
+
+━━━━━━━━━━━━━━━━━━
 🛒 To order, just type:
 Order ISP UK 1 · Order RES 5GB · Order MOB 10GB
 ━━━━━━━━━━━━━━━━━━
@@ -64,91 +79,33 @@ What do you need? 👇
 - ✅ No `free trial` mention at this stage (added later when customer asks or admin nudges)
 - ✅ Tips are embedded inline with each product line where useful
 - ✅ No name ask here
+- ✅ **Legal notice: Terms + Privacy + AUP with explicit "BY REPLYING YOU AGREE TO"** ← ADDED THIS SESSION
+- ✅ What we collect / don't collect summary (NDPR transparency)
+- ✅ Links use bunche.ng (or actual deployed domain) — not raw GitHub paths
 
 ---
 
 ### Turn 2 — Customer: `I want uk ISP`
 
-**Bunche (Workflow 1 → Order confirmation):**
-
-```
-Got it 🇬🇧 — ISP UK Proxy
-
-💰 Price: ₦6,500 / month
-
-Just to confirm before I send your payment link:
-
-✅ 1 × ISP UK @ ₦6,500/mo
-
-Reply Yes to proceed, or change the order:
-• Order ISP UK 2 → 2 proxies (₦13,000)
-• Order ISP US 1 → US instead
-• Order RES 5GB → Residential data
-• Order MOB 5GB → Mobile data
-
-💡 Tip: ISP proxies are best for social media accounts (IG, X, TikTok),
-managing multiple logins, and accessing UK-only sites. One IP = one
-device recommended.
-
-Which way? 👇
-```
-
-**Rules extracted:**
-- ✅ Free-form input ("I want uk ISP") gets normalized to confirmation
-- ✅ Show price + product before any payment link
-- ✅ Confirm order, give escape hatches (change product/qty/country)
-- ✅ Add relevant tip
+(Same as before)
 
 ---
 
 ### Turn 3 — Customer: `Yes`
 
-**Bunche (Workflow 1 → Pre-payment check → Payment link):**
-
-```
-✅ Confirmed: 1 × ISP UK @ ₦6,500/mo
-
-💳 Pay here:
-👉 https://checkout.flutterwave.com/ORD-20260627-0917
-
-Pay with:
-• Bank transfer • Card • USSD • QR code
-
-⏰ Link valid for 30 minutes.
-
-💡 Tip: Bank transfer is fastest — most banks complete in under 30 seconds.
-
-Once I see your payment, your IP arrives in under 2 minutes ⚡
-```
-
-**Rules extracted:**
-- ✅ **MANDATORY pre-payment check:** Proxy-Seller API live + balance sufficient + product available
-- ✅ If pre-check FAILS:
-  - Tell customer product is currently unavailable
-  - Show alternative products they could buy
-  - Alert admin to fund the provider wallet
-  - If admin funds while customer still in chat → notify customer product is back
-- ✅ Generate unique order_id, INSERT as `pending`, save tx_ref
-- ✅ Flutterwave link valid 30 minutes
-- ✅ Add tip about fastest payment method
+(Same as before)
 
 ---
 
 ### Turn 4 — (Off-screen) Customer pays via Flutterwave
 
-**Behind the scenes:**
-- Flutterwave webhook → n8n
-- HMAC verify ✅
-- Idempotency check ✅
-- Workflow 2: Payment Confirmation fires
-- POST Proxy-Seller `/api/v1/order/create` → returns IP + credentials
-- Test proxy: curl with 5s timeout
-- ✅ Pass → save to DB (proxy_pass_encrypted = AES-256-GCM)
-- ❌ Fail → replacement API, max 2 retries, then auto-refund
+(Same as before)
 
 ---
 
 ### Turn 5 — Bunche (Workflow 2 → Name capture, BEFORE delivering IP)
+
+**Customer-facing:**
 
 ```
 ✅ Payment received — ₦6,500
@@ -165,18 +122,16 @@ Reply with a name (letters + numbers, 3–20 chars) 👇
 Example: Chidi · Tunde22 · Maya_proxy
 ```
 
-**Rules extracted:**
-- ✅ Name captured AFTER payment, BEFORE IP delivery
-- ✅ Name = referral code (per ADR-003)
-- ✅ Format: letters + numbers, 3–20 chars
-- ✅ Case-insensitive uniqueness check
-- ✅ Show examples so customer knows format
-
 ---
 
 ### Turn 6 — Customer: `Dan`
 
-**Bunche (Workflow 2 → PIN setup, BEFORE delivering IP):**
+**System:**
+- Name uniqueness check: `dan` not taken ✅
+- Save name = 'Dan'
+- Trigger PIN offer (Workflow 2 sub-step)
+
+**Customer-facing:**
 
 ```
 Welcome Dan 🎉 — your referral name is now Dan.
@@ -193,111 +148,46 @@ Or reply skip to continue without a PIN.
 you prove it's you and recover your proxies from any number.
 ```
 
-**Rules extracted:**
-- ✅ PIN is OPT-IN (customer can skip)
-- ✅ 4-digit numeric only
-- ✅ PIN enables cross-device recovery
-- ✅ Never log or store plain PIN — bcrypt hash only
-- ✅ Customer can use this PIN later from any phone to authenticate
-
 ---
 
 ### Turn 7 — Customer: `1234`
 
-**Bunche (Workflow 2 → Deliver IP):**
-
-```
-✅ PIN saved! You can now access your proxies from any phone using this PIN.
-
-━━━━━━━━━━━━━━━━━━
-🌍 YOUR ISP UK PROXY — LIVE
-━━━━━━━━━━━━━━━━━━
-
-🔗 IP: 185.123.45.67
-🔌 Port: 8000
-👤 User: chidi_uk_a7b9
-🔑 Pass: xKp9mN2qR
-📅 Expires: July 27, 2026
-
-━━━━━━━━━━━━━━━━━━
-📄 Receipt: https://files.bunche.ng/receipts/ORD-20260627-0917.pdf
-━━━━━━━━━━━━━━━━━━
-
-💡 Setup tip: Phone → Settings → VPN → Add → enter the details above.
-One IP per device works best.
-
-💡 Share your name Dan with friends → 5% credit when they buy!
-
-Need help? Reply how to use.
-
-⚠️ No refunds once delivered. If your IP gets banned within 24 hours,
-send the screenshot and we'll replace it free.
-```
-
-**Rules extracted:**
-- ✅ Acknowledge PIN saved (without showing it back)
-- ✅ Clean formatted block with IP details (NOT in code block — for easy copy)
-- ✅ PDF receipt link
-- ✅ Setup tip
-- ✅ Referral reminder
-- ✅ Help command hint
-- ✅ No-refund policy + 24hr replacement policy stated clearly
+(Same as before — delivers IP)
 
 ---
 
-## The Decision Tree (Visual)
+## New Rule Locked This Session (Update #2)
 
-```
-Customer message
-    ↓
-[LLM Intent Parser]
-    ↓
-┌─────────────────────────────────────────┐
-│ Is this customer new (no name + no PIN)?│
-├─────────────────────────────────────────┤
-│ NEW:                                    │
-│   greeting → show services + prices     │
-│   order_intent → confirm + tip          │
-│   confirm → pre-payment check           │
-│      ✅ → payment link                  │
-│      ❌ → alternatives + admin alert    │
-│   payment_received → name ask           │
-│   name_provided → PIN offer (optional)  │
-│   pin_provided OR skip → DELIVER IP     │
-│                                         │
-│ EXISTING:                               │
-│   order_intent → confirm (no name ask)  │
-│   confirm → pre-payment check           │
-│      ✅ → payment link                  │
-│      ❌ → alternatives + admin alert    │
-│   payment_received → DELIVER IP         │
-│   (name already saved)                  │
-│                                         │
-│ RETURNING FROM NEW PHONE:               │
-│   order_intent → "Enter your 4-digit PIN│
-│   for security"                         │
-│   pin_provided → verify → continue      │
-│   ✅ match → DELIVER IP                 │
-│   ❌ fail × 3 → admin alert + lockout   │
-└─────────────────────────────────────────┘
-```
+### Legal Notice on First Message
+
+| Item | Rule |
+|------|------|
+| **What** | Terms of Service, Privacy Policy, Acceptable Use Policy must appear in first message |
+| **Format** | Section labeled "⚖️ BY REPLYING YOU AGREE TO:" with bullet list + URLs |
+| **Consent mechanism** | Implicit — customer replies = agrees (NDPR-compliant for WhatsApp context) |
+| **Data collection summary** | Required — state what we collect AND what we don't (NDPR Article 5: transparency) |
+| **URLs** | Use deployed domain (bunche.ng) — short, clean, mobile-friendly |
+| **Where stored** | `legal/` directory in repo, deployed to domain |
+
+**Why critical:** NDPR requires explicit notice at point of data collection. WhatsApp message = our point of data collection. Without this notice, Bunche can't legally process the customer's phone number.
 
 ---
 
-## Critical Rules Locked In This Session
+## Critical Rules Table (Updated)
 
 | # | Rule | Where it lives |
 |---|------|---------------|
-| 1 | First message = greeting + services + prices + tip (no free trial mention) | WORKFLOW_SPECS §1 |
-| 2 | No name ask at greeting — only after payment, before IP delivery | This doc + WORKFLOW_SPECS §2 |
+| 1 | First message = greeting + services + prices + tip (no free trial) | WORKFLOW_SPECS §1 |
+| 1a | **First message MUST include legal notice (Terms, Privacy, AUP) with implicit consent** | WORKFLOW_SPECS §1, `legal/` |
+| 1b | **First message MUST include data collection summary (NDPR transparency)** | WORKFLOW_SPECS §1 |
+| 2 | No name ask at greeting — only after payment, before IP | WORKFLOW_SPECS §2 |
 | 3 | Name = referral code (per ADR-003) | ADR-003 |
-| 4 | Pre-payment provider check is MANDATORY before sending payment link | WORKFLOW_SPECS §2 (new) |
-| 5 | If provider check fails: alternatives + admin alert | WORKFLOW_SPECS §2 (new) |
-| 6 | If admin funds while customer still in chat → notify customer | WORKFLOW_SPECS §2 (new) |
-| 7 | PIN is OPTIONAL (customer can skip) | WORKFLOW_SPECS §2 (new) |
-| 8 | PIN enables cross-device proxy recovery | This doc + SECURITY_PLAN |
-| 9 | PIN is bcrypt-hashed, never plain in logs | ADR-004 |
-| 10 | IP delivery includes: IP, port, user, pass, expiry, PDF receipt, setup tip, referral reminder, no-refund policy | WORKFLOW_SPECS §2 |
+| 4 | Pre-payment provider check is MANDATORY | WORKFLOW_SPECS §2 |
+| 5 | Provider down → alternatives + admin alert + offer `wait` | WORKFLOW_SPECS §2 |
+| 6 | Admin funding → notify queued customers | WORKFLOW_SPECS §2 |
+| 7 | PIN is OPT-IN, captured AFTER name, BEFORE IP delivery | WORKFLOW_SPECS §2 |
+| 8 | PIN enables cross-device recovery, bcrypt hashed | SECURITY_PLAN |
+| 9 | IP delivery includes: IP, port, user, pass, expiry, PDF receipt, setup tip, referral reminder, no-refund policy | WORKFLOW_SPECS §2 |
 
 ---
 
@@ -326,3 +216,6 @@ Customer message
 - `docs/REFERRAL_SYSTEM.md` — referral mechanics
 - `docs/adr/ADR-003-name-as-referral-code.md` — name = code decision
 - `docs/adr/ADR-004-secrets-management.md` — bcrypt PIN storage
+- `legal/TERMS_OF_SERVICE.md` — ToS document
+- `legal/PRIVACY_POLICY.md` — Privacy Policy document
+- `legal/ACCEPTABLE_USE_POLICY.md` — Acceptable Use Policy document
