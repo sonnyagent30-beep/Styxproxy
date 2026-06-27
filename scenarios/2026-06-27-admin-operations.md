@@ -3,6 +3,7 @@
 **Date captured:** 2026-06-27
 **Source:** Sonny's simulation pass + council-validated gaps
 **Status:** LOCKED — covers all admin commands + risk levels
+**Last update:** Added TOTP verification code snippet + n8n implementation per council feedback
 
 ---
 
@@ -56,20 +57,161 @@ Admin enters PIN
    └────────────────────────────────────┘
 ```
 
-**TOTP Verification (High Risk Trigger):**
+### PIN Verification — n8n Implementation
 
+```javascript
+// n8n Code node — verify admin PIN
+const bcrypt = require('bcrypt');
+
+const input = $json.body.text.trim();
+const adminPhoneHash = process.env.ADMIN_PHONE_HASH; // from env
+const storedHash = await db.query(
+  'SELECT pin_hash FROM admin_users WHERE phone_hash = $1',
+  [adminPhoneHash]
+);
+
+if (!storedHash) {
+  throw new Error('Admin not configured');
+}
+
+const valid = await bcrypt.compare(input, storedHash[0].pin_hash);
+
+if (valid) {
+  // Create 30-min session in Redis
+  await redis.setex(`admin_session:${adminPhoneHash}`, 1800, JSON.stringify({
+    started_at: new Date().toISOString(),
+    last_command: new Date().toISOString(),
+    command_count: 0
+  }));
+  
+  await db.query(
+    `UPDATE admin_users SET failed_pin_attempts = 0, locked_until = NULL WHERE phone_hash = $1`,
+    [adminPhoneHash]
+  );
+  
+  return { json: { auth_result: 'pin_valid', session_active: true } };
+} else {
+  // Increment failed attempts, possibly lock
+  const result = await db.query(
+    `UPDATE admin_users 
+     SET failed_pin_attempts = failed_pin_attempts + 1,
+         locked_until = CASE
+           WHEN failed_pin_attempts + 1 >= 10 THEN NOW() + INTERVAL '24 hours'
+           WHEN failed_pin_attempts + 1 >= 5  THEN NOW() + INTERVAL '1 hour'
+           WHEN failed_pin_attempts + 1 >= 3  THEN NOW() + INTERVAL '15 minutes'
+           ELSE locked_until
+         END
+     WHERE phone_hash = $1
+     RETURNING failed_pin_attempts, locked_until`,
+    [adminPhoneHash]
+  );
+  
+  const remaining = 3 - result[0].failed_pin_attempts;
+  
+  return {
+    json: {
+      auth_result: 'pin_invalid',
+      remaining_attempts: remaining > 0 ? remaining : 0,
+      locked_until: result[0].locked_until
+    }
+  };
+}
 ```
-Admin enters TOTP code (6 digits from authenticator app)
-        ↓
-[pyotp.TOTP(secret).verify(code, valid_window=1)]
-        ↓
-   ┌────────────────────────────────────┐
-   │ Outcome                           │
-   ├────────────────────────────────────┤
-   │ ✅ Valid → execute high-risk cmd  │
-   │ ❌ Invalid → "Wrong code. Try again." │
-   │ ❌ Fail × 3 → LOCKED 1hr + admin   │
-   └────────────────────────────────────┘
+
+---
+
+## TOTP Verification (High Risk Trigger) — n8n Implementation
+
+```javascript
+// n8n Code node — verify admin TOTP for high-risk commands
+const speakeasy = require('speakeasy');
+
+const input = $json.body.text.trim();
+const adminPhoneHash = process.env.ADMIN_PHONE_HASH;
+
+// Fetch admin's encrypted TOTP secret
+const adminRecord = await db.query(
+  `SELECT totp_secret_encrypted FROM admin_users WHERE phone_hash = $1`,
+  [adminPhoneHash]
+);
+
+if (!adminRecord[0] || !adminRecord[0].totp_secret_encrypted) {
+  throw new Error('TOTP not configured for admin');
+}
+
+// Decrypt the TOTP secret using AES-256-GCM with TOTP_ENCRYPTION_KEY
+const crypto = require('crypto');
+const masterKey = Buffer.from(process.env.TOTP_ENCRYPTION_KEY, 'hex');
+const encryptedData = JSON.parse(adminRecord[0].totp_secret_encrypted);
+
+const decipher = crypto.createDecipheriv(
+  'aes-256-gcm',
+  masterKey,
+  Buffer.from(encryptedData.iv, 'hex')
+);
+decipher.setAuthTag(Buffer.from(encryptedData.tag, 'hex'));
+let decryptedSecret = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
+decryptedSecret += decipher.final('utf8');
+
+// Verify TOTP code (allow ±30 second window)
+const verified = speakeasy.totp.verify({
+  secret: decryptedSecret,
+  encoding: 'base32',
+  token: input,
+  window: 1  // ±1 interval (30 sec each way = 90 sec total tolerance)
+});
+
+if (verified) {
+  // Log high-risk command execution
+  await db.query(
+    `INSERT INTO admin_commands_log
+     (admin_phone_hash, command, risk_level, auth_method, executed_at)
+     VALUES ($1, $2, 'high', 'pin_totp', NOW())`,
+    [adminPhoneHash, $json.body.command]
+  );
+  
+  return { json: { totp_valid: true, allowed: true } };
+} else {
+  return { json: { totp_valid: false, allowed: false } };
+}
+```
+
+**TOTP Setup (one-time, per admin):**
+
+```javascript
+// Run once during admin onboarding
+const speakeasy = require('speakeasy');
+const QRCode = require('qrcode');
+
+const secret = speakeasy.generateSecret({
+  name: 'Bunche Admin',
+  issuer: 'Bunche',
+  length: 32
+});
+
+// Encrypt with AES-256-GCM before storing
+const masterKey = Buffer.from(process.env.TOTP_ENCRYPTION_KEY, 'hex');
+const iv = crypto.randomBytes(16);
+const cipher = crypto.createCipheriv('aes-256-gcm', masterKey, iv);
+
+let encrypted = cipher.update(secret.base32, 'utf8', 'hex');
+encrypted += cipher.final('hex');
+const tag = cipher.getAuthTag();
+
+const encryptedData = {
+  encrypted: encrypted,
+  iv: iv.toString('hex'),
+  tag: tag.toString('hex')
+};
+
+await db.query(
+  `UPDATE admin_users SET totp_secret_encrypted = $1 WHERE phone_hash = $2`,
+  [JSON.stringify(encryptedData), adminPhoneHash]
+);
+
+// Generate QR code for Google Authenticator
+const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
+// Send QR code to admin via WhatsApp
 ```
 
 ---
@@ -517,13 +659,15 @@ Customers can resume orders.
 | 2 | Lockout × 3 failed PIN: 15 min | WORKFLOW_SPECS §3 |
 | 3 | Lockout × 5 failed PIN: 1 hour | WORKFLOW_SPECS §3 |
 | 4 | Lockout × 10 failed PIN: 24 hours | WORKFLOW_SPECS §3 |
-| 5 | TOTP window: ±1 interval (30 sec each way) | WORKFLOW_SPECS §3 |
-| 6 | All admin commands logged to admin_commands_log | SECURITY_PLAN |
-| 7 | Low-risk = session only | WORKFLOW_SPECS §3 |
-| 8 | Medium-risk = fresh PIN (2 min) | WORKFLOW_SPECS §3 |
-| 9 | High-risk = PIN + TOTP | WORKFLOW_SPECS §3 |
-| 10 | Critical (pause) = PIN + TOTP + confirmation | This doc |
-| 11 | Failed lockouts trigger admin alert via WhatsApp | SECURITY_RUNBOOK |
+| 5 | TOTP window: ±1 interval (30 sec each way) | This doc + WORKFLOW_SPECS §3 |
+| 6 | TOTP secret encrypted with AES-256-GCM before storage | This doc |
+| 7 | All admin commands logged to admin_commands_log | SECURITY_PLAN |
+| 8 | Low-risk = session only | WORKFLOW_SPECS §3 |
+| 9 | Medium-risk = fresh PIN (2 min) | WORKFLOW_SPECS §3 |
+| 10 | High-risk = PIN + TOTP | WORKFLOW_SPECS §3 |
+| 11 | Critical (pause) = PIN + TOTP + confirmation | This doc |
+| 12 | Failed lockouts trigger admin alert via WhatsApp | SECURITY_RUNBOOK |
+| 13 | TOTP secret NEVER logged, only used for verify | This doc |
 
 ---
 
@@ -553,9 +697,58 @@ Customers can resume orders.
 
 ---
 
+## Database Schema (Admin)
+
+```sql
+CREATE TABLE admin_users (
+    id SERIAL PRIMARY KEY,
+    phone_hash VARCHAR(20) UNIQUE NOT NULL,
+    pin_hash VARCHAR(255) NOT NULL,
+    totp_secret_encrypted TEXT,                   -- AES-256-GCM encrypted
+    failed_pin_attempts INT DEFAULT 0,
+    locked_until TIMESTAMPTZ,
+    last_login_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE admin_commands_log (
+    id SERIAL PRIMARY KEY,
+    admin_phone_hash VARCHAR(20),
+    command VARCHAR(100),
+    risk_level VARCHAR(20),
+    auth_method VARCHAR(50),
+    target_id VARCHAR(50),                         -- order_id, user_id, phone_hash, etc.
+    result VARCHAR(20),
+    executed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_admin_commands_log_admin ON admin_commands_log(admin_phone_hash, executed_at);
+CREATE INDEX idx_admin_commands_log_command ON admin_commands_log(command, executed_at);
+```
+
+---
+
+## npm Dependencies (in n8n)
+
+Add to n8n's package.json (via `docker exec -it n8n bash && npm install ...`):
+
+```json
+{
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "speakeasy": "^2.0.0",
+    "qrcode": "^1.5.3",
+    "crypto": "1.0.0"  // built-in
+  }
+}
+```
+
+---
+
 ## Related
 
 - `workflows/WORKFLOW_SPECS.md` §3 — Admin Command Handler spec
 - `docs/SECURITY_RUNBOOK.md` — Incident response
 - `docs/PHONE_HASH_BLOCKING.md` — Block mechanism
 - `scenarios/2026-06-26-first-time-order.md` — Customer-side flow (paired with admin)
+- `docs/BUNCHE_LOGGER_SCHEMA.md` — admin_command_executed event schema
