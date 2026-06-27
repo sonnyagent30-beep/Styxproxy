@@ -1,20 +1,13 @@
 # Bunche — Database Schema (PostgreSQL)
 
-**Last Updated:** 2026-06-26  
+**Last Updated:** 2026-06-27  
 **Status:** Planning Complete — Ready for Implementation
 
 ---
 
 ## Overview
 
-Replaces Google Sheets with self-hosted PostgreSQL for scalability and reliability.
-
-**Why PostgreSQL over Google Sheets:**
-- 100x faster (5ms vs 1500ms per read)
-- Handles 10,000+ concurrent users
-- Proper transactions (no race conditions)
-- Full indexing and query optimization
-- $0 cost (self-hosted on VPS)
+Replaces Google Sheets with self-hosted PostgreSQL for scalability and reliability. Includes the `bunche_credentials` table for mapping Bunche usernames to provider IPs via the Dante auth layer.
 
 ---
 
@@ -61,9 +54,63 @@ CREATE INDEX idx_customers_last_message ON customers(last_message_at);
 
 ---
 
+### bunche_credentials
+
+Maps Bunche-branded usernames to provider proxy IPs. This is the core of the auth layer.
+
+```sql
+CREATE TABLE bunche_credentials (
+    id SERIAL PRIMARY KEY,
+    
+    -- Bunche username issued to customer
+    bun_username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,  -- bcrypt hash of the Bunche password
+    
+    -- Customer linkage
+    customer_phone VARCHAR(20) REFERENCES customers(phone),
+    order_id VARCHAR(20) REFERENCES orders(order_id),
+    
+    -- Pool type: 'paid', 'free_trial', 'refunded_recycled'
+    pool_type VARCHAR(20) DEFAULT 'paid',
+    
+    -- The actual upstream proxy IP (from provider)
+    provider_name VARCHAR(50),  -- 'Proxy-Seller', 'DataImpulse', 'Rayobyte'
+    provider_order_id VARCHAR(100),  -- order ID from provider
+    provider_username VARCHAR(100),  -- username from provider (for auth)
+    provider_password VARCHAR(100),  -- password from provider (for auth)
+    upstream_proxy_ip INET,  -- e.g. 185.199.228.45
+    upstream_proxy_port INT DEFAULT 1080,
+    
+    -- Dante config
+    dante_port INT,  -- Dante listens on this port for this user
+    
+    -- Status
+    status VARCHAR(20) DEFAULT 'active',  -- 'active', 'expired', 'revoked', 'suspended'
+    
+    -- Tracking
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ,  -- NULL = never expires (paid). Set for free trials.
+    revoked_at TIMESTAMPTZ,
+    revoke_reason VARCHAR(50),  -- 'refund', 'expiry', 'abuse', 'manual'
+    
+    -- For free trial recycling
+    last_used_at TIMESTAMPTZ,
+    gb_used DECIMAL(10,2) DEFAULT 0  -- for data-based products
+);
+
+CREATE INDEX idx_bunche_cred_username ON bunche_credentials(bun_username);
+CREATE INDEX idx_bunche_cred_customer ON bunche_credentials(customer_phone);
+CREATE INDEX idx_bunche_cred_status ON bunche_credentials(status);
+CREATE INDEX idx_bunche_cred_pool ON bunche_credentials(pool_type, status);
+CREATE INDEX idx_bunche_cred_expires ON bunche_credentials(expires_at) 
+    WHERE expires_at IS NOT NULL AND status = 'active';
+```
+
+---
+
 ### orders
 
-Every proxy order. Linked to customers by phone.
+Every proxy order. Linked to customers by phone and to bunche_credentials.
 
 ```sql
 CREATE TABLE orders (
@@ -75,9 +122,12 @@ CREATE TABLE orders (
     quantity INT,
     amount_paid_ngn DECIMAL(12,2),
     payment_reference VARCHAR(100),
-    provider VARCHAR(50),  -- 'Proxy-Seller', 'DataImpulse', 'Geonode'
+    provider VARCHAR(50),  -- 'Proxy-Seller', 'DataImpulse', 'Rayobyte'
     provider_order_id VARCHAR(100),
-    proxy_credentials TEXT,  -- IP:Port:User:Pass (encrypted)
+    
+    -- Bunche credential issued for this order
+    bunche_credential_id INT REFERENCES bunche_credentials(id),
+    
     status VARCHAR(50),  -- 'pending', 'paid', 'fulfilled', 'active', 'expired', 'cancelled', 'refunded'
     ip_tested BOOLEAN DEFAULT FALSE,
     ip_test_result VARCHAR(10),  -- 'PASS', 'FAIL', 'N/A'
@@ -86,7 +136,7 @@ CREATE TABLE orders (
     data_total_gb DECIMAL(10,2),
     data_remaining_gb DECIMAL(10,2),
     data_expires TIMESTAMPTZ,
-    expires_at TIMESTAMPTZ,  -- Normalized to earliest for same-order items
+    expires_at TIMESTAMPTZ,
     
     -- Ban tracking
     ban_reported BOOLEAN DEFAULT FALSE,
@@ -114,7 +164,7 @@ CREATE INDEX idx_orders_created ON orders(created_at DESC);
 
 ### free_trials
 
-Tracks free trial usage and proxy delivery.
+Tracks free trial usage. Linked to bunche_credentials for the credential lifecycle.
 
 ```sql
 CREATE TABLE free_trials (
@@ -123,9 +173,11 @@ CREATE TABLE free_trials (
     trial_date TIMESTAMPTZ DEFAULT NOW(),
     survey_id VARCHAR(50),
     reward_usd DECIMAL(10,4),
-    proxy_ip TEXT,
-    proxy_port INT,
-    status VARCHAR(20),  -- 'active', 'dead'
+    
+    -- Link to the Bunche credential (for 2hr TTL tracking)
+    bunche_credential_id INT REFERENCES bunche_credentials(id),
+    
+    status VARCHAR(20),  -- 'active', 'expired', 'dead'
     disclaimer_accepted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -144,13 +196,13 @@ Immutable audit trail. PII is hashed — never store plain phone/name.
 CREATE TABLE customer_audit_log (
     id BIGSERIAL PRIMARY KEY,
     timestamp TIMESTAMPTZ DEFAULT NOW(),
-    request_id VARCHAR(50),  -- Correlation ID from WhatsApp
+    request_id VARCHAR(50),
     customer_hash VARCHAR(20),  -- sha256(phone)[:20]
-    event_type VARCHAR(50),  -- 'order_placed', 'payment_received', 'proxy_delivered', etc.
+    event_type VARCHAR(50),
     order_id VARCHAR(20),
-    workflow VARCHAR(50),  -- Which n8n workflow handled this
-    status VARCHAR(20),  -- 'success', 'failure'
-    details JSONB  -- Additional context (PII hashed)
+    workflow VARCHAR(50),
+    status VARCHAR(20),
+    details JSONB
 );
 
 CREATE INDEX idx_audit_timestamp ON customer_audit_log(timestamp DESC);
@@ -170,14 +222,14 @@ CREATE TABLE error_log (
     timestamp TIMESTAMPTZ DEFAULT NOW(),
     workflow_name VARCHAR(50),
     node_name VARCHAR(50),
-    error_type VARCHAR(50),  -- 'provider_down', 'payment_failed', 'ip_test_failed', etc.
+    error_type VARCHAR(50),
     error_message TEXT,
     error_stack TEXT,
     execution_id VARCHAR(50),
     customer_hash VARCHAR(20),
     order_id VARCHAR(20),
-    severity VARCHAR(20),  -- 'critical', 'high', 'medium', 'low'
-    status VARCHAR(20),  -- 'open', 'investigating', 'resolved', 'ignored'
+    severity VARCHAR(20),
+    status VARCHAR(20),
     resolved_by VARCHAR(50),
     resolved_at TIMESTAMPTZ,
     resolution_notes TEXT
@@ -198,9 +250,9 @@ Tracks provider API health and performance.
 CREATE TABLE provider_log (
     id BIGSERIAL PRIMARY KEY,
     timestamp TIMESTAMPTZ DEFAULT NOW(),
-    provider VARCHAR(50),  -- 'Proxy-Seller', 'DataImpulse', 'Geonode', 'CPAGrip'
-    event_type VARCHAR(50),  -- 'health_check', 'order', 'replacement', 'api_error'
-    status VARCHAR(20),  -- 'success', 'failure'
+    provider VARCHAR(50),
+    event_type VARCHAR(50),
+    status VARCHAR(20),
     details TEXT,
     latency_ms INT,
     response_code VARCHAR(20)
@@ -228,7 +280,9 @@ CREATE TABLE daily_summary (
     refund_amount_ngn DECIMAL(12,2),
     new_customers INT,
     free_trials_used INT,
-    provider_downtime_min INT
+    provider_downtime_min INT,
+    credentials_active INT,
+    credentials_free_trial INT
 );
 ```
 
@@ -241,8 +295,8 @@ Idempotency storage. Prevents duplicate webhook processing.
 ```sql
 CREATE TABLE processed_webhooks (
     id BIGSERIAL PRIMARY KEY,
-    webhook_id VARCHAR(100) UNIQUE NOT NULL,  -- tx_ref, message_id, etc.
-    provider VARCHAR(20),  -- 'flutterwave', 'whatsapp', 'cpagrip'
+    webhook_id VARCHAR(100) UNIQUE NOT NULL,
+    provider VARCHAR(20),
     event_type VARCHAR(50),
     processed_at TIMESTAMPTZ DEFAULT NOW(),
     response_sent BOOLEAN DEFAULT FALSE,
@@ -263,9 +317,9 @@ Admin authentication and lockout state.
 ```sql
 CREATE TABLE admin_auth (
     admin_phone VARCHAR(20) PRIMARY KEY,
-    pin_hash TEXT,  -- bcrypt hash
+    pin_hash TEXT,
     pin_set_at TIMESTAMPTZ,
-    totp_secret TEXT,  -- AES-256-GCM encrypted
+    totp_secret TEXT,
     totp_enabled BOOLEAN DEFAULT FALSE,
     totp_set_at TIMESTAMPTZ,
     failed_attempts INT DEFAULT 0,
@@ -289,8 +343,8 @@ CREATE TABLE admin_commands_log (
     timestamp TIMESTAMPTZ DEFAULT NOW(),
     admin_phone VARCHAR(20),
     command TEXT,
-    risk_level VARCHAR(10),  -- 'low', 'medium', 'high'
-    auth_method VARCHAR(20),  -- 'none', 'pin', 'pin_totp'
+    risk_level VARCHAR(10),
+    auth_method VARCHAR(20),
     auth_success BOOLEAN,
     execution_success BOOLEAN,
     error_message TEXT,
@@ -320,7 +374,7 @@ CREATE TABLE admin_sessions_log (
     ended_at TIMESTAMPTZ,
     duration_minutes INT,
     commands_used INT,
-    ended_reason VARCHAR(50),  -- 'logout', 'timeout', 'lockout'
+    ended_reason VARCHAR(50),
     ip_address VARCHAR(45)
 );
 
@@ -337,11 +391,11 @@ Tracks rate limiting events for monitoring and analysis.
 CREATE TABLE rate_limit_log (
     id BIGSERIAL PRIMARY KEY,
     timestamp TIMESTAMPTZ DEFAULT NOW(),
-    layer VARCHAR(20),  -- 'cloudflare', 'nginx', 'redis'
+    layer VARCHAR(20),
     endpoint VARCHAR(50),
-    identifier VARCHAR(100),  -- IP or phone hash
-    identifier_type VARCHAR(10),  -- 'ip' or 'phone'
-    action VARCHAR(20),  -- 'allowed', 'blocked', 'challenged'
+    identifier VARCHAR(100),
+    identifier_type VARCHAR(10),
+    action VARCHAR(20),
     user_agent TEXT,
     request_id VARCHAR(50)
 );
@@ -363,7 +417,7 @@ Tracks webhook verification attempts.
 CREATE TABLE webhook_security_log (
     id BIGSERIAL PRIMARY KEY,
     timestamp TIMESTAMPTZ DEFAULT NOW(),
-    provider VARCHAR(20),  -- 'whatsapp', 'flutterwave', 'cpagrip'
+    provider VARCHAR(20),
     verified BOOLEAN,
     failure_reason TEXT,
     ip_address VARCHAR(45),
@@ -392,6 +446,7 @@ CREATE INDEX idx_webhook_log_failures ON webhook_security_log(verified, timestam
 | webhook_security_log | 90 days |
 | daily_summary | Indefinite |
 | orders | 7 years (financial records) |
+| bunche_credentials | 7 years (credential audit trail) |
 | customers | Until deleted |
 
 ---
@@ -412,9 +467,29 @@ const ipHash = crypto.createHash('sha256').update(ip).digest('hex').substring(0,
 // - Plain IP address
 // - Plain names
 // - PIN or OTP codes
-// - Proxy credentials
+// - Proxy credentials (use password_hash only)
 // - API keys or secrets
 ```
+
+---
+
+## How bunche_credentials Works with Dante
+
+When a customer order is fulfilled:
+
+1. n8n calls provider API → gets provider IP + credentials
+2. n8n inserts row into `bunche_credentials` with Bunche username/password
+3. n8n calls `manage-bunche-credentials.sh add USERNAME PASSWORD`
+4. Dante is reloaded with new user
+5. Customer receives Bunche-branded credentials
+
+When a refund happens:
+
+1. Admin approves refund in Flutterwave
+2. n8n updates `bunche_credentials.status = 'revoked'`, `revoke_reason = 'refund'`
+3. n8n calls `manage-bunche-credentials.sh revoke USERNAME`
+4. Dante reloads — old credentials no longer work
+5. Credential moved to free_trial pool with new temp password
 
 ---
 
@@ -438,43 +513,4 @@ psql -U bunche -d bunche -h localhost
 
 # Run schema (paste contents of this file)
 \i schema.sql
-```
-
----
-
-## Migration from Google Sheets
-
-```python
-# migrate_sheets_to_postgres.py
-import psycopg2
-from googleapiclient.discovery import build
-
-# Read all sheets
-sheets_service = build('sheets', 'v4', credentials=creds)
-
-# Connect to PostgreSQL
-conn = psycopg2.connect(
-    host='localhost',
-    database='bunche',
-    user='bunche',
-    password='YOUR_PASSWORD'
-)
-cur = conn.cursor()
-
-# Migrate customers
-result = sheets_service.spreadsheets().values().get(
-    spreadsheetId='YOUR_SHEET_ID',
-    range='Customers!A:Z'
-).execute()
-
-for row in result.get('values', [])[1:]:
-    cur.execute("""
-        INSERT INTO customers (phone, name, recovery_method, created_at, ...)
-        VALUES (%s, %s, %s, %s, ...)
-        ON CONFLICT (phone) DO NOTHING
-    """, row)
-
-conn.commit()
-cur.close()
-conn.close()
 ```
