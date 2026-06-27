@@ -1,6 +1,6 @@
 # Acceptable Use Policy
 *Bunche — Automated Proxy Retail Service*
-*Effective Date: 2026-06-26*
+*Effective Date: 2026-06-27*
 
 ---
 
@@ -57,24 +57,45 @@ The following activities are strictly prohibited using any proxy purchased from 
 
 ## 2. Free Trial Specific Rules
 
-Free trial proxies are subject to ALL the above prohibitions PLUS:
+Free trial proxies are subject to ALL the above prohibitions PLUS the rules in this section.
 
-### 2.1 Free Trial Acceptable Use
-- Free trial may ONLY be used for testing Bunche service quality
-- Free trial may NOT be used for any commercial purpose
-- Free trial may NOT be used for any production or critical task
-- Free trial proxies are PUBLIC — your traffic is not private or encrypted by us
+### 2.1 How Free Trials Work
+
+Free trials use a **self-hosted 3proxy server** running on Bunche's VPS. Specifically:
+
+- **Shared IP** — All free trial users share the Bunche VPS public IP at the same time (up to 100 concurrent trials)
+- **Authenticated access** — Each trial user gets unique credentials (username + password)
+- **2-hour TTL** — Trial credentials automatically expire after 2 hours
+- **3-trial daily limit** — Each phone number is limited to 3 free trials per calendar day
+- **For testing only** — Free trials are not for production, commercial, or critical use
+- **No privacy guarantee** — Other trial users share the same IP, so Bunche cannot guarantee traffic isolation between trial users
 
 ### 2.2 Free Trial Abuse
-- Using multiple phone numbers to circumvent daily trial limits
-- Using automated systems to claim free trials
-- Reselling free trial access
-- Coordinating with others to claim excessive free trials
 
-Any of the above will result in:
-- Immediate termination of free trial access
-- Blocking of all associated phone numbers
-- Possible permanent ban from Bunche
+The following behaviors are prohibited and will result in immediate enforcement action:
+
+- **Multi-phone circumvention** — Using multiple phone numbers to exceed the 3-trial daily limit
+- **Automated trial claiming** — Using bots, scripts, or automation to claim free trials
+- **Reselling trial access** — Selling, trading, or transferring trial credentials
+- **Coordinated abuse** — Coordinating with others to claim excessive free trials
+- **Sharing trial credentials** — Publicly posting or distributing trial usernames/passwords
+- **Survey fraud** — Using survey-farming services to falsely complete Theorem Reach surveys
+- **Cryptographic attacks** — Attempting to brute-force or guess other trial users' credentials
+
+### 2.3 Enforcement for Free Trial Abuse
+
+Any violation of §2.2 will result in:
+
+| Action | Scope |
+|--------|-------|
+| **Immediate revocation** | All active trial credentials for the offending phone hash |
+| **Phone blocking** | Phone number(s) blocked from claiming future free trials |
+| **Hash blocking** | Phone_hash added to deny-list (blocks new numbers on same device) |
+| **No refund** | No compensation for revoked trials |
+| **Possible account ban** | Repeat offenders may be permanently banned from Bunche |
+| **Survey provider report** | Theorem Reach notified of fraudulent survey completions |
+
+Bunche uses a phone_hash + device fingerprint to enforce blocks. Users attempting to circumvent blocks via new numbers will continue to be blocked.
 
 ---
 
@@ -87,7 +108,7 @@ Any of the above will result in:
 | **Significant violation** (e.g., spam) | Immediate ban, refund revoked |
 | **Serious violation** (e.g., fraud) | Immediate ban + law enforcement referral |
 | **Criminal activity** (e.g., CSAM) | Immediate ban + NAPTIP/police referral |
-| **Free trial abuse** | Free trial access revoked, number blocked |
+| **Free trial abuse (§2.2)** | Free trial access revoked, phone blocked, possible permanent ban |
 
 ---
 
@@ -98,18 +119,19 @@ Bunche reserves the right to:
 - Investigate suspicious activity
 - Suspend proxies pending investigation
 - Disclose information to law enforcement when required
+- Share fraud reports with Theorem Reach and other upstream providers
 
-We do NOT monitor free trial proxy traffic content (proxies are public, not managed by us).
+We do NOT monitor free trial proxy traffic content (proxies are authenticated but IP-shared; we don't inspect packet contents).
 
 ---
 
 ## 5. Your Responsibilities
 
 - Keep your proxy credentials confidential
-- Do not share credentials with unauthorized persons
+- Do not share credentials with unauthorized persons (including publicly online)
 - Do not allow third parties to use your proxies
 - Ensure your use of proxies complies with target platform Terms of Service
-- You are responsible for ALL activity under your account
+- You are responsible for ALL activity under your account, including activity by anyone you share credentials with
 
 ---
 
@@ -125,6 +147,8 @@ Using the SAME IP across multiple devices or accounts can:
 **Best Practice:** Use ONE IP per platform, per account. We strongly advise AGAINST sharing 1 IP across many devices or accounts.
 
 Bunche is not responsible for bans resulting from poor IP hygiene.
+
+**Free trial users:** Your trial IP is already shared with up to 99 other trial users. If you need a dedicated IP, upgrade to a paid plan.
 
 ---
 
