@@ -45,41 +45,96 @@
 
 ### ISP Proxies (Monthly, Static IP)
 
-| Product | Price | Expiry | IP Type |
-|---------|-------|-------|---------|
-| ISP UK | ₦5,000/mo | 30 days | IPv4 |
-| ISP US | ₦5,000/mo | 30 days | IPv4 |
-| ISP Germany | ₦5,000/mo | 30 days | IPv4 |
-| ISP France | ₦5,000/mo | 30 days | IPv4 |
-| ISP Canada | ₦5,000/mo | 30 days | IPv4 |
-| ISP Japan | ₦6,500/mo | 30 days | IPv4 |
-| ISP Australia | ₦6,500/mo | 30 days | IPv4 |
-| ISP Brazil | ₦6,500/mo | 30 days | IPv4 |
-| ISP Singapore | ₦6,500/mo | 30 days | IPv4 |
-| ISP South Korea | ₦6,500/mo | 30 days | IPv4 |
-| ISP IPv6 (UK) | ₦3,500/mo | 30 days | IPv6 |
-| ISP IPv6 (US) | ₦3,500/mo | 30 days | IPv6 |
+| Product | Price | Expiry | IP Type | Protocols |
+|---------|-------|-------|--------|----------|-----------|
+| ISP UK | ₦5,000/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| ISP US | ₦5,000/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| ISP Germany | ₦5,000/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| ISP France | ₦5,000/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| ISP Canada | ₦5,000/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| ISP Japan | ₦6,500/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| ISP Australia | ₦6,500/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| ISP Brazil | ₦6,500/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| ISP Singapore | ₦6,500/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| ISP South Korea | ₦6,500/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| ISP IPv6 (UK) | ₦3,500/mo | 30 days | IPv6 | SOCKS5, HTTP, HTTPS |
+| ISP IPv6 (US) | ₦3,500/mo | 30 days | IPv6 | SOCKS5, HTTP, HTTPS |
 
 ### Datacenter Proxies (Monthly)
 
-| Product | Price | Expiry | Type |
-|---------|-------|-------|-------|
-| DC Static IPv4 | ₦3,000/mo | 30 days | IPv4 |
-| DC Static IPv6 | ₦2,500/mo | 30 days | IPv6 |
-| DC Rotating | ₦4,500/GB | Per GB | IPv4 |
+| Product | Price | Expiry | Type | Protocols |
+|---------|-------|-------|------|----------|
+| DC Static IPv4 | ₦3,000/mo | 30 days | IPv4 | SOCKS5, HTTP, HTTPS |
+| DC Static IPv6 | ₦2,500/mo | 30 days | IPv6 | SOCKS5, HTTP, HTTPS |
+| DC Rotating | ₦4,500/GB | Per GB | IPv4 | SOCKS5, HTTP, HTTPS |
 
 ### Residential Proxies (GB-Based, No Expiry)
 
-| Product | Price | Notes |
-|---------|-------|-------|
-| Residential IPv4 | ₦1,950/GB | No time expiry |
-| Residential IPv6 | ₦1,500/GB | No time expiry |
+| Product | Price | Notes | Protocols |
+|---------|-------|-------|----------|
+| Residential IPv4 | ₦1,950/GB | No time expiry | SOCKS5, HTTP, HTTPS |
+| Residential IPv6 | ₦1,500/GB | No time expiry | SOCKS5, HTTP, HTTPS |
 
 ### Mobile Proxies (4G/LTE, 30-Day Window)
 
-| Product | Price | Notes |
-|---------|-------|-------|
-| Mobile 4G | ₦4,000/GB | 30-day window to use |
+| Product | Price | Notes | Protocols |
+|---------|-------|-------|----------|
+| Mobile 4G | ₦4,000/GB | 30-day window to use | SOCKS5, HTTP, HTTPS |
+
+---
+
+## Protocols Explained
+
+### HTTP / HTTPS
+- **Best for:** Web browsing, browser automation, scraping
+- **Port:** 3128 (default)
+- **Format:** `http://IP:port` or `https://IP:port`
+
+### SOCKS5
+- **Best for:** All traffic types (TCP/UDP), applications that don't support HTTP proxy
+- **Port:** 1080 (default)
+- **Format:** `socks5://IP:port`
+
+**Both protocols are supported on all products.** You can use whichever works with your application.
+
+---
+
+## IPv4 vs IPv6 — Which Should You Choose?
+
+### IPv4 (Recommended for Most Users)
+| Pros | Cons |
+|------|------|
+| ✅ 99% of websites/apps support it | Slightly more expensive |
+| ✅ Works everywhere | |
+| ✅ Most popular type | |
+| ✅ Best compatibility | |
+
+### IPv6
+| Pros | Cons |
+|------|------|
+| ✅ Cheaper | ⚠️ Not all websites/apps support it |
+| ✅ Better for privacy (less tracked) | ⚠️ Some platforms block it |
+| ✅ Future-proof | ⚠️ Limited availability |
+
+### Recommendation
+- **New users:** Start with **IPv4** — best compatibility
+- **Advanced users:** IPv6 is fine if you know your target supports it
+- **Budget-conscious:** IPv6 if supported by your target
+
+---
+
+## Use Case Guide
+
+| Your Goal | Recommended Product |
+|----------|-----------------|
+| Social media accounts (Instagram, TikTok, etc.) | **ISP IPv4** |
+| E-commerce (Amazon, eBay stores) | **ISP IPv4** |
+| Web scraping / data collection | **Residential IPv4** |
+| Browser automation | **Residential IPv4** |
+| SEO tools / rank checking | **DC Static IPv4** |
+| High-speed data collection | **DC Rotating** |
+| Social media mobile app testing | **Mobile 4G** |
+| Budget automation / testing | **IPv6** (if supported) |
 
 ---
 
@@ -206,3 +261,4 @@
 - Residential/Mobile data never expires (Residential) or 30-day window (Mobile)
 - IPv6 products are newer and may have limited availability
 - Monitor FX rate monthly — adjust prices if NGN weakens past ₦1,700/$
+- All products support both SOCKS5 and HTTP/HTTPS protocols
