@@ -42,28 +42,50 @@ You must:
 
 All prices are in Nigerian Naira (NGN). Prices are subject to change with 7 days' notice.
 
-| Product | Description | Price |
-|---------|-------------|-------|
-| 🇬🇧🇺🇸🇩🇪 ISP Proxy | Static IP from a real ISP, billed monthly | ₦6,500/mo |
-| 🌏 Premium ISP (JP, AU, BR, SG, KR) | Premium country ISP | ₦7,500/mo |
-| 💻 Datacenter Proxy | IP from cloud servers, billed monthly | ₦3,000/mo |
-| 🌐 Residential Proxy 5GB | IP from real home devices, per GB | ₦9,500 |
-| 📱 Mobile Proxy 4G 5GB | IP from mobile carrier networks, per GB | ₦20,000 |
+### ISP Proxies (Monthly, Static IP)
+
+| Product | Price | Countries |
+|---------|-------|-----------|
+| ISP Standard | ₦5,000/mo | UK, US, Germany, France, Canada |
+| ISP Premium | ₦6,500/mo | Japan, Australia, Brazil, Singapore, South Korea |
+| ISP IPv6 | ₦3,500/mo | UK, US |
+
+### Datacenter Proxies (Monthly)
+
+| Product | Price | Type |
+|---------|-------|-------|
+| DC Static IPv4 | ₦3,000/mo | Static |
+| DC Static IPv6 | ₦2,500/mo | Static |
+| DC Rotating | ₦4,500/GB | Per GB |
+
+### Residential Proxies (GB-Based)
+
+| Product | Price | Notes |
+|---------|-------|-------|
+| Residential IPv4 | ₦1,950/GB | No time expiry |
+| Residential IPv6 | ₦1,500/GB | No time expiry |
+
+### Mobile Proxies (4G/LTE)
+
+| Product | Price | Notes |
+|---------|-------|-------|
+| Mobile 4G | ₦4,000/GB | 30-day window |
 
 ### Product-Specific Terms
 
 **ISP / Datacenter:**
-- Unlimited data within monthly period
+- Unlimited data within 30-day period
 - Same IP kept on renewal if renewed before expiry
 - New IP generated and new credentials issued if renewed after expiry
 
 **Residential:**
-- Data never expires — buy 5GB, use 2GB, you still have 3GB until used
+- Data **never expires** — buy 5GB, use 2GB, you still have 3GB until used
 - Top-ups add GB to existing pool
+- IPv6 available at lower price
 
 **Mobile:**
 - 30-day window to use allocated data
-- Unused GB is LOST on renewal or top-up
+- Unused GB is **LOST** on renewal or top-up
 - Proxy stops working immediately when data reaches 0GB (regardless of time remaining)
 - Top-ups replace existing data pool (old unused GB is lost)
 
@@ -79,12 +101,23 @@ All prices are in Nigerian Naira (NGN). Prices are subject to change with 7 days
 
 ## 6. Refund Policy
 
-**⚠️ STRICT: No refunds after proxy is generated and delivered.**
+### Time-Based Products (ISP & DC)
 
-Once a proxy credential is generated and sent to the customer, the sale is FINAL. Because Bunche controls the authentication layer, we can revoke access instantly on refund — the proxy IP cannot be accessed with the revoked credential even if the customer retains it.
+**24-Hour Window Only.**
+
+Once a proxy credential is generated and delivered:
+- **24 hours from delivery:** Refund or replacement if proxy is dead on arrival
+- **After 24 hours:** No refund — only IP replacement if the IP dies within the active period
+
+### GB-Based Products (Residential & Mobile)
+
+**7-Day Window.**
+
+- **7 days from delivery:** Refund for unused GB
+- **After 7 days:** No refund
 
 ### Refunds ARE Allowed In:
-- Proxy never worked from the start (verified by our health check)
+- Proxy never worked from the start (verified by health check)
 - Wrong IP delivered (wrong country/spec)
 - Fraudulent order (stolen payment)
 - Duplicate charge (same order charged twice)
@@ -92,7 +125,7 @@ Once a proxy credential is generated and sent to the customer, the sale is FINAL
 
 ### Refunds are NOT Allowed For:
 - Customer changed mind
-- Platform banned the proxy IP
+- Platform banned the proxy IP (after 24 hours for ISP/DC)
 - Customer doesn't need it anymore
 - Customer found cheaper elsewhere
 - Account banned by target platform
@@ -268,9 +301,7 @@ These terms are governed by the laws of the Federal Republic of Nigeria.
 ## 18. Contact
 
 **WhatsApp:** +234 XXX XXX XXXX
-**Email:** support@bunche.com
-**Website:** bunche.com
-
----
+**Email:** support@bunche.ng
+**Website:** bunche.ng
 
 *These Terms of Service are incorporated by reference into our Privacy Policy and Acceptable Use Policy.*
