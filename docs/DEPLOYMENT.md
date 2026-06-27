@@ -1,6 +1,6 @@
 # Bunche — Deployment Guide
 
-**Last Updated:** 2026-06-26
+**Last Updated:** 2026-06-27
 **Status:** Ready for Deployment
 
 ---
@@ -21,6 +21,8 @@ Before starting, you need:
 | age (encryption tool) | `apt install age` or github.com/FiloSottile/age | Free |
 | rclone (R2 upload) | rclone.org/install | Free |
 | UptimeRobot account | uptimerobot.com | Free tier (50 monitors) |
+| **Theorem Reach account** | theoremreach.com | Free signup; **Bunche earns $1–4/trial** |
+| **3proxy** (for free trial) | github.com/3proxy/3proxy | Free |
 
 **Total setup cost: ~$65 in provider credits + ~$15–20/mo VPS + free monitoring**
 
@@ -38,7 +40,8 @@ VPS (your server)
     ├── n8n (Docker) — workflow engine
     ├── PostgreSQL — database
     ├── Redis — caching + sessions + rate limiting
-    └── pgBouncer — connection pooling
+    ├── pgBouncer — connection pooling
+    └── 3proxy — self-hosted free trial proxy (Step 12)
 ```
 
 ---
@@ -343,12 +346,14 @@ systemctl reload nginx
 3. Set Verify Token: (same as `WHATSAPP_VERIFY_TOKEN` in your .env)
 4. Subscribe to: `messages` (message_received)
 
-### 6.3 Bitlock.ai Webhook
+### 6.3 Theorem Reach Postback (Free Trial)
 
-1. Go to: dashboard.bitlock.ai → Postbacks
-2. Set Webhook URL: `https://n8n.yourdomain.com/webhook/bitlock-postback`
+1. Go to: theoremreach.com → Dashboard → Settings → Postbacks
+2. Set Postback URL: `https://n8n.yourdomain.com/webhook/theorem-reach`
 3. Enable HMAC signature verification
-4. Save the secret to `.env` as `BITLOCK_WEBHOOK_SECRET`
+4. Copy the **HMAC secret** → paste into `.env` as `THEOREM_REACH_SECRET`
+5. Copy the **API key** → paste into `.env` as `THEOREM_REACH_API_KEY`
+6. Copy the **survey wall URL** → paste into `.env` as `THEOREM_REACH_SURVEY_URL`
 
 ### 6.4 Test Webhooks
 
@@ -357,6 +362,9 @@ systemctl reload nginx
 curl -X POST https://n8n.yourdomain.com/webhook/flutterwave \
   -H "Content-Type: application/json" \
   -d '{"tx_ref": "test", "event": "charge.completed"}'
+
+# Test Theorem Reach postback (with valid HMAC)
+# See scenarios/2026-06-26-free-trial.md for sample payload
 ```
 
 ---
@@ -375,6 +383,7 @@ curl -X POST https://n8n.yourdomain.com/webhook/flutterwave \
 - Referral Credit Processor (sub-workflow)
 - Daily Summary (cron at 23:55 Lagos)
 - Error Alert (n8n Error Trigger)
+- **Free Trial (Theorem Reach postback → 3proxy credential generation)**
 
 ---
 
@@ -386,6 +395,15 @@ nano /opt/bunche/.env
 
 # Copy all values from .env.example
 # See: .env.example for full list
+
+# Make sure these new vars are filled in:
+#   THEOREM_REACH_API_KEY=***
+#   THEOREM_REACH_SECRET=***
+#   THEOREM_REACH_SURVEY_URL=***
+#   THEOREM_REACH_POSTBACK_URL=https://n8n.yourdomain.com/webhook/theorem-reach
+#   THREEPROXY_BIND_IP=YOUR_VPS_PUBLIC_IP
+#   THREEPROXY_PORT_RANGE_START=8001
+#   THREEPROXY_PORT_RANGE_END=8100
 ```
 
 ```bash
@@ -487,7 +505,198 @@ See `docs/MONITORING.md` for full setup. Summary:
 ufw allow 22    # SSH
 ufw allow 443   # HTTPS
 ufw allow 80    # HTTP (for certbot)
+ufw allow 8001:8100/tcp   # 3proxy free trial proxy range
 ufw enable
+```
+
+---
+
+## Step 12: Install 3proxy (Free Trial Self-Hosted Proxy)
+
+3proxy serves free trial customers. Self-hosted on VPS, uses VPS bandwidth + auth, costs ~$0.001 per trial.
+
+### 12.1 Install 3proxy
+
+```bash
+# Install dependencies
+apt install build-essential -y
+
+# Clone and build
+cd /opt
+git clone https://github.com/3proxy/3proxy.git
+cd 3proxy
+make -f Makefile.Linux
+make -f Makefile.Linux install
+
+# Verify
+3proxy --version
+```
+
+### 12.2 Generate Bunche Trial Config
+
+```bash
+mkdir -p /etc/3proxy /var/log/3proxy
+cat > /etc/3proxy/bunche-trial.cfg << 'EOF'
+#!/usr/local/3proxy/bin/3proxy
+
+# Bunche Free Trial Proxy Configuration
+# Managed dynamically by n8n workflow — see scripts/manage-3proxy-trial.sh
+
+daemon
+pidfile /var/run/3proxy-bunche.pid
+nscache 65536
+nserver 8.8.8.8
+
+# Authentication: strong (username + password)
+auth strong
+
+# Users added dynamically here by n8n workflow:
+# users trial_xxxx:CL:password_hash
+# (initially empty — populated as trials are granted)
+
+# Allow only authenticated trial users
+allow trial_*
+
+# External IP (your VPS public IP)
+external YOUR_VPS_PUBLIC_IP
+internal 0.0.0.0
+
+# HTTP CONNECT proxy on ports 8001-8100
+# Each trial user gets a unique port
+proxy -p8001-8100
+
+# Logging (optional — for debugging)
+log /var/log/3proxy/bunche-trial.log D
+logformat "- +_L%t.%. %N.%p %E %U %C:%c %R:%r %O %I %h %T"
+EOF
+
+# Replace YOUR_VPS_PUBLIC_IP with actual value
+sed -i "s/YOUR_VPS_PUBLIC_IP/$(curl -s ifconfig.me)/" /etc/3proxy/bunche-trial.cfg
+```
+
+### 12.3 Start 3proxy
+
+```bash
+3proxy /etc/3proxy/bunche-trial.cfg
+
+# Verify running
+cat /var/run/3proxy-bunche.pid
+ps aux | grep 3proxy
+
+# Test it works (will reject without auth)
+curl -x http://trial_test:test@localhost:8001 https://api.ipify.org
+# Should return: "407 Proxy Authentication Required"
+```
+
+### 12.4 Install Dynamic User Management Script
+
+This script is called by n8n workflow to add/remove trial users:
+
+```bash
+# Download from Bunche repo (when script is added)
+curl -o /usr/local/bin/manage-3proxy-trial.sh \
+  https://raw.githubusercontent.com/sonnyagent30-beep/bunche/main/scripts/manage-3proxy-trial.sh
+chmod +x /usr/local/bin/manage-3proxy-trial.sh
+```
+
+**Usage:**
+```bash
+# Add a trial user (called by n8n on Theorem Reach postback):
+/usr/local/bin/manage-3proxy-trial.sh add trial_a7b9c2 'Kx9mNp2qR8sT4wY7' 8001
+
+# Remove a trial user (called by cleanup cron):
+/usr/local/bin/manage-3proxy-trial.sh remove trial_a7b9c2
+
+# List active trials:
+/usr/local/bin/manage-3proxy-trial.sh list
+```
+
+### 12.5 Schedule Cleanup Cron (Every 5 Min)
+
+```bash
+# Download from Bunche repo (when script is added)
+curl -o /usr/local/bin/cleanup-3proxy-trials.sh \
+  https://raw.githubusercontent.com/sonnyagent30-beep/bunche/main/scripts/cleanup-3proxy-trials.sh
+chmod +x /usr/local/bin/cleanup-3proxy-trials.sh
+
+# Add to crontab
+crontab -e
+# Add this line (runs every 5 min, removes expired trials):
+*/5 * * * * /usr/local/bin/cleanup-3proxy-trials.sh >> /var/log/bunche-trial-cleanup.log 2>&1
+```
+
+### 12.6 Test 3proxy Trial Flow
+
+```bash
+# 1. Manually add a test user
+/usr/local/bin/manage-3proxy-trial.sh add trial_testuser 'testpass123' 8001
+
+# 2. Test it works
+curl -x http://trial_testuser:testpass123@YOUR_VPS_IP:8001 https://api.ipify.org
+# Should return your VPS IP
+
+# 3. Clean up
+/usr/local/bin/manage-3proxy-trial.sh remove trial_testuser
+```
+
+---
+
+## Step 13: Set Up Theorem Reach Webhook Handler
+
+Theorem Reach sends postbacks when customers complete surveys. n8n handles the postback, validates the survey, and grants the trial.
+
+### 13.1 Configure Theorem Reach Account
+
+1. Sign up at theoremreach.com
+2. Apply for publisher account (free)
+3. Get approved (usually 1-2 days)
+4. Navigate to Dashboard → API Settings
+5. Copy:
+   - **API Key** → `THEOREM_REACH_API_KEY` in `.env`
+   - **Survey Wall URL** → `THEOREM_REACH_SURVEY_URL` in `.env`
+   - **HMAC Secret** → `THEOREM_REACH_SECRET` in `.env`
+
+### 13.2 Set Postback URL in Theorem Reach
+
+1. Dashboard → Settings → Postbacks
+2. Set Postback URL: `https://n8n.yourdomain.com/webhook/theorem-reach`
+3. Enable HMAC verification
+4. Save
+
+### 13.3 Import Theorem Reach Webhook Workflow
+
+The webhook handler workflow is in `.n8n/workflows/theorem-reach-webhook.json`.
+
+**Workflow logic:**
+```
+POST /webhook/theorem-reach
+   ↓
+1. Verify HMAC signature using THEOREM_REACH_SECRET
+   ↓
+2. Check idempotency (INSERT ON CONFLICT in theorem_reach_postbacks)
+   ↓
+3. Check status == "completed"
+   ↓
+4. Check daily trial limit (3/3 used?)
+   ↓
+5. If OK:
+   - Generate unique user_id (trial_ + 8 hex chars)
+   - Generate random password (16 chars)
+   - Add to 3proxy config via shell script
+   - INSERT into free_trials table
+   - Send WhatsApp with credentials + 2hr expiry
+   ↓
+6. Return 200 OK to Theorem Reach
+```
+
+### 13.4 Test Theorem Reach Integration
+
+```bash
+# Test webhook manually with valid HMAC signature
+# See scenarios/2026-06-26-free-trial.md for sample payload
+
+# Or test via Theorem Reach dashboard:
+# Dashboard → Testing Tools → Send Test Postback
 ```
 
 ---
@@ -511,12 +720,22 @@ ls -la /backup/bunche/ | tail -5
 
 # R2 bucket
 rclone ls r2:bunche-backups/daily/ | tail -5
+
+# 3proxy running
+ps aux | grep 3proxy | grep -v grep
+
+# 3proxy responsive
+curl -x http://trial_test:test@localhost:8001 https://api.ipify.org
+
+# Active trials
+/usr/local/bin/manage-3proxy-trial.sh list | wc -l
 ```
 
 ### Automated Health Monitoring
 
 UptimeRobot alerts on n8n downtime.
 Backup freshness cron alerts if no backup in 24h.
+3proxy cleanup cron removes expired credentials every 5 min.
 Workflow errors alert via WhatsApp (Error Alert workflow).
 
 ---
@@ -574,6 +793,22 @@ pg_restore --dbname=postgres --create /tmp/restore.dump
 cd /opt/bunche && docker-compose up -d
 ```
 
+### 3proxy Rollback
+
+```bash
+# Stop 3proxy
+kill $(cat /var/run/3proxy-bunche.pid)
+
+# Restore config from backup
+cp /etc/3proxy/bunche-trial.cfg.bak /etc/3proxy/bunche-trial.cfg
+
+# Restart
+3proxy /etc/3proxy/bunche-trial.cfg
+
+# Verify
+ps aux | grep 3proxy
+```
+
 ### Emergency: Pause Everything
 
 ```bash
@@ -581,7 +816,10 @@ cd /opt/bunche && docker-compose up -d
 cd /opt/bunche
 docker-compose down
 
-# All webhooks will return 503
+# Stop 3proxy
+kill $(cat /var/run/3proxy-bunche.pid)
+
+# All webhooks + trial proxy will return 503
 ```
 
 ---
@@ -595,6 +833,14 @@ Check these daily — always keep credit above $10:
 | Proxy-Seller | proxy-seller.com → Dashboard | $10 |
 | DataImpulse | dataimpulse.com → Dashboard | $10 |
 
+## Free Trial Revenue Tracking
+
+Check weekly — Theorem Reach pays out:
+
+| Source | URL | Track |
+|--------|-----|-------|
+| Theorem Reach | theoremreach.com → Earnings | Cumulative payout, payout per survey |
+
 ---
 
 ## Daily Operations Checklist
@@ -604,6 +850,8 @@ Check these daily — always keep credit above $10:
 - [ ] Check any pending orders older than 5 minutes
 - [ ] Confirm all workflows are ACTIVE in n8n
 - [ ] Check UptimeRobot status page (no incidents)
+- [ ] **Check 3proxy is running** (`ps aux | grep 3proxy`)
+- [ ] **Check active trial count** (`manage-3proxy-trial.sh list | wc -l`)
 
 See `docs/OPERATIONAL_RUNBOOK.md` for full operations guide.
 
@@ -615,6 +863,8 @@ See `docs/OPERATIONAL_RUNBOOK.md` for full operations guide.
 - [ ] Check backup sizes are consistent (no anomalies)
 - [ ] Review n8n execution logs for warnings
 - [ ] Check Flutterwave dashboard for failed transactions
+- [ ] **Check Theorem Reach earnings** (should be increasing daily)
+- [ ] **Review 3proxy cleanup log** for any errors
 
 ---
 
@@ -624,6 +874,7 @@ See `docs/OPERATIONAL_RUNBOOK.md` for full operations guide.
 - [ ] Rotate scheduled secrets per `docs/SECURITY_RUNBOOK.md` §1
 - [ ] Review `docs/SECRET_ROTATION_LOG.md` and log this month's rotations
 - [ ] Update this checklist with new operational learnings
+- [ ] **Reconcile Theorem Reach payouts** vs `free_trials.survey_payout_usd` in DB
 
 ---
 
@@ -632,11 +883,13 @@ See `docs/OPERATIONAL_RUNBOOK.md` for full operations guide.
 | URL | Purpose |
 |-----|---------|
 | `https://n8n.yourdomain.com` | n8n workflow editor |
-| `https://n8n.yourdomain.com/healthz` | Health check |
+| `https://n8n.yourdomain.com/healthz` | n8n health check |
+| `YOUR_VPS_IP:8001-8100` | Free trial proxy (after auth) |
 | `rave.flutterwave.com` | Payments dashboard |
 | `business.whatsapp.com` | WhatsApp Business console |
 | `dash.cloudflare.com` | Cloudflare + R2 |
 | `uptimerobot.com/dashboard` | Uptime monitoring |
+| `theoremreach.com/dashboard` | Free trial survey earnings |
 
 | Command | What it does |
 |---------|---------------|
@@ -646,6 +899,10 @@ See `docs/OPERATIONAL_RUNBOOK.md` for full operations guide.
 | `sudo -u postgres psql -U bunche -d bunche` | Open DB console |
 | `/usr/local/bin/backup-bunche.sh` | Manual backup |
 | `/usr/local/bin/backup-bunche.sh --verify` | Test restore |
+| `/usr/local/bin/manage-3proxy-trial.sh list` | List active trial users |
+| `/usr/local/bin/manage-3proxy-trial.sh add USER PASS PORT` | Manually add trial user |
+| `/usr/local/bin/manage-3proxy-trial.sh remove USER` | Manually remove trial user |
+| `tail -f /var/log/bunche-trial-cleanup.log` | View cleanup cron output |
 
 ---
 
@@ -695,3 +952,44 @@ rm /tmp/test.dump
 1. Check n8n logs for slow startup (first request after idle)
 2. Increase UptimeRobot timeout to 30s (already configured)
 3. Set "consecutive failures" to 2 (10-min grace)
+
+### 3proxy not working
+```bash
+# Is it running?
+ps aux | grep 3proxy | grep -v grep
+
+# Check config syntax
+3proxy --help
+
+# Check listening ports
+ss -tlnp | grep -E '800[0-9]'
+
+# Test directly from VPS
+curl -x http://trial_test:test@localhost:8001 https://api.ipify.org
+
+# Check firewall
+ufw status | grep 8001
+```
+
+### Theorem Reach postback not arriving
+1. Check Theorem Reach dashboard → Postback History
+2. Check n8n execution log for `theorem-reach` webhook
+3. Test manually with their Test Postback tool
+4. Verify postback URL is correct (HTTPS, no trailing slash)
+
+### Free trial customer can't authenticate
+1. Check active trial list: `manage-3proxy-trial.sh list | grep USERNAME`
+2. Verify expiry: `SELECT expires_at FROM free_trials WHERE user_id = 'USERNAME';`
+3. Check 3proxy config has the user line: `grep USERNAME /etc/3proxy/bunche-trial.cfg`
+4. Try from VPS directly: `curl -x http://USER:PASS@localhost:PORT https://api.ipify.org`
+
+### 3proxy port exhausted (all 100 in use)
+```bash
+# Check current usage
+/usr/local/bin/manage-3proxy-trial.sh list | wc -l
+
+# If legitimately at 100, customers will see "all slots busy"
+# Wait for cron to free expired credentials (every 5 min)
+# OR manually remove old ones:
+/usr/local/bin/manage-3proxy-trial.sh remove trial_OLD_USER
+```
