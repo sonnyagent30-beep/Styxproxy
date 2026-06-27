@@ -33,10 +33,11 @@ Before starting, you need:
 ```
 Internet
     ↓
-Cloudflare (free tier) — DDoS + HTTPS
+Cloudflare (free tier) — DDoS + HTTPS + edge rate limiting
+    ↓
+Nginx (port 443) — reverse proxy + SSL + per-endpoint rate limiting
     ↓
 VPS (your server)
-    ├── Nginx (port 443) — reverse proxy + SSL
     ├── n8n (Docker) — workflow engine
     ├── PostgreSQL — database
     ├── Redis — caching + sessions + rate limiting
@@ -102,7 +103,7 @@ age-keygen -o /root/bunche-backup-private.key
 # This creates a file like:
 #   # created: 2026-06-26T22:30:00Z
 #   # public key: age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-#   AGE-SECRET-KEY-1xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#   # AGE-SECRET-KEY-1xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # EXTRACT public key (copy this to backup.conf later):
 grep "public key" /root/bunche-backup-private.key
@@ -238,9 +239,7 @@ services:
     ports:
       - "5679:5678"
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=YOUR_N8N_PASSWORD
+      - N8N_BASIC_AUTH_ACTIVE=***      - N8N_BASIC_AUTH_USER=***      - N8N_BASIC_AUTH_PASSWORD=YOUR_N...RD
       - N8N_HOST=n8n.yourdomain.com
       - N8N_PROTOCOL=https
       - WEBHOOK_URL=https://n8n.yourdomain.com/
@@ -249,7 +248,7 @@ services:
       - DB_POSTGRESDB_PORT=5432
       - DB_POSTGRESDB_DATABASE=bunche
       - DB_POSTGRESDB_USER=bunche
-      - DB_POSTGRESDB_PASSWORD=YOUR_BUNCHE_DB_PASSWORD
+      - DB_POSTGRESDB_PASSWORD=YOUR_B...RD
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168
     volumes:
@@ -278,7 +277,7 @@ Open: `https://n8n.yourdomain.com`
 
 ---
 
-## Step 5: Nginx + SSL
+## Step 5: Nginx + SSL + Rate Limiting
 
 ### 5.1 Create Nginx Config
 
@@ -287,6 +286,30 @@ nano /etc/nginx/sites-available/n8n
 ```
 
 ```nginx
+# ============================================
+# Bunche — Nginx Config
+# ============================================
+# Features:
+# - SSL termination (Let's Encrypt)
+# - Reverse proxy to n8n (port 5679)
+# - Per-endpoint rate limiting (council recommendation)
+# - Webhook protection against flooding
+# ============================================
+
+# RATE LIMIT ZONES (define before server block)
+# Connection limit per IP
+limit_conn_zone $binary_remote_addr zone=conn_per_ip:10m;
+
+# Request rate zones (separate for different webhook types)
+# whatsapp: 10 req/sec per IP (allows bursts of 20)
+limit_req_zone $binary_remote_addr zone=whatsapp_limit:10m rate=10r/s;
+# flutterwave: 5 req/sec per IP (Flutterwave rarely hits >1/sec)
+limit_req_zone $binary_remote_addr zone=flutterwave_limit:10m rate=5r/s;
+# theorem_reach: 5 req/sec per IP (webhook from one source)
+limit_req_zone $binary_remote_addr zone=theorem_reach_limit:10m rate=5r/s;
+# general: 20 req/sec per IP (admin + health checks)
+limit_req_zone $binary_remote_addr zone=general_limit:10m rate=20r/s;
+
 server {
     listen 80;
     server_name n8n.yourdomain.com;
@@ -294,7 +317,7 @@ server {
 }
 
 server {
-    listen 443 ssl;
+    listen 443 ssl http2;
     server_name n8n.yourdomain.com;
 
     ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
@@ -302,7 +325,79 @@ server {
 
     client_max_body_size 50M;
 
+    # Connection limit per IP (max 20 concurrent)
+    limit_conn conn_per_ip 20;
+
+    # ============================================
+    # WEBHOOK ENDPOINTS — strict rate limits
+    # ============================================
+
+    # WhatsApp webhook — 10 req/sec, burst 20
+    location /webhook/whatsapp-incoming {
+        limit_req zone=whatsapp_limit burst=20 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:5679;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_buffering off;
+
+        # 5s timeout (webhooks should be fast)
+        proxy_read_timeout 5s;
+    }
+
+    # Flutterwave webhook — 5 req/sec
+    location /webhook/flutterwave {
+        limit_req zone=flutterwave_limit burst=10 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:5679;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 10s;
+    }
+
+    # Theorem Reach webhook — 5 req/sec
+    location /webhook/theorem-reach {
+        limit_req zone=theorem_reach_limit burst=10 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:5679;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 10s;
+    }
+
+    # ============================================
+    # GENERAL — admin + health
+    # ============================================
+
+    location /webhook/ {
+        # Catches any other webhook endpoints (catch-all)
+        limit_req zone=general_limit burst=30 nodelay;
+        limit_req_status 429;
+
+        proxy_pass http://127.0.0.1:5679;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Admin UI + health
     location / {
+        limit_req zone=general_limit burst=30 nodelay;
+        limit_req_status 429;
+
         proxy_pass http://127.0.0.1:5679;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -313,6 +408,12 @@ server {
         proxy_set_header Connection "upgrade";
         proxy_buffering off;
     }
+
+    # Health check endpoint (no rate limit — UptimeRobot needs this)
+    location = /healthz {
+        access_log off;
+        proxy_pass http://127.0.0.1:5679/healthz;
+    }
 }
 ```
 
@@ -322,6 +423,10 @@ server {
 ln -s /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
 nginx -t
 systemctl reload nginx
+
+# Test rate limiting:
+# Run this in a loop — should hit 429 after burst:
+for i in {1..50}; do curl -s -o /dev/null -w "%{http_code}\n" https://n8n.yourdomain.com/webhook/whatsapp-incoming; done
 ```
 
 ---
@@ -365,6 +470,9 @@ curl -X POST https://n8n.yourdomain.com/webhook/flutterwave \
 
 # Test Theorem Reach postback (with valid HMAC)
 # See scenarios/2026-06-26-free-trial.md for sample payload
+
+# Test rate limiting (should hit 429 after 30+ req)
+for i in {1..40}; do curl -s -o /dev/null -w "%{http_code}\n" https://n8n.yourdomain.com/webhook/whatsapp-incoming; done
 ```
 
 ---
@@ -397,9 +505,7 @@ nano /opt/bunche/.env
 # See: .env.example for full list
 
 # Make sure these new vars are filled in:
-#   THEOREM_REACH_API_KEY=***
-#   THEOREM_REACH_SECRET=***
-#   THEOREM_REACH_SURVEY_URL=***
+#   THEOREM_REACH_API_KEY=***   THEOREM_REACH_SECRET=***   THEOREM_REACH_SURVEY_URL=***
 #   THEOREM_REACH_POSTBACK_URL=https://n8n.yourdomain.com/webhook/theorem-reach
 #   THREEPROXY_BIND_IP=YOUR_VPS_PUBLIC_IP
 #   THREEPROXY_PORT_RANGE_START=8001
@@ -895,7 +1001,7 @@ See `docs/OPERATIONAL_RUNBOOK.md` for full operations guide.
 |---------|---------------|
 | `cd /opt/bunche && docker-compose restart` | Restart n8n |
 | `cd /opt/bunche && docker-compose logs -f` | View n8n logs |
-| `systemctl restart nginx` | Reload Nginx |
+| `systemctl restart nginx` | Reload Nginx (rate limit config too) |
 | `sudo -u postgres psql -U bunche -d bunche` | Open DB console |
 | `/usr/local/bin/backup-bunche.sh` | Manual backup |
 | `/usr/local/bin/backup-bunche.sh --verify` | Test restore |
@@ -903,6 +1009,7 @@ See `docs/OPERATIONAL_RUNBOOK.md` for full operations guide.
 | `/usr/local/bin/manage-3proxy-trial.sh add USER PASS PORT` | Manually add trial user |
 | `/usr/local/bin/manage-3proxy-trial.sh remove USER` | Manually remove trial user |
 | `tail -f /var/log/bunche-trial-cleanup.log` | View cleanup cron output |
+| `nginx -t && systemctl reload nginx` | Test + reload nginx rate limit config |
 
 ---
 
@@ -918,6 +1025,7 @@ docker-compose logs n8n
 1. Check Cloudflare → SSL mode is Full (not Flexible)
 2. Check Nginx logs: `tail -f /var/log/nginx/error.log`
 3. Test webhook URL directly: `curl -I https://n8n.yourdomain.com/webhook/whatsapp-incoming`
+4. **If 429:** rate limit triggered — wait or increase limit
 
 ### Payment webhook not firing
 1. Flutterwave dashboard → Settings → Webhooks → confirm URL is correct
@@ -952,6 +1060,22 @@ rm /tmp/test.dump
 1. Check n8n logs for slow startup (first request after idle)
 2. Increase UptimeRobot timeout to 30s (already configured)
 3. Set "consecutive failures" to 2 (10-min grace)
+
+### Rate limit 429 errors in n8n
+```bash
+# Check current rate limit zones
+nginx -T 2>/dev/null | grep limit_req_zone
+
+# If too strict, increase limits in /etc/nginx/sites-available/n8n
+# Then test + reload:
+nginx -t && systemctl reload nginx
+
+# Per-endpoint tuning:
+# - WhatsApp: 10r/s (allows bursts of 20)
+# - Flutterwave: 5r/s
+# - Theorem Reach: 5r/s
+# - General: 20r/s
+```
 
 ### 3proxy not working
 ```bash
