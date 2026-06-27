@@ -1,21 +1,22 @@
 # Bunche — Workflow Specifications
 
 **Last Updated:** 2026-06-27
-**SHA:** data-alert-v1-referral + 3proxy-trial
-**Status:** Planning Complete — Ready for Implementation
+**SHA:** Bunche-Auth-Layer-v1
+**Status:** Ready for Implementation
 
 ---
 
 ## Table of Contents
 
 1. [Products & Data Model](#products--data-model)
-2. [Workflows](#workflows)
-3. [Data Alert System](#data-alert-system)
-4. [Referral System](#referral-system)
-5. [Security](#security)
-6. [Architecture](#architecture)
-7. [Admin Authentication](#admin-authentication)
-8. [PII Handling](#pii-handling)
+2. [Bunche Auth Layer](#bunche-auth-layer)
+3. [Workflows](#workflows)
+4. [Data Alert System](#data-alert-system)
+5. [Referral System](#referral-system)
+6. [Security](#security)
+7. [Architecture](#architecture)
+8. [Admin Authentication](#admin-authentication)
+9. [PII Handling](#pii-handling)
 
 ---
 
@@ -24,10 +25,11 @@
 ### Providers
 
 | Provider | Products | Role |
-|----------|---------|------|
+|---------|---------|------|
 | **Proxy-Seller** | ISP, Datacenter | Primary |
 | **DataImpulse** | Residential, Mobile | Secondary |
-| **Self-hosted 3proxy** | Free trials only | Trial infrastructure |
+| **Rayobyte** | DC Rotating | Future |
+| **Self-hosted Dante** | ALL products (auth layer) | Bunche-branded auth |
 
 ### Products & Tracking
 
@@ -35,43 +37,73 @@
 |---------|----------|---------|----------|--------|
 | ISP | Proxy-Seller | Per month | Time-based | Yes — expires on date |
 | DC | Proxy-Seller | Per month | Time-based | Yes — expires on date |
-| Residential | DataImpulse | Per GB | Data-based | **No time expiry — runs until GB is used up** |
+| DC Rotating | Rayobyte | Per GB | GB-based | Varies |
+| Residential | DataImpulse | Per GB | Data-based | **No time expiry — runs until GB is used** |
 | Mobile | DataImpulse | Per GB | Data-based | 30-day window to use GB |
-| **Free trial** | **Self-hosted 3proxy** | **Free (survey-paid)** | **2-hour TTL** | **Auto-expires via cron** |
+| **Free trial** | **Self-hosted Dante** | **Free (survey-paid)** | **2-hour TTL** | **Auto-expires via cron** |
 
-### Residential — No Time Expiry
+---
 
-Residential proxies from DataImpulse **do not expire by time**. They last until the allocated GB is fully used. There is no expiry date.
+## Bunche Auth Layer
 
-```
-Residential 5GB purchased January 1
-  → Works until 5GB is used up
-  → No expiry date
-  → Customer can track: "I've used X.X GB of 5GB"
-```
+### How It Works
 
-### Mobile — 30-Day Window + Data Cap
-
-Mobile proxies have both a **data cap** AND a **30-day window** to use it.
+All customers receive Bunche-branded proxy credentials. The actual proxy IPs are sourced from vetted infrastructure partners but customers interact only with Bunche.
 
 ```
-Mobile 5GB purchased January 1
-  → 5GB of data to use
-  → Must use it within 30 days (expires January 31)
-  → If data runs out before day 30 → proxy stops
-  → If day 30 arrives with data left → unused data is lost
+Customer sees:   proxy1.bunche.ng:1080
+                 username: bun_001
+                 password: P@ssw0rd!
+                        │
+                        ▼
+              Bunche Dante SOCKS5 Server (Hetzner)
+                        │
+              Maps Bunche username → Provider IP
+                        │
+                        ▼
+            Vetted infrastructure partners
+            (Proxy-Seller / DataImpulse)
 ```
 
-### Free Trial — 2-Hour TTL (Locked)
+### Credential Lifecycle
 
-Free trial uses Bunche's self-hosted 3proxy. Customers share the VPS public IP across all concurrent trials (max 100 at once). Trial credentials auto-expire after 2 hours via cron cleanup.
+**Order Flow:**
+1. Customer pays → Flutterwave webhook
+2. n8n calls provider API → gets provider IP + credentials
+3. n8n generates Bunche username/password
+4. n8n calls `manage-bunche-credentials.sh add USERNAME PASSWORD`
+5. n8n inserts row into `bunche_credentials` DB table
+6. n8n sends Bunche-branded credentials via WhatsApp
 
-```
-Trial granted at 14:00 Lagos
-  → Works for 2 hours
-  → Auto-expires at 16:00 (credentials removed from 3proxy)
-  → Customer can re-request if more time needed (counts toward 3/day limit)
-```
+**Refund Flow:**
+1. Admin approves refund on Flutterwave dashboard
+2. Flutterwave processes refund
+3. n8n calls `manage-bunche-credentials.sh revoke USERNAME`
+4. Dante reloads → old credentials instantly fail
+5. n8n updates `bunche_credentials.status = 'revoked'`
+6. Provider IP is NOT returned to provider (already paid for monthly)
+7. Provider IP goes into free_trial pool with new temp password
+
+**Free Trial Flow:**
+1. Customer completes survey → verified via webhook
+2. n8n picks an available IP from free_trial pool
+3. n8n generates session password
+4. n8n calls `manage-bunche-credentials.sh free_trial TRIALUSER SESSIONPASS`
+5. Credentials sent to customer with 2hr expiry warning
+6. Cron runs every 5 min → checks `bunche_credentials.expires_at`
+7. Expired trials → `manage-bunche-credentials.sh revoke TRIALUSER`
+8. IP returned to free_trial pool
+
+### Credential Management
+
+| Scenario | Action |
+|---------|--------|
+| New paying customer | Add Bunche credential → deliver → track in DB |
+| Refund approved | Revoke Bunche credential → recycle IP to free_trial pool |
+| Free trial starts | Assign from free_trial pool → send with 2hr TTL |
+| Free trial expires | Revoke credential → IP stays in free_trial pool |
+| Paid order expires | Revoke credential → no recycle (customer must renew) |
+| Abuse detected | Revoke immediately → block customer |
 
 ---
 
@@ -104,7 +136,53 @@ Trial granted at 14:00 Lagos
 
 ### Workflow 2: Payment Confirmation
 
-(Same as before — unchanged)
+**Trigger:** Flutterwave webhook (`payment.placed`, `transfer.completed`)
+**Purpose:** Fulfill order after payment confirmed
+
+```
+[Flutterwave Webhook]
+        ↓
+[Signature Verify: HMAC-SHA256]
+        ↓
+[Idempotency Check: webhook_id in Redis → ignore if duplicate]
+        ↓
+[Parse tx_ref → extract customer_phone + plan_code]
+        ↓
+[Verify customer exists in DB]
+        ↓
+[Call Provider API: POST /order → get IP + provider credentials]
+        ↓
+[TEST IP: curl --proxy IP:PORT -U user:pass http://checkip.amazonaws.com]
+        ├── FAIL → retry up to 3 times with new IP
+        │        └── All fail → trigger refund automatically
+        └── PASS → Continue
+        ↓
+[Generate Bunche credentials]
+  bun_username = bun_{CUSTOMER_ID}
+  bun_password = random 16-char
+        ↓
+[Call manage-bunche-credentials.sh add bun_USERNAME bun_PASSWORD]
+        ↓
+[INSERT into bunche_credentials table]
+        ↓
+[INSERT into orders table]
+        ↓
+[Send WhatsApp: Bunche-branded credentials]
+  "✅ Payment confirmed!
+  
+  🌐 Your Proxy Details:
+  
+  IP/Host: proxy1.bunche.ng
+  Port: 1080
+  Username: bun_001
+  Password: P@ssw0rd!2024
+  
+  Type: Residential
+  Validity: 30 days
+  Max GB: 5GB"
+        ↓
+[Return 200 OK to Flutterwave]
+```
 
 ---
 
@@ -128,22 +206,49 @@ Trial granted at 14:00 Lagos
 
 ### Workflow 6: Refund Handler
 
+**Trigger:** Admin approves refund OR Flutterwave refund webhook
+**Purpose:** Revoke Bunche credentials and recycle IP
+
+```
+[Refund Approved: flutterwave OR admin command]
+        ↓
+[Look up order in orders table]
+        ↓
+[Look up bunche_credentials record]
+        ↓
+[If not found → log error, skip credential revoke step]
+        ↓
+[Call manage-bunche-credentials.sh revoke bun_USERNAME]
+        ↓
+[Update bunche_credentials: status='revoked', revoke_reason='refund']
+        ↓
+[IF provider IP can be recycled (monthly IP, not GB-based)]
+  → Insert new temp credential in free_trial pool
+  → bun_username = temp_{TIMESTAMP}
+  → bun_password = random
+  → pool_type = 'refunded_recycled'
+  → expires_at = NOW() + 2 hours
+  → Bunche sends WhatsApp: "IP recycled to free trial pool"
+        ↓
+[Update orders: status='refunded']
+        ↓
+[Log in customer_audit_log]
+        ↓
+[Send WhatsApp to customer: refund confirmation]
+```
+
+---
+
+### Workflow 7: Expiry + Data Reminder Cron
+
 (Same as before — unchanged)
 
 ---
 
-### Workflow 7: Expiry + Data Alert Cron
-
-(Same as before — unchanged)
-
----
-
-### Workflow 8: Free Trial (Self-Hosted 3proxy + Theorem Reach)
+### Workflow 8: Free Trial (Self-Hosted Dante + Survey)
 
 **Trigger:** Customer says "free trial" / "free plan" / "trial"
-**Purpose:** Grant 2-hour trial via Theorem Reach survey + dynamic 3proxy credentials
-
-> **Note:** Free trials use self-hosted 3proxy on the Bunche VPS (not paid provider IPs). Theorem Reach handles survey verification with HMAC-signed postbacks. Each trial costs ~$0.001 in VPS bandwidth and earns Bunche $1-4 in survey revenue.
+**Purpose:** Grant 2-hour trial via Survey + dynamic Bunche credentials
 
 #### Part A: Customer-Facing Flow
 
@@ -152,11 +257,11 @@ Trial granted at 14:00 Lagos
         ↓
 [Send WhatsApp: FULL DISCLAIMER + survey link]
         ↓
-[Customer reads disclaimer, completes Theorem Reach survey]
+[Customer reads disclaimer, completes survey]
         ↓
 [Customer replies DONE]
         ↓
-[Wait for Theorem Reach postback OR customer DONE reply]
+[Wait for survey postback OR customer DONE reply]
         ↓
 [Verify survey completion (HMAC + status=completed)]
         ↓
@@ -168,140 +273,71 @@ Trial granted at 14:00 Lagos
    │ ✅ Survey valid + limit OK → Grant trial    │
    │ ❌ Daily limit hit → "Try tomorrow"         │
    │ ❌ Invalid signature → log + admin alert     │
-   │ ❌ All 100 trial slots busy → "Try in 30m"   │
+   │ ❌ All trial slots busy → "Try in 30m"       │
    └────────────────────────────────────────────┘
 ```
 
 #### Part B: Backend Flow (when survey verified)
 
 ```
-[Generate unique user_id: trial_a7b9c2 (16 chars alphanumeric)]
-[Generate random password: 16 chars]
-[Find available port in 8001-8100 range]
+[Check free_trial_pool for available IP]
+  → SELECT * FROM bunche_credentials 
+    WHERE pool_type = 'free_trial' 
+    AND status = 'available'
+    LIMIT 1
         ↓
-[Execute shell script: manage-3proxy-trial.sh add USER PASS PORT]
-   └─→ Appends "users trial_a7b9c2:CL:hash" to /etc/3proxy/bunche-trial.cfg
-   └─→ Sends SIGHUP to 3proxy (hot reload, no restart)
+[If no available IP → check refunded_recycled pool]
         ↓
-[INSERT into free_trials table:
-   - order_id = TRIAL-20260627-1042
-   - phone_hash, user_id, password_hash
-   - proxy_ip = VPS_PUBLIC_IP
-   - proxy_port = 8001-8100
-   - expires_at = NOW() + 2 hours
-   - survey_transaction_id = from Theorem Reach (idempotency)
-   - survey_payout_usd = 1.50 (recorded)
-   - status = 'active']
+[Generate session password: Sess@2hr! + random]
+        ↓
+[Call manage-bunche-credentials.sh add trial_XXXX sess_PASS]
+        ↓
+[UPDATE bunche_credentials SET:
+  customer_phone = phone,
+  status = 'active',
+  expires_at = NOW() + INTERVAL '2 hours',
+  pool_type = 'free_trial']
+        ↓
+[INSERT into free_trials table]
         ↓
 [Send WhatsApp to customer with credentials + 2hr expiry]
         ↓
-[Return 200 OK to Theorem Reach]
+[Return 200 OK to survey provider]
 ```
 
-#### Part C: Customer-Facing Disclaimer
+#### Part C: Free Trial Cron (Every 5 Minutes)
 
 ```
-🎁 FREE TRIAL — DISCLAIMER
-
-Before we send your free IP, please read:
-
-━━━━━━━━━━━━━━━━━━
-⚠️ FREE TRIAL TERMS ⚠️
-━━━━━━━━━━━━━━━━━━
-
-This free trial uses a Bunche-hosted proxy
-shared with other trial users. By accepting, you agree:
-
-❌ NOT for production/critical use
-❌ Not guaranteed private (shared with other trials)
-❌ IP shared = if one user misbehaves, IP could get flagged
-❌ No replacement if proxy dies or expires
-❌ Used entirely at YOUR OWN RISK
-
-✅ Bunche-hosted proxy — generally reliable
-✅ Auto-expires after 2 hours
-✅ For testing our service only
-✅ Upgrade to paid plan for reliability + privacy
-
-━━━━━━━━━━━━━━━━━━
-
-Complete ONE survey to unlock your IP:
-
-[SURVEY LINK]
-
-After completing, reply DONE
+[Cron: every 5 minutes]
+        ↓
+[SELECT FROM bunche_credentials
+  WHERE pool_type IN ('free_trial', 'refunded_recycled')
+  AND status = 'active'
+  AND expires_at < NOW()]
+        ↓
+[For each expired credential:]
+  [Call manage-bunche-credentials.sh revoke TRIAL_USER]
+  [UPDATE bunche_credentials SET:
+    status = 'available',
+    customer_phone = NULL,
+    expires_at = NULL]
+  [Log expiration in audit]
+        ↓
+[Send WhatsApp: "Your 2-hour trial has ended.
+  Want unlimited access? Reply UPGRADE for pricing."]
 ```
-
-#### Part D: Customer-Facing Success Message
-
-```
-✅ Survey verified! Trial ready.
-
-━━━━━━━━━━━━━━━━━━
-🌐 BUNCHE TRIAL PROXY — 2 HOURS
-━━━━━━━━━━━━━━━━━━
-
-🔗 IP: bunche.ng
-🔌 Port: 8001
-👤 User: trial_a7b9c2
-🔑 Pass: Kx9mNp2qR8sT4wY7
-
-⏰ Expires: [current time + 2hrs]
-
-⚠️ Shared proxy — other trial users share this IP.
-For private/production use, upgrade to a paid plan.
-
-🛡️ You've used [X/3] free trials today.
-
-💡 Want reliable private proxies? Reply menu to see paid plans.
-```
-
-#### Part E: Daily Limit Hit Message
-
-```
-🛡️ Daily limit reached — you've used 3/3 free trials today.
-
-Come back tomorrow, or skip the wait with a paid plan:
-• ISP UK/US: ₦6,500/mo (private, reliable)
-• Residential 5GB: ₦5,000 (data never expires)
-• Mobile 5GB: ₦20,000 (4G)
-
-Reply menu to order, or wait until tomorrow for another free trial.
-```
-
-#### Part F: All Slots Busy Message
-
-```
-⚠️ All trial slots busy right now.
-
-We'll ping you the moment one opens up (usually within 30 minutes).
-
-🛡️ You've used [X/3] free trials today.
-
-💡 Want reliable proxies now? Reply menu.
-```
-
-#### Why Theorem Reach + 3proxy (vs CPAGrip + Public Proxies)
-
-| Reason | Detail |
-|--------|--------|
-| **Anti-bot** | Theorem Reach uses behavioral analysis (~95% bot block rate) — better than CPAGrip |
-| **Revenue** | Theorem Reach pays us $1-4/trial — net positive economics |
-| **Reliability** | Self-hosted 3proxy is Bunche-controlled, no flaky public proxy lists |
-| **Cost** | $0.001/trial bandwidth vs public proxies that may not work at all |
-| **Customer UX** | 2-hour TTL is generous vs no expiration (which causes confusion) |
 
 ---
 
 ### Workflow 9: Free Trial Follow-Up (Idle Cron)
 
-(Same as before — adapted for 3proxy context)
+(Same as before — adapted for Dante context)
 
 ---
 
 ### Workflow 10: Trial Reset (Daily Midnight)
 
-(Same as before — also resets Theorem Reach postback counters)
+(Same as before — also resets trial counters)
 
 ---
 
@@ -357,17 +393,16 @@ All webhooks verified before processing:
 |---------|-------------|
 | WhatsApp | HMAC-SHA256 (X-Hub-Signature-256) |
 | Flutterwave | HMAC-SHA256 (verif-hash) |
-| **Theorem Reach** | **HMAC-SHA256 (postback signature)** |
-| Bitlock.ai | (DEPRECATED — removed in favor of Theorem Reach) |
+| Survey Provider | HMAC-SHA256 (postback signature) |
 
-### Rate Limiting (3 Layers)
+### Credential Security
 
-| Layer | What It Catches |
-|-------|----------------|
-| Cloudflare | DDoS, bots, mass attacks |
-| Nginx | Persistent attackers, per-endpoint limits |
-| Redis in n8n | Customer spam, phone-based limits |
-| **Free trial daily limit** | **Same phone can't request >3 trials/day** |
+| Threat | Mitigation |
+|--------|-----------|
+| Credential brute force | Dante + fail2ban blocks after 3 failures |
+| Credential theft | HTTPS-only, never in WhatsApp logs |
+| Refund credential reuse | Credentials revoked before refund processed |
+| Free trial credential sharing | Session password expires in 2hrs |
 
 ### Payment Idempotency
 
@@ -389,17 +424,6 @@ All webhooks verified before processing:
 [Mark as processed in Redis + PostgreSQL]
 ```
 
-### Theorem Reach Idempotency
-
-```
-[Postback received with transaction_id]
-        ↓
-[INSERT INTO theorem_reach_postbacks (transaction_id, ...) ON CONFLICT DO NOTHING]
-        ↓
-[If inserted (new) → process trial]
-[If conflict (already processed) → return 200, ignore]
-```
-
 ---
 
 ## Architecture
@@ -417,38 +441,46 @@ Customer WhatsApp
         ↓
 [Redis — caching + sessions + rate limits]
         ↓
-[PostgreSQL — customers, orders, audit logs]
+[PostgreSQL — customers, orders, audit logs, bunche_credentials]
         ↓
 [MiniMax M2 API — LLM]
         ↓
 [Provider APIs — Proxy-Seller, DataImpulse]
         ↓
-[3proxy shell script — add/remove trial users]
+[Dante SOCKS5 — Bunche credential auth]
         ↓
 [WhatsApp reply]
 ```
 
-### Free Trial Sub-Flow
+### Bunche Credential Flow
 
 ```
-Customer: "free trial"
-        ↓
-[WhatsApp → n8n → Workflow 8]
-        ↓
-[Send disclaimer + Theorem Reach survey link]
-        ↓
-[Customer completes survey on Theorem Reach's domain]
-        ↓
-[Customer replies DONE on WhatsApp]
-[OR Theorem Reach sends postback]
-        ↓
-[n8n workflow: verify HMAC, check status=completed]
-        ↓
-[Generate credentials, add to 3proxy via shell]
-        ↓
-[Send WhatsApp with trial credentials]
-        ↓
-[Cron every 5 min: clean expired credentials from 3proxy + DB]
+n8n order workflow
+        │
+        ▼
+Proxy-Seller / DataImpulse API
+  ← returns: IP, Port, Provider Username, Provider Password
+        │
+        ▼
+Generate Bunche credentials
+  bun_username = bun_{customer_id}
+  bun_password = random 16-char
+        │
+        ▼
+Write to PostgreSQL: bunche_credentials table
+  ← stores: bun_username, password_hash, provider details, status
+        │
+        ▼
+Call manage-bunche-credentials.sh add USERNAME PASSWORD
+        │
+        ▼
+Dante reloads → new user is valid
+        │
+        ▼
+Customer connects: proxy1.bunche.ng:1080
+  - Dante authenticates with bun_USERNAME + bun_PASSWORD
+  - Dante routes to upstream provider IP
+  - Customer sees Bunche-branded proxy
 ```
 
 ---
@@ -465,41 +497,25 @@ Customer: "free trial"
 
 ---
 
-## Error Workflow
-
-(Same as before — unchanged)
-
----
-
-## Products & Pricing
-
-(Same as before — unchanged)
-
----
-
 ## Provider Health Endpoints
 
 | Provider | Health Check | Order Endpoint | Data Status |
-|----------|-------------|----------------|-------------|
+|----------|-------------|----------------|------------|
 | Proxy-Seller | GET /balance | POST /api/v1/order/create | N/A (time-based) |
-| DataImpulse | GET /account | POST /reseller/order/create | GET /reseller/order/{id} — returns used_gb + remaining_gb |
-| **Self-hosted 3proxy** | **ps aux \| grep 3proxy** | **shell script (manage-3proxy-trial.sh add USER PASS PORT)** | **DB table (free_trials.expires_at)** |
+| DataImpulse | GET /account | POST /reseller/order/create | GET /reseller/order/{id} |
+| **Dante** | `pgrep danted` | `manage-bunche-credentials.sh` | `bunche_credentials.expires_at` |
 
 ---
 
 ## Admin Commands
-
-(Same as before — unchanged)
-
----
-
-## Free Trial Admin Commands (New)
 
 | Command | Risk | Description |
 |---------|------|-------------|
 | Trial stats | Low | Show today's trial count, active trials, slots used |
 | Revoke trial USER | Medium | Force-remove a trial user (admin override) |
 | List active trials | Low | Show all active trial user_ids + expiry times |
+| Revoke credential USER | Medium | Revoke paying customer's Bunche credential |
+| Check credential USER | Low | Show credential status in DB |
 
 ---
 
@@ -507,21 +523,21 @@ Customer: "free trial"
 
 | # | Workflow | Status |
 |---|----------|--------|
-| 1 | Order Handler | Planned |
-| 2 | Payment Confirmation | Planned |
-| 3 | Admin Command Handler | Planned |
-| 4 | Ban Claim | Planned |
-| 5 | Provider APIs + Health | Planned |
-| 6 | Refund Handler | Planned |
-| 7 | Expiry + Data Reminder | Planned |
-| 8 | **Free Trial (3proxy + Theorem Reach)** | **Planned** |
-| 9 | Free Trial Follow-Up | Planned |
-| 10 | Trial Reset | Planned |
-| 11 | Bunche Logger | Planned |
-| 12 | Provider Health Logger | Planned |
-| 13 | Daily Summary | Planned |
-| 14 | Data Alert Escalation | Planned |
-| 15 | Referral Credit Processor | Planned |
+| 1 | Order Handler | Ready |
+| 2 | Payment Confirmation | Ready — updated for Dante credential creation |
+| 3 | Admin Command Handler | Ready |
+| 4 | Ban Claim | Ready |
+| 5 | Provider APIs + Health | Ready |
+| 6 | Refund Handler | Ready — updated for Dante credential revoke |
+| 7 | Expiry + Data Reminder | Ready |
+| 8 | **Free Trial (Dante + Survey)** | **Ready — updated for Dante auth** |
+| 9 | Free Trial Follow-Up | Ready |
+| 10 | Trial Reset | Ready |
+| 11 | Bunche Logger | Ready |
+| 12 | Provider Health Logger | Ready |
+| 13 | Daily Summary | Ready |
+| 14 | Data Alert Escalation | Ready |
+| 15 | Referral Credit Processor | Ready |
 
 ---
 
@@ -529,14 +545,13 @@ Customer: "free trial"
 
 - `docs/REFERRAL_SYSTEM.md` — Full referral system specification
 - `docs/DEAD_IP_REPLACEMENT_POLICY.md` — Dead IP retry flow
-- `scenarios/2026-06-26-free-trial.md` — Free trial scenario (canonical reference)
+- `docs/DATABASE_SCHEMA.md` — PostgreSQL schema including `bunche_credentials`
+- `docs/DANTE_SETUP.md` — Dante SOCKS5 installation and configuration
+- `scripts/manage-bunche-credentials.sh` — Dante credential management script
+- `scenarios/2026-06-26-free-trial.md` — Free trial scenario
 - `scenarios/2026-06-26-first-time-order.md` — Paid first-time flow
-- `scenarios/2026-06-26-provider-down-recovery.md` — Provider failure path
-- `scenarios/2026-06-26-new-number-recovery.md` — New phone recovery
-- `scenarios/2026-06-26-forgot-pin-recovery.md` — Forgot PIN flow
+- `scenarios/2026-06-26-refund-flow.md` — Refund scenario
 - `docs/ARCHITECTURE_PLAN.md` — Full architecture plan
-- `docs/SECURITY_PLAN.md` — Security implementation details
-- `docs/DATABASE_SCHEMA.md` — PostgreSQL schema
-- `legal/TERMS_OF_SERVICE.md` — Legal terms
+- `legal/TERMS_OF_SERVICE.md` — Legal terms (provider-neutral)
 - `legal/PRIVACY_POLICY.md` — Privacy policy
-- `legal/ACCEPTABLE_USE_POLICY.md` — Acceptable use (includes trial abuse clause)
+- `legal/ACCEPTABLE_USE_POLICY.md` — Acceptable use
