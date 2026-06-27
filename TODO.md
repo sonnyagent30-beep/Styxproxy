@@ -26,7 +26,7 @@
 | 5 | Free trial (3proxy + Theorem Reach) | ✅ DONE | Disclaimer first |
 | 6 | Ban claim | ✅ DONE | Pending queue → admin review |
 | 7 | Referral | ✅ DONE | 5% credit on payment |
-| 8 | Data alerts (80% / 100%) | 🔄 PENDING | — |
+| 8 | Data alerts (80% / 100%) | ✅ DONE | Customer-side only, no admin alert |
 | 9 | Daily summary (23:55 cron) | 🔄 PENDING | — |
 | 10 | Error alert (workflow fail) | 🔄 PENDING | — |
 | 11 | Dead IP (1-3 retries → success) | 🔄 PENDING | — |
@@ -67,8 +67,7 @@
 
 | File | Path |
 |------|------|
-| Complete walkthrough (1-10 + admin table) | `scenarios/2026-06-27-complete-scenario-walkthrough.md` |
-| Extended scenarios 11-15 | `scenarios/2026-06-26-first-time-order.md` through `scenarios/2026-06-26-free-trial.md` |
+| Complete walkthrough (1-10) | `scenarios/2026-06-27-complete-scenario-walkthrough.md` |
 | Extended scenarios 16-41 | `scenarios/2026-06-27-scenarios-16-to-40.md` |
 
 **After all 41 reviewed:** Merge into single `SCENARIOS.md` master document
@@ -88,9 +87,10 @@
 | Name at greeting | NO — only after payment |
 | Payment link expiry | 30 minutes |
 | PIN | Opt-in, captured after name, before IP |
+| Data alerts | Customer-side only — no admin alert |
 
 ---
 
 ## NEXT SESSION — PICK UP FROM
 
-Start at **Scenario 8** in the review log above.
+Start at **Scenario 9** in the review log above.
