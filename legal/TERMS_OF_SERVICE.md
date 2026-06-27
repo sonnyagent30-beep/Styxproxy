@@ -1,6 +1,6 @@
 # Terms of Service
 *Bunche — Automated Proxy Retail Service*
-*Effective Date: 2026-06-26*
+*Effective Date: 2026-06-27*
 
 ---
 
@@ -14,9 +14,11 @@ Your first interaction with Bunche (sending a WhatsApp message) constitutes acce
 
 ## 2. Description of Service
 
-Bunche operates a zero-inventory proxy retail platform that resells proxy services sourced from international providers including Proxy-Seller and DataImpulse.
+Bunche operates a zero-inventory proxy retail platform that resells proxy services sourced from vetted third-party infrastructure partners.
 
-**Proxy Service:** We sell access to proxy IP addresses. We do not own or operate the underlying proxy infrastructure.
+**Proxy Service:** We sell access to proxy IP addresses under our own branded credentials. We do not disclose our underlying infrastructure partners.
+
+**Branding:** All proxy credentials delivered to customers are issued under Bunche's branding (e.g., proxy1.bunche.ng). Customers interact with Bunche's proxy infrastructure, not the underlying providers.
 
 **Payment Processing:** Payments are processed by Flutterwave. We are not a bank or financial institution.
 
@@ -71,7 +73,7 @@ All prices are in Nigerian Naira (NGN). Prices are subject to change with 7 days
 
 - Payment must be received before proxy is generated
 - If payment is not received within 1 hour of order, the order is automatically cancelled
-- If payment fails or is reversed after delivery, we reserve the right to revoke proxy access
+- If payment fails or is reversed after delivery, we reserve the right to revoke proxy access immediately
 
 ---
 
@@ -79,10 +81,10 @@ All prices are in Nigerian Naira (NGN). Prices are subject to change with 7 days
 
 **⚠️ STRICT: No refunds after proxy is generated and delivered.**
 
-Once a proxy IP is generated and sent to the customer, the sale is FINAL.
+Once a proxy credential is generated and sent to the customer, the sale is FINAL. Because Bunche controls the authentication layer, we can revoke access instantly on refund — the proxy IP cannot be accessed with the revoked credential even if the customer retains it.
 
 ### Refunds ARE Allowed In:
-- Provider API failure (proxy never worked from the start)
+- Proxy never worked from the start (verified by our health check)
 - Wrong IP delivered (wrong country/spec)
 - Fraudulent order (stolen payment)
 - Duplicate charge (same order charged twice)
@@ -95,6 +97,10 @@ Once a proxy IP is generated and sent to the customer, the sale is FINAL.
 - Customer found cheaper elsewhere
 - Account banned by target platform
 
+### Post-Refund IP Handling
+
+Refunded proxies are returned to Bunche's internal pool and reassigned with new credentials. Previously issued credentials are revoked and cannot be used to access any proxy.
+
 ---
 
 ## 7. Free Trial Service
@@ -103,20 +109,20 @@ Bunche offers a free trial service to allow prospective customers to test our se
 
 ### Free Trial Nature
 
-The free trial service uses PUBLIC PROXIES from external sources (Geonode Free Proxy List). Free trial proxies are NOT the same quality as our paid proxy services.
+Free trial proxies use Bunche's self-hosted proxy infrastructure. Free trial credentials are issued under Bunche's branding and are shared among trial users.
 
 ### Free Trial Limitations
 
 - **Daily Limit:** Maximum 3 free trial IPs per phone number per day
-- **Duration:** TEMPORARY — lasts until the proxy dies (no fixed time)
-- **Reliability:** NOT guaranteed to work, NOT guaranteed stable
-- **Replacement:** NO replacement if proxy dies
+- **Duration:** 2 hours — credentials auto-expire after 2 hours
+- **Reliability:** Not guaranteed to work, NOT guaranteed stable
+- **Replacement:** NO replacement if proxy dies or expires
 - **Use Case:** Testing our service only, not for production or critical tasks
 
 ### Free Trial Disclaimer
 
 By accepting a free trial, you acknowledge and agree that:
-- Free trial proxies are sourced from public proxy lists
+- Free trial proxies are shared among trial users
 - Free trial proxies may stop working at any moment without notice
 - Free trial proxies may be banned on some platforms
 - Bunche is NOT responsible for free trial proxy performance
@@ -124,7 +130,7 @@ By accepting a free trial, you acknowledge and agree that:
 
 ### Free Trial Verification
 
-To unlock a free trial IP, you must complete one survey via our partner (CPAGrip). Survey completion is verified via secure postback webhook. No payment is required for the free trial.
+To unlock a free trial IP, you must complete one survey via our partner. Survey completion is verified via secure postback webhook. No payment is required for the free trial.
 
 ### Free Trial Abuse
 
@@ -141,13 +147,15 @@ Proxy credentials are delivered automatically via WhatsApp within 2 minutes of c
 
 Free trial credentials are delivered automatically after survey completion verification.
 
+All credentials are issued under Bunche's branding (e.g., proxy1.bunche.ng:1080).
+
 ---
 
 ## 9. Service Availability
 
-We perform pre-payment health checks on our providers. If a provider is temporarily unavailable, you will be informed BEFORE payment. You will not be charged if we cannot deliver your order.
+We perform pre-payment health checks on all proxy IPs. If a generated IP fails our tests, we attempt replacement. If replacement also fails, you receive an automatic refund.
 
-We test every proxy IP before delivery. If a generated IP fails our tests, we attempt replacement. If replacement also fails, you receive an automatic refund.
+We test every proxy IP before delivery.
 
 ---
 
@@ -171,7 +179,7 @@ The Bunche admin can issue commands via WhatsApp to:
 - Block or unblock customers
 - Check order details
 - Force-refund in exceptional cases
-- Check provider status
+- Revoke credentials and reassign IPs to free trial pool
 
 ---
 
@@ -194,7 +202,7 @@ Recovery method is established after first purchase. Lost WhatsApp access requir
 - All data in transit uses TLS 1.2+
 - PINs are stored hashed (bcrypt)
 - API keys stored securely in n8n credentials
-- Access to customer data restricted to authorized personnel
+- Proxy credentials are rotated regularly and on-demand
 
 ---
 

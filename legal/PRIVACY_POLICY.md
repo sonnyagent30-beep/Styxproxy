@@ -1,6 +1,6 @@
 # Privacy Policy
 *Bunche — Automated Proxy Retail Service*
-*Effective Date: 2026-06-26*
+*Effective Date: 2026-06-27*
 
 ---
 
@@ -10,6 +10,7 @@ Bunche ("we," "us," or "our") is committed to protecting your privacy. This Priv
 
 This policy complies with:
 - Nigeria Data Protection Regulation (NDPR) 2019
+- Nigeria Data Protection Act (NDPA) 2023
 - General Data Protection Regulation (GDPR) for EU users
 
 ---
@@ -33,10 +34,8 @@ This policy complies with:
 ### 1.3 Information from Third Parties
 - **Flutterwave:** Transaction status, payment confirmation, payment metadata
 - **Meta / WhatsApp:** Message metadata via WhatsApp Business API
-- **Proxy Providers (Proxy-Seller, DataImpulse):** Proxy allocation data, proxy status
-- **CPAGrip:** Free trial survey completion verification (user_id, survey_id, reward)
-- **Geonode Free Proxy API:** Public proxy list data (no personal data)
-- **Google Sheets:** Order database
+- **Survey Partner:** Free trial survey completion verification
+- **Vetted Infrastructure Partners:** Proxy allocation data, proxy status
 
 ---
 
@@ -59,10 +58,10 @@ This policy complies with:
 When you participate in our free trial program:
 
 - We collect your phone number to verify daily limits
-- We receive survey completion confirmation from CPAGrip (no payment data)
+- We receive survey completion confirmation from our survey partner
 - We log free trial usage (timestamp, survey ID, proxy assigned)
 - We do NOT store your free trial browsing activity
-- Free trial proxies are sourced from Geonode Free Proxy List (public proxies)
+- Free trial proxies are hosted on Bunche's own infrastructure
 
 Free trial data is retained for 90 days, then anonymized for analytics.
 
@@ -75,21 +74,22 @@ We do NOT sell your data. We share data only with:
 ### 4.1 Service Providers
 - **Flutterwave:** For payment processing
 - **Meta / WhatsApp:** For message delivery via WhatsApp Business API
-- **Proxy-Seller:** For ISP and Datacenter proxy allocation
-- **DataImpulse:** For Residential and Mobile proxy allocation
-- **CPAGrip:** For free trial survey verification
-- **Geonode Free Proxy API:** For free trial proxy sourcing (public data only)
-- **Google Sheets:** For order database
+- **Vetted Infrastructure Partners:** For proxy allocation (no personal data beyond proxy requirements)
+- **Survey Partner:** For free trial survey verification
 - **n8n:** For workflow processing
 
-### 4.2 Legal Requirements
+### 4.2 Infrastructure Partners Disclosure
+
+Bunche sources proxy infrastructure from vetted third-party providers. We do not publicly name our infrastructure partners. These partners receive only the minimum data required to allocate proxy IPs (e.g., country selection). We require all partners to comply with applicable data protection laws.
+
+### 4.3 Legal Requirements
 We may disclose information if required by:
 - Court order or legal process
 - Nigerian law enforcement (with valid subpoena)
-- NDPR (Nigeria Data Protection Commission) investigations
+- NDPC (Nigeria Data Protection Commission) investigations
 - Prevention of fraud or illegal activity
 
-### 4.3 Business Transfers
+### 4.4 Business Transfers
 If Bunche is acquired or merged, customer data may be transferred to the acquiring entity. You will be notified via WhatsApp before any transfer.
 
 ---
@@ -110,7 +110,7 @@ If Bunche is acquired or merged, customer data may be transferred to the acquiri
 
 ## 6. Your Rights
 
-### Under NDPR (Nigeria):
+### Under NDPR/NDPA (Nigeria):
 - Know what personal data we hold about you
 - Request access to your data
 - Request correction of inaccurate data
@@ -137,7 +137,8 @@ Contact us via WhatsApp or email. We will respond within 30 days.
 - **Encryption:** All data in transit uses TLS 1.2+
 - **Hashing:** PINs stored as bcrypt hashes (never plaintext)
 - **API Security:** All API keys stored securely in n8n credentials
-- **Webhook Verification:** All incoming webhooks (Flutterwave, CPAGrip) verified for authenticity
+- **Webhook Verification:** All incoming webhooks (Flutterwave, survey partner) verified for authenticity
+- **Credential Rotation:** Proxy credentials rotated on refund, expiry, and free trial completion
 
 ### 7.2 Organizational Measures
 - Access to customer data restricted to authorized personnel only
@@ -145,10 +146,11 @@ Contact us via WhatsApp or email. We will respond within 30 days.
 - Regular security reviews
 - Incident response plan in place
 
-### 7.3 Free Trial Security
-- Free trial proxies are PUBLIC proxies (not managed by us)
-- We do not control or monitor free trial proxy traffic
-- Free trial users assume all security risk
+### 7.3 Proxy Security
+- Bunche controls the authentication layer — all proxy access requires Bunche credentials
+- Credentials are revoked instantly on refund, expiry, or abuse detection
+- Free trial proxies use shared credentials with 2-hour TTL
+- We do not monitor or inspect proxy traffic content
 
 ---
 
@@ -160,11 +162,10 @@ Bunche does not knowingly collect data from users under 18. If you are under 18,
 
 ## 9. International Data Transfers
 
-- **Proxy-Seller** (Cyprus/EU) — proxy data
-- **DataImpulse** (International) — proxy data
-- **Flutterwave** (Nigeria) — payment data
-- **CPAGrip** (International) — survey verification
-- **Meta/WhatsApp** (USA/International) — message delivery
+Your data may be transferred internationally as necessary for service delivery, including:
+- **Payment processing** via Flutterwave (Nigeria)
+- **Message delivery** via Meta/WhatsApp (USA/International)
+- **Proxy infrastructure** sourced from vetted partners (various jurisdictions)
 
 By using Bunche, you consent to international data transfers necessary for service delivery.
 
