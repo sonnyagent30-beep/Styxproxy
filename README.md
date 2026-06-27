@@ -15,10 +15,14 @@ Bunche sends Flutterwave payment link
         ↓
 Customer pays ₦6,500
         ↓
-Flutterwave webhook → Bunche calls provider API
+Flutterwave webhook → Bunche buys IP from provider → tests it
         ↓
-Proxy credentials delivered on WhatsApp (< 2 min)
+Bunche issues Bunche-branded credentials (proxy1.bunche.ng:1080)
+        ↓
+Credentials delivered on WhatsApp (< 2 min)
 ```
+
+**Key difference:** Customers receive Bunche-branded proxy credentials, not direct provider credentials. Bunche controls the auth layer — enabling instant revoke on refund and free trial recycling.
 
 ---
 
@@ -26,13 +30,42 @@ Proxy credentials delivered on WhatsApp (< 2 min)
 
 | Product | Price | Provider | Tracking |
 |---------|-------|----------|----------|
-| ISP (UK/US/DE/FR/CA) | ₦6,500/mo | Proxy-Seller | Expires on date |
-| ISP (JP/AU/BR/SG) | ₦7,500/mo | Proxy-Seller | Expires on date |
-| Residential 5GB | ₦5,000 | DataImpulse | No time expiry — lasts until GB used |
-| Residential 10GB | ₦9,000 | DataImpulse | No time expiry |
-| Mobile 4G 5GB | ₦20,000 | DataImpulse | 30-day window to use GB |
-| Mobile 4G 10GB | ₦35,000 | DataImpulse | 30-day window to use GB |
-| Datacenter | ₦2,500/mo | Proxy-Seller | Expires on date |
+| ISP (UK/US/DE/FR/CA) | ₦6,500/mo | Vetted partner | Expires on date |
+| ISP (JP/AU/BR/SG/KR) | ₦7,500/mo | Vetted partner | Expires on date |
+| Residential 5GB | ₦9,500 | Vetted partner | No time expiry — lasts until GB used |
+| Residential 10GB | ₦18,000 | Vetted partner | No time expiry |
+| Mobile 4G 5GB | ₦20,000 | Vetted partner | 30-day window to use GB |
+| Mobile 4G 10GB | ₦38,000 | Vetted partner | 30-day window to use GB |
+| Datacenter | ₦3,000/mo | Vetted partner | Expires on date |
+
+*Infrastructure partners are not publicly named per our Privacy Policy.*
+
+---
+
+## Bunche Auth Layer
+
+All customers receive Bunche-branded credentials. The actual proxy IPs are sourced from vetted infrastructure partners but customers interact only with Bunche.
+
+```
+Customer sees:   proxy1.bunche.ng:1080
+                 username: bun_001
+                 password: P@ssw0rd!
+                        │
+                        ▼
+              Bunche Dante SOCKS5 Server (Hetzner)
+                        │
+              Maps Bunche username → Provider IP
+                        │
+                        ▼
+            Vetted infrastructure partners
+            (Proxy-Seller / DataImpulse)
+```
+
+**Benefits:**
+- Instant credential revoke on refund
+- Free trial IPs recycled after 2hr expiry
+- Customers never see provider names
+- Full control over access
 
 ---
 
@@ -43,18 +76,19 @@ WhatsApp → Cloudflare → Nginx → n8n (Docker on VPS)
                                       ↓
                                PostgreSQL + Redis
                                       ↓
-                               MiniMax M2 (LLM)
+                               Dante SOCKS5 (Port 1080)
                                       ↓
-                          Proxy-Seller / DataImpulse APIs
+                          Vetted Infrastructure Partners
+                          (Proxy-Seller / DataImpulse)
 ```
 
 - **n8n**: Workflow engine (15 workflows documented)
-- **PostgreSQL**: Customers, orders, audit logs
+- **PostgreSQL**: Customers, orders, audit logs, bunche_credentials
 - **Redis**: Caching, sessions, rate limiting
+- **Dante SOCKS5**: Proxy auth layer — maps Bunche credentials to provider IPs
 - **MiniMax M2**: LLM for intent parsing and responses
 - **Flutterwave**: Payment processing
 - **Cloudflare R2**: File storage (screenshots, receipts, backups)
-- **Bitlock.ai**: Free trial human verification
 - **UptimeRobot**: Uptime monitoring (5-min checks)
 
 ---
@@ -65,9 +99,10 @@ WhatsApp → Cloudflare → Nginx → n8n (Docker on VPS)
 
 | File | What it covers |
 |------|---------------|
-| `docs/DEPLOYMENT.md` | Full VPS deployment guide (steps 1–11) |
-| `docs/ARCHITECTURE_PLAN.md` | System architecture |
-| `docs/DATABASE_SCHEMA.md` | PostgreSQL schema |
+| `docs/DEPLOYMENT.md` | Full VPS deployment guide (steps 1–12) |
+| `docs/ARCHITECTURE_PLAN.md` | System architecture with Dante layer |
+| `docs/DATABASE_SCHEMA.md` | PostgreSQL schema including bunche_credentials |
+| `docs/DANTE_SETUP.md` | Dante SOCKS5 installation and configuration |
 | `.env.example` | Every environment variable documented |
 
 ### Operational
@@ -75,9 +110,9 @@ WhatsApp → Cloudflare → Nginx → n8n (Docker on VPS)
 | File | What it covers |
 |------|---------------|
 | `docs/MONITORING.md` | UptimeRobot setup, alert webhook |
-| `docs/SECURITY_RUNBOOK.md` | Secrets rotation, API monitoring, NDPR, incident response |
+| `docs/SECURITY_RUNBOOK.md` | Secrets rotation, API monitoring, NDPA, incident response |
 | `docs/PERFORMANCE_SCALING.md` | pgBouncer, Redis caching, 4-phase cost trajectory |
-| `docs/SECRET_ROTATION_LOG.md` | Rotation tracker |
+| `docs/PRICING_INTELLIGENCE.md` | Buy price, sell price, margins, FX analysis |
 | `docs/FLUTTERWAVE_WHATSAPP_SETUP.md` | Payment + messaging setup |
 
 ### Features
@@ -86,6 +121,7 @@ WhatsApp → Cloudflare → Nginx → n8n (Docker on VPS)
 |------|---------------|
 | `docs/REFERRAL_SYSTEM.md` | Referral system spec (name = code, 5% credit) |
 | `workflows/WORKFLOW_SPECS.md` | 15 workflows documented (orders, payments, alerts, referrals) |
+| `scripts/manage-bunche-credentials.sh` | Dante credential management script |
 
 ### Architecture Decisions (ADRs)
 
@@ -115,6 +151,7 @@ Actual n8n JSON workflows in `.n8n/workflows/`:
 | Referral Credit Processor | `referral-credit.json` |
 | Daily Summary | `daily-summary.json` |
 | Error Alert | `error-alert.json` |
+| Theorem Reach Webhook | `theorem-reach-webhook.json` |
 
 ---
 
@@ -126,6 +163,7 @@ Operational scripts in `scripts/`:
 |--------|---------|
 | `scripts/backup-bunche.sh` | Daily pg_dump → age encrypt → rclone to R2 |
 | `scripts/backup-monthly-archive.sh` | First-of-month → 1-year retention |
+| `scripts/manage-bunche-credentials.sh` | Add/revoke/rotate/list Bunche credentials in Dante |
 | `scripts/backup.conf.example` | Config template |
 
 ---
@@ -134,14 +172,14 @@ Operational scripts in `scripts/`:
 
 | Component | Cost |
 |-----------|------|
-| Hetzner CX21 VPS | €7/mo (~$7.50) |
-| Domain | ~$1/mo amortized |
+| Hetzner CX21 VPS | €6/mo (~$9) |
+| Domain | ~$2/mo |
 | Provider credits (Proxy-Seller + DataImpulse) | ~$50 one-time |
 | Flutterwave fees | 1.5% of revenue (pass-through) |
 | Cloudflare (free tier) | $0 |
 | Cloudflare R2 (free tier + backups) | <$1/mo |
 | UptimeRobot free | $0 |
-| **Total fixed** | **~$8.50/mo** |
+| **Total fixed** | **~$12/mo** |
 | **Cost per customer at 1,000 users** | **<$0.01** |
 
 ---
@@ -156,11 +194,14 @@ Obsolete docs (Google Sheets era, old providers): `archive/`
 
 - ✅ Research complete
 - ✅ Strategy defined
-- ✅ Architecture decided (PostgreSQL + MiniMax + Bitlock)
-- ✅ Legal docs drafted
-- ✅ 15 workflows spec'd + 6 JSON templates ready
+- ✅ Architecture decided (PostgreSQL + MiniMax + Dante auth layer)
+- ✅ Legal docs updated (provider-neutral branding)
+- ✅ 15 workflows spec'd + 7 JSON templates ready
 - ✅ ADRs for all major decisions (5 ADRs)
 - ✅ Deployment guide + monitoring + backup scripts
+- ✅ Pricing intelligence documented
+- ✅ Dante SOCKS5 setup documented
+- ✅ Credential management script created
 - 🟡 VPS not yet provisioned
 - 🟡 Flutterwave account setup
 - 🟡 WhatsApp Business API setup
