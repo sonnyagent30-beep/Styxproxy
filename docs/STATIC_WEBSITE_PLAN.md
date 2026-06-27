@@ -1,7 +1,7 @@
 # Bunche — Static Website Plan
 
 **Date:** 2026-06-27
-**Source:** Sonny's recommendation + Dannion's request for landing page + legal docs before WhatsApp redirect
+**Source:** Sonny's recommendation + Dannion's request for landing page + legal docs before WhatsApp redirect + product council feedback
 **Status:** LOCKED (recommendation, awaiting Dannion's review)
 
 ---
@@ -17,6 +17,7 @@
 | **CTA** | Single WhatsApp button: `wa.me/234XXXXXXXXXX?text=prefilled` | One-tap to conversation |
 | **Legal hosting** | Static HTML pages at `/terms`, `/privacy`, `/aup` | SEO-friendly, fast, easy to update |
 | **Pricing transparency** | YES — show all prices on landing page | Reduces price-shopping comparison friction |
+| **Product differentiation** | Use-case matching section ("Which proxy do I need?") | Council feedback — first-time buyers don't know proxy types |
 | **Free trial CTA** | "Try Free" button on landing page → same WhatsApp flow | Single CTA, clear path |
 | **Blog/content** | NONE for Phase 1 | Defer until product-market fit |
 
@@ -26,7 +27,7 @@
 
 ```
 bunche.ng/
-├── /                    → Landing page (hero + pricing + how-it-works + CTA)
+├── /                    → Landing page (hero + pricing + use-cases + how-it-works + CTA)
 ├── /pricing             → Pricing table (optional, can fold into landing)
 ├── /how-it-works        → Step-by-step explainer (optional)
 ├── /faq                 → Common questions (Phase 2)
@@ -81,6 +82,43 @@ on WhatsApp. Pay in Naira. Get your proxy in 2 minutes.
 💡 Try free for 2 hours — no card required.
 [Try Free on WhatsApp →]
 ```
+
+### Section 3b: Use-Case Matching (Product Differentiation)
+
+Below the pricing table, add a "Which proxy do I need?" section that matches use cases to products:
+
+```
+🤔 WHICH PROXY DO I NEED?
+━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📱 "I run multiple Instagram/TikTok accounts"
+   → ISP UK/US — stable IPs, long-lasting
+   → Recommended: ISP UK @ ₦6,500/mo
+
+💬 "I do social media outreach / DM campaigns"
+   → Residential — looks like real users
+   → Recommended: Residential 5GB @ ₦5,000
+
+🛒 "I run a sneaker bot or e-commerce automation"
+   → Datacenter — fast, cheap
+   → Recommended: Datacenter @ ₦2,500/mo
+
+📊 "I scrape websites / collect data"
+   → Residential — pool of IPs
+   → Recommended: Residential 10GB @ ₦9,000
+
+📱 "I manage TikTok/mobile-only platforms"
+   → Mobile 4G — real mobile carrier IPs
+   → Recommended: Mobile 5GB @ ₦20,000
+
+🎮 "I play games or use mobile apps"
+   → Mobile 4G
+   → Recommended: Mobile 5GB @ ₦20,000
+```
+
+**Why this section matters:** First-time buyers don't know the difference between ISP, Residential, Mobile, Datacenter. Without this matching, they pick randomly or abandon. With this, they self-identify and order with confidence.
+
+---
 
 ### Section 4: How It Works (3 steps)
 
@@ -251,6 +289,7 @@ Options:
 | Testimonials | Need real customers first | After 50+ customers |
 | Affiliate dashboard | Referrals tracked in WhatsApp + DB | When referral volume justifies |
 | API docs | Not relevant — this is a consumer product | Never |
+| Interactive WhatsApp menu | WhatsApp Business doesn't support rich UI; defer to v2 | v2 if customer feedback demands |
 
 ---
 
@@ -270,7 +309,7 @@ Options:
 
 | File | Purpose | Status |
 |------|---------|--------|
-| `bunche-web/index.html` | Landing page | TODO |
+| `bunche-web/index.html` | Landing page (hero + pricing + use-cases + CTA) | TODO |
 | `bunche-web/terms.html` | ToS rendered | TODO |
 | `bunche-web/privacy.html` | Privacy rendered | TODO |
 | `bunche-web/aup.html` | AUP rendered | TODO |
@@ -290,6 +329,34 @@ Options:
 3. **CTA wording:** "Chat on WhatsApp" vs "Try Free Now" vs other?
 4. **Default language:** English only or add pidgin/yoruba/igbo later?
 5. **Phase 1 pages:** just `/`, `/terms`, `/privacy`, `/aup` or also `/pricing`, `/how-it-works`, `/faq`?
+6. **Payment link expiry: 30 min (current) or 2 hours (Sonny rec) or 24 hours (Product reviewer)?** ← Council feedback (Product reviewer #5)
+
+### Payment Link Expiry Decision
+
+**Current spec:** Flutterwave payment link expires after **30 minutes** (per DEPLOYMENT.md §6.1).
+
+**Product reviewer's concern:**
+> "1-Hour Payment Expiry Creates Abandonment — Customers who need to verify with boss/partner lose the link. Fix: Extend to 24 hours OR offer 'Save Cart' feature via WhatsApp."
+
+**Three options:**
+
+| Option | Expiry | Pros | Cons |
+|--------|--------|------|------|
+| **A** (current) | 30 min | Forces quick decision; low abandoned-cart risk | High bounce rate for cautious buyers |
+| **B** | 2 hours | Sweet spot — enough time to confirm, not too long | Still some bounce |
+| **C** | 24 hours | Maximum conversion; customers can come back | Order details (price, IP) might change in DB between creation and payment; abandoned carts accumulate |
+
+**Sonny's recommendation: 2 hours.**
+
+**Rationale:**
+- Flutterwave supports custom expiry per transaction
+- 2hr captures most "I need to think about it" customers
+- Lower risk than 24hr of price drift / product unavailability
+- Aligns with industry standard for high-consideration digital purchases
+
+**Implementation:** Add `expires_in: 7200` (seconds) to the Flutterwave API call in Workflow 2 (Payment Confirmation) and the first-message payment link generation in Workflow 1.
+
+**Decision pending Dannion's review.**
 
 ---
 
