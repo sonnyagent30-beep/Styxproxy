@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-06-27
 **Repo:** sonnyagent30-beep/bunche
-**Status:** Tier 1 CRITICAL ✅ COMPLETE — Moving to Tier 2
+**Status:** Tier 2 🟠 HIGH COMPLETE ✅ — Moving to Tier 3 🟡
 
 ---
 
@@ -16,69 +16,57 @@
 
 ---
 
-## SCENARIO REVIEW LOG
+## ✅ PHASE 1 — SCENARIOS 1-9, 43, 45
 
-### ✅ PHASE 1 — ALREADY REVIEWED (1–9, 43, 45)
-
-| # | Scenario | Status | Notes |
-|---|---------|--------|-------|
-| 1 | First-time order (greeting → IP delivery) | ✅ DONE | Pre-payment check = ALL providers |
-| 2 | Provider down (pre-payment) | ✅ DONE | Check both Proxy-Seller + DataImpulse |
-| 3 | New number / account recovery | ✅ DONE | BOTH name + PIN required |
-| 4 | Forgot PIN | ✅ DONE | Order details verification |
-| 5 | Free trial (3proxy + Theorem Reach) | ✅ DONE | Disclaimer first |
-| 6 | Ban claim | ✅ DONE | Pending queue → admin review |
-| 7 | Referral | ✅ DONE | 5% credit on payment |
-| 8 | Data alerts (80% / 100%) | ✅ DONE | Customer-side only, no admin alert |
-| 9 | Daily summary (23:55 cron) | ✅ DONE | Admin gets report, customer sees nothing |
-| 43 | Double payment (accidental) | ✅ DONE | Auto-refund second payment immediately |
-| 45 | Chargeback / dispute | ✅ DONE | Investigate first → partial if live, full if dead, deny if repeat |
+| # | Scenario | Status |
+|---|---------|--------|
+| 1-9 | First-time order, provider down, recovery, forgot PIN, free trial, ban claim, referral, data alerts, daily summary | ✅ DONE |
+| 43 | Double payment | ✅ DONE |
+| 45 | Chargeback / dispute | ✅ DONE |
 
 ---
 
-### ✅ 🔴 PRIORITY TIER 1 — CRITICAL: COMPLETE ✅
-
-**All 9 critical scenarios reviewed and approved.**
+## ✅ 🔴 PRIORITY TIER 1 — CRITICAL: COMPLETE ✅
 
 | # | Scenario | Status | Notes |
 |---|---------|--------|-------|
-| 46 | Amount tampering | ✅ DONE | HMAC + server-side amount verification → auto-refund |
-| 58 | PIN brute-force attack | ✅ DONE | 3 wrong → 15min → 30min → 1hr → 2hr → 4hr → 8hr → 16hr → 24hr → blacklist |
-| 60 | Phone_hash bypass | ✅ DONE | Behavioral detection: 3+ phones/IP/hr = abuse → flag + block trials |
-| 61 | Admin blocks wrong number | ✅ DONE | Pre-check verifies typed number matches order → PIN+TOTP → customer can UNBLOCK |
-| 62 | Social engineering | ✅ DONE | Only admin number accepted → non-admin ignored + laughed off → real admin notified |
-| 64 | Impersonation (refund on working IP) | ✅ DONE | Name+PIN verification → proxy check → 24hr cutoff → no refund on working IP |
-| 77 | Trial then lie | ✅ DONE | Webhook verification + order ID cross-check → no payment found = no IP |
+| 46 | Amount tampering | ✅ DONE | HMAC + server-side verification → auto-refund |
+| 58 | PIN brute-force attack | ✅ DONE | Escalating: 15min → 24hr → blacklist |
+| 60 | Phone_hash bypass | ✅ DONE | Behavioral detection: 3+ phones/IP/hr → flag + block |
+| 61 | Admin blocks wrong number | ✅ DONE | Pre-check + PIN/TOTP + customer UNBLOCK |
+| 62 | Social engineering | ✅ DONE | Laugh-off + admin notification |
+| 64 | Impersonation refund | ✅ DONE | Name+PIN + proxy check + 24hr cutoff |
+| 77 | Trial then lie | ✅ DONE | Webhook verification + order ID check |
 
 ---
 
-## 🟠 PRIORITY TIER 2 — HIGH (Will happen within first 100 customers)
-
-**Next: pick up from Scenario 10.**
+## ✅ 🟠 PRIORITY TIER 2 — HIGH: COMPLETE ✅
 
 | # | Scenario | Status | Notes |
 |---|---------|--------|-------|
-| 10 | Error alert (workflow fail) | 🔄 PENDING | — |
-| 11 | Dead IP with 1-3 retries → success | 🔄 PENDING | — |
-| 12 | All 4 IP attempts fail → auto-refund | 🔄 PENDING | — |
-| 13 | STOP from old phone → reverse link + lock | 🔄 PENDING | — |
-| 42 | Duplicate webhook — Flutterwave retries 3×, Bunche processes once | 🔄 PENDING | — |
-| 44 | Refund API timeout — Refund initiated → Flutterwave times out | 🔄 PENDING | — |
-| 47 | Wrong country IP — Ordered UK, Proxy-Seller delivers US IP | 🔄 PENDING | — |
-| 48 | Banned IP from provider — Proxy-Seller returns IP already in target ban DB | 🔄 PENDING | — |
-| 51 | 3proxy crashes mid-trial — VPS crashes → all 100 active trials drop | 🔄 PENDING | — |
-| 52 | Bunche VPS goes down — Complete outage mid-order | 🔄 PENDING | — |
-| 53 | Webhook signature fail loop — Flutterwave keeps retrying failed webhooks | 🔄 PENDING | — |
-| 54 | LLM inappropriate response — Model outputs wrong/offensive/reveals system info | 🔄 PENDING | — |
-| 56 | Illegal use case request — "Can I use this for hacking/scraping LinkedIn/fraud" | 🔄 PENDING | — |
-| 59 | Unauthorized referral use — Uses friend's referral code without permission | 🔄 PENDING | — |
-| 66 | Proxy dies within 1 hour — Works during test, dies within 60 min | 🔄 PENDING | — |
-| 73 | Proxy-Seller balance runs out — Admin forgot to fund → mid-order | 🔄 PENDING | — |
-| 79 | Proxy-Seller API breaking change — They update API → all orders break | 🔄 PENDING | — |
+| 10 | Workflow fail | ✅ DONE | Admin alert → customer "something went wrong" |
+| 11 | Dead IP 1-3 retries → success | ✅ DONE | Completely invisible to customer |
+| 12 | All 4 IPs dead → auto-refund | ✅ DONE | Auto-refund, customer notified |
+| 13 | STOP from old phone | ✅ DONE | Reverse + lock + appeal + 3-day review + both numbers banned during review |
+| 42 | Duplicate webhook | ✅ DONE | Idempotency key = silent ignore |
+| 44 | Refund API timeout | ✅ DONE | Mark pending → check in 5 min → retry → admin if still stuck |
+| 47 | Wrong country IP | ✅ DONE | Auto-detect geo before delivery + customer can report |
+| 48 | Banned IP (platform) | ✅ DONE | 24hr + right platform = free replacement; wrong platform = denied |
+| 51 | 3proxy crash mid-trial | ✅ DONE | Detect → admin alert → restore → notify + extend |
+| 52 | Bunche VPS down | ✅ DONE | WhatsApp queues + admin alert → restore → process queue + notify |
+| 53 | Webhook signature fail loop | ✅ DONE | Cron monitor → >5 fails/hr → admin alert |
+| 54 | LLM inappropriate response | ✅ DONE | Auto-detect → reject + retry → fallback → admin alert |
+| 56 | Illegal use case | ✅ DONE | Decline + offer legitimate alternatives |
+| 59 | Unauthorized referral use | ✅ DONE | Auto credited — no policing |
+| 66 | Proxy dies within 1hr | ✅ DONE | Replace free + log provider quality → >10% = admin alert |
+| 73 | Proxy-Seller balance runs out | ✅ DONE | Pre-check catches most + mid-order → auto-pause → admin → resume |
+| 79 | Proxy-Seller API breaking change | ✅ DONE | Health check → 3 fails → admin alert with error details + pause orders |
+
+**Total reviewed so far: 34/90**
 
 ---
 
-## 🟡 PRIORITY TIER 3 — MEDIUM (Will happen eventually)
+## 🟡 PRIORITY TIER 3 — MEDIUM (Next: pick up from Scenario 14)
 
 | # | Scenario | Status | Notes |
 |---|---------|--------|-------|
@@ -111,32 +99,32 @@
 | 40 | NDPR data access request | 🔄 PENDING | — |
 | 41 | Old customer returns (with PIN) | 🔄 PENDING | — |
 | 49 | IP range flagged — Platform bans entire /24 range | 🔄 PENDING | — |
-| 50 | DataImpulse data mismatch — Dashboard shows different usage than customer | 🔄 PENDING | — |
-| 55 | Customer sends sensitive data — Sends bank statements, passwords, personal info | 🔄 PENDING | — |
-| 57 | Name squatting — Someone registers "Ada" knowing Ada is a top referrer | 🔄 PENDING | — |
-| 63 | Former admin tries credentials — Ex-admin tries to access after offboarding | 🔄 PENDING | — |
-| 65 | Third party paid — Friend/colleague pays for customer's order | 🔄 PENDING | — |
-| 67 | Platform detects datacenter IP — Not banned, platform just says "datacenter not allowed" | 🔄 PENDING | — |
-| 68 | Receipt for refunded order — Customer asks for invoice after refund processed | 🔄 PENDING | — |
-| 69 | Competitor intelligence — "Who is your proxy provider?" | 🔄 PENDING | — |
-| 70 | Reseller inquiry — "Can I resell your proxies?" | 🔄 PENDING | — |
-| 71 | DataImpulse data depletion — Customer disputes data tracking | 🔄 PENDING | — |
-| 72 | Custom proxy configuration — "SOCKS5, specific port, custom auth?" | 🔄 PENDING | — |
-| 74 | Law enforcement data request — Police/EFCC asks for customer records | 🔄 PENDING | — |
-| 75 | EU customer and GDPR — Customer references GDPR even though NDPR applies | 🔄 PENDING | — |
-| 76 | Wrong product delivered — Ordered ISP UK, received something else | 🔄 PENDING | — |
-| 78 | Auto-renewal without consent — Renewal cron charges customer who didn't agree | 🔄 PENDING | — |
-| 80 | Unsupported file sent — Customer sends PDF/exe/apk to Bunche | 🔄 PENDING | — |
-| 81 | Receipt to different email — "Send invoice to my company email" | 🔄 PENDING | — |
-| 82 | Cancel before payment — "I want to cancel this order before paying" | 🔄 PENDING | — |
-| 83 | Uptime SLA question — "What's your uptime guarantee?" | 🔄 PENDING | — |
-| 84 | Data retention question — "How long do you keep my data?" | 🔄 PENDING | — |
-| 85 | IP rotation question — "Do your IPs rotate automatically?" | 🔄 PENDING | — |
-| 86 | Team/multi-device usage — "Can 5 people share one proxy?" | 🔄 PENDING | — |
-| 87 | Protocol version question — "HTTP/1.1 or HTTP/2?" | 🔄 PENDING | — |
-| 88 | Bunche number flagged as spam — WhatsApp flags number → customers can't reply | 🔄 PENDING | — |
-| 89 | Customer in restricted country — WhatsApp blocked in customer country | 🔄 PENDING | — |
-| 90 | Works in browser not app — Proxy loads in Chrome but not Instagram app | 🔄 PENDING | — |
+| 50 | DataImpulse data mismatch — Dashboard vs customer | 🔄 PENDING | — |
+| 55 | Customer sends sensitive data | 🔄 PENDING | — |
+| 57 | Name squatting | 🔄 PENDING | — |
+| 63 | Former admin tries credentials | 🔄 PENDING | — |
+| 65 | Third party paid | 🔄 PENDING | — |
+| 67 | Platform detects datacenter IP | 🔄 PENDING | — |
+| 68 | Receipt for refunded order | 🔄 PENDING | — |
+| 69 | Competitor intelligence | 🔄 PENDING | — |
+| 70 | Reseller inquiry | 🔄 PENDING | — |
+| 71 | DataImpulse data depletion | 🔄 PENDING | — |
+| 72 | Custom proxy configuration | 🔄 PENDING | — |
+| 74 | Law enforcement data request | 🔄 PENDING | — |
+| 75 | EU customer and GDPR | 🔄 PENDING | — |
+| 76 | Wrong product delivered | 🔄 PENDING | — |
+| 78 | Auto-renewal without consent | 🔄 PENDING | — |
+| 80 | Unsupported file sent | 🔄 PENDING | — |
+| 81 | Receipt to different email | 🔄 PENDING | — |
+| 82 | Cancel before payment | 🔄 PENDING | — |
+| 83 | Uptime SLA question | 🔄 PENDING | — |
+| 84 | Data retention question | 🔄 PENDING | — |
+| 85 | IP rotation question | 🔄 PENDING | — |
+| 86 | Team/multi-device usage | 🔄 PENDING | — |
+| 87 | Protocol version question | 🔄 PENDING | — |
+| 88 | Bunche number flagged as spam | 🔄 PENDING | — |
+| 89 | Customer in restricted country | 🔄 PENDING | — |
+| 90 | Works in browser not app | 🔄 PENDING | — |
 
 ---
 
@@ -144,18 +132,18 @@
 
 | File | Path |
 |------|------|
-| Reviewed scenarios 1-9 | `scenarios/2026-06-27-complete-scenario-walkthrough.md` |
+| Scenarios 1-9 | `scenarios/2026-06-27-complete-scenario-walkthrough.md` |
 | Scenarios 10-41 | `scenarios/2026-06-27-scenarios-16-to-40.md` |
-| Scenarios 42-90 (incl. all Tier 1) | `scenarios/2026-06-27-scenarios-42-to-90.md` |
+| Scenarios 42-90 (Tier 1 + Tier 2) | `scenarios/2026-06-27-scenarios-42-to-90.md` |
 
 ---
 
-## KEY DECISIONS LOG (locked during review)
+## KEY DECISIONS LOG
 
 | Decision | Outcome |
 |----------|---------|
 | Pre-payment check | ALL providers — Proxy-Seller + DataImpulse |
-| Returning customer new order | Still run pre-payment check (all providers) |
+| Returning customer new order | Still run pre-payment check |
 | Renewal from returning customer | No pre-payment check needed |
 | Account recovery | BOTH name + PIN required |
 | Forgot PIN | Order details verification |
@@ -173,10 +161,26 @@
 | Admin block wrong number | Pre-check verifies against order → PIN+TOTP → customer UNBLOCK |
 | Social engineering | Laugh-off + admin notification; admin chooses block/ban/ignore |
 | Impersonation refund | Name+PIN + proxy check + 24hr cutoff → no refund on working IP |
-| Trial then lie | Webhook verification + order ID cross-check → no payment = no IP |
+| Trial then lie | Webhook verification + order ID cross-check |
+| Workflow fail | Customer "something went wrong" → admin alert → resolve/refund |
+| Dead IP 1-3 retries | Completely invisible to customer |
+| STOP from old phone | Reverse + lock + security alert + appeal + 3-day admin review |
+| Duplicate webhook | Idempotency key — silently ignored |
+| Refund API timeout | Mark pending → check 5min → retry → admin if stuck |
+| Wrong country IP | Auto-detect geo + retry before delivery + customer can report |
+| Banned IP | 24hr + right platform = free replacement; wrong platform = denied |
+| 3proxy crash | Detect → admin alert → restore → notify + extend TTL |
+| Bunche VPS down | WhatsApp queues → admin alert → restore → process queue → notify |
+| Webhook signature fail | Cron monitor → >5 fails/hr → admin alert |
+| LLM inappropriate | Auto-detect → reject + retry → fallback → admin alert |
+| Illegal use case | Decline + offer legitimate alternatives |
+| Unauthorized referral | Auto credited — no policing |
+| Proxy dies within 1hr | Replace free + log provider quality → >10% = admin alert |
+| Balance runs out mid-order | Auto-pause + admin alert + resume after funding |
+| Proxy-Seller API breaking change | Health check → 3 fails → admin alert + pause orders |
 
 ---
 
 ## NEXT SESSION — PICK UP FROM
 
-**Scenario 10** (🟠 Tier 2 High — next in queue)
+**Scenario 14** (🟡 Tier 3 Medium — next in queue)
