@@ -53,10 +53,15 @@ Customer: I want UK ISP
 **Bunche system:**
 - LLM Intent Parser: { intent: order, product: ISP, country: UK, quantity: 1 }
 - NEW CUSTOMER branch
-- **PRE-PAYMENT CHECK: POST Proxy-Seller /balance** → 200 OK, balance $45.20
-- **PRE-PAYMENT CHECK: GET Proxy-Seller /countries** → UK available ✅
+- **PRE-PAYMENT CHECK (ALL PROVIDERS):**
+  - POST Proxy-Seller /balance → 200 OK, balance $45.20 ✅
+  - GET Proxy-Seller /countries → UK available ✅
+  - POST DataImpulse /balance → 200 OK ✅
+  - GET DataImpulse /products → UK available via ISP (Proxy-Seller) ✅
+- All checks pass → generate order
 - Generate order ID: ORD-20260627-0947
 - Generate Flutterwave payment link (expires: NOW + 30 min)
+- Log: order_pending, provider_check_pass
 
 **Bunche reply:**
 
@@ -257,9 +262,12 @@ Refund ID: FLW-REF-XXX
 #### STEP 1 — `Hi` (standard greeting) → STEP 2 — `I want US ISP`
 
 **Bunche system:**
-- **PRE-PAYMENT CHECK: POST Proxy-Seller /balance** → **503 Service Unavailable** ❌
+- **PRE-PAYMENT CHECK (ALL PROVIDERS):**
+  - POST Proxy-Seller /balance → **503 Service Unavailable** ❌
+  - POST Proxy-Seller /balance (retry) → still 503 ❌
+  - POST DataImpulse /balance → 200 OK ✅
+  - GET DataImpulse /products → ISP US NOT available ❌ (DataImpulse has RES/MOB only)
 - **Do NOT generate payment link**
-- Check DataImpulse → ✅ available
 - **Alert admin via WhatsApp**
 
 **Bunche reply:**
@@ -306,7 +314,12 @@ I'll ping you the moment ISP is back 🙏
 #### STEP 4 — (Background) Provider restored → all waiting customers notified
 
 **Bunche system:**
-- Provider check → 200 OK ✅
+- **PRE-PAYMENT CHECK (ALL PROVIDERS):**
+  - POST Proxy-Seller /balance → **200 OK, balance $45.20** ✅
+  - GET Proxy-Seller /countries → US available ✅
+  - POST DataImpulse /balance → 200 OK ✅
+  - GET DataImpulse /products → US available ✅
+- Provider RESTORED
 - Notify ALL customers in ISP wait queue
 
 **Bunche reply (to each):**
@@ -846,7 +859,7 @@ Admin: `Resolve ERR-20260627-1423-001` + PIN → marks resolved
 | # | Event | Bunche Response | Admin Notification |
 |---|-------|----------------|-------------------|
 | 1 | New customer `Hi` | Standard greeting + menu | None |
-| 2 | Order request | Pre-check provider → payment link | None |
+| 2 | Order request | Pre-check all providers → payment link | None |
 | 3 | Provider down at pre-check | Alternatives + wait offer | 🚨 Provider DOWN alert |
 | 4 | Provider restored | Notify all waiting customers | ✅ Provider restored |
 | 5 | Payment confirmed | Name capture | None |
@@ -892,3 +905,4 @@ Admin: `Resolve ERR-20260627-1423-001` + PIN → marks resolved
 | Daily limit on free trials = 3 per phone | Anti-abuse |
 | Theorem Reach HMAC verified before grant | Anti-fake-survey |
 | All IP tested before delivery | Quality gate |
+| Pre-payment check = ALL providers | Never generate link without confirming stock |
