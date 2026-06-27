@@ -31,6 +31,7 @@
 | 7 | Referral | ✅ DONE | 5% credit on payment |
 | 8 | Data alerts (80% / 100%) | ✅ DONE | Customer-side only, no admin alert |
 | 9 | Daily summary (23:55 cron) | ✅ DONE | Admin gets report, customer sees nothing |
+| 43 | Double payment (accidental) | ✅ DONE | Auto-refund second payment immediately |
 
 ---
 
@@ -40,7 +41,6 @@
 
 | # | Scenario | Status | Notes |
 |---|---------|--------|-------|
-| 43 | Customer pays twice — Accidental double payment → 2 transfers, 1 order | 🔄 PENDING | — |
 | 45 | Chargeback / dispute — Bank reverses days later, IP already delivered | 🔄 PENDING | — |
 | 46 | Amount tampering — Customer modifies link URL amount → pays less | 🔄 PENDING | — |
 | 58 | PIN brute-force attack — Attacker guesses PIN systematically for known name | 🔄 PENDING | — |
@@ -148,9 +148,7 @@
 |------|------|
 | Reviewed scenarios 1-9 | `scenarios/2026-06-27-complete-scenario-walkthrough.md` |
 | Scenarios 10-41 | `scenarios/2026-06-27-scenarios-16-to-40.md` |
-| New scenarios 42-90 | `scenarios/2026-06-27-scenarios-42-to-90.md` (to be created) |
-
-**After all 90 reviewed:** Merge into single `SCENARIOS.md` master document
+| New scenarios 42-90 | `scenarios/2026-06-27-scenarios-42-to-90.md` |
 
 ---
 
@@ -169,9 +167,10 @@
 | PIN | Opt-in, captured after name, before IP |
 | Data alerts | Customer-side only — no admin alert |
 | Daily summary | Admin gets report — customer sees nothing |
+| Double payment | Auto-refund second payment immediately |
 
 ---
 
 ## NEXT SESSION — PICK UP FROM
 
-**Scenario 43** (🔴 Tier 1 Critical — first in queue)
+**Scenario 45** (🔴 Tier 1 Critical — next in queue)
