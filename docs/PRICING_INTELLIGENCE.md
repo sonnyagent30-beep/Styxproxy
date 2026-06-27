@@ -1,6 +1,7 @@
-# Bunche — Pricing Intelligence
+# Bunche — Pricing Intelligence (UPDATED)
 
 **Last Updated:** 2026-06-27
+**Effective Date:** Upon rollout
 **Purpose:** Buy price, sell price, exchange rate, and profit margins for all products.
 
 ---
@@ -9,61 +10,89 @@
 
 | Rate | Value | Source | Notes |
 |------|-------|--------|-------|
-| **Official NGN/USD** | ₦1,500/$1 | CBN official rate | Not realistic for business |
-| **Parallel market** | ₦1,550–1,600/$1 | LocalFX / unofficial | What we actually get when buying USD |
-| **Safe working rate** | **₦1,500/$1** | Assumed | Used for all margin calculations below |
+| **Official NGN/USD** | ₦1,500/$1 | CBN official rate |
+| **Parallel market** | ₦1,550–1,600/$1 | LocalFX / unofficial |
+| **Safe working rate** | **₦1,500/$1** | Used for margin calculations |
 
-**⚠️ FX Risk:** If parallel market moves to ₦1,700+/$1, residential margins go negative. Monitor monthly.
+**⚠️ FX Risk:** If parallel market moves to ₦1,700+/$1, margins compress. Monitor monthly.
 
 ---
 
 ## Buy Price (What Bunche Pays Providers)
 
-### Proxy-Seller (Primary — ISP & DC)
+### Proxy-Seller (ISP & Datacenter)
 
 | Product | Buy Price | Notes |
 |---------|----------|-------|
-| ISP (UK/US/DE/FR/CA) | $1.50/IP/month | 1 IP minimum, billed monthly |
-| ISP (JP/AU/BR/SG/KR) | $2.00/IP/month | Premium countries |
-| Datacenter | $0.70/IP/month | Standard DC |
+| ISP IPv4 (UK/US/DE/FR/CA) | $1.50/IP/month | Standard countries |
+| ISP IPv4 (JP/AU/BR/SG/KR) | $2.00/IP/month | Premium countries |
+| ISP IPv6 | $0.50/IP/month | Lower cost |
+| Datacenter IPv4 | $0.70/IP/month | Standard DC |
+| Datacenter IPv6 | $0.50/IP/month | Lower cost |
+| DC Rotating | $0.45/GB | Via Rayobyte |
 
-**Proxy-Seller API:** `https://api.proxy-salesman.com/v2/`
-
----
-
-### DataImpulse (Secondary — Residential & Mobile)
-
-| Product | Buy Price | Notes |
-|---------|----------|-------|
-| Residential (PAYG) | $1.00/GB | No expiry on purchased GB |
-| Residential (50GB+) | $0.80/GB | Volume discount |
-| Residential (1TB+) | $0.50/GB | Enterprise volume |
-| Mobile | $2.00/GB | 4G/LTE carrier IPs |
-
-**DataImpulse API:** `https://api.dataimpulse.com/`
-
----
-
-### Rayobyte (DC Rotating — Future)
+### DataImpulse (Residential & Mobile)
 
 | Product | Buy Price | Notes |
 |---------|----------|-------|
-| DC Rotating | $0.45/GB | Entry, unlimited bandwidth |
-| DC Rotating (10GB+) | $0.30/GB | Volume discount |
+| Residential IPv4 | $1.00/GB | No expiry |
+| Residential IPv6 | $0.80/GB | Lower cost |
+| Mobile 4G/LTE | $2.00/GB | 30-day window |
 
 ---
 
 ## Sell Price (What Customers Pay)
 
-| Product | Sell Price (₦) | Tracking |
-|---------|--------------|----------|
-| ISP (UK/US/DE/FR/CA) | ₦6,500/mo | Time-based expiry |
-| ISP (JP/AU/BR/SG/KR) | ₦7,500/mo | Time-based expiry |
-| Datacenter | ₦3,000/mo | Time-based expiry |
-| Residential 5GB | ₦9,500 | GB-based, no time expiry |
-| Residential 10GB | ₦18,000 | GB-based, no time expiry |
-| Mobile 4G 5GB | ₦20,000 | 30-day window + GB cap |
-| Mobile 4G 10GB | ₦38,000 | 30-day window + GB cap |
+### ISP Proxies (Monthly, Static IP)
+
+| Product | Price | Expiry | IP Type |
+|---------|-------|-------|---------|
+| ISP UK | ₦5,000/mo | 30 days | IPv4 |
+| ISP US | ₦5,000/mo | 30 days | IPv4 |
+| ISP Germany | ₦5,000/mo | 30 days | IPv4 |
+| ISP France | ₦5,000/mo | 30 days | IPv4 |
+| ISP Canada | ₦5,000/mo | 30 days | IPv4 |
+| ISP Japan | ₦6,500/mo | 30 days | IPv4 |
+| ISP Australia | ₦6,500/mo | 30 days | IPv4 |
+| ISP Brazil | ₦6,500/mo | 30 days | IPv4 |
+| ISP Singapore | ₦6,500/mo | 30 days | IPv4 |
+| ISP South Korea | ₦6,500/mo | 30 days | IPv4 |
+| ISP IPv6 (UK) | ₦3,500/mo | 30 days | IPv6 |
+| ISP IPv6 (US) | ₦3,500/mo | 30 days | IPv6 |
+
+### Datacenter Proxies (Monthly)
+
+| Product | Price | Expiry | Type |
+|---------|-------|-------|-------|
+| DC Static IPv4 | ₦3,000/mo | 30 days | IPv4 |
+| DC Static IPv6 | ₦2,500/mo | 30 days | IPv6 |
+| DC Rotating | ₦4,500/GB | Per GB | IPv4 |
+
+### Residential Proxies (GB-Based, No Expiry)
+
+| Product | Price | Notes |
+|---------|-------|-------|
+| Residential IPv4 | ₦1,950/GB | No time expiry |
+| Residential IPv6 | ₦1,500/GB | No time expiry |
+
+### Mobile Proxies (4G/LTE, 30-Day Window)
+
+| Product | Price | Notes |
+|---------|-------|-------|
+| Mobile 4G | ₦4,000/GB | 30-day window to use |
+
+---
+
+## Refund Policy
+
+| Product | Refund Window | Conditions |
+|---------|--------------|------------|
+| **Residential** | 7 days | From delivery, unused GB |
+| **Mobile** | 7 days | From delivery, unused GB |
+| **ISP** | 24 hours | Only if dead on arrival |
+| **DC** | 24 hours | Only if dead on arrival |
+
+**Note:** ISP and DC are time-based products. After 24 hours, no refunds — only IP replacement if dead.
 
 ---
 
@@ -71,85 +100,72 @@
 
 ### ISP Products
 
-| Product | Sell | Buy (USD) | Buy (₦) | Profit (₦) | Margin |
-|---------|------|----------|---------|-----------|--------|
-| ISP UK/US/DE/FR/CA | ₦6,500 | $1.50 | ₦2,250 | **₦4,250** | **65.4%** |
-| ISP JP/AU/BR/SG/KR | ₦7,500 | $2.00 | ₦3,000 | **₦4,500** | **60.0%** |
+| Product | Sell | Buy (₦) | Profit | Margin |
+|---------|------|---------|--------|--------|
+| ISP UK/US/DE/FR/CA | ₦5,000 | ₦2,250 | **₦2,750** | **55%** |
+| ISP JP/AU/BR/SG/KR | ₦6,500 | ₦3,000 | **₦3,500** | **54%** |
+| ISP IPv6 | ₦3,500 | ₦750 | **₦2,750** | **79%** |
 
 ### Datacenter
 
-| Product | Sell | Buy (USD) | Buy (₦) | Profit (₦) | Margin |
-|---------|------|----------|---------|-----------|--------|
-| DC | ₦3,000 | $0.70 | ₦1,050 | **₦1,950** | **65.0%** |
+| Product | Sell | Buy (₦) | Profit | Margin |
+|---------|------|---------|--------|--------|
+| DC Static IPv4 | ₦3,000 | ₦1,050 | **₦1,950** | **65%** |
+| DC Static IPv6 | ₦2,500 | ₦750 | **₦1,750** | **70%** |
+| DC Rotating | ₦4,500 | ₦675 | **₦3,825** | **85%** |
 
 ### Residential
 
-| Product | Sell | Buy (USD) | Buy (₦) | Profit (₦) | Margin |
-|---------|------|----------|---------|-----------|--------|
-| Residential 5GB | ₦9,500 | $5.00 | ₦7,500 | **₦2,000** | **21.1%** |
-| Residential 10GB | ₦18,000 | $10.00 | ₦15,000 | **₦3,000** | **16.7%** |
-
-**⚠️ Note:** Residential margins are lower. The ₦9,500/5GB price compensates for DataImpulse's $1/GB rate.
+| Product | Sell | Buy (₦) | Profit | Margin |
+|---------|------|---------|--------|--------|
+| Residential IPv4 | ₦1,950/GB | ₦1,500 | **₦450** | **23%** |
+| Residential IPv6 | ₦1,500/GB | ₦1,200 | **₦300** | **20%** |
 
 ### Mobile
 
-| Product | Sell | Buy (USD) | Buy (₦) | Profit (₦) | Margin |
-|---------|------|----------|---------|-----------|--------|
-| Mobile 4G 5GB | ₦20,000 | $10.00 | ₦15,000 | **₦5,000** | **25.0%** |
-| Mobile 4G 10GB | ₦38,000 | $20.00 | ₦30,000 | **₦8,000** | **21.1%** |
+| Product | Sell | Buy (₦) | Profit | Margin |
+|---------|------|---------|--------|--------|
+| Mobile 4G | ₦4,000/GB | ₦3,000 | **₦1,000** | **33%** |
 
 ---
 
-## Full Margin Table (All Products)
+## Full Product Catalog
 
-| Product | Sell (₦) | Cost (₦) | Profit (₦) | Margin % | Status |
-|---------|---------|---------|-----------|---------|--------|
-| ISP UK/US/DE/FR/CA | 6,500 | 2,250 | **4,250** | 65.4% | ✅ Healthy |
-| ISP JP/AU/BR/SG/KR | 7,500 | 3,000 | **4,500** | 60.0% | ✅ Healthy |
-| Datacenter | 3,000 | 1,050 | **1,950** | 65.0% | ✅ Healthy |
-| Residential 5GB | 9,500 | 7,500 | **2,000** | 21.1% | ✅ Profitable |
-| Residential 10GB | 18,000 | 15,000 | **3,000** | 16.7% | ✅ Profitable |
-| Mobile 4G 5GB | 20,000 | 15,000 | **5,000** | 25.0% | ✅ Healthy |
-| Mobile 4G 10GB | 38,000 | 30,000 | **8,000** | 21.1% | ✅ Healthy |
+| # | Product | Provider | Buy | Sell | Margin |
+|---|---------|----------|-----|------|--------|
+| 1 | ISP UK | Proxy-Seller | $1.50 | ₦5,000 | 55% |
+| 2 | ISP US | Proxy-Seller | $1.50 | ₦5,000 | 55% |
+| 3 | ISP DE | Proxy-Seller | $1.50 | ₦5,000 | 55% |
+| 4 | ISP FR | Proxy-Seller | $1.50 | ₦5,000 | 55% |
+| 5 | ISP CA | Proxy-Seller | $1.50 | ₦5,000 | 55% |
+| 6 | ISP JP | Proxy-Seller | $2.00 | ₦6,500 | 54% |
+| 7 | ISP AU | Proxy-Seller | $2.00 | ₦6,500 | 54% |
+| 8 | ISP BR | Proxy-Seller | $2.00 | ₦6,500 | 54% |
+| 9 | ISP SG | Proxy-Seller | $2.00 | ₦6,500 | 54% |
+| 10 | ISP KR | Proxy-Seller | $2.00 | ₦6,500 | 54% |
+| 11 | ISP IPv6 UK | Proxy-Seller | $0.50 | ₦3,500 | 79% |
+| 12 | ISP IPv6 US | Proxy-Seller | $0.50 | ₦3,500 | 79% |
+| 13 | DC Static IPv4 | Proxy-Seller | $0.70 | ₦3,000 | 65% |
+| 14 | DC Static IPv6 | Proxy-Seller | $0.50 | ₦2,500 | 70% |
+| 15 | DC Rotating | Rayobyte | $0.45/GB | ₦4,500 | 85% |
+| 16 | Residential IPv4 | DataImpulse | $1.00/GB | ₦1,950/GB | 23% |
+| 17 | Residential IPv6 | DataImpulse | $0.80/GB | ₦1,500/GB | 20% |
+| 18 | Mobile 4G | DataImpulse | $2.00/GB | ₦4,000/GB | 33% |
+
+**Total Products:** 18
 
 ---
 
 ## Break-Even Analysis
 
-### At what FX rate does each product become unprofitable?
-
 | Product | Break-even FX | Current FX | Buffer |
 |---------|--------------|------------|--------|
-| ISP UK | ₦4,333/USD | ₦1,500 | +189% |
-| DC | ₦2,857/USD | ₦1,500 | +90% |
-| Residential 5GB | ₦1,900/USD | ₦1,500 | +27% |
-| Mobile 4G 5GB | ₦2,000/USD | ₦1,500 | +33% |
+| ISP UK | ₦3,333/USD | ₦1,500 | +122% |
+| DC Static | ₦2,857/USD | ₦1,500 | +90% |
+| Residential | ₦1,625/USD | ₦1,500 | +8% |
+| Mobile | ₦2,000/USD | ₦1,500 | +33% |
 
-**Residential is most sensitive to FX.** If NGN weakens past ₦1,900/$, residential becomes loss-making.
-
----
-
-## Cost Per Order (Variable Cost)
-
-| Product | Variable Cost | Notes |
-|---------|--------------|-------|
-| ISP | $1.50–2.00/order | Billed monthly regardless of usage |
-| DC | $0.70/order | Billed monthly |
-| Residential | $1.00/GB used | Only paid for GB customer actually uses |
-| Mobile | $2.00/GB used | Only paid for GB customer actually uses |
-
-**Key insight:** Residential and Mobile are variable-cost. You only pay what the customer uses. ISP and DC are fixed monthly costs even if customer uses 0 GB.
-
----
-
-## Recommended Pricing Adjustments (if FX moves)
-
-If parallel market FX moves to ₦1,700/$:
-
-| Product | Current Sell | Recommended Sell | New Margin |
-|---------|-------------|-----------------|------------|
-| ISP UK | ₦6,500 | ₦7,500 | 64.0% |
-| Residential 5GB | ₦9,500 | ₦10,500 | 19.0% |
+**⚠️ Watch:** Residential is most sensitive to FX. If NGN weakens past ₦1,625/$, residential becomes loss-making.
 
 ---
 
@@ -174,32 +190,19 @@ If parallel market FX moves to ₦1,700/$:
 
 ---
 
-## Provider Comparison (Current Stack)
+## IP Replacement Policy
 
-| Product | Proxy-Seller | DataImpulse | Winner |
-|---------|-------------|-------------|--------|
-| ISP | $1.50/IP | N/A | Proxy-Seller only option |
-| DC | $0.70/IP | N/A | Proxy-Seller only option |
-| Residential | $2.20/GB | **$1.00/GB** | ✅ DataImpulse |
-| Mobile | N/A | **$2.00/GB** | ✅ DataImpulse only option |
-
----
-
-## Operational Costs (Monthly)
-
-| Item | Cost |
-|------|------|
-| Hetzner CX21 VPS | €6.00 (~$9 @ ₦1,500) |
-| Domain (bunche.ng) | ~$2/mo |
-| **Total infrastructure** | **~$11/mo** |
-
-At 20 customers/month: infrastructure cost = ₦550/customer (negligible).
+| Provider | Replacement Window | How |
+|----------|-------------------|-----|
+| Proxy-Seller | 24 hours | API call for new IP |
+| DataImpulse | 7 days | Auto-rotates, refund available |
+| Rayobyte | N/A | Rotating, no replacement needed |
 
 ---
 
 ## Notes
 
-- All buy prices are retail published rates. No negotiated reseller rates confirmed.
-- LunaProxy and PrivateProxy were researched but excluded (dead domains / unverified).
-- Rayobyte pending integration for DC rotating product.
-- FX rate is the biggest risk to margins — monitor parallel market monthly.
+- All ISP/DC prices include unlimited bandwidth within 30-day period
+- Residential/Mobile data never expires (Residential) or 30-day window (Mobile)
+- IPv6 products are newer and may have limited availability
+- Monitor FX rate monthly — adjust prices if NGN weakens past ₦1,700/$
