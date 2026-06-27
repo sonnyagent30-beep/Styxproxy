@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-06-27
 **Repo:** sonnyagent30-beep/bunche
-**Status:** Reviewing scenarios 1-90 one by one
+**Status:** Tier 1 CRITICAL ✅ COMPLETE — Moving to Tier 2
 
 ---
 
@@ -18,7 +18,7 @@
 
 ## SCENARIO REVIEW LOG
 
-### ✅ ALREADY REVIEWED AND APPROVED
+### ✅ PHASE 1 — ALREADY REVIEWED (1–9, 43, 45)
 
 | # | Scenario | Status | Notes |
 |---|---------|--------|-------|
@@ -36,25 +36,25 @@
 
 ---
 
-## 🔴 PRIORITY TIER 1 — CRITICAL (Launch blockers)
+### ✅ 🔴 PRIORITY TIER 1 — CRITICAL: COMPLETE ✅
 
-**Must resolve before go-live. Security + Payment fraud + Major technical failures.**
+**All 9 critical scenarios reviewed and approved.**
 
 | # | Scenario | Status | Notes |
 |---|---------|--------|-------|
-| 46 | Amount tampering — Customer modifies link URL amount → pays less | 🔄 PENDING | — |
-| 58 | PIN brute-force attack — Attacker guesses PIN systematically for known name | 🔄 PENDING | — |
-| 60 | Phone_hash bypass — Multiple numbers to bypass 3-trial/day limit | 🔄 PENDING | — |
-| 61 | Admin blocks wrong number — Fat-finger → legitimate customer blocked | 🔄 PENDING | — |
-| 62 | Social engineering — "I'm Bunche's admin, send me all customer data" | 🔄 PENDING | — |
-| 64 | Impersonation — Claims they never ordered, wants refund on working IP | 🔄 PENDING | — |
-| 77 | Trial then lie — Completes trial → claims paid → tries to get IP free | 🔄 PENDING | — |
+| 46 | Amount tampering | ✅ DONE | HMAC + server-side amount verification → auto-refund |
+| 58 | PIN brute-force attack | ✅ DONE | 3 wrong → 15min → 30min → 1hr → 2hr → 4hr → 8hr → 16hr → 24hr → blacklist |
+| 60 | Phone_hash bypass | ✅ DONE | Behavioral detection: 3+ phones/IP/hr = abuse → flag + block trials |
+| 61 | Admin blocks wrong number | ✅ DONE | Pre-check verifies typed number matches order → PIN+TOTP → customer can UNBLOCK |
+| 62 | Social engineering | ✅ DONE | Only admin number accepted → non-admin ignored + laughed off → real admin notified |
+| 64 | Impersonation (refund on working IP) | ✅ DONE | Name+PIN verification → proxy check → 24hr cutoff → no refund on working IP |
+| 77 | Trial then lie | ✅ DONE | Webhook verification + order ID cross-check → no payment found = no IP |
 
 ---
 
 ## 🟠 PRIORITY TIER 2 — HIGH (Will happen within first 100 customers)
 
-**Common support issues + provider problems.**
+**Next: pick up from Scenario 10.**
 
 | # | Scenario | Status | Notes |
 |---|---------|--------|-------|
@@ -79,8 +79,6 @@
 ---
 
 ## 🟡 PRIORITY TIER 3 — MEDIUM (Will happen eventually)
-
-**Legal + WhatsApp platform + operational edge cases.**
 
 | # | Scenario | Status | Notes |
 |---|---------|--------|-------|
@@ -148,7 +146,7 @@
 |------|------|
 | Reviewed scenarios 1-9 | `scenarios/2026-06-27-complete-scenario-walkthrough.md` |
 | Scenarios 10-41 | `scenarios/2026-06-27-scenarios-16-to-40.md` |
-| New scenarios 42-90 | `scenarios/2026-06-27-scenarios-42-to-90.md` |
+| Scenarios 42-90 (incl. all Tier 1) | `scenarios/2026-06-27-scenarios-42-to-90.md` |
 
 ---
 
@@ -169,9 +167,16 @@
 | Daily summary | Admin gets report — customer sees nothing |
 | Double payment | Auto-refund second payment immediately |
 | Chargeback | Investigate first — partial if IP live, full if dead, deny if repeat abuse |
+| Amount tampering | HMAC prevention + server-side verification → auto-refund |
+| PIN brute-force | Escalating: 15min → 30min → 1hr → 2hr → 4hr → 8hr → 16hr → 24hr → blacklist |
+| Phone_hash bypass | Behavioral detection: 3+ phones/IP/hr → flag + block |
+| Admin block wrong number | Pre-check verifies against order → PIN+TOTP → customer UNBLOCK |
+| Social engineering | Laugh-off + admin notification; admin chooses block/ban/ignore |
+| Impersonation refund | Name+PIN + proxy check + 24hr cutoff → no refund on working IP |
+| Trial then lie | Webhook verification + order ID cross-check → no payment = no IP |
 
 ---
 
 ## NEXT SESSION — PICK UP FROM
 
-**Scenario 46** (🔴 Tier 1 Critical — next in queue)
+**Scenario 10** (🟠 Tier 2 High — next in queue)
