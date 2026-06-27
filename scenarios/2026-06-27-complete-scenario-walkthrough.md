@@ -2,7 +2,7 @@
 ## Customer → Bunche → Admin (All Scenarios)
 
 **Date:** 2026-06-27
-**Status:** COMPREHENSIVE — all 5 canonical scenarios + admin operations
+**Status:** COMPREHENSIVE — all scenarios reviewed through Scenario 8
 **Source:** 5 scenario docs + 18 admin commands + WORKFLOW_SPECS
 
 ---
@@ -764,25 +764,30 @@ Your total referral credit: ₦9,825
 Keep sharing your name Ada 💪
 ```
 
+**Admin side:** 🟢 Logged: referral_credit_earned
+
 ---
 
 ## SCENARIO 8: Data Alert Escalation
 
-### Flow: Bunche (cron) → Customer → Admin
+### Flow: Bunche (automated cron) → Customer
+
+*Purely customer-side automated messages — no admin involvement*
 
 ---
 
 #### Customer at 80% Residential data
 
-**Bunche reply (automated):**
+**Bunche reply (automated, cron):**
 ```
 ⚠️ Data Alert — Dan
 
 You've used 4.0 GB of your 5 GB Residential proxy.
-0.8 GB remaining. Once it's done, the proxy stops.
+0.8 GB remaining. Once it's done, the proxy stops working.
 
 To avoid interruption:
 • Residential 5GB → ₦5,000 (adds 5 more GB)
+• Residential 10GB → ₦9,000 (adds 10 GB)
 
 Reply Order RES 5GB to top up.
 ```
@@ -791,7 +796,7 @@ Reply Order RES 5GB to top up.
 
 #### Customer at 100% data
 
-**Bunche reply (automated):**
+**Bunche reply (automated, cron):**
 ```
 🔴 Data Exhausted — Dan
 
@@ -799,12 +804,15 @@ Your 5 GB Residential proxy has run out.
 The proxy has stopped working.
 
 To restore access:
-• Residential 5GB → ₦5,000
+• Residential 5GB → ₦5,000 (adds 5 more GB)
+• Residential 10GB → ₦9,000
 
 Reply Order RES 5GB to continue.
 ```
 
-**Admin side:** Informational (upsell opportunity)
+**Admin side:** None — automated customer communication, no admin alert needed.
+
+**Rules:** R8-1 (80% = warning), R8-2 (100% = exhaustion + upsell)
 
 ---
 
@@ -882,8 +890,8 @@ Admin: `Resolve ERR-20260627-1423-001` + PIN → marks resolved
 | 22 | Ban claim rejected | "Declined + reason" | 🟢 Logged |
 | 23 | Referral name entered | Saved with order | 🟢 Logged on payment |
 | 24 | Referral order paid | Credit to referrer + notification | 🟢 Logged |
-| 25 | Data 80% used | Warning message to customer | ⚠️ Data alert (escalation) |
-| 26 | Data 100% used | Exhaustion message to customer | ⚠️ Data exhausted (upsell) |
+| 25 | Data 80% used | Warning message to customer | None |
+| 26 | Data 100% used | Exhaustion message to customer | None |
 | 27 | Daily cron 23:55 | None | 📊 Daily Summary report |
 | 28 | Workflow CRITICAL error | Auto-refund if applicable | 🚨 CRITICAL ERROR alert |
 | 29 | 3 consecutive failed PINs | Lockout message | 🚨 LOCKOUT alert |
@@ -906,3 +914,4 @@ Admin: `Resolve ERR-20260627-1423-001` + PIN → marks resolved
 | Theorem Reach HMAC verified before grant | Anti-fake-survey |
 | All IP tested before delivery | Quality gate |
 | Pre-payment check = ALL providers | Never generate link without confirming stock |
+| Data alerts = customer-side only | No admin alert on 80%/100% data |
