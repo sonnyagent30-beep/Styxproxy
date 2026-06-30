@@ -4,35 +4,4 @@
 
 
 ## Refund Policy
-{'status': 'CONTACT_SALES', 'policy_text': 'No explicit refund policy found on website. Contact sales for custom arrangements.', 'money_back_days': None, 'conditions': [], 'residential_refund': 'Contact sales', 'isp_refund': 'Contact sales'}
-
-
-## Replacement Policy
-Not specified
-
-
-## Acceptable Use Policy
-Not specified
-
-
-## Data Retention
-Not specified
-
-
-## Cancellation Policy
-Not specified
-
-
-## SLA Guarantee
-Not specified
-
-
-## Privacy Policy
-Not specified
-
-
-## Terms of Service
-Not specified
-
-
----
+{'status': 'limited', 'policy_text': '7-day money-back guarantee on all proxy plans.', 'details': 'Full refund available within 7 days of purchase on all proxy plans.', 'eligibility': {'time_window': '7 days'}, 'source': 'https://legionproxy.com'}
