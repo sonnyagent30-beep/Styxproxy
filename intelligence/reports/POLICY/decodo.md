@@ -4,7 +4,7 @@
 
 
 ## Refund Policy
-{'status': 'conditional', 'description': 'Refund eligibility criteria available - varies by payment method, usage, and refund window.', 'details': 'Contact support for refund requests. Eligibility depends on payment method used, usage limits, and refund window.', 'source': 'https://decodo.com/faq/billing/can-i-get-a-refund'}
+{'status': 'not_found', 'policy_text': 'No refund policy found on decodo.com.', 'source': 'https://decodo.com'}
 
 
 ## Replacement Policy
@@ -33,6 +33,3 @@ Not specified
 
 ## Terms of Service
 Not specified
-
-
----

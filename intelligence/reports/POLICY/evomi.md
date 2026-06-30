@@ -4,7 +4,7 @@
 
 
 ## Refund Policy
-{'status': 'VERIFIED', 'policy_text': 'Refund available if unsatisfied with service and have utilized less than 10% of allotted data or maximum of 2GB. Within 7 days from date of purchase. Free trials available for individual users.', 'money_back_days': 7, 'conditions': ['Less than 10% data usage or maximum 2GB', 'Within 7 days from purchase date'], 'residential_refund': '7-day money-back guarantee for residential proxies', 'isp_refund': '7-day money-back guarantee for ISP proxies'}
+{'status': 'limited', 'description': 'No refunds on setup fees. Pro-rated refund for unused prepaid service if cancelled within 30 days.', 'details': 'No refund on one-time setup fees. Pro-rated refund for unused portion of prepaid service if account is terminated within first 30 days.', 'eligibility': {'time_window': '30 days', 'setup_fee_refundable': False, 'prepaid_refundable': True}, 'source': 'https://evomi.com/legal/refund-policy/'}
 
 
 ## Replacement Policy
@@ -33,6 +33,3 @@ Not specified
 
 ## Terms of Service
 Not specified
-
-
----
