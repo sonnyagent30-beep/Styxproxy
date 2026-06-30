@@ -1,37 +1,6 @@
-# Pia Proxy — Policy
+# PIA Proxy — Policy
 
 **Provider:** `pia-proxy`
 
 ## Refund Policy
-{'status': 'CONTACT_SALES', 'policy_text': 'As a subsidiary of Private Internet Access (well-known VPN provider), follows standard SaaS refund practices. Contact support for refund requests.', 'money_back_days': None, 'conditions': ['contact support'], 'residential_refund': 'contact support', 'isp_refund': 'contact support'}
-
-
-## Replacement Policy
-Not specified
-
-
-## Acceptable Use Policy
-Not specified
-
-
-## Data Retention
-Not specified
-
-
-## Cancellation Policy
-Not specified
-
-
-## SLA Guarantee
-Not specified
-
-
-## Privacy Policy
-Not specified
-
-
-## Terms of Service
-Not specified
-
-
----
+{'status': 'limited', 'policy_text': '3-day money-back guarantee on all plans.', 'details': 'Full refund available within 3 days of purchase on all plans.', 'eligibility': {'time_window': '3 days'}, 'source': 'https:// pia-proxy.com'}

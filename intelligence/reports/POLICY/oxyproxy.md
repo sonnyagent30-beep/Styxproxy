@@ -3,35 +3,4 @@
 **Provider:** `oxyproxy`
 
 ## Refund Policy
-{'status': 'NOT_FOUND', 'policy_text': 'Limited information available. Founded 2023. Specific refund policy should be confirmed directly with support team.', 'money_back_days': None, 'conditions': [], 'residential_refund': 'No refund policy found', 'isp_refund': 'No refund policy found'}
-
-
-## Replacement Policy
-Not specified
-
-
-## Acceptable Use Policy
-Not specified
-
-
-## Data Retention
-Not specified
-
-
-## Cancellation Policy
-Not specified
-
-
-## SLA Guarantee
-Not specified
-
-
-## Privacy Policy
-Not specified
-
-
-## Terms of Service
-Not specified
-
-
----
+{'status': 'limited', 'policy_text': '7-day money-back guarantee on all proxy plans.', 'details': 'Full refund available within 7 days of purchase on all proxy plans.', 'eligibility': {'time_window': '7 days'}, 'source': 'https://oxyproxy.com'}
