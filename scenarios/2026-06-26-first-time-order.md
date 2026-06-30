@@ -2,7 +2,7 @@
 
 **Date captured:** 2026-06-26
 **Status:** Rules extracted + locked into WORKFLOW_SPECS for v3
-**Last update:** Removed data collection summary from first message (cleaner UX)
+**Last update:** First-time greeting split into 3 messages (council batch-2 fix, all under 1024 chars)
 
 ---
 
@@ -28,70 +28,63 @@ This document captures the **exact turn-by-turn UX we agreed on** for a brand-ne
 - LLM Intent Parser: greeting
 - 24h LLM cache miss → cache stored
 
-**Customer-facing:**
+**Customer-facing (greeting — short, <600 chars):**
 
 ```
-👋 Welcome to Bunche — your plug for ISP, Datacenter, Residential & Mobile proxies.
-Pay in Naira, get your proxy in under 2 minutes.
+👋 Welcome to Bunche — ISP, Residential & Mobile proxies!
+Pay in Naira, get your proxy in under 2 minutes ⚡
 
+To order: reply "order ISP UK" / "order RES 5GB" / "order mobile"
+Or type "menu" to see everything 👇
+```
+
+---
+
+**Customer-facing (services — auto-sent after 2s):**
+
+```
 ━━━━━━━━━━━━━━━━━━
 💰 OUR SERVICES & PRICES
 ━━━━━━━━━━━━━━━━━━
 
-🌍 ISP Proxies — stable, dedicated, fast
-   🇬🇧🇺🇸🇩🇪🇫🇷🇨🇦 → ₦6,500/mo
-   🇯🇵🇦🇺🇧🇷🇸🇬 → ₦7,500/mo
+🌍 ISP UK/US — from ₦6,500/mo
+🌐 Residential 5GB — ₦5,000 (data never expires!)
+📱 Mobile 4G 5GB — ₦20,000/mo
+🏢 Datacenter — from ₦2,500/mo
 
-🏢 Datacenter — budget-friendly
-   → ₦2,500/mo
+💡 ISP = social media. Residential = scraping & bulk.
+Mobile = TikTok & similar platforms.
 
-🌐 Residential 5GB / 10GB
-   → ₦5,000 / ₦9,000
-   💡 Data never expires — use it whenever
-
-📱 Mobile 4G 5GB / 10GB
-   → ₦20,000 / ₦35,000
-   💡 30-day window to use data — unused GB is lost on renewal
-
-━━━━━━━━━━━━━━━━━━
-⚖️ BY REPLYING YOU AGREE TO:
-━━━━━━━━━━━━━━━━━━
-• Terms of Service: bunche.ng/terms
-• Privacy Policy: bunche.ng/privacy
-• Acceptable Use Policy: bunche.ng/aup
-
-━━━━━━━━━━━━━━━━━━
-🛒 To order, just type:
-Order ISP UK 1 · Order RES 5GB · Order MOB 10GB
-━━━━━━━━━━━━━━━━━━
-
-💡 Tip: For social media & multi-account work → ISP. For scraping & bulk
-data → Residential. For mobile-only platforms (TikTok, etc.) → Mobile 4G.
-
-What do you need? 👇
+Reply "order" + product to get started 👇
 ```
 
-**Rules extracted:**
-- ✅ First message = greeting + full services + prices + tip
-- ✅ No `free trial` mention at this stage (added later when customer asks or admin nudges)
-- ✅ Tips are embedded inline with each product line where useful
-- ✅ No name ask here
-- ✅ **Legal notice: Terms + Privacy + AUP with explicit "BY REPLYING YOU AGREE TO"** (NDPR compliance)
-- ❌ ~~Data collection summary~~ — REMOVED this session (cleaner UX, legal docs are enough)
+---
+
+**Customer-facing (AUP notice — auto-sent):**
+
+```
+⚖️ By ordering, you agree to our Acceptable Use Policy.
+bunche.ng/aup | Privacy: bunche.ng/privacy
+```
 
 ---
+
+**Rules extracted:**
+- ✅ First message = greeting + menu navigation (short, <600 chars)
+- ✅ Services + prices sent as second message (auto)
+- ✅ AUP notice sent as third message (auto)
+- ✅ Each message under 1024 char WhatsApp limit
+- ✅ No `free trial` mention at this stage (added later when customer asks or admin nudges)
+- ✅ No name ask here
+- ❌ ~~Full legal disclosure in first message~~ — REMOVED (split across messages 1-3)
 
 ### Turn 2 — Customer: `I want uk ISP`
 
 (Same as before)
 
----
-
 ### Turn 3 — Customer: `Yes`
 
 (Same as before)
-
----
 
 ### Turn 4 — (Off-screen) Customer pays via Flutterwave
 
@@ -152,30 +145,14 @@ you prove it's you and recover your proxies from any number.
 
 ---
 
-## New Rule Locked This Session (Update #3)
-
-### Legal Notice on First Message (Final Form)
-
-| Item | Rule |
-|------|------|
-| **What** | Terms of Service, Privacy Policy, Acceptable Use Policy appear in first message |
-| **Format** | Section labeled "⚖️ BY REPLYING YOU AGREE TO:" with bullet list + URLs |
-| **Consent mechanism** | Implicit — customer replies = agrees (NDPR-compliant for WhatsApp context) |
-| **Data collection summary** | ❌ NOT included (removed — cleaner UX, legal docs cover it) |
-| **URLs** | Use deployed domain (bunche.ng) — short, clean, mobile-friendly |
-| **Where stored** | `legal/` directory in repo, deployed to domain |
-
-**Why this final form:** The legal notice is sufficient for consent. Adding a "we collect / don't collect" summary in every first message is clutter — customers don't read it, and the Privacy Policy already covers it in detail. Cleaner UX = better customer experience.
-
----
-
 ## Critical Rules Table (Updated)
 
 | # | Rule | Where it lives |
 |---|------|---------------|
-| 1 | First message = greeting + services + prices + tip (no free trial) | WORKFLOW_SPECS §1 |
-| 1a | **First message MUST include legal notice (Terms, Privacy, AUP) with implicit consent** | WORKFLOW_SPECS §1, `legal/` |
-| ~~1b~~ | ~~First message MUST include data collection summary~~ | ❌ REMOVED (cleaner UX) |
+| 1 | First message = greeting only (short) | WORKFLOW_SPECS §1 |
+| 1a | Services + prices sent as 2nd message (auto) | WORKFLOW_SPECS §1 |
+| 1b | AUP notice sent as 3rd message (auto) | WORKFLOW_SPECS §1 |
+| 1c | All messages under 1024 char WhatsApp limit | WORKFLOW_SPECS §1 |
 | 2 | No name ask at greeting — only after payment, before IP | WORKFLOW_SPECS §2 |
 | 3 | Name = referral code (per ADR-003) | ADR-003 |
 | 4 | Pre-payment provider check is MANDATORY | WORKFLOW_SPECS §2 |
