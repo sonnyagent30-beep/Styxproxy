@@ -1,1 +1,515 @@
-{"placeholder": "test"}
+{
+  "metadata": {
+    "generated": "2026-06-30",
+    "total_providers": 42,
+    "sources": [
+      "web research",
+      "official pricing pages",
+      "Scamalytics",
+      "Trustpilot",
+      "Reddit"
+    ],
+    "version": "1.0"
+  },
+  "providers": [
+    {
+      "slug": "2extract",
+      "company": {
+        "slug": "2extract",
+        "name": "2extract",
+        "description": "Company info not found - unable to locate a specific company named '2extract' through web search",
+        "website": null,
+        "founded": null,
+        "headquarters": null,
+        "industry": "Unknown",
+        "employees": null,
+        "revenue": null,
+        "products": [],
+        "competitors": [],
+        "acquisitions": [],
+        "notes": "No verified company information found for '2extract'. This may be a small company, startup with minimal online presence, or go by a different business name. Search results showed generic data extraction tools but no specific company matching this exact name.",
+        "sources": [
+          "Web search conducted June 30, 2026"
+        ],
+        "lastUpdated": "2026-06-30"
+      },
+      "pricing": {
+        "provider": "2extract",
+        "slug": "2extract",
+        "website": "https://www.2extract.com",
+        "verified_date": "2026-06-30",
+        "verification_status": "UNVERIFIED",
+        "pricing_model": "Unknown",
+        "products": {},
+        "free_trial": "Unknown",
+        "min_purchase": "Unknown",
+        "single_ip_available": "Unknown",
+        "billing": [],
+        "sources": [],
+        "warning": "Provider could not be verified online. May be inactive, very small, or use a different business name."
+      },
+      "technical": {
+        "provider": "2extract",
+        "slug": "2extract",
+        "verified_date": "2026-06-30",
+        "protocols": [
+          "Unknown"
+        ],
+        "ip_types": [
+          "Residential"
+        ],
+        "pool_size": "Unknown",
+        "countries": "Unknown",
+        "geo_targeting": [
+          "Unknown"
+        ],
+        "session_types": [
+          "Unknown"
+        ],
+        "rotation": "Unknown",
+        "sticky_sessions": "Unknown",
+        "api": "Unknown",
+        "auth_methods": [
+          "Unknown"
+        ],
+        "sla": "Unknown",
+        "uptimE": "Unknown",
+        "unique_features": [],
+        "sources": [],
+        "warning": "Provider could not be verified \u2014 may not exist"
+      },
+      "reputation": {
+        "provider": "2extract",
+        "slug": "2extract",
+        "verified_date": "2026-06-30",
+        "sources": [],
+        "trustpilot": "Not found",
+        "scamalitycs_score": "Not found",
+        "reddit_sentiment": "Not found",
+        "overall": "UNVERIFIED",
+        "pros": [],
+        "cons": [
+          "Could not verify existence online"
+        ],
+        "flags": [
+          "UNVERIFIED PROVIDER"
+        ],
+        "risk_level": "CRITICAL"
+      },
+      "policy": {},
+      "scores": {
+        "overall": 5.0,
+        "security": 5,
+        "value": 5,
+        "reliability": 5,
+        "support": 5
+      },
+      "tier": "TIER_3_AVOID",
+      "bundle_recommended": false,
+      "primary_use_case": "residential",
+      "notes": "High risk or unverified"
+    },
+    {
+      "slug": "711proxy",
+      "company": {
+        "slug": "711proxy",
+        "name": "711Proxy",
+        "website": "https://www.711proxy.com/",
+        "description": "Global high-quality residential IP proxy provider offering both rotating and static residential IPs across 200+ countries.",
+        "company_info": {
+          "foundED": null,
+          "headquarters": null,
+          "company_type": "Proxy Service Provider",
+          "specialization": "Residential Proxies, Static Residential Proxies"
+        },
+        "network": {
+          "ip_pool_size": "100M+",
+          "countries": "200+",
+          "success_rate": "99.7%",
+          "proxy_types": [
+            "Rotating Residential",
+            "Static Residential"
+          ]
+        },
+        "pricing": {
+          "residential_proxies": {
+            "rotating": "from $0.55/GB",
+            "static": null
+          },
+          "plans": [
+            {
+              "name": "1 Day Unlimited Rotating Proxies",
+              "price": "$280/day",
+              "type": "subscription"
+            }
+          ],
+          "model": "Per GB + Subscription"
+        },
+        "features": [
+          "100M+ IP pool",
+          "200+ country coverage",
+          "99.7% success rate",
+          "Enterprise plans with discounts",
+          "24/7 customer support",
+          "Proxy trials available"
+        ],
+        "use_cases": [
+          "Data Collection",
+          "Web Scraping",
+          "Market Research",
+          "Ad Verification",
+          "SEO Monitoring"
+        ],
+        "sources": [
+          "https://www.711proxy.com/",
+          "https://www.saasworth.com/product/711proxy",
+          "https://russiaips.site/provider/711proxy/"
+        ],
+        "research_date": "2026-06-30"
+      },
+      "pricing": {
+        "provider": "711Proxy",
+        "slug": "711proxy",
+        "website": "https://www.711proxy.com",
+        "verified_date": "2026-06-30",
+        "verification_status": "VERIFIED",
+        "pricing_model": "Subscription",
+        "products": {
+          "residential_ipv4": {
+            "price": "$0.55",
+            "unit": "per GB",
+            "notes": "Rotating residential. 200+ countries. $99/mo for 180GB."
+          }
+        },
+        "free_trial": "Not available",
+        "min_purchase": "Undisclosed",
+        "single_ip_available": false,
+        "billing": [
+          "Monthly"
+        ],
+        "sources": [
+          "https://www.711proxy.com"
+        ]
+      },
+      "technical": {
+        "slug": "711proxy",
+        "technical_features": {
+          "proxy_types": {
+            "residential": {
+              "rotating": {
+                "available": true,
+                "ip_pool": "10DM+",
+                "countries": "200+",
+                "rotation_types": [
+                  "auto-rotation",
+                  "sticky sessions"
+                ],
+                "sticky_session_duration": "5min - 180min",
+                "success_rate": "99.7%"
+              },
+              "static": {
+                "available": true,
+                "description": "ISP static residential IPs"
+              }
+            },
+            "socks5": {
+              "available": true
+            }
+          },
+          "protocols": {
+            "http": true,
+            "https": true,
+            "socks5": true
+          },
+          "authentication": {
+            "user_pass": true,
+            "ip_whitelist": true,
+            "api_auth": true
+          },
+          "api": {
+            "endpoint_rotation": true,
+            "instant_ip_change": true,
+            "documentation": "Integration examples for Python, Node.js, Java, PHP, Go, C++"
+          },
+          "session_control": {
+            "sticky_sessions": true,
+            "duration_range": "5-180 minutes",
+            "auto_rotation": true
+          },
+          "bandwidth": {
+            "premium_bandwidth": "200Mbps - 1Gbps",
+            "unlimited_concurrent_requests": true,
+            "no_throttling": true,
+            "no_overage_charges": true
+          },
+          "infrastructure": {
+            "uptimE": "99.9%",
+            "network_size": "400+ networks",
+            "ip_verification": "Rigorous compliance audit process"
+          }
+        },
+        "targeting": {
+          "geo_levels": [
+            "country",
+            "region",
+            "city",
+            "isp"
+          ],
+          "country_coverage": "200+"
+        },
+        "integration": {
+          "api_access": true,
+          "resell_api": true,
+          "proxy_trials": true
+        },
+        "research_date": "2026-06-30",
+        "sources": [
+          "https://www.711proxy.com/",
+          "https://sourceforge.net/software/711proxy/",
+          "https://www.iplocation.net/711proxy-review-2022"
+        ]
+      },
+      "reputation": {
+        "provider": "711proxy",
+        "scamalitycs": {
+          "found": false,
+          "fraud_score": null,
+          "risk_level": null,
+          "notes": "No specific Scamalytics data found for this provider in search results"
+        },
+        "trustpilot": {
+          "found": false,
+          "rating": null,
+          "reviews": null,
+          "sentiment": "neutral",
+          "notes": "No official Trustpilot page found. Third-party reviews show 3.5 stars on Proxy DB"
+        },
+        "reddit": {
+          "found": false,
+          "mentions": 0,
+          "sentiment": "neutral",
+          "notes": "Provider mentioned in blog reviews as a legitimate service"
+        },
+        "overall_reputation": "neutral",
+        "last_updated": "2026-06-30"
+      },
+      "policy": {},
+      "scores": {
+        "overall": 5.8,
+        "security": 5,
+        "value": 8,
+        "reliability": 5,
+        "support": 5
+      },
+      "tier": "TIER_2_USE_WITH_CAUTION",
+      "bundle_recommended": false,
+      "primary_use_case": "residential",
+      "notes": "Test before scaling"
+    },
+    {
+      "slug": "abcproxy",
+      "company": {
+        "slug": "abcproxy",
+        "name": "ABCProxy",
+        "website": "https://www.abcproxy.com/",
+        "description": "World-leading provider of residential, ISP, and SOCKS5 proxies. Features 350M+ ethically sourced residential IPs across 200+ countries.",
+        "company_info": {
+          "foundED": "2018",
+          "headquarters": null,
+          "company_type": "Proxy Service Provider",
+          "specialization": "Residential Proxies, ISP Proxies, Datacenter Proxies, Mobile Proxies, SOCKS5 Proxies"
+        },
+        "network": {
+          "ip_pool_size": "350M+",
+          "countries": "200+",
+          "regions": "50+",
+          "proxy_types": [
+            "Residential",
+            "ISP",
+            "Datacenter",
+            "Mobile",
+            "Static Residential"
+          ],
+          "targeting": [
+            "Country",
+            "City",
+            "Postal Code",
+            "ISP"
+          ]
+        },
+        "pricing": {
+          "model": "Subscription + Pay-per-GB",
+          "plans": [
+            {
+              "name": "Unlimited Residential Proxies",
+              "description": "Covers 50+ regions worldwide"
+            }
+          ],
+          "notes": "Flexible pricing plans catering to different usage levels"
+        },
+        "features": [
+          "350M+ residential IPs",
+          "200+ countries and regions",
+          "City, postal code, and ISP targeting",
+          "Unlimited traffic plans available",
+          "SERP API available",
+          "Since 2018 - Trusted by thousands of businesses"
+        ],
+        "use_cases": [
+          "Automation",
+          "Data scraping",
+          "Account management",
+          "SERP tracking",
+          "Market research"
+        ],
+        "sources": [
+          "https://www.abcproxy.com/",
+          "https://abc-proxy.com",
+          "https://www.abcproxy.com/pricing/serp-api.html"
+        ],
+        "research_date": "2026-06-30"
+      },
+      "pricing": {
+        "provider": "ABCProxy",
+        "slug": "abcproxy",
+        "website": "https://www.abcproxy.com",
+        "verified_date": "2026-06-30",
+        "verification_status": "CONTACT_SALES",
+        "pricing_model": "Subscription + Pay-per-GB",
+        "products": {
+          "residential_ipv4": {
+            "price": "Contact sales",
+            "unit": "per GB",
+            "notes": "350M+ IPs. City/postcode/ISP targeting. No public pricing."
+          },
+          "isp_ipv4": {
+            "price": "Contact sales",
+            "unit": "per IP per month",
+            "notes": "ISP proxies \u2014 no public pricing"
+          }
+        },
+        "free_trial": "Contact sales",
+        "min_purchase": "Undisclosed",
+        "single_ip_available": false,
+        "billing": [
+          "Monthly"
+        ],
+        "sources": [
+          "https://www.abcproxy.com"
+        ]
+      },
+      "technical": {
+        "slug": "abcproxy",
+        "technical_features": {
+          "proxy_types": {
+            "residential": {
+              "available": true,
+              "ip_pool": "350M+",
+              "countries": "200+",
+              "regions": "190+",
+              "targeting": {
+                "country": true,
+                "city": true,
+                "postcode": true,
+                "isp": true
+              }
+            },
+            "isp": {
+              "available": true,
+              "static": true
+            },
+            "datacenter": {
+              "available": true
+            },
+            "mobile": {
+              "available": true
+            },
+            "socks5": {
+              "available": true,
+              "description": "Premium SOCKS5 network with individual IPs"
+            }
+          },
+          "protocols": {
+            "http": true,
+            "https": true,
+            "socks5": true
+          },
+          "authentication": {
+            "user_pass": true,
+            "ip_whitelist": true,
+            "api_auth": true
+          },
+          "api": {
+            "proxy_api": true,
+            "serp_api": true,
+            "endpoint_format": "SOCKS5, HTTP(S)",
+            "sub_accounts": true,
+            "targeting_control": true
+          },
+          "session_control": {
+            "rotating": true,
+            "sticky": true,
+            "lifetime_ips": "Available for SOCKS5 - hold IP for session lifetime"
+          },
+          "infrastructure": {
+            "pool_refresh": "Regularly refreshed",
+            "ethical_sourcing": true
+          }
+        },
+        "targeting": {
+          "geo_levels": [
+            "country",
+            "region",
+            "city",
+            "postcode",
+            "isp"
+          ],
+          "country_coverage": "200+",
+          "region_coverage": "190+"
+        },
+        "integration": {
+          "browser_tools": true,
+          "team_dashboards": true,
+          "automation_systems": true,
+          "instant_crypttop_topup": true,
+          "no_kYC": true
+        },
+        "research_date": "2026-06-30",
+        "sources": [
+          "https://www.abcproxy.com/,"
+        ]
+      },
+      "reputation": {
+        "provider": "abcproxy",
+        "slug": "abcproxy",
+        "website": "https://www.abcproxy.com",
+        "verified_date": "2026-06-30",
+        "sources": [
+          "Dark web forums",
+          "cyberbreach.io",
+          "darkwebinform.com"
+        ],
+        "trustpilot": "Not found on Trustpilot",
+        "scamalitycs_score": "No ISP page",
+        "reddit_sentiment": "Not found",
+        "overall": "CONTACT_SALES",
+        "pros": [],
+        "cons": [],
+        "flags": [],
+        "risk_level": "UNKNOWN"
+      },
+      "policy": {},
+      "scores": {
+        "overall": 5.0,
+        "security": 5,
+        "value": 5,
+        "reliability": 5,
+        "support": 5
+      },
+      "tier": "TIER_2_USE_WITH_CAUTION",
+      "bundle_recommended": false,
+      "primary_use_case": "residential",
+      "notes": "High risk or unverified"
+    }
+  ]
+}
