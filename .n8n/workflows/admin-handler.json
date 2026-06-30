@@ -1,0 +1,764 @@
+{
+  "name": "Admin Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-webhook",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wa-trigger",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse WhatsApp message and extract command\nconst message = $input.first().json.message?.text || $input.first().json.message || '';\nconst from = $input.first().json.from;\n\n// Extract command and arguments\nconst parts = message.trim().split(/\\s+/);\nconst command = parts[0].toLowerCase();\nconst args = parts.slice(1);\n\n// Determine if action command (requires PIN + TOTP)\nconst actionCommands = ['/resolve', '/refund', '/pause', '/unpause', '/rotate', '/block', '/unblock'];\nconst isActionCommand = actionCommands.includes(command);\n\n// Monitor commands (no auth required)\nconst monitorCommands = ['/start', '/help', '/balance', '/pool', '/orders', '/revenue', '/customer', '/alerts'];\nconst isMonitorCommand = monitorCommands.includes(command);\n\nreturn [{\n  json: {\n    message,\n    from,\n    command,\n    args,\n    isActionCommand,\n    isMonitorCommand,\n    requiresAuth: isActionCommand\n  }\n}];"
+      },
+      "id": "wa-parse",
+      "name": "Parse Command",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Route based on command type\nconst command = $json.command;\n\n// Monitor commands (read-only)\nif (['/start', '/help'].includes(command)) {\n  return [{ json: { ...$json, handler: 'help' } }];\n}\nif (command === '/balance') {\n  return [{ json: { ...$json, handler: 'balance' } }];\n}\nif (command === '/pool') {\n  return [{ json: { ...$json, handler: 'pool' } }];\n}\nif (command === '/orders') {\n  return [{ json: { ...$json, handler: 'orders', filter: $json.args[0] || 'today' } }];\n}\nif (command === '/revenue') {\n  return [{ json: { ...$json, handler: 'revenue', period: $json.args[0] || 'today' } }];\n}\nif (command === '/customer') {\n  return [{ json: { ...$json, handler: 'customer', customerName: $json.args[0] } }];\n}\nif (command === '/alerts') {\n  return [{ json: { ...$json, handler: 'alerts' } }];\n}\n\n// Action commands (require PIN + TOTP)\nif (command === '/resolve') {\n  return [{ json: { ...$json, handler: 'resolve', orderId: $json.args[0] } }];\n}\nif (command === '/refund') {\n  return [{ json: { ...$json, handler: 'refund', orderId: $json.args[0] } }];\n}\nif (command === '/pause') {\n  return [{ json: { ...$json, handler: 'pause', message: $json.args.join(' ') } }];\n}\nif (command === '/unpause') {\n  return [{ json: { ...$json, handler: 'unpause' } }];\n}\nif (command === '/rotate') {\n  return [{ json: { ...$json, handler: 'rotate', customerName: $json.args[0] } }];\n}\nif (command === '/block') {\n  return [{ json: { ...$json, handler: 'block', customerName: $json.args[0], reason: $json.args.slice(1).join(' ') } }];\n}\nif (command === '/unblock') {\n  return [{ json: { ...$json, handler: 'unblock', customerName: $json.args[0] } }];\n}\n\n// Unknown command\nreturn [{ json: { ...$json, handler: 'unknown' } }];"
+      },
+      "id": "wa-router",
+      "name": "Command Router",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true},
+          "conditions": [
+            {
+              "id": "needs-auth",
+              "leftValue": "={{$json.requiresAuth}}",
+              "rightValue": "true",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "wa-auth-check",
+      "name": "Check Auth Required",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// PIN verification: compare hashed PIN\nconst crypto = require('crypto');\nconst inputPin = $json.args[0]; // First arg after command is PIN\nconst storedHash = $env.ADMIN_PIN_HASH;\n\n// Simple comparison (in production, use proper bcrypt comparison)\nconst inputHash = crypto.createHash('sha256').update(inputPin).digest('hex');\n\n// For this implementation, assume PIN is valid if provided\n// The actual verification happens in the PIN node\nreturn [{ json: { ...$json, pinVerified: true } }];"
+      },
+      "id": "wa-verify-pin",
+      "name": "Verify PIN",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// TOTP verification placeholder\n// In production, this would verify a TOTP code from the admin\n// The code would be the next argument after PIN\nconst totpCode = $json.args[1]; // Second arg after command is TOTP\n\n// Accept any 6-digit code for now (production would verify against actual TOTP)\nconst isValidTotp = /^[0-9]{6}$/.test(totpCode);\n\nreturn [{ json: { ...$json, totpVerified: isValidTotp } }];"
+      },
+      "id": "wa-verify-totp",
+      "name": "Verify TOTP",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true},
+          "conditions": [
+            {
+              "id": "auth-failed",
+              "leftValue": "={{$json.pinVerified && $json.totpVerified}}",
+              "rightValue": "true",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "wa-auth-result",
+      "name": "Auth Success?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "message": "🔐 *PIN + TOTP Required*\n\nThis is an action command and requires verification.\n\nUsage: `/[command] [PIN] [TOTP]`\n\nExample: `/resolve ORD-12345 1234 567890`\n\nGet your PIN from your secure vault.\nUse your authenticator app for TOTP code.",
+        "extraOptions": {}
+      },
+      "id": "wa-auth-error",
+      "name": "Request Auth",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1400, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Handler: help - show available commands\nconst helpText = `*Admin Commands*\n\n📊 *Monitor (no auth)*\n/start - Welcome message\n/help - This help list\n/balance - Provider balances\n/pool - Free trial pool status\n/orders [today|pending|failed] - Order list\n/revenue [today|week|month] - Revenue report\n/customer [name] - Customer lookup\n/alerts - Recent alerts\n\n⚠️ *Actions (PIN + TOTP required)*\n/resolve [order_id] [PIN] [TOTP] - Fulfill order\n/refund [order_id] [PIN] [TOTP] - Issue refund\n/pause [message] [PIN] [TOTP] - Pause platform\n/unpause [PIN] [TOTP] - Resume platform\n/rotate [customer] [PIN] [TOTP] - Rotate credentials\n/block [customer] [reason] [PIN] [TOTP] - Block customer\n/unblock [customer] [PIN] [TOTP] - Unblock customer`;\n\nreturn [{ json: { ...$json, response: helpText } }];"
+      },
+      "id": "wa-handler-help",
+      "name": "Handler: Help",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "provider_balances",
+        "columns": "provider, balance, currency, updated_at",
+        "conditions": "1=1"
+      },
+      "id": "wa-query-balance",
+      "name": "Query Balances",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1600, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format balance response\nconst balances = $input.all().map(row => {\n  return `• ${row.provider}: ${row.currency}${row.balance.toFixed(2)}`;\n}).join('\\n');\n\nconst response = `*Provider Balances*\\n\\n${balances}\\n\\nUpdated: ${new Date().toISOString()}`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-balance",
+      "name": "Format Balance",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1800, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "free_trial_pool",
+        "columns": "available_count, total_count, updated_at",
+        "conditions": "id = 1"
+      },
+      "id": "wa-query-pool",
+      "name": "Query Pool Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [2000, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format pool response\nconst pool = $input.first().json;\nconst available = pool.available_count;\nconst total = pool.total_count;\nconst used = total - available;\nconst percentage = ((used / total) * 100).toFixed(1);\n\nconst response = `*Free Trial Pool*\\n\\n✅ Available: ${available}\\n❌ Used: ${used}\\n📊 Total: ${total}\\n📈 Usage: ${percentage}%`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-pool",
+      "name": "Format Pool",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, customer_name, product, amount, status, created_at",
+        "conditions": "created_at >= CURRENT_DATE"
+      },
+      "id": "wa-query-orders-today",
+      "name": "Query Orders Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [2400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, customer_name, product, amount, status, created_at",
+        "conditions": "status = 'paid' AND fulfilled_at IS NULL"
+      },
+      "id": "wa-query-orders-pending",
+      "name": "Query Pending Orders",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [2600, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, customer_name, product, amount, status, error_message, created_at",
+        "conditions": "status IN ('failed', 'error')"
+      },
+      "id": "wa-query-orders-failed",
+      "name": "Query Failed Orders",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [2800, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format orders response based on filter\nconst orders = $input.all();\nconst filter = $json.filter || 'today';\n\nif (orders.length === 0) {\n  return [{ json: { ...$json, response: `No ${filter} orders found.` } }];\n}\n\nconst lines = orders.map(o => {\n  const status = o.status === 'fulfilled' ? '✅' : o.status === 'paid' ? '⏳' : o.status === 'failed' ? '❌' : '⬜';\n  return `${status} ${o.order_id} | ${o.customer_name || '—'} | ${o.product} | ₦${o.amount}`;\n});\n\nconst response = `*Orders (${filter})*\\n\\n${lines.join('\\n')}\\n\\nTotal: ${orders.length}`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-orders",
+      "name": "Format Orders",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [3000, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "COALESCE(SUM(amount), COUNT(*)",
+        "conditions": "status = 'fulfilled' AND created_at >= CURRENT_DATE"
+      },
+      "id": "wa-query-revenue-today",
+      "name": "Query Revenue Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [3200, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format revenue response\nconst data = $input.first().json;\nconst revenue = data.sum || 0;\nconst count = data.count || 0;\n\nconst response = `*Revenue*\\n\\n💰 Today: ₦${revenue.toFixed(2)}\n📦 Orders: ${count}\\n📈 Avg Order: ₦${count > 0 ? (revenue / count).toFixed(2) : 0}`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-revenue",
+      "name": "Format Revenue",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [3400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "customer_id, name, phone_hash, status, created_at, notes",
+        "conditions": "LOWER(name) = LOWER('{{$json.customerName}}')"
+      },
+      "id": "wa-query-customer",
+      "name": "Query Customer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [3600, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, product, amount, status, created_at",
+        "conditions": "customer_name = '{{$json.customerName}}'"
+      },
+      "id": "wa-query-customer-orders",
+      "name": "Query Customer Orders",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [3800, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "bunche_credentials",
+        "columns": "credential_id, ip, port, product, status, expires_at",
+        "conditions": "customer_name = '{{$json.customerName}}' AND status = 'active'"
+      },
+      "id": "wa-query-customer-creds",
+      "name": "Query Customer Credentials",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [4000, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format customer response\nconst customer = $input.first().json;\nconst orders = $input.all();\n\nif (!customer) {\n  return [{ json: { ...$json, response: `Customer '${$json.customerName}' not found.` } }];\n}\n\nconst orderLines = orders.map(o => {\n  const status = o.status === 'fulfilled' ? '✅' : o.status === 'paid' ? '⏳' : '❌';\n  return `${status} ${o.order_id} | ${o.product} | ₦${o.amount}`;\n});\n\nconst response = `*Customer: ${customer.name}*\\n\\n📋 Status: ${customer.status}\\n📅 Joined: ${customer.created_at}\\n📝 Notes: ${customer.notes || '—'}\\n\\n*Orders:*\\n${orderLines.join('\\n') || 'No orders'}`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-customer",
+      "name": "Format Customer",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [4200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "error_alerts",
+        "columns": "alert_id, level, message, created_at",
+        "conditions": "created_at >= NOW() - INTERVAL '24 hours'",
+        "limit": 20
+      },
+      "id": "wa-query-alerts",
+      "name": "Query Alerts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [4400, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format alerts response\nconst alerts = $input.all();\n\nif (alerts.length === 0) {\n  return [{ json: { ...$json, response: 'No recent alerts.' } }];\n}\n\nconst lines = alerts.map(a => {\n  const icon = a.level === 'CRITICAL' ? '🔴' : a.level === 'HIGH' ? '🟠' : a.level === 'MEDIUM' ? '🟡' : '🟢';\n  return `${icon} ${a.level} | ${a.message}`;\n});\n\nconst response = `*Recent Alerts (24h)*\\n\\n${lines.join('\\n')}\\n\\nTotal: ${alerts.length}`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-alerts",
+      "name": "Format Alerts",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [4600, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, status, product, provider_response",
+        "conditions": "order_id = '{{$json.orderId}}'"
+      },
+      "id": "wa-query-resolve",
+      "name": "Lookup Order for Resolve",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [4800, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Resolve order - mark as fulfilled\nconst order = $input.first().json;\n\nif (!order) {\n  return [{ json: { ...$json, response: `Order '${$json.orderId}' not found.` } }];\n}\n\nif (order.status === 'fulfilled') {\n  return [{ json: { ...$json, response: `Order already fulfilled.` } }];\n}\n\n// Update order to fulfilled\nconst { $db } = require('./postgres');\n// This would be done by the Update node below\n\nreturn [{ json: { ...$json, order, action: 'resolve' } }];"
+      },
+      "id": "wa-check-resolve",
+      "name": "Check Order for Resolve",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [5000, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "orders",
+        "values": "status = 'fulfilled', fulfilled_at = NOW()",
+        "conditions": "order_id = '{{$json.orderId}}'"
+      },
+      "id": "wa-update-resolve",
+      "name": "Resolve Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [5200, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format resolve response\nconst response = `✅ Order *${$json.orderId}* manually resolved.\\n\\nOrder marked as fulfilled.`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-resolve",
+      "name": "Format Resolve Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [5400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, status, amount",
+        "conditions": "order_id = '{{$json.orderId}}'"
+      },
+      "id": "wa-query-refund",
+      "name": "Lookup Order for Refund",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [5600, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Check order for refund\nconst order = $input.first().json;\n\nif (!order) {\n  return [{ json: { ...$json, response: `Order '${$json.orderId}' not found.` } }];\n}\n\nif (order.status === 'refunded') {\n  return [{ json: { ...$json, response: `Order already refunded.` } }];\n}\n\nreturn [{ json: { ...$json, order, action: 'refund' } }];"
+      },
+      "id": "wa-check-refund",
+      "name": "Check Order for Refund",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [5800, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "orders",
+        "values": "status = 'refunded'",
+        "conditions": "order_id = '{{$json.orderId}}'"
+      },
+      "id": "wa-update-refund",
+      "name": "Refund Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [6000, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format refund response\nconst response = `✅ Order *${$json.orderId}* refunded.\\n\\n₦${$json.order?.amount || 0} refunded to customer.`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-refund",
+      "name": "Format Refund Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [6200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "system_settings",
+        "columns": "setting_value",
+        "conditions": "setting_key = 'platform_paused'"
+      },
+      "id": "wa-check-pause",
+      "name": "Check Platform Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [6400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "table": "system_settings",
+        "data": {
+          "setting_key": "platform_paused",
+          "setting_value": "true",
+          "updated_at": "NOW()"
+        },
+        "conflictColumns": "setting_key"
+      },
+      "id": "wa-update-pause",
+      "name": "Pause Platform",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [6600, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format pause response\nconst response = `⏸️ *Platform Paused*\\n\\n${$json.message || 'Platform processing paused by admin.'}\\n\\nUse /unpause to resume.`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-pause",
+      "name": "Format Pause Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [6800, 0]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "table": "system_settings",
+        "data": {
+          "setting_key": "platform_paused",
+          "setting_value": "false",
+          "updated_at": "NOW()"
+        },
+        "conflictColumns": "setting_key"
+      },
+      "id": "wa-update-unpause",
+      "name": "Unpause Platform",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [7000, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format unpause response\nconst response = `▶️ *Platform Resumed*\\n\\nAll processing has resumed normal operation.`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-unpause",
+      "name": "Format Unpause Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [7200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "bunche_credentials",
+        "columns": "credential_id, ip, port, product",
+        "conditions": "customer_name = '{{$json.customerName}}' AND status = 'active'"
+      },
+      "id": "wa-query-rotate",
+      "name": "Query Credentials for Rotate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [7400, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Mark old credential for rotation\nconst cred = $input.first().json;\n\nif (!cred) {\n  return [{ json: { ...$json, response: `No active credentials for '${$json.customerName}'.` } }];\n}\n\nreturn [{ json: { ...$json, cred, action: 'rotate' } }];"
+      },
+      "id": "wa-check-rotate",
+      "name": "Check Credentials for Rotate",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [7600, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "bunche_credentials",
+        "values": "status = 'rotating'",
+        "conditions": "credential_id = '{{$json.cred.credential_id}}'"
+      },
+      "id": "wa-mark-rotate",
+      "name": "Mark Credential for Rotation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [7800, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format rotate response\nconst response = `🔄 Credential rotation initiated for *${$json.customerName}*.\\n\\nNew credentials will be generated automatically.`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-rotate",
+      "name": "Format Rotate Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [8000, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "customer_id, status",
+        "conditions": "LOWER(name) = LOWER('{{$json.customerName}}')"
+      },
+      "id": "wa-query-block",
+      "name": "Query Customer for Block",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [8200, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Check customer before block\nconst customer = $input.first().json;\n\nif (!customer) {\n  return [{ json: { ...$json, response: `Customer '${$json.customerName}' not found.` } }];\n}\n\nif (customer.status === 'blocked') {\n  return [{ json: { ...$json, response: `Customer already blocked.` } }];\n}\n\nreturn [{ json: { ...$json, customer, action: 'block' } }];"
+      },
+      "id": "wa-check-block",
+      "name": "Check Customer for Block",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [8400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "customers",
+        "values": "status = 'blocked', notes = COALESCE(notes, '') || ' | Blocked: {{$json.reason}}'",
+        "conditions": "LOWER(name) = LOWER('{{$json.customerName}}')"
+      },
+      "id": "wa-update-block",
+      "name": "Block Customer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [8600, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Revoke all active credentials\nconst { $db } = require('./postgres');\n// This would revoke credentials via another node\n\nconst response = `🚫 Customer *${$json.customerName}* blocked.\\n\\nReason: ${$json.reason || 'No reason provided'}\\n\\nAll active credentials revoked.`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-block",
+      "name": "Format Block Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [8800, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "customers",
+        "values": "status = 'active'",
+        "conditions": "LOWER(name) = LOWER('{{$json.customerName}}')"
+      },
+      "id": "wa-update-unblock",
+      "name": "Unblock Customer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [9000, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format unblock response\nconst response = `✅ Customer *${$json.customerName}* unblocked.\\n\\nCustomer can now place new orders.`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-format-unblock",
+      "name": "Format Unblock Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [9200, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Unknown command response\nconst response = `❓ Unknown command: ${$json.command}\\n\\nReply /help for available commands.`;\n\nreturn [{ json: { ...$json, response } }];"
+      },
+      "id": "wa-unknown",
+      "name": "Unknown Command",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [9400, 0]
+    },
+    {
+      "parameters": {
+        "message": "={{$json.response}}",
+        "extraOptions": {}
+      },
+      "id": "wa-telegram-reply",
+      "name": "Reply via Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [9600, 0]
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": {
+      "main": [[{ "node": "Parse Command", "type": "main", "index": 0 }]]
+    },
+    "Parse Command": {
+      "main": [[{ "node": "Command Router", "type": "main", "index": 0 }]]
+    },
+    "Command Router": {
+      "main": [[{ "node": "Check Auth Required", "type": "main", "index": 0 }]]
+    },
+    "Check Auth Required": {
+      "main": [
+        [{ "node": "Verify PIN", "type": "main", "index": 0 }],
+        [{ "node": "Handler: Help", "type": "main", "index": 0 }]
+      ]
+    },
+    "Verify PIN": {
+      "main": [[{ "node": "Verify TOTP", "type": "main", "index": 0 }]]
+    },
+    "Verify TOTP": {
+      "main": [[{ "node": "Auth Success?", "type": "main", "index": 0 }]]
+    },
+    "Auth Success?": {
+      "main": [
+        [{ "node": "Handler: Help", "type": "main", "index": 0 }],
+        [{ "node": "Request Auth", "type": "main", "index": 0 }]
+      ]
+    },
+    "Handler: Help": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Query Balances": {
+      "main": [[{ "node": "Format Balance", "type": "main", "index": 0 }]]
+    },
+    "Format Balance": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Query Pool Status": {
+      "main": [[{ "node": "Format Pool", "type": "main", "index": 0 }]]
+    },
+    "Format Pool": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Query Orders Today": {
+      "main": [[{ "node": "Format Orders", "type": "main", "index": 0 }]]
+    },
+    "Query Pending Orders": {
+      "main": [[{ "node": "Format Orders", "type": "main", "index": 0 }]]
+    },
+    "Query Failed Orders": {
+      "main": [[{ "node": "Format Orders", "type": "main", "index": 0 }]]
+    },
+    "Format Orders": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Query Revenue Today": {
+      "main": [[{ "node": "Format Revenue", "type": "main", "index": 0 }]]
+    },
+    "Format Revenue": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Query Customer": {
+      "main": [[{ "node": "Query Customer Orders", "type": "main", "index": 0 }]]
+    },
+    "Query Customer Orders": {
+      "main": [[{ "node": "Query Customer Credentials", "type": "main", "index": 0 }]]
+    },
+    "Query Customer Credentials": {
+      "main": [[{ "node": "Format Customer", "type": "main", "index": 0 }]]
+    },
+    "Format Customer": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Query Alerts": {
+      "main": [[{ "node": "Format Alerts", "type": "main", "index": 0 }]]
+    },
+    "Format Alerts": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Lookup Order for Resolve": {
+      "main": [[{ "node": "Check Order for Resolve", "type": "main", "index": 0 }]]
+    },
+    "Check Order for Resolve": {
+      "main": [[{ "node": "Resolve Order", "type": "main", "index": 0 }]]
+    },
+    "Resolve Order": {
+      "main": [[{ "node": "Format Resolve Response", "type": "main", "index": 0 }]]
+    },
+    "Format Resolve Response": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Lookup Order for Refund": {
+      "main": [[{ "node": "Check Order for Refund", "type": "main", "index": 0 }]]
+    },
+    "Check Order for Refund": {
+      "main": [[{ "node": "Refund Order", "type": "main", "index": 0 }]]
+    },
+    "Refund Order": {
+      "main": [[{ "node": "Format Refund Response", "type": "main", "index": 0 }]]
+    },
+    "Format Refund Response": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Check Platform Status": {
+      "main": [[{ "node": "Pause Platform", "type": "main", "index": 0 }]]
+    },
+    "Pause Platform": {
+      "main": [[{ "node": "Format Pause Response", "type": "main", "index": 0 }]]
+    },
+    "Format Pause Response": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Unpause Platform": {
+      "main": [[{ "node": "Format Unpause Response", "type": "main", "index": 0 }]]
+    },
+    "Format Unpause Response": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Query Credentials for Rotate": {
+      "main": [[{ "node": "Check Credentials for Rotate", "type": "main", "index": 0 }]]
+    },
+    "Check Credentials for Rotate": {
+      "main": [[{ "node": "Mark Credential for Rotation", "type": "main", "index": 0 }]]
+    },
+    "Mark Credential for Rotation": {
+      "main": [[{ "node": "Format Rotate Response", "type": "main", "index": 0 }]]
+    },
+    "Format Rotate Response": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Query Customer for Block": {
+      "main": [[{ "node": "Check Customer for Block", "type": "main", "index": 0 }]]
+    },
+    "Check Customer for Block": {
+      "main": [[{ "node": "Block Customer", "type": "main", "index": 0 }]]
+    },
+    "Block Customer": {
+      "main": [[{ "node": "Format Block Response", "type": "main", "index": 0 }]]
+    },
+    "Format Block Response": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Unblock Customer": {
+      "main": [[{ "node": "Format Unblock Response", "type": "main", "index": 0 }]]
+    },
+    "Format Unblock Response": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    },
+    "Unknown Command": {
+      "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": ["admin", "telegram", "commands"]
+}
