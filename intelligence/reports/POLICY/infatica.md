@@ -4,7 +4,8 @@
 
 
 ## Refund Policy
-{'status': 'CONTACT_SALES', 'policy_text': 'No public refund policy page found. As a B2B SaaS proxy provider, standard practice is contact support for refund requests. No money-back guarantee publicly stated.', 'money_back_days': None, 'conditions': ['contact support'], 'residential_refund': 'contact support', 'isp_refund': 'contact support'}
+{'status': 'limited', 'policy_text': '7-day money-back guarantee on all residential proxy plans.', 'details': 'Full refund available within 7 days of purchase for residential proxy plans. No refunds after 7 days.', 'eligibility': {'time_window': '7 days', 'residential_refundable': True}, 'source': 'https://infatica.io/legal/refund-policy/'}
+
 
 ## Replacement Policy
 Not specified
@@ -32,6 +33,3 @@ Not specified
 
 ## Terms of Service
 Not specified
-
-
----

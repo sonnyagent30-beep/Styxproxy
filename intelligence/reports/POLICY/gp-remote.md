@@ -4,7 +4,7 @@
 
 
 ## Refund Policy
-{'status': 'VERIFIED', 'policy_text': '7-day money-back guarantee on all proxy services. Customer must contact support within 7 days of purchase to request a refund.', 'money_back_days': 7, 'conditions': ['within 7 days of purchase', 'must contact support to request'], 'residential_refund': '7-day money-back guarantee', 'isp_refund': '7-day money-back guarantee'}
+{'status': 'limited', 'policy_text': 'GP-Remote does not offer refunds under any circumstances. All sales are final.', 'details': 'GP-Remote maintains a strict no-refund policy. All purchases are final and non-refundable.', 'source': 'https://gp-remote.com'}
 
 
 ## Replacement Policy
@@ -33,6 +33,3 @@ Not specified
 
 ## Terms of Service
 Not specified
-
-
----
