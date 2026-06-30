@@ -4,7 +4,8 @@
 
 
 ## Refund Policy
-{'status': 'CONTACT_SALES', 'policy_text': "No public refund policy found. Froxy terms state usage of proxy for banks/payment systems/government sites is user's responsibility. Contact support for refund requests.", 'money_back_days': None, 'conditions': ['contact support'], 'residential_refund': 'contact support', 'isp_refund': 'contact support'}
+{'status': 'limited', 'description': '14-day money-back guarantee on residential and mobile proxy plans.', 'details': '14-day money-back guarantee available for residential and mobile proxy plans. Applies only to new customers.', 'eligibility': {'time_window': '14 days', 'residential_refundable': True, 'mobile_refundable': True, 'new_customers_only': True}, 'source': 'https://froxy.com/blog/refund-policy/'}
+
 
 ## Replacement Policy
 Not specified
@@ -32,6 +33,3 @@ Not specified
 
 ## Terms of Service
 Not specified
-
-
----

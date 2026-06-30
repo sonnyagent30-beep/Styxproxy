@@ -4,7 +4,7 @@
 
 
 ## Refund Policy
-{'status': 'VERIFIED', 'policy_text': "No free trial. If proxies don't work and you can provide proof, we'll issue a refund for the non-functional proxies only. Must provide proof of non-functionality.", 'money_back_days': None, 'conditions': ["must provide proof proxies don't work", 'only non-functional portion refunded', 'no free trial'], 'residential_refund': 'refund for non-functional proxies only (with proof)', 'isp_refund': 'refund for non-functional proxies only (with proof)'}
+{'status': 'limited', 'description': '3-day money-back guarantee on monthly plans. Annual plans non-refundable after 3 days.', 'details': '3-day money-back guarantee on monthly plans only. Annual subscription plans are non-refundable after the 3-day window.', 'eligibility': {'time_window': '3 days', 'monthly_refundable': True, 'annual_refundable': False}, 'source': 'https://floppydata.com/terms'}
 
 
 ## Replacement Policy
@@ -33,6 +33,3 @@ Not specified
 
 ## Terms of Service
 Not specified
-
-
----
