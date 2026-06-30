@@ -1,0 +1,408 @@
+{
+  "name": "Ban Claim Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-incoming",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wa-trigger",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Verify WhatsApp signature\nconst crypto = require('crypto');\nconst secret = $env.WHATSAPP_APP_SECRET;\nconst signature = $headers['x-hub-signature-256'];\nconst body = $input.first().json;\n\n// Extract signature from header\nif (!signature) return [{ json: { error: 'no signature', valid: false } }];\n\nconst computed = crypto.createHmac('sha256', secret).update(JSON.stringify(body)).digest('hex');\nconst valid = signature === `sha256=${computed}`;\n\nif (!valid) return [{ json: { error: 'invalid signature', valid: false } }];\n\nreturn [{ json: body }];"
+      },
+      "id": "wa-verify",
+      "name": "Verify WhatsApp Signature",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "id": "ban-keyword",
+              "leftValue": "={{$json.body.message.text}}",
+              "rightValue": "ban",
+              "operation": "contains"
+            },
+            {
+              "id": "blocked-keyword",
+              "leftValue": "={{$json.body.message.text}}",
+              "rightValue": "blocked",
+              "operation": "contains"
+            }
+          ],
+          "logic": "OR"
+        }
+      },
+      "id": "wa-ban-detect",
+      "name": "Detect: Ban Claim",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "customer_id, name, phone, active_order_id",
+        "conditions": "phone = '{{$json.body.from}}'"
+      },
+      "id": "wa-db-lookup",
+      "name": "Lookup Customer in PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, status, ip_address, username, provider",
+        "conditions": "customer_id = '{{$json.customer_id}}' AND status = 'active'"
+      },
+      "id": "wa-order-lookup",
+      "name": "Lookup Active Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$json.data?.provider === 'proxy-seller' ? 'https://api.proxy-seller.com/v1.0/status' : 'https://api.dataimpulse.com/reseller/status'}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env.PROXY_SELLER_API_KEY}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "wa-provider-status",
+      "name": "Check Provider Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true },
+          "conditions": [
+            {
+              "id": "provider-ok",
+              "leftValue": "={{$json.data?.status}}",
+              "rightValue": "active",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "wa-provider-ok",
+      "name": "Provider Status OK?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "support_tickets",
+        "columns": "COUNT(*) as count",
+        "conditions": "ip_block = '{{$json.ip_address}}' AND created_at > NOW() - INTERVAL '1 hour'"
+      },
+      "id": "wa-ban-check",
+      "name": "Check Mass Ban Reports",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1400, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "mass-ban-threshold",
+              "leftValue": "={{$json.count}}",
+              "rightValue": "3",
+              "operation": "gte"
+            }
+          ]
+        }
+      },
+      "id": "wa-mass-ban",
+      "name": "Mass Ban Detected?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1600, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// S15: Rotate credentials - atomic transaction\nconst customerId = $input.first().json.customer_id;\nconst oldUsername = $input.first().json.username;\n\n// Generate new credentials\nconst newUsername = `bun_${customerId}_v2`;\nconst newPassword = Math.random().toString(36).slice(-16) + '!A1';\n\n// Store rotation request\nreturn [{\n  json: {\n    customer_id: customerId,\n    old_username: oldUsername,\n    new_username: newUsername,\n    new_password: newPassword,\n    action: 'rotate_credentials'\n  }\n}];"
+      },
+      "id": "wa-prep-rotate",
+      "name": "Prepare Credential Rotation",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1800, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.proxy-seller.com/v1.0/credentials/revoke",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env.PROXY_SELLER_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "username",
+              "value": "={{$json.old_username}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "wa-revoke-old",
+      "name": "Revoke Old Credentials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2000, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.proxy-seller.com/v1.0/credentials/create",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env.PROXY_SELLER_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "username",
+              "value": "={{$json.new_username}}"
+            },
+            {
+              "name": "password",
+              "value": "={{$json.new_password}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "wa-create-new",
+      "name": "Create New Credentials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2200, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "bunche_credentials",
+        "values": "username = '{{$json.new_username}}', password = '{{$json.new_password}}', status = 'active'"
+      },
+      "id": "wa-db-update",
+      "name": "Update Credentials in PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [2400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "support_tickets",
+        "values": "customer_id = '{{$json.customer_id}}', type = 'ban_claim', ip_address = '{{$json.ip_address}}', status = 'resolved'"
+      },
+      "id": "wa-log-ticket",
+      "name": "Log Support Ticket",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [2600, 0]
+    },
+    {
+      "parameters": {
+        "message": "🔄 Credentials Rotated\n\nYour IP stays the same but you've got fresh login details:\n\n👤 New Username: {{$json.new_username}}\n🔑 New Password: {{$json.new_password}}\n\nYour old credentials have been revoked.\nUse these from now on.\n\nNeed help? Reply how to use.",
+        "extraOptions": {}
+      },
+      "id": "wa-rotate-success",
+      "name": "Notify: Rotation Success",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [2800, 0]
+    },
+    {
+      "parameters": {
+        "message": "🚨 MASS BAN ALERT — /24 RANGE\n\nIP Range: {{$json.ip_block}}\nAffected customers: {{$json.count}}\n\nActions needed:\n1. Check if more customers affected\n2. Contact provider for credit/replacement\n3. Plan mass credential rotation",
+        "extraOptions": {}
+      },
+      "id": "wa-admin-mass",
+      "name": "Alert Admin: Mass Ban",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [3000, 0]
+    },
+    {
+      "parameters": {
+        "message": "⚠️ System Notice\n\nWe've detected an issue affecting your proxy IP.\nWe're working on getting you a fresh IP now.\n\nWill update within 30 minutes.\nSorry for the inconvenience 🙏",
+        "extraOptions": {}
+      },
+      "id": "wa-wait-customer",
+      "name": "Notify: Wait for Resolution",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [3200, 0]
+    },
+    {
+      "parameters": {
+        "message": "🚨 BAN CLAIM ESCALATION\n\nCustomer: {{$json.name}} ({{$json.phone}})\nOrder: {{$json.order_id}}\nIP: {{$json.ip_address}}\nProvider Status: {{$json.data?.status}}\n\nAction: Manual intervention needed",
+        "extraOptions": {}
+      },
+      "id": "wa-admin-escalate",
+      "name": "Escalate to Admin",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [3400, 0]
+    },
+    {
+      "parameters": {
+        "message": "I can see your IP isn't responding right now.\nThis usually means the provider is having a temporary issue.\n\nLet me check with our provider...",
+        "extraOptions": {}
+      },
+      "id": "wa-troubleshoot",
+      "name": "Notify: Troubleshooting",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [3600, 0]
+    },
+    {
+      "parameters": {
+        "message": "Our provider confirmed the IP has an issue.\nI'm rotating you to a fresh IP now.\n\n🔄 Your new credentials are ready.\n\nUse these new details:\n[IP / Port / User / Pass]\n\nIf this keeps happening, reply help.",
+        "extraOptions": {}
+      },
+      "id": "wa-auto-rotate",
+      "name": "Notify: Auto Rotation",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [3800, 0]
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": {
+      "main": [[{ "node": "Verify WhatsApp Signature", "type": "main", "index": 0 }]]
+    },
+    "Verify WhatsApp Signature": {
+      "main": [[{ "node": "Detect: Ban Claim", "type": "main", "index": 0 }]]
+    },
+    "Detect: Ban Claim": {
+      "main": [
+        [{ "node": "Lookup Customer in PostgreSQL", "type": "main", "index": 0 }],
+        [{ "node": "Lookup Customer in PostgreSQL", "type": "main", "index": 0 }]
+      ]
+    },
+    "Lookup Customer in PostgreSQL": {
+      "main": [[{ "node": "Lookup Active Order", "type": "main", "index": 0 }]]
+    },
+    "Lookup Active Order": {
+      "main": [[{ "node": "Check Provider Status", "type": "main", "index": 0 }]]
+    },
+    "Check Provider Status": {
+      "main": [[{ "node": "Provider Status OK?", "type": "main", "index": 0 }]]
+    },
+    "Provider Status OK?": {
+      "main": [
+        [{ "node": "Check Mass Ban Reports", "type": "main", "index": 0 }],
+        [{ "node": "Notify: Troubleshooting", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Mass Ban Reports": {
+      "main": [[{ "node": "Mass Ban Detected?", "type": "main", "index": 0 }]]
+    },
+    "Mass Ban Detected?": {
+      "main": [
+        [{ "node": "Alert Admin: Mass Ban", "type": "main", "index": 0 }],
+        [{ "node": "Prepare Credential Rotation", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Credential Rotation": {
+      "main": [[{ "node": "Revoke Old Credentials", "type": "main", "index": 0 }]]
+    },
+    "Revoke Old Credentials": {
+      "main": [[{ "node": "Create New Credentials", "type": "main", "index": 0 }]]
+    },
+    "Create New Credentials": {
+      "main": [[{ "node": "Update Credentials in PostgreSQL", "type": "main", "index": 0 }]]
+    },
+    "Update Credentials in PostgreSQL": {
+      "main": [[{ "node": "Log Support Ticket", "type": "main", "index": 0 }]]
+    },
+    "Log Support Ticket": {
+      "main": [[{ "node": "Notify: Rotation Success", "type": "main", "index": 0 }]]
+    },
+    "Alert Admin: Mass Ban": {
+      "main": [[{ "node": "Notify: Wait for Resolution", "type": "main", "index": 0 }]]
+    },
+    "Notify: Troubleshooting": {
+      "main": [[{ "node": "Check Provider Status", "type": "main", "index": 0 }]]
+    },
+    "Notify: Auto Rotation": {
+      "main": [[{ "node": "Log Support Ticket", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": ["whatsapp", "ban-claim", "support"]
+}
