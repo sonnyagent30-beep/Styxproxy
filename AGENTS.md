@@ -30,17 +30,17 @@ Bunche is an n8n-based WhatsApp proxy reseller. There are no separate deployed a
 
 The actual n8n JSON workflow files live here. These are the build artifacts — not just docs.
 
-| Workflow | File | Trigger | Status |
-|----------|------|---------|--------|
-| Order Handler | `order-handler.json` | WhatsApp webhook | TODO |
-| Payment Confirmation | `payment-confirmation.json` | Flutterwave webhook | TODO |
-| Refund Handler | `refund-handler.json` | Flutterwave webhook | TODO |
-| Admin Command Handler | `admin-handler.json` | WhatsApp (admin only) | TODO |
-| Ban Claim | `ban-claim.json` | WhatsApp (manual) | TODO |
-| Free Trial | `free-trial.json` | WhatsApp | TODO |
-| Daily Summary | `daily-summary.json` | Cron (23:55) | TODO |
-| Data Alert Escalation | `data-alert.json` | Cron (15 min) | TODO |
-| Referral Credit | `referral-credit.json` | Sub-workflow | TODO |
+| Workflow | File | Trigger | Status | Nodes |
+|----------|------|---------|--------|-------|
+| Order Handler | `order-handler.json` | WhatsApp webhook | ✅ Built | — |
+| Payment Confirmation | `payment-confirmation.json` | Flutterwave webhook | ✅ Built | — |
+| Refund Handler | `refund-handler.json` | Flutterwave webhook | ✅ Built | 18 |
+| Admin Command Handler | `admin-handler.json` | WhatsApp (admin only) | ✅ Built | 50 |
+| Ban Claim | `ban-claim.json` | WhatsApp (manual) | ✅ Built | 20 |
+| Free Trial | `free-trial.json` | WhatsApp | ✅ Built | 22 |
+| Daily Summary | `daily-summary.json` | Cron (23:55) | ✅ Built | — |
+| Data Alert Escalation | `data-alert.json` | Cron (15 min) | ✅ Built | — |
+| Referral Credit | `referral-credit.json` | Sub-workflow | ✅ Built | — |
 
 **These files do not exist yet.** They need to be built from `workflows/WORKFLOW_SPECS.md`.
 

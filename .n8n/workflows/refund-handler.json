@@ -1,0 +1,334 @@
+{
+  "name": "Refund Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-refund",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "rh-trigger",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, customer_phone, product_type, plan_gb, data_used, data_remaining, status, created_at, fulfilled_at",
+        "conditions": "customer_phone = '{{$json.from}}' AND status IN ('paid', 'fulfilled') ORDER BY created_at DESC LIMIT 1"
+      },
+      "id": "rh-db-lookup",
+      "name": "Lookup Customer Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [200, 0]
+    },
+    {
+      "parameters": {
+        "model": "MiniMax-Text-01",
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a refund intent classifier. Analyze the customer's message and classify their refund request.\n\nPossible intents:\n- refund_request_full: Customer wants a full refund for their order\n- refund_request_partial: Customer used some data, wants refund for unused portion (e.g., \"I only used 3GB of 5GB, refund the rest\")\n- refund_policy_question: Customer is asking about the refund policy\n- refund_not_eligible: Customer asking for refund but not eligible (e.g., Residential data carries over, no partial refund)\n- not_refund_related: Message is not about refunds\n\nResponse format (JSON only):\n{\"intent\": \"...\", \"reason\": \"...\", \"eligible\": true/false, \"message\": \"brief customer message\"}"
+          },
+          {
+            "role": "user",
+            "content": "{{$json.message}}"
+          }
+        ],
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "rh-llm-intent",
+      "name": "LLM Intent Classification",
+      "type": "n8n-nodes-base.minimax",
+      "typeVersion": 1,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "is-refund-request",
+              "leftValue": "={{$json.intent}}",
+              "rightValue": "refund_request",
+              "operation": "contains"
+            }
+          ]
+        }
+      },
+      "id": "rh-switch-refund",
+      "name": "Is Refund Request?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [600, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract order details\nconst order = $input.first().json;\nconst productType = order.product_type;\nconst dataRemaining = order.data_remaining || 0;\nconst planGb = order.plan_gb;\nconst status = order.status;\n\n// Refund policy enforcement\nlet eligible = false;\nlet reason = \"\";\nlet refundType = \"none\";\n\n// Check product type and eligibility\nif (productType === 'residential') {\n  // R64-1: Residential data never expires — no partial refund for unused GB\n  eligible = false;\n  reason = \"Residential data carries over and never expires. No partial refund for unused GB.\";\n  refundType = \"not_eligible\";\n} else if (productType === 'mobile') {\n  // Mobile data: 30-day window expires, not the GB\n  // Check if within 30 days of fulfillment\n  const fulfilledAt = new Date(order.fulfilled_at);\n  const now = new Date();\n  const daysSinceFulfillment = Math.floor((now - fulfilledAt) / (1000 * 60 * 60 * 24));\n  \n  if (daysSinceFulfillment > 30) {\n    eligible = false;\n    reason = \"Mobile data window has expired. No refund available.\";\n    refundType = \"not_eligible\";\n  } else if (dataRemaining > 0) {\n    // Partial refund eligible for mobile\n    eligible = true;\n    refundType = \"partial\";\n    reason = `Partial refund for ${dataRemaining}GB unused of ${planGb}GB plan.`;\n  } else {\n    eligible = false;\n    reason = \"All data has been used. No refund available.\";\n    refundType = \"not_eligible\";\n  }\n} else if (productType === 'isp' || productType === 'datacenter') {\n  // ISP/Datacenter: Check if proxy was dead or provider outage\n  // For this version: full refund within 24h if proxy was dead\n  eligible = false;\n  reason = \"ISP/Datacenter proxies are non-refundable after delivery unless proxy is dead on arrival.\";\n  refundType = \"not_eligible\";\n} else {\n  eligible = false;\n  reason = \"Unknown product type. Contact support.\";\n  refundType = \"not_eligible\";\n}\n\nreturn [{\n  json: {\n    eligible,\n    reason,\n    refundType,\n    orderId: order.order_id,\n    productType,\n    planGb,\n    dataRemaining\n  }\n}];"
+      },
+      "id": "rh-policy-check",
+      "name": "Enforce Refund Policy",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [800, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "is-eligible",
+              "leftValue": "={{$json.eligible}}",
+              "rightValue": "true",
+              "operation": "equals"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "rh-switch-eligible",
+      "name": "Eligible for Refund?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [1000, 0],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "is-eligible",
+              "leftValue": "={{$json.eligible}}",
+              "rightValue": "true",
+              "operation": "equals"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "flutterwave_transaction_id, amount",
+        "conditions": "order_id = '{{$json.orderId}}'"
+      },
+      "id": "rh-get-tx-id",
+      "name": "Get Transaction ID for Refund",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.flutterwave.com/v3/transactions/{{$json.0.flutterwave_transaction_id}}/refund",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.FLUTTERWAVE_SECRET_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "amount",
+              "value": "{{$json.0.amount}}"
+            },
+            {
+              "name": "reason",
+              "value": "Customer refund request"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "rh-flutterwave-refund",
+      "name": "Call Flutterwave Refund API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1400, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "orders",
+        "values": "status = 'refunded', refunded_at = NOW()",
+        "conditions": "order_id = '{{$json.orderId}}'"
+      },
+      "id": "rh-update-refunded",
+      "name": "Update Order to Refunded",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1600, 0]
+    },
+    {
+      "parameters": {
+        "message": "✅ REFUND PROCESSED\n\nYour refund has been initiated:\n💰 Amount: ₦{{$json.amount}}\n📋 Order ID: {{$json.orderId}}\n⏰ Processing time: 1-5 business days\n\nThe refund will be credited to your original payment method.\n\nIf you have any questions, reply help 🙏",
+        "extraOptions": {}
+      },
+      "id": "rh-whatsapp-success",
+      "name": "Send Success Reply via WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1800, 0]
+    },
+    {
+      "parameters": {
+        "message": "🔔 REFUND REQUEST\n\nCustomer: {{$json.customerPhone}}\nOrder ID: {{$json.orderId}}\nType: {{$json.refundType}}\nAmount: ₦{{$json.amount}}\nReason: {{$json.reason}}\nStatus: APPROVED ✅",
+        "extraOptions": {}
+      },
+      "id": "rh-telegram-admin",
+      "name": "Alert Admin via Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [2000, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Build rejection message based on product type\nconst order = $input.first().json;\nlet message = \"\";\n\nif (order.productType === 'residential') {\n  message = `I can see you've used some of your ${order.planGb}GB Residential plan.\\n\\nHere's how Residential data works:\\n\\n✅ Your remaining data carries over\\n✅ Data never expires on Residential\\n✅ Your GB is safe — use it whenever you want\\n\\nThere's no time limit on Residential data.\\nRenew when you're ready and your GB stays with you.\\n\\nYou don't lose unused data — so no partial refund is needed there 👍`;\n} else if (order.productType === 'mobile') {\n  message = `Your Mobile data has a 30-day window.\\nIf within 30 days of fulfillment and you have remaining data, a partial refund may be available.\\n\\nHowever, your data remaining: ${order.dataRemaining}GB\\n\\nContact support if you'd like to request a partial refund.`;\n} else {\n  message = `I'm sorry, but ${order.productType} proxies are not eligible for refunds after delivery.\\n\\nIf your proxy has stopped working, let me know and I'll help with a replacement.`;\n}\n\nreturn [{\n  json: {\n    message,\n    orderId: order.orderId,\n    productType: order.productType\n  }\n}];"
+      },
+      "id": "rh-build-reject-msg",
+      "name": "Build Rejection Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "message": "📋 REFUND POLICY\n\n{{$json.message}}\n\nIf your proxy has stopped working or you have another issue,\nlet me know and I'll help.",
+        "extraOptions": {}
+      },
+      "id": "rh-whatsapp-reject",
+      "name": "Send Policy Reply via WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1400, 200]
+    },
+    {
+      "parameters": {
+        "message": "🔔 REFUND DENIED\n\nCustomer: {{$json.from}}\nOrder ID: {{$json.orderId}}\nType: {{$json.refundType}}\nReason: {{$json.reason}}\nStatus: DENIED — Policy",
+        "extraOptions": {}
+      },
+      "id": "rh-telegram-deny",
+      "name": "Alert Admin via Telegram (Denied)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1600, 200]
+    },
+    {
+      "parameters": {
+        "message": "I can help with refunds! Here's how it works:\\n\\n📋 REFUND POLICY:\\n• Before delivery → full refund\\n• Dead proxy within 24h → free replacement or refund\\n• Provider outage → automatic refund\\n\\n❌ What's NOT refundable:\\n• Residential data (carries over, never expires)\\n• Partial Mobile data (window expires, not GB)\\n• ISP/Datacenter after delivery\\n\\nWant to request a refund? Reply with your order ID or tell me what's wrong.",
+        "extraOptions": {}
+      },
+      "id": "rh-help-msg",
+      "name": "Send Help Message",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [800, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// No order found — could be a new customer asking about refund policy\nreturn [{\n  json: {\n    message: \"I don't have a recent order on file for you.\\n\\nIf you'd like to know about our refund policy:\\n\\n📋 REFUND POLICY:\\n• Before delivery → full refund\\n• Dead proxy within 24h → free replacement or refund\\n• Provider outage → automatic refund\\n\\nHave you ordered with us before? Your order ID would help me look it up.\"\n  }\n}];"
+      },
+      "id": "rh-no-order",
+      "name": "No Order Found",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [400, 200]
+    },
+    {
+      "parameters": {
+        "message": "📋 REFUND POLICY\n\n{{$json.message}}",
+        "extraOptions": {}
+      },
+      "id": "rh-whatsapp-policy",
+      "name": "Send Policy Reply",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [600, 200]
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": {
+      "main": [[{ "node": "Lookup Customer Order", "type": "main", "index": 0 }]]
+    },
+    "Lookup Customer Order": {
+      "main": [[{ "node": "LLM Intent Classification", "type": "main", "index": 0 }]]
+    },
+    "LLM Intent Classification": {
+      "main": [
+        [{ "node": "Is Refund Request?", "type": "main", "index": 0 }],
+        [{ "node": "No Order Found", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Refund Request?": {
+      "main": [
+        [{ "node": "Enforce Refund Policy", "type": "main", "index": 0 }],
+        [{ "node": "Send Help Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Enforce Refund Policy": {
+      "main": [[{ "node": "Eligible for Refund?", "type": "main", "index": 0 }]]
+    },
+    "Eligible for Refund?": {
+      "main": [
+        [{ "node": "Get Transaction ID for Refund", "type": "main", "index": 0 }],
+        [{ "node": "Build Rejection Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Transaction ID for Refund": {
+      "main": [[{ "node": "Call Flutterwave Refund API", "type": "main", "index": 0 }]]
+    },
+    "Call Flutterwave Refund API": {
+      "main": [[{ "node": "Update Order to Refunded", "type": "main", "index": 0 }]]
+    },
+    "Update Order to Refunded": {
+      "main": [
+        [{ "node": "Send Success Reply via WhatsApp", "type": "main", "index": 0 }],
+        [{ "node": "Alert Admin via Telegram", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Rejection Message": {
+      "main": [[{ "node": "Send Policy Reply via WhatsApp", "type": "main", "index": 0 }]]
+    },
+    "Send Policy Reply via WhatsApp": {
+      "main": [[{ "node": "Alert Admin via Telegram (Denied)", "type": "main", "index": 0 }]]
+    },
+    "No Order Found": {
+      "main": [[{ "node": "Send Policy Reply", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": ["whatsapp", "refund", "flutterwave", "policy"]
+}
