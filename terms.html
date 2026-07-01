@@ -24,12 +24,10 @@
             --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             --radius: 12px;
             --radius-sm: 8px;
             --radius-lg: 16px;
             --radius-xl: 24px;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         @media (prefers-color-scheme: dark) {
@@ -45,7 +43,6 @@
                 --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
                 --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
                 --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
-                --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             }
         }
 
@@ -67,17 +64,17 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Floating Blur Nav */
+        /* Navigation */
         .nav {
             position: fixed;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             border-radius: var(--radius-xl);
             padding: 12px 32px;
             display: flex;
@@ -85,20 +82,13 @@
             justify-content: space-between;
             gap: 40px;
             box-shadow: var(--shadow-lg), 0 0 40px rgba(16, 185, 129, 0.1);
-            transition: var(--transition);
         }
 
         @media (prefers-color-scheme: dark) {
             .nav {
-                background: rgba(15, 23, 42, 0.85);
+                background: rgba(15, 23, 42, 0.9);
                 border-color: rgba(255, 255, 255, 0.1);
             }
-        }
-
-        .nav.scrolled {
-            top: 10px;
-            padding: 10px 24px;
-            border-radius: var(--radius-lg);
         }
 
         .nav-logo {
@@ -128,7 +118,7 @@
             text-decoration: none;
             font-weight: 500;
             font-size: 0.95rem;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .nav-links a:hover {
@@ -143,16 +133,13 @@
             text-decoration: none;
             font-weight: 600;
             font-size: 0.9rem;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .nav-cta:hover {
             background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
         }
 
-        /* Hamburger */
         .hamburger {
             display: none;
             flex-direction: column;
@@ -167,19 +154,7 @@
             height: 2px;
             background: var(--text);
             border-radius: 2px;
-            transition: var(--transition);
-        }
-
-        .hamburger.active span:nth-child(1) {
-            transform: rotate(45deg) translate(5px, 5px);
-        }
-
-        .hamburger.active span:nth-child(2) {
-            opacity: 0;
-        }
-
-        .hamburger.active span:nth-child(3) {
-            transform: rotate(-45deg) translate(5px, -5px);
+            transition: all 0.3s ease;
         }
 
         @media (max-width: 768px) {
@@ -201,7 +176,7 @@
                 gap: 32px;
                 opacity: 0;
                 visibility: hidden;
-                transition: var(--transition);
+                transition: all 0.3s ease;
             }
 
             .nav-links.active {
@@ -222,229 +197,265 @@
             }
         }
 
-        /* Page Header */
-        .page-header {
-            padding: 160px 24px 80px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
+        /* Main Content */
+        .main {
+            padding: 140px 24px 80px;
+            min-height: 100vh;
         }
 
-        .page-header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle at 30% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
-                        radial-gradient(circle at 70% 70%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
-        }
-
-        .page-header h1 {
-            font-size: clamp(2.5rem, 5vw, 3.5rem);
-            font-weight: 800;
-            margin-bottom: 16px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .page-header p {
-            font-size: 1.125rem;
-            color: var(--text-secondary);
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Content Section */
-        .content {
+        .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 0 24px 80px;
         }
 
-        .legal-section {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xl);
-            padding: 40px;
-            margin-bottom: 24px;
-            transition: var(--transition);
+        .legal-header {
+            margin-bottom: 48px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .legal-section:hover {
-            border-color: rgba(16, 185, 129, 0.3);
-            box-shadow: var(--shadow-lg);
+        .legal-header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
         }
 
-        .legal-section h2 {
+        .legal-header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .legal-content {
+            font-size: 1rem;
+            color: var(--text);
+        }
+
+        .legal-content h2 {
             font-size: 1.5rem;
             font-weight: 700;
+            margin-top: 40px;
             margin-bottom: 16px;
             color: var(--text);
         }
 
-        .legal-section h3 {
+        .legal-content h3 {
             font-size: 1.125rem;
             font-weight: 600;
-            margin: 24px 0 12px;
+            margin-top: 24px;
+            margin-bottom: 12px;
             color: var(--text);
         }
 
-        .legal-section p {
-            color: var(--text-secondary);
+        .legal-content p {
             margin-bottom: 16px;
+            color: var(--text-secondary);
         }
 
-        .legal-section ul, .legal-section ol {
-            color: var(--text-secondary);
+        .legal-content ul, .legal-content ol {
             margin-bottom: 16px;
             padding-left: 24px;
+            color: var(--text-secondary);
         }
 
-        .legal-section li {
+        .legal-content li {
             margin-bottom: 8px;
         }
 
-        .legal-section table {
+        .legal-content strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .legal-content em {
+            color: var(--primary);
+            font-style: normal;
+            font-weight: 500;
+        }
+
+        .legal-content hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 40px 0;
+        }
+
+        .legal-content a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .legal-content a:hover {
+            text-decoration: underline;
+        }
+
+        /* Tables */
+        .legal-content table {
             width: 100%;
             border-collapse: collapse;
-            margin: 20px 0;
+            margin: 24px 0;
             font-size: 0.95rem;
         }
 
-        .legal-section th, .legal-section td {
+        .legal-content th, .legal-content td {
             padding: 12px 16px;
             text-align: left;
             border: 1px solid var(--border);
         }
 
-        .legal-section th {
+        .legal-content th {
             background: var(--bg-secondary);
             font-weight: 600;
             color: var(--text);
         }
 
-        .legal-section td {
+        .legal-content td {
             color: var(--text-secondary);
         }
 
-        .legal-section strong {
-            color: var(--text);
-            font-weight: 600;
-        }
-
-        .legal-section a {
+        /* Category Headers */
+        .product-category {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.125rem;
+            font-weight: 700;
             color: var(--primary);
-            text-decoration: none;
-        }
-
-        .legal-section a:hover {
-            text-decoration: underline;
-        }
-
-        .highlight-box {
-            background: var(--primary-bg);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            border-radius: var(--radius-lg);
-            padding: 20px;
-            margin: 20px 0;
-        }
-
-        .highlight-box p {
-            margin: 0;
-            color: var(--primary-dark);
-            font-weight: 500;
+            margin-top: 32px;
+            margin-bottom: 16px;
         }
 
         /* Footer */
         .footer {
-            background: var(--bg);
+            background: var(--bg-secondary);
             border-top: 1px solid var(--border);
-            padding: 40px 24px 30px;
+            padding: 60px 24px 30px;
         }
 
-        .footer-content {
+        .footer-container {
             max-width: 1200px;
             margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 20px;
         }
 
-        .footer-brand {
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+        }
+
+        .footer-logo {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--primary);
             display: flex;
             align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .footer-desc {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+            max-width: 300px;
+        }
+
+        .footer-social {
+            display: flex;
             gap: 12px;
-            font-weight: 700;
-            font-size: 1.25rem;
+        }
+
+        .footer-social a {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .footer-social a:hover {
             color: var(--primary);
-            text-decoration: none;
+            border-color: var(--primary);
+        }
+
+        .footer-social svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .footer-title {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 16px;
+            color: var(--text);
         }
 
         .footer-links {
-            display: flex;
-            gap: 24px;
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 10px;
         }
 
         .footer-links a {
             color: var(--text-secondary);
             text-decoration: none;
             font-size: 0.95rem;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .footer-links a:hover {
             color: var(--primary);
         }
 
-        .footer-copyright {
-            width: 100%;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-top: 20px;
-            padding-top: 20px;
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 24px;
             border-top: 1px solid var(--border);
         }
 
-        /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
+        @media (max-width: 768px) {
+            .footer-bottom {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
             }
         }
 
-        .reveal {
-            opacity: 0;
-            transform: translateY(40px);
-            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        .footer-copyright {
+            color: var(--text-muted);
+            font-size: 0.875rem;
         }
 
-        .reveal.visible {
-            opacity: 1;
-            transform: translateY(0);
+        .footer-legal {
+            display: flex;
+            gap: 24px;
         }
 
-        @media (max-width: 600px) {
-            .legal-section {
-                padding: 24px;
-            }
+        .footer-legal a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+        }
 
-            .legal-section table {
-                font-size: 0.85rem;
-            }
-
-            .legal-section th, .legal-section td {
-                padding: 8px 12px;
-            }
+        .footer-legal a:hover {
+            color: var(--primary);
         }
     </style>
 </head>
@@ -461,13 +472,13 @@
         <ul class="nav-links">
             <li><a href="index.html#pricing">Pricing</a></li>
             <li><a href="index.html#how-it-works">How It Works</a></li>
+            <li><a href="index.html#testimonials">Testimonials</a></li>
             <li><a href="index.html#faq">FAQ</a></li>
             <li><a href="terms.html">Terms</a></li>
             <li><a href="privacy.html">Privacy</a></li>
+            <li><a href="acceptable-use.html">AUP</a></li>
         </ul>
-        <a href="https://wa.me/2347032981049?text=Hi%20Bunche!%20I%27d%20like%20to%20try%20your%20proxies." class="nav-cta" target="_blank">
-            Get Started
-        </a>
+        <a href="https://wa.me/2347032981049?text=Hi%20Bunche!%20I%27d%20like%20to%20get%20started." class="nav-cta" target="_blank">Get Started</a>
         <div class="hamburger" onclick="toggleMobileMenu()">
             <span></span>
             <span></span>
@@ -475,364 +486,382 @@
         </div>
     </nav>
 
-    <!-- Page Header -->
-    <header class="page-header">
-        <h1>Terms of Service</h1>
-        <p>Effective Date: June 27, 2026</p>
-    </header>
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <div class="legal-header">
+                <h1>Terms of Service</h1>
+                <p><em>Bunche — Automated Proxy Retail Service</em> &nbsp;•&nbsp; Effective Date: 2026-07-01</p>
+            </div>
 
-    <!-- Legal Content -->
-    <main class="content">
-        <div class="legal-section reveal">
-            <h2>1. Acceptance of Terms</h2>
-            <p>By accessing or using Bunche ("we," "us," or "our"), you ("you" or "user") agree to be bound by these Terms of Service. If you do not agree, do not use our services.</p>
-            <p>Your first interaction with Bunche (sending a WhatsApp message) constitutes acceptance of these Terms, our Privacy Policy, and our Acceptable Use Policy.</p>
-        </div>
+            <div class="legal-content">
+                <h2>1. Acceptance of Terms</h2>
+                <p>By accessing or using Bunche ("we," "us," or "our"), you ("you" or "user") agree to be bound by these Terms of Service. If you do not agree, do not use our services.</p>
+                <p>Your first interaction with Bunche (sending a WhatsApp message) constitutes acceptance of these Terms, our Privacy Policy, and our Acceptable Use Policy.</p>
 
-        <div class="legal-section reveal">
-            <h2>2. Description of Service</h2>
-            <p>Bunche operates a zero-inventory proxy retail platform that resells proxy services sourced from vetted third-party infrastructure partners.</p>
-            <p><strong>Proxy Service:</strong> We sell access to proxy IP addresses under our own branded credentials. We do not disclose our underlying infrastructure partners.</p>
-            <p><strong>Branding:</strong> All proxy credentials delivered to customers are issued under Bunche's branding (e.g., proxy1.bunche.ng). Customers interact with Bunche's proxy infrastructure, not the underlying providers.</p>
-            <p><strong>Payment Processing:</strong> Payments are processed by our payment processor. We are not a bank or financial institution.</p>
-            <p><strong>Automation:</strong> Orders are processed automatically through our n8n workflow automation system.</p>
-            <p><strong>No Account Required:</strong> We do not require user accounts. Your WhatsApp phone number serves as your identity.</p>
-        </div>
+                <h2>2. Description of Service</h2>
+                <p>Bunche operates a zero-inventory proxy retail platform that resells proxy services sourced from vetted third-party infrastructure partners.</p>
+                <p><strong>Proxy Service:</strong> We sell access to proxy IP addresses under our own branded credentials. We do not disclose our underlying infrastructure partners.</p>
+                <p><strong>Branding:</strong> All proxy credentials delivered to customers are issued under Bunche's branding (e.g., proxy1.bunche.ng). Customers interact with Bunche's proxy infrastructure, not the underlying providers.</p>
+                <p><strong>Payment Processing:</strong> Payments are processed by our third-party payment processor. We are not a bank or financial institution.</p>
+                <p><strong>Automation:</strong> Orders are processed automatically through our n8n workflow automation system.</p>
+                <p><strong>No Account Required:</strong> We do not require user accounts. Your WhatsApp phone number serves as your identity.</p>
 
-        <div class="legal-section reveal">
-            <h2>3. Eligibility</h2>
-            <p>You must:</p>
-            <ul>
-                <li>Be at least 18 years old</li>
-                <li>Have a valid phone number with WhatsApp</li>
-                <li>Not be prohibited from using our services under applicable Nigerian or international law</li>
-                <li>Not use our services for any illegal purpose</li>
-            </ul>
-        </div>
+                <h2>3. Eligibility</h2>
+                <p>You must:</p>
+                <ul>
+                    <li>Be at least 18 years old</li>
+                    <li>Have a valid phone number with WhatsApp</li>
+                    <li>Not be prohibited from using our services under applicable Nigerian or international law</li>
+                    <li>Not use our services for any illegal purpose</li>
+                </ul>
 
-        <div class="legal-section reveal">
-            <h2>4. Products & Pricing</h2>
-            <p>All prices are in Nigerian Naira (NGN). Prices are subject to change with 7 days' notice.</p>
-            
-            <h3>🌐 ISP Proxies — Default (IPv4)</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Product</th>
-                        <th>Price</th>
-                        <th>Countries</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>ISP Standard</td>
-                        <td>₦5,000/mo</td>
-                        <td>UK, US, Germany, France, Canada</td>
-                    </tr>
-                    <tr>
-                        <td>ISP Premium</td>
-                        <td>₦6,500/mo</td>
-                        <td>Japan, Australia, Brazil, Singapore, South Korea</td>
-                    </tr>
-                </tbody>
-            </table>
+                <h2>4. Products & Pricing</h2>
+                <p>All prices are in Nigerian Naira (NGN). Prices are subject to change with 7 days' notice.</p>
 
-            <h3>🖥️ Datacenter Proxies</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Product</th>
-                        <th>Price</th>
-                        <th>Type</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>DC Static</td>
-                        <td>₦3,000/mo</td>
-                        <td>IPv4</td>
-                    </tr>
-                    <tr>
-                        <td>DC Static IPv6</td>
-                        <td>₦2,500/mo</td>
-                        <td>IPv6 (available on request)</td>
-                    </tr>
-                    <tr>
-                        <td>DC Rotating</td>
-                        <td>₦4,500/GB</td>
-                        <td>IPv4</td>
-                    </tr>
-                </tbody>
-            </table>
+                <div class="product-category">🌐 ISP Proxies — Default (IPv4)</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Price</th>
+                            <th>Countries</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>ISP Standard</td>
+                            <td>₦6,500/mo</td>
+                            <td>UK, US, Germany, France, Canada</td>
+                        </tr>
+                        <tr>
+                            <td>ISP Premium</td>
+                            <td>₦7,500/mo</td>
+                            <td>Japan, Australia, Brazil, Singapore, South Korea</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <h3>🏠 Residential Proxies</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Product</th>
-                        <th>Price</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Residential</td>
-                        <td>₦1,950/GB</td>
-                        <td>IPv4, no expiry</td>
-                    </tr>
-                    <tr>
-                        <td>Residential IPv6</td>
-                        <td>₦1,500/GB</td>
-                        <td>IPv6 on request</td>
-                    </tr>
-                </tbody>
-            </table>
+                <div class="product-category">🖥️ Datacenter Proxies</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Price</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>DC Static</td>
+                            <td>₦3,000/mo</td>
+                            <td>IPv4</td>
+                        </tr>
+                        <tr>
+                            <td>DC Static IPv6</td>
+                            <td>₦2,500/mo</td>
+                            <td>IPv6 (available on request)</td>
+                        </tr>
+                        <tr>
+                            <td>DC Rotating</td>
+                            <td>₦4,500/GB</td>
+                            <td>IPv4</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <h3>📱 Mobile Proxies</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Product</th>
-                        <th>Price</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Mobile 4G</td>
-                        <td>₦4,000/GB</td>
-                        <td>30-day window</td>
-                    </tr>
-                </tbody>
-            </table>
+                <div class="product-category">🏠 Residential Proxies</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Price</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Residential 5GB</td>
+                            <td>₦9,500</td>
+                            <td>IPv4, no expiry</td>
+                        </tr>
+                        <tr>
+                            <td>Residential 10GB</td>
+                            <td>₦18,000</td>
+                            <td>IPv4, no expiry</td>
+                        </tr>
+                        <tr>
+                            <td>Residential</td>
+                            <td>₦1,950/GB</td>
+                            <td>IPv4, no expiry (GB-based)</td>
+                        </tr>
+                        <tr>
+                            <td>Residential IPv6</td>
+                            <td>₦1,500/GB</td>
+                            <td>IPv6 on request</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <h3>IPv6 — Available on Request</h3>
-            <p>IPv6 is available for customers who specifically request it. Not all platforms support IPv6. To order IPv6, tell us "I need IPv6" when ordering.</p>
-        </div>
+                <div class="product-category">📱 Mobile Proxies</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Price</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Mobile 4G 5GB</td>
+                            <td>₦20,000</td>
+                            <td>30-day window</td>
+                        </tr>
+                        <tr>
+                            <td>Mobile 4G 10GB</td>
+                            <td>₦38,000</td>
+                            <td>30-day window</td>
+                        </tr>
+                        <tr>
+                            <td>Mobile 4G</td>
+                            <td>₦4,000/GB</td>
+                            <td>30-day window</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-        <div class="legal-section reveal">
-            <h2>5. Protocols</h2>
-            <p>Both protocols are supported on all products:</p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Protocol</th>
-                        <th>Port</th>
-                        <th>Best For</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>HTTP/HTTPS</strong></td>
-                        <td>3128</td>
-                        <td>Web browsing, browser automation</td>
-                    </tr>
-                    <tr>
-                        <td><strong>SOCKS5</strong></td>
-                        <td>1080</td>
-                        <td>All traffic types</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+                <p><strong>IPv6 — Available on Request:</strong> IPv6 is available for customers who specifically request it. Not all platforms support IPv6. To order IPv6, tell us "I need IPv6" when ordering.</p>
 
-        <div class="legal-section reveal">
-            <h2>6. Product-Specific Terms</h2>
-            <p><strong>ISP / Datacenter:</strong></p>
-            <ul>
-                <li>Unlimited data within 30-day period</li>
-                <li>Same IP kept on renewal if renewed before expiry</li>
-                <li>New IP generated if renewed after expiry</li>
-            </ul>
-            <p><strong>Residential:</strong></p>
-            <ul>
-                <li>Data <strong>never expires</strong> — buy 5GB, use 2GB, still have 3GB</li>
-                <li>Top-ups add GB to existing pool</li>
-            </ul>
-            <p><strong>Mobile:</strong></p>
-            <ul>
-                <li>30-day window to use allocated data</li>
-                <li>Unused GB is <strong>LOST</strong> on renewal or top-up</li>
-                <li>Proxy stops working at 0GB</li>
-            </ul>
-        </div>
+                <h2>5. Protocols</h2>
+                <p>Both protocols are supported on all products:</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Protocol</th>
+                            <th>Port</th>
+                            <th>Best For</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>HTTP/HTTPS</strong></td>
+                            <td>3128</td>
+                            <td>Web browsing, browser automation</td>
+                        </tr>
+                        <tr>
+                            <td><strong>SOCKS5</strong></td>
+                            <td>1080</td>
+                            <td>All traffic types</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-        <div class="legal-section reveal">
-            <h2>7. Payment Terms</h2>
-            <ul>
-                <li>Payment must be received before proxy is generated</li>
-                <li>If payment is not received within 1 hour, order is cancelled</li>
-                <li>If payment fails after delivery, we revoke proxy access</li>
-            </ul>
-        </div>
+                <h2>6. Product-Specific Terms</h2>
+                <p><strong>ISP / Datacenter:</strong></p>
+                <ul>
+                    <li>Unlimited data within 30-day period</li>
+                    <li>Same IP kept on renewal if renewed before expiry</li>
+                    <li>New IP generated if renewed after expiry</li>
+                </ul>
+                <p><strong>Residential:</strong></p>
+                <ul>
+                    <li>Data <strong>never expires</strong> — buy 5GB, use 2GB, still have 3GB</li>
+                    <li>Top-ups add GB to existing pool</li>
+                    <li>5GB and 10GB one-time packages available</li>
+                </ul>
+                <p><strong>Mobile:</strong></p>
+                <ul>
+                    <li>30-day window to use allocated data</li>
+                    <li>Unused GB is <strong>LOST</strong> on renewal or top-up</li>
+                    <li>Proxy stops working at 0GB</li>
+                    <li>5GB and 10GB one-time packages available</li>
+                </ul>
 
-        <div class="legal-section reveal">
-            <h2>8. Refund Policy</h2>
-            <p><strong>Time-Based Products (ISP & DC)</strong><br>
-            <strong>24-Hour Window Only.</strong></p>
-            <ul>
-                <li><strong>24 hours from delivery:</strong> Refund or replacement if dead on arrival</li>
-                <li><strong>After 24 hours:</strong> No refund — only IP replacement</li>
-            </ul>
-            <p><strong>GB-Based Products (Residential & Mobile)</strong><br>
-            <strong>7-Day Window.</strong></p>
-            <ul>
-                <li><strong>7 days from delivery:</strong> Refund for unused GB</li>
-                <li><strong>After 7 days:</strong> No refund</li>
-            </ul>
-            
-            <div class="highlight-box">
+                <h2>7. Payment Terms</h2>
+                <ul>
+                    <li>Payment must be received before proxy is generated</li>
+                    <li>If payment is not received within 1 hour, order is cancelled</li>
+                    <li>If payment fails after delivery, we revoke proxy access</li>
+                </ul>
+
+                <h2>8. Refund Policy</h2>
+                <p><strong>Time-Based Products (ISP & DC)</strong> — <em>24-Hour Window Only</em></p>
+                <ul>
+                    <li><strong>24 hours from delivery:</strong> Refund or replacement if dead on arrival</li>
+                    <li><strong>After 24 hours:</strong> No refund — only IP replacement</li>
+                </ul>
+                <p><strong>GB-Based Products (Residential & Mobile)</strong> — <em>7-Day Window</em></p>
+                <ul>
+                    <li><strong>7 days from delivery:</strong> Refund for unused GB</li>
+                    <li><strong>After 7 days:</strong> No refund</li>
+                </ul>
                 <p><strong>Refunds ARE Allowed In:</strong></p>
-                <ul style="margin-top: 8px; margin-bottom: 0;">
+                <ul>
                     <li>Proxy never worked (verified)</li>
                     <li>Wrong IP delivered</li>
                     <li>Fraudulent order</li>
                     <li>Duplicate charge</li>
                     <li>Admin-approved exemption</li>
                 </ul>
-            </div>
-            
-            <div class="highlight-box" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3);">
-                <p style="color: #dc2626;"><strong>Refunds are NOT Allowed For:</strong></p>
-                <ul style="margin-top: 8px; margin-bottom: 0; color: #dc2626;">
+                <p><strong>Refunds are NOT Allowed For:</strong></p>
+                <ul>
                     <li>Changed mind</li>
                     <li>Platform banned the IP (after 24 hours)</li>
                     <li>Don't need it anymore</li>
                     <li>Found cheaper elsewhere</li>
                 </ul>
+
+                <h2>9. Free Trial Service</h2>
+                <ul>
+                    <li><strong>Daily Limit:</strong> 3 free trials per phone number per day</li>
+                    <li><strong>Duration:</strong> 2 hours</li>
+                    <li><strong>Reliability:</strong> NOT guaranteed</li>
+                    <li><strong>For testing only</strong> — not production</li>
+                </ul>
+
+                <h2>10. Delivery</h2>
+                <p>Proxy credentials delivered via WhatsApp within 2 minutes of payment.</p>
+                <p>All credentials issued under Bunche's branding.</p>
+
+                <h2>11. Service Availability</h2>
+                <p>We perform pre-payment health checks. If IP fails, we replace. If replacement fails, automatic refund.</p>
+
+                <h2>12. Customer Support</h2>
+                <p>Automated via WhatsApp. Human admin intervention for:</p>
+                <ul>
+                    <li>Ban claims with screenshot (within 24 hours)</li>
+                    <li>Lost account recovery</li>
+                    <li>Refund approval</li>
+                    <li>Fraudulent activity</li>
+                </ul>
+
+                <h2>13. Security & Recovery</h2>
+                <p><strong>Phone-Based Identity:</strong> Your WhatsApp number is your identifier.</p>
+                <p><strong>Recovery Options:</strong></p>
+                <ul>
+                    <li><strong>PIN:</strong> 4-digit PIN for verification</li>
+                    <li><strong>OTP:</strong> Codes via WhatsApp</li>
+                </ul>
+                <p><strong>Data Security:</strong></p>
+                <ul>
+                    <li>TLS 1.2+ for all data in transit</li>
+                    <li>PINs stored hashed (bcrypt)</li>
+                    <li>API keys stored securely in n8n</li>
+                </ul>
+
+                <h2>14. Acceptable Use</h2>
+                <p>Prohibited:</p>
+                <ul>
+                    <li>Fraud, scams, financial crimes</li>
+                    <li>Hacking, unauthorized access</li>
+                    <li>Phishing, social engineering</li>
+                    <li>Spam, unsolicited communications</li>
+                    <li>Copyright infringement</li>
+                    <li>Malware, viruses</li>
+                    <li>Any illegal activity under Nigerian law</li>
+                </ul>
+
+                <h2>15. Limitation of Liability</h2>
+                <p>Bunche is not liable for indirect, incidental, or consequential damages. Our total liability shall not exceed the amount you paid in the 30 days preceding the claim.</p>
+                <p><strong>Free Trial:</strong> Liability LIMITED TO ZERO — provided AS-IS.</p>
+
+                <h2>16. Indemnification</h2>
+                <p>You agree to indemnify Bunche from any claims arising from your use of our services.</p>
+
+                <h2>17. Account Termination</h2>
+                <p>We may suspend or terminate access if you:</p>
+                <ul>
+                    <li>Violate these terms</li>
+                    <li>Violate Acceptable Use Policy</li>
+                    <li>Fail to pay</li>
+                    <li>Engage in fraudulent activity</li>
+                    <li>Abuse the free trial system</li>
+                </ul>
+
+                <h2>18. Changes to Terms</h2>
+                <p>Changes communicated via:</p>
+                <ul>
+                    <li>Updated "Effective Date" at top</li>
+                    <li>WhatsApp notification for material changes</li>
+                </ul>
+                <p>Continued use after changes = acceptance.</p>
+
+                <h2>19. Governing Law</h2>
+                <p>Governed by laws of the Federal Republic of Nigeria.</p>
+
+                <h2>20. Contact</h2>
+<p><strong>WhatsApp:</strong> +2347032981049<br>
+                <strong>Email:</strong> hello@bunche.ng<br>
+                <strong>Website:</strong> bunche-api-push.vercel.app</p>
+
+                <hr>
+                <p style="font-size: 0.875rem; color: var(--text-muted);"><em>These Terms of Service are incorporated by reference into our Privacy Policy and Acceptable Use Policy.</em></p>
             </div>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>9. Free Trial Service</h2>
-            <ul>
-                <li><strong>Daily Limit:</strong> 3 free trials per phone number per day</li>
-                <li><strong>Duration:</strong> 2 hours</li>
-                <li><strong>Reliability:</strong> NOT guaranteed</li>
-                <li><strong>For testing only</strong> — not production</li>
-            </ul>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>10. Delivery</h2>
-            <p>Proxy credentials delivered via WhatsApp within 2 minutes of payment.</p>
-            <p>All credentials issued under Bunche's branding.</p>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>11. Service Availability</h2>
-            <p>We perform pre-payment health checks. If IP fails, we replace. If replacement fails, automatic refund.</p>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>12. Customer Support</h2>
-            <p>Automated via WhatsApp. Human admin intervention for:</p>
-            <ul>
-                <li>Ban claims with screenshot (within 24 hours)</li>
-                <li>Lost account recovery</li>
-                <li>Refund approval</li>
-                <li>Fraudulent activity</li>
-            </ul>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>13. Security & Recovery</h2>
-            <p><strong>Phone-Based Identity:</strong> Your WhatsApp number is your identifier.</p>
-            <p><strong>Recovery Options:</strong></p>
-            <ul>
-                <li><strong>PIN:</strong> 4-digit PIN for verification</li>
-                <li><strong>OTP:</strong> Codes via WhatsApp</li>
-            </ul>
-            <p><strong>Data Security:</strong></p>
-            <ul>
-                <li>TLS 1.2+ for all data in transit</li>
-                <li>PINs stored hashed (bcrypt)</li>
-                <li>API keys stored securely in n8n</li>
-            </ul>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>14. Acceptable Use</h2>
-            <p>Prohibited:</p>
-            <ul>
-                <li>Fraud, scams, financial crimes</li>
-                <li>Hacking, unauthorized access</li>
-                <li>Phishing, social engineering</li>
-                <li>Spam, unsolicited communications</li>
-                <li>Copyright infringement</li>
-                <li>Malware, viruses</li>
-                <li>Any illegal activity under Nigerian law</li>
-            </ul>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>15. Limitation of Liability</h2>
-            <p>Bunche is not liable for indirect, incidental, or consequential damages. Our total liability shall not exceed the amount you paid in the 30 days preceding the claim.</p>
-            <p><strong>Free Trial:</strong> Liability LIMITED TO ZERO — provided AS-IS.</p>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>16. Indemnification</h2>
-            <p>You agree to indemnify Bunche from any claims arising from your use of our services.</p>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>17. Account Termination</h2>
-            <p>We may suspend or terminate access if you:</p>
-            <ul>
-                <li>Violate these terms</li>
-                <li>Violate Acceptable Use Policy</li>
-                <li>Fail to pay</li>
-                <li>Engage in fraudulent activity</li>
-                <li>Abuse the free trial system</li>
-            </ul>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>18. Changes to Terms</h2>
-            <p>Changes communicated via:</p>
-            <ul>
-                <li>Updated "Effective Date" at top</li>
-                <li>WhatsApp notification for material changes</li>
-            </ul>
-            <p>Continued use after changes = acceptance.</p>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>19. Governing Law</h2>
-            <p>Governed by laws of the Federal Republic of Nigeria.</p>
-        </div>
-
-        <div class="legal-section reveal">
-            <h2>20. Contact</h2>
-            <p><strong>WhatsApp:</strong> +234 XXX XXX XXXX</p>
-            <p><strong>Email:</strong> hello@bunche.ng</p>
-            <p><strong>Website:</strong> bunche.ng</p>
-            <p style="margin-top: 20px; font-size: 0.9rem; color: var(--text-muted);"><em>These Terms of Service are incorporated by reference into our Privacy Policy and Acceptable Use Policy.</em></p>
         </div>
     </main>
 
     <!-- Footer -->
     <footer class="footer">
-        <div class="footer-content">
-            <a href="index.html" class="footer-brand">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                </svg>
-                Bunche
-            </a>
-            <div class="footer-links">
-                <a href="terms.html">Terms</a>
-                <a href="privacy.html">Privacy</a>
-                <a href="acceptable-use.html">Acceptable Use</a>
+        <div class="footer-container">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-logo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                        Bunche
+                    </div>
+                    <p class="footer-desc">Your trusted plug for proxies in Nigeria. Buy ISP, Datacenter, Residential & Mobile proxies on WhatsApp.</p>
+                    <div class="footer-social">
+                        <a href="https://wa.me/2347032981049" aria-label="WhatsApp">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        </a>
+                        <a href="mailto:hello@bunche.ng" aria-label="Email">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="footer-title">Products</h4>
+                    <ul class="footer-links">
+                        <li><a href="index.html#pricing">ISP Proxies</a></li>
+                        <li><a href="index.html#pricing">Datacenter</a></li>
+                        <li><a href="index.html#pricing">Residential</a></li>
+                        <li><a href="index.html#pricing">Mobile 4G</a></li>
+                        <li><a href="index.html#pricing">Free Trial</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="footer-title">Company</h4>
+                    <ul class="footer-links">
+                        <li><a href="index.html#how-it-works">How It Works</a></li>
+                        <li><a href="index.html#testimonials">Testimonials</a></li>
+                        <li><a href="index.html#faq">FAQ</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="footer-title">Legal</h4>
+                    <ul class="footer-links">
+                        <li><a href="terms.html">Terms of Service</a></li>
+                        <li><a href="privacy.html">Privacy Policy</a></li>
+                        <li><a href="acceptable-use.html">Acceptable Use</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p class="footer-copyright">© 2026 Bunche. Made with ❤️ in Lagos.</p>
+                <div class="footer-legal">
+                    <a href="terms.html">Terms</a>
+                    <a href="privacy.html">Privacy</a>
+                    <a href="acceptable-use.html">AUP</a>
+                </div>
             </div>
         </div>
-        <p class="footer-copyright">© 2026 Bunche. Made in Lagos, Nigeria.</p>
     </footer>
 
     <script>
-        // Mobile menu toggle
         function toggleMobileMenu() {
             const hamburger = document.querySelector('.hamburger');
             const navLinks = document.querySelector('.nav-links');
@@ -840,39 +869,12 @@
             navLinks.classList.toggle('active');
         }
 
-        // Close mobile menu when clicking a link
         document.querySelectorAll('.nav-links a').forEach(link => {
             link.addEventListener('click', () => {
                 document.querySelector('.hamburger').classList.remove('active');
                 document.querySelector('.nav-links').classList.remove('active');
             });
         });
-
-        // Nav scroll effect
-        window.addEventListener('scroll', () => {
-            const nav = document.querySelector('.nav');
-            if (window.scrollY > 50) {
-                nav.classList.add('scrolled');
-            } else {
-                nav.classList.remove('scrolled');
-            }
-        });
-
-        // Reveal on scroll
-        const revealElements = document.querySelectorAll('.reveal');
-        
-        const revealOnScroll = () => {
-            revealElements.forEach(el => {
-                const elementTop = el.getBoundingClientRect().top;
-                const windowHeight = window.innerHeight;
-                if (elementTop < windowHeight - 100) {
-                    el.classList.add('visible');
-                }
-            });
-        };
-
-        window.addEventListener('scroll', revealOnScroll);
-        revealOnScroll(); // Initial check
     </script>
 </body>
 </html>

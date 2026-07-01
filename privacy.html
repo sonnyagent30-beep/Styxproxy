@@ -24,12 +24,10 @@
             --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             --radius: 12px;
             --radius-sm: 8px;
             --radius-lg: 16px;
             --radius-xl: 24px;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         @media (prefers-color-scheme: dark) {
@@ -45,7 +43,6 @@
                 --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
                 --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
                 --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
-                --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             }
         }
 
@@ -67,17 +64,17 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Floating Blur Nav */
+        /* Navigation */
         .nav {
             position: fixed;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             border-radius: var(--radius-xl);
             padding: 12px 32px;
             display: flex;
@@ -85,20 +82,13 @@
             justify-content: space-between;
             gap: 40px;
             box-shadow: var(--shadow-lg), 0 0 40px rgba(16, 185, 129, 0.1);
-            transition: var(--transition);
         }
 
         @media (prefers-color-scheme: dark) {
             .nav {
-                background: rgba(15, 23, 42, 0.85);
+                background: rgba(15, 23, 42, 0.9);
                 border-color: rgba(255, 255, 255, 0.1);
             }
-        }
-
-        .nav.scrolled {
-            top: 10px;
-            padding: 10px 24px;
-            border-radius: var(--radius-lg);
         }
 
         .nav-logo {
@@ -128,7 +118,7 @@
             text-decoration: none;
             font-weight: 500;
             font-size: 0.95rem;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .nav-links a:hover {
@@ -143,16 +133,13 @@
             text-decoration: none;
             font-weight: 600;
             font-size: 0.9rem;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .nav-cta:hover {
             background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
         }
 
-        /* Hamburger */
         .hamburger {
             display: none;
             flex-direction: column;
@@ -167,19 +154,7 @@
             height: 2px;
             background: var(--text);
             border-radius: 2px;
-            transition: var(--transition);
-        }
-
-        .hamburger.active span:nth-child(1) {
-            transform: rotate(45deg) translate(5px, 5px);
-        }
-
-        .hamburger.active span:nth-child(2) {
-            opacity: 0;
-        }
-
-        .hamburger.active span:nth-child(3) {
-            transform: rotate(-45deg) translate(5px, -5px);
+            transition: all 0.3s ease;
         }
 
         @media (max-width: 768px) {
@@ -201,7 +176,7 @@
                 gap: 32px;
                 opacity: 0;
                 visibility: hidden;
-                transition: var(--transition);
+                transition: all 0.3s ease;
             }
 
             .nav-links.active {
@@ -222,229 +197,253 @@
             }
         }
 
-        /* Page Header */
-        .page-header {
-            padding: 160px 24px 80px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
+        /* Main Content */
+        .main {
+            padding: 140px 24px 80px;
+            min-height: 100vh;
         }
 
-        .page-header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle at 30% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
-                        radial-gradient(circle at 70% 70%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
-        }
-
-        .page-header h1 {
-            font-size: clamp(2.5rem, 5vw, 3.5rem);
-            font-weight: 800;
-            margin-bottom: 16px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .page-header p {
-            font-size: 1.125rem;
-            color: var(--text-secondary);
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Content Section */
-        .content {
+        .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 0 24px 80px;
         }
 
-        .legal-section {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xl);
-            padding: 40px;
-            margin-bottom: 24px;
-            transition: var(--transition);
+        .legal-header {
+            margin-bottom: 48px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .legal-section:hover {
-            border-color: rgba(16, 185, 129, 0.3);
-            box-shadow: var(--shadow-lg);
+        .legal-header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
         }
 
-        .legal-section h2 {
+        .legal-header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .legal-content {
+            font-size: 1rem;
+            color: var(--text);
+        }
+
+        .legal-content h2 {
             font-size: 1.5rem;
             font-weight: 700;
+            margin-top: 40px;
             margin-bottom: 16px;
             color: var(--text);
         }
 
-        .legal-section h3 {
+        .legal-content h3 {
             font-size: 1.125rem;
             font-weight: 600;
-            margin: 24px 0 12px;
+            margin-top: 24px;
+            margin-bottom: 12px;
             color: var(--text);
         }
 
-        .legal-section p {
-            color: var(--text-secondary);
+        .legal-content p {
             margin-bottom: 16px;
+            color: var(--text-secondary);
         }
 
-        .legal-section ul, .legal-section ol {
-            color: var(--text-secondary);
+        .legal-content ul, .legal-content ol {
             margin-bottom: 16px;
             padding-left: 24px;
+            color: var(--text-secondary);
         }
 
-        .legal-section li {
+        .legal-content li {
             margin-bottom: 8px;
         }
 
-        .legal-section table {
+        .legal-content strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .legal-content em {
+            color: var(--primary);
+            font-style: normal;
+            font-weight: 500;
+        }
+
+        .legal-content hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 40px 0;
+        }
+
+        .legal-content a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .legal-content a:hover {
+            text-decoration: underline;
+        }
+
+        /* Tables */
+        .legal-content table {
             width: 100%;
             border-collapse: collapse;
-            margin: 20px 0;
+            margin: 24px 0;
             font-size: 0.95rem;
         }
 
-        .legal-section th, .legal-section td {
+        .legal-content th, .legal-content td {
             padding: 12px 16px;
             text-align: left;
             border: 1px solid var(--border);
         }
 
-        .legal-section th {
+        .legal-content th {
             background: var(--bg-secondary);
             font-weight: 600;
             color: var(--text);
         }
 
-        .legal-section td {
+        .legal-content td {
             color: var(--text-secondary);
-        }
-
-        .legal-section strong {
-            color: var(--text);
-            font-weight: 600;
-        }
-
-        .legal-section a {
-            color: var(--primary);
-            text-decoration: none;
-        }
-
-        .legal-section a:hover {
-            text-decoration: underline;
-        }
-
-        .highlight-box {
-            background: var(--primary-bg);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            border-radius: var(--radius-lg);
-            padding: 20px;
-            margin: 20px 0;
-        }
-
-        .highlight-box p {
-            margin: 0;
-            color: var(--primary-dark);
-            font-weight: 500;
         }
 
         /* Footer */
         .footer {
-            background: var(--bg);
+            background: var(--bg-secondary);
             border-top: 1px solid var(--border);
-            padding: 40px 24px 30px;
+            padding: 60px 24px 30px;
         }
 
-        .footer-content {
+        .footer-container {
             max-width: 1200px;
             margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 20px;
         }
 
-        .footer-brand {
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+        }
+
+        .footer-logo {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--primary);
             display: flex;
             align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .footer-desc {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+            max-width: 300px;
+        }
+
+        .footer-social {
+            display: flex;
             gap: 12px;
-            font-weight: 700;
-            font-size: 1.25rem;
+        }
+
+        .footer-social a {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .footer-social a:hover {
             color: var(--primary);
-            text-decoration: none;
+            border-color: var(--primary);
+        }
+
+        .footer-social svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .footer-title {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 16px;
+            color: var(--text);
         }
 
         .footer-links {
-            display: flex;
-            gap: 24px;
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 10px;
         }
 
         .footer-links a {
             color: var(--text-secondary);
             text-decoration: none;
             font-size: 0.95rem;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .footer-links a:hover {
             color: var(--primary);
         }
 
-        .footer-copyright {
-            width: 100%;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-top: 20px;
-            padding-top: 20px;
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 24px;
             border-top: 1px solid var(--border);
         }
 
-        /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
+        @media (max-width: 768px) {
+            .footer-bottom {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
             }
         }
 
-        .reveal {
-            opacity: 0;
-            transform: translateY(40px);
-            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        .footer-copyright {
+            color: var(--text-muted);
+            font-size: 0.875rem;
         }
 
-        .reveal.visible {
-            opacity: 1;
-            transform: translateY(0);
+        .footer-legal {
+            display: flex;
+            gap: 24px;
         }
 
-        @media (max-width: 600px) {
-            .legal-section {
-                padding: 24px;
-            }
+        .footer-legal a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+        }
 
-            .legal-section table {
-                font-size: 0.85rem;
-            }
-
-            .legal-section th, .legal-section td {
-                padding: 8px 12px;
-            }
+        .footer-legal a:hover {
+            color: var(--primary);
         }
     </style>
 </head>
@@ -461,13 +460,13 @@
         <ul class="nav-links">
             <li><a href="index.html#pricing">Pricing</a></li>
             <li><a href="index.html#how-it-works">How It Works</a></li>
+            <li><a href="index.html#testimonials">Testimonials</a></li>
             <li><a href="index.html#faq">FAQ</a></li>
             <li><a href="terms.html">Terms</a></li>
             <li><a href="privacy.html">Privacy</a></li>
+            <li><a href="acceptable-use.html">AUP</a></li>
         </ul>
-        <a href="https://wa.me/2347032981049?text=Hi%20Bunche!%20I%27d%20like%20to%20try%20your%20proxies." class="nav-cta" target="_blank">
-            Get Started
-        </a>
+        <a href="https://wa.me/2347032981049?text=Hi%20Bunche!%20I%27d%20like%20to%20get%20started." class="nav-cta" target="_blank">Get Started</a>
         <div class="hamburger" onclick="toggleMobileMenu()">
             <span></span>
             <span></span>
@@ -475,307 +474,325 @@
         </div>
     </nav>
 
-    <!-- Page Header -->
-    <header class="page-header">
-        <h1>Privacy Policy</h1>
-        <p>Effective Date: June 27, 2026</p>
-    </header>
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <div class="legal-header">
+                <h1>Privacy Policy</h1>
+                <p><em>Bunche — Automated Proxy Retail Service</em> &nbsp;•&nbsp; Effective Date: 2026-07-01</p>
+            </div>
 
-    <!-- Legal Content -->
-    <main class="content">
-        <div class="legal-section reveal">
-            <h2>Introduction</h2>
-            <p>Bunche ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our WhatsApp-based proxy ordering service.</p>
-            <p>This policy complies with:</p>
-            <ul>
-                <li>Nigeria Data Protection Regulation (NDPR) 2019</li>
-                <li>Nigeria Data Protection Act (NDPA) 2023</li>
-                <li>General Data Protection Regulation (GDPR) for EU users</li>
-            </ul>
-        </div>
+            <div class="legal-content">
+                <p>Bunche ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our WhatsApp-based proxy ordering service.</p>
+                <p>This policy complies with:</p>
+                <ul>
+                    <li>Nigeria Data Protection Regulation (NDPR) 2019</li>
+                    <li>Nigeria Data Protection Act (NDPA) 2023</li>
+                    <li>General Data Protection Regulation (GDPR) for EU users</li>
+                </ul>
 
-        <div class="legal-section reveal">
-            <h2>1. Information We Collect</h2>
-            
-            <h3>1.1 Information You Provide</h3>
-            <ul>
-                <li>Phone number (primary identifier)</li>
-                <li>Name (optional, collected during first purchase setup)</li>
-                <li>Order history and communication preferences</li>
-                <li>Recovery method (PIN or OTP — your choice)</li>
-                <li>Free trial usage history</li>
-            </ul>
+                <h2>1. Information We Collect</h2>
 
-            <h3>1.2 Information Collected Automatically</h3>
-            <ul>
-                <li>WhatsApp messages you send us (processed via WhatsApp Business API)</li>
-                <li>IP addresses (when you interact with our webhook endpoints)</li>
-                <li>Device information (browser type, OS — if you access our links)</li>
-                <li>n8n workflow execution logs</li>
-                <li>Proxy usage volume and data consumption</li>
-            </ul>
+                <h3>1.1 Information You Provide</h3>
+                <ul>
+                    <li>Phone number (primary identifier)</li>
+                    <li>Name (optional, collected during first purchase setup)</li>
+                    <li>Order history and communication preferences</li>
+                    <li>Recovery method (PIN or OTP — your choice)</li>
+                    <li>Free trial usage history</li>
+                </ul>
 
-            <h3>1.3 Information from Third Parties</h3>
-            <ul>
-                <li><strong>Payment processor:</strong> Transaction status, payment confirmation, payment metadata</li>
-                <li><strong>Meta / WhatsApp:</strong> Message metadata via WhatsApp Business API</li>
-                <li><strong>Survey Partner:</strong> Free trial survey completion verification</li>
-                <li><strong>Vetted Infrastructure Partners:</strong> Proxy allocation data, proxy status</li>
-            </ul>
-        </div>
+                <h3>1.2 Information Collected Automatically</h3>
+                <ul>
+                    <li>WhatsApp messages you send us (processed via WhatsApp Business API)</li>
+                    <li>IP addresses (when you interact with our webhook endpoints)</li>
+                    <li>Device information (browser type, OS — if you access our links)</li>
+                    <li>n8n workflow execution logs</li>
+                    <li>Proxy usage volume and data consumption</li>
+                </ul>
 
-        <div class="legal-section reveal">
-            <h2>2. How We Use Your Information</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Purpose</th>
-                        <th>Data Used</th>
-                        <th>Legal Basis</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Process and fulfill orders</td>
-                        <td>Phone number, order details</td>
-                        <td>Contract performance</td>
-                    </tr>
-                    <tr>
-                        <td>Deliver proxy credentials</td>
-                        <td>WhatsApp number</td>
-                        <td>Contract performance</td>
-                    </tr>
-                    <tr>
-                        <td>Send renewal reminders</td>
-                        <td>Phone number, order history</td>
-                        <td>Contract performance</td>
-                    </tr>
-                    <tr>
-                        <td>Handle refunds</td>
-                        <td>Phone number, transaction info</td>
-                        <td>Contract performance</td>
-                    </tr>
-                    <tr>
-                        <td>Verify free trial completion</td>
-                        <td>Phone number, survey ID</td>
-                        <td>Consent</td>
-                    </tr>
-                    <tr>
-                        <td>Fraud prevention</td>
-                        <td>Payment data, usage patterns</td>
-                        <td>Legitimate interest</td>
-                    </tr>
-                    <tr>
-                        <td>Service improvement</td>
-                        <td>Aggregated usage data</td>
-                        <td>Legitimate interest</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+                <h3>1.3 Information from Third Parties</h3>
+                <ul>
+                    <li><strong>Payment Processor:</strong> Transaction status, payment confirmation, payment metadata</li>
+                    <li><strong>Meta / WhatsApp:</strong> Message metadata via WhatsApp Business API</li>
+                    <li><strong>Survey Partner:</strong> Free trial survey completion verification</li>
+                    <li><strong>Vetted Infrastructure Partners:</strong> Proxy allocation data, proxy status</li>
+                </ul>
 
-        <div class="legal-section reveal">
-            <h2>3. Free Trial Data</h2>
-            <p>When you participate in our free trial program:</p>
-            <ul>
-                <li>We collect your phone number to verify daily limits</li>
-                <li>We receive survey completion confirmation from our survey partner</li>
-                <li>We log free trial usage (timestamp, survey ID, proxy assigned)</li>
-                <li>We do NOT store your free trial browsing activity</li>
-                <li>Free trial proxies are hosted on Bunche's own infrastructure</li>
-            </ul>
-            <p>Free trial data is retained for 90 days, then anonymized for analytics.</p>
-        </div>
+                <h2>2. How We Use Your Information</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Purpose</th>
+                            <th>Data Used</th>
+                            <th>Legal Basis</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Process and fulfill orders</td>
+                            <td>Phone number, order details</td>
+                            <td>Contract performance</td>
+                        </tr>
+                        <tr>
+                            <td>Deliver proxy credentials</td>
+                            <td>WhatsApp number</td>
+                            <td>Contract performance</td>
+                        </tr>
+                        <tr>
+                            <td>Send renewal reminders</td>
+                            <td>Phone number, order history</td>
+                            <td>Contract performance</td>
+                        </tr>
+                        <tr>
+                            <td>Handle refunds</td>
+                            <td>Phone number, transaction info</td>
+                            <td>Contract performance</td>
+                        </tr>
+                        <tr>
+                            <td>Verify free trial completion</td>
+                            <td>Phone number, survey ID</td>
+                            <td>Consent</td>
+                        </tr>
+                        <tr>
+                            <td>Fraud prevention</td>
+                            <td>Payment data, usage patterns</td>
+                            <td>Legitimate interest</td>
+                        </tr>
+                        <tr>
+                            <td>Service improvement</td>
+                            <td>Aggregated usage data</td>
+                            <td>Legitimate interest</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-        <div class="legal-section reveal">
-            <h2>4. Data Sharing</h2>
-            <p>We do NOT sell your data. We share data only with:</p>
+                <h2>3. Free Trial Data</h2>
+                <p>When you participate in our free trial program:</p>
+                <ul>
+                    <li>We collect your phone number to verify daily limits</li>
+                    <li>We receive survey completion confirmation from our survey partner</li>
+                    <li>We log free trial usage (timestamp, survey ID, proxy assigned)</li>
+                    <li>We do NOT store your free trial browsing activity</li>
+                    <li>Free trial proxies are hosted on Bunche's own infrastructure</li>
+                </ul>
+                <p>Free trial data is retained for 90 days, then anonymized for analytics.</p>
 
-            <h3>4.1 Service Providers</h3>
-            <ul>
-                <li><strong>Payment processor:</strong> For payment processing</li>
-                <li><strong>Meta / WhatsApp:</strong> For message delivery via WhatsApp Business API</li>
-                <li><strong>Vetted Infrastructure Partners:</strong> For proxy allocation (no personal data beyond proxy requirements)</li>
-                <li><strong>Survey Partner:</strong> For free trial survey verification</li>
-                <li><strong>n8n:</strong> For workflow processing</li>
-            </ul>
+                <h2>4. Data Sharing</h2>
+                <p>We do NOT sell your data. We share data only with:</p>
 
-            <h3>4.2 Infrastructure Partners Disclosure</h3>
-            <p>Bunche sources proxy infrastructure from vetted third-party providers. We do not publicly name our infrastructure partners. These partners receive only the minimum data required to allocate proxy IPs (e.g., country selection). We require all partners to comply with applicable data protection laws.</p>
+                <h3>4.1 Service Providers</h3>
+                <ul>
+                    <li><strong>Payment Processor:</strong> For payment processing</li>
+                    <li><strong>Meta / WhatsApp:</strong> For message delivery via WhatsApp Business API</li>
+                    <li><strong>Vetted Infrastructure Partners:</strong> For proxy allocation (no personal data beyond proxy requirements)</li>
+                    <li><strong>Survey Partner:</strong> For free trial survey verification</li>
+                    <li><strong>n8n:</strong> For workflow processing</li>
+                </ul>
 
-            <h3>4.3 Legal Requirements</h3>
-            <p>We may disclose information if required by:</p>
-            <ul>
-                <li>Court order or legal process</li>
-                <li>Nigerian law enforcement (with valid subpoena)</li>
-                <li>NDPC (Nigeria Data Protection Commission) investigations</li>
-                <li>Prevention of fraud or illegal activity</li>
-            </ul>
+                <h3>4.2 Infrastructure Partners Disclosure</h3>
+                <p>Bunche sources proxy infrastructure from vetted third-party providers. We do not publicly name our infrastructure partners. These partners receive only the minimum data required to allocate proxy IPs (e.g., country selection). We require all partners to comply with applicable data protection laws.</p>
 
-            <h3>4.4 Business Transfers</h3>
-            <p>If Bunche is acquired or merged, customer data may be transferred to the acquiring entity. You will be notified via WhatsApp before any transfer.</p>
-        </div>
+                <h3>4.3 Legal Requirements</h3>
+                <p>We may disclose information if required by:</p>
+                <ul>
+                    <li>Court order or legal process</li>
+                    <li>Nigerian law enforcement (with valid subpoena)</li>
+                    <li>NDPC (Nigeria Data Protection Commission) investigations</li>
+                    <li>Prevention of fraud or illegal activity</li>
+                </ul>
 
-        <div class="legal-section reveal">
-            <h2>5. Data Retention</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Data Type</th>
-                        <th>Retention Period</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Order history</td>
-                        <td>7 years (for tax/audit)</td>
-                    </tr>
-                    <tr>
-                        <td>Customer contact info</td>
-                        <td>Until deletion or 2 years of inactivity</td>
-                    </tr>
-                    <tr>
-                        <td>Payment records</td>
-                        <td>7 years</td>
-                    </tr>
-                    <tr>
-                        <td>WhatsApp messages (processed)</td>
-                        <td>90 days</td>
-                    </tr>
-                    <tr>
-                        <td>n8n execution logs</td>
-                        <td>30 days</td>
-                    </tr>
-                    <tr>
-                        <td>Free trial usage</td>
-                        <td>90 days, then anonymized</td>
-                    </tr>
-                    <tr>
-                        <td>Recovery PIN (hashed)</td>
-                        <td>Until account deletion</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+                <h3>4.4 Business Transfers</h3>
+                <p>If Bunche is acquired or merged, customer data may be transferred to the acquiring entity. You will be notified via WhatsApp before any transfer.</p>
 
-        <div class="legal-section reveal">
-            <h2>6. Your Rights</h2>
+                <h2>5. Data Retention</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data Type</th>
+                            <th>Retention Period</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Order history</td>
+                            <td>7 years (for tax/audit)</td>
+                        </tr>
+                        <tr>
+                            <td>Customer contact info</td>
+                            <td>Until deletion or 2 years of inactivity</td>
+                        </tr>
+                        <tr>
+                            <td>Payment records</td>
+                            <td>7 years</td>
+                        </tr>
+                        <tr>
+                            <td>WhatsApp messages (processed)</td>
+                            <td>90 days</td>
+                        </tr>
+                        <tr>
+                            <td>n8n execution logs</td>
+                            <td>30 days</td>
+                        </tr>
+                        <tr>
+                            <td>Free trial usage</td>
+                            <td>90 days, then anonymized</td>
+                        </tr>
+                        <tr>
+                            <td>Recovery PIN (hashed)</td>
+                            <td>Until account deletion</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-            <h3>Under NDPR/NDPA (Nigeria):</h3>
-            <ul>
-                <li>Know what personal data we hold about you</li>
-                <li>Request access to your data</li>
-                <li>Request correction of inaccurate data</li>
-                <li>Request deletion of your data</li>
-                <li>Lodge a complaint with the Nigeria Data Protection Commission (NDPC)</li>
-            </ul>
+                <h2>6. Your Rights</h2>
 
-            <h3>Under GDPR (EU Users):</h3>
-            <ul>
-                <li>Right to access</li>
-                <li>Right to rectification</li>
-                <li>Right to erasure ("right to be forgotten")</li>
-                <li>Right to restrict processing</li>
-                <li>Right to data portability</li>
-                <li>Right to object</li>
-                <li>Rights related to automated decision-making</li>
-            </ul>
+                <h3>Under NDPR/NDPA (Nigeria):</h3>
+                <ul>
+                    <li>Know what personal data we hold about you</li>
+                    <li>Request access to your data</li>
+                    <li>Request correction of inaccurate data</li>
+                    <li>Request deletion of your data</li>
+                    <li>Lodge a complaint with the Nigeria Data Protection Commission (NDPC)</li>
+                </ul>
 
-            <p><strong>How to Exercise Your Rights:</strong> Contact us via WhatsApp or email. We will respond within 30 days.</p>
-        </div>
+                <h3>Under GDPR (EU Users):</h3>
+                <ul>
+                    <li>Right to access</li>
+                    <li>Right to rectification</li>
+                    <li>Right to erasure ("right to be forgotten")</li>
+                    <li>Right to restrict processing</li>
+                    <li>Right to data portability</li>
+                    <li>Right to object</li>
+                    <li>Rights related to automated decision-making</li>
+                </ul>
 
-        <div class="legal-section reveal">
-            <h2>7. Data Security</h2>
+                <p><strong>How to Exercise Your Rights:</strong> Contact us via WhatsApp or email. We will respond within 30 days.</p>
 
-            <h3>7.1 Technical Measures</h3>
-            <ul>
-                <li><strong>Encryption:</strong> All data in transit uses TLS 1.2+</li>
-                <li><strong>Hashing:</strong> PINs stored as bcrypt hashes (never plaintext)</li>
-                <li><strong>API Security:</strong> All API keys stored securely in n8n credentials</li>
-                <li><strong>Webhook Verification:</strong> All incoming webhooks (our payment processor, survey partner) verified for authenticity</li>
-                <li><strong>Credential Rotation:</strong> Proxy credentials rotated on refund, expiry, and free trial completion</li>
-            </ul>
+                <h2>7. Data Security</h2>
 
-            <h3>7.2 Organizational Measures</h3>
-            <ul>
-                <li>Access to customer data restricted to authorized personnel only</li>
-                <li>Admin commands logged for audit</li>
-                <li>Regular security reviews</li>
-                <li>Incident response plan in place</li>
-            </ul>
+                <h3>7.1 Technical Measures</h3>
+                <ul>
+                    <li><strong>Encryption:</strong> All data in transit uses TLS 1.2+</li>
+                    <li><strong>Hashing:</strong> PINs stored as bcrypt hashes (never plaintext)</li>
+                    <li><strong>API Security:</strong> All API keys stored securely in n8n credentials</li>
+                    <li><strong>Webhook Verification:</strong> All incoming webhooks (payment processor, survey partner) verified for authenticity</li>
+                    <li><strong>Credential Rotation:</strong> Proxy credentials rotated on refund, expiry, and free trial completion</li>
+                </ul>
 
-            <h3>7.3 Proxy Security</h3>
-            <ul>
-                <li>Bunche controls the authentication layer — all proxy access requires Bunche credentials</li>
-                <li>Credentials are revoked instantly on refund, expiry, or abuse detection</li>
-                <li>Free trial proxies use shared credentials with 2-hour TTL</li>
-                <li>We do not monitor or inspect proxy traffic content</li>
-            </ul>
-        </div>
+                <h3>7.2 Organizational Measures</h3>
+                <ul>
+                    <li>Access to customer data restricted to authorized personnel only</li>
+                    <li>Admin commands logged for audit</li>
+                    <li>Regular security reviews</li>
+                    <li>Incident response plan in place</li>
+                </ul>
 
-        <div class="legal-section reveal">
-            <h2>8. Children's Privacy</h2>
-            <p>Bunche does not knowingly collect data from users under 18. If you are under 18, do not use our services.</p>
-        </div>
+                <h3>7.3 Proxy Security</h3>
+                <ul>
+                    <li>Bunche controls the authentication layer — all proxy access requires Bunche credentials</li>
+                    <li>Credentials are revoked instantly on refund, expiry, or abuse detection</li>
+                    <li>Free trial proxies use shared credentials with 2-hour TTL</li>
+                    <li>We do not monitor or inspect proxy traffic content</li>
+                </ul>
 
-        <div class="legal-section reveal">
-            <h2>9. International Data Transfers</h2>
-            <p>Your data may be transferred internationally as necessary for service delivery, including:</p>
-            <ul>
-                <li><strong>Payment processing</strong> via our payment processor (Nigeria)</li>
-                <li><strong>Message delivery</strong> via Meta/WhatsApp (USA/International)</li>
-                <li><strong>Proxy infrastructure</strong> sourced from vetted partners (various jurisdictions)</li>
-            </ul>
-            <p>By using Bunche, you consent to international data transfers necessary for service delivery.</p>
-        </div>
+                <h2>8. Children's Privacy</h2>
+                <p>Bunche does not knowingly collect data from users under 18. If you are under 18, do not use our services.</p>
 
-        <div class="legal-section reveal">
-            <h2>10. Cookies and Tracking</h2>
-            <p>Bunche WhatsApp interface does not use cookies. If you click links to our legal documents (Terms, Privacy, AUP), our web hosting may use standard cookies. We do not use third-party tracking cookies on our properties.</p>
-        </div>
+                <h2>9. International Data Transfers</h2>
+                <p>Your data may be transferred internationally as necessary for service delivery, including:</p>
+                <ul>
+                    <li><strong>Payment processing</strong> via our payment processor (Nigeria)</li>
+                    <li><strong>Message delivery</strong> via Meta/WhatsApp (USA/International)</li>
+                    <li><strong>Proxy infrastructure</strong> sourced from vetted partners (various jurisdictions)</li>
+                </ul>
+                <p>By using Bunche, you consent to international data transfers necessary for service delivery.</p>
 
-        <div class="legal-section reveal">
-            <h2>11. Changes to Privacy Policy</h2>
-            <p>We may update this Privacy Policy. Changes will be communicated via:</p>
-            <ul>
-                <li>Updated "Effective Date" at the top of this document</li>
-                <li>WhatsApp notification for material changes</li>
-            </ul>
-            <p>Continued use of Bunche after changes constitutes acceptance.</p>
-        </div>
+                <h2>10. Cookies and Tracking</h2>
+                <p>Bunche WhatsApp interface does not use cookies. If you click links to our legal documents (Terms, Privacy, AUP), our web hosting may use standard cookies. We do not use third-party tracking cookies on our properties.</p>
 
-        <div class="legal-section reveal">
-            <h2>12. Contact Us</h2>
-            <p><strong>Bunche</strong></p>
-            <p><strong>WhatsApp:</strong> +234 XXX XXX XXXX</p>
-            <p><strong>Email:</strong> privacy@bunche.com</p>
-            <p style="margin-top: 20px;"><strong>Nigeria Data Protection Commission:</strong></p>
-            <p>www.ndpc.gov.ng</p>
-            <p style="margin-top: 20px; font-size: 0.9rem; color: var(--text-muted);"><em>This Privacy Policy is incorporated by reference into our Terms of Service.</em></p>
+                <h2>11. Changes to Privacy Policy</h2>
+                <p>We may update this Privacy Policy. Changes will be communicated via:</p>
+                <ul>
+                    <li>Updated "Effective Date" at the top of this document</li>
+                    <li>WhatsApp notification for material changes</li>
+                </ul>
+                <p>Continued use of Bunche after changes constitutes acceptance.</p>
+
+                <h2>12. Contact Us</h2>
+                <p><strong>Bunche</strong><br>
+<p><strong>WhatsApp:</strong> +2347032981049<br>
+                <strong>Email:</strong> hello@bunche.ng</p>
+                <p><strong>Nigeria Data Protection Commission:</strong><br>
+                www.ndpc.gov.ng</p>
+
+                <hr>
+                <p style="font-size: 0.875rem; color: var(--text-muted);"><em>This Privacy Policy is incorporated by reference into our Terms of Service.</em></p>
+            </div>
         </div>
     </main>
 
     <!-- Footer -->
     <footer class="footer">
-        <div class="footer-content">
-            <a href="index.html" class="footer-brand">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                </svg>
-                Bunche
-            </a>
-            <div class="footer-links">
-                <a href="terms.html">Terms</a>
-                <a href="privacy.html">Privacy</a>
-                <a href="acceptable-use.html">Acceptable Use</a>
+        <div class="footer-container">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-logo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                        Bunche
+                    </div>
+                    <p class="footer-desc">Your trusted plug for proxies in Nigeria. Buy ISP, Datacenter, Residential & Mobile proxies on WhatsApp.</p>
+                    <div class="footer-social">
+                        <a href="https://wa.me/2347032981049" aria-label="WhatsApp">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        </a>
+                        <a href="mailto:hello@bunche.ng" aria-label="Email">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="footer-title">Products</h4>
+                    <ul class="footer-links">
+                        <li><a href="index.html#pricing">ISP Proxies</a></li>
+                        <li><a href="index.html#pricing">Datacenter</a></li>
+                        <li><a href="index.html#pricing">Residential</a></li>
+                        <li><a href="index.html#pricing">Mobile 4G</a></li>
+                        <li><a href="index.html#pricing">Free Trial</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="footer-title">Company</h4>
+                    <ul class="footer-links">
+                        <li><a href="index.html#how-it-works">How It Works</a></li>
+                        <li><a href="index.html#testimonials">Testimonials</a></li>
+                        <li><a href="index.html#faq">FAQ</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="footer-title">Legal</h4>
+                    <ul class="footer-links">
+                        <li><a href="terms.html">Terms of Service</a></li>
+                        <li><a href="privacy.html">Privacy Policy</a></li>
+                        <li><a href="acceptable-use.html">Acceptable Use</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p class="footer-copyright">© 2026 Bunche. Made with ❤️ in Lagos.</p>
+                <div class="footer-legal">
+                    <a href="terms.html">Terms</a>
+                    <a href="privacy.html">Privacy</a>
+                    <a href="acceptable-use.html">AUP</a>
+                </div>
             </div>
         </div>
-        <p class="footer-copyright">© 2026 Bunche. Made in Lagos, Nigeria.</p>
     </footer>
 
     <script>
-        // Mobile menu toggle
         function toggleMobileMenu() {
             const hamburger = document.querySelector('.hamburger');
             const navLinks = document.querySelector('.nav-links');
@@ -783,39 +800,12 @@
             navLinks.classList.toggle('active');
         }
 
-        // Close mobile menu when clicking a link
         document.querySelectorAll('.nav-links a').forEach(link => {
             link.addEventListener('click', () => {
                 document.querySelector('.hamburger').classList.remove('active');
                 document.querySelector('.nav-links').classList.remove('active');
             });
         });
-
-        // Nav scroll effect
-        window.addEventListener('scroll', () => {
-            const nav = document.querySelector('.nav');
-            if (window.scrollY > 50) {
-                nav.classList.add('scrolled');
-            } else {
-                nav.classList.remove('scrolled');
-            }
-        });
-
-        // Reveal on scroll
-        const revealElements = document.querySelectorAll('.reveal');
-        
-        const revealOnScroll = () => {
-            revealElements.forEach(el => {
-                const elementTop = el.getBoundingClientRect().top;
-                const windowHeight = window.innerHeight;
-                if (elementTop < windowHeight - 100) {
-                    el.classList.add('visible');
-                }
-            });
-        };
-
-        window.addEventListener('scroll', revealOnScroll);
-        revealOnScroll(); // Initial check
     </script>
 </body>
 </html>
