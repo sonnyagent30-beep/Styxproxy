@@ -6,254 +6,297 @@
 
 ## 1. Acceptance of Terms
 
-By accessing or using Bunche ("we," "us," or "our"), you ("you" or "user") agree to be bound by these Terms of Service. If you do not agree, do not use our services.
+By accessing or using Bunche's services, you agree to be bound by these Terms of Service, our Privacy Policy, and our Acceptable Use Policy. If you do not agree to these terms, do not use our services.
 
-Your first interaction with Bunche (sending a WhatsApp message) constitutes acceptance of these Terms, our Privacy Policy, and our Acceptable Use Policy.
-
----
-
-## 2. Description of Service
-
-Bunche operates a zero-inventory proxy retail platform that resells proxy services sourced from vetted third-party infrastructure partners.
-
-**Proxy Service:** We sell access to proxy IP addresses under our own branded credentials. We do not disclose our underlying infrastructure partners.
-
-**Branding:** All proxy credentials delivered to customers are issued under Bunche's branding (e.g., proxy1.bunche.ng). Customers interact with Bunche's proxy infrastructure, not the underlying providers.
-
-**Payment Processing:** Payments are processed by our third-party payment processor. We are not a bank or financial institution.
-
-**Automation:** Orders are processed automatically through our n8n workflow automation system.
-
-**No Account Required:** We do not require user accounts. Your WhatsApp phone number serves as your identity.
+Your first interaction with Bunche constitutes acceptance of these terms, regardless of channel — website, Telegram, or WhatsApp.
 
 ---
 
-## 3. Eligibility
+## 2. The Three Channels
 
-You must:
-- Be at least 18 years old
-- Have a valid phone number with WhatsApp
-- Not be prohibited from using our services under applicable Nigerian or international law
-- Not use our services for any illegal purpose
+Bunche operates across three independent channels. All three channels offer the same products and pricing. No channel requires you to use another.
 
----
+### 2.1 Instant (Website) — bunche.ng
 
-## 4. Products & Pricing
+The primary order path. No account required. No personal data collected beyond what is necessary to process your order.
 
-All prices are in Nigerian Naira (NGN). Prices are subject to change with 7 days' notice.
+- Select product → pay via Flutterwave → receive IP immediately on screen
+- No registration. No phone number. No email required.
+- Order number (Flutterwave transaction reference) is your only order identifier
+- Management portal: bunche.ng/manage — enter your order number to check status, renew, or raise a ban claim
+- Contact support: redirected to Telegram or WhatsApp of your choice from the management portal
 
-### 🌐 ISP Proxies — Default (IPv4)
+### 2.2 Telegram Bot (@bunche)
 
-| Product | Price | Countries |
-|---------|-------|-----------|
-| ISP Standard | ₦6,500/mo | UK, US, Germany, France, Canada |
-| ISP Premium | ₦7,500/mo | Japan, Australia, Brazil, Singapore, South Korea |
+Full ordering and support via the Bunche Telegram bot.
 
-### 🖥️ Datacenter Proxies
+- Order via chat → payment link → IP delivered in Telegram
+- Identity: your Telegram chat ID (not your phone number)
+- Optional: set a PIN to secure your account
+- Contact: @bunche on Telegram
 
-| Product | Price | Type |
-|---------|-------|-------|
-| DC Static | ₦3,000/mo | IPv4 |
-| DC Static IPv6 | ₦2,500/mo | IPv6 (available on request) |
-| DC Rotating | ₦4,500/GB | IPv4 |
+### 2.3 WhatsApp Bot
 
-### 🏠 Residential Proxies
+Full ordering and support via the Bunche WhatsApp Business bot.
 
-| Product | Price | Notes |
-|---------|-------|-------|
-| Residential 5GB | ₦9,500 | IPv4, no expiry |
-| Residential 10GB | ₦18,000 | IPv4, no expiry |
-| Residential | ₦1,950/GB | IPv4, no expiry (GB-based) |
-| Residential IPv6 | ₦1,500/GB | IPv6 on request |
-
-### 📱 Mobile Proxies
-
-| Product | Price | Notes |
-|---------|-------|-------|
-| Mobile 4G 5GB | ₦20,000 | 30-day window |
-| Mobile 4G 10GB | ₦38,000 | 30-day window |
-| Mobile 4G | ₦4,000/GB | 30-day window |
-
-### IPv6 — Available on Request
-
-IPv6 is available for customers who specifically request it. Not all platforms support IPv6. To order IPv6, tell us "I need IPv6" when ordering.
+- Order via chat → payment link → IP delivered in WhatsApp
+- Identity: your WhatsApp phone number (hashed, not stored in plain text)
+- Optional: set a PIN to secure your account
+- Contact: via the Bunche WhatsApp Business number
 
 ---
 
-## 5. Protocols
+## 3. No Account Required (Website)
 
-Both protocols are supported on all products:
+Customers who order via bunche.ng do not create an account. We do not collect:
 
-| Protocol | Port | Best For |
-|----------|------|---------|
-| **HTTP/HTTPS** | 3128 | Web browsing, browser automation |
-| **SOCKS5** | 1080 | All traffic types |
+- Your name
+- Your email address (unless you voluntarily provide it for a receipt)
+- Your phone number
+- Your IP address
+- Any identifying information
 
----
-
-## 6. Product-Specific Terms
-
-**ISP / Datacenter:**
-- Unlimited data within 30-day period
-- Same IP kept on renewal if renewed before expiry
-- New IP generated if renewed after expiry
-
-**Residential:**
-- Data **never expires** — buy 5GB, use 2GB, still have 3GB
-- Top-ups add GB to existing pool
-- 5GB and 10GB one-time packages available
-
-**Mobile:**
-- 30-day window to use allocated data
-- Unused GB is **LOST** on renewal or top-up
-- Proxy stops working at 0GB
-- 5GB and 10GB one-time packages available
+Your order number (Flutterwave transaction reference) is the only identifier for website orders.
 
 ---
 
-## 7. Payment Terms
+## 4. Ordering
 
-- Payment must be received before proxy is generated
-- If payment is not received within 1 hour, order is cancelled
-- If payment fails after delivery, we revoke proxy access
+### 4.1 How to Order
 
----
+**Via Website:**
+1. Select your product on bunche.ng
+2. Complete payment via Flutterwave (card, bank transfer, USSD, or QR)
+3. Your IP and credentials are displayed immediately on the thank-you page
+4. An email receipt is sent if you provided your email address
 
-## 8. Refund Policy
+**Via Telegram or WhatsApp:**
+1. Send your order request to the Bunche bot
+2. Bunche sends a Flutterwave payment link
+3. Complete payment via the link
+4. Your IP and credentials are delivered in the same chat
 
-### Time-Based Products (ISP & DC)
-**24-Hour Window Only.**
+### 4.2 Pricing
 
-- **24 hours from delivery:** Refund or replacement if dead on arrival
-- **After 24 hours:** No refund — only IP replacement
+All prices are in Nigerian Naira (₦) and include applicable taxes. Prices are displayed on bunche.ng. Chat orders receive the same pricing as website orders.
 
-### GB-Based Products (Residential & Mobile)
-**7-Day Window.**
+| Product | Price |
+|---------|-------|
+| ISP UK | ₦6,500/month |
+| ISP US | ₦6,500/month |
+| ISP DE | ₦7,500/month |
+| ISP Japan | ₦7,500/month |
+| Datacenter | ₦2,500/month |
+| Residential 5GB | ₦5,000 |
+| Residential 10GB | ₦9,000 |
+| Mobile 4G 5GB | ₦20,000 |
+| Mobile 4G 10GB | ₦35,000 |
 
-- **7 days from delivery:** Refund for unused GB
-- **After 7 days:** No refund
+Prices are subject to change. Price changes do not affect orders already placed and paid.
 
-### Refunds ARE Allowed In:
-- Proxy never worked (verified)
-- Wrong IP delivered
-- Fraudulent order
-- Duplicate charge
-- Admin-approved exemption
+### 4.3 Payment
 
-### Refunds are NOT Allowed For:
-- Changed mind
-- Platform banned the IP (after 24 hours)
-- Don't need it anymore
-- Found cheaper elsewhere
+All payments are processed by Flutterwave. Bunche does not store your card details or bank information.
 
----
+Payment methods accepted: Visa, Mastercard, Verve, Bank Transfer, USSD, QR.
 
-## 9. Free Trial Service
+A Flutterwave transaction reference (tx_ref) is issued for every payment. This tx_ref is your order number. Keep it to manage your order.
 
-- **Daily Limit:** 3 free trials per phone number per day
-- **Duration:** 2 hours
-- **Reliability:** NOT guaranteed
-- **For testing only** — not production
+### 4.4 Order Fulfilment
 
----
+**Website orders:** IP and credentials are displayed on the thank-you page immediately after payment is confirmed. Flutterwave webhook typically confirms payment within 10–30 seconds.
 
-## 10. Delivery
-
-Proxy credentials delivered via WhatsApp within 2 minutes of payment.
-
-All credentials issued under Bunche's branding.
+**Chat orders:** IP and credentials are delivered in the same Telegram or WhatsApp chat within 2 minutes of payment confirmation.
 
 ---
 
-## 11. Service Availability
+## 5. Proxy Credentials
 
-We perform pre-payment health checks. If IP fails, we replace. If replacement fails, automatic refund.
+### 5.1 Bunche Auth Layer
 
----
+All proxy credentials delivered to customers are issued under Bunche's branding (e.g., proxy1.bunche.ng, proxy2.bunche.ng). Customers interact with Bunche's proxy infrastructure, not directly with underlying proxy providers.
 
-## 12. Customer Support
+Bunche controls the authentication layer. This enables:
+- Instant credential revocation on refund, abuse, or expiry
+- Free trial credential recycling
+- Ban claim investigation and replacement
 
-Automated via WhatsApp. Human admin intervention for:
-- Ban claims with screenshot (within 24 hours)
-- Lost account recovery
-- Refund approval
-- Fraudulent activity
+### 5.2 Credential Delivery
 
----
+| Channel | How you receive credentials |
+|---------|---------------------------|
+| Website | Displayed on thank-you page |
+| Website (optional email) | Sent to email if provided |
+| Telegram | Sent in Telegram chat |
+| WhatsApp | Sent in WhatsApp chat |
 
-## 13. Security & Recovery
+### 5.3 Credential Validity
 
-**Phone-Based Identity:** Your WhatsApp number is your identifier.
-
-**Recovery Options:**
-- **PIN:** 4-digit PIN for verification
-- **OTP:** Codes via WhatsApp
-
-**Data Security:**
-- TLS 1.2+ for all data in transit
-- PINs stored hashed (bcrypt)
-- API keys stored securely in n8n
+- Monthly plans: valid until the end of the purchased month
+- Data plans (Residential, Mobile): valid until data quota is exhausted or plan expires, whichever comes first
+- Credentials are automatically deactivated upon expiry
 
 ---
 
-## 14. Acceptable Use
+## 6. Acceptable Use
 
-Prohibited:
-- Fraud, scams, financial crimes
-- Hacking, unauthorized access
-- Phishing, social engineering
-- Spam, unsolicited communications
-- Copyright infringement
-- Malware, viruses
-- Any illegal activity under Nigerian law
+You agree to use Bunche proxies only for lawful purposes. See our Acceptable Use Policy for full details.
 
----
+**Prohibited uses include:**
+- Sending spam or unsolicited commercial messages
+- Fraud, scams, or financial crimes
+- Unauthorized access to computer systems or networks
+- Illegal activities of any kind
+- Network disruption or denial-of-service attacks
+- Credential sharing (each credential is for one user)
 
-## 15. Limitation of Liability
-
-Bunche is not liable for indirect, incidental, or consequential damages. Our total liability shall not exceed the amount you paid in the 30 days preceding the claim.
-
-**Free Trial:** Liability LIMITED TO ZERO — provided AS-IS.
+Violations may result in immediate credential revocation without refund.
 
 ---
 
-## 16. Indemnification
+## 7. Ban Claims
 
-You agree to indemnify Bunche from any claims arising from your use of our services.
+If your proxy IP is blocked or banned by a website or service:
 
----
+### Via Website (Management Portal)
+1. Go to bunche.ng/manage
+2. Enter your order number (tx_ref)
+3. Select "Report a Ban"
+4. Upload a screenshot showing the ban or block
+5. Choose Telegram or WhatsApp to continue your support conversation
 
-## 17. Account Termination
+### Via Chat (Telegram or WhatsApp)
+Send a message to the Bunche bot: "Ban claim for order [tx_ref]"
 
-We may suspend or terminate access if you:
-- Violate these terms
-- Violate Acceptable Use Policy
-- Fail to pay
-- Engage in fraudulent activity
-- Abuse the free trial system
-
----
-
-## 18. Changes to Terms
-
-Changes communicated via:
-- Updated "Effective Date" at top
-- WhatsApp notification for material changes
-
-Continued use after changes = acceptance.
+Ban claims are reviewed by a human admin. Replacement credentials are issued at Bunche's discretion based on evidence provided.
 
 ---
 
-## 19. Governing Law
+## 8. Refunds
 
-Governed by laws of the Federal Republic of Nigeria.
+### 8.1 Refund Window
+
+You may request a refund within 24 hours of receiving your proxy credentials if:
+- The proxy IP does not work at the time of delivery (not blocked by your target website)
+- The service is materially different from what was described
+
+### 8.2 How to Request a Refund
+
+Request a refund via the Bunche management portal (bunche.ng/manage) or by contacting support via Telegram or WhatsApp. All refund requests are reviewed manually.
+
+### 8.3 Refund Processing
+
+Approved refunds are processed within 5–10 business days to your original payment method.
+
+### 8.4 Non-Refundable Circumstances
+
+Refunds are not available for:
+- Requests made more than 24 hours after delivery
+- IPs blocked by your target website or service (this is a ban claim, not a refund matter)
+- Customer change of mind after the 24-hour window
+- Proxies that stopped working due to customer's misuse of the service
+- Data plans where more than 10% of the data quota has been used
 
 ---
 
-## 20. Contact
+## 9. Data and Expiry
 
-**WhatsApp:** +2347032981049
-**Email:** hello@bunche.ng
-**Website:** bunche-api-push.vercel.app
+### 9.1 Monthly Plans
 
-*These Terms of Service are incorporated by reference into our Privacy Policy and Acceptable Use Policy.*
+Unused days on monthly plans are not refundable or transferable. Your proxy access ends on the last day of your purchased period.
+
+### 9.2 Data Plans
+
+Unused data does not roll over to the next billing period. If you renew, you receive a fresh data quota.
+
+---
+
+## 10. Support
+
+Support is available via three channels:
+
+| Channel | How to reach |
+|---------|--------------|
+| Telegram | @bunche — for orders, support, ban claims |
+| WhatsApp | Bunche WhatsApp Business — for orders, support, ban claims |
+| Management Portal | bunche.ng/manage — check status, renew, raise ban claim |
+| Email | hello@bunche.ng |
+
+Response times: within 2 hours during business hours (9am–6pm WAT, Monday–Saturday).
+
+---
+
+## 11. Third-Party Services
+
+### 11.1 Proxy Providers
+
+Proxy IPs are sourced from vetted infrastructure partners. Bunche is not affiliated with, endorsed by, or responsible for the practices of any proxy provider.
+
+### 11.2 Payment Processing
+
+All payment processing is handled by Flutterwave. Your payment data is subject to Flutterwave's privacy policy and terms. Bunche does not store card details or bank account information.
+
+### 11.3 Theorem Reach (Free Trial)
+
+The free trial is supported by Theorem Reach surveys. Customers who participate in the free trial may encounter third-party survey offers. Bunche is not responsible for the content of third-party surveys.
+
+---
+
+## 12. Service Availability
+
+Bunche does not guarantee uninterrupted service. Proxy IPs may be blocked by websites or services at any time. See our Ban Claim policy (Section 7) for your recourse.
+
+We will make reasonable efforts to notify customers of planned maintenance via Telegram or WhatsApp.
+
+---
+
+## 13. Limitation of Liability
+
+To the maximum extent permitted by Nigerian law, Bunche shall not be liable for:
+
+- Any indirect, incidental, special, consequential, or punitive damages
+- Loss of profits, data, business, or goodwill arising from the use of our services
+- Any damages arising from proxy IPs being blocked or banned by third-party websites or services
+
+Our total liability for any claim shall not exceed the amount you paid for the affected service.
+
+---
+
+## 14. Indemnification
+
+You agree to indemnify and hold Bunche harmless from any claims, damages, or expenses arising from your use of our services in violation of these terms or applicable law.
+
+---
+
+## 15. Changes to These Terms
+
+We may update these terms from time to time. Material changes will be communicated via:
+- Telegram message (for Telegram customers)
+- WhatsApp message (for WhatsApp customers)
+- Notice on bunche.ng
+
+Changes to pricing take effect immediately for new orders. Changes to other terms take effect 14 days after notification.
+
+Your continued use of Bunche after any change constitutes acceptance of the updated terms.
+
+---
+
+## 16. Governing Law
+
+These terms are governed by the laws of the Federal Republic of Nigeria. Any disputes shall be subject to the jurisdiction of Nigerian courts.
+
+---
+
+## 17. Contact Us
+
+**Bunche**
+
+- **Telegram:** @bunche
+- **WhatsApp:** Available via bunche.ng/contact
+- **Email:** hello@bunche.ng
+- **Website:** bunche.ng
+- **Management Portal:** bunche.ng/manage
+
+---
+
+*Version: 2026-07-01*
