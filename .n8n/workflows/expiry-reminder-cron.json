@@ -25,8 +25,11 @@
       "parameters": {
         "operation": "select",
         "table": "orders",
-        "columns": "o.id, o.tx_ref, o.product, o.status,\n                    o.expires_at,\n                    o.data_used_gb, o.data_limit_gb,\n                    pa.platform, pa.platform_user_id, pa.display_name,\n                    c.id as customer_id",
-        "conditions": "o.status = 'fulfilled' AND o.expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'"
+        "columns": "o.order_id, o.tx_ref, o.plan_code, o.channel_origin,\n                    o.expires_at,\n                    o.data_total_gb, o.data_remaining_gb,\n                    pa.platform, pa.platform_user_id, pa.display_name",
+        "conditions": "o.status = 'fulfilled' AND o.expires_at IS NOT NULL AND o.expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'",
+        "options": {
+          "join": "INNER JOIN platform_accounts pa ON pa.id = o.platform_account_id"
+        }
       },
       "id": "wf7-expiring",
       "name": "Find Expiring Orders",
@@ -41,8 +44,11 @@
       "parameters": {
         "operation": "select",
         "table": "orders",
-        "columns": "o.id, o.tx_ref, o.product, o.status,\n                    o.data_used_gb, o.data_limit_gb,\n                    pa.platform, pa.platform_user_id, pa.display_name,\n                    c.id as customer_id",
-        "conditions": "o.status = 'fulfilled' AND o.data_limit_gb IS NOT NULL AND (o.data_used_gb / NULLIF(o.data_limit_gb, 0)) >= 0.8"
+        "columns": "o.order_id, o.tx_ref, o.plan_code, o.channel_origin,\n                    o.data_total_gb, o.data_remaining_gb,\n                    pa.platform, pa.platform_user_id, pa.display_name",
+        "conditions": "o.status = 'fulfilled' AND o.data_total_gb IS NOT NULL AND o.data_remaining_gb IS NOT NULL AND (o.data_total_gb - o.data_remaining_gb) / o.data_total_gb >= 0.8",
+        "options": {
+          "join": "INNER JOIN platform_accounts pa ON pa.id = o.platform_account_id"
+        }
       },
       "id": "wf7-high-usage",
       "name": "Find High Data Usage",
@@ -55,7 +61,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Merge expiring and high-usage into deduplicated list\nconst inputs = $input.all();\nconst seen = new Set();\nconst combined = [];\n\nfor (const item of inputs) {\n    const order = item.json;\n    if (!seen.has(order.id)) {\n        seen.add(order.id);\n        // Determine reason\n        if (order.expires_at && new Date(order.expires_at) <= new Date(Date.now() + 7*24*60*60*1000)) {\n            order.reminder_type = 'expiry';\n            const daysLeft = Math.ceil((new Date(order.expires_at) - new Date()) / (24*60*60*1000));\n            order.message = `\u26a0\ufe0f Your ${order.product} proxy expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}. Reply RENEW to keep access.`;\n        }\n        if (order.data_used_gb && order.data_limit_gb) {\n            const pct = Math.round((order.data_used_gb / order.data_limit_gb) * 100);\n            order.data_pct = pct;\n            order.message = order.message || `\ud83d\udcca You've used ${pct}% of your ${order.data_limit_gb}GB ${order.product} data. Reply UPGRADE for more.`;\n        }\n        combined.push({ json: order });\n    }\n}\nreturn combined;"
+        "functionCode": "// Merge expiring and high-usage into deduplicated list\nconst inputs = $input.all();\nconst seen = new Set();\nconst combined = [];\n\nfor (const item of inputs) {\n    const order = item.json;\n    if (!seen.has(order.order_id)) {\n        seen.add(order.order_id);\n        order.reminder_type = [];\n\n        // Expiry warning\n        if (order.expires_at) {\n            order.reminder_type.push('expiry');\n            const daysLeft = Math.ceil((new Date(order.expires_at) - new Date()) / (24*60*60*1000));\n            order.message = `\u26a0\ufe0f Your ${order.plan_code || order.channel_origin} proxy expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}. Reply RENEW to keep access.`;\n        }\n\n        // Data usage warning\n        if (order.data_total_gb && order.data_remaining_gb) {\n            const used = parseFloat(order.data_total_gb) - parseFloat(order.data_remaining_gb);\n            const pct = Math.round((used / parseFloat(order.data_total_gb)) * 100);\n            order.data_pct = pct;\n            if (!order.message) {\n                order.message = `\ud83d\udcca You've used ${pct}% of your ${order.plan_code || order.channel_origin} data (${used.toFixed(1)}/${order.data_total_gb}GB). Reply UPGRADE for more.`;\n            }\n        }\n\n        combined.push({ json: order });\n    }\n}\nreturn combined;"
       },
       "id": "wf7-merge",
       "name": "Merge + Deduplicate",
@@ -68,7 +74,7 @@
     },
     {
       "parameters": {
-        "message": "{{ $json.message }}\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nOrder: {{ $json.tx_ref }}\nProduct: {{ $json.product }}\n{{#if $json.expires_at }}Expires: {{ $json.expires_at }}\n{{/if}}{{#if $json.data_pct }}Data: {{ $json.data_pct }}% used\n{{/if}}"
+        "message": "{{ $json.message }}\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nOrder: {{ $json.tx_ref || $json.order_id }}\nProduct: {{ $json.plan_code || $json.channel_origin }}\n{{#if $json.expires_at }}Expires: {{ $json.expires_at }}\n{{/if}}{{#if $json.data_pct }}Data: {{ $json.data_pct }}% used\n{{/if}}"
       },
       "id": "wf7-send",
       "name": "Send Reminder",

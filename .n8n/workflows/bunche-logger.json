@@ -20,10 +20,10 @@
     },
     {
       "parameters": {
-        "functionCode": "// Normalize incoming log event against Bunche Logger schema\nconst body = $input.first().json;\n\n// Generate event_id if not provided\nconst event_id = body.event_id || require('uuid').v4();\n\n// Timestamp\nconst timestamp = body.timestamp || new Date().toISOString();\n\n// Build metadata JSON\nconst metadata = typeof body.metadata === 'object' ? body.metadata : {};\n\nreturn [{ json: {\n    event_id,\n    timestamp,\n    workflow: body.workflow || 'unknown',\n    workflow_id: body.workflow_id || '',\n    event_type: body.event_type || 'unknown',\n    status: body.status || 'success',\n    customer_hash: body.customer_hash || '',\n    duration_ms: body.duration_ms || null,\n    order_id: body.order_id || null,\n    correlation_id: body.correlation_id || '',\n    n8n_execution_id: body.n8n_execution_id || '',\n    metadata\n}}];"
+        "functionCode": "// Normalize incoming log event to match customer_audit_log schema\nconst body = $input.first().json || {};\n\n// Build the details JSONB object with all extra fields\nconst details = {\n    source: body.source || 'n8n-webhook',\n    workflow_id: body.workflow_id || null,\n    customer_hash: body.customer_hash || null,\n    duration_ms: body.duration_ms || null,\n    correlation_id: body.correlation_id || null,\n    n8n_execution_id: body.n8n_execution_id || null,\n    metadata: typeof body.metadata === 'object' ? body.metadata : {}\n};\n\n// request_id comes from the incoming request or is generated\nconst request_id = body.request_id || body.correlation_id || null;\n\nreturn [{ json: {\n    request_id,\n    event_type: body.event_type || 'unknown',\n    order_id: body.order_id || null,\n    workflow: body.workflow || 'unknown',\n    status: body.status || 'success',\n    details\n}}];"
       },
       "id": "wf11-normalize",
-      "name": "Normalize Event",
+      "name": "Normalize to Audit Schema",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
@@ -35,8 +35,8 @@
       "parameters": {
         "operation": "insert",
         "table": "customer_audit_log",
-        "columns": "event_id, timestamp, workflow, workflow_id, event_type, status, customer_hash, duration_ms, order_id, correlation_id, n8n_execution_id, metadata",
-        "values": "'{{ $json.event_id }}', '{{ $json.timestamp }}', '{{ $json.workflow }}', '{{ $json.workflow_id }}', '{{ $json.event_type }}', '{{ $json.status }}', '{{ $json.customer_hash }}', {{ $json.duration_ms || 'NULL' }}, '{{ $json.order_id }}', '{{ $json.correlation_id }}', '{{ $json.n8n_execution_id }}', '{{ JSON.stringify($json.metadata) }}'"
+        "columns": "request_id, event_type, order_id, workflow, status, details",
+        "values": "'{{ $json.request_id }}', '{{ $json.event_type }}', '{{ $json.order_id }}', '{{ $json.workflow }}', '{{ $json.status }}', '{{ JSON.stringify($json.details) }}'"
       },
       "id": "wf11-insert",
       "name": "Insert Audit Log",
@@ -50,7 +50,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\"status\":\"logged\",\"event_id\":\"{{ $json.event_id }}\"}"
+        "responseBody": "{\"status\":\"logged\",\"event_type\":\"{{ $json.event_type }}\"}"
       },
       "id": "wf11-respond",
       "name": "Respond 200",
@@ -67,14 +67,14 @@
       "main": [
         [
           {
-            "node": "Normalize Event",
+            "node": "Normalize to Audit Schema",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Normalize Event": {
+    "Normalize to Audit Schema": {
       "main": [
         [
           {

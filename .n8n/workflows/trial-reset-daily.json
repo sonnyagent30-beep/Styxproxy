@@ -1,5 +1,5 @@
 {
-  "name": "Trial Reset Daily",
+  "name": "Trial Reset Daily Midnight",
   "nodes": [
     {
       "parameters": {
@@ -12,100 +12,155 @@
           ]
         }
       },
-      "id": "tr-trigger",
+      "id": "wf10-trigger",
       "name": "Cron: Midnight Lagos",
       "type": "n8n-nodes-base.cron",
       "typeVersion": 1,
-      "position": [0, 300]
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "table": "customers",
-        "columns": "free_trials_used_today = 0, free_trial_offer_sent_today = FALSE, free_trial_declined_today = FALSE",
-        "where": "free_trials_used_today > 0 OR free_trial_offer_sent_today = TRUE OR free_trial_declined_today = TRUE"
-      },
-      "id": "tr-reset-customers",
-      "name": "Reset Customer Trial Counts",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 1,
-      "position": [200, 300]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "select",
         "table": "free_trials",
-        "columns": "COUNT(*) as expired_count",
-        "conditions": "status = 'active' AND expires_at < NOW()"
+        "columns": "ft.id, ft.platform_account_id, ft.status,\n                    ft.fulfilled_at, ft.total_hours,\n                    pa.platform, pa.platform_user_id",
+        "conditions": "ft.status = 'active'\n                    AND ft.total_hours > 0\n                    AND ft.fulfilled_at IS NOT NULL\n                    AND ft.fulfilled_at + (ft.total_hours * INTERVAL '1 hour') < NOW()",
+        "options": {
+          "join": "INNER JOIN platform_accounts pa ON pa.id = ft.platform_account_id"
+        }
       },
-      "id": "tr-check-expired",
-      "name": "Check Expired Trials",
+      "id": "wf10-find",
+      "name": "Find Expired Active Trials",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [200, 500]
+      "position": [
+        200,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "update",
         "table": "free_trials",
-        "columns": "status = 'dead'",
-        "where": "status = 'active' AND expires_at < NOW()"
+        "columns": "status",
+        "values": "'expired'",
+        "conditions": "status = 'active' AND total_hours > 0 AND fulfilled_at IS NOT NULL AND fulfilled_at + (total_hours * INTERVAL '1 hour') < NOW()"
       },
-      "id": "tr-mark-expired",
-      "name": "Mark Expired Trials",
+      "id": "wf10-expire",
+      "name": "Mark Trials Expired",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [400, 500]
+      "position": [
+        400,
+        0
+      ]
     },
     {
       "parameters": {
-        "functionCode": "// Log reset completion\nconst inputs = $input.all();\nconst resetResult = inputs[0]?.json || {};\nconst expiredResult = inputs[1]?.json || {};\n\nreturn [{\n  json: {\n    customers_reset: resetResult.affectedRows || 0,\n    trials_expired: expiredResult.expired_count || 0,\n    message: `Trial reset complete: ${resetResult.affectedRows || 0} customers reset, ${expiredResult.expired_count || 0} trials expired`\n  }\n}];"
+        "functionCode": "// Count how many trials were expired this run\nconst rows = $input.all();\nconst count = rows.length;\nconst messages = rows.map(r => {\n    const t = r.json;\n    return `${t.platform}:${t.platform_user_id?.slice(0,8) || 'unknown'} expired`;\n});\n\nreturn [{ json: {\n    expired_count: count,\n    details: JSON.stringify({ action: 'midnight_reset', expired_count: count, trials: messages })\n}}];"
       },
-      "id": "tr-log",
-      "name": "Log Reset Results",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [600, 400]
+      "id": "wf10-aggregate",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "insert",
         "table": "customer_audit_log",
-        "columns": "event_type, workflow, status, details",
-        "values": "'trial_reset', 'trial-reset-daily', 'success', '{\"action\": \"midnight_reset\", \"customers_reset\": {{$json.customers_reset}}, \"trials_expired\": {{$json.trials_expired}}}'"
+        "columns": "event_type, workflow, status, details, timestamp",
+        "values": "'trial_reset', 'trial-reset-daily', 'success', '{{ $json.details }}', NOW()"
       },
-      "id": "tr-audit",
+      "id": "wf10-audit",
       "name": "Audit Log",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [800, 400]
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udd04 Midnight Reset Complete\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\nExpired trials marked: {{ $json.expired_count }}\n\nAll systems ready for day {{ $now | date: 'YYYY-MM-DD' }}."
+      },
+      "id": "wf10-confirm",
+      "name": "Send Confirmation",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        0
+      ]
     }
   ],
   "connections": {
     "Cron: Midnight Lagos": {
       "main": [
-        [{ "node": "Reset Customer Trial Counts", "type": "main", "index": 0 }],
-        [{ "node": "Check Expired Trials", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Find Expired Active Trials",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Reset Customer Trial Counts": {
+    "Find Expired Active Trials": {
       "main": [
-        [{ "node": "Log Reset Results", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Mark Trials Expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Check Expired Trials": {
+    "Mark Trials Expired": {
       "main": [
-        [{ "node": "Mark Expired Trials", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Mark Expired Trials": {
+    "Aggregate Results": {
       "main": [
-        [{ "node": "Log Reset Results", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Log Reset Results": {
+    "Audit Log": {
       "main": [
-        [{ "node": "Audit Log", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -115,5 +170,10 @@
     "timezone": "Africa/Lagos"
   },
   "staticData": null,
-  "tags": ["trial", "cron", "reset", "midnight"]
+  "tags": [
+    "trial",
+    "cron",
+    "reset",
+    "midnight"
+  ]
 }

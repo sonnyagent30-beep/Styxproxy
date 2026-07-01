@@ -25,8 +25,11 @@
       "parameters": {
         "operation": "select",
         "table": "pending_trial_surveys",
-        "columns": "pts.id, pts.platform_account_id,\n                    pts.created_at as trial_requested_at,\n                    pa.platform, pa.platform_user_id, pa.display_name,\n                    c.id as customer_id,\n                    (SELECT COUNT(*) FROM pending_trial_surveys pts2\n                     WHERE pts2.platform_account_id = pts.platform_account_id\n                     AND pts2.created_at >= NOW() - INTERVAL '24 hours') as surveys_24h",
-        "conditions": "pts.credited = FALSE AND pts.created_at < NOW() - INTERVAL '2 hours'"
+        "columns": "pts.id,\n                    pa.platform,\n                    pa.platform_user_id,\n                    pa.display_name,\n                    ft.status as trial_status,\n                    ft.id as free_trial_id,\n                    (SELECT COUNT(*) FROM pending_trial_surveys ps2\n                     JOIN free_trials ft2 ON ft2.id = ps2.free_trial_id\n                     WHERE ps2.platform_account_id = pts.platform_account_id\n                     AND ft2.status = 'pending'\n                     AND ps2.created_at >= NOW() - INTERVAL '24 hours') as surveys_24h",
+        "conditions": "ft.status = 'pending'\n                    AND pts.free_trial_id IS NOT NULL\n                    AND pts.created_at < NOW() - INTERVAL '2 hours'",
+        "options": {
+          "join": "INNER JOIN free_trials ft ON ft.id = pts.free_trial_id\nINNER JOIN platform_accounts pa ON pa.id = pts.platform_account_id"
+        }
       },
       "id": "wf9-idle",
       "name": "Find Idle Trial Requests",
@@ -64,7 +67,7 @@
     },
     {
       "parameters": {
-        "message": "\ud83c\udf81 Reminder \u2014 Free Trial Still Available!\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\nHi{{#if $json.display_name}} {{$json.display_name}}{{/if}}! Your free trial access is still ready.\n\nYou started a trial request {{ $json.trial_requested_at }} but haven't completed a survey yet.\n\n\ud83d\udca1 Complete just 1 survey = 2 hours of free proxy access.\n\nTap the link to get started \u2192 {{ $env.THEOREM_REACH_SURVEY_URL }}\n\nQuestions? Just reply to this message."
+        "message": "\ud83c\udf81 Reminder \u2014 Free Trial Still Available!\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\nHi{{#if $json.display_name}} {{$json.display_name}}{{/if}}! Your free trial access is still ready.\n\nYou started a trial request but haven't completed a survey yet.\n\n\ud83d\udca1 Complete just 1 survey = 2 hours of free proxy access.\n\nTap the link to get started \u2192 {{ $env.THEOREM_REACH_SURVEY_URL }}\n\nQuestions? Just reply to this message."
       },
       "id": "wf9-send",
       "name": "Send Follow-Up",
