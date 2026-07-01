@@ -60,11 +60,27 @@ The `DATABASE_SCHEMA.md` uses `platform_accounts` as the core identity layer:
 
 ## Issue 3: Scale Problems at 10K Concurrent
 
-### Problem 1: No Connection Pooling
+### Problem 1: PostgreSQL Connection Exhaustion
 
 At 10K concurrent, PostgreSQL default `max_connections=100` exhausts immediately.
 
-**Fix:** Add `pgbouncer` service to `docker-compose.yml` (SCALE-1 from planning).
+**Fix:** FastAPI uses `asyncpg` + SQLAlchemy async sessions. Each request borrows a connection from the async pool, returns it immediately after the query — no connection held while waiting on I/O. Configure:
+
+```python
+# FastAPI database config
+DATABASE_URL = "postgresql+asyncpg://bunche:password@postgres:5432/bunche"
+
+# SQLAlchemy async engine
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_size=20,        # base connections
+    max_overflow=30,      # extra connections under load (20+30=50 concurrent)
+    pool_timeout=30,
+    pool_recycle=3600,
+)
+```
+
+For n8n (separate process), PostgreSQL directly handles ~20-30 n8n connections — well within defaults.
 
 ### Problem 2: `orders` Table — No Partitioning
 
