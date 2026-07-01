@@ -254,7 +254,8 @@ CREATE INDEX idx_instant_status ON instant_orders(status);
                            ↓
                     ┌──────────────┐
                     │  Backend API │
-                    │  (Node/Go)   │
+                    │  (Python +   │
+                    │   FastAPI)   │
                     └──────┬───────┘
                            ↓
             ┌──────────────┼──────────────┐
