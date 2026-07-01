@@ -1,0 +1,111 @@
+{
+  "name": "Bunche Logger",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bunche-logger",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wf11-trigger",
+      "name": "Webhook: Bunche Logger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "bunche-logger"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Normalize incoming log event against Bunche Logger schema\nconst body = $input.first().json;\n\n// Generate event_id if not provided\nconst event_id = body.event_id || require('uuid').v4();\n\n// Timestamp\nconst timestamp = body.timestamp || new Date().toISOString();\n\n// Build metadata JSON\nconst metadata = typeof body.metadata === 'object' ? body.metadata : {};\n\nreturn [{ json: {\n    event_id,\n    timestamp,\n    workflow: body.workflow || 'unknown',\n    workflow_id: body.workflow_id || '',\n    event_type: body.event_type || 'unknown',\n    status: body.status || 'success',\n    customer_hash: body.customer_hash || '',\n    duration_ms: body.duration_ms || null,\n    order_id: body.order_id || null,\n    correlation_id: body.correlation_id || '',\n    n8n_execution_id: body.n8n_execution_id || '',\n    metadata\n}}];"
+      },
+      "id": "wf11-normalize",
+      "name": "Normalize Event",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "customer_audit_log",
+        "columns": "event_id, timestamp, workflow, workflow_id, event_type, status, customer_hash, duration_ms, order_id, correlation_id, n8n_execution_id, metadata",
+        "values": "'{{ $json.event_id }}', '{{ $json.timestamp }}', '{{ $json.workflow }}', '{{ $json.workflow_id }}', '{{ $json.event_type }}', '{{ $json.status }}', '{{ $json.customer_hash }}', {{ $json.duration_ms || 'NULL' }}, '{{ $json.order_id }}', '{{ $json.correlation_id }}', '{{ $json.n8n_execution_id }}', '{{ JSON.stringify($json.metadata) }}'"
+      },
+      "id": "wf11-insert",
+      "name": "Insert Audit Log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"logged\",\"event_id\":\"{{ $json.event_id }}\"}"
+      },
+      "id": "wf11-respond",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Bunche Logger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Event": {
+      "main": [
+        [
+          {
+            "node": "Insert Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Audit Log": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": [
+    "logger",
+    "audit",
+    "webhook"
+  ]
+}

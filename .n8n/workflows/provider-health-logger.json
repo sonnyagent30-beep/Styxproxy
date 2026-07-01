@@ -1,0 +1,115 @@
+{
+  "name": "Provider Health Logger",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "wf12-trigger",
+      "name": "Cron: Daily 07:00 Lagos",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "provider_log",
+        "columns": "provider, event_type,\n                    COUNT(*) FILTER (WHERE status = 'ok') as ok_count,\n                    COUNT(*) FILTER (WHERE status = 'error') as error_count",
+        "conditions": "event_type = 'health_check' AND timestamp >= NOW() - INTERVAL '24 hours'",
+        "groupBy": "provider, event_type"
+      },
+      "id": "wf12-summary",
+      "name": "24h Health Summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const rows = $input.all();\nif (rows.length === 0) {\n    return [{ json: { message: '\ud83d\udcca Provider Health Report\\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\\n\\nNo health checks recorded in last 24h.\\nAll systems quiet.' }}];\n}\n\nlet message = '\ud83d\udcca Provider Health Report (24h)\\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\\n\\n';\nfor (const row of rows) {\n    const r = row.json;\n    const icon = r.error_count === 0 ? '\u2705' : '\u26a0\ufe0f';\n    message += icon + ' ' + r.provider + ': ' + r.ok_count + ' OK / ' + r.error_count + ' errors\\n';\n}\nmessage += '\\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501';\n\nreturn [{ json: { message }}];"
+      },
+      "id": "wf12-format",
+      "name": "Format Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "message": "{{ $json.message }}"
+      },
+      "id": "wf12-send",
+      "name": "Send to Admin",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Cron: Daily 07:00 Lagos": {
+      "main": [
+        [
+          {
+            "node": "24h Health Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "24h Health Summary": {
+      "main": [
+        [
+          {
+            "node": "Format Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Message": {
+      "main": [
+        [
+          {
+            "node": "Send to Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": [
+    "provider",
+    "health",
+    "daily",
+    "admin"
+  ]
+}
