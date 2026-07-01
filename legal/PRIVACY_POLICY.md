@@ -4,196 +4,277 @@
 
 ---
 
-## Introduction
+## 1. Introduction
 
-Bunche ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our WhatsApp-based proxy ordering service.
+Bunche ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our services across any channel — our website (bunche.ng), our Telegram bot, or our WhatsApp bot.
 
-This policy complies with:
-- Nigeria Data Protection Regulation (NDPR) 2019
-- Nigeria Data Protection Act (NDPA) 2023
-- General Data Protection Regulation (GDPR) for EU users
+We collect different information depending on how you interact with us. This policy is designed to be honest and clear about what we collect and why.
 
----
-
-## 1. Information We Collect
-
-### 1.1 Information You Provide
-- Phone number (primary identifier)
-- Name (optional, collected during first purchase setup)
-- Order history and communication preferences
-- Recovery method (PIN or OTP — your choice)
-- Free trial usage history
-
-### 1.2 Information Collected Automatically
-- WhatsApp messages you send us (processed via WhatsApp Business API)
-- IP addresses (when you interact with our webhook endpoints)
-- Device information (browser type, OS — if you access our links)
-- n8n workflow execution logs
-- Proxy usage volume and data consumption
-
-### 1.3 Information from Third Parties
-- **Payment Processor:** Transaction status, payment confirmation, payment metadata
-- **Meta / WhatsApp:** Message metadata via WhatsApp Business API
-- **Survey Partner:** Free trial survey completion verification
-- **Vetted Infrastructure Partners:** Proxy allocation data, proxy status
+By using Bunche, you consent to the data practices described in this policy.
 
 ---
 
-## 2. How We Use Your Information
+## 2. Three Channels, Three Data Models
 
-| Purpose | Data Used | Legal Basis |
-|---------|-----------|-------------|
-| Process and fulfill orders | Phone number, order details | Contract performance |
-| Deliver proxy credentials | WhatsApp number | Contract performance |
-| Send renewal reminders | Phone number, order history | Contract performance |
-| Handle refunds | Phone number, transaction info | Contract performance |
-| Verify free trial completion | Phone number, survey ID | Consent |
-| Fraud prevention | Payment data, usage patterns | Legitimate interest |
-| Service improvement | Aggregated usage data | Legitimate interest |
+We operate three independent channels. Each collects different information.
 
----
+### 2.1 Website (bunche.ng) — Anonymous Orders
 
-## 3. Free Trial Data
+**We collect almost nothing.**
 
-When you participate in our free trial program:
+When you order via bunche.ng, we collect:
 
-- We collect your phone number to verify daily limits
-- We receive survey completion confirmation from our survey partner
-- We log free trial usage (timestamp, survey ID, proxy assigned)
-- We do NOT store your free trial browsing activity
-- Free trial proxies are hosted on Bunche's own infrastructure
+| Data | Why we collect it | How long we keep it |
+|------|------------------|---------------------|
+| Flutterwave tx_ref | To identify your order | 7 years (financial records) |
+| Product purchased | To fulfil your order | 7 years |
+| Amount paid (₦) | To process payment | 7 years |
+| IP address (of our server) | Technical operation | 90 days |
+| Email address (optional) | To send receipt if you provide it | Until you request deletion |
+| Your IP address (of your device) | **We do NOT collect this** | — |
 
-Free trial data is retained for 90 days, then anonymized for analytics.
+We do not know your name, your phone number, your device IP address, or any other identifying information unless you voluntarily provide it.
 
----
+The tx_ref (Flutterwave transaction reference) is your only order identifier. You do not create an account.
 
-## 4. Data Sharing
+### 2.2 Telegram Bot
 
-We do NOT sell your data. We share data only with:
+When you interact with the Bunche Telegram bot, we collect:
 
-### 4.1 Service Providers
-- **Payment Processor:** For payment processing
-- **Meta / WhatsApp:** For message delivery via WhatsApp Business API
-- **Vetted Infrastructure Partners:** For proxy allocation (no personal data beyond proxy requirements)
-- **Survey Partner:** For free trial survey verification
-- **n8n:** For workflow processing
+| Data | Why we collect it | How long we keep it |
+|------|------------------|---------------------|
+| Telegram chat ID | To identify you and deliver messages | Until you request deletion |
+| Telegram username (if set) | To display your name in support | Until you request deletion |
+| Display name (if shared) | For customer support purposes | Until you request deletion |
+| Messages you send us | To understand and respond to requests | 90 days |
+| Order history | To fulfil and support orders | 7 years |
+| PIN (if you set one) | To secure your account | Until you request deletion |
 
-### 4.2 Infrastructure Partners Disclosure
+We do not collect your Telegram phone number.
 
-Bunche sources proxy infrastructure from vetted third-party providers. We do not publicly name our infrastructure partners. These partners receive only the minimum data required to allocate proxy IPs (e.g., country selection). We require all partners to comply with applicable data protection laws.
+### 2.3 WhatsApp Bot
 
-### 4.3 Legal Requirements
-We may disclose information if required by:
-- Court order or legal process
-- Nigerian law enforcement (with valid subpoena)
-- NDPC (Nigeria Data Protection Commission) investigations
-- Prevention of fraud or illegal activity
+When you interact with the Bunche WhatsApp bot, we collect:
 
-### 4.4 Business Transfers
-If Bunche is acquired or merged, customer data may be transferred to the acquiring entity. You will be notified via WhatsApp before any transfer.
+| Data | Why we collect it | How long we keep it |
+|------|------------------|---------------------|
+| WhatsApp phone number (hashed) | To identify you and deliver messages | Until you request deletion |
+| Display name (if shared) | For customer support purposes | Until you request deletion |
+| Messages you send us | To understand and respond to requests | 90 days |
+| Order history | To fulfil and support orders | 7 years |
+| PIN (if you set one) | To secure your account | Until you request deletion |
 
----
-
-## 5. Data Retention
-
-| Data Type | Retention Period |
-|-----------|-----------------|
-| Order history | 7 years (for tax/audit) |
-| Customer contact info | Until deletion or 2 years of inactivity |
-| Payment records | 7 years |
-| WhatsApp messages (processed) | 90 days |
-| n8n execution logs | 30 days |
-| Free trial usage | 90 days, then anonymized |
-| Recovery PIN (hashed) | Until account deletion |
+Your phone number is hashed before storage. We do not store your phone number in plain text.
 
 ---
 
-## 6. Your Rights
+## 3. What We Collect
 
-### Under NDPR/NDPA (Nigeria):
-- Know what personal data we hold about you
-- Request access to your data
-- Request correction of inaccurate data
-- Request deletion of your data
-- Lodge a complaint with the Nigeria Data Protection Commission (NDPC)
+### 3.1 Information You Give Us
 
-### Under GDPR (EU Users):
-- Right to access
-- Right to rectification
-- Right to erasure ("right to be forgotten")
-- Right to restrict processing
-- Right to data portability
-- Right to object
-- Rights related to automated decision-making
+- **Order information:** product, country, payment amount, tx_ref
+- **Payment information:** processed entirely by Flutterwave. We never see your card number, bank account, or full bank details
+- **Support communications:** messages sent via Telegram, WhatsApp, or email
+- **PIN:** if you choose to set a PIN to secure your chat account
+- **Optional email:** for receipt delivery on website orders
+- **Ban claim evidence:** screenshots or information you upload when raising a ban claim
 
-### How to Exercise Your Rights
-Contact us via WhatsApp or email. We will respond within 30 days.
+### 3.2 Information We Create
+
+- **Order records:** tx_ref, product, amount, status, IP assigned, timestamps
+- **Proxy credentials issued:** username, hashed password, validity period
+- **Free trial records:** survey postback data, earned trial time
+- **Audit logs:** timestamped records of significant events (order placed, credentials issued, refund processed, account deleted)
+
+### 3.3 Information We Do NOT Collect
+
+- Your device IP address (when using the website)
+- Your phone number (WhatsApp — only the hash is stored)
+- Your Telegram phone number
+- Your name (unless you voluntarily provide it)
+- Your location (unless you share it with us)
+- Cookies on bunche.ng (we do not use cookies)
+- Any data from third-party websites or services you access using Bunche proxies
+
+---
+
+## 4. How We Use Your Information
+
+We use your information to:
+
+| Purpose | Data used |
+|---------|-----------|
+| Fulfill orders | tx_ref, product, payment |
+| Deliver proxy credentials | Credentials, delivery channel |
+| Provide customer support | Chat ID / phone hash, order history |
+| Process refunds | tx_ref, payment information |
+| Investigate ban claims | tx_ref, evidence you provide |
+| Detect and prevent fraud | Order patterns, payment verification |
+| Comply with legal obligations | Financial records, audit logs |
+| Send service notifications | Chat ID / phone hash / email (if provided) |
+
+---
+
+## 5. Data Sharing
+
+### 5.1 We Do Not Sell Your Data
+
+We do not sell, rent, or trade your personal information to any third party.
+
+### 5.2 We Share Only What Is Necessary
+
+| Recipient | What we share | Why |
+|-----------|---------------|-----|
+| Flutterwave | tx_ref, amount, product | Payment processing |
+| Proxy providers (Proxy-Seller, DataImpulse) | Proxy credentials | To generate and deliver your proxy IP |
+| Telegram | Messages you send | To deliver messages via Telegram API |
+| Meta / WhatsApp | Messages you send | To deliver messages via WhatsApp Business API |
+| Theorem Reach | Survey completion data | To track free trial earnings |
+| Law enforcement | As required by Nigerian law | To comply with legal obligations |
+
+### 5.3 Data Processors
+
+We use third-party service providers who process data on our behalf:
+
+| Service | What they process | Their privacy policy |
+|---------|-------------------|---------------------|
+| Flutterwave | Payment data | flutterwave.com/privacy |
+| Telegram | Chat messages | telegram.org/privacy |
+| Meta / WhatsApp | Chat messages | whatsapp.com/legal/privacy-policy |
+| Theorem Reach | Survey data | theoremreach.com/privacy |
+| Resend | Transactional emails | resend.com/privacy |
+
+---
+
+## 6. Data Retention
+
+| Data type | Retention period | Reason |
+|-----------|-----------------|--------|
+| Financial records (orders, payments, tx_ref) | 7 years | Nigerian tax law / financial record keeping |
+| Order fulfillment records | 7 years | Contract performance |
+| Customer support messages | 90 days | Operational efficiency |
+| Chat credentials (Telegram chat ID, WhatsApp hash) | Until deletion requested | Service delivery |
+| Proxy credentials (issued IPs) | 7 years | Credential audit trail |
+| Audit logs | 7 years | Compliance |
+| Error logs | 1 year | System troubleshooting |
+| Rate limit logs | 90 days | Security |
+| Webhook security logs | 90 days | Security |
+
+### 6.1 Deletion Requests
+
+You may request deletion of your personal data at any time. To request deletion:
+
+- **Telegram:** Send "delete my data" to @bunche
+- **WhatsApp:** Send "delete my data" to the Bunche WhatsApp bot
+- **Website orders:** Email hello@bunche.ng with your tx_ref
+
+We will delete your personal data within 30 days, except:
+- Financial records required by law (7 years)
+- Data we are required to retain by Nigerian law
 
 ---
 
 ## 7. Data Security
 
 ### 7.1 Technical Measures
-- **Encryption:** All data in transit uses TLS 1.2+
-- **Hashing:** PINs stored as bcrypt hashes (never plaintext)
-- **API Security:** All API keys stored securely in n8n credentials
-- **Webhook Verification:** All incoming webhooks (payment processor, survey partner) verified for authenticity
-- **Credential Rotation:** Proxy credentials rotated on refund, expiry, and free trial completion
+
+- HTTPS-only on all Bunche properties
+- PostgreSQL with restricted access (localhost only)
+- API keys stored in environment variables, not in code
+- HMAC verification on all incoming webhooks (Flutterwave, Theorem Reach)
+- Rate limiting on all API endpoints
+- Audit logging of significant system events
 
 ### 7.2 Organizational Measures
+
 - Access to customer data restricted to authorized personnel only
-- Admin commands logged for audit
-- Regular security reviews
-- Incident response plan in place
-
-### 7.3 Proxy Security
-- Bunche controls the authentication layer — all proxy access requires Bunche credentials
-- Credentials are revoked instantly on refund, expiry, or abuse detection
-- Free trial proxies use shared credentials with 2-hour TTL
-- We do not monitor or inspect proxy traffic content
+- No customer data in development or test environments
+- Secrets rotation policy: API keys rotated every 90 days
 
 ---
 
-## 8. Children's Privacy
+## 8. Your Rights Under NDPR
 
-Bunche does not knowingly collect data from users under 18. If you are under 18, do not use our services.
+Under Nigeria's NDPR (Nigeria Data Protection Regulation), you have the right to:
 
----
+| Right | How to exercise |
+|-------|----------------|
+| Access your personal data | Request via any channel — we respond within 30 days |
+| Correct inaccurate data | Contact us with the correct information |
+| Delete your data | Send "delete my data" on Telegram/WhatsApp or email us |
+| Object to processing | Contact us — we will assess the objection |
+| Data portability | We will provide your data in a machine-readable format |
+| Withdraw consent | Stop using the service and request deletion |
 
-## 9. International Data Transfers
-
-Your data may be transferred internationally as necessary for service delivery, including:
-- **Payment processing** via our payment processor (Nigeria)
-- **Message delivery** via Meta/WhatsApp (USA/International)
-- **Proxy infrastructure** sourced from vetted partners (various jurisdictions)
-
-By using Bunche, you consent to international data transfers necessary for service delivery.
-
----
-
-## 10. Cookies and Tracking
-
-Bunche WhatsApp interface does not use cookies. If you click links to our legal documents (Terms, Privacy, AUP), our web hosting may use standard cookies. We do not use third-party tracking cookies on our properties.
+To exercise any of these rights, contact us via:
+- Telegram: @bunche
+- WhatsApp: Bunche WhatsApp bot
+- Email: hello@bunche.ng
 
 ---
 
-## 11. Changes to Privacy Policy
+## 9. Cookies and Tracking
 
-We may update this Privacy Policy. Changes will be communicated via:
-- Updated "Effective Date" at the top of this document
-- WhatsApp notification for material changes
+### 9.1 bunche.ng
 
-Continued use of Bunche after changes constitutes acceptance.
+**We do not use cookies on bunche.ng.**
+
+When you visit bunche.ng, we do not store any cookies in your browser. We do not use third-party tracking pixels or analytics tools.
+
+### 9.2 Telegram and WhatsApp
+
+We do not control the cookies or tracking used by Telegram or Meta/WhatsApp. These platforms have their own privacy policies.
+
+### 9.3 Links to Legal Documents
+
+If you click links to our legal documents from Telegram or WhatsApp, our web hosting provider may use standard server logs (which record your server IP address, not your device IP). This is standard web hosting practice and is not used for tracking.
 
 ---
 
-## 12. Contact Us
+## 10. Children's Privacy
+
+Bunche services are not intended for persons under the age of 18. We do not knowingly collect data from minors. If we become aware that data from a minor has been collected, we will delete it immediately.
+
+---
+
+## 11. International Data Transfers
+
+Bunche operates primarily in Nigeria. Some of our service providers (Flutterwave, Meta/WhatsApp, Telegram) operate internationally. When your data is transferred outside Nigeria, we ensure appropriate safeguards are in place through the data processor's standard contractual clauses or equivalent legal mechanisms.
+
+---
+
+## 12. Data Breach Notification
+
+In the event of a data breach that poses a risk to your rights and freedoms, we will notify the Nigeria Data Protection Commission within 72 hours of becoming aware of the breach.
+
+We will also notify affected customers via their contact channel (Telegram, WhatsApp, or email) as soon as reasonably practicable.
+
+---
+
+## 13. Changes to This Policy
+
+We may update this Privacy Policy from time to time. Material changes will be communicated via:
+- Telegram message (for Telegram customers)
+- WhatsApp message (for WhatsApp customers)
+- Notice on bunche.ng
+
+The effective date at the top of this policy indicates when it was last updated.
+
+---
+
+## 14. Contact Us
 
 **Bunche**
-**WhatsApp:** +2347032981049
-**Email:** hello@bunche.ng
 
-**Nigeria Data Protection Commission:**
-www.ndpc.gov.ng
+For any questions about this Privacy Policy or to exercise your data rights:
 
-*This Privacy Policy is incorporated by reference into our Terms of Service.*
+- **Telegram:** @bunche
+- **WhatsApp:** Available via bunche.ng
+- **Email:** hello@bunche.ng
+- **Website:** bunche.ng
+
+We will respond to all enquiries within 30 days.
+
+---
+
+*Version: 2026-07-01*

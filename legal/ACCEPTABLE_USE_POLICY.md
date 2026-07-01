@@ -4,191 +4,186 @@
 
 ---
 
-## 1. Prohibited Activities
+## 1. Purpose
 
-The following activities are strictly prohibited using any proxy purchased from Bunche (including free trial proxies):
-
-### 1.1 Fraud & Financial Crimes
-- Credit card fraud, payment fraud, bank fraud, wire fraud
-- Money laundering, cryptocurrency fraud, investment scams
-- Identity theft, account takeover
-- Synthetic identity creation
-
-### 1.2 Hacking & Unauthorized Access
-- Unauthorized access to any computer system
-- Network intrusion, port scanning, exploitation of vulnerabilities
-- Credential stuffing, brute force attacks, DDoS attacks
-- SQL injection, XSS, CSRF attacks
-- Bypassing authentication or security controls
-
-### 1.3 Spam & Unsolicited Communications
-- Mass unsolicited email (spam)
-- Unsolicited direct messages on social media
-- Mass comment spam
-- SMS pumping fraud
-- Robocalling
-
-### 1.4 Content & Copyright Infringement
-- Distribution of copyrighted material without license
-- Software piracy, streaming piracy
-- DMCA violations
-
-### 1.5 Malware & Security Threats
-- Distribution of viruses, trojans, ransomware
-- Botnet operation, cryptojacking
-- Phishing sites or infrastructure
-- Command and control servers
-
-### 1.6 Illegal Content
-- Child sexual abuse material — zero tolerance, reported immediately to NAPTIP and international authorities
-- Human trafficking content
-- Drug trafficking platforms
-- Weapons sales platforms
-- Any illegal activity under Nigerian law (Criminal Code Act) or Cybercrimes (Prohibition, Prevention, etc.) Act 2015
-
-### 1.7 Platform Abuse
-- Creating fake reviews or ratings
-- Astroturfing campaigns
-- Manipulating platform algorithms
-- Evading bans through multi-accounting (except where customer uses different IPs per platform legitimately)
-- Terms of service violations of target platforms (where the violation is itself illegal)
+This Acceptable Use Policy ("AUP") defines acceptable use of Bunche proxy services. By using Bunche, you agree to this policy. Violations may result in immediate credential revocation and permanent suspension from the service without refund.
 
 ---
 
-## 2. Free Trial Specific Rules
+## 2. Three Channels, Same Rules
 
-Free trial proxies are subject to ALL the above prohibitions PLUS the rules in this section.
-
-### 2.1 How Free Trials Work
-
-Free trials use Bunche's **self-hosted proxy infrastructure**:
-
-- **Shared IP** — All free trial users share the Bunche proxy infrastructure (up to 100 concurrent trials)
-- **Authenticated access** — Each trial user gets unique Bunche-branded credentials (username + password)
-- **2-hour TTL** — Trial credentials automatically expire after 2 hours
-- **3-trial daily limit** — Each phone number is limited to 3 free trials per calendar day
-- **For testing only** — Free trials are not for production, commercial, or critical use
-- **No privacy guarantee** — Other trial users share the same infrastructure, so Bunche cannot guarantee traffic isolation between trial users
-
-### 2.2 Free Trial Abuse
-
-The following behaviors are prohibited and will result in immediate enforcement action:
-
-- **Multi-phone circumvention** — Using multiple phone numbers to exceed the 3-trial daily limit
-- **Automated trial claiming** — Using bots, scripts, or automation to claim free trials
-- **Reselling trial access** — Selling, trading, or transferring trial credentials
-- **Coordinated abuse** — Coordinating with others to claim excessive free trials
-- **Sharing trial credentials** — Publicly posting or distributing trial usernames/passwords
-- **Survey fraud** — Using survey-farming services to falsely complete surveys
-- **Cryptographic attacks** — Attempting to brute-force or guess other trial users' credentials
-
-### 2.3 Enforcement for Free Trial Abuse
-
-Any violation of §2.2 will result in:
-
-| Action | Scope |
-|--------|-------|
-| **Immediate revocation** | All active trial credentials for the offending phone hash |
-| **Phone blocking** | Phone number(s) blocked from claiming future free trials |
-| **Hash blocking** | Phone_hash added to deny-list (blocks new numbers on same device) |
-| **No refund** | No compensation for revoked trials |
-| **Possible account ban** | Repeat offenders may be permanently banned from Bunche |
-
-Bunche uses a phone_hash + device fingerprint to enforce blocks. Users attempting to circumvent blocks via new numbers will continue to be blocked.
+This policy applies to all Bunche channels — bunche.ng, the Bunche Telegram bot, and the Bunche WhatsApp bot. The same rules apply regardless of how you purchased your proxy.
 
 ---
 
-## 3. Enforcement
+## 3. Permitted Use
 
-| Violation Type | Response |
-|----------------|---------|
-| **Minor AUP violation** (e.g., aggressive scraping) | Warning + proxy suspension |
-| **Moderate violation** (e.g., platform ToS violation) | Immediate suspension, no refund |
-| **Significant violation** (e.g., spam) | Immediate ban, refund revoked |
-| **Serious violation** (e.g., fraud) | Immediate ban + law enforcement referral |
-| **Criminal activity** (e.g., CSAM) | Immediate ban + NAPTIP/police referral |
-| **Free trial abuse (§2.2)** | Free trial access revoked, phone blocked, possible permanent ban |
+Bunche proxies may be used for:
 
----
-
-## 4. Detection & Monitoring
-
-Bunche reserves the right to:
-- Monitor proxy usage patterns for abuse
-- Investigate suspicious activity
-- Suspend proxies pending investigation
-- Disclose information to law enforcement when required
-- Revoke credentials instantly when abuse is detected
-
-We do NOT monitor free trial proxy traffic content.
+- Web browsing and research
+- Social media management
+- SEO monitoring and analytics
+- Price aggregation and comparison shopping
+- Ad verification
+- Market research
+- E-commerce operations
+- Travel fare monitoring
+- Any lawful purpose that does not violate this policy
 
 ---
 
-## 5. Your Responsibilities
+## 4. Prohibited Use
 
-- Keep your proxy credentials confidential
-- Do not share credentials with unauthorized persons
-- Do not allow third parties to use your proxies
-- Ensure your use of proxies complies with target platform Terms of Service
-- You are responsible for ALL activity under your account, including activity by anyone you share credentials with
+The following uses are strictly prohibited. This is not an exhaustive list.
 
----
+### 4.1 Fraud and Financial Crimes
+- Credit card fraud or carding
+- Money laundering
+- Wire fraud
+- Cryptocurrency fraud
+- Any financial crime facilitated by proxies
 
-## 6. Multi-IP Use Warning
+### 4.2 Spam and Unsolicited Communications
+- Sending unsolicited commercial email (spam)
+- Mass unsolicited messages on social media platforms
+- Automated posting of promotional content without platform consent
+- Credential stuffing attacks
 
-**⚠️ IMPORTANT:**
+### 4.3 Unauthorized Access
+- Gaining unauthorized access to computer systems or networks
+- Brute force attacks
+- Vulnerability scanning without authorization
+- Bypassing rate limits or access controls on third-party websites
 
-Using the SAME IP across multiple devices or accounts can:
-- Get all linked accounts flagged or banned
-- Reduce your privacy (one IP = one user pattern)
-- Violate target platform Terms of Service
+### 4.4 Illegal Activity
+- Any illegal activity under Nigerian law or the laws of the jurisdiction where you use the service
+- Distribution of malware, ransomware, or malicious software
+- Hosting or distributing illegal content
 
-**Best Practice:** Use ONE IP per platform, per account. We strongly advise AGAINST sharing 1 IP across many devices or accounts.
+### 4.5 Network Disruption
+- Denial-of-service (DoS) or distributed denial-of-service (DDoS) attacks
+- Network traffic manipulation
+- TCP/IP packet spoofing
 
-Bunche is not responsible for bans resulting from poor IP hygiene.
+### 4.6 Credential Sharing
+- Sharing your proxy credentials with others
+- Using credentials purchased for one person or business for multiple people
+- Each proxy credential is for one end user only
 
-**Free trial users:** Your trial uses shared infrastructure. If you need a dedicated IP, upgrade to a paid plan.
+### 4.7 Circumventing Blocks
+- Using proxies to bypass security controls on websites you do not own or have permission to test
+- Using proxies to access websites that have blocked you, to circumvent that block in ways that violate the website's terms of service
 
----
-
-## 7. Platform-Specific Restrictions
-
-Some platforms have stricter rules about proxy use. You are responsible for understanding and complying with:
-
-- Social media platform Terms (Instagram, Twitter/X, TikTok, Facebook)
-- E-commerce platform Terms (Amazon, eBay, Shopify stores)
-- Streaming platform Terms (Netflix, Spotify, Hulu)
-- Financial platform Terms (banks, crypto exchanges)
-- Advertising platform Terms (Google Ads, Meta Ads)
-
-Bunche does not guarantee that proxies will work on any specific platform.
-
----
-
-## 8. Reporting Violations
-
-If you become aware of anyone using Bunche proxies for illegal activities:
-- Contact us via WhatsApp with evidence
-- We investigate all reports within 24 hours
-- We cooperate with law enforcement for serious violations
-
-**Report Abuse:** hello@bunche.ng
+### 4.8 Copyright and Trademark
+- Using proxies to infringe copyright or trademark
+- Distributing pirated software, media, or content
+- Selling or distributing proxy access as your own product
 
 ---
 
-## 9. Changes to AUP
+## 5. Ban Claims
 
-We may update this Acceptable Use Policy. Changes will be communicated via:
-- Updated "Effective Date" at the top
-- WhatsApp notification for material changes
+If your proxy IP is blocked by a website or service, you may raise a ban claim.
 
-Continued use after changes constitutes acceptance.
+### 5.1 How to Raise a Ban Claim
+
+**Via Website:**
+1. Go to bunche.ng/manage
+2. Enter your order number (tx_ref)
+3. Select "Report a Ban"
+4. Upload a screenshot showing the block or ban
+5. Choose Telegram or WhatsApp to continue your support conversation
+
+**Via Chat:**
+- Telegram: Send a message to @bunche: "Ban claim for order [tx_ref]"
+- WhatsApp: Send a message to the Bunche WhatsApp bot: "Ban claim for order [tx_ref]"
+
+### 5.2 What Happens Next
+
+An admin will review your claim. You may be asked to provide additional information. Replacement credentials are issued at Bunche's discretion based on the evidence provided.
+
+### 5.3 Ban Claims vs. Refunds
+
+A ban claim is not a refund. If your IP was blocked by a website after delivery and the service was functioning at the time of delivery, this is a ban claim matter. See our Refund Policy in the Terms of Service.
 
 ---
 
-## 10. Contact
+## 6. Abuse Detection
 
-**WhatsApp:** +2347032981049
-**Email:** hello@bunche.ng
+Bunche monitors for prohibited use through:
 
-*This Acceptable Use Policy is incorporated by reference into our Terms of Service.*
+- Traffic pattern analysis
+- Complaint reports from third parties
+- Anomalous usage signals
+- Automated detection systems
+
+If prohibited use is detected:
+1. We may immediately revoke the affected credentials
+2. We may suspend the associated account without notice
+3. We may report the activity to law enforcement if required by law
+4. Refunds are not provided for abuse-related revocations
+
+---
+
+## 7. Report Abuse
+
+If you become aware that a Bunche customer is using the service for prohibited activity, report it:
+
+**Via Website:**
+Go to bunche.ng/manage and select "Report Abuse"
+
+**Via Chat:**
+- Telegram: Send a message to @bunche: "Report abuse for order [tx_ref]"
+- WhatsApp: Send a message to the Bunche WhatsApp bot: "Report abuse for order [tx_ref]"
+
+**Via Email:**
+hello@bunche.ng
+
+All abuse reports are investigated. We keep reporter information confidential upon request.
+
+---
+
+## 8. Credential Revocation
+
+Bunche reserves the right to revoke credentials immediately and without notice if:
+
+- The proxy is used for prohibited activities under this policy
+- The proxy is used in a way that exposes Bunche or our infrastructure partners to legal liability
+- The customer engages in threatening, harassing, or abusive behaviour toward Bunche staff
+- A third party provides evidence that the proxy is being used for illegal activity
+- A refund is approved and processed (credentials revoked simultaneously)
+
+Revoked credentials cannot be reactivated. A new order must be placed if service is desired after revocation.
+
+---
+
+## 9. Infrastructure Partners
+
+Proxy IPs are sourced from vetted infrastructure partners. Customers do not interact with these partners directly. Prohibited activities that violate a partner's acceptable use policy are also violations of this AUP.
+
+---
+
+## 10. Changes to This Policy
+
+We may update this AUP from time to time. Material changes will be communicated via:
+- Telegram message (for Telegram customers)
+- WhatsApp message (forWhatsApp customers)
+- Notice on bunche.ng
+
+The effective date at the top of this policy indicates when it was last updated.
+
+---
+
+## 11. Contact Us
+
+**Bunche**
+
+- **Telegram:** @bunche
+- **WhatsApp:** Available via bunche.ng
+- **Email:** hello@bunche.ng
+- **Website:** bunche.ng
+- **Management Portal:** bunche.ng/manage
+
+---
+
+*Version: 2026-07-01*
