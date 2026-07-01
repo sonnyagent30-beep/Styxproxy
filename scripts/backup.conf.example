@@ -6,47 +6,60 @@
 # ============================================
 
 # PostgreSQL connection
-POSTGRES_HOST=localhost
 POSTGRES_USER=bunche
 POSTGRES_DB=bunche
-# Password is read from ~/.pgpass — see DEPLOYMENT.md for setup
+# Password is read from ~/.pgpass
 # Format: hostname:port:database:username:password
 
-# Where backups live locally (before R2 upload)
-BACKUP_DIR=/backup/bunche
-
-# age public key for encryption
-# Generate keypair ONCE and store private key in:
-#   - 1Password
-#   - Paper copy in fireproof safe
-#   - Anywhere EXCEPT this server
-# Generate: age-keygen -o bunche-backup-private.key
-# Public key is in bunche-backup-private.key — extract it
-BACKUP_PUBLIC_KEY="age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-
-# rclone remote for R2 upload
-# Set up rclone config first:
-#   rclone config
-#   Name: r2
-#   Type: s3
-#   Provider: Cloudflare
-#   Access key ID: from R2 dashboard
-#   Secret access key: from R2 dashboard
-#   Endpoint: https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com
-RCLONE_REMOTE="r2:bunche-backups/daily"
-
-# Where the daily summary n8n webhook lives (for size-alert notifications)
-ALERT_WEBHOOK_URL="https://n8n.yourdomain.com/webhook/backup-alert"
-
-# How long to keep local backups before deleting
-RETENTION_DAYS_LOCAL=7
+# ============================================
+# Backblaze B2 (Free Tier)
+# ============================================
+# 1. Sign up at backblaze.com/b2 (free, no credit card)
+# 2. Create a bucket named: bunche-backups
+# 3. Create an application key (keyID + applicationKey)
+# 4. Run: rclone config (see below)
+# 5. Initialize repo: restic -r b2:bunche-backups init
+#
+# rclone config:
+#   Name: b2
+#   Type: b2
+#   account: <keyID from B2 dashboard>
+#   key: <applicationKey from B2 dashboard>
+#
+# B2 Free Tier: 5GB storage, unlimited buckets
+# Billing: $0/month until you exceed 5GB
+# ============================================
 
 # ============================================
-# Notes:
+# Restic Encryption Password
 # ============================================
-# - R2 bucket lifecycle rule deletes objects older than 90 days
-# - First backup of each month is duplicated to r2:bunche-backups/monthly/
-#   (handled by a separate cron, see backup-monthly-archive.sh)
-# - Restore procedure: see ADR-005 §"Restore Procedure"
-# - Monthly verification: cron on 1st of month runs
-#   /usr/local/bin/backup-bunche.sh --verify
+# Generate a strong random password:
+#   openssl rand -base64 32
+#
+# IMPORTANT: Store this in 1Password + paper copy.
+# NEVER put the actual password here.
+# Replace "your-restic-password-here" with the real password.
+# ============================================
+RESTIC_PASSWORD=your-restic-password-here
+
+# ============================================
+# Notes
+# ============================================
+# - Backups are deduplicated by Restic — only changed blocks are uploaded
+# - 5GB B2 free tier holds ~500+ hourly backups at 10k customers
+# - When B2 fills up: migrate to Hetzner Storage Box or BunnyNet
+#
+# - Hourly snapshot retention (managed by backup-hourly.sh):
+#     Keep: last 72 hourly snapshots (3 days)
+#
+# - Daily snapshot retention (managed by backup-daily.sh):
+#     Keep: last 30 daily snapshots (30 days)
+#
+# - Local retention:
+#     Keep: last 6 pg_dump files on disk (6 hours)
+#
+# - Restore procedure:
+#     /usr/local/bin/restore.sh --list          (see snapshots)
+#     /usr/local/bin/restore.sh --verify         (test latest backup)
+#     /usr/local/bin/restore.sh --restore        (overwrite DB with latest)
+# ============================================
