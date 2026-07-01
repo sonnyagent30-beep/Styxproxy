@@ -1,6 +1,6 @@
 # Bunche — Docker Compose
 # ─────────────────────────────────────────────
-# Services: api, n8n, postgres, redis, nginx
+# Services: api, n8n, postgres, redis, pgbouncer, sentry, nginx
 # Usage:   docker compose up -d
 # Env:     cp .env.production.example .env && edit .env
 # ─────────────────────────────────────────────
@@ -43,6 +43,38 @@ services:
     networks:
       - bunche_net
 
+  # ── PgBouncer — n8n connection pooling ───────
+  # FastAPI uses asyncpg directly (no PgBouncer).
+  # n8n uses this for its persistent connections.
+  pgbouncer:
+    image: pgbouncer/pgbouncer:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bunche"
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 500
+      DEFAULT_POOL_SIZE: 20
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      MAX_DB_CONNECTIONS: 100
+      AUTH_TYPE: md5
+      AUTH_FILE: /etc/pgbouncer/userlist.txt
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+      - pgbouncer_data:/var/log/pgbouncer
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgbouncer -V && echo 'SELECT 1' | pgbouncer /etc/pgbouncer/pgbouncer.ini -U ${POSTGRES_USER} -d bunche"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - bunche_net
+
   # ── API Backend ──────────────────────────────
   api:
     build:
@@ -50,14 +82,21 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bunche
+      # FastAPI uses asyncpg directly — NO PgBouncer
+      DATABASE_URL: postgres+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bunche
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       FLUTTERWAVE_SECRET_KEY: ${FLUTTERWAVE_SECRET_KEY}
+      FLUTTERWAVE_WEBHOOK_SECRET: ${FLUTTERWAVE_WEBHOOK_SECRET}
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
       MINIMAX_API_KEY: ${MINIMAX_API_KEY}
       ADMIN_TOKEN: ${ADMIN_TOKEN}
       CORS_ORIGINS: ${CORS_ORIGINS}
+      # Sentry — error tracking + performance monitoring
+      SENTRY_DSN: ${SENTRY_DSN}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_TRACES_SAMPLE_RATE: "${SENTRY_TRACES_SAMPLE_RATE:-0.1}"
+      SENTRY_PROFILES_SAMPLE_RATE: "${SENTRY_PROFILES_SAMPLE_RATE:-0.0}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,21 +111,27 @@ services:
       - bunche_net
 
   # ── n8n Workflow Automation ──────────────────
+  # n8n connects to PostgreSQL via PgBouncer (transaction pooling)
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped
     environment:
       DB_TYPE: postgresdb
-      DB_POSTGRESDB_HOSTNAME: postgres
+      # n8n → PgBouncer → PostgreSQL
+      DB_POSTGRESDB_HOSTNAME: pgbouncer
       DB_POSTGRESDB_PORT: 5432
       DB_POSTGRESDB_DATABASE: bunche
       DB_POSTGRESDB_USER: ${POSTGRES_USER}
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
-      N8N_POSTGRES_DB: n8n
-      EXECUTIONS_MODE: regular
-      EXECUTIONS_TIMEOUT: 300
+      N8N_POSTGRES_DB: bunche
+      EXECUTIONS_MODE: ${EXECUTIONS_MODE:-regular}
+      EXECUTIONS_TIMEOUT: ${EXECUTIONS_TIMEOUT:-300}
       GENERIC_TIMEZONE: Africa/Lagos
-      N8N_LOG_LEVEL: info
+      N8N_LOG_LEVEL: ${N8N_LOG_LEVEL:-info}
+      # Sentry — n8n workflow error tracking
+      SENTRY_DSN: ${SENTRY_DSN}
+      SENTRY_DSN_URL: ${SENTRY_DSN}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
@@ -94,11 +139,45 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - bunche_net
+
+  # ── Sentry — Error Tracking + APM ─────────────
+  # Self-hosted Sentry on-premise
+  sentry:
+    image: sentry:${SENTRY_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SENTRY_ORG: ${SENTRY_ORG:-Bunche}
+      SENTRY_PROJECT: ${SENTRY_PROJECT:-bunche-api}
+      SENTRY_PROJECT_N8N: ${SENTRY_PROJECT_N8N:-bunche-n8n}
+      SENTRY_URL: ${SENTRY_URL:-http://sentry:9000}
+      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:?SENTRY_SECRET_KEY is required}
+      SENTRY_EMAIL_HOST: ${SENTRY_EMAIL_HOST:-smtp}
+      SENTRY_EMAIL_PORT: ${SENTRY_EMAIL_PORT:-1025}
+      SENTRY_EMAIL_USE_TLS: "false"
+      SENTRY_EMAIL_FROM: ${SENTRY_EMAIL_FROM:-no-reply@bunche.ng}
+      SENTRY_DB_USER: ${POSTGRES_USER}
+      SENTRY_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SENTRY_DB_NAME: sentry
+      SENTRY_DB_HOST: postgres
+      SENTRY_REDIS_HOST: redis
+      SENTRY_REDIS_PORT: 6379
+      SENTRY_REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - sentry_data:/var/lib/sentry/data
     networks:
       - bunche_net
 
@@ -143,5 +222,7 @@ volumes:
   postgres_data:
   redis_data:
   n8n_data:
+  pgbouncer_data:
+  sentry_data:
   certbot_data:
   certbot_www:
