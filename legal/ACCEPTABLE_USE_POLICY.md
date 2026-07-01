@@ -1,6 +1,6 @@
 # Acceptable Use Policy
 *Bunche — Automated Proxy Retail Service*
-*Effective Date: 2026-06-27*
+*Effective Date: 2026-07-01*
 
 ---
 
@@ -172,7 +172,7 @@ If you become aware of anyone using Bunche proxies for illegal activities:
 - We investigate all reports within 24 hours
 - We cooperate with law enforcement for serious violations
 
-**Report Abuse:** abuse@bunche.com
+**Report Abuse:** hello@bunche.ng
 
 ---
 
@@ -188,9 +188,7 @@ Continued use after changes constitutes acceptance.
 
 ## 10. Contact
 
-**WhatsApp:** +234 XXX XXX XXXX
-**Email:** abuse@bunche.com
-
----
+**WhatsApp:** +2347032981049
+**Email:** hello@bunche.ng
 
 *This Acceptable Use Policy is incorporated by reference into our Terms of Service.*
