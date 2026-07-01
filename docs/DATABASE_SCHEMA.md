@@ -251,7 +251,7 @@ CREATE INDEX idx_bunche_cred_expires ON bunche_credentials(expires_at)
 
 ### free_trials
 
-Tracks free trial usage.
+Tracks free trial usage. One row per completed trial session (not per survey).
 
 ```sql
 CREATE TABLE free_trials (
@@ -261,18 +261,55 @@ CREATE TABLE free_trials (
     channel_origin VARCHAR(20) NOT NULL,  -- 'telegram' or 'whatsapp'
 
     trial_date TIMESTAMPTZ DEFAULT NOW(),
-    survey_id VARCHAR(50),
-    reward_usd DECIMAL(10,4),
 
+    -- One row per session, not per survey
+    -- surveys_completed is the count of survey postbacks recorded for this session
+    surveys_completed INT DEFAULT 0,  -- how many surveys done (× 2hr each = total time)
+    total_hours INT DEFAULT 0,  -- surveys_completed × 2
+
+    -- Credential details (set once, when customer says "done")
     bunche_credential_id INT REFERENCES bunche_credentials(id),
 
-    status VARCHAR(20) DEFAULT 'active',  -- 'active', 'expired', 'dead'
+    status VARCHAR(20) DEFAULT 'pending',  -- 'pending' (doing surveys), 'active' (creds sent), 'expired', 'dead'
     disclaimer_accepted BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    fulfilled_at TIMESTAMPTZ  -- when credentials were sent
 );
 
 CREATE INDEX idx_free_trials_platform_account ON free_trials(platform_account_id, trial_date);
 CREATE INDEX idx_free_trials_status ON free_trials(status);
+```
+
+### pending_trial_surveys
+
+Records each Theorem Reach postback as it comes in. Customer accumulates surveys until they say "done."
+
+```sql
+CREATE TABLE pending_trial_surveys (
+    id SERIAL PRIMARY KEY,
+
+    platform_account_id UUID REFERENCES platform_accounts(id),
+    channel_origin VARCHAR(20) NOT NULL,
+
+    -- Theorem Reach postback data
+    survey_transaction_id VARCHAR(100) UNIQUE NOT NULL,
+    survey_user_id VARCHAR(50),
+    survey_id VARCHAR(50),
+    payout_usd DECIMAL(8,2),
+    survey_completed_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- Session linkage
+    free_trial_id INT REFERENCES free_trials(id),
+
+    -- Whether this survey has been counted toward a fulfilled trial
+    credited BOOLEAN DEFAULT FALSE,
+
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_pending_surveys_platform ON pending_trial_surveys(platform_account_id);
+CREATE INDEX idx_pending_surveys_session ON pending_trial_surveys(free_trial_id);
+CREATE INDEX idx_pending_surveys_uncredited ON pending_trial_surveys(credited) WHERE credited = FALSE;
 ```
 
 ---
