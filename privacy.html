@@ -4,52 +4,92 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Privacy Policy — Bunche</title>
-<meta name="description" content="Bunche Privacy Policy — how we collect, use, and protect your data. Effective Date: 2026-06-27">
+<meta name="description" content="Bunche Privacy Policy. Effective Date: 27 June 2026">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0D0D0D;--bg2:#111;--bg3:#161616;--green:#00D278;--green-dim:rgba(0,210,120,0.1);--green-border:rgba(0,210,120,0.2);--text:#F5F5F5;--text2:#999;--text3:#555}
-body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;font-size:14px}
-a{color:var(--green);text-decoration:none}
-nav{max-width:900px;margin:0 auto;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1a1a1a}
-nav .logo{font-size:20px;font-weight:800;letter-spacing:-0.5px}
-nav .logo span{color:var(--green)}
-nav .back{font-size:13px;color:var(--text2);transition:color .2s}
-nav .back:hover{color:var(--green)}
-.container{max-width:760px;margin:0 auto;padding:60px 24px 80px}
-.doc-header{border-bottom:1px solid #1a1a1a;padding-bottom:32px;margin-bottom:40px}
-.doc-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:8px}
-h1{font-size:clamp(24px,4vw,32px);font-weight:800;letter-spacing:-0.5px;margin-bottom:8px}
-.effective{font-size:12px;color:var(--text3)}
-h2{font-size:16px;font-weight:700;margin:36px 0 12px;color:var(--text)}
-h3{font-size:14px;font-weight:600;margin:20px 0 8px;color:var(--text2)}
-p{margin-bottom:12px;color:var(--text2)}
-ul,ol{margin:0 0 14px 20px;color:var(--text2)}
-li{margin-bottom:6px}
-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
-th,td{padding:10px 12px;border:1px solid #222;text-align:left}
-th{background:#111;color:var(--text);font-weight:600}
-td{color:var(--text2)}
-tr:nth-child(even) td{background:#0f0f0f}
-.highlight-box{background:var(--green-dim);border:1px solid var(--green-border);border-radius:8px;padding:16px;margin:20px 0;font-size:13px;color:var(--text2)}
-.highlight-box strong{color:var(--green)}
-.back-to-top{text-align:center;padding:40px 0 0}
-.back-to-top a{font-size:13px;color:var(--text3);transition:color .2s}
-.back-to-top a:hover{color:var(--green)}
-footer{border-top:1px solid #1a1a1a;max-width:900px;margin:0 auto;padding:32px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
-footer .copy{font-size:12px;color:var(--text3)}
-footer .links{display:flex;gap:20px}
-footer .links a{font-size:12px;color:var(--text3);transition:color .2s}
-footer .links a:hover{color:var(--text)}
-footer .links a.active{color:var(--green)}
+:root {
+  --green: #16A34A; --green-hover: #15803D;
+  --green-bg: #DCFCE7; --green-border: #BBF7D0;
+  --bg: #FFFFFF; --bg-alt: #F9FAFB; --surface: #F3F4F6;
+  --surface-hover: #E5E7EB; --border: #E5E7EB;
+  --text: #111827; --text2: #4B5563; --text3: #9CA3AF;
+  --nav-bg: rgba(255,255,255,0.9);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --green: #22C55E; --green-hover: #16A34A;
+    --green-bg: #14532D; --green-border: #166534;
+    --bg: #09090B; --bg-alt: #111113; --surface: #18181B;
+    --surface-hover: #27272A; --border: #27272A;
+    --text: #FAFAFA; --text2: #A1A1AA; --text3: #52525B;
+    --nav-bg: rgba(9,9,11,0.9);
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.75; font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--green); text-decoration: none; }
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--nav-bg); backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 1100px; margin: 0 auto; padding: 0 24px;
+  display: flex; justify-content: space-between; align-items: center; height: 64px;
+}
+.logo { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+.logo span { color: var(--green); }
+.back-link { font-size: 14px; font-weight: 500; color: var(--text2); transition: color 0.15s; }
+.back-link:hover { color: var(--text); }
+.container { max-width: 720px; margin: 0 auto; padding: 64px 24px 80px; }
+.doc-header { margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+.doc-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--green); margin-bottom: 8px; }
+h1 { font-size: clamp(24px, 4vw, 32px); font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+.effective { font-size: 13px; color: var(--text3); }
+h2 { font-size: 16px; font-weight: 700; margin: 40px 0 12px; }
+h3 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; color: var(--text2); }
+p { margin-bottom: 12px; color: var(--text2); }
+ul, ol { margin: 0 0 14px 20px; color: var(--text2); }
+li { margin-bottom: 6px; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+th, td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: left; }
+th { background: var(--surface); font-weight: 600; font-size: 12px; }
+tr:last-child td { border-bottom: none; }
+tr:nth-child(even) td { background: var(--bg-alt); }
+.infobox {
+  background: var(--green-bg); border: 1px solid var(--green-border);
+  border-radius: 10px; padding: 16px 20px; margin: 20px 0;
+  font-size: 14px; color: var(--text2);
+}
+.infobox strong { color: var(--green); }
+footer {
+  border-top: 1px solid var(--border);
+  max-width: 1100px; margin: 0 auto; padding: 40px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 16px;
+}
+footer .copy { font-size: 13px; color: var(--text3); }
+footer .links { display: flex; gap: 24px; }
+footer .links a { font-size: 13px; color: var(--text3); transition: color 0.15s; }
+footer .links a:hover { color: var(--text); }
+footer .links a.active { color: var(--green); }
 </style>
 </head>
 <body>
 <nav>
-  <div class="logo">Bun<span>che</span></div>
-  <a href="index.html" class="back">← Back to site</a>
+  <div class="nav-inner">
+    <div class="logo">Bun<span>che</span></div>
+    <a href="index.html" class="back-link">← Back to site</a>
+  </div>
 </nav>
 
 <div class="container">
@@ -60,16 +100,9 @@ footer .links a.active{color:var(--green)}
   </div>
 
   <p>Bunche ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our WhatsApp-based proxy ordering service.</p>
-
-  <p>This policy complies with:</p>
-  <ul>
-    <li>Nigeria Data Protection Regulation (NDPR) 2019</li>
-    <li>Nigeria Data Protection Act (NDPA) 2023</li>
-    <li>General Data Protection Regulation (GDPR) for EU users</li>
-  </ul>
+  <p>This policy complies with the Nigeria Data Protection Regulation (NDPR) 2019, Nigeria Data Protection Act (NDPA) 2023, and the General Data Protection Regulation (GDPR) for EU users.</p>
 
   <h2>1. Information We Collect</h2>
-
   <h3>1.1 Information You Provide</h3>
   <ul>
     <li>Phone number (primary identifier)</li>
@@ -78,7 +111,6 @@ footer .links a.active{color:var(--green)}
     <li>Recovery method (PIN or OTP — your choice)</li>
     <li>Free trial usage history</li>
   </ul>
-
   <h3>1.2 Information Collected Automatically</h3>
   <ul>
     <li>WhatsApp messages you send us (processed via WhatsApp Business API)</li>
@@ -87,7 +119,6 @@ footer .links a.active{color:var(--green)}
     <li>n8n workflow execution logs</li>
     <li>Proxy usage volume and data consumption</li>
   </ul>
-
   <h3>1.3 Information from Third Parties</h3>
   <ul>
     <li><strong>Flutterwave:</strong> Transaction status, payment confirmation, payment metadata</li>
@@ -109,36 +140,13 @@ footer .links a.active{color:var(--green)}
   </table>
 
   <h2>3. Free Trial Data</h2>
-  <p>When you participate in our free trial program:</p>
-  <ul>
-    <li>We collect your phone number to verify daily limits</li>
-    <li>We receive survey completion confirmation from our survey partner</li>
-    <li>We log free trial usage (timestamp, survey ID, proxy assigned)</li>
-    <li>We do NOT store your free trial browsing activity</li>
-    <li>Free trial proxies are hosted on Bunche's own infrastructure</li>
-  </ul>
+  <p>When you participate in our free trial program: we collect your phone number to verify daily limits, receive survey completion confirmation from our survey partner, log free trial usage (timestamp, survey ID, proxy assigned). We do NOT store your free trial browsing activity. Free trial proxies are hosted on Bunche's own infrastructure.</p>
   <p>Free trial data is retained for 90 days, then anonymized for analytics.</p>
 
   <h2>4. Data Sharing</h2>
-  <p>We do NOT sell your data. We share data only with:</p>
-
-  <h3>4.1 Service Providers</h3>
-  <ul>
-    <li><strong>Flutterwave:</strong> For payment processing</li>
-    <li><strong>Meta / WhatsApp:</strong> For message delivery via WhatsApp Business API</li>
-    <li><strong>Vetted Infrastructure Partners:</strong> For proxy allocation (no personal data beyond proxy requirements)</li>
-    <li><strong>Survey Partner:</strong> For free trial survey verification</li>
-    <li><strong>n8n:</strong> For workflow processing</li>
-  </ul>
-
-  <h3>4.2 Infrastructure Partners Disclosure</h3>
-  <p>Bunche sources proxy infrastructure from vetted third-party providers. We do not publicly name our infrastructure partners. These partners receive only the minimum data required to allocate proxy IPs. We require all partners to comply with applicable data protection laws.</p>
-
-  <h3>4.3 Legal Requirements</h3>
+  <p><strong>We do NOT sell your data.</strong> We share data only with service providers necessary to operate Bunche: Flutterwave (payment processing), Meta/WhatsApp (message delivery), vetted infrastructure partners (proxy allocation), the survey partner (free trial verification), and n8n (workflow processing).</p>
+  <p>We do not publicly name our infrastructure partners. They receive only the minimum data required to allocate proxy IPs. We require all partners to comply with applicable data protection laws.</p>
   <p>We may disclose information if required by court order, Nigerian law enforcement with valid subpoena, NDPC investigations, or prevention of fraud or illegal activity.</p>
-
-  <h3>4.4 Business Transfers</h3>
-  <p>If Bunche is acquired or merged, customer data may be transferred to the acquiring entity. You will be notified via WhatsApp before any transfer.</p>
 
   <h2>5. Data Retention</h2>
   <table>
@@ -153,34 +161,14 @@ footer .links a.active{color:var(--green)}
   </table>
 
   <h2>6. Your Rights</h2>
-
-  <div class="highlight-box">
+  <div class="infobox">
     <strong>Under NDPR/NDPA (Nigeria):</strong> Know what personal data we hold, request access, request correction, request deletion, lodge complaint with the Nigeria Data Protection Commission (NDPC).<br><br>
     <strong>Under GDPR (EU Users):</strong> Right to access, rectification, erasure, restrict processing, data portability, object, and rights related to automated decision-making.
   </div>
-
   <p>Contact us via WhatsApp or email. We will respond within 30 days.</p>
 
   <h2>7. Data Security</h2>
-
-  <h3>7.1 Technical Measures</h3>
-  <ul>
-    <li><strong>Encryption:</strong> All data in transit uses TLS 1.2+</li>
-    <li><strong>Hashing:</strong> PINs stored as bcrypt hashes (never plaintext)</li>
-    <li><strong>API Security:</strong> All API keys stored securely in n8n credentials</li>
-    <li><strong>Webhook Verification:</strong> All incoming webhooks verified for authenticity</li>
-    <li><strong>Credential Rotation:</strong> Proxy credentials rotated on refund, expiry, and free trial completion</li>
-  </ul>
-
-  <h3>7.2 Organizational Measures</h3>
-  <ul>
-    <li>Access to customer data restricted to authorized personnel only</li>
-    <li>Admin commands logged for audit</li>
-    <li>Regular security reviews</li>
-    <li>Incident response plan in place</li>
-  </ul>
-
-  <h3>7.3 Proxy Security</h3>
+  <p><strong>Encryption:</strong> All data in transit uses TLS 1.2+. <strong>Hashing:</strong> PINs stored as bcrypt hashes (never plaintext). <strong>Webhook Verification:</strong> All incoming webhooks verified for authenticity. <strong>Credential Rotation:</strong> Proxy credentials rotated on refund, expiry, and free trial completion.</p>
   <p>Bunche controls the authentication layer — all proxy access requires Bunche credentials. Credentials are revoked instantly on refund, expiry, or abuse detection. We do not monitor or inspect proxy traffic content.</p>
 
   <h2>8. Children's Privacy</h2>
@@ -193,17 +181,11 @@ footer .links a.active{color:var(--green)}
   <p>Bunche WhatsApp interface does not use cookies. Our legal document pages may use standard cookies from our web hosting provider. We do not use third-party tracking cookies on our properties.</p>
 
   <h2>11. Changes to Privacy Policy</h2>
-  <p>Changes will be communicated via updated Effective Date at the top of this document and WhatsApp notification for material changes. Continued use of Bunche after changes constitutes acceptance.</p>
+  <p>Changes will be communicated via updated Effective Date at the top of this document and WhatsApp notification for material changes. Continued use after changes constitutes acceptance.</p>
 
   <h2>12. Contact Us</h2>
-  <p><strong>Bunche</strong><br>
-  <strong>Email:</strong> oyebiyiayomide30@gmail.com<br>
-  <strong>Website:</strong> bunche.ng</p>
+  <p><strong>Email:</strong> oyebiyiayomide30@gmail.com &nbsp;|&nbsp; <strong>Website:</strong> bunche.ng</p>
   <p><strong>Nigeria Data Protection Commission:</strong> www.ndpc.gov.ng</p>
-
-  <div class="back-to-top">
-    <a href="#">↑ Back to top</a>
-  </div>
 </div>
 
 <footer>
