@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bunche — Nigerian Proxy Service</title>
+<meta name="description" content="Order proxy IPs on WhatsApp. Instant delivery in under 2 minutes. Nigerian Naira payments. No app, no website needed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0D0D0D;--bg2:#111;--bg3:#161616;--green:#00D278;
+  --green-dim:rgba(0,210,120,0.12);--green-border:rgba(0,210,120,0.25);
+  --text:#F5F5F5;--text2:#AAA;--text3:#666;
+}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+a{color:var(--green);text-decoration:none}
+img{max-width:100%;display:block}
+
+/* ── NAV ── */
+nav{max-width:900px;margin:0 auto;padding:20px 24px;display:flex;justify-content:space-between;align-items:center}
+nav .logo{font-size:22px;font-weight:800;letter-spacing:-0.5px}
+nav .logo span{color:var(--green)}
+nav .nav-links{display:flex;gap:24px;align-items:center}
+nav .nav-links a{color:var(--text2);font-size:13px;font-weight:500;transition:color .2s}
+nav .nav-links a:hover{color:var(--green)}
+nav .wa-btn{background:var(--green);color:#0D0D0D!important;padding:8px 18px;border-radius:8px;font-weight:700;font-size:13px;transition:opacity .2s}
+nav .wa-btn:hover{opacity:.85}
+
+/* ── HERO ── */
+.hero{max-width:900px;margin:0 auto;padding:80px 24px 60px;text-align:center}
+.hero-badge{display:inline-block;background:var(--green-dim);color:var(--green);font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:5px 12px;border-radius:20px;border:1px solid var(--green-border);margin-bottom:20px}
+.hero h1{font-size:clamp(36px,6vw,56px);font-weight:900;letter-spacing:-1.5px;line-height:1.1;margin-bottom:16px}
+.hero h1 span{color:var(--green)}
+.hero p{font-size:18px;color:var(--text2);max-width:520px;margin:0 auto 32px;line-height:1.5}
+.hero-cta{display:inline-flex;align-items:center;gap:10px;background:var(--green);color:#0D0D0D;padding:14px 28px;border-radius:12px;font-weight:700;font-size:16px;transition:opacity .2s}
+.hero-cta:hover{opacity:.85}
+.hero-cta .wa-icon{font-size:20px}
+.hero-trust{font-size:12px;color:var(--text3);margin-top:20px}
+
+/* ── STATS ── */
+.stats-bar{max-width:900px;margin:0 auto 80px;padding:0 24px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#1E1E1E;border-radius:12px;overflow:hidden;border:1px solid #1E1E1E}
+.stat{background:var(--bg);padding:24px 16px;text-align:center}
+.stat-num{font-size:28px;font-weight:800;color:var(--green);line-height:1}
+.stat-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:6px}
+
+/* ── SECTION ── */
+.section{max-width:900px;margin:0 auto;padding:0 24px 80px}
+.section-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:12px}
+.section-title{font-size:28px;font-weight:800;letter-spacing:-0.5px;margin-bottom:40px}
+
+/* ── HOW IT WORKS ── */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.step{background:var(--bg3);border:1px solid #1E1E1E;border-radius:16px;padding:28px 24px;text-align:center}
+.step-num{width:36px;height:36px;background:var(--green);color:#0D0D0D;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;margin:0 auto 16px}
+.step-title{font-size:15px;font-weight:700;margin-bottom:8px}
+.step-text{font-size:13px;color:var(--text2);line-height:1.5}
+
+/* ── PRODUCTS ── */
+.products-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.product-card{background:var(--bg3);border:1px solid #1E1E1E;border-radius:12px;padding:20px}
+.product-card .type{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.product-card .name{font-size:15px;font-weight:700;margin-bottom:12px;color:var(--text)}
+.product-card .price{font-size:22px;font-weight:800;color:var(--green)}
+.product-card .price span{font-size:13px;font-weight:500;color:var(--text3)}
+
+/* ── WHY ── */
+.why-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.why-card{background:var(--bg3);border:1px solid #1E1E1E;border-radius:12px;padding:24px;display:flex;gap:16px;align-items:flex-start}
+.why-icon{font-size:24px;flex-shrink:0;margin-top:2px}
+.why-title{font-size:14px;font-weight:700;margin-bottom:6px}
+.why-text{font-size:13px;color:var(--text2);line-height:1.5}
+
+/* ── FAQ ── */
+.faq-list{max-width:680px}
+.faq-item{border-bottom:1px solid #1E1E1E;padding:20px 0}
+.faq-q{font-size:15px;font-weight:600;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.faq-q::after{content:'+';color:var(--green);font-size:20px;font-weight:700}
+.faq-item.open .faq-q::after{content:'−'}
+.faq-a{font-size:13px;color:var(--text2);line-height:1.7;display:none}
+.faq-item.open .faq-a{display:block}
+
+/* ── ABOUT ── */
+.about{background:var(--bg3);border:1px solid #1E1E1E;border-radius:16px;padding:40px;max-width:680px}
+.about p{font-size:14px;color:var(--text2);line-height:1.8}
+.about .contact-row{display:flex;gap:24px;margin-top:20px;flex-wrap:wrap}
+.about .contact-item{font-size:13px;color:var(--text2)}
+.about .contact-item span{color:var(--text);font-weight:600}
+
+/* ── FOOTER ── */
+footer{max-width:900px;margin:0 auto;padding:40px 24px;border-top:1px solid #1E1E1E;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+footer .copy{font-size:12px;color:var(--text3)}
+footer .links{display:flex;gap:20px}
+footer .links a{font-size:12px;color:var(--text3);transition:color .2s}
+footer .links a:hover{color:var(--text)}
+
+@media(max-width:768px){
+  nav .nav-links{display:none}
+  .steps{grid-template-columns:1fr}
+  .stats-bar{grid-template-columns:1fr}
+  .why-grid{grid-template-columns:1fr}
+  footer{flex-direction:column;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Bun<span>che</span></div>
+  <div class="nav-links">
+    <a href="#how">How It Works</a>
+    <a href="#products">Products</a>
+    <a href="#faq">FAQ</a>
+    <a href="#about">About</a>
+    <a href="https://wa.me/2347032981049" class="wa-btn">Order on WhatsApp →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">🤝 Nigerian Proxy Service</div>
+  <h1>The Nigerian<br><span>Proxy Service</span></h1>
+  <p>Order on WhatsApp. Working proxy in under 2 minutes. Nigerian Naira payments. No app, no website needed.</p>
+  <a href="https://wa.me/2347032981049" class="hero-cta">
+    <span class="wa-icon">💬</span>
+    Start on WhatsApp →
+  </a>
+  <p class="hero-trust">Trusted by Nigerian professionals — serving Lagos and beyond</p>
+</section>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stat"><div class="stat-num">&lt;2 min</div><div class="stat-label">Avg. Delivery</div></div>
+  <div class="stat"><div class="stat-num">24/7</div><div class="stat-label">Automated</div></div>
+  <div class="stat"><div class="stat-num">₦3K–₦38K</div><div class="stat-label">Price Range</div></div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how">
+  <div class="section-label">How It Works</div>
+  <div class="section-title">Three steps. That's it.</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-title">Message Us</div>
+      <div class="step-text">Send a WhatsApp message saying "Order ISP UK" or whatever product you need. Our system picks it up instantly.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-title">Pay via Flutterwave</div>
+      <div class="step-text">We send you a secure Flutterwave payment link. Pay in Naira using your bank app, card, or transfer.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-title">Get Your Proxy</div>
+      <div class="step-text">Credentials arrive on WhatsApp within 2 minutes of payment. Works immediately — no waiting, no manual processing.</div>
+    </div>
+  </div>
+</section>
+
+<!-- PRODUCTS -->
+<section class="section" id="products">
+  <div class="section-label">Products & Pricing</div>
+  <div class="section-title">Simple Naira pricing.</div>
+  <div class="products-grid">
+    <div class="product-card">
+      <div class="type">ISP Proxy</div>
+      <div class="name">UK / US / DE / FR / CA</div>
+      <div class="price">₦6,500<span>/mo</span></div>
+    </div>
+    <div class="product-card">
+      <div class="type">ISP Proxy+</div>
+      <div class="name">JP / AU / BR / SG / KR</div>
+      <div class="price">₦7,500<span>/mo</span></div>
+    </div>
+    <div class="product-card">
+      <div class="type">Residential</div>
+      <div class="name">5GB — No time expiry</div>
+      <div class="price">₦9,500<span>/once</span></div>
+    </div>
+    <div class="product-card">
+      <div class="type">Residential</div>
+      <div class="name">10GB — No time expiry</div>
+      <div class="price">₦18,000<span>/once</span></div>
+    </div>
+    <div class="product-card">
+      <div class="type">Mobile 4G</div>
+      <div class="name">5GB — 30-day window</div>
+      <div class="price">₦20,000<span>/once</span></div>
+    </div>
+    <div class="product-card">
+      <div class="type">Mobile 4G</div>
+      <div class="name">10GB — 30-day window</div>
+      <div class="price">₦38,000<span>/once</span></div>
+    </div>
+    <div class="product-card">
+      <div class="type">Datacenter</div>
+      <div class="name">Fast static IPs</div>
+      <div class="price">₦3,000<span>/mo</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="section" id="why">
+  <div class="section-label">Why Bunche</div>
+  <div class="section-title">Built for Nigeria.</div>
+  <div class="why-grid">
+    <div class="why-card">
+      <div class="why-icon">💬</div>
+      <div>
+        <div class="why-title">WhatsApp-Native</div>
+        <div class="why-text">No app to download, no website to navigate. If you have WhatsApp, you can order a proxy in under 2 minutes.</div>
+      </div>
+    </div>
+    <div class="why-card">
+      <div class="why-icon">⚡</div>
+      <div>
+        <div class="why-title">Instant Delivery</div>
+        <div class="why-text">Other Nigerian resellers take hours — sometimes days. Bunche is fully automated. Payment confirmed → credentials sent immediately.</div>
+      </div>
+    </div>
+    <div class="why-card">
+      <div class="why-icon">💰</div>
+      <div>
+        <div class="why-title">Naira Payments</div>
+        <div class="why-text">No USD account needed. No wire transfer fees. Pay in Naira via Flutterwave — the most trusted payment platform in Nigeria.</div>
+      </div>
+    </div>
+    <div class="why-card">
+      <div class="why-icon">🔒</div>
+      <div>
+        <div class="why-title">Trusted Nigerian Business</div>
+        <div class="why-text">We are a Lagos-based tech business with terms of service, privacy policy, and real support. Not a Twitter dealer.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="section" id="faq">
+  <div class="section-label">FAQ</div>
+  <div class="section-title">Questions? Answers.</div>
+  <div class="faq-list">
+    <div class="faq-item open">
+      <div class="faq-q">How fast is delivery?</div>
+      <div class="faq-a">Credentials are delivered automatically to your WhatsApp within 2 minutes of payment confirmation. No manual processing.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Can I get a refund?</div>
+      <div class="faq-a">Yes. If your proxy doesn't work and we can't resolve it, you can request a refund within 7 days of purchase. Credentials will be revoked and payment reversed via Flutterwave.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How do I renew?</div>
+      <div class="faq-a">Send us a WhatsApp message saying "Renew" followed by your current username. We'll send a payment link and restore your service immediately after payment.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">What payment methods are accepted?</div>
+      <div class="faq-a">All Flutterwave payment methods — bank transfer, debit/credit card (Visa, Mastercard, Verve), USSD, and mobile money. Everything in Naira.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Is using a proxy legal?</div>
+      <div class="faq-a">Using proxies for legitimate business purposes — ad verification, market research, brand protection, cybersecurity — is legal. Proxies must not be used for fraud, hacking, or illegal activity. See our Acceptable Use Policy for details.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section class="section" id="about">
+  <div class="section-label">About</div>
+  <div class="section-title">Who We Are</div>
+  <div class="about">
+    <p>Bunche is a Lagos-based technology business built to serve Nigerian professionals and businesses who need reliable proxy IPs. We noticed that the Nigerian market was being served by informal dealers on Twitter and Telegram — unreliable, no terms, no recourse. We built Bunche to change that: a proper Nigerian business, transparent pricing, automated operations, and real support.</p>
+    <p style="margin-top:14px;">We source proxy infrastructure from vetted international providers and wrap it in a Nigerian-first experience — WhatsApp ordering, Naira pricing, and instant delivery. Our Dante SOCKS5 auth layer means we control access completely: if you need a refund or your proxy is compromised, we can revoke access instantly.</p>
+    <div class="contact-row">
+      <div class="contact-item"><span>Email:</span> oyebiyiayomide30@gmail.com</div>
+      <div class="contact-item"><span>Location:</span> Lagos, Nigeria</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="copy">© 2026 Bunche. All rights reserved.</div>
+  <div class="links">
+    <a href="privacy.html">Privacy Policy</a>
+    <a href="terms.html">Terms of Service</a>
+    <a href="acceptable-use.html">Acceptable Use</a>
+  </div>
+</footer>
+
+<script>
+// FAQ accordion
+document.querySelectorAll('.faq-q').forEach(q => {
+  q.addEventListener('click', () => {
+    q.parentElement.classList.toggle('open');
+  });
+});
+</script>
+
+</body>
+</html>
