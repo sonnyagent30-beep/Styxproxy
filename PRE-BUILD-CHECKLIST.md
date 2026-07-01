@@ -5,6 +5,25 @@
 
 ---
 
+## Non-Negotiable Build Requirements
+
+These are not preferences — they are enforced in every build decision:
+
+| Requirement | Reason |
+|---|---|
+| **Frontend = display only** | Zero business logic in website. All operations go through backend API. |
+| **10,000 concurrent customers** | Scale target at launch. Architecture must handle it. |
+| **Stateless backend** | No in-memory session state. All state in PostgreSQL. |
+| **Async webhook processing** | Webhooks queue work, not process synchronously. |
+| **No secrets in frontend** | API keys, DB credentials never touch browser code. |
+| **All webhooks verified** | HMAC on Flutterwave, token on Theorem Reach, before any processing. |
+
+**Tech stack decision needed before build:**
+- Option A: **Node.js + Express** (chosen for this build)
+- Option B: Python + FastAPI (alternative)
+
+---
+
 ## Phase 1: Accounts & Credentials
 
 These are the real blockers. Nothing can be built or tested without them.

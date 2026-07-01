@@ -20,6 +20,8 @@ Customers choose. All three work independently — no linking required for any c
 
 **Principle:** Zero friction. No registration. No data collection. Pay → get IP.
 
+**Architecture rule (enforced):** Frontend is display only. Zero business logic in the website. Every action — invoice creation, IP generation, order status, renewals, complaints — goes through the backend API. The website never touches payment processing, credential generation, or database directly.
+
 ### Flow
 
 ```
@@ -255,7 +257,21 @@ CREATE INDEX idx_instant_status ON instant_orders(status);
 
 ---
 
-## What's NOT in This Spec
+## Scale Target
+
+**10,000 concurrent customers at launch.**
+
+The architecture must handle 10,000 simultaneous active sessions, order processing, and webhook events without degradation.
+
+Implications for the build:
+- Stateless backend (no session state in memory — all in PostgreSQL)
+- Connection pooling (PostgreSQL pool, Redis for ephemeral state if needed)
+- Asynchronous processing (webhook → job queue → IP generation, not synchronous)
+- CDN for all static assets
+- Rate limiting at every public endpoint
+- Database read replicas if needed at scale
+
+## What NOT in This Spec
 
 - **Email marketing** — no email collection except optional receipt
 - **User accounts** — no login, no registration, no password
