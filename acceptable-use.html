@@ -4,54 +4,100 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Acceptable Use Policy — Bunche</title>
-<meta name="description" content="Bunche Acceptable Use Policy — prohibited activities and enforcement. Effective Date: 2026-06-27">
+<meta name="description" content="Bunche Acceptable Use Policy. Effective Date: 27 June 2026">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0D0D0D;--bg2:#111;--bg3:#161616;--green:#00D278;--green-dim:rgba(0,210,120,0.1);--green-border:rgba(0,210,120,0.2);--red:rgba(255,80,80,0.1);--red-border:rgba(255,80,80,0.25);--text:#F5F5F5;--text2:#999;--text3:#555}
-body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.75;font-size:14px}
-a{color:var(--green);text-decoration:none}
-nav{max-width:900px;margin:0 auto;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1a1a1a}
-nav .logo{font-size:20px;font-weight:800;letter-spacing:-0.5px}
-nav .logo span{color:var(--green)}
-nav .back{font-size:13px;color:var(--text2);transition:color .2s}
-nav .back:hover{color:var(--green)}
-.container{max-width:760px;margin:0 auto;padding:60px 24px 80px}
-.doc-header{border-bottom:1px solid #1a1a1a;padding-bottom:32px;margin-bottom:40px}
-.doc-label{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-bottom:8px}
-h1{font-size:clamp(24px,4vw,32px);font-weight:800;letter-spacing:-0.5px;margin-bottom:8px}
-.effective{font-size:12px;color:var(--text3)}
-h2{font-size:16px;font-weight:700;margin:36px 0 12px;color:var(--text)}
-h3{font-size:14px;font-weight:600;margin:20px 0 8px;color:var(--text2)}
-p{margin-bottom:12px;color:var(--text2)}
-ul,ol{margin:0 0 14px 20px;color:var(--text2)}
-li{margin-bottom:6px}
-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
-th,td{padding:10px 12px;border:1px solid #222;text-align:left}
-th{background:#111;color:var(--text);font-weight:600}
-td{color:var(--text2)}
-tr:nth-child(even) td{background:#0f0f0f}
-.warning-box{background:var(--red);border:1px solid var(--red-border);border-radius:8px;padding:16px;margin:20px 0;font-size:13px;color:var(--text2)}
-.warning-box strong{color:#ff5050}
-.highlight-box{background:var(--green-dim);border:1px solid var(--green-border);border-radius:8px;padding:16px;margin:20px 0;font-size:13px;color:var(--text2)}
-.highlight-box strong{color:var(--green)}
-.back-to-top{text-align:center;padding:40px 0 0}
-.back-to-top a{font-size:13px;color:var(--text3);transition:color .2s}
-.back-to-top a:hover{color:var(--green)}
-footer{border-top:1px solid #1a1a1a;max-width:900px;margin:0 auto;padding:32px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
-footer .copy{font-size:12px;color:var(--text3)}
-footer .links{display:flex;gap:20px}
-footer .links a{font-size:12px;color:var(--text3);transition:color .2s}
-footer .links a:hover{color:var(--text)}
-footer .links a.active{color:var(--green)}
+:root {
+  --green: #16A34A; --green-hover: #15803D;
+  --green-bg: #DCFCE7; --green-border: #BBF7D0;
+  --red-bg: #FEE2E2; --red-border: #FECACA; --red: #DC2626;
+  --bg: #FFFFFF; --bg-alt: #F9FAFB; --surface: #F3F4F6;
+  --surface-hover: #E5E7EB; --border: #E5E7EB;
+  --text: #111827; --text2: #4B5563; --text3: #9CA3AF;
+  --nav-bg: rgba(255,255,255,0.9);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --green: #22C55E; --green-hover: #16A34A;
+    --green-bg: #14532D; --green-border: #166534;
+    --red-bg: #450A0A; --red-border: #7F1D1D; --red: #F87171;
+    --bg: #09090B; --bg-alt: #111113; --surface: #18181B;
+    --surface-hover: #27272A; --border: #27272A;
+    --text: #FAFAFA; --text2: #A1A1AA; --text3: #52525B;
+    --nav-bg: rgba(9,9,11,0.9);
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.75; font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--green); text-decoration: none; }
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--nav-bg); backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 1100px; margin: 0 auto; padding: 0 24px;
+  display: flex; justify-content: space-between; align-items: center; height: 64px;
+}
+.logo { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+.logo span { color: var(--green); }
+.back-link { font-size: 14px; font-weight: 500; color: var(--text2); transition: color 0.15s; }
+.back-link:hover { color: var(--text); }
+.container { max-width: 720px; margin: 0 auto; padding: 64px 24px 80px; }
+.doc-header { margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
+.doc-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--green); margin-bottom: 8px; }
+h1 { font-size: clamp(24px, 4vw, 32px); font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
+.effective { font-size: 13px; color: var(--text3); }
+h2 { font-size: 16px; font-weight: 700; margin: 40px 0 12px; }
+h3 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; color: var(--text2); }
+p { margin-bottom: 12px; color: var(--text2); }
+ul, ol { margin: 0 0 14px 20px; color: var(--text2); }
+li { margin-bottom: 6px; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+th, td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: left; }
+th { background: var(--surface); font-weight: 600; font-size: 12px; }
+tr:last-child td { border-bottom: none; }
+tr:nth-child(even) td { background: var(--bg-alt); }
+.infobox {
+  background: var(--green-bg); border: 1px solid var(--green-border);
+  border-radius: 10px; padding: 16px 20px; margin: 20px 0;
+  font-size: 14px; color: var(--text2);
+}
+.infobox strong { color: var(--green); }
+.alertbox {
+  background: var(--red-bg); border: 1px solid var(--red-border);
+  border-radius: 10px; padding: 16px 20px; margin: 20px 0;
+  font-size: 14px; color: var(--text2);
+}
+.alertbox strong { color: var(--red); }
+footer {
+  border-top: 1px solid var(--border);
+  max-width: 1100px; margin: 0 auto; padding: 40px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 16px;
+}
+footer .copy { font-size: 13px; color: var(--text3); }
+footer .links { display: flex; gap: 24px; }
+footer .links a { font-size: 13px; color: var(--text3); transition: color 0.15s; }
+footer .links a:hover { color: var(--text); }
+footer .links a.active { color: var(--green); }
 </style>
 </head>
 <body>
 <nav>
-  <div class="logo">Bun<span>che</span></div>
-  <a href="index.html" class="back">← Back to site</a>
+  <div class="nav-inner">
+    <div class="logo">Bun<span>che</span></div>
+    <a href="index.html" class="back-link">← Back to site</a>
+  </div>
 </nav>
 
 <div class="container">
@@ -78,53 +124,45 @@ footer .links a.active{color:var(--green)}
     <li>Network intrusion, port scanning, exploitation of vulnerabilities</li>
     <li>Credential stuffing, brute force attacks, DDoS attacks</li>
     <li>SQL injection, XSS, CSRF attacks</li>
-    <li>Bypassing authentication or security controls</li>
   </ul>
 
   <h3>1.3 Spam & Unsolicited Communications</h3>
   <ul>
     <li>Mass unsolicited email (spam)</li>
     <li>Unsolicited direct messages on social media</li>
-    <li>Mass comment spam</li>
-    <li>SMS pumping fraud</li>
-    <li>Robocalling</li>
+    <li>Mass comment spam, SMS pumping fraud, robocalling</li>
   </ul>
 
   <h3>1.4 Content & Copyright Infringement</h3>
   <ul>
     <li>Distribution of copyrighted material without license</li>
-    <li>Software piracy, streaming piracy</li>
-    <li>DMCA violations</li>
+    <li>Software piracy, streaming piracy, DMCA violations</li>
   </ul>
 
   <h3>1.5 Malware & Security Threats</h3>
   <ul>
     <li>Distribution of viruses, trojans, ransomware</li>
-    <li>Botnet operation, cryptojacking</li>
-    <li>Phishing sites or infrastructure</li>
-    <li>Command and control servers</li>
+    <li>Botnet operation, cryptojacking, phishing infrastructure</li>
   </ul>
 
   <h3>1.6 Illegal Content</h3>
-  <div class="warning-box">
-    <strong>Zero Tolerance:</strong> Child sexual abuse material (CSAM), human trafficking content, drug trafficking platforms, and weapons sales platforms will be reported immediately to NAPTIP and international authorities. Any illegal activity under Nigerian law (Criminal Code Act) or the Cybercrimes Act 2015 is strictly prohibited.
+  <div class="alertbox">
+    <strong>Zero Tolerance:</strong> Child sexual abuse material (CSAM), human trafficking content, drug trafficking platforms, and weapons sales platforms will be reported immediately to NAPTIP and international authorities. Any illegal activity under Nigerian law — the Criminal Code Act or the Cybercrimes Act 2015 — is strictly prohibited.
   </div>
 
   <h3>1.7 Platform Abuse</h3>
   <ul>
     <li>Creating fake reviews or ratings</li>
-    <li>Astroturfing campaigns</li>
-    <li>Manipulating platform algorithms</li>
-    <li>Evading bans through multi-accounting (except where customer uses different IPs per platform legitimately)</li>
+    <li>Astroturfing campaigns, manipulating platform algorithms</li>
+    <li>Evading bans through multi-accounting (except where legitimately using different IPs per platform)</li>
   </ul>
 
   <h2>2. Free Trial Specific Rules</h2>
-  <p>Free trial proxies are subject to ALL prohibitions above PLUS the rules in this section.</p>
+  <p>Free trial proxies are subject to ALL the above prohibitions PLUS the rules in this section.</p>
 
   <h3>2.1 How Free Trials Work</h3>
-  <p>Free trials use Bunche's self-hosted proxy infrastructure:</p>
   <ul>
-    <li><strong>Shared IP:</strong> All free trial users share the Bunche proxy infrastructure</li>
+    <li><strong>Shared IP:</strong> All free trial users share Bunche's proxy infrastructure</li>
     <li><strong>Authenticated access:</strong> Each trial user gets unique Bunche-branded credentials</li>
     <li><strong>2-hour TTL:</strong> Trial credentials automatically expire after 2 hours</li>
     <li><strong>3-trial daily limit:</strong> Each phone number limited to 3 free trials per calendar day</li>
@@ -139,7 +177,6 @@ footer .links a.active{color:var(--green)}
     <li>Coordinating with others to claim excessive free trials</li>
     <li>Publicly posting or distributing trial usernames and passwords</li>
     <li>Using survey-farming services to falsely complete surveys</li>
-    <li>Attempting to brute-force or guess other trial users' credentials</li>
   </ul>
 
   <h3>2.3 Enforcement for Free Trial Abuse</h3>
@@ -171,42 +208,28 @@ footer .links a.active{color:var(--green)}
   <ul>
     <li>Keep your proxy credentials confidential</li>
     <li>Do not share credentials with unauthorized persons</li>
-    <li>Do not allow third parties to use your proxies</li>
     <li>Ensure your use of proxies complies with target platform Terms of Service</li>
     <li>You are responsible for ALL activity under your account</li>
   </ul>
 
   <h2>6. Multi-IP Use Warning</h2>
-  <div class="warning-box">
-    <strong>Important:</strong> Using the SAME IP across multiple devices or accounts can get all linked accounts flagged or banned, reduce your privacy, and violate target platform Terms of Service.<br><br>
-    <strong>Best Practice:</strong> Use ONE IP per platform, per account. Bunche is not responsible for bans resulting from poor IP hygiene.
+  <div class="alertbox">
+    <strong>Important:</strong> Using the SAME IP across multiple devices or accounts can get all linked accounts flagged or banned and violate target platform Terms of Service. Use ONE IP per platform, per account. Bunche is not responsible for bans resulting from poor IP hygiene.
   </div>
 
   <h2>7. Platform-Specific Restrictions</h2>
-  <p>Some platforms have stricter rules about proxy use. You are responsible for understanding and complying with:</p>
-  <ul>
-    <li>Social media platform Terms (Instagram, Twitter/X, TikTok, Facebook)</li>
-    <li>E-commerce platform Terms (Amazon, eBay, Shopify stores)</li>
-    <li>Streaming platform Terms (Netflix, Spotify, Hulu)</li>
-    <li>Financial platform Terms (banks, crypto exchanges)</li>
-    <li>Advertising platform Terms (Google Ads, Meta Ads)</li>
-  </ul>
+  <p>Some platforms have stricter rules about proxy use. You are responsible for understanding and complying with the Terms of Service of all platforms you use — social media (Instagram, Twitter/X, TikTok, Facebook), e-commerce (Amazon, eBay, Shopify), streaming (Netflix, Spotify), financial platforms, and advertising platforms (Google Ads, Meta Ads).</p>
   <p>Bunche does not guarantee that proxies will work on any specific platform.</p>
 
   <h2>8. Reporting Violations</h2>
   <p>If you become aware of anyone using Bunche proxies for illegal activities, contact us via WhatsApp with evidence. We investigate all reports within 24 hours and cooperate with law enforcement for serious violations.</p>
   <p><strong>Report Abuse:</strong> oyebiyiayomide30@gmail.com</p>
 
-  <h2>9. Changes to AUP</h2>
-  <p>Changes communicated via updated Effective Date at the top of this document and WhatsApp notification for material changes. Continued use after changes constitutes acceptance.</p>
+  <h2>9. Changes to This Policy</h2>
+  <p>Changes will be communicated via updated Effective Date and WhatsApp notification for material changes. Continued use after changes constitutes acceptance.</p>
 
   <h2>10. Contact</h2>
-  <p><strong>Email:</strong> oyebiyiayomide30@gmail.com<br>
-  <strong>Website:</strong> bunche.ng</p>
-
-  <div class="back-to-top">
-    <a href="#">↑ Back to top</a>
-  </div>
+  <p><strong>Email:</strong> oyebiyiayomide30@gmail.com &nbsp;|&nbsp; <strong>Website:</strong> bunche.ng</p>
 </div>
 
 <footer>
