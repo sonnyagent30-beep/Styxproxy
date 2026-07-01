@@ -19,6 +19,9 @@ Each scenario shows:
 
 ## SCENARIO 1: First-Time Paid Order (ISP UK)
 
+**Channels:** WhatsApp & Telegram (identical experience)
+
+
 ### Flow: Customer → Bunche → Admin
 
 ---
@@ -30,8 +33,8 @@ Customer: Hi
 ```
 
 **Bunche system:**
-- Receive WhatsApp webhook
-- Signature verify ✅
+- Receive message via [channel] webhook
+- [For WhatsApp: HMAC signature verify ✅] [For Telegram: message authenticity handled by Telegram API ✅]
 - Idempotency check ✅ (new sender)
 - Rate limit ✅
 - Hash phone → check customers table → **NEW PHONE**
@@ -279,6 +282,9 @@ send the screenshot and we'll replace it free.
 
 ## SCENARIO 1B: Dead IP After Payment (within retries)
 
+**Channels:** WhatsApp & Telegram (identical experience)
+
+
 ### Flow: Customer → Bunche → Admin
 
 *Triggered when IP test fails 1-3 times before success*
@@ -312,6 +318,9 @@ Through payment received → name captured → PIN set
 
 ## SCENARIO 1C: All 4 IP Attempts Fail (Auto-Refund)
 
+**Channels:** WhatsApp & Telegram (identical experience)
+
+
 ### Flow: Customer → Bunche → Admin
 
 *Triggered when all 4 IP tests (1 initial + 3 retries) return dead IPs*
@@ -344,7 +353,7 @@ Sorry for the inconvenience 🙏
 ```
 
 **Admin side:**
-- 🔴 **WhatsApp alert to admin:**
+- 🔴 **Admin alert (via configured channel — Telegram or WhatsApp):**
   ```
   🚨 AUTO-REFUND TRIGGERED
 
@@ -364,6 +373,9 @@ Sorry for the inconvenience 🙏
 ---
 
 ## SCENARIO 2: Provider Down (Pre-Payment)
+
+**Channels:** WhatsApp & Telegram (identical experience)
+
 
 ### Flow: Customer → Bunche → Admin
 
@@ -416,7 +428,7 @@ reply wait and I'll ping you the moment ISP is back 🙏
 ```
 
 **Admin side:**
-- 🔴 **WhatsApp alert to admin:**
+- 🔴 **Admin alert (via configured channel — Telegram or WhatsApp):**
   ```
   🚨 PROVIDER DOWN: Proxy-Seller
 
@@ -503,6 +515,9 @@ Now proceeds through normal Scenario 1 Steps 2-6 (pre-check passes, payment link
 ---
 
 ## SCENARIO 3: New Number / Account Recovery
+
+**Channels:** WhatsApp & Telegram (identical experience)
+
 
 ### Flow: Customer → Bunche → Admin
 
@@ -678,6 +693,9 @@ Anything else? Reply menu anytime 💪
 
 ## SCENARIO 4: Forgot PIN
 
+**Channels:** WhatsApp & Telegram (identical experience)
+
+
 ### Flow: Customer → Bunche → Admin
 
 *Triggered when customer tries account recovery but has forgotten their PIN*
@@ -794,7 +812,7 @@ Try again in 15 minutes, or contact admin@example.com for help.
 ```
 
 **Admin side:**
-- 🔴 **WhatsApp alert to admin:**
+- 🔴 **Admin alert (via configured channel — Telegram or WhatsApp):**
   ```
   🚨 FORGOT-PIN LOCKOUT
 
@@ -811,6 +829,9 @@ Try again in 15 minutes, or contact admin@example.com for help.
 ---
 
 ## SCENARIO 5: Free Trial
+
+**Channels:** WhatsApp & Telegram (identical experience)
+
 
 ### Flow: Customer → Bunche → Admin
 
@@ -1014,6 +1035,9 @@ For each expired:
 
 ## SCENARIO 6: Ban Claim (IP Banned After Delivery)
 
+**Channels:** WhatsApp & Telegram (identical experience)
+
+
 ### Flow: Customer → Bunche → Admin
 
 *Triggered when customer reports their delivered IP is banned*
@@ -1125,6 +1149,9 @@ Claim ID: BAN-CLAIM-001
 
 ## SCENARIO 7: Referral (Friend Uses Code)
 
+**Channels:** WhatsApp & Telegram (identical experience)
+
+
 ### Flow: Customer (friend) → Bunche → Admin
 
 *Triggered when a new customer places an order and enters a referral name*
@@ -1191,6 +1218,9 @@ Keep sharing your name Ada 💪
 
 ## SCENARIO 8: Data Alert Escalation
 
+**Channels:** WhatsApp & Telegram (identical experience)
+
+
 ### Flow: Bunche (automated) → Admin
 
 *Triggered by cron — when customer hits 80%/100% data cap*
@@ -1243,6 +1273,9 @@ Reply Order RES 5GB to continue.
 
 ## SCENARIO 9: Daily Summary (Admin Automated Report)
 
+**Channels:** WhatsApp & Telegram (identical experience)
+
+
 ### Flow: Bunche (cron 23:55) → Admin
 
 ---
@@ -1280,6 +1313,9 @@ Full details: https://n8n.yunche.ng/executions/...
 ---
 
 ## SCENARIO 10: Error Alert (Critical)
+
+**Channels:** WhatsApp & Telegram (identical experience)
+
 
 ### Flow: Bunche (error trigger) → Admin
 
