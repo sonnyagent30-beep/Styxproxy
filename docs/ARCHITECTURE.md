@@ -97,10 +97,11 @@
 
 ### 2. Backend API
 
-**Stack:** Node.js + Express
+**Stack:** Python 3.11+ + FastAPI + Uvicorn + Pydantic + asyncpg
 **Host:** New Bunche VPS (port 8080)
-**PM2:** Managed process, auto-restart
+**Process manager:** Uvicorn (via PM2 or supervisor)
 **Port exposed:** Via nginx reverse proxy on 443
+**Async queue:** Redis + background tasks (FastAPI BackgroundTasks or Celery)
 
 **Base URL:** `https://api.bunche.ng`
 
@@ -388,6 +389,9 @@ POSTGRES_DB=bunche
 POSTGRES_USER=bunche
 POSTGRES_PASSWORD=<strong-password>
 
+# Redis (async queue)
+REDIS_URL=redis://localhost:6379
+
 # Flutterwave
 FLUTTERWAVE_PUBLIC_KEY=FLWPUBK-xxxx
 FLUTTERWAVE_SECRET_KEY=FLWSECK-xxxx
@@ -399,7 +403,7 @@ PROXY_SELLER_API_URL=https://api.proxy-seller.com
 DATAIMPULSE_API_KEY=xxx
 DATAIMPULSE_API_URL=https://api.dataimpulse.com
 
-# Email
+# Email (Resend)
 RESEND_API_KEY=re_xxxx
 EMAIL_FROM=bunche@bunche.ng
 
@@ -413,30 +417,9 @@ TRIAL_PORT_END=8100
 THEOREM_REACH_API_KEY=xxx
 THEOREM_REACH_WEBHOOK_SECRET=<random>
 
-# ======================
-# n8n (Environment Variables)
-# ======================
-
-# PostgreSQL (for Bunche data, not n8n's own DB)
-DB_TYPE=postgres
-DB_POSTGRES_HOST=<new VPS IP or localhost>
-DB_POSTGRES_PORT=5432
-DB_POSTGRES_DATABASE=bunche
-DB_POSTGRES_USER=bunche
-DB_POSTGRES_PASSWORD=<same as above>
-
-# Telegram
-TELEGRAM_BOT_TOKEN=xxxx
-TELEGRAM_WEBHOOK_URL=<cloudflared tunnel URL>/telegram/webhook
-
-# WhatsApp
-WA_BUSINESS_ACCOUNT_ID=WABa...
-WA_PHONE_NUMBER_ID=xxxx
-WA_API_TOKEN=xxxx
-
-# Theorem Reach
-THEOREM_REACH_API_KEY=xxx
-THEOREM_REACH_WEBHOOK_SECRET=<random>
+# Rate Limiting
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_WINDOW_SECONDS=60
 ```
 
 ---
@@ -445,26 +428,36 @@ THEOREM_REACH_WEBHOOK_SECRET=<random>
 
 ```
 /root/
-├── bunche-api/               # Backend API (Node.js)
-│   ├── src/
-│   │   ├── routes/
-│   │   │   ├── invoice.js
-│   │   │   ├── order.js
-│   │   │   └── webhook.js
-│   │   ├── services/
-│   │   │   ├── flutterwave.js
-│   │   │   ├── proxy-seller.js
-│   │   │   ├── dataimpulse.js
-│   │   │   └── email.js
-│   │   ├── middleware/
-│   │   │   ├── hmac-verify.js
-│   │   │   ├── rate-limit.js
-│   │   │   └── cors.js
-│   │   └── index.js
-│   ├── ecosystem.config.js   # PM2 config
-│   └── package.json
+├── bunche-api/               # Backend API (Python + FastAPI)
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py            # FastAPI app entry point
+│   │   ├── config.py          # Environment variables + Pydantic settings
+│   │   ├── database.py        # asyncpg connection pool
+│   │   ├── models/            # Pydantic models (request/response shapes)
+│   │   │   ├── __init__.py
+│   │   │   ├── invoice.py
+│   │   │   ├── order.py
+│   │   │   └── webhook.py
+│   │   ├── routes/            # FastAPI routers
+│   │   │   ├── __init__.py
+│   │   │   ├── invoice.py     # POST /invoice/create
+│   │   │   ├── order.py       # GET /order/:tx_ref, renew, complain
+│   │   │   └── webhook.py     # POST /webhook/flutterwave, /theorem-reach
+│   │   ├── services/          # Business logic
+│   │   │   ├── __init__.py
+│   │   │   ├── flutterwave.py # Invoice creation, HMAC verification
+│   │   │   ├── proxy_provider.py # Proxy-Seller / DataImpulse calls
+│   │   │   ├── email.py      # Resend transactional email
+│   │   │   └── trial.py      # 3proxy trial management
+│   │   └── middleware/       # Rate limiting, CORS, error handling
+│   │       ├── __init__.py
+│   │       └── rate_limit.py
+│   ├── venv/                  # Python virtual environment
+│   ├── requirements.txt
+│   └── ecosystem.config.js     # PM2 config (uvicorn)
 │
-├── bunche-website/           # Static website (or Next.js)
+├── bunche-website/           # Static website (HTML/CSS/JS)
 │   ├── index.html
 │   ├── thankyou.html
 │   ├── manage.html

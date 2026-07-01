@@ -293,4 +293,22 @@ Implications for the build:
 
 ---
 
+## Tech Stack
+
+| Layer | Technology | Why |
+|---|---|---|
+| Backend API | **Python 3.11+ + FastAPI** | Async by default, Pydantic validation, scale to 10k |
+| Database | **PostgreSQL** | All Bunche data |
+| Async queue | **Redis** | Background job processing for webhooks |
+| Process manager | **Uvicorn** | ASGI server for FastAPI |
+| Proxy auth | **3proxy** | Trial proxy ports 8001–8100 |
+| Payments | **Flutterwave** | Naira payments |
+| Email | **Resend** | Transactional emails |
+| Website | **Static HTML/CSS/JS** | Display only, zero business logic |
+| n8n | (existing) | Workflow automation |
+
+**Rule:** Frontend (website) = display only. All business logic in FastAPI backend.
+
+---
+
 *This spec is the source of truth. Update this document before changing any workflow, channel, or product decision.*

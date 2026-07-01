@@ -18,9 +18,8 @@ These are not preferences — they are enforced in every build decision:
 | **No secrets in frontend** | API keys, DB credentials never touch browser code. |
 | **All webhooks verified** | HMAC on Flutterwave, token on Theorem Reach, before any processing. |
 
-**Tech stack decision needed before build:**
-- Option A: **Node.js + Express** (chosen for this build)
-- Option B: Python + FastAPI (alternative)
+**Tech stack confirmed:**
+- **Python + FastAPI** — async by default, Pydantic validation, same language as n8n scripts
 
 ---
 
@@ -72,16 +71,19 @@ sudo apt install -y postgresql postgresql-contrib
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
 
-# 3. Node.js 20.x (for backend API)
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-node --version  # should say v20.x.x
-npm --version
+# 3. Python 3.11+ (FastAPI requires 3.9+)
+sudo apt install -y python3.11 python3.11-venv python3-pip
+python3.11 --version  # confirm 3.11+
 
-# 4. PM2 (process manager for backend)
-sudo npm install -g pm2
+# 4. Redis (for async job queue)
+sudo apt install -y redis-server
+sudo systemctl enable redis-server
+sudo systemctl start redis
 
-# 5. 3proxy
+# 5. PM2 for process management
+sudo npm install -g pm2  # or use supervisor for Python
+
+# 6. 3proxy
 sudo apt install -y build-essential
 cd /tmp
 git clone https://github.com/3proxy/3proxy.git
@@ -91,9 +93,20 @@ sudo cp src/3proxy /usr/local/bin/
 sudo cp scripts/rc.d/init.d.3proxy /etc/init.d/3proxy
 sudo chmod 755 /etc/init.d/3proxy
 
-# 6. nginx
+# 7. nginx
 sudo apt install -y nginx
 sudo systemctl enable nginx
+```
+
+**Python project setup:**
+```bash
+cd /root/bunche-api
+python3.11 -m venv venv
+source venv/bin/activate
+pip install fastapi uvicorn[standard] pydantic python-dotenv
+pip install asyncpg httpx slowapi
+pip install psycopg2-binary  # sync fallback
+pip install python-jose[cryptography]  # JWT if needed
 ```
 
 ### VPS Firewall (UFW)
