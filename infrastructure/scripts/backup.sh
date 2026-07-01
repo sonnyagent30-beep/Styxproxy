@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────
 # Bunche — Daily Encrypted Backup
 # Schedule via cron:
-#   0 2 * * * /opt/bunche/infrastructure/scripts/backup.sh
+#   0 2 * * * /opt/bunche/infrastructure/scripts/backup.sh >> /var/log/bunche-backup.log 2>&1
 # ─────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -11,21 +11,23 @@ COMPOSE_FILE="${COMPOSE_FILE:-/opt/bunche/infrastructure/docker-compose.yml}"
 BACKUP_DIR="${BACKUP_DIR:-/opt/bunche/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 ENCRYPTION_KEY="${BACKUP_ENCRYPTION_KEY:-}"
-DESTINATION="${BACKUP_DESTINATION:-}"
+DESTINATION="${DESTINATION:-}"
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_NAME="bunche_backup_${TIMESTAMP}"
 BACKUP_PATH="${BACKUP_DIR}/${BACKUP_NAME}"
 
-# ── Pre-flight ─────────────────────────────────────────────
+# ── Pre-flight checks ─────────────────────────────────────
 if [[ ! -f "$COMPOSE_FILE" ]]; then
   echo "[ERROR] docker-compose.yml not found at $COMPOSE_FILE"
   exit 1
 fi
+
+mkdir -p "$BACKUP_DIR"
+
 if [[ -z "$ENCRYPTION_KEY" ]]; then
   echo "[WARN] BACKUP_ENCRYPTION_KEY not set — backup will NOT be encrypted"
 fi
-mkdir -p "$BACKUP_DIR"
 
 echo "[$(date)] Starting backup: $BACKUP_NAME"
 
@@ -35,39 +37,50 @@ if [[ -z "$CONTAINER" ]]; then
   echo "[ERROR] Postgres container not running"
   exit 1
 fi
+
 PG_DUMP_PATH="${BACKUP_PATH}_pg.sql"
-docker exec "$CONTAINER" pg_dump -U bunche -d bunche --no-owner --no-acl > "$PG_DUMP_PATH"
+docker exec "$CONTAINER" pg_dump -U bunche -d bunche --no-owner --no-acl \
+  > "$PG_DUMP_PATH"
+
 echo "[OK] PostgreSQL dump: $(wc -c < "$PG_DUMP_PATH") bytes"
 
 # ── Step 2: Redis dump ────────────────────────────────────
-CONTAINER=$(docker compose -f "$COMPOSE_FILE" ps -q redis 2>/dev/null || true)
-if [[ -n "$CONTAINER" ]]; then
+REDIS_DUMP_PATH=""
+CONTAINER_REDIS=$(docker compose -f "$COMPOSE_FILE" ps -q redis 2>/dev/null || true)
+if [[ -n "$CONTAINER_REDIS" ]]; then
   REDIS_DUMP_PATH="${BACKUP_PATH}_redis.rdb"
-  docker exec "$CONTAINER" redis-cli -a "$REDIS_PASSWORD" SAVE
-  docker cp "$CONTAINER":/data/dump.rdb "$REDIS_DUMP_PATH"
+  docker exec "$CONTAINER_REDIS" redis-cli -a "${REDIS_PASSWORD:-}" SAVE
+  docker cp "$CONTAINER_REDIS:/data/dump.rdb" "$REDIS_DUMP_PATH"
   echo "[OK] Redis dump: $(wc -c < "$REDIS_DUMP_PATH") bytes"
 fi
 
-# ── Step 3: Tar + Gzip ───────────────────────────────────
+# ── Step 3: Tar + Gzip ────────────────────────────────────
 ARCHIVE_PATH="${BACKUP_PATH}.tar.gz"
+
 tar -czf "$ARCHIVE_PATH" -C "$BACKUP_DIR" "$(basename "$PG_DUMP_PATH")"
-[[ -f "${REDIS_DUMP_PATH:-}" ]] && tar -rf "$ARCHIVE_PATH" -C "$BACKUP_DIR" "$(basename "$REDIS_DUMP_PATH")"
+if [[ -n "$REDIS_DUMP_PATH" ]]; then
+  tar -rf "$ARCHIVE_PATH" -C "$BACKUP_DIR" "$(basename "$REDIS_DUMP_PATH")"
+fi
+
 echo "[OK] Archive created: $(wc -c < "$ARCHIVE_PATH") bytes"
 
 # ── Step 4: Encrypt ───────────────────────────────────────
+FINAL_PATH="$ARCHIVE_PATH"
 if [[ -n "$ENCRYPTION_KEY" ]]; then
-  ENCRYPTED="${ARCHIVE_PATH}.gpg"
-  gpg --batch --yes --symmetric --cipher-algo AES256 \
+  ENCRYPTED_PATH="${ARCHIVE_PATH}.gpg"
+  gpg --batch --yes --symmetric \
+    --cipher-algo AES256 \
     --passphrase "$ENCRYPTION_KEY" \
-    --output "$ENCRYPTED" "$ARCHIVE_PATH"
-  rm "$ARCHIVE_PATH"
-  ARCHIVE_PATH="$ENCRYPTED"
-  echo "[OK] Encrypted: $(wc -c < "$ARCHIVE_PATH") bytes"
+    --output "$ENCRYPTED_PATH" \
+    "$ARCHIVE_PATH"
+  rm -f "$ARCHIVE_PATH"
+  FINAL_PATH="$ENCRYPTED_PATH"
+  echo "[OK] Encrypted: $(wc -c < "$FINAL_PATH") bytes"
 fi
 
 # ── Step 5: Upload to remote ──────────────────────────────
 if [[ -n "$DESTINATION" ]] && command -v rclone &>/dev/null; then
-  rclone copy "$ARCHIVE_PATH" "${DESTINATION}/" --copy-links
+  rclone copy "$FINAL_PATH" "${DESTINATION}/" --copy-links
   echo "[OK] Uploaded to: $DESTINATION"
 fi
 
@@ -76,5 +89,7 @@ find "$BACKUP_DIR" -name "bunche_backup_*" -type f -mtime "+${RETENTION_DAYS}" -
 echo "[OK] Retention applied: keeping last $RETENTION_DAYS days"
 
 # ── Step 7: Cleanup temp files ────────────────────────────
-rm -f "$PG_DUMP_PATH" "${REDIS_DUMP_PATH:-}"
-echo "[$(date)] Backup complete: $(basename "$ARCHIVE_PATH") — $(du -sh "$ARCHIVE_PATH" | cut -f1)"
+rm -f "$PG_DUMP_PATH"
+[[ -n "$REDIS_DUMP_PATH" ]] && rm -f "$REDIS_DUMP_PATH"
+
+echo "[$(date)] Backup complete: $(basename "$FINAL_PATH") — $(du -sh "$FINAL_PATH" | cut -f1)"
