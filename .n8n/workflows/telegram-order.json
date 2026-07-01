@@ -1,0 +1,652 @@
+{
+  "name": "Telegram Order Handler",
+  "nodes": [
+    {
+      "id": "tg-001",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "updates": true,
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot-api"
+      },
+      "webhookPath": "telegram-incoming"
+    },
+    {
+      "id": "tg-002",
+      "name": "Rate Limit Check",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "operation": "incr",
+        "key": "rate_limit:telegram:{{$json.message.chat.id}}",
+        "ttl": 60,
+        "additionalFields": {}
+      },
+      "credentials": {
+        "redisApi": "bunche-redis"
+      }
+    },
+    {
+      "id": "tg-003",
+      "name": "MiniMax LLM Parser",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.minimax.chat/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$credentials.minimaxApiKey}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "MiniMax-M2"
+            },
+            {
+              "name": "messages",
+              "value": [
+                {
+                  "role": "system",
+                  "content": "You are a customer service AI for Bunche, a Nigerian proxy reseller. Analyze the customer's Telegram message and determine their intent.\n\nAvailable intents:\n- order: Customer wants to buy a proxy\n- help: Customer needs general help or has questions\n- check_data: Customer wants to check their order status or data usage\n- free_trial: Customer wants a free trial\n- renewal: Customer wants to renew their proxy\n- recovery: Customer needs help recovering their number or account\n- how_to_use: Customer wants to know how to use the proxy\n- unknown: Cannot determine intent\n\nRespond with JSON only (no other text):\n{\"intent\": \"<intent>\", \"confidence\": 0.0-1.0, \"entities\": {}}"
+                },
+                {
+                  "role": "user",
+                  "content": "{{$json.message.text}}"
+                }
+              ]
+            },
+            {
+              "name": "temperature",
+              "value": 0.3
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "minimaxApiKey": "minimax-api"
+      }
+    },
+    {
+      "id": "tg-004",
+      "name": "Idempotency Check",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ],
+      "parameters": {
+        "operation": "set",
+        "key": "telegram:update:{{$json.update_id}}",
+        "value": "1",
+        "ttl": 86400,
+        "additionalFields": {}
+      },
+      "credentials": {
+        "redisApi": "bunche-redis"
+      }
+    },
+    {
+      "id": "tg-005",
+      "name": "Switch - Order",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1050,
+        300
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"order\"",
+        "fallbackOutput": "next"
+      },
+      "notesInFlow": false
+    },
+    {
+      "id": "tg-006",
+      "name": "Switch - Help",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1050,
+        150
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"help\"",
+        "fallbackOutput": "next"
+      },
+      "notesInFlow": false
+    },
+    {
+      "id": "tg-007",
+      "name": "Switch - Data/Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1050,
+        0
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"(check_data|status)\"",
+        "fallbackOutput": "next"
+      },
+      "notesInFlow": false
+    },
+    {
+      "id": "tg-008",
+      "name": "Switch - Unknown",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1050,
+        450
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"unknown\"",
+        "fallbackOutput": "next"
+      },
+      "notesInFlow": false
+    },
+    {
+      "id": "tg-009",
+      "name": "Reply - Help",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        150
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "Hello! Welcome to Bunche. I can help you with:\n\nOrders - Buy new proxies\nCheck Data - View your usage\nRenewals - Extend your proxy\nHelp - General support\nRecovery - Recover your account\n\nWhat would you like help with?",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot-api"
+      }
+    },
+    {
+      "id": "tg-010",
+      "name": "Reply - Unknown",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        450
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "I did not quite get that. I can help you with:\n\nOrders - Buy new proxies\nCheck Data - View your usage\nRenewals - Extend your proxy\nHelp - General support\n\nJust let me know what you need!",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot-api"
+      }
+    },
+    {
+      "id": "tg-011",
+      "name": "Reply - Order",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        300
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "What type of proxy do you need? Choose from:\n\nISP - Stable residential proxies\nDatacenter - Fast and affordable\nResidential - Real device IPs\nMobile - 4G/5G proxies\n\nJust reply with your choice!",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot-api"
+      }
+    },
+    {
+      "id": "tg-012",
+      "name": "Reply - Status",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        -50
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "What is your order ID or the phone number you used when placing your order?",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot-api"
+      }
+    },
+    {
+      "id": "tg-013",
+      "name": "Reply - Free Trial",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        -200
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "Sure! What is your proxy use case? For example: Web Scraping, Sneaker Copping, Social Media Management, Geo-targeting, Gaming. Tell me what you need it for!",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot-api"
+      }
+    },
+    {
+      "id": "tg-014",
+      "name": "Reply - Renewal",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        -350
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "I can help with that. What are your current proxy details? Please share your order ID or the phone number you used.",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot-api"
+      }
+    },
+    {
+      "id": "tg-015",
+      "name": "Reply - Recovery",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        600
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "No worries. What is the phone number or order ID you used when you signed up?",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot-api"
+      }
+    },
+    {
+      "id": "tg-016",
+      "name": "Reply - How to Use",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1250,
+        750
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "To use Bunche proxies: 1) Copy the proxy IP:port from your delivery 2) Set it in your browser/app 3) Authenticate with your credentials. Need more help?",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot-api"
+      }
+    },
+    {
+      "id": "tg-017",
+      "name": "Switch - Free Trial",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1050,
+        -150
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"free_trial\"",
+        "fallbackOutput": "next"
+      },
+      "notesInFlow": false
+    },
+    {
+      "id": "tg-018",
+      "name": "Switch - Renewal",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1050,
+        -300
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"renewal\"",
+        "fallbackOutput": "next"
+      },
+      "notesInFlow": false
+    },
+    {
+      "id": "tg-019",
+      "name": "Switch - Recovery",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1050,
+        550
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"recovery\"",
+        "fallbackOutput": "next"
+      },
+      "notesInFlow": false
+    },
+    {
+      "id": "tg-020",
+      "name": "Switch - How to Use",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1050,
+        700
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"how_to_use\"",
+        "fallbackOutput": "next"
+      },
+      "notesInFlow": false
+    },
+    {
+      "id": "tg-021",
+      "name": "Rate Limit Error Handler",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        450,
+        500
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "You are sending messages too fast. Please wait a moment and try again.",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": "telegram-bot-api"
+      }
+    },
+    {
+      "id": "tg-022",
+      "name": "Duplicate Message Handler",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 2,
+      "position": [
+        850,
+        500
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limit Check": {
+      "main": [
+        [
+          {
+            "node": "MiniMax LLM Parser",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rate Limit Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MiniMax LLM Parser": {
+      "main": [
+        [
+          {
+            "node": "Idempotency Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Idempotency Check": {
+      "main": [
+        [
+          {
+            "node": "Switch - Free Trial",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Renewal",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Order",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Help",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Data/Status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Recovery",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - How to Use",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Duplicate Message Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Order": {
+      "main": [
+        [
+          {
+            "node": "Reply - Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Help": {
+      "main": [
+        [
+          {
+            "node": "Reply - Help",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Data/Status": {
+      "main": [
+        [
+          {
+            "node": "Reply - Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Unknown": {
+      "main": [
+        [
+          {
+            "node": "Reply - Unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Free Trial": {
+      "main": [
+        [
+          {
+            "node": "Reply - Free Trial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Renewal": {
+      "main": [
+        [
+          {
+            "node": "Reply - Renewal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Recovery": {
+      "main": [
+        [
+          {
+            "node": "Reply - Recovery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - How to Use": {
+      "main": [
+        [
+          {
+            "node": "Reply - How to Use",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Africa/Lagos",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "executionTimeout": 60,
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    "telegram",
+    "order",
+    "llm",
+    "customer"
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-07-01T00:00:00.000Z",
+  "versionId": "1"
+}

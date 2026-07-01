@@ -72,17 +72,24 @@ Customer sees:   proxy1.bunche.ng:1080
 ## Architecture
 
 ```
-WhatsApp → Cloudflare → Nginx → n8n (Docker on VPS)
-                                      ↓
-                               PostgreSQL + Redis
-                                      ↓
-                               Dante SOCKS5 (Port 1080)
-                                      ↓
+Customer → WhatsApp OR Telegram → Cloudflare → Nginx → n8n (Docker on VPS)
+                                          ↓
+                                   PostgreSQL + Redis
+                                          ↓
+                                   Dante SOCKS5 (Port 1080)
+                                          ↓
                           Vetted Infrastructure Partners
                           (Proxy-Seller / DataImpulse)
+
+Channel Failover:
+  WhatsApp down → Telegram handles all customer traffic
+  Telegram down → WhatsApp handles all customer traffic
+  (telegram-webhook-bridge.js routes between channels)
 ```
 
-- **n8n**: Workflow engine (15 workflows documented)
+- **n8n**: Workflow engine — 16 workflows (WhatsApp + Telegram)
+- **telegram-webhook-bridge.js**: Telegram webhook receiver → forwards to n8n
+- **channel-failover.json**: Monitors both channels, routes traffic
 - **PostgreSQL**: Customers, orders, audit logs, bunche_credentials
 - **Redis**: Caching, sessions, rate limiting
 - **Dante SOCKS5**: Proxy auth layer — maps Bunche credentials to provider IPs
