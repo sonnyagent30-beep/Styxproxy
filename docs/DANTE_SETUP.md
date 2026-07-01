@@ -1,6 +1,6 @@
 # Dante SOCKS5 Server Setup for Bunche
 
-**Last Updated:** 2026-06-27
+**Last Updated:** 2026-07-01
 **Purpose:** Configure Dante as Bunche's proxy auth layer.
 
 ---
@@ -9,24 +9,21 @@
 
 ```
 Customer connects:  proxy1.bunche.ng:1080
-                    username: bun_001
-                    password: P@ssw0rd!
-                           │
-                           ▼
-                 Dante SOCKS5 Server (Hetzner)
-                           │
-              Looks up bun_001 in auth backend
-                           │
-              Maps to: 185.199.228.45:1080 (provider IP)
-                           │
-                           ▼
-                 Provider proxy responds
-                           │
-                           ▼
-                 Customer gets the data
+                   username: bun_ayomide7
+                   password: SecureP@ss123
+                          │
+                          ▼
+                Dante SOCKS5 Server (VPS)
+                          │
+             Looks up bun_ayomide7 in /etc/danted.users
+                          │
+             Maps to: 185.199.228.45:1080 (provider IP)
+                          │
+                          ▼
+                Customer gets the data through the provider proxy
 ```
 
-Customer thinks they're using `proxy1.bunche.ng`. They're actually using the provider IP underneath. Bunche controls access.
+Customer thinks they're using `proxy1.bunche.ng`. They're actually using the provider IP underneath. Bunche controls access via Dante's username/password auth.
 
 ---
 
@@ -49,14 +46,14 @@ danted --version
 
 ### Main Config: /etc/danted.conf
 
-```
+```conf
 # Internal network interface (all interfaces)
 internal: 0.0.0.0 port = 1080
 
 # External interface (outbound)
 external: eth0
 
-# Authentication method — username/password from system
+# Authentication method — username/password from userfile
 method: none
 
 # Allow authenticated users
@@ -70,11 +67,14 @@ logoutput: syslog
 # SOCKS protocol
 socksprotocol: socks_v5
 
-# Authentication — use /etc/danted.users for credentials
-socks pass {
-    from: 0.0.0.0/0 to: 0.0.0.0/0
-    socksmethod: username.none
-}
+# Authentication — username from /etc/danted.users
+# Dante verifies the password by computing MD5 of what the client sent
+# and comparing against the stored $apr1$ hash
+socksmethod: username
+
+# Privileged user (for Dante internal operations)
+user.privileged: root
+user.unprivileged: nobody
 
 # Error handling
 socks block {
@@ -86,47 +86,100 @@ socks block {
 timeout: 3600
 ```
 
-### Enable System User Authentication
-
-For Dante to authenticate against `/etc/danted.users` (not system users):
-
-```
-# Change socksmethod to use the userfile
-socksmethod: username
-
-# Add userfile directive
-user.privileged: root
-user.unprivileged: nobody
-
-# Point to our user file
-socks pass {
-    from: 0.0.0.0/0 to: 0.0.0.0/0
-    socksmethod: username
-}
-```
-
 ---
 
 ## User Management
 
-Dante uses a simple userfile: `/etc/danted.users`
+Dante uses a simple userlist file: `/etc/danted.users`
 
-Format: `username:password` (colon-separated)
-
-Passwords should be in the same format Dante expects. Use `htpasswd` or `danted`'s built-in tools.
+Format: `username:$apr1$salt$hash` (MD5-based hash — NOT plain text)
 
 ### Generate Password Hash
 
+Use `htpasswd` from apache2-utils:
+
 ```bash
-# Install apache2-utils for htpasswd
+# Install htpasswd
 sudo apt install apache2-utils
 
-# Generate hash
-htpasswd -nbd username password
-# Returns: username:$apr1$xxxx$xxxx
+# Generate MD5 hash for a new credential
+# -n  : output to stdout
+# -b  : batch mode (password on command line)
+# -d  : force CRYPT/DES (creates $apr1$ MD5 variant on modern systems)
+sudo htpasswd -nbd <username> '<password>'
+
+# Example
+sudo htpasswd -nbd bun_ayomide7 'SecureP@ss123'
+# Output: bun_ayomide7:$apr1$rAnd0MsAlT$9VH1xYZABCDEFGHIJKLMNOPQ
+
+# Add to Dante userlist
+echo "bun_ayomide7:$apr1$rAnd0MsAlT$9VH1xYZABCDEFGHIJKLMNOPQ" | \
+  sudo tee -a /etc/danted.users
 ```
 
-For Dante, use the DES or MD5 hash format. Dante's `socksmethod: username` accepts multiple hash formats.
+### What Hash Format Dante Accepts
+
+Dante reads `/etc/danted.users` and computes the hash of the password the client sends, then compares:
+
+| Format | Example | Dante compatible? |
+|--------|---------|------------------|
+| Plain text | `user:password` | ✅ Yes (not recommended) |
+| **MD5 `$apr1$`** | `user:$apr1$salt$hash` | ✅ **Yes — use this** |
+| SHA `$sha$` | `user:$sha$...` | ✅ Yes |
+| CRYPT/DES | `user:VXUf7EPr5wLw.` | ✅ Yes (legacy) |
+| bcrypt `$2b$` | `user:$2b$...` | ❌ No — Dante doesn't support bcrypt |
+
+> **Note:** Dante does NOT support bcrypt. Dante only supports MD5/SHA/CRYPT hashes. Do NOT generate bcrypt hashes for Dante credentials.
+
+### Password Requirements for Dante Credentials
+
+- Dante username: alphanumeric + underscore, 3-32 chars, starts with `bun_`
+- Dante password: 8-64 chars, must match what Dante verifies via MD5
+- Dante has no built-in policy enforcement — enforce password rules in the Bunche app before creating the credential
+
+---
+
+## Credential Lifecycle
+
+### Add Credential (order fulfilled)
+
+```bash
+# 1. Generate hash
+HASH=$(sudo htpasswd -nbd bun_ayomide7 'SecureP@ss123')
+
+# 2. Add to Dante userlist
+echo "$HASH" | sudo tee -a /etc/danted.users
+
+# 3. Hot reload Dante (no downtime)
+sudo killall -HUP danted
+```
+
+### Revoke Credential (order expires or refund)
+
+```bash
+# Remove from Dante userlist
+sudo grep -v '^bun_ayomide7:' /etc/danted.users | \
+  sudo tee /etc/danted.users.tmp && \
+  sudo mv /etc/danted.users.tmp /etc/danted.users
+
+# Hot reload (customer access cut off immediately)
+sudo killall -HUP danted
+```
+
+### Credential Script (scripts/manage-bunche-credentials.sh)
+
+The script handles Dante userlist management:
+
+```bash
+# Add
+./manage-bunche-credentials.sh add bun_ayomide7 'SecureP@ss123'
+
+# Revoke
+./manage-bunche-credentials.sh revoke bun_ayomide7
+
+# List active
+./manage-bunche-credentials.sh list
+```
 
 ---
 
@@ -145,7 +198,7 @@ sudo systemctl status danted
 # Test config syntax
 sudo danted -t
 
-# Reload config (no restart needed)
+# Reload config (no restart needed — hot reload)
 sudo killall -HUP danted
 
 # View logs
@@ -154,14 +207,12 @@ sudo tail -f /var/log/syslog | grep danted
 
 ---
 
-## Connect Dante to Providers (Parent Proxy)
+## Connect Dante to Provider Proxies (Parent Proxy)
 
-Dante can route through upstream parent proxies. This is how Bunche connects to Proxy-Seller/DataImpulse.
+Dante routes customer traffic through upstream parent proxies (Proxy-Seller, DataImpulse, etc.).
 
-### Config with Parent Proxy
-
-```
-# Route everything through parent proxy
+```conf
+# Route through parent proxy
 socks pass {
     from: 0.0.0.0/0 to: 0.0.0.0/0
     socksmethod: username
@@ -174,25 +225,9 @@ socks pass {
 socks parent {
     from: 0.0.0.0/0 to: 0.0.0.0/0
     protocol: socks_v5
-    parent: proxy.proxy-salesman.com:1080 login: username:password
+    parent: proxy.proxy-salesman.com:1080 login: provider_username:provider_password
 }
 ```
-
----
-
-## Bunche Credential Script Integration
-
-Bunche uses `scripts/manage-bunche-credentials.sh` to add/revoke credentials. Dante reads from `/etc/danted.users`.
-
-When a credential is added:
-1. Script adds `username:hash` to `/etc/danted.users`
-2. Script sends `SIGHUP` to Dante → hot reload, no downtime
-3. Customer can immediately use credentials
-
-When a credential is revoked:
-1. Script removes the line from `/etc/danted.users`
-2. Script sends `SIGHUP` to Dante → instant cutoff
-3. Customer's Bunche credentials no longer work
 
 ---
 
@@ -200,12 +235,14 @@ When a credential is revoked:
 
 ### Bind to Cloudflare Only
 
-```
-# Only listen on Cloudflare IP ranges (add your ranges)
+```conf
+# Only listen on Cloudflare IP ranges
 internal: 172.66.0.0/16 port = 1080
 internal: 104.16.0.0/12 port = 1080
+```
 
-# Block direct non-Cloudflare access via UFW
+Block direct non-Cloudflare access via UFW:
+```bash
 sudo ufw deny 1080
 sudo ufw allow from 172.66.0.0/16 to any port 1080
 sudo ufw allow from 104.16.0.0/12 to any port 1080
@@ -213,14 +250,12 @@ sudo ufw allow from 104.16.0.0/12 to any port 1080
 
 ### Non-Standard Port
 
-```
+```conf
 # Use high random port instead of 1080
 internal: 0.0.0.0 port = 48291
 ```
 
 ### Fail2Ban for Brute Force
-
-Dante logs failed auth attempts. Configure fail2ban:
 
 ```bash
 # /etc/fail2ban/jail.local
@@ -234,14 +269,6 @@ bantime = 3600
 findtime = 600
 ```
 
-Create filter `/etc/fail2ban/filter.d/danted-auth.conf`:
-
-```
-[Definition]
-failregex = danted: pam_unix.*auth.*failure.*<HOST>
-ignoreregex =
-```
-
 ---
 
 ## Cloudflare Tunnel (Recommended)
@@ -250,7 +277,8 @@ Instead of exposing Dante directly, use Cloudflare Tunnel to hide your VPS IP:
 
 ```bash
 # Install cloudflared
-curl -L https://github.com/cloudflare/cloudflared/releases/download/latest/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
+curl -L https://github.com/cloudflare/cloudflared/releases/download/latest/cloudflared-linux-amd64 \
+  -o /usr/local/bin/cloudflared
 chmod +x /usr/local/bin/cloudflared
 
 # Authenticate
@@ -260,13 +288,11 @@ cloudflared tunnel login
 cloudflared tunnel create bunche-proxy
 
 # Route subdomain
-cloudflared tunnel route dns bunche-proxy proxy.bunche.com
+cloudflared tunnel route dns bunche-proxy proxy.bunche.ng
 
 # Run tunnel
-cloudflared tunnel run --token YOUR_TOKEN proxy.bunche.com:1080
+cloudflared tunnel run --token YOUR_TOKEN proxy.bunche.ng
 ```
-
-This way Dante's port is never exposed publicly. Cloudflare handles DDoS protection, hiding your real IP, and SSL.
 
 ---
 
@@ -286,7 +312,7 @@ curl --socks5 username:password@localhost:1080 http://checkip.amazonaws.com
 
 ```bash
 # Add test user
-sudo bash scripts/manage-bunche-credentials.sh add testuser TestPass123
+sudo bash scripts/manage-bunche-credentials.sh add testuser 'TestPass123'
 
 # Test it works
 curl --socks5 testuser:TestPass123@localhost:1080 http://checkip.amazonaws.com
@@ -302,7 +328,7 @@ sudo bash scripts/manage-bunche-credentials.sh revoke testuser
 | Problem | Fix |
 |---------|-----|
 | Dante won't start | Check config syntax: `danted -t` |
-| Auth fails | Verify user in `/etc/danted.users` format |
+| Auth fails | Verify hash in `/etc/danted.users` — use `htpasswd -nbd` not bcrypt |
 | Can't connect | Check UFW/firewall allows port 1080 |
 | Parent proxy fails | Verify provider credentials work directly |
 | High latency | Check Dante logs for timeouts |
@@ -312,5 +338,5 @@ sudo bash scripts/manage-bunche-credentials.sh revoke testuser
 ## See Also
 
 - `scripts/manage-bunche-credentials.sh` — credential management
-- `docs/ARCHITECTURE_PLAN.md` — full system architecture
+- `docs/DATABASE_SCHEMA.md` — `bunche_credentials` table tracks Dante username → provider IP mapping
 - `workflows/WORKFLOW_SPECS.md` — how n8n creates credentials
