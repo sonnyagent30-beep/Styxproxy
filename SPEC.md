@@ -301,7 +301,8 @@ Implications for the build:
 | Database | **PostgreSQL** | All Bunche data |
 | Async queue | **Redis** | Background job processing for webhooks |
 | Process manager | **Uvicorn** | ASGI server for FastAPI |
-| Proxy auth | **3proxy** | Trial proxy ports 8001–8100 |
+| Paid proxy auth | **Dante SOCKS5** | Customer connects to Dante → routed to upstream provider IP |
+| Trial proxy auth | **3proxy** | Free trial proxies on ports 8001–8100 |
 | Payments | **Flutterwave** | Naira payments |
 | Email | **Resend** | Transactional emails |
 | Website | **Static HTML/CSS/JS** | Display only, zero business logic |

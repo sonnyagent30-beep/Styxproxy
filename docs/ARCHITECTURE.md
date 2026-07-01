@@ -158,12 +158,44 @@
 
 ---
 
-### 4. 3proxy (Trial Proxies)
+### 4. Dante (Paid Proxy Auth Layer)
+
+**Host:** New Bunche VPS
+**Port:** 1080 (SOCKS5)
+**Purpose:** Authenticate paid customers and route to upstream provider IPs
+
+Dante is the SOCKS5 server that customers connect to. Customer provides their Bunche username + password. Dante verifies against the credentials table, then routes the connection through to the upstream provider IP.
+
+```
+Customer connects: proxy1.bunche.ng:1080
+  username: bun_001 / password: XxX
+         │
+         ▼
+  Dante SOCKS5 Server
+         │
+  Looks up bun_001 → maps to upstream provider IP
+         │
+  Routes traffic to provider proxy
+         │
+  Response returned to customer
+```
+
+**Scripts:**
+- `manage-bunche-credentials.sh add <username> <password>` → add to Dante userfile + SIGHUP
+- `manage-bunche-credentials.sh revoke <username>` → remove from Dante userfile + SIGHUP
+
+**Dante credential format:** `username:$apr1$<hash>` (apache2-utils htpasswd format)
+
+**Security:** Bind Dante to Cloudflare IP ranges only. Never expose the upstream provider IPs directly to customers.
+
+### 5. 3proxy (Free Trial Proxies)
 
 **Host:** New Bunche VPS
 **Ports:** 8001–8100 (100 concurrent trial proxies)
 **Config:** `/etc/3proxy/bunche-trial.cfg`
 **PID:** `/var/run/3proxy-bunche.pid`
+
+3proxy handles free trial proxies separately from Dante. Each trial customer gets a port in the 8001–8100 range with their own username/password.
 
 **How it works:**
 - Trial credentials (user/pass) added to config when customer earns trial
@@ -466,8 +498,9 @@ RATE_LIMIT_WINDOW_SECONDS=60
 │   └── assets/
 │
 ├── scripts/
-│   ├── manage-3proxy-trial.sh
-│   └── cleanup-3proxy-trials.sh
+│   ├── manage-bunche-credentials.sh  # Dante (paid proxy) credentials
+│   ├── manage-3proxy-trial.sh        # 3proxy (free trial) credentials
+│   └── cleanup-3proxy-trials.sh      # Expire old trial proxies
 │
 ├── /etc/3proxy/
 │   └── bunche-trial.cfg      # 3proxy config

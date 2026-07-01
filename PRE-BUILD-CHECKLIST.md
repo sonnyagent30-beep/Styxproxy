@@ -83,7 +83,13 @@ sudo systemctl start redis
 # 5. PM2 for process management
 sudo npm install -g pm2  # or use supervisor for Python
 
-# 6. 3proxy
+# 6. Dante (SOCKS5 for paid proxies)
+sudo apt install dante-server
+sudo systemctl enable danted
+# Verify
+danted --version
+
+# 7. 3proxy (for free trial proxies)
 sudo apt install -y build-essential
 cd /tmp
 git clone https://github.com/3proxy/3proxy.git
@@ -93,7 +99,7 @@ sudo cp src/3proxy /usr/local/bin/
 sudo cp scripts/rc.d/init.d.3proxy /etc/init.d/3proxy
 sudo chmod 755 /etc/init.d/3proxy
 
-# 7. nginx
+# 8. nginx
 sudo apt install -y nginx
 sudo systemctl enable nginx
 ```
