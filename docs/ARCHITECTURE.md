@@ -312,7 +312,7 @@ Internet
     │
     ▼
 ┌─────────────────────────────────────┐
-│  nginx (SSL termination)            │
+│  nginx (SSL termination)             │
 │  - HTTPS only                       │
 │  - Rate limiting                    │
 │  - Gzip compression                 │
@@ -333,6 +333,30 @@ PostgreSQL        │
 Proxy-Seller     │
 DataImpulse       │
 3proxy            │
+```
+
+**Critical security rules (enforced in every build decision):**
+- Frontend (website) = display only. Zero business logic. Zero database access.
+- All sensitive operations happen in the backend API — never in the browser
+- API keys never in frontend code, never in environment variables accessible to the frontend
+- Backend API: secrets in environment variables on the server only
+- PostgreSQL: localhost only, no external access
+- All webhooks: HMAC or token verification before any processing
+- Rate limiting: every public endpoint
+- No secrets in logs, no secrets in error messages
+
+**Frontend security boundary:**
+```
+Website (browser)                  Backend API (server)
+━━━━━━━━━━━━━━━━━━                 ━━━━━━━━━━━━━━━━━━━━
+❌ No API keys                    ✅ All API keys
+❌ No database access             ✅ PostgreSQL
+❌ No payment processing          ✅ Flutterwave SDK
+❌ No credential generation       ✅ Proxy-Seller SDK
+❌ No webhook handling            ✅ Webhook handlers
+✅ Can call /invoice/create       ❌ Cannot see server-side env
+✅ Can call /order/:tx_ref       ❌ Cannot see DB credentials
+✅ Can display IP + credentials   ❌ Cannot generate credentials
 ```
 
 **Firewall rules (UFW):**
