@@ -1,244 +1,829 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Acceptable Use Policy — Bunche</title>
-<meta name="description" content="Bunche Acceptable Use Policy. Effective Date: 27 June 2026">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-:root {
-  --green: #16A34A; --green-hover: #15803D;
-  --green-bg: #DCFCE7; --green-border: #BBF7D0;
-  --red-bg: #FEE2E2; --red-border: #FECACA; --red: #DC2626;
-  --bg: #FFFFFF; --bg-alt: #F9FAFB; --surface: #F3F4F6;
-  --surface-hover: #E5E7EB; --border: #E5E7EB;
-  --text: #111827; --text2: #4B5563; --text3: #9CA3AF;
-  --nav-bg: rgba(255,255,255,0.9);
-  --shadow: 0 1px 3px rgba(0,0,0,0.06);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --green: #22C55E; --green-hover: #16A34A;
-    --green-bg: #14532D; --green-border: #166534;
-    --red-bg: #450A0A; --red-border: #7F1D1D; --red: #F87171;
-    --bg: #09090B; --bg-alt: #111113; --surface: #18181B;
-    --surface-hover: #27272A; --border: #27272A;
-    --text: #FAFAFA; --text2: #A1A1AA; --text3: #52525B;
-    --nav-bg: rgba(9,9,11,0.9);
-    --shadow: 0 1px 3px rgba(0,0,0,0.3);
-  }
-}
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
-  background: var(--bg); color: var(--text); line-height: 1.75; font-size: 14px;
-  -webkit-font-smoothing: antialiased;
-}
-a { color: var(--green); text-decoration: none; }
-nav {
-  position: sticky; top: 0; z-index: 100;
-  background: var(--nav-bg); backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-}
-.nav-inner {
-  max-width: 1100px; margin: 0 auto; padding: 0 24px;
-  display: flex; justify-content: space-between; align-items: center; height: 64px;
-}
-.logo { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
-.logo span { color: var(--green); }
-.back-link { font-size: 14px; font-weight: 500; color: var(--text2); transition: color 0.15s; }
-.back-link:hover { color: var(--text); }
-.container { max-width: 720px; margin: 0 auto; padding: 64px 24px 80px; }
-.doc-header { margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid var(--border); }
-.doc-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--green); margin-bottom: 8px; }
-h1 { font-size: clamp(24px, 4vw, 32px); font-weight: 800; letter-spacing: -0.5px; margin-bottom: 8px; }
-.effective { font-size: 13px; color: var(--text3); }
-h2 { font-size: 16px; font-weight: 700; margin: 40px 0 12px; }
-h3 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; color: var(--text2); }
-p { margin-bottom: 12px; color: var(--text2); }
-ul, ol { margin: 0 0 14px 20px; color: var(--text2); }
-li { margin-bottom: 6px; }
-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
-th, td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: left; }
-th { background: var(--surface); font-weight: 600; font-size: 12px; }
-tr:last-child td { border-bottom: none; }
-tr:nth-child(even) td { background: var(--bg-alt); }
-.infobox {
-  background: var(--green-bg); border: 1px solid var(--green-border);
-  border-radius: 10px; padding: 16px 20px; margin: 20px 0;
-  font-size: 14px; color: var(--text2);
-}
-.infobox strong { color: var(--green); }
-.alertbox {
-  background: var(--red-bg); border: 1px solid var(--red-border);
-  border-radius: 10px; padding: 16px 20px; margin: 20px 0;
-  font-size: 14px; color: var(--text2);
-}
-.alertbox strong { color: var(--red); }
-footer {
-  border-top: 1px solid var(--border);
-  max-width: 1100px; margin: 0 auto; padding: 40px 24px;
-  display: flex; justify-content: space-between; align-items: center;
-  flex-wrap: wrap; gap: 16px;
-}
-footer .copy { font-size: 13px; color: var(--text3); }
-footer .links { display: flex; gap: 24px; }
-footer .links a { font-size: 13px; color: var(--text3); transition: color 0.15s; }
-footer .links a:hover { color: var(--text); }
-footer .links a.active { color: var(--green); }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceptable Use Policy — Bunche</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --primary-light: #34d399;
+            --primary-bg: rgba(16, 185, 129, 0.1);
+            --text: #111827;
+            --text-secondary: #6b7280;
+            --text-muted: #9ca3af;
+            --bg: #ffffff;
+            --bg-secondary: #f9fafb;
+            --bg-tertiary: #f3f4f6;
+            --border: #e5e7eb;
+            --border-light: #f3f4f6;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --text: #f9fafb;
+                --text-secondary: #9ca3af;
+                --text-muted: #6b7280;
+                --bg: #0f172a;
+                --bg-secondary: #1e293b;
+                --bg-tertiary: #334155;
+                --border: #334155;
+                --border-light: #1e293b;
+                --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+                --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+                --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+                --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Floating Blur Nav */
+        .nav {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-xl);
+            padding: 12px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 40px;
+            box-shadow: var(--shadow-lg), 0 0 40px rgba(16, 185, 129, 0.1);
+            transition: var(--transition);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .nav {
+                background: rgba(15, 23, 42, 0.85);
+                border-color: rgba(255, 255, 255, 0.1);
+            }
+        }
+
+        .nav.scrolled {
+            top: 10px;
+            padding: 10px 24px;
+            border-radius: var(--radius-lg);
+        }
+
+        .nav-logo {
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-logo svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .nav-cta {
+            background: var(--primary);
+            color: white;
+            padding: 10px 20px;
+            border-radius: var(--radius);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        .nav-cta:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Hamburger */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            padding: 8px;
+            z-index: 1001;
+        }
+
+        .hamburger span {
+            width: 24px;
+            height: 2px;
+            background: var(--text);
+            border-radius: 2px;
+            transition: var(--transition);
+        }
+
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        @media (max-width: 768px) {
+            .nav {
+                width: calc(100% - 32px);
+                padding: 12px 20px;
+                gap: 16px;
+            }
+
+            .nav-links {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: var(--bg);
+                flex-direction: column;
+                justify-content: center;
+                gap: 32px;
+                opacity: 0;
+                visibility: hidden;
+                transition: var(--transition);
+            }
+
+            .nav-links.active {
+                opacity: 1;
+                visibility: visible;
+            }
+
+            .nav-links a {
+                font-size: 1.5rem;
+            }
+
+            .hamburger {
+                display: flex;
+            }
+
+            .nav-cta {
+                display: none;
+            }
+        }
+
+        /* Page Header */
+        .page-header {
+            padding: 160px 24px 80px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 70%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+        }
+
+        .page-header h1 {
+            font-size: clamp(2.5rem, 5vw, 3.5rem);
+            font-weight: 800;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .page-header p {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Content Section */
+        .content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+        }
+
+        .legal-section {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 40px;
+            margin-bottom: 24px;
+            transition: var(--transition);
+        }
+
+        .legal-section:hover {
+            border-color: rgba(16, 185, 129, 0.3);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .legal-section h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+
+        .legal-section h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 24px 0 12px;
+            color: var(--text);
+        }
+
+        .legal-section p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .legal-section ul, .legal-section ol {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+
+        .legal-section li {
+            margin-bottom: 8px;
+        }
+
+        .legal-section table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.95rem;
+        }
+
+        .legal-section th, .legal-section td {
+            padding: 12px 16px;
+            text-align: left;
+            border: 1px solid var(--border);
+        }
+
+        .legal-section th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .legal-section td {
+            color: var(--text-secondary);
+        }
+
+        .legal-section strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .legal-section a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .legal-section a:hover {
+            text-decoration: underline;
+        }
+
+        .highlight-box {
+            background: var(--primary-bg);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .highlight-box p {
+            margin: 0;
+            color: var(--primary-dark);
+            font-weight: 500;
+        }
+
+        .warning-box {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .warning-box p {
+            margin: 0;
+            color: #dc2626;
+            font-weight: 500;
+        }
+
+        .info-box {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .info-box p {
+            margin: 0;
+            color: #2563eb;
+            font-weight: 500;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+            padding: 40px 24px 30px;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        .footer-copyright {
+            width: 100%;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 600px) {
+            .legal-section {
+                padding: 24px;
+            }
+
+            .legal-section table {
+                font-size: 0.85rem;
+            }
+
+            .legal-section th, .legal-section td {
+                padding: 8px 12px;
+            }
+        }
+    </style>
 </head>
 <body>
-<nav>
-  <div class="nav-inner">
-    <div class="logo">Bun<span>che</span></div>
-    <a href="index.html" class="back-link">← Back to site</a>
-  </div>
-</nav>
+    <!-- Navigation -->
+    <nav class="nav">
+        <a href="index.html" class="nav-logo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            Bunche
+        </a>
+        <ul class="nav-links">
+            <li><a href="index.html#pricing">Pricing</a></li>
+            <li><a href="index.html#how-it-works">How It Works</a></li>
+            <li><a href="index.html#faq">FAQ</a></li>
+            <li><a href="terms.html">Terms</a></li>
+            <li><a href="privacy.html">Privacy</a></li>
+        </ul>
+        <a href="https://wa.me/2340000000000?text=Hi%20Bunche!%20I%27d%20like%20to%20try%20your%20proxies." class="nav-cta" target="_blank">
+            Get Started
+        </a>
+        <div class="hamburger" onclick="toggleMobileMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </nav>
 
-<div class="container">
-  <div class="doc-header">
-    <div class="doc-label">Legal</div>
-    <h1>Acceptable Use Policy</h1>
-    <p class="effective">Effective Date: 27 June 2026</p>
-  </div>
+    <!-- Page Header -->
+    <header class="page-header">
+        <h1>Acceptable Use Policy</h1>
+        <p>Effective Date: June 27, 2026</p>
+    </header>
 
-  <h2>1. Prohibited Activities</h2>
-  <p>The following activities are strictly prohibited using any proxy purchased from Bunche (including free trial proxies):</p>
+    <!-- Legal Content -->
+    <main class="content">
+        <div class="legal-section reveal">
+            <h2>1. Prohibited Activities</h2>
+            <p>The following activities are strictly prohibited using any proxy purchased from Bunche (including free trial proxies):</p>
 
-  <h3>1.1 Fraud & Financial Crimes</h3>
-  <ul>
-    <li>Credit card fraud, payment fraud, bank fraud, wire fraud</li>
-    <li>Money laundering, cryptocurrency fraud, investment scams</li>
-    <li>Identity theft, account takeover</li>
-    <li>Synthetic identity creation</li>
-  </ul>
+            <h3>1.1 Fraud & Financial Crimes</h3>
+            <ul>
+                <li>Credit card fraud, payment fraud, bank fraud, wire fraud</li>
+                <li>Money laundering, cryptocurrency fraud, investment scams</li>
+                <li>Identity theft, account takeover</li>
+                <li>Synthetic identity creation</li>
+            </ul>
 
-  <h3>1.2 Hacking & Unauthorized Access</h3>
-  <ul>
-    <li>Unauthorized access to any computer system</li>
-    <li>Network intrusion, port scanning, exploitation of vulnerabilities</li>
-    <li>Credential stuffing, brute force attacks, DDoS attacks</li>
-    <li>SQL injection, XSS, CSRF attacks</li>
-  </ul>
+            <h3>1.2 Hacking & Unauthorized Access</h3>
+            <ul>
+                <li>Unauthorized access to any computer system</li>
+                <li>Network intrusion, port scanning, exploitation of vulnerabilities</li>
+                <li>Credential stuffing, brute force attacks, DDoS attacks</li>
+                <li>SQL injection, XSS, CSRF attacks</li>
+                <li>Bypassing authentication or security controls</li>
+            </ul>
 
-  <h3>1.3 Spam & Unsolicited Communications</h3>
-  <ul>
-    <li>Mass unsolicited email (spam)</li>
-    <li>Unsolicited direct messages on social media</li>
-    <li>Mass comment spam, SMS pumping fraud, robocalling</li>
-  </ul>
+            <h3>1.3 Spam & Unsolicited Communications</h3>
+            <ul>
+                <li>Mass unsolicited email (spam)</li>
+                <li>Unsolicited direct messages on social media</li>
+                <li>Mass comment spam</li>
+                <li>SMS pumping fraud</li>
+                <li>Robocalling</li>
+            </ul>
 
-  <h3>1.4 Content & Copyright Infringement</h3>
-  <ul>
-    <li>Distribution of copyrighted material without license</li>
-    <li>Software piracy, streaming piracy, DMCA violations</li>
-  </ul>
+            <h3>1.4 Content & Copyright Infringement</h3>
+            <ul>
+                <li>Distribution of copyrighted material without license</li>
+                <li>Software piracy, streaming piracy</li>
+                <li>DMCA violations</li>
+            </ul>
 
-  <h3>1.5 Malware & Security Threats</h3>
-  <ul>
-    <li>Distribution of viruses, trojans, ransomware</li>
-    <li>Botnet operation, cryptojacking, phishing infrastructure</li>
-  </ul>
+            <h3>1.5 Malware & Security Threats</h3>
+            <ul>
+                <li>Distribution of viruses, trojans, ransomware</li>
+                <li>Botnet operation, cryptojacking</li>
+                <li>Phishing sites or infrastructure</li>
+                <li>Command and control servers</li>
+            </ul>
 
-  <h3>1.6 Illegal Content</h3>
-  <div class="alertbox">
-    <strong>Zero Tolerance:</strong> Child sexual abuse material (CSAM), human trafficking content, drug trafficking platforms, and weapons sales platforms will be reported immediately to NAPTIP and international authorities. Any illegal activity under Nigerian law — the Criminal Code Act or the Cybercrimes Act 2015 — is strictly prohibited.
-  </div>
+            <h3>1.6 Illegal Content</h3>
+            <div class="warning-box">
+                <p>⚠️ Child sexual abuse material — zero tolerance, reported immediately to NAPTIP and international authorities</p>
+            </div>
+            <ul>
+                <li>Human trafficking content</li>
+                <li>Drug trafficking platforms</li>
+                <li>Weapons sales platforms</li>
+                <li>Any illegal activity under Nigerian law (Criminal Code Act) or Cybercrimes (Prohibition, Prevention, etc.) Act 2015</li>
+            </ul>
 
-  <h3>1.7 Platform Abuse</h3>
-  <ul>
-    <li>Creating fake reviews or ratings</li>
-    <li>Astroturfing campaigns, manipulating platform algorithms</li>
-    <li>Evading bans through multi-accounting (except where legitimately using different IPs per platform)</li>
-  </ul>
+            <h3>1.7 Platform Abuse</h3>
+            <ul>
+                <li>Creating fake reviews or ratings</li>
+                <li>Astroturfing campaigns</li>
+                <li>Manipulating platform algorithms</li>
+                <li>Evading bans through multi-accounting (except where customer uses different IPs per platform legitimately)</li>
+                <li>Terms of service violations of target platforms (where the violation is itself illegal)</li>
+            </ul>
+        </div>
 
-  <h2>2. Free Trial Specific Rules</h2>
-  <p>Free trial proxies are subject to ALL the above prohibitions PLUS the rules in this section.</p>
+        <div class="legal-section reveal">
+            <h2>2. Free Trial Specific Rules</h2>
+            <p>Free trial proxies are subject to ALL the above prohibitions PLUS the rules in this section.</p>
 
-  <h3>2.1 How Free Trials Work</h3>
-  <ul>
-    <li><strong>Shared IP:</strong> All free trial users share Bunche's proxy infrastructure</li>
-    <li><strong>Authenticated access:</strong> Each trial user gets unique Bunche-branded credentials</li>
-    <li><strong>2-hour TTL:</strong> Trial credentials automatically expire after 2 hours</li>
-    <li><strong>3-trial daily limit:</strong> Each phone number limited to 3 free trials per calendar day</li>
-    <li><strong>For testing only:</strong> Not for production, commercial, or critical use</li>
-  </ul>
+            <h3>2.1 How Free Trials Work</h3>
+            <p>Free trials use Bunche's <strong>self-hosted proxy infrastructure</strong>:</p>
+            <ul>
+                <li><strong>Shared IP</strong> — All free trial users share the Bunche proxy infrastructure (up to 100 concurrent trials)</li>
+                <li><strong>Authenticated access</strong> — Each trial user gets unique Bunche-branded credentials (username + password)</li>
+                <li><strong>2-hour TTL</strong> — Trial credentials automatically expire after 2 hours</li>
+                <li><strong>3-trial daily limit</strong> — Each phone number is limited to 3 free trials per calendar day</li>
+                <li><strong>For testing only</strong> — Free trials are not for production, commercial, or critical use</li>
+                <li><strong>No privacy guarantee</strong> — Other trial users share the same infrastructure, so Bunche cannot guarantee traffic isolation between trial users</li>
+            </ul>
 
-  <h3>2.2 Free Trial Abuse — Prohibited</h3>
-  <ul>
-    <li>Using multiple phone numbers to exceed the 3-trial daily limit</li>
-    <li>Using bots, scripts, or automation to claim free trials</li>
-    <li>Selling, trading, or transferring trial credentials</li>
-    <li>Coordinating with others to claim excessive free trials</li>
-    <li>Publicly posting or distributing trial usernames and passwords</li>
-    <li>Using survey-farming services to falsely complete surveys</li>
-  </ul>
+            <h3>2.2 Free Trial Abuse</h3>
+            <p>The following behaviors are prohibited and will result in immediate enforcement action:</p>
+            <ul>
+                <li><strong>Multi-phone circumvention</strong> — Using multiple phone numbers to exceed the 3-trial daily limit</li>
+                <li><strong>Automated trial claiming</strong> — Using bots, scripts, or automation to claim free trials</li>
+                <li><strong>Reselling trial access</strong> — Selling, trading, or transferring trial credentials</li>
+                <li><strong>Coordinated abuse</strong> — Coordinating with others to claim excessive free trials</li>
+                <li><strong>Sharing trial credentials</strong> — Publicly posting or distributing trial usernames/passwords</li>
+                <li><strong>Survey fraud</strong> — Using survey-farming services to falsely complete surveys</li>
+                <li><strong>Cryptographic attacks</strong> — Attempting to brute-force or guess other trial users' credentials</li>
+            </ul>
 
-  <h3>2.3 Enforcement for Free Trial Abuse</h3>
-  <table>
-    <tr><th>Action</th><th>Scope</th></tr>
-    <tr><td>Immediate revocation</td><td>All active trial credentials for the offending phone</td></tr>
-    <tr><td>Phone blocking</td><td>Phone number blocked from claiming future free trials</td></tr>
-    <tr><td>Hash blocking</td><td>Phone hash added to deny-list</td></tr>
-    <tr><td>No refund</td><td>No compensation for revoked trials</td></tr>
-    <tr><td>Possible account ban</td><td>Repeat offenders may be permanently banned</td></tr>
-  </table>
+            <h3>2.3 Enforcement for Free Trial Abuse</h3>
+            <p>Any violation of §2.2 will result in:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Scope</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Immediate revocation</strong></td>
+                        <td>All active trial credentials for the offending phone hash</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Phone blocking</strong></td>
+                        <td>Phone number(s) blocked from claiming future free trials</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Hash blocking</strong></td>
+                        <td>Phone_hash added to deny-list (blocks new numbers on same device)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>No refund</strong></td>
+                        <td>No compensation for revoked trials</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Possible account ban</strong></td>
+                        <td>Repeat offenders may be permanently banned from Bunche</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>Bunche uses a phone_hash + device fingerprint to enforce blocks. Users attempting to circumvent blocks via new numbers will continue to be blocked.</p>
+        </div>
 
-  <h2>3. Enforcement</h2>
-  <table>
-    <tr><th>Violation Type</th><th>Response</th></tr>
-    <tr><td>Minor AUP violation (e.g., aggressive scraping)</td><td>Warning + proxy suspension</td></tr>
-    <tr><td>Moderate violation (e.g., platform ToS violation)</td><td>Immediate suspension, no refund</td></tr>
-    <tr><td>Significant violation (e.g., spam)</td><td>Immediate ban, refund revoked</td></tr>
-    <tr><td>Serious violation (e.g., fraud)</td><td>Immediate ban + law enforcement referral</td></tr>
-    <tr><td>Criminal activity (e.g., CSAM)</td><td>Immediate ban + NAPTIP/police referral</td></tr>
-    <tr><td>Free trial abuse (§2.2)</td><td>Free trial access revoked, phone blocked, possible permanent ban</td></tr>
-  </table>
+        <div class="legal-section reveal">
+            <h2>3. Enforcement</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Violation Type</th>
+                        <th>Response</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Minor AUP violation</strong> (e.g., aggressive scraping)</td>
+                        <td>Warning + proxy suspension</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Moderate violation</strong> (e.g., platform ToS violation)</td>
+                        <td>Immediate suspension, no refund</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Significant violation</strong> (e.g., spam)</td>
+                        <td>Immediate ban, refund revoked</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Serious violation</strong> (e.g., fraud)</td>
+                        <td>Immediate ban + law enforcement referral</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Criminal activity</strong> (e.g., CSAM)</td>
+                        <td>Immediate ban + NAPTIP/police referral</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Free trial abuse (§2.2)</strong></td>
+                        <td>Free trial access revoked, phone blocked, possible permanent ban</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
-  <h2>4. Detection & Monitoring</h2>
-  <p>Bunche reserves the right to: monitor proxy usage patterns for abuse, investigate suspicious activity, suspend proxies pending investigation, disclose information to law enforcement when required, and revoke credentials instantly when abuse is detected.</p>
-  <p>We do NOT monitor free trial proxy traffic content.</p>
+        <div class="legal-section reveal">
+            <h2>4. Detection & Monitoring</h2>
+            <p>Bunche reserves the right to:</p>
+            <ul>
+                <li>Monitor proxy usage patterns for abuse</li>
+                <li>Investigate suspicious activity</li>
+                <li>Suspend proxies pending investigation</li>
+                <li>Disclose information to law enforcement when required</li>
+                <li>Revoke credentials instantly when abuse is detected</li>
+            </ul>
+            <div class="info-box">
+                <p>ℹ️ We do NOT monitor free trial proxy traffic content.</p>
+            </div>
+        </div>
 
-  <h2>5. Your Responsibilities</h2>
-  <ul>
-    <li>Keep your proxy credentials confidential</li>
-    <li>Do not share credentials with unauthorized persons</li>
-    <li>Ensure your use of proxies complies with target platform Terms of Service</li>
-    <li>You are responsible for ALL activity under your account</li>
-  </ul>
+        <div class="legal-section reveal">
+            <h2>5. Your Responsibilities</h2>
+            <ul>
+                <li>Keep your proxy credentials confidential</li>
+                <li>Do not share credentials with unauthorized persons</li>
+                <li>Do not allow third parties to use your proxies</li>
+                <li>Ensure your use of proxies complies with target platform Terms of Service</li>
+                <li>You are responsible for ALL activity under your account, including activity by anyone you share credentials with</li>
+            </ul>
+        </div>
 
-  <h2>6. Multi-IP Use Warning</h2>
-  <div class="alertbox">
-    <strong>Important:</strong> Using the SAME IP across multiple devices or accounts can get all linked accounts flagged or banned and violate target platform Terms of Service. Use ONE IP per platform, per account. Bunche is not responsible for bans resulting from poor IP hygiene.
-  </div>
+        <div class="legal-section reveal">
+            <h2>6. Multi-IP Use Warning</h2>
+            <div class="warning-box">
+                <p>⚠️ IMPORTANT:</p>
+            </div>
+            <p>Using the <strong>SAME IP</strong> across multiple devices or accounts can:</p>
+            <ul>
+                <li>Get all linked accounts flagged or banned</li>
+                <li>Reduce your privacy (one IP = one user pattern)</li>
+                <li>Violate target platform Terms of Service</li>
+            </ul>
+            <p><strong>Best Practice:</strong> Use ONE IP per platform, per account. We strongly advise AGAINST sharing 1 IP across many devices or accounts.</p>
+            <p>Bunche is not responsible for bans resulting from poor IP hygiene.</p>
+            <p><strong>Free trial users:</strong> Your trial uses shared infrastructure. If you need a dedicated IP, upgrade to a paid plan.</p>
+        </div>
 
-  <h2>7. Platform-Specific Restrictions</h2>
-  <p>Some platforms have stricter rules about proxy use. You are responsible for understanding and complying with the Terms of Service of all platforms you use — social media (Instagram, Twitter/X, TikTok, Facebook), e-commerce (Amazon, eBay, Shopify), streaming (Netflix, Spotify), financial platforms, and advertising platforms (Google Ads, Meta Ads).</p>
-  <p>Bunche does not guarantee that proxies will work on any specific platform.</p>
+        <div class="legal-section reveal">
+            <h2>7. Platform-Specific Restrictions</h2>
+            <p>Some platforms have stricter rules about proxy use. You are responsible for understanding and complying with:</p>
+            <ul>
+                <li>Social media platform Terms (Instagram, Twitter/X, TikTok, Facebook)</li>
+                <li>E-commerce platform Terms (Amazon, eBay, Shopify stores)</li>
+                <li>Streaming platform Terms (Netflix, Spotify, Hulu)</li>
+                <li>Financial platform Terms (banks, crypto exchanges)</li>
+                <li>Advertising platform Terms (Google Ads, Meta Ads)</li>
+            </ul>
+            <p>Bunche does not guarantee that proxies will work on any specific platform.</p>
+        </div>
 
-  <h2>8. Reporting Violations</h2>
-  <p>If you become aware of anyone using Bunche proxies for illegal activities, contact us via WhatsApp with evidence. We investigate all reports within 24 hours and cooperate with law enforcement for serious violations.</p>
-  <p><strong>Report Abuse:</strong> hello@bunche.ng</p>
+        <div class="legal-section reveal">
+            <h2>8. Reporting Violations</h2>
+            <p>If you become aware of anyone using Bunche proxies for illegal activities:</p>
+            <ul>
+                <li>Contact us via WhatsApp with evidence</li>
+                <li>We investigate all reports within 24 hours</li>
+                <li>We cooperate with law enforcement for serious violations</li>
+            </ul>
+            <div class="highlight-box">
+                <p>📧 <strong>Report Abuse:</strong> abuse@bunche.com</p>
+            </div>
+        </div>
 
-  <h2>9. Changes to This Policy</h2>
-  <p>Changes will be communicated via updated Effective Date and WhatsApp notification for material changes. Continued use after changes constitutes acceptance.</p>
+        <div class="legal-section reveal">
+            <h2>9. Changes to AUP</h2>
+            <p>We may update this Acceptable Use Policy. Changes will be communicated via:</p>
+            <ul>
+                <li>Updated "Effective Date" at the top</li>
+                <li>WhatsApp notification for material changes</li>
+            </ul>
+            <p>Continued use after changes constitutes acceptance.</p>
+        </div>
 
-  <h2>10. Contact</h2>
-  <p><strong>Email:</strong> hello@bunche.ng &nbsp;|&nbsp; <strong>Website:</strong> bunche.ng</p>
-</div>
+        <div class="legal-section reveal">
+            <h2>10. Contact</h2>
+            <p><strong>WhatsApp:</strong> +234 XXX XXX XXXX</p>
+            <p><strong>Email:</strong> abuse@bunche.com</p>
+            <p style="margin-top: 20px; font-size: 0.9rem; color: var(--text-muted);"><em>This Acceptable Use Policy is incorporated by reference into our Terms of Service.</em></p>
+        </div>
+    </main>
 
-<footer>
-  <div class="copy">© 2026 Bunche. All rights reserved.</div>
-  <div class="links">
-    <a href="terms.html">Terms of Service</a>
-    <a href="privacy.html">Privacy Policy</a>
-    <a href="index.html">Home</a>
-  </div>
-</footer>
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <a href="index.html" class="footer-brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                Bunche
+            </a>
+            <div class="footer-links">
+                <a href="terms.html">Terms</a>
+                <a href="privacy.html">Privacy</a>
+                <a href="acceptable-use.html">Acceptable Use</a>
+            </div>
+        </div>
+        <p class="footer-copyright">© 2026 Bunche. Made in Lagos, Nigeria.</p>
+    </footer>
+
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const hamburger = document.querySelector('.hamburger');
+            const navLinks = document.querySelector('.nav-links');
+            hamburger.classList.toggle('active');
+            navLinks.classList.toggle('active');
+        }
+
+        // Close mobile menu when clicking a link
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.querySelector('.hamburger').classList.remove('active');
+                document.querySelector('.nav-links').classList.remove('active');
+            });
+        });
+
+        // Nav scroll effect
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('.nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        });
+
+        // Reveal on scroll
+        const revealElements = document.querySelectorAll('.reveal');
+        
+        const revealOnScroll = () => {
+            revealElements.forEach(el => {
+                const elementTop = el.getBoundingClientRect().top;
+                const windowHeight = window.innerHeight;
+                if (elementTop < windowHeight - 100) {
+                    el.classList.add('visible');
+                }
+            });
+        };
+
+        window.addEventListener('scroll', revealOnScroll);
+        revealOnScroll(); // Initial check
+    </script>
 </body>
 </html>

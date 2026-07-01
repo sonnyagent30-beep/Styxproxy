@@ -1,6 +1,6 @@
 # Privacy Policy
 *Bunche — Automated Proxy Retail Service*
-*Effective Date: 2026-06-27*
+*Effective Date: 2026-07-01*
 
 ---
 
@@ -32,7 +32,7 @@ This policy complies with:
 - Proxy usage volume and data consumption
 
 ### 1.3 Information from Third Parties
-- **Flutterwave:** Transaction status, payment confirmation, payment metadata
+- **Payment Processor:** Transaction status, payment confirmation, payment metadata
 - **Meta / WhatsApp:** Message metadata via WhatsApp Business API
 - **Survey Partner:** Free trial survey completion verification
 - **Vetted Infrastructure Partners:** Proxy allocation data, proxy status
@@ -72,7 +72,7 @@ Free trial data is retained for 90 days, then anonymized for analytics.
 We do NOT sell your data. We share data only with:
 
 ### 4.1 Service Providers
-- **Flutterwave:** For payment processing
+- **Payment Processor:** For payment processing
 - **Meta / WhatsApp:** For message delivery via WhatsApp Business API
 - **Vetted Infrastructure Partners:** For proxy allocation (no personal data beyond proxy requirements)
 - **Survey Partner:** For free trial survey verification
@@ -137,7 +137,7 @@ Contact us via WhatsApp or email. We will respond within 30 days.
 - **Encryption:** All data in transit uses TLS 1.2+
 - **Hashing:** PINs stored as bcrypt hashes (never plaintext)
 - **API Security:** All API keys stored securely in n8n credentials
-- **Webhook Verification:** All incoming webhooks (Flutterwave, survey partner) verified for authenticity
+- **Webhook Verification:** All incoming webhooks (payment processor, survey partner) verified for authenticity
 - **Credential Rotation:** Proxy credentials rotated on refund, expiry, and free trial completion
 
 ### 7.2 Organizational Measures
@@ -163,7 +163,7 @@ Bunche does not knowingly collect data from users under 18. If you are under 18,
 ## 9. International Data Transfers
 
 Your data may be transferred internationally as necessary for service delivery, including:
-- **Payment processing** via Flutterwave (Nigeria)
+- **Payment processing** via our payment processor (Nigeria)
 - **Message delivery** via Meta/WhatsApp (USA/International)
 - **Proxy infrastructure** sourced from vetted partners (various jurisdictions)
 
@@ -190,12 +190,10 @@ Continued use of Bunche after changes constitutes acceptance.
 ## 12. Contact Us
 
 **Bunche**
-**WhatsApp:** +234 XXX XXX XXXX
-**Email:** privacy@bunche.com
+**WhatsApp:** +2347032981049
+**Email:** hello@bunche.ng
 
 **Nigeria Data Protection Commission:**
 www.ndpc.gov.ng
-
----
 
 *This Privacy Policy is incorporated by reference into our Terms of Service.*

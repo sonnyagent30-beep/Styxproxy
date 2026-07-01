@@ -1,6 +1,6 @@
 # Terms of Service
 *Bunche — Automated Proxy Retail Service*
-*Effective Date: 2026-06-27*
+*Effective Date: 2026-07-01*
 
 ---
 
@@ -20,7 +20,7 @@ Bunche operates a zero-inventory proxy retail platform that resells proxy servic
 
 **Branding:** All proxy credentials delivered to customers are issued under Bunche's branding (e.g., proxy1.bunche.ng). Customers interact with Bunche's proxy infrastructure, not the underlying providers.
 
-**Payment Processing:** Payments are processed by Flutterwave. We are not a bank or financial institution.
+**Payment Processing:** Payments are processed by our third-party payment processor. We are not a bank or financial institution.
 
 **Automation:** Orders are processed automatically through our n8n workflow automation system.
 
@@ -46,8 +46,8 @@ All prices are in Nigerian Naira (NGN). Prices are subject to change with 7 days
 
 | Product | Price | Countries |
 |---------|-------|-----------|
-| ISP Standard | ₦5,000/mo | UK, US, Germany, France, Canada |
-| ISP Premium | ₦6,500/mo | Japan, Australia, Brazil, Singapore, South Korea |
+| ISP Standard | ₦6,500/mo | UK, US, Germany, France, Canada |
+| ISP Premium | ₦7,500/mo | Japan, Australia, Brazil, Singapore, South Korea |
 
 ### 🖥️ Datacenter Proxies
 
@@ -61,13 +61,17 @@ All prices are in Nigerian Naira (NGN). Prices are subject to change with 7 days
 
 | Product | Price | Notes |
 |---------|-------|-------|
-| Residential | ₦1,950/GB | IPv4, no expiry |
+| Residential 5GB | ₦9,500 | IPv4, no expiry |
+| Residential 10GB | ₦18,000 | IPv4, no expiry |
+| Residential | ₦1,950/GB | IPv4, no expiry (GB-based) |
 | Residential IPv6 | ₦1,500/GB | IPv6 on request |
 
 ### 📱 Mobile Proxies
 
 | Product | Price | Notes |
 |---------|-------|-------|
+| Mobile 4G 5GB | ₦20,000 | 30-day window |
+| Mobile 4G 10GB | ₦38,000 | 30-day window |
 | Mobile 4G | ₦4,000/GB | 30-day window |
 
 ### IPv6 — Available on Request
@@ -97,11 +101,13 @@ Both protocols are supported on all products:
 **Residential:**
 - Data **never expires** — buy 5GB, use 2GB, still have 3GB
 - Top-ups add GB to existing pool
+- 5GB and 10GB one-time packages available
 
 **Mobile:**
 - 30-day window to use allocated data
 - Unused GB is **LOST** on renewal or top-up
 - Proxy stops working at 0GB
+- 5GB and 10GB one-time packages available
 
 ---
 
@@ -246,8 +252,8 @@ Governed by laws of the Federal Republic of Nigeria.
 
 ## 20. Contact
 
-**WhatsApp:** +234 XXX XXX XXXX
-**Email:** support@bunche.ng
-**Website:** bunche.ng
+**WhatsApp:** +2347032981049
+**Email:** hello@bunche.ng
+**Website:** bunche-api-push.vercel.app
 
 *These Terms of Service are incorporated by reference into our Privacy Policy and Acceptable Use Policy.*
