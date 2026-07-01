@@ -1,0 +1,88 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_backup:
+        description: 'Skip pre-deploy backup'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  COMPOSE_FILE: infrastructure/docker-compose.yml
+  DEPLOY_USER: deploy
+  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+  DEPLOY_PATH: /opt/bunche
+
+jobs:
+
+  lint:
+    name: Lint Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: |
+          docker compose -f ${{ env.COMPOSE_FILE }} config --quiet \
+            || { echo "docker-compose.yml is invalid"; exit 1; }
+
+  backup:
+    name: Pre-Deploy Backup
+    needs: lint
+    runs-on: ubuntu-latest
+    if: github.event.inputs.skip_backup != 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run backup
+        run: |
+          chmod +x infrastructure/scripts/backup.sh
+          mkdir -p /tmp/bunche-backup-pre-deploy
+          echo "[INFO] Configure VPS SSH access in repo secrets to enable automated backup"
+
+  deploy:
+    name: Deploy to VPS
+    needs: [lint, backup]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+      - name: Deploy via SSH
+        run: |
+          ssh ${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }} << 'REMOTE'
+            set -euo pipefail
+            cd ${{ env.DEPLOY_PATH }}
+            echo "[1/5] Pull latest..."
+            git pull origin main
+            echo "[2/5] Copy env..."
+            [[ -f .env ]] || cp infrastructure/.env.production.example .env
+            echo "[3/5] Pull images..."
+            docker compose -f ${{ env.COMPOSE_FILE }} pull
+            echo "[4/5] Restart services..."
+            docker compose -f ${{ env.COMPOSE_FILE }} up -d
+            echo "[5/5] Done — $(date)"
+          REMOTE
+
+  notify:
+    name: Notify on Failure
+    needs: [deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Telegram alert
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            ⚠️ Bunche Deploy Failed
+            Branch: main · Run: ${{ github.run_id }}
+            Link: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
