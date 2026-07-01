@@ -1,216 +1,167 @@
 # Bunche 🤝
 
-**WhatsApp proxy reseller for the Nigerian market. Fully automated.**
+**Anonymous proxy purchasing for the Nigerian market. Fully automated.**
 
-Zero inventory. Zero upfront cost. Customer pays first → you buy proxy → deliver.
+Three ways to buy: website (instant), Telegram, or WhatsApp. No account needed on the website.
 
 ---
 
-## How It Works
+## The Three Channels
 
 ```
-Customer messages "Order ISP UK 1" on WhatsApp
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                  │
+│   ┌──────────────┐   ┌─────────────┐   ┌──────────────────┐   │
+│   │  bunche.ng   │   │  Telegram   │   │    WhatsApp      │   │
+│   │  (Instant)   │   │    Bot      │   │       Bot        │   │
+│   │              │   │             │   │                  │   │
+│   │ Pay → IP     │   │  Full       │   │  Full            │   │
+│   │ No account   │   │  lifecycle  │   │  lifecycle       │   │
+│   │ 100% anon    │   │  + support  │   │  + support       │   │
+│   └──────────────┘   └─────────────┘   └──────────────────┘   │
+│                                                                  │
+│   Management Portal: bunche.ng/manage — check, renew, complain  │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Instant (Website) — Primary Path
+- Select product → pay via Flutterwave → IP displayed on screen
+- **No registration. No email required. No data collected.**
+- Order number (tx_ref) is the only identifier
+
+### Telegram + WhatsApp — Full Ordering + Support
+- Order via chat → payment link → IP delivered in chat
+- Free trial (chat only — Theorem Reach requires a postback URL)
+- Full support: check status, renew, ban claims, questions
+
+### Management Portal
+- `bunche.ng/manage` → enter tx_ref (no login)
+- Check status, renew, report ban → redirects to Telegram or WhatsApp
+
+---
+
+## Products & Prices
+
+| Product | Price | Details |
+|---------|-------|---------|
+| ISP UK | ₦6,500/mo | Stable, dedicated |
+| ISP US | ₦6,500/mo | Stable, dedicated |
+| ISP DE | ₦7,500/mo | Stable, dedicated |
+| ISP Japan | ₦7,500/mo | Stable, dedicated |
+| Datacenter | ₦2,500/mo | Budget-friendly |
+| Residential 5GB | ₦5,000 | Data never expires |
+| Residential 10GB | ₦9,000 | Data never expires |
+| Mobile 4G 5GB | ₦20,000 | 30-day window to use data |
+| Mobile 4G 10GB | ₦35,000 | 30-day window to use data |
+
+---
+
+## How Instant Works
+
+```
+Customer → bunche.ng → Select product → Pay via Flutterwave
+                                        ↓
+                    Flutterwave generates tx_ref (= order number)
+                                        ↓
+                    Customer completes payment
+                                        ↓
+                    Flutterwave webhook → backend generates IP
+                                        ↓
+                    IP displayed on thank-you page
+                                        ↓
+                    Email receipt sent (optional)
+```
+
+**No account created. No customer data stored. Only the order record.**
+
+---
+
+## How Chat Ordering Works
+
+```
+Customer → Telegram/WhatsApp → "I want ISP UK"
         ↓
 Bunche sends Flutterwave payment link
         ↓
-Customer pays ₦6,500
+Customer pays
         ↓
-Flutterwave webhook → Bunche buys IP from provider → tests it
-        ↓
-Bunche issues Bunche-branded credentials (proxy1.bunche.ng:1080)
-        ↓
-Credentials delivered on WhatsApp (< 2 min)
+Webhook fires → IP generated → credentials delivered in chat
 ```
-
-**Key difference:** Customers receive Bunche-branded proxy credentials, not direct provider credentials. Bunche controls the auth layer — enabling instant revoke on refund and free trial recycling.
 
 ---
 
-## Products
+## Free Trial (Telegram + WhatsApp only)
 
-| Product | Price | Provider | Tracking |
-|---------|-------|----------|----------|
-| ISP (UK/US/DE/FR/CA) | ₦6,500/mo | Vetted partner | Expires on date |
-| ISP (JP/AU/BR/SG/KR) | ₦7,500/mo | Vetted partner | Expires on date |
-| Residential 5GB | ₦9,500 | Vetted partner | No time expiry — lasts until GB used |
-| Residential 10GB | ₦18,000 | Vetted partner | No time expiry |
-| Mobile 4G 5GB | ₦20,000 | Vetted partner | 30-day window to use GB |
-| Mobile 4G 10GB | ₦38,000 | Vetted partner | 30-day window to use GB |
-| Datacenter | ₦3,000/mo | Vetted partner | Expires on date |
+```
+Customer → "free trial"
+        ↓
+Bunche explains: complete Theorem Reach surveys → earn time
+        ↓
+Customer does surveys → postbacks recorded
+        ↓
+Customer says "done" (max 12 surveys)
+        ↓
+Trial credentials delivered → auto-expires after earned time
 
-*Infrastructure partners are not publicly named per our Privacy Policy.*
+1 survey = 2 hours of trial
+Max 12 surveys = 24 hours
+```
 
 ---
 
 ## Bunche Auth Layer
 
-All customers receive Bunche-branded credentials. The actual proxy IPs are sourced from vetted infrastructure partners but customers interact only with Bunche.
+Customers receive Bunche-branded credentials. Actual proxy IPs are sourced from vetted infrastructure partners but customers interact only with Bunche.
 
 ```
 Customer sees:   proxy1.bunche.ng:1080
-                 username: bun_001
-                 password: P@ssw0rd!
-                        │
-                        ▼
-              Bunche Dante SOCKS5 Server (Hetzner)
-                        │
-              Maps Bunche username → Provider IP
-                        │
-                        ▼
-            Vetted infrastructure partners
-            (Proxy-Seller / DataImpulse)
+Behind the scenes: actual provider IP → routed through Bunche auth
 ```
 
-**Benefits:**
-- Instant credential revoke on refund
-- Free trial IPs recycled after 2hr expiry
-- Customers never see provider names
-- Full control over access
+This enables instant revoke on refund and free trial recycling.
 
 ---
 
-## Architecture
+## Repository Structure
 
 ```
-Customer → WhatsApp OR Telegram → Cloudflare → Nginx → n8n (Docker on VPS)
-                                          ↓
-                                   PostgreSQL + Redis
-                                          ↓
-                                   Dante SOCKS5 (Port 1080)
-                                          ↓
-                          Vetted Infrastructure Partners
-                          (Proxy-Seller / DataImpulse)
-
-Channel Failover:
-  WhatsApp down → Telegram handles all customer traffic
-  Telegram down → WhatsApp handles all customer traffic
-  (telegram-webhook-bridge.js routes between channels)
+bunche/
+├── SPEC.md                    ← Source of truth (product decisions)
+├── PRE-BUILD-CHECKLIST.md     ← What to set up before coding
+├── docs/
+│   ├── ARCHITECTURE.md         ← Technical architecture + diagrams
+│   ├── DATABASE_SCHEMA.md      ← PostgreSQL schema
+│   └── legal/                  ← Terms, Privacy, AUP, Refund policies
+├── .n8n/
+│   └── workflows/              ← All n8n workflows (JSON)
+├── server/
+│   └── telegram-webhook-bridge.js  ← Express webhook bridge
+├── scripts/
+│   ├── manage-3proxy-trial.sh      ← Add/remove trial users
+│   └── cleanup-3proxy-trials.sh    ← Expire old trials
+├── scenarios/                 ← 93 numbered customer scenarios
+└── intelligence/
+    └── reports/              ← LLM council analysis
 ```
 
-- **n8n**: Workflow engine — 16 workflows (WhatsApp + Telegram)
-- **telegram-webhook-bridge.js**: Telegram webhook receiver → forwards to n8n
-- **channel-failover.json**: Monitors both channels, routes traffic
-- **PostgreSQL**: Customers, orders, audit logs, bunche_credentials
-- **Redis**: Caching, sessions, rate limiting
-- **Dante SOCKS5**: Proxy auth layer — maps Bunche credentials to provider IPs
-- **MiniMax M2**: LLM for intent parsing and responses
-- **Flutterwave**: Payment processing
-- **Cloudflare R2**: File storage (screenshots, receipts, backups)
-- **UptimeRobot**: Uptime monitoring (5-min checks)
-
 ---
 
-## Docs
+## Quick Links
 
-### Setup + Build
-
-| File | What it covers |
-|------|---------------|
-| `docs/DEPLOYMENT.md` | Full VPS deployment guide (steps 1–12) |
-| `docs/ARCHITECTURE_PLAN.md` | System architecture with Dante layer |
-| `docs/DATABASE_SCHEMA.md` | PostgreSQL schema including bunche_credentials |
-| `docs/DANTE_SETUP.md` | Dante SOCKS5 installation and configuration |
-| `.env.example` | Every environment variable documented |
-
-### Operational
-
-| File | What it covers |
-|------|---------------|
-| `docs/MONITORING.md` | UptimeRobot setup, alert webhook |
-| `docs/SECURITY_RUNBOOK.md` | Secrets rotation, API monitoring, NDPA, incident response |
-| `docs/PERFORMANCE_SCALING.md` | pgBouncer, Redis caching, 4-phase cost trajectory |
-| `docs/PRICING_INTELLIGENCE.md` | Buy price, sell price, margins, FX analysis |
-| `docs/FLUTTERWAVE_WHATSAPP_SETUP.md` | Payment + messaging setup |
-
-### Features
-
-| File | What it covers |
-|------|---------------|
-| `docs/REFERRAL_SYSTEM.md` | Referral system spec (name = code, 5% credit) |
-| `workflows/WORKFLOW_SPECS.md` | 15 workflows documented (orders, payments, alerts, referrals) |
-| `scripts/manage-bunche-credentials.sh` | Dante credential management script |
-
-### Architecture Decisions (ADRs)
-
-| File | Decision |
-|------|----------|
-| `docs/adr/ADR-001-postgresql-primary-database.md` | PostgreSQL over Google Sheets |
-| `docs/adr/ADR-002-minimax-m2-llm.md` | MiniMax M2 cloud over Ollama local |
-| `docs/adr/ADR-003-name-as-referral-code.md` | Customer name = referral code |
-| `docs/adr/ADR-004-secrets-management.md` | .env → Doppler → Vault phased approach |
-| `docs/adr/ADR-005-backup-strategy.md` | Daily R2 backup + age encryption + 90-day retention |
-
-### Legal
-
-`legal/TERMS_OF_SERVICE.md` · `legal/PRIVACY_POLICY.md` · `legal/ACCEPTABLE_USE_POLICY.md`
-
----
-
-## Workflow Templates
-
-Actual n8n JSON workflows in `.n8n/workflows/`:
-
-| Workflow | File |
-|----------|------|
-| Order Handler | `order-handler.json` |
-| Payment Confirmation | `payment-confirmation.json` |
-| Data Alert Escalation | `data-alert.json` |
-| Referral Credit Processor | `referral-credit.json` |
-| Daily Summary | `daily-summary.json` |
-| Error Alert | `error-alert.json` |
-| Theorem Reach Webhook | `theorem-reach-webhook.json` |
-
----
-
-## Backup Scripts
-
-Operational scripts in `scripts/`:
-
-| Script | Purpose |
-|--------|---------|
-| `scripts/backup-bunche.sh` | Daily pg_dump → age encrypt → rclone to R2 |
-| `scripts/backup-monthly-archive.sh` | First-of-month → 1-year retention |
-| `scripts/manage-bunche-credentials.sh` | Add/revoke/rotate/list Bunche credentials in Dante |
-| `scripts/backup.conf.example` | Config template |
-
----
-
-## Total Cost of Operation (Phase 1)
-
-| Component | Cost |
-|-----------|------|
-| Hetzner CX21 VPS | €6/mo (~$9) |
-| Domain | ~$2/mo |
-| Provider credits (Proxy-Seller + DataImpulse) | ~$50 one-time |
-| Flutterwave fees | 1.5% of revenue (pass-through) |
-| Cloudflare (free tier) | $0 |
-| Cloudflare R2 (free tier + backups) | <$1/mo |
-| UptimeRobot free | $0 |
-| **Total fixed** | **~$12/mo** |
-| **Cost per customer at 1,000 users** | **<$0.01** |
-
----
-
-## Archive
-
-Obsolete docs (Google Sheets era, old providers): `archive/`
+| Resource | URL |
+|----------|-----|
+| Product Spec | `SPEC.md` |
+| Pre-Build Checklist | `PRE-BUILD-CHECKLIST.md` |
+| Architecture | `docs/ARCHITECTURE.md` |
+| Database Schema | `docs/DATABASE_SCHEMA.md` |
+| n8n Workflows | `.n8n/workflows/` |
+| Scenarios | `scenarios/` |
 
 ---
 
 ## Status
 
-- ✅ Research complete
-- ✅ Strategy defined
-- ✅ Architecture decided (PostgreSQL + MiniMax + Dante auth layer)
-- ✅ Legal docs updated (provider-neutral branding)
-- ✅ 15 workflows spec'd + 7 JSON templates ready
-- ✅ ADRs for all major decisions (5 ADRs)
-- ✅ Deployment guide + monitoring + backup scripts
-- ✅ Pricing intelligence documented
-- ✅ Dante SOCKS5 setup documented
-- ✅ Credential management script created
-- 🟡 VPS not yet provisioned
-- 🟡 Flutterwave account setup
-- 🟡 WhatsApp Business API setup
-- 🟡 Provider accounts + API keys
-- 🟡 Custom domain registered
+**Planning complete. Ready for build.**
+
+Credentials and accounts needed before coding begins — see `PRE-BUILD-CHECKLIST.md`.
