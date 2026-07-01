@@ -277,7 +277,7 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "Sure! What is your proxy use case? For example: Web Scraping, Sneaker Copping, Social Media Management, Geo-targeting, Gaming. Tell me what you need it for!",
+        "text": "🎁 Free Trial — e be like this:\\n\\nYou go complete some surveys, each survey give you 2 hours of proxy time.\\nYou fit do up to 12 surveys = 24 hours free!\\n\\nWhen you don finish, tell me \"done\" and I go send your proxy details.\\n\\nMake I send you the survey link now? Just tell me \"send survey link\"!",
         "additionalFields": {}
       },
       "credentials": {
@@ -296,7 +296,7 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "I can help with that. What are your current proxy details? Please share your order ID or the phone number you used.",
+        "text": "🔄 No problem! To renew your proxy, go to:\\n\\n📱 bunche-api-push.vercel.app\\n\\nClick \"Renew\" and use the same phone number or order ID you used before.\\nYour details go show up automatically.\\n\\nNa ₦6,500 for ISP UK or check the website for other plans.",
         "additionalFields": {}
       },
       "credentials": {
@@ -315,7 +315,7 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "No worries. What is the phone number or order ID you used when you signed up?",
+        "text": "📋 No worries! Recovery be like this:\\n\\nIf your proxy no work again and you don renew, e go auto-restore.\\nIf you lose your details, go to:\\n\\n📱 bunche-api-push.vercel.app\\n\\nUse \"Recover Details\" with your phone number.\\nI go send your details back to you on this chat.\\n\\nIf e no work, text our support team!",
         "additionalFields": {}
       },
       "credentials": {
@@ -334,7 +334,7 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "To use Bunche proxies: 1) Copy the proxy IP:port from your delivery 2) Set it in your browser/app 3) Authenticate with your credentials. Need more help?",
+        "text": "📖 How to use Bunche proxy:\\n\\n1. Copy your proxy details from the message I send you\\n2. Open your browser or app settings → Proxy\\n3. Enter the IP, Port, Username, Password\\n4. Save and you dey set!\\n\\n💡 Make sure e no be HTTPS, na SOCKS5 proxy.\\n\\nNeed more help? Just ask!",
         "additionalFields": {}
       },
       "credentials": {
