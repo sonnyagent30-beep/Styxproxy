@@ -8,6 +8,8 @@
 
 ## SCENARIO 14: LLM Off-Topic Deflection
 
+**Channels:** WhatsApp & Telegram
+
 **Customer:** Any customer | **Status:** Sends a message completely outside IP/proxy scope
 
 ---
@@ -82,6 +84,8 @@ If you need help with your proxy, I'm here!
 ---
 
 ## SCENARIO 15: IP Rotation Request (Paid Customer)
+
+**Channels:** WhatsApp & Telegram
 
 **Customer:** Dan | **Status:** Active ISP UK subscriber, suspects IP is shared
 
@@ -192,6 +196,8 @@ Escalation: customer requests 2nd rotation this month
 
 ## SCENARIO 43: Expired Payment Link + Claims Payment
 
+**Channels:** WhatsApp & Telegram
+
 **Customer:** Emeka | **Status:** Payment link expired, claims he paid
 
 ---
@@ -269,6 +275,8 @@ Action: Check Flutterwave dashboard → confirm or deny
 ---
 
 ## SCENARIO 45: IP Authentication Failure
+
+**Channels:** WhatsApp & Telegram
 
 **Customer:** Ada | **Status:** ISP UK active, suddenly can't connect
 
@@ -354,6 +362,8 @@ If this keeps happening, reply ban and we'll investigate further.
 
 ## SCENARIO 46: Multiple Customers Report Same /24 Range Banned
 
+**Channels:** WhatsApp & Telegram
+
 **Customer:** 8 customers report within same hour | **Status:** Mass ban event
 
 ---
@@ -438,6 +448,8 @@ If you still have issues, reply help.
 
 ## SCENARIO 58: Referral Abuse — Self-Referral
 
+**Channels:** WhatsApp & Telegram
+
 **Customer:** Dan | **Status:** Attempting to refer himself
 
 ---
@@ -513,6 +525,8 @@ Action: Review → confirm or reject fraud finding
 
 ## SCENARIO 60: Platform Feature Tour Tips
 
+**Channels:** WhatsApp & Telegram
+
 **Customer:** New customer | **Status:** Just received first proxy
 
 ---
@@ -587,6 +601,8 @@ All three messages are well under 1024 chars each.
 ---
 
 ## SCENARIO 61: Link WhatsApp + Telegram
+
+**Channels:** WhatsApp & Telegram
 
 **Customer:** Ngozi | **Status:** Existing WhatsApp customer, wants to add Telegram
 
@@ -671,11 +687,13 @@ Welcome to dual-channel management 🎉
 
 ## SCENARIO 61B: Unlink Channels
 
-**Customer:** Tunde | **Status:** Linked customer, wants to unlink Telegram
+**Channels:** WhatsApp & Telegram (identical experience)
+
+**Customer:** Tunde | **Status:** Linked customer, wants to unlink secondary channel
 
 ---
 
-### Customer (WhatsApp): `I want to unlink my Telegram`
+### Customer ([channel]): `I want to unlink my Telegram`
 
 **Bunche system:**
 - Verify: Telegram @tunde_bunche is linked ✅
@@ -685,7 +703,7 @@ Welcome to dual-channel management 🎉
 To unlink Telegram from your account:
 
 Type exactly: UNLINK
-⚠️ You'll only be able to manage from WhatsApp after this.
+⚠️ You'll only be able to manage from [primary channel] after this.
 
 (Required to prevent accidental unlinks)
 ```
@@ -701,8 +719,7 @@ Type exactly: UNLINK
 ```
 ✅ Telegram unlinked.
 
-Your Bunche account is now WhatsApp-only again.
-Your proxy history and settings are preserved.
+Your Bunche account is now [primary channel]-only again.
 
 If you want to relink anytime, just reply link telegram.
 ```
@@ -723,6 +740,8 @@ If you want to relink anytime, just reply link telegram.
 ---
 
 ## SCENARIO 62: Right to be Forgotten (NDPR Deletion)
+
+**Channels:** WhatsApp & Telegram (identical experience)
 
 **Customer:** Femi | **Status:** Wants all personal data deleted
 
