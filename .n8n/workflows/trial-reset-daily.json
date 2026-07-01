@@ -1,0 +1,119 @@
+{
+  "name": "Trial Reset Daily",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 * * *"
+            }
+          ]
+        }
+      },
+      "id": "tr-trigger",
+      "name": "Cron: Midnight Lagos",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "customers",
+        "columns": "free_trials_used_today = 0, free_trial_offer_sent_today = FALSE, free_trial_declined_today = FALSE",
+        "where": "free_trials_used_today > 0 OR free_trial_offer_sent_today = TRUE OR free_trial_declined_today = TRUE"
+      },
+      "id": "tr-reset-customers",
+      "name": "Reset Customer Trial Counts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "free_trials",
+        "columns": "COUNT(*) as expired_count",
+        "conditions": "status = 'active' AND expires_at < NOW()"
+      },
+      "id": "tr-check-expired",
+      "name": "Check Expired Trials",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [200, 500]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "free_trials",
+        "columns": "status = 'dead'",
+        "where": "status = 'active' AND expires_at < NOW()"
+      },
+      "id": "tr-mark-expired",
+      "name": "Mark Expired Trials",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [400, 500]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Log reset completion\nconst inputs = $input.all();\nconst resetResult = inputs[0]?.json || {};\nconst expiredResult = inputs[1]?.json || {};\n\nreturn [{\n  json: {\n    customers_reset: resetResult.affectedRows || 0,\n    trials_expired: expiredResult.expired_count || 0,\n    message: `Trial reset complete: ${resetResult.affectedRows || 0} customers reset, ${expiredResult.expired_count || 0} trials expired`\n  }\n}];"
+      },
+      "id": "tr-log",
+      "name": "Log Reset Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 400]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "customer_audit_log",
+        "columns": "event_type, workflow, status, details",
+        "values": "'trial_reset', 'trial-reset-daily', 'success', '{\"action\": \"midnight_reset\", \"customers_reset\": {{$json.customers_reset}}, \"trials_expired\": {{$json.trials_expired}}}'"
+      },
+      "id": "tr-audit",
+      "name": "Audit Log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [800, 400]
+    }
+  ],
+  "connections": {
+    "Cron: Midnight Lagos": {
+      "main": [
+        [{ "node": "Reset Customer Trial Counts", "type": "main", "index": 0 }],
+        [{ "node": "Check Expired Trials", "type": "main", "index": 0 }]
+      ]
+    },
+    "Reset Customer Trial Counts": {
+      "main": [
+        [{ "node": "Log Reset Results", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Expired Trials": {
+      "main": [
+        [{ "node": "Mark Expired Trials", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mark Expired Trials": {
+      "main": [
+        [{ "node": "Log Reset Results", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log Reset Results": {
+      "main": [
+        [{ "node": "Audit Log", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": ["trial", "cron", "reset", "midnight"]
+}

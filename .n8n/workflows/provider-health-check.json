@@ -1,0 +1,259 @@
+{
+  "name": "Provider APIs + Health Checks",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "wf5-trigger",
+      "name": "Cron: Every 15 Minutes",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.proxy-seller.com/v1/account",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.PROXY_SELLER_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "wf5-ps-check",
+      "name": "Check Proxy-Seller API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        200,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "provider_log",
+        "columns": "provider, event_type, status, response_code, response_body, created_at",
+        "values": "'Proxy-Seller', 'health_check', 'ok', {{ $json.status }}, '{{ JSON.stringify($json) }}', NOW()"
+      },
+      "id": "wf5-ps-log-ok",
+      "name": "Log Proxy-Seller OK",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udd34 Provider Alert \u2014 Proxy-Seller\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\nProxy-Seller API is DOWN.\n\nHTTP Status: {{ $json.status }}\nResponse: {{ $json.data?.message || $json.response || 'No response' }}\n\nTime: {{ $now }}\n\nAction required \u2014 customers may not receive proxies.",
+        "extraOptions": {}
+      },
+      "id": "wf5-ps-alert",
+      "name": "Alert Admin \u2014 Proxy-Seller Down",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "provider_log",
+        "columns": "provider, event_type, status, error_message, created_at",
+        "values": "'Proxy-Seller', 'health_check', 'error', '{{ $json.error?.message || $json.message || 'Request failed' }}', NOW()"
+      },
+      "id": "wf5-ps-log-error",
+      "name": "Log Proxy-Seller Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.dataimpulse.com/api/account",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Key",
+              "value": "{{ $env.DATAIMPULSE_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "wf5-di-check",
+      "name": "Check DataImpulse API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "provider_log",
+        "columns": "provider, event_type, status, response_code, created_at",
+        "values": "'DataImpulse', 'health_check', 'ok', {{ $json.status || 200 }}, NOW()"
+      },
+      "id": "wf5-di-log-ok",
+      "name": "Log DataImpulse OK",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        400,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udd34 Provider Alert \u2014 DataImpulse\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\nDataImpulse API is DOWN.\n\nHTTP Status: {{ $json.status }}\nResponse: {{ $json.error || 'No response' }}\n\nTime: {{ $now }}\n\nAction required.",
+        "extraOptions": {}
+      },
+      "id": "wf5-di-alert",
+      "name": "Alert Admin \u2014 DataImpulse Down",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        400,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "provider_log",
+        "columns": "provider, event_type, status, error_message, created_at",
+        "values": "'DataImpulse', 'health_check', 'error', '{{ $json.error?.message || $json.message || 'Request failed' }}', NOW()"
+      },
+      "id": "wf5-di-log-error",
+      "name": "Log DataImpulse Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        600,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "Cron: Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Check Proxy-Seller API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check DataImpulse API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Proxy-Seller API": {
+      "main": [
+        [
+          {
+            "node": "Log Proxy-Seller OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert Admin \u2014 Proxy-Seller Down",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Admin \u2014 Proxy-Seller Down": {
+      "main": [
+        [
+          {
+            "node": "Log Proxy-Seller Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check DataImpulse API": {
+      "main": [
+        [
+          {
+            "node": "Log DataImpulse OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert Admin \u2014 DataImpulse Down",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Admin \u2014 DataImpulse Down": {
+      "main": [
+        [
+          {
+            "node": "Log DataImpulse Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": [
+    "provider",
+    "health",
+    "cron",
+    "admin"
+  ]
+}

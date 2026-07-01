@@ -1,0 +1,147 @@
+{
+  "name": "Expiry + Data Reminder Cron",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "wf7-trigger",
+      "name": "Cron: Every Hour",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "o.id, o.tx_ref, o.product, o.status,\n                    o.expires_at,\n                    o.data_used_gb, o.data_limit_gb,\n                    pa.platform, pa.platform_user_id, pa.display_name,\n                    c.id as customer_id",
+        "conditions": "o.status = 'fulfilled' AND o.expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'"
+      },
+      "id": "wf7-expiring",
+      "name": "Find Expiring Orders",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "o.id, o.tx_ref, o.product, o.status,\n                    o.data_used_gb, o.data_limit_gb,\n                    pa.platform, pa.platform_user_id, pa.display_name,\n                    c.id as customer_id",
+        "conditions": "o.status = 'fulfilled' AND o.data_limit_gb IS NOT NULL AND (o.data_used_gb / NULLIF(o.data_limit_gb, 0)) >= 0.8"
+      },
+      "id": "wf7-high-usage",
+      "name": "Find High Data Usage",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Merge expiring and high-usage into deduplicated list\nconst inputs = $input.all();\nconst seen = new Set();\nconst combined = [];\n\nfor (const item of inputs) {\n    const order = item.json;\n    if (!seen.has(order.id)) {\n        seen.add(order.id);\n        // Determine reason\n        if (order.expires_at && new Date(order.expires_at) <= new Date(Date.now() + 7*24*60*60*1000)) {\n            order.reminder_type = 'expiry';\n            const daysLeft = Math.ceil((new Date(order.expires_at) - new Date()) / (24*60*60*1000));\n            order.message = `\u26a0\ufe0f Your ${order.product} proxy expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}. Reply RENEW to keep access.`;\n        }\n        if (order.data_used_gb && order.data_limit_gb) {\n            const pct = Math.round((order.data_used_gb / order.data_limit_gb) * 100);\n            order.data_pct = pct;\n            order.message = order.message || `\ud83d\udcca You've used ${pct}% of your ${order.data_limit_gb}GB ${order.product} data. Reply UPGRADE for more.`;\n        }\n        combined.push({ json: order });\n    }\n}\nreturn combined;"
+      },
+      "id": "wf7-merge",
+      "name": "Merge + Deduplicate",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "message": "{{ $json.message }}\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nOrder: {{ $json.tx_ref }}\nProduct: {{ $json.product }}\n{{#if $json.expires_at }}Expires: {{ $json.expires_at }}\n{{/if}}{{#if $json.data_pct }}Data: {{ $json.data_pct }}% used\n{{/if}}"
+      },
+      "id": "wf7-send",
+      "name": "Send Reminder",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Cron: Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Find Expiring Orders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find High Data Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Expiring Orders": {
+      "main": [
+        [
+          {
+            "node": "Merge + Deduplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find High Data Usage": {
+      "main": [
+        [
+          {
+            "node": "Merge + Deduplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge + Deduplicate": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": [
+    "reminder",
+    "cron",
+    "customer"
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "name": "Free Trial Follow-Up (Idle)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "wf9-trigger",
+      "name": "Cron: Every 6 Hours",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "pending_trial_surveys",
+        "columns": "pts.id, pts.platform_account_id,\n                    pts.created_at as trial_requested_at,\n                    pa.platform, pa.platform_user_id, pa.display_name,\n                    c.id as customer_id,\n                    (SELECT COUNT(*) FROM pending_trial_surveys pts2\n                     WHERE pts2.platform_account_id = pts.platform_account_id\n                     AND pts2.created_at >= NOW() - INTERVAL '24 hours') as surveys_24h",
+        "conditions": "pts.credited = FALSE AND pts.created_at < NOW() - INTERVAL '2 hours'"
+      },
+      "id": "wf9-idle",
+      "name": "Find Idle Trial Requests",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "idle-check",
+              "leftValue": "={{ $json.surveys_24h }}",
+              "rightValue": 0,
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "wf9-filter",
+      "name": "Filter: No Surveys in 24h",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83c\udf81 Reminder \u2014 Free Trial Still Available!\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\nHi{{#if $json.display_name}} {{$json.display_name}}{{/if}}! Your free trial access is still ready.\n\nYou started a trial request {{ $json.trial_requested_at }} but haven't completed a survey yet.\n\n\ud83d\udca1 Complete just 1 survey = 2 hours of free proxy access.\n\nTap the link to get started \u2192 {{ $env.THEOREM_REACH_SURVEY_URL }}\n\nQuestions? Just reply to this message."
+      },
+      "id": "wf9-send",
+      "name": "Send Follow-Up",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Cron: Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Find Idle Trial Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Idle Trial Requests": {
+      "main": [
+        [
+          {
+            "node": "Filter: No Surveys in 24h",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: No Surveys in 24h": {
+      "main": [
+        [
+          {
+            "node": "Send Follow-Up",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": [
+    "free-trial",
+    "follow-up",
+    "cron"
+  ]
+}
