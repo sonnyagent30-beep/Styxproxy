@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceptable Use Policy — Bunche</title>
+    <title>Bunche — Your Plug for Proxies in Nigeria</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -19,15 +19,18 @@
             --bg: #ffffff;
             --bg-secondary: #f9fafb;
             --bg-tertiary: #f3f4f6;
+            --surface: #ffffff;
             --border: #e5e7eb;
             --border-light: #f3f4f6;
             --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
             --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
             --radius: 12px;
             --radius-sm: 8px;
             --radius-lg: 16px;
             --radius-xl: 24px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         @media (prefers-color-scheme: dark) {
@@ -38,11 +41,13 @@
                 --bg: #0f172a;
                 --bg-secondary: #1e293b;
                 --bg-tertiary: #334155;
+                --surface: #1e293b;
                 --border: #334155;
                 --border-light: #1e293b;
                 --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
                 --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
                 --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+                --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             }
         }
 
@@ -60,21 +65,22 @@
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
             color: var(--text);
-            line-height: 1.7;
+            line-height: 1.6;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
-        /* Navigation */
+        /* Floating Blur Nav */
         .nav {
             position: fixed;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.8);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: var(--radius-xl);
             padding: 12px 32px;
             display: flex;
@@ -82,13 +88,20 @@
             justify-content: space-between;
             gap: 40px;
             box-shadow: var(--shadow-lg), 0 0 40px rgba(16, 185, 129, 0.1);
+            transition: var(--transition);
         }
 
         @media (prefers-color-scheme: dark) {
             .nav {
-                background: rgba(15, 23, 42, 0.9);
+                background: rgba(15, 23, 42, 0.85);
                 border-color: rgba(255, 255, 255, 0.1);
             }
+        }
+
+        .nav.scrolled {
+            top: 10px;
+            padding: 10px 24px;
+            border-radius: var(--radius-lg);
         }
 
         .nav-logo {
@@ -118,7 +131,7 @@
             text-decoration: none;
             font-weight: 500;
             font-size: 0.95rem;
-            transition: all 0.3s ease;
+            transition: var(--transition);
         }
 
         .nav-links a:hover {
@@ -133,13 +146,16 @@
             text-decoration: none;
             font-weight: 600;
             font-size: 0.9rem;
-            transition: all 0.3s ease;
+            transition: var(--transition);
         }
 
         .nav-cta:hover {
             background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
         }
 
+        /* Hamburger */
         .hamburger {
             display: none;
             flex-direction: column;
@@ -154,9 +170,22 @@
             height: 2px;
             background: var(--text);
             border-radius: 2px;
-            transition: all 0.3s ease;
+            transition: var(--transition);
         }
 
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        /* Mobile Nav */
         @media (max-width: 768px) {
             .nav {
                 width: calc(100% - 32px);
@@ -176,7 +205,7 @@
                 gap: 32px;
                 opacity: 0;
                 visibility: hidden;
-                transition: all 0.3s ease;
+                transition: var(--transition);
             }
 
             .nav-links.active {
@@ -197,185 +226,696 @@
             }
         }
 
-        /* Main Content */
-        .main {
-            padding: 140px 24px 80px;
+        /* Hero Section */
+        .hero {
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 120px 24px 80px;
+            position: relative;
+            overflow: hidden;
         }
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 30%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 70%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+            animation: heroGlow 15s ease-in-out infinite;
         }
 
-        .legal-header {
-            margin-bottom: 48px;
-            padding-bottom: 24px;
-            border-bottom: 1px solid var(--border);
+        @keyframes heroGlow {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-5%, -5%); }
         }
 
-        .legal-header h1 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-            letter-spacing: -0.02em;
+        .hero-content {
+            max-width: 900px;
+            text-align: center;
+            position: relative;
+            z-index: 1;
         }
 
-        .legal-header p {
-            color: var(--text-secondary);
-            font-size: 1rem;
-        }
-
-        .legal-content {
-            font-size: 1rem;
-            color: var(--text);
-        }
-
-        .legal-content h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-top: 40px;
-            margin-bottom: 16px;
-            color: var(--text);
-        }
-
-        .legal-content h3 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-top: 24px;
-            margin-bottom: 12px;
-            color: var(--text);
-        }
-
-        .legal-content p {
-            margin-bottom: 16px;
-            color: var(--text-secondary);
-        }
-
-        .legal-content ul, .legal-content ol {
-            margin-bottom: 16px;
-            padding-left: 24px;
-            color: var(--text-secondary);
-        }
-
-        .legal-content li {
-            margin-bottom: 8px;
-        }
-
-        .legal-content strong {
-            color: var(--text);
-            font-weight: 600;
-        }
-
-        .legal-content em {
-            color: var(--primary);
-            font-style: normal;
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--primary-bg);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 8px 16px;
+            border-radius: 100px;
+            font-size: 0.875rem;
             font-weight: 500;
-        }
-
-        .legal-content hr {
-            border: none;
-            border-top: 1px solid var(--border);
-            margin: 40px 0;
-        }
-
-        .legal-content a {
             color: var(--primary);
+            margin-bottom: 24px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .hero-badge span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+            animation: fadeInUp 0.8s ease-out 0.1s both;
+        }
+
+        .hero h1 .highlight {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(1.125rem, 2vw, 1.375rem);
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 40px;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+
+        .hero-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            animation: fadeInUp 0.8s ease-out 0.3s both;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 32px;
+            border-radius: var(--radius);
+            font-weight: 600;
+            font-size: 1rem;
             text-decoration: none;
+            transition: var(--transition);
+            cursor: pointer;
+            border: none;
         }
 
-        .legal-content a:hover {
-            text-decoration: underline;
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
         }
 
-        /* Tables */
-        .legal-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 24px 0;
-            font-size: 0.95rem;
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
         }
 
-        .legal-content th, .legal-content td {
-            padding: 12px 16px;
-            text-align: left;
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text);
             border: 1px solid var(--border);
         }
 
-        .legal-content th {
-            background: var(--bg-secondary);
-            font-weight: 600;
-            color: var(--text);
+        .btn-secondary:hover {
+            background: var(--bg-tertiary);
+            transform: translateY(-3px);
         }
 
-        .legal-content td {
-            color: var(--text-secondary);
+        .btn svg {
+            width: 20px;
+            height: 20px;
         }
 
-        /* Warning Box */
-        .warning-box {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: var(--radius);
-            padding: 16px;
-            margin: 24px 0;
+        /* Floating cards */
+        .floating-cards {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 0;
         }
 
-        .warning-box p {
-            color: #dc2626;
-            margin: 0;
+        .float-card {
+            position: absolute;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow-lg);
+            animation: float 6s ease-in-out infinite;
         }
 
-        @media (prefers-color-scheme: dark) {
-            .warning-box {
-                background: rgba(239, 68, 68, 0.15);
+        .float-card:nth-child(1) {
+            top: 20%;
+            left: 5%;
+            animation-delay: 0s;
+        }
+
+        .float-card:nth-child(2) {
+            top: 60%;
+            right: 5%;
+            animation-delay: 2s;
+        }
+
+        .float-card:nth-child(3) {
+            bottom: 15%;
+            left: 10%;
+            animation-delay: 4s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @media (max-width: 768px) {
+            .floating-cards {
+                display: none;
             }
-            .warning-box p {
-                color: #f87171;
-            }
         }
 
-        /* Footer */
-        .footer {
-            background: var(--bg-secondary);
-            border-top: 1px solid var(--border);
-            padding: 60px 24px 30px;
+        /* Section Styles */
+        .section {
+            padding: 100px 24px;
+            position: relative;
         }
 
-        .footer-container {
+        .container {
             max-width: 1200px;
             margin: 0 auto;
         }
 
+        .section-header {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto 60px;
+        }
+
+        .section-label {
+            display: inline-block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: clamp(2rem, 4vw, 2.75rem);
+            font-weight: 800;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .section-subtitle {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+        }
+
+        /* Stats Section */
+        .stats {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 32px;
+            }
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Pricing Section */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 40px;
+        }
+
+        .pricing-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 32px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pricing-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary);
+            transform: scaleX(0);
+            transition: var(--transition);
+        }
+
+        .pricing-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .pricing-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .pricing-card.featured {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-lg), 0 0 40px rgba(16, 185, 129, 0.15);
+        }
+
+        .pricing-card.featured::after {
+            content: 'Most Popular';
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: var(--primary);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 100px;
+        }
+
+        .pricing-category {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .pricing-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .pricing-price {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .pricing-price span {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .pricing-countries {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 24px;
+        }
+
+        .pricing-features li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .pricing-features li svg {
+            width: 20px;
+            height: 20px;
+            color: var(--primary);
+            flex-shrink: 0;
+        }
+
+        .pricing-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 14px;
+        }
+
+        /* Testimonials */
+        .testimonials {
+            background: var(--bg-secondary);
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .testimonials-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .testimonial-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 32px;
+            transition: var(--transition);
+        }
+
+        .testimonial-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .testimonial-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .testimonial-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            font-size: 1.125rem;
+        }
+
+        .testimonial-author {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .testimonial-role {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .testimonial-text {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        .testimonial-stars {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 16px;
+        }
+
+        .testimonial-stars svg {
+            width: 18px;
+            height: 18px;
+            color: #fbbf24;
+        }
+
+        /* How It Works */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            margin-top: 60px;
+        }
+
+        @media (max-width: 768px) {
+            .steps {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+        }
+
+        .step {
+            text-align: center;
+            position: relative;
+        }
+
+        .step-number {
+            width: 64px;
+            height: 64px;
+            background: var(--primary-bg);
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 0 auto 24px;
+        }
+
+        .step-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .step-desc {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .step-connector {
+            position: absolute;
+            top: 32px;
+            right: -32px;
+            width: 64px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), transparent);
+        }
+
+        @media (max-width: 768px) {
+            .step-connector {
+                display: none;
+            }
+        }
+
+        /* FAQ Section */
+        .faq {
+            background: var(--bg-secondary);
+        }
+
+        .faq-list {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .faq-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            margin-bottom: 16px;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .faq-item:hover {
+            border-color: var(--primary);
+        }
+
+        .faq-question {
+            width: 100%;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            font-family: inherit;
+        }
+
+        .faq-question svg {
+            width: 24px;
+            height: 24px;
+            color: var(--text-muted);
+            transition: var(--transition);
+            flex-shrink: 0;
+        }
+
+        .faq-item.active .faq-question svg {
+            transform: rotate(180deg);
+            color: var(--primary);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .faq-answer-content {
+            padding: 0 24px 24px;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        .faq-item.active .faq-answer {
+            max-height: 500px;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: var(--radius-xl);
+            padding: 80px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+            animation: ctaGlow 8s ease-in-out infinite;
+        }
+
+        @keyframes ctaGlow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .cta-section h2 {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 800;
+            color: white;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-section p {
+            font-size: 1.125rem;
+            color: rgba(255,255,255,0.85);
+            margin-bottom: 32px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-section .btn {
+            background: white;
+            color: var(--primary);
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-section .btn:hover {
+            background: var(--bg);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bg);
+            border-top: 1px solid var(--border);
+            padding: 60px 24px 30px;
+        }
+
         .footer-grid {
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr;
-            gap: 40px;
-            margin-bottom: 40px;
+            grid-template-columns: 2fr repeat(3, 1fr);
+            gap: 60px;
+            margin-bottom: 50px;
         }
 
         @media (max-width: 768px) {
             .footer-grid {
                 grid-template-columns: 1fr;
-                gap: 32px;
+                gap: 40px;
             }
         }
 
+        .footer-brand {
+            max-width: 300px;
+        }
+
         .footer-logo {
+            font-size: 1.75rem;
             font-weight: 800;
-            font-size: 1.5rem;
             color: var(--primary);
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-bottom: 16px;
         }
 
         .footer-desc {
             color: var(--text-secondary);
             font-size: 0.95rem;
-            margin-bottom: 20px;
-            max-width: 300px;
+            margin-bottom: 24px;
         }
 
         .footer-social {
@@ -386,19 +926,21 @@
         .footer-social a {
             width: 40px;
             height: 40px;
+            border-radius: var(--radius);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
             color: var(--text-secondary);
-            transition: all 0.3s ease;
+            transition: var(--transition);
         }
 
         .footer-social a:hover {
-            color: var(--primary);
+            background: var(--primary);
             border-color: var(--primary);
+            color: white;
+            transform: translateY(-3px);
         }
 
         .footer-social svg {
@@ -407,9 +949,11 @@
         }
 
         .footer-title {
-            font-weight: 600;
-            font-size: 1rem;
-            margin-bottom: 16px;
+            font-size: 0.875rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 20px;
             color: var(--text);
         }
 
@@ -418,14 +962,14 @@
         }
 
         .footer-links li {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
 
         .footer-links a {
             color: var(--text-secondary);
             text-decoration: none;
             font-size: 0.95rem;
-            transition: all 0.3s ease;
+            transition: var(--transition);
         }
 
         .footer-links a:hover {
@@ -434,18 +978,12 @@
 
         .footer-bottom {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding-top: 24px;
+            justify-content: space-between;
+            padding-top: 30px;
             border-top: 1px solid var(--border);
-        }
-
-        @media (max-width: 768px) {
-            .footer-bottom {
-                flex-direction: column;
-                gap: 16px;
-                text-align: center;
-            }
+            flex-wrap: wrap;
+            gap: 16px;
         }
 
         .footer-copyright {
@@ -462,11 +1000,137 @@
             color: var(--text-muted);
             text-decoration: none;
             font-size: 0.875rem;
-            transition: all 0.3s ease;
+            transition: var(--transition);
         }
 
         .footer-legal a:hover {
             color: var(--primary);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+
+        /* About Section */
+        .about-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 48px;
+            max-width: 720px;
+            margin: 0 auto;
+        }
+        .about-card p {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+        .about-contacts {
+            display: flex;
+            gap: 32px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+        .about-contact {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        .about-contact span {
+            color: var(--text);
+            font-weight: 600;
+        }
+        .hero .reveal { opacity: 1 !important; transform: none !important; }
+
+        .stats-row .reveal { opacity: 1 !important; transform: none !important; }
+
+        .pricing-card.reveal { opacity: 1 !important; transform: none !important; }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Use Cases Section */
+        .use-cases {
+            background: var(--bg);
+        }
+
+        .use-cases-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .use-cases-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .use-case-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            transition: var(--transition);
+        }
+
+        .use-case-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .use-case-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--primary-bg);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            font-size: 1.5rem;
+        }
+
+        .use-case-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .use-case-products {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .use-case-tag {
+            background: var(--primary);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 100px;
+        }
+
+        .use-case-tag.secondary {
+            background: var(--bg-tertiary);
+            color: var(--text);
         }
     </style>
 </head>
@@ -481,15 +1145,15 @@
             Bunche
         </a>
         <ul class="nav-links">
-            <li><a href="index.html#pricing">Pricing</a></li>
-            <li><a href="index.html#how-it-works">How It Works</a></li>
-            <li><a href="index.html#testimonials">Testimonials</a></li>
-            <li><a href="index.html#faq">FAQ</a></li>
-            <li><a href="terms.html">Terms</a></li>
-            <li><a href="privacy.html">Privacy</a></li>
-            <li><a href="acceptable-use.html">AUP</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#how-it-works">How It Works</a></li>
+            <li><a href="#testimonials">Testimonials</a></li>
+            <li><a href="#faq">FAQ</a></li>
+            <li><a href="https://t.me/buncheng" target="_blank">Telegram</a></li>
         </ul>
-        <a href="https://wa.me/2347032981049?text=Hi%20Bunche!%20I%27d%20like%20to%20get%20started." class="nav-cta" target="_blank">Get Started</a>
+        <a href="https://wa.me/2340000000000?text=Hi%20Bunche!%20I%27d%20like%20to%20try%20your%20proxies." class="nav-cta" target="_blank">
+            Get Started
+        </a>
         <div class="hamburger" onclick="toggleMobileMenu()">
             <span></span>
             <span></span>
@@ -497,252 +1161,487 @@
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <main class="main">
-        <div class="container">
-            <div class="legal-header">
-                <h1>Acceptable Use Policy</h1>
-                <p><em>Bunche — Automated Proxy Retail Service</em> &nbsp;•&nbsp; Effective Date: 2026-07-01</p>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="floating-cards">
+            <div class="float-card">
+                <div style="font-weight: 600; margin-bottom: 4px;">ISP UK</div>
+                <div style="color: var(--primary); font-weight: 700;">₦6,500/mo</div>
             </div>
-
-            <div class="legal-content">
-                <h2>1. Prohibited Activities</h2>
-                <p>The following activities are strictly prohibited using any proxy purchased from Bunche (including free trial proxies):</p>
-
-                <h3>1.1 Fraud & Financial Crimes</h3>
-                <ul>
-                    <li>Credit card fraud, payment fraud, bank fraud, wire fraud</li>
-                    <li>Money laundering, cryptocurrency fraud, investment scams</li>
-                    <li>Identity theft, account takeover</li>
-                    <li>Synthetic identity creation</li>
-                </ul>
-
-                <h3>1.2 Hacking & Unauthorized Access</h3>
-                <ul>
-                    <li>Unauthorized access to any computer system</li>
-                    <li>Network intrusion, port scanning, exploitation of vulnerabilities</li>
-                    <li>Credential stuffing, brute force attacks, DDoS attacks</li>
-                    <li>SQL injection, XSS, CSRF attacks</li>
-                    <li>Bypassing authentication or security controls</li>
-                </ul>
-
-                <h3>1.3 Spam & Unsolicited Communications</h3>
-                <ul>
-                    <li>Mass unsolicited email (spam)</li>
-                    <li>Unsolicited direct messages on social media</li>
-                    <li>Mass comment spam</li>
-                    <li>SMS pumping fraud</li>
-                    <li>Robocalling</li>
-                </ul>
-
-                <h3>1.4 Content & Copyright Infringement</h3>
-                <ul>
-                    <li>Distribution of copyrighted material without license</li>
-                    <li>Software piracy, streaming piracy</li>
-                    <li>DMCA violations</li>
-                </ul>
-
-                <h3>1.5 Malware & Security Threats</h3>
-                <ul>
-                    <li>Distribution of viruses, trojans, ransomware</li>
-                    <li>Botnet operation, cryptojacking</li>
-                    <li>Phishing sites or infrastructure</li>
-                    <li>Command and control servers</li>
-                </ul>
-
-                <h3>1.6 Illegal Content</h3>
-                <div class="warning-box">
-                    <p><strong>Child sexual abuse material — zero tolerance, reported immediately to NAPTIP and international authorities</strong></p>
-                </div>
-                <ul>
-                    <li>Human trafficking content</li>
-                    <li>Drug trafficking platforms</li>
-                    <li>Weapons sales platforms</li>
-                    <li>Any illegal activity under Nigerian law (Criminal Code Act) or Cybercrimes (Prohibition, Prevention, etc.) Act 2015</li>
-                </ul>
-
-                <h3>1.7 Platform Abuse</h3>
-                <ul>
-                    <li>Creating fake reviews or ratings</li>
-                    <li>Astroturfing campaigns</li>
-                    <li>Manipulating platform algorithms</li>
-                    <li>Evading bans through multi-accounting (except where customer uses different IPs per platform legitimately)</li>
-                    <li>Terms of service violations of target platforms (where the violation is itself illegal)</li>
-                </ul>
-
-                <h2>2. Free Trial Specific Rules</h2>
-                <p>Free trial proxies are subject to ALL the above prohibitions PLUS the rules in this section.</p>
-
-                <h3>2.1 How Free Trials Work</h3>
-                <p>Free trials use Bunche's <strong>self-hosted proxy infrastructure</strong>:</p>
-                <ul>
-                    <li><strong>Shared IP</strong> — All free trial users share the Bunche proxy infrastructure (up to 100 concurrent trials)</li>
-                    <li><strong>Authenticated access</strong> — Each trial user gets unique Bunche-branded credentials (username + password)</li>
-                    <li><strong>2-hour TTL</strong> — Trial credentials automatically expire after 2 hours</li>
-                    <li><strong>3-trial daily limit</strong> — Each phone number is limited to 3 free trials per calendar day</li>
-                    <li><strong>For testing only</strong> — Free trials are not for production, commercial, or critical use</li>
-                    <li><strong>No privacy guarantee</strong> — Other trial users share the same infrastructure, so Bunche cannot guarantee traffic isolation between trial users</li>
-                </ul>
-
-                <h3>2.2 Free Trial Abuse</h3>
-                <p>The following behaviors are prohibited and will result in immediate enforcement action:</p>
-                <ul>
-                    <li><strong>Multi-phone circumvention</strong> — Using multiple phone numbers to exceed the 3-trial daily limit</li>
-                    <li><strong>Automated trial claiming</strong> — Using bots, scripts, or automation to claim free trials</li>
-                    <li><strong>Reselling trial access</strong> — Selling, trading, or transferring trial credentials</li>
-                    <li><strong>Coordinated abuse</strong> — Coordinating with others to claim excessive free trials</li>
-                    <li><strong>Sharing trial credentials</strong> — Publicly posting or distributing trial usernames/passwords</li>
-                    <li><strong>Survey fraud</strong> — Using survey-farming services to falsely complete surveys</li>
-                    <li><strong>Cryptographic attacks</strong> — Attempting to brute-force or guess other trial users' credentials</li>
-                </ul>
-
-                <h3>2.3 Enforcement for Free Trial Abuse</h3>
-                <p>Any violation of §2.2 will result in:</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Action</th>
-                            <th>Scope</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>Immediate revocation</strong></td>
-                            <td>All active trial credentials for the offending phone hash</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Phone blocking</strong></td>
-                            <td>Phone number(s) blocked from claiming future free trials</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Hash blocking</strong></td>
-                            <td>Phone_hash added to deny-list (blocks new numbers on same device)</td>
-                        </tr>
-                        <tr>
-                            <td><strong>No refund</strong></td>
-                            <td>No compensation for revoked trials</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Possible account ban</strong></td>
-                            <td>Repeat offenders may be permanently banned from Bunche</td>
-                        </tr>
-                    </tbody>
-                </table>
-                <p>Bunche uses a phone_hash + device fingerprint to enforce blocks. Users attempting to circumvent blocks via new numbers will continue to be blocked.</p>
-
-                <h2>3. Enforcement</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Violation Type</th>
-                            <th>Response</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>Minor AUP violation</strong> (e.g., aggressive scraping)</td>
-                            <td>Warning + proxy suspension</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Moderate violation</strong> (e.g., platform ToS violation)</td>
-                            <td>Immediate suspension, no refund</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Significant violation</strong> (e.g., spam)</td>
-                            <td>Immediate ban, refund revoked</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Serious violation</strong> (e.g., fraud)</td>
-                            <td>Immediate ban + law enforcement referral</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Criminal activity</strong> (e.g., CSAM)</td>
-                            <td>Immediate ban + NAPTIP/police referral</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Free trial abuse (§2.2)</strong></td>
-                            <td>Free trial access revoked, phone blocked, possible permanent ban</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h2>4. Detection & Monitoring</h2>
-                <p>Bunche reserves the right to:</p>
-                <ul>
-                    <li>Monitor proxy usage patterns for abuse</li>
-                    <li>Investigate suspicious activity</li>
-                    <li>Suspend proxies pending investigation</li>
-                    <li>Disclose information to law enforcement when required</li>
-                    <li>Revoke credentials instantly when abuse is detected</li>
-                </ul>
-                <p>We do NOT monitor free trial proxy traffic content.</p>
-
-                <h2>5. Your Responsibilities</h2>
-                <ul>
-                    <li>Keep your proxy credentials confidential</li>
-                    <li>Do not share credentials with unauthorized persons</li>
-                    <li>Do not allow third parties to use your proxies</li>
-                    <li>Ensure your use of proxies complies with target platform Terms of Service</li>
-                    <li>You are responsible for ALL activity under your account, including activity by anyone you share credentials with</li>
-                </ul>
-
-                <h2>6. Multi-IP Use Warning</h2>
-                <div class="warning-box">
-                    <p><strong>IMPORTANT:</strong></p>
-                </div>
-                <p>Using the SAME IP across multiple devices or accounts can:</p>
-                <ul>
-                    <li>Get all linked accounts flagged or banned</li>
-                    <li>Reduce your privacy (one IP = one user pattern)</li>
-                    <li>Violate target platform Terms of Service</li>
-                </ul>
-                <p><strong>Best Practice:</strong> Use ONE IP per platform, per account. We strongly advise AGAINST sharing 1 IP across many devices or accounts.</p>
-                <p>Bunche is not responsible for bans resulting from poor IP hygiene.</p>
-                <p><strong>Free trial users:</strong> Your trial uses shared infrastructure. If you need a dedicated IP, upgrade to a paid plan.</p>
-
-                <h2>7. Platform-Specific Restrictions</h2>
-                <p>Some platforms have stricter rules about proxy use. You are responsible for understanding and complying with:</p>
-                <ul>
-                    <li>Social media platform Terms (Instagram, Twitter/X, TikTok, Facebook)</li>
-                    <li>E-commerce platform Terms (Amazon, eBay, Shopify stores)</li>
-                    <li>Streaming platform Terms (Netflix, Spotify, Hulu)</li>
-                    <li>Financial platform Terms (banks, crypto exchanges)</li>
-                    <li>Advertising platform Terms (Google Ads, Meta Ads)</li>
-                </ul>
-                <p>Bunche does not guarantee that proxies will work on any specific platform.</p>
-
-                <h2>8. Reporting Violations</h2>
-                <p>If you become aware of anyone using Bunche proxies for illegal activities:</p>
-                <ul>
-                    <li>Contact us via WhatsApp with evidence</li>
-                    <li>We investigate all reports within 24 hours</li>
-                    <li>We cooperate with law enforcement for serious violations</li>
-                </ul>
-                <p><strong>Report Abuse:</strong> hello@bunche.ng</p>
-
-                <h2>9. Changes to AUP</h2>
-                <p>We may update this Acceptable Use Policy. Changes will be communicated via:</p>
-                <ul>
-                    <li>Updated "Effective Date" at the top</li>
-                    <li>WhatsApp notification for material changes</li>
-                </ul>
-                <p>Continued use after changes constitutes acceptance.</p>
-
-                <h2>10. Contact</h2>
-<p><strong>WhatsApp:</strong> +2347032981049<br>
-                <strong>Email:</strong> hello@bunche.ng</p>
-
-                <hr>
-                <p style="font-size: 0.875rem; color: var(--text-muted);"><em>This Acceptable Use Policy is incorporated by reference into our Terms of Service.</em></p>
+            <div class="float-card">
+                <div style="font-weight: 600; margin-bottom: 4px;">Residential</div>
+                <div style="color: var(--primary); font-weight: 700;">₦1,950/GB</div>
+            </div>
+            <div class="float-card">
+                <div style="font-weight: 600; margin-bottom: 4px;">Mobile 4G</div>
+                <div style="color: var(--primary); font-weight: 700;">₦4,000/GB</div>
             </div>
         </div>
-    </main>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span></span>
+                Free 2-Hour Trial Available
+            </div>
+            <h1>Your Plug for<br><span class="highlight">Proxies in Nigeria</span></h1>
+            <p class="hero-subtitle">Buy ISP, Datacenter, Residential & Mobile proxies on WhatsApp. Pay in Naira. Get your proxy in 2 minutes.</p>
+            <div class="hero-buttons">
+                <a href="https://wa.me/2340000000000?text=Hi%20Bunche!%20I%27d%20like%20to%20try%20your%20proxies." class="btn btn-primary" target="_blank">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                    Chat on WhatsApp
+                </a>
+                <a href="#pricing" class="btn btn-secondary">View Pricing</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats section">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-item reveal">
+                    <div class="stat-value" data-target="2">0</div>
+                    <div class="stat-label">Minute Delivery</div>
+                </div>
+                <div class="stat-item reveal">
+                    <div class="stat-value" data-target="5000">0</div>
+                    <div class="stat-label">Happy Customers</div>
+                </div>
+                <div class="stat-item reveal">
+                    <div class="stat-value" data-target="99">0</div>
+                    <div class="stat-label">% Uptime</div>
+                </div>
+                <div class="stat-item reveal">
+                    <div class="stat-value" data-target="24">0</div>
+                    <div class="stat-label">/7 Support</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">Pricing</span>
+                <h2 class="section-title">Transparent Pricing, No Hidden Fees</h2>
+                <p class="section-subtitle">All prices in Nigerian Naira. Choose the proxy that fits your needs.</p>
+            </div>
+            <div class="pricing-grid">
+                <!-- ISP Standard -->
+                <div class="pricing-card">
+                    <div class="pricing-category">🌐 ISP Proxies</div>
+                    <div class="pricing-title">ISP Standard</div>
+                    <div class="pricing-price">₦6,500<span>/month</span></div>
+                    <div class="pricing-countries">UK, US, Germany, France, Canada</div>
+                    <ul class="pricing-features">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Unlimited data
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            HTTP/HTTPS & SOCKS5
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            30-day validity
+                        </li>
+                    </ul>
+                    <a href="https://wa.me/2340000000000?text=I%20want%20to%20order%20ISP%20Standard" class="btn btn-secondary pricing-btn" target="_blank">Order Now</a>
+                </div>
+
+                <!-- ISP Premium -->
+                <div class="pricing-card featured">
+                    <div class="pricing-category">🌐 ISP Proxies</div>
+                    <div class="pricing-title">ISP Premium</div>
+                    <div class="pricing-price">₦6,500<span>/month</span></div>
+                    <div class="pricing-countries">Japan, Australia, Brazil, Singapore, South Korea</div>
+                    <ul class="pricing-features">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Unlimited data
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            HTTP/HTTPS & SOCKS5
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Premium locations
+                        </li>
+                    </ul>
+                    <a href="https://wa.me/2340000000000?text=I%20want%20to%20order%20ISP%20Premium" class="btn btn-primary pricing-btn" target="_blank">Order Now</a>
+                </div>
+
+                <!-- Datacenter -->
+                <div class="pricing-card">
+                    <div class="pricing-category">🖥️ Datacenter</div>
+                    <div class="pricing-title">DC Static</div>
+                    <div class="pricing-price">₦3,000<span>/month</span></div>
+                    <div class="pricing-countries">IPv4 Static</div>
+                    <ul class="pricing-features">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Unlimited data
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Fast speeds
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Budget-friendly
+                        </li>
+                    </ul>
+                    <a href="https://wa.me/2340000000000?text=I%20want%20to%20order%20DC%20Static" class="btn btn-secondary pricing-btn" target="_blank">Order Now</a>
+                </div>
+
+                <!-- Residential -->
+                <div class="pricing-card">
+                    <div class="pricing-category">🏠 Residential</div>
+                    <div class="pricing-title">Residential</div>
+                    <div class="pricing-price">₦1,950<span>/GB</span></div>
+                    <div class="pricing-countries">IPv4, data never expires</div>
+                    <ul class="pricing-features">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Data never expires
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Real residential IPs
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Top-ups available
+                        </li>
+                    </ul>
+                    <a href="https://wa.me/2340000000000?text=I%20want%20to%20order%20Residential" class="btn btn-secondary pricing-btn" target="_blank">Order Now</a>
+                </div>
+
+                <!-- Mobile -->
+                <div class="pricing-card">
+                    <div class="pricing-category">📱 Mobile</div>
+                    <div class="pricing-title">Mobile 4G</div>
+                    <div class="pricing-price">₦4,000<span>/GB</span></div>
+                    <div class="pricing-countries">30-day window</div>
+                    <ul class="pricing-features">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Real carrier IPs
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Mobile-only platforms
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            High success rate
+                        </li>
+                    </ul>
+                    <a href="https://wa.me/2340000000000?text=I%20want%20to%20order%20Mobile%204G" class="btn btn-secondary pricing-btn" target="_blank">Order Now</a>
+                </div>
+
+                <!-- Free Trial -->
+                <div class="pricing-card" style="border-style: dashed;">
+                    <div class="pricing-category">🎁 Free Trial</div>
+                    <div class="pricing-title">Try Before You Buy</div>
+                    <div class="pricing-price">FREE<span></span></div>
+                    <div class="pricing-countries">2 hours, no card required</div>
+                    <ul class="pricing-features">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            2 hours free
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            No credit card
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Test our proxies
+                        </li>
+                    </ul>
+                    <a href="https://wa.me/2340000000000?text=Hi%20Bunche!%20I%27d%20like%20to%20try%20a%20free%20trial" class="btn btn-secondary pricing-btn" target="_blank">Try Free</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases Section -->
+    <section class="use-cases section">
+        <div class="container">
+            <div class="section-header reveal">
+                <span class="section-label">Which Proxy Do I Need?</span>
+                <h2 class="section-title">Find Your Perfect Match</h2>
+                <p class="section-subtitle">Not sure which proxy type? Match your use case to the right product.</p>
+            </div>
+            <div class="use-cases-grid">
+                <div class="use-case-card reveal">
+                    <div class="use-case-icon">📱</div>
+                    <div class="use-case-title">Multiple Instagram/TikTok Accounts</div>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 12px;">Stable IPs that last — perfect for managing accounts long-term</p>
+                    <div class="use-case-products">
+                        <span class="use-case-tag">ISP UK @ ₦6,500/mo</span>
+                        <span class="use-case-tag">ISP US @ ₦6,500/mo</span>
+                    </div>
+                </div>
+                <div class="use-case-card reveal">
+                    <div class="use-case-icon">💬</div>
+                    <div class="use-case-title">Social Media Outreach / DM Campaigns</div>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 12px;">Looks like real users — higher deliverability</p>
+                    <div class="use-case-products">
+                        <span class="use-case-tag">Residential 5GB @ ₦9,750</span>
+                    </div>
+                </div>
+                <div class="use-case-card reveal">
+                    <div class="use-case-icon">🛒</div>
+                    <div class="use-case-title">Sneaker Bots / E-commerce Automation</div>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 12px;">Fast speeds at budget-friendly prices</p>
+                    <div class="use-case-products">
+                        <span class="use-case-tag">DC Static @ ₦3,000/mo</span>
+                    </div>
+                </div>
+                <div class="use-case-card reveal">
+                    <div class="use-case-icon">📊</div>
+                    <div class="use-case-title">Web Scraping / Data Collection</div>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 12px;">Large pool of IPs to avoid detection</p>
+                    <div class="use-case-products">
+                        <span class="use-case-tag">Residential 10GB @ ₦19,500</span>
+                    </div>
+                </div>
+                <div class="use-case-card reveal">
+                    <div class="use-case-icon">🎮</div>
+                    <div class="use-case-title">TikTok / Mobile-Only Platforms</div>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 12px;">Real mobile carrier IPs for strict platforms</p>
+                    <div class="use-case-products">
+                        <span class="use-case-tag">Mobile 4G @ ₦4,000/GB</span>
+                    </div>
+                </div>
+                <div class="use-case-card reveal">
+                    <div class="use-case-icon">🎮</div>
+                    <div class="use-case-title">Gaming / Mobile Apps</div>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 12px;">Low latency mobile connections</p>
+                    <div class="use-case-products">
+                        <span class="use-case-tag">Mobile 4G @ ₦4,000/GB</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="section">
+        <div class="container">
+            <div class="section-header reveal">
+                <span class="section-label">How It Works</span>
+                <h2 class="section-title">Get Your Proxy in 3 Simple Steps</h2>
+                <p class="section-subtitle">No account needed. Just WhatsApp us and you're done.</p>
+            </div>
+            <div class="steps">
+                <div class="step reveal">
+                    <div class="step-number">1</div>
+                    <div class="step-title">Chat on WhatsApp</div>
+                    <div class="step-desc">Send us a message telling us what proxy you need. We'll respond instantly.</div>
+                    <div class="step-connector"></div>
+                </div>
+                <div class="step reveal">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Pay via Local Payment</div>
+                    <div class="step-desc">We'll send you a payment link. Pay with transfer, card, USSD, or QR.</div>
+                    <div class="step-connector"></div>
+                </div>
+                <div class="step reveal">
+                    <div class="step-number">3</div>
+                    <div class="step-title">Get Your Proxy</div>
+                    <div class="step-desc">Once payment confirms, receive your proxy credentials in under 2 minutes.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section id="testimonials" class="testimonials section">
+        <div class="container">
+            <div class="section-header reveal">
+                <span class="section-label">Testimonials</span>
+                <h2 class="section-title">Loved by Thousands</h2>
+                <p class="section-subtitle">See what our customers have to say.</p>
+            </div>
+            <div class="testimonials-grid">
+                <div class="testimonial-card reveal">
+                    <div class="testimonial-stars">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    </div>
+                    <div class="testimonial-header">
+                        <div class="testimonial-avatar">A</div>
+                        <div>
+                            <div class="testimonial-author">Adamu S.</div>
+                            <div class="testimonial-role">Digital Marketer</div>
+                        </div>
+                    </div>
+                    <p class="testimonial-text">"Bunche made it so easy to get proxies for my Instagram automation. Got my credentials in 2 minutes flat!"</p>
+                </div>
+                <div class="testimonial-card reveal">
+                    <div class="testimonial-stars">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    </div>
+                    <div class="testimonial-header">
+                        <div class="testimonial-avatar">C</div>
+                        <div>
+                            <div class="testimonial-author">Chidi O.</div>
+                            <div class="testimonial-role">E-commerce Owner</div>
+                        </div>
+                    </div>
+                    <p class="testimonial-text">"The mobile 4G proxies are legit! Managed to run my TikTok accounts without getting banned. Worth every naira."</p>
+                </div>
+                <div class="testimonial-card reveal">
+                    <div class="testimonial-stars">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    </div>
+                    <div class="testimonial-header">
+                        <div class="testimonial-avatar">T</div>
+                        <div>
+                            <div class="testimonial-author">Temi A.</div>
+                            <div class="testimonial-role">Developer</div>
+                        </div>
+                    </div>
+                    <p class="testimonial-text">"Finally, a proxy service that accepts Naira! The residential proxies work great for my web scraping projects."</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="faq section">
+        <div class="container">
+            <div class="section-header reveal">
+                <span class="section-label">FAQ</span>
+                <h2 class="section-title">Frequently Asked Questions</h2>
+                <p class="section-subtitle">Got questions? We've got answers.</p>
+            </div>
+            <div class="faq-list">
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        How do I pay for my proxy?
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            We accept payments via local payment methods — bank transfer, debit card, USSD, and QR code. You'll receive a payment link directly in WhatsApp after placing your order.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        How long does delivery take?
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            Once payment is confirmed, you'll receive your proxy credentials in under 2 minutes directly on WhatsApp.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        Can I get a refund?
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            Yes! ISP and Datacenter proxies have a 24-hour refund window. Residential and Mobile proxies have a 7-day window for unused data. Check our Terms of Service for full details.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        How does the free trial work?
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            Every phone number gets 3 free trials per day, each lasting 2 hours. No credit card required. Just WhatsApp us saying you want to try!
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        What if my proxy gets banned?
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            If your proxy gets banned within 24 hours of delivery, we'll replace it free of charge. For ISP and Datacenter proxies, you can get a refund or replacement within 24 hours.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        Do you support IPv6?
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-content">
+                            Yes! IPv6 is available on request for Datacenter and Residential proxies. Just tell us you need IPv6 when placing your order.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- About Section -->
+    <section class="section" id="about">
+        <div class="container">
+            <div class="section-label">About</div>
+            <h2 class="section-title">Who We Are</h2>
+            <div class="about-card reveal">
+                <p>Bunche is a Lagos-based technology business built to serve Nigerian professionals and businesses who need reliable proxy IPs. We noticed that the Nigerian market was being served by informal dealers on Twitter and Telegram — unreliable, no terms, no recourse. We built Bunche to change that: a proper Nigerian business, transparent pricing, automated operations, and real support.</p>
+                <div class="about-contacts">
+                    <div class="about-contact"><span>Email:</span> hello@bunche.ng</div>
+                    <div class="about-contact"><span>Location:</span> Lagos, Nigeria</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="section">
+        <div class="container">
+            <div class="cta-section reveal">
+                <h2>Ready to Get Started?</h2>
+                <p>Chat with us on WhatsApp and get your proxy in minutes. Try free for 2 hours!</p>
+                <a href="https://wa.me/2340000000000?text=Hi%20Bunche!%20I%27d%20like%20to%20try%20your%20proxies." class="btn" target="_blank">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                    Chat on WhatsApp Now
+                </a>
+            </div>
+        </div>
+    </section>
 
     <!-- Footer -->
     <footer class="footer">
-        <div class="footer-container">
+        <div class="container">
             <div class="footer-grid">
-                <div>
+                <div class="footer-brand">
                     <div class="footer-logo">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
                             <circle cx="12" cy="12" r="10"/>
@@ -755,6 +1654,9 @@
                         <a href="https://wa.me/2347032981049" aria-label="WhatsApp">
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                         </a>
+                        <a href="https://t.me/buncheng" aria-label="Telegram">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                        </a>
                         <a href="mailto:hello@bunche.ng" aria-label="Email">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
                         </a>
@@ -763,19 +1665,19 @@
                 <div>
                     <h4 class="footer-title">Products</h4>
                     <ul class="footer-links">
-                        <li><a href="index.html#pricing">ISP Proxies</a></li>
-                        <li><a href="index.html#pricing">Datacenter</a></li>
-                        <li><a href="index.html#pricing">Residential</a></li>
-                        <li><a href="index.html#pricing">Mobile 4G</a></li>
-                        <li><a href="index.html#pricing">Free Trial</a></li>
+                        <li><a href="#pricing">ISP Proxies</a></li>
+                        <li><a href="#pricing">Datacenter</a></li>
+                        <li><a href="#pricing">Residential</a></li>
+                        <li><a href="#pricing">Mobile 4G</a></li>
+                        <li><a href="#pricing">Free Trial</a></li>
                     </ul>
                 </div>
                 <div>
                     <h4 class="footer-title">Company</h4>
                     <ul class="footer-links">
-                        <li><a href="index.html#how-it-works">How It Works</a></li>
-                        <li><a href="index.html#testimonials">Testimonials</a></li>
-                        <li><a href="index.html#faq">FAQ</a></li>
+                        <li><a href="#how-it-works">How It Works</a></li>
+                        <li><a href="#testimonials">Testimonials</a></li>
+                        <li><a href="#faq">FAQ</a></li>
                     </ul>
                 </div>
                 <div>
@@ -799,6 +1701,7 @@
     </footer>
 
     <script>
+        // Mobile menu toggle
         function toggleMobileMenu() {
             const hamburger = document.querySelector('.hamburger');
             const navLinks = document.querySelector('.nav-links');
@@ -806,12 +1709,82 @@
             navLinks.classList.toggle('active');
         }
 
+        // Close mobile menu when clicking a link
         document.querySelectorAll('.nav-links a').forEach(link => {
             link.addEventListener('click', () => {
                 document.querySelector('.hamburger').classList.remove('active');
                 document.querySelector('.nav-links').classList.remove('active');
             });
         });
+
+        // Nav scroll effect
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('.nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        });
+
+        // FAQ accordion
+        function toggleFaq(button) {
+            const item = button.parentElement;
+            item.classList.toggle('active');
+        }
+
+        // Reveal on scroll
+        const revealElements = document.querySelectorAll('.reveal');
+        
+        const revealOnScroll = () => {
+            revealElements.forEach(el => {
+                const elementTop = el.getBoundingClientRect().top;
+                const windowHeight = window.innerHeight;
+                if (elementTop < windowHeight - 100) {
+                    el.classList.add('visible');
+                }
+            });
+        };
+
+        window.addEventListener('scroll', revealOnScroll);
+        revealOnScroll(); // Initial check
+
+        // Animated counters
+        const animateCounters = () => {
+            const counters = document.querySelectorAll('.stat-value[data-target]');
+            
+            counters.forEach(counter => {
+                const target = parseInt(counter.getAttribute('data-target'));
+                const duration = 2000;
+                const step = target / (duration / 16);
+                let current = 0;
+                
+                const updateCounter = () => {
+                    current += step;
+                    if (current < target) {
+                        counter.textContent = Math.floor(current).toLocaleString();
+                        requestAnimationFrame(updateCounter);
+                    } else {
+                        counter.textContent = target.toLocaleString() + (target === 99 ? '%' : '+');
+                    }
+                };
+                
+                updateCounter();
+            });
+        };
+
+        // Trigger counter animation when stats section is visible
+        const statsSection = document.querySelector('.stats');
+        const statsObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    animateCounters();
+                    statsObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        statsObserver.observe(statsSection);
     </script>
 </body>
 </html>
