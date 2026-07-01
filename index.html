@@ -114,16 +114,6 @@ nav {
   background: var(--text); margin: 5px 0;
   border-radius: 2px; transition: 0.2s;
 }
-.theme-toggle {
-  display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; cursor: pointer; font-size: 16px;
-  transition: background 0.15s, border-color 0.15s;
-  flex-shrink: 0;
-}
-.theme-toggle:hover { background: var(--surface-hover); }
-.nav-right { display: flex; align-items: center; gap: 12px; }
 
 /* ── HERO ── */
 .hero {
@@ -320,14 +310,9 @@ footer .links a:hover { color: var(--text); }
       <a href="#about">About</a>
       <a href="https://wa.me/2347032981049" class="nav-cta">💬 Order on WhatsApp</a>
     </div>
-    <div class="nav-right">
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light/dark mode" title="Toggle theme">
-        🌙
-      </button>
-      <button class="hamburger" onclick="document.querySelector('.nav-links').style.display=document.querySelector('.nav-links').style.display==='flex'?'none':'flex'" aria-label="Menu">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
+    <button class="hamburger" onclick="document.querySelector('.nav-links').style.display=document.querySelector('.nav-links').style.display==='flex'?'none':'flex'" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
 
@@ -517,33 +502,6 @@ footer .links a:hover { color: var(--text); }
 </footer>
 
 <script>
-(function () {
-  var btn = document.getElementById('themeToggle');
-  var html = document.documentElement;
-
-  // Init: respect system preference if no stored preference
-  var stored = localStorage.getItem('bunche-theme');
-  if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-    html.setAttribute('data-theme', 'dark');
-    btn.textContent = '☀️';
-  } else {
-    btn.textContent = '🌙';
-  }
-
-  btn.addEventListener('click', function () {
-    if (html.getAttribute('data-theme') === 'dark') {
-      html.removeAttribute('data-theme');
-      localStorage.setItem('bunche-theme', 'light');
-      btn.textContent = '🌙';
-    } else {
-      html.setAttribute('data-theme', 'dark');
-      localStorage.setItem('bunche-theme', 'dark');
-      btn.textContent = '☀️';
-    }
-  });
-})();
-
-// FAQ accordion
 document.querySelectorAll('.faq-q').forEach(function (q) {
   q.addEventListener('click', function () {
     var item = q.parentElement;
