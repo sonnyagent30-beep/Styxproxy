@@ -1,348 +1,299 @@
 {
-  "name": "Theorem Reach — Free Trial Webhook",
+  "name": "Theorem Reach Webhook",
+  "tags": ["bunche", "free-trial", "theorem-reach", "webhook"],
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "theorem-reach",
-        "responseMode": "responseNode",
+        "responseMode": "lastNode",
         "options": {}
       },
-      "id": "trigger-webhook",
+      "id": "tr-webhook",
       "name": "Theorem Reach Postback",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [240, 300],
-      "webhookId": "theorem-reach-webhook"
+      "position": [250, 300],
+      "webhookId": "theorem-reach"
     },
     {
       "parameters": {
-        "functionCode": "// Verify HMAC-SHA256 signature from Theorem Reach\nconst crypto = require('crypto');\n\nconst signature = $input.item.json.headers['x-theorem-reach-signature'] || $input.item.json.body.signature;\nconst payload = $input.item.json.body;\n\nconst secret = process.env.THEOREM_REACH_SECRET;\n\nif (!secret) {\n  throw new Error('THEOREM_REACH_SECRET not set in env');\n}\n\n// Theorem Reach signs: sha256(secret + transaction_id + user_id + payout_usd)\nconst message = `${secret}${payload.transaction_id}${payload.user_id}${payload.payout_usd}`;\nconst expected = crypto.createHash('sha256').update(message).digest('hex');\n\nconst valid = (signature === expected);\n\nreturn {\n  json: {\n    signature_valid: valid,\n    raw_payload: payload\n  }\n};"
+        "jsCode": "// Verify HMAC-SHA256 signature from Theorem Reach\nconst crypto = require('crypto');\n\nconst payload = $input.item.json.body || {};\nconst headers = $input.item.json.headers || {};\n\n// Theorem Reach sends signature in x-theorem-reach-signature header\nconst signature = headers['x-theorem-reach-signature'] || payload.signature;\nconst secret = process.env.THEOREM_REACH_SECRET;\n\nif (!secret) {\n  throw new Error('THEOREM_REACH_SECRET not set in env');\n}\n\n// Theorem Reach signs: sha256(secret + transaction_id + user_id + payout_usd)\nconst message = `${secret}${payload.transaction_id}${payload.user_id}${payload.payout_usd}`;\nconst expected = crypto.createHash('sha256').update(message).digest('hex');\n\nconst valid = (signature === expected);\n\nreturn {\n  json: {\n    signature_valid: valid,\n    raw_payload: payload,\n    transaction_id: payload.transaction_id || '',\n    user_id: payload.user_id || '',\n    payout_usd: parseFloat(payload.payout_usd) || 0,\n    status: payload.status || ''\n  }\n};"
       },
-      "id": "verify-signature",
+      "id": "tr-verify",
       "name": "Verify HMAC Signature",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [460, 300]
+      "position": [470, 300]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose"},
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
             {
-              "id": "sig-valid",
+              "id": "cond-valid",
               "leftValue": "={{$json.signature_valid}}",
               "rightValue": true,
-              "operator": {"type": "boolean", "operation": "true"}
+              "operator": { "type": "boolean", "operation": "true" }
             }
           ]
-        }
+        },
+        "options": {}
       },
-      "id": "if-signature-valid",
+      "id": "tr-if-valid",
       "name": "If Signature Valid",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [680, 300]
+      "position": [690, 300]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": false},
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
             {
-              "id": "status-completed",
-              "leftValue": "={{$json.raw_payload.status}}",
+              "id": "cond-completed",
+              "leftValue": "={{$json.status}}",
               "rightValue": "completed",
-              "operator": {"type": "string", "operation": "equals"}
+              "operator": { "type": "string", "operation": "equals" }
             }
           ]
-        }
+        },
+        "options": {}
       },
-      "id": "if-status-completed",
+      "id": "tr-if-completed",
       "name": "If Status=Completed",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [900, 200]
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "command": "SELECT user_id FROM theorem_reach_postbacks WHERE transaction_id = '{{$json.transaction_id}}';",
+        "options": {}
+      },
+      "id": "tr-check-idem",
+      "name": "Check Idempotency",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1130, 300],
+      "credentials": { "postgres": { "id": "1", "name": "PostgreSQL" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-new",
+              "leftValue": "={{$json.user_id}}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tr-if-new",
+      "name": "If Not Already Processed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1350, 300]
     },
     {
       "parameters": {
         "operation": "insert",
         "schema": "public",
         "table": "theorem_reach_postbacks",
-        "columns": "transaction_id,user_id,survey_id,status,payout_usd,signature,signature_valid,raw_payload",
-        "additionalFields": "{}",
+        "columns": "transaction_id,user_id,payout_usd,signature,signature_valid,raw_payload,processed_at",
+        "additionalFields": "{\n  \"signature_valid\": {{$json.signature_valid}},\n  \"raw_payload\": {{$json.raw_payload}}\n}",
         "options": {}
       },
-      "id": "insert-postback",
-      "name": "Insert Postback (Idempotency)",
+      "id": "tr-insert-postback",
+      "name": "Insert Postback Record",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2,
-      "position": [1120, 100]
-    },
-    {
-      "parameters": {
-        "command": "SELECT user_id FROM theorem_reach_postbacks WHERE transaction_id = '{{$json.raw_payload.transaction_id}}';"
-      },
-      "id": "check-idempotency",
-      "name": "Check Idempotency",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2,
-      "position": [1120, 300]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {"caseSensitive": false},
-          "conditions": [
-            {
-              "id": "already-processed",
-              "leftValue": "={{$json.user_id}}",
-              "rightValue": "",
-              "operator": {"type": "string", "operation": "notEmpty"}
-            }
-          ]
-        }
-      },
-      "id": "if-already-processed",
-      "name": "If Already Processed",
-      "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [1340, 300]
+      "position": [1570, 300],
+      "credentials": { "postgres": { "id": "1", "name": "PostgreSQL" } }
     },
     {
       "parameters": {
-        "command": "SELECT COUNT(*) AS trials_today FROM free_trials WHERE phone_hash = (SELECT phone_hash FROM pending_trials WHERE user_id = '{{$json.raw_payload.user_id}}') AND created_at >= CURRENT_DATE AND status IN ('active', 'expired');"
+        "jsCode": "// Record the survey in pending_trial_surveys\n// Lookup platform_account by the user_id field (this is the Telegram chat_id for Bunche trials)\nconst payload = $input.item.json.raw_payload;\nconst userId = payload.user_id || '';\n\n// userId format from Theorem Reach for Bunche: contains the platform info\n// We store it as-is — the lookup happens at \"done\" time\nreturn {\n  json: {\n    survey_transaction_id: payload.transaction_id || '',\n    survey_user_id: userId,\n    payout_usd: parseFloat(payload.payout_usd) || 0,\n    platform_user_id: userId, // Use user_id as the platform identifier\n    platform: 'telegram', // Theorem Reach trials are triggered from Telegram for Bunche\n    credited: false\n  }\n};"
       },
-      "id": "check-daily-limit",
-      "name": "Check Daily Limit",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2,
-      "position": [1560, 100]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {"caseSensitive": false},
-          "conditions": [
-            {
-              "id": "limit-ok",
-              "leftValue": "={{$json.trials_today}}",
-              "rightValue": 3,
-              "operator": {"type": "number", "operation": "lt"}
-            }
-          ]
-        }
-      },
-      "id": "if-limit-ok",
-      "name": "If Limit OK",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [1780, 100]
-    },
-    {
-      "parameters": {
-        "command": "/usr/local/bin/manage-3proxy-trial.sh add {{$json.username}} '{{$json.password}}' {{$json.port}}",
-        "options": {}
-      },
-      "id": "add-3proxy-user",
-      "name": "Add 3proxy User (Shell)",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [2000, 50]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Generate trial credentials and assemble WhatsApp message\nconst crypto = require('crypto');\n\nconst rawPayload = $input.item.json.raw_payload;\n\n// Generate unique user_id: trial_ + 8 hex chars\nconst userId = 'trial_' + crypto.randomBytes(4).toString('hex');\n\n// Generate random password: 16 chars alphanumeric\nconst password = crypto.randomBytes(8).toString('base64').replace(/[+/=]/g, '').substring(0, 16);\n\n// Find next available port (in 8001-8100 range)\nconst port = parseInt($input.item.json.port) || 8001;\n\n// Compute 2-hour expiry\nconst expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();\n\n// Compose WhatsApp message\nconst message = `✅ Survey verified! Trial ready.\n\n━━━━━━━━━━━━━━━━━━\n🌐 BUNCHE TRIAL PROXY — 2 HOURS\n━━━━━━━━━━━━━━━━━━\n\n🔗 IP: bunche.ng\n🔌 Port: ${port}\n👤 User: ${userId}\n🔑 Pass: ${password}\n\n⏰ Expires: ${expiresAt}\n\n⚠️ Shared proxy — other trial users share this IP.\nFor private/production use, upgrade to a paid plan.\n\n🛡️ You've used ${$json.trials_today + 1}/3 free trials today.\n\n💡 Want reliable private proxies? Reply menu to see paid plans.`;\n\nreturn {\n  json: {\n    user_id: userId,\n    password: password,\n    port: port,\n    expires_at: expiresAt,\n    whatsapp_message: message,\n    raw_payload: rawPayload\n  }\n};"
-      },
-      "id": "generate-credentials",
-      "name": "Generate Credentials + Message",
+      "id": "tr-prep-pending",
+      "name": "Prep Pending Survey Record",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2200, 50]
+      "position": [1790, 300]
     },
     {
       "parameters": {
         "operation": "insert",
         "schema": "public",
-        "table": "free_trials",
-        "columns": "order_id,phone_hash,user_id,password_hash,proxy_ip,proxy_port,expires_at,status,survey_provider,survey_transaction_id,survey_payout_usd,survey_completed_at",
+        "table": "pending_trial_surveys",
+        "columns": "survey_transaction_id,survey_user_id,payout_usd,platform_user_id,platform,credited",
         "additionalFields": "{}",
         "options": {}
       },
-      "id": "insert-free-trial",
-      "name": "Insert Free Trial Record",
+      "id": "tr-insert-pending",
+      "name": "Insert Pending Trial Survey",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2,
-      "position": [2400, 50]
+      "typeVersion": 1,
+      "position": [2010, 300],
+      "credentials": { "postgres": { "id": "1", "name": "PostgreSQL" } }
     },
     {
       "parameters": {
-        "additionalFields": {},
-        "template": "={{$json.whatsapp_message}}",
-        "options": {}
+        "jsCode": "// Log the successful survey recording\nreturn {\n  json: {\n    logged: true,\n    transaction_id: $input.item.json.transaction_id,\n    user_id: $input.item.json.user_id,\n    payout_usd: $input.item.json.payout_usd\n  }\n};"
       },
-      "id": "send-whatsapp",
-      "name": "Send WhatsApp to Customer",
-      "type": "n8n-nodes-base.whatsApp",
-      "typeVersion": 1,
-      "position": [2600, 50]
+      "id": "tr-log",
+      "name": "Log Survey Recorded",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2230, 300]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\"status\":\"ok\",\"processed\":true}",
-        "options": {"responseCode": 200}
+        "responseBody": "{\"status\":\"ok\"}",
+        "options": { "responseCode": 200 }
       },
-      "id": "respond-success",
+      "id": "tr-respond-ok",
       "name": "Respond 200 OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [2820, 50]
+      "position": [2450, 300]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\"status\":\"ok\",\"already_processed\":true}",
-        "options": {"responseCode": 200}
+        "responseBody": "{\"status\":\"already_processed\"}",
+        "options": { "responseCode": 200 }
       },
-      "id": "respond-idempotent",
+      "id": "tr-respond-idem",
       "name": "Respond 200 (Idempotent)",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1560, 400]
-    },
-    {
-      "parameters": {
-        "additionalFields": {},
-        "template": "🛡️ Daily limit reached — you've used 3/3 free trials today.\n\nCome back tomorrow, or skip the wait with a paid plan:\n• ISP UK/US: ₦6,500/mo (private, reliable)\n• Residential 5GB: ₦5,000 (data never expires)\n• Mobile 5GB: ₦20,000 (4G)\n\nReply menu to order, or wait until tomorrow for another free trial.",
-        "options": {}
-      },
-      "id": "send-daily-limit-msg",
-      "name": "Send Daily Limit WhatsApp",
-      "type": "n8n-nodes-base.whatsApp",
-      "typeVersion": 1,
-      "position": [2000, 250]
+      "position": [1570, 480]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\"status\":\"ok\",\"daily_limit_hit\":true}",
-        "options": {"responseCode": 200}
+        "responseBody": "{\"status\":\"invalid_signature\"}",
+        "options": { "responseCode": 401 }
       },
-      "id": "respond-limit",
-      "name": "Respond 200 (Limit)",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [2220, 250]
-    },
-    {
-      "parameters": {
-        "additionalFields": {},
-        "template": "⚠️ Your survey couldn't be verified. Please try again or contact support.",
-        "options": {}
-      },
-      "id": "send-invalid-msg",
-      "name": "Send Invalid Signature WhatsApp",
-      "type": "n8n-nodes-base.whatsApp",
-      "typeVersion": 1,
-      "position": [900, 450]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"unauthorized\"}",
-        "options": {"responseCode": 401}
-      },
-      "id": "respond-unauthorized",
+      "id": "tr-respond-401",
       "name": "Respond 401 Unauthorized",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1120, 450]
+      "position": [910, 480]
     },
     {
       "parameters": {
-        "functionCode": "// Audit log: invalid signature\nconst rawPayload = $input.item.json.raw_payload || {};\nconst signature = $input.item.json.headers?.['x-theorem-reach-signature'] || $input.item.json.body?.signature;\n\nreturn {\n  json: {\n    log_type: 'theorem_reach_invalid_signature',\n    transaction_id: rawPayload.transaction_id || 'unknown',\n    user_id: rawPayload.user_id || 'unknown',\n    signature_received: signature || 'none',\n    alert_admin: true\n  }\n};"
+        "jsCode": "// Alert admin on invalid signature — possible attack\nreturn {\n  json: {\n    alert_admin: true,\n    event: 'theorem_reach_invalid_signature',\n    transaction_id: $input.item.json.transaction_id,\n    user_id: $input.item.json.user_id\n  }\n};"
       },
-      "id": "alert-admin-invalid-sig",
+      "id": "tr-alert-invalid",
       "name": "Alert Admin (Invalid Signature)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 450]
+      "position": [1130, 480]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.ADMIN_TELEGRAM_CHAT_ID }}",
+        "message": "⚠️ Theorem Reach invalid signature! Possible attack.\\nTX: {{$json.transaction_id}}\\nUser: {{$json.user_id}}",
+        "options": {}
+      },
+      "id": "tr-alert-tg",
+      "name": "Alert Admin via Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1350, 480],
+      "credentials": { "telegramApi": { "id": "2", "name": "Telegram Bot API" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log completion event\nreturn { json: { event: 'theorem_reach_completed' } };"
+      },
+      "id": "tr-log-completion",
+      "name": "Log Completion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1130, 200]
     }
   ],
   "connections": {
     "Theorem Reach Postback": {
-      "main": [[{"node": "Verify HMAC Signature", "type": "main", "index": 0}]]
+      "main": [
+        [{ "node": "Verify HMAC Signature", "type": "main", "index": 0 }]
+      ]
     },
     "Verify HMAC Signature": {
-      "main": [[{"node": "If Signature Valid", "type": "main", "index": 0}]]
+      "main": [
+        [{ "node": "If Signature Valid", "type": "main", "index": 0 }],
+        [{ "node": "Respond 401 Unauthorized", "type": "main", "index": 0 }]
+      ]
     },
     "If Signature Valid": {
       "main": [
-        [{"node": "If Status=Completed", "type": "main", "index": 0}],
-        [{"node": "Send Invalid Signature WhatsApp", "type": "main", "index": 1}]
+        [{ "node": "Log Completion", "type": "main", "index": 0 }],
+        [{ "node": "Alert Admin (Invalid Signature)", "type": "main", "index": 0 }]
       ]
     },
-    "Send Invalid Signature WhatsApp": {
-      "main": [[{"node": "Alert Admin (Invalid Signature)", "type": "main", "index": 0}]]
+    "Log Completion": {
+      "main": [
+        [{ "node": "If Status=Completed", "type": "main", "index": 0 }]
+      ]
     },
     "Alert Admin (Invalid Signature)": {
-      "main": [[{"node": "Respond 401 Unauthorized", "type": "main", "index": 0}]]
+      "main": [
+        [{ "node": "Alert Admin via Telegram", "type": "main", "index": 0 }]
+      ]
+    },
+    "Alert Admin via Telegram": {
+      "main": [
+        [{ "node": "Respond 401 Unauthorized", "type": "main", "index": 0 }]
+      ]
     },
     "If Status=Completed": {
       "main": [
-        [{"node": "Insert Postback (Idempotency)", "type": "main", "index": 0}],
-        [{"node": "Respond 200 (Idempotent)", "type": "main", "index": 1}]
+        [{ "node": "Check Idempotency", "type": "main", "index": 0 }]
       ]
-    },
-    "Insert Postback (Idempotency)": {
-      "main": [[{"node": "Check Idempotency", "type": "main", "index": 0}]]
     },
     "Check Idempotency": {
       "main": [
-        [{"node": "Check Daily Limit", "type": "main", "index": 0}],
-        [{"node": "Respond 200 (Idempotent)", "type": "main", "index": 1}]
+        [{ "node": "If Not Already Processed", "type": "main", "index": 0 }]
       ]
     },
-    "Check Daily Limit": {
+    "If Not Already Processed": {
       "main": [
-        [{"node": "If Limit OK", "type": "main", "index": 0}],
-        [{"node": "Send Daily Limit WhatsApp", "type": "main", "index": 1}]
+        [{ "node": "Insert Postback Record", "type": "main", "index": 0 }],
+        [{ "node": "Respond 200 (Idempotent)", "type": "main", "index": 0 }]
       ]
     },
-    "Send Daily Limit WhatsApp": {
-      "main": [[{"node": "Respond 200 (Limit)", "type": "main", "index": 0}]]
+    "Insert Postback Record": {
+      "main": [
+        [{ "node": "Prep Pending Survey Record", "type": "main", "index": 0 }]
+      ]
     },
-    "If Limit OK": {
-      "main": [[{"node": "Add 3proxy User (Shell)", "type": "main", "index": 0}]]
+    "Prep Pending Survey Record": {
+      "main": [
+        [{ "node": "Insert Pending Trial Survey", "type": "main", "index": 0 }]
+      ]
     },
-    "Add 3proxy User (Shell)": {
-      "main": [[{"node": "Generate Credentials + Message", "type": "main", "index": 0}]]
+    "Insert Pending Trial Survey": {
+      "main": [
+        [{ "node": "Log Survey Recorded", "type": "main", "index": 0 }]
+      ]
     },
-    "Generate Credentials + Message": {
-      "main": [[{"node": "Insert Free Trial Record", "type": "main", "index": 0}]]
-    },
-    "Insert Free Trial Record": {
-      "main": [[{"node": "Send WhatsApp to Customer", "type": "main", "index": 0}]]
-    },
-    "Send WhatsApp to Customer": {
-      "main": [[{"node": "Respond 200 OK", "type": "main", "index": 0}]]
+    "Log Survey Recorded": {
+      "main": [
+        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1"
-  },
-  "staticData": null,
-  "tags": [
-    {"name": "bunche"},
-    {"name": "free-trial"},
-    {"name": "theorem-reach"},
-    {"name": "webhook"}
-  ],
-  "active": false,
-  "id": "theorem-reach-webhook",
-  "meta": {
-    "templateCredsSetupCompleted": false
   }
 }
