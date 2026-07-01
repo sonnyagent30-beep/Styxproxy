@@ -1,0 +1,19 @@
+{
+  "provider": "SmartDNS Proxy",
+  "slug": "smartdns-proxy",
+  "verified_date": "2026-06-30",
+  "protocols": ["DNS"],
+  "ip_types": ["DNS Proxy (streaming)"],
+  "pool_size": "Not applicable — DNS-based",
+  "countries": "Globally (streaming services)",
+  "geo_targeting": ["Country (streaming service)"],
+  "session_types": ["Static DNS"],
+  "rotation": "None — DNS-based",
+  "sticky_sessions": "Permanent",
+  "api": "None",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["DNS proxy for streaming", "KeepSolid (NYC) backed", "Not an anonymity proxy"],
+  "sources": ["smartdnsproxy.com"]
+}

@@ -1,0 +1,41 @@
+{
+  "name": "V-Proxies",
+  "slug": "v-proxies",
+  "website": "https://v-proxies.com",
+  "description": "Fast residential proxy service with global coverage, offering 99.97% uptime and instant delivery at competitive prices.",
+  "company_type": "residential_proxy_provider",
+  "founded": "2022",
+  "products": [
+    "Residential Proxies"
+  ],
+  "pricing": {
+    "starting_price": "$0.99/GB"
+  },
+  "performance": {
+    "uptime": "99.97%"
+  },
+  "coverage": "196+ countries",
+  "key_features": [
+    "High-speed residential proxies",
+    "Instant delivery",
+    "Global coverage",
+    "Built for power users"
+  ],
+  "value_proposition": "Cost-effective residential proxies - claims to be significantly cheaper than competitors (e.g., $99 vs $840 for 100GB/month vs Bright Data)",
+  "target_use_cases": [
+    "Web scraping",
+    "Data collection",
+    "Automation"
+  ],
+  "sources": [
+    {
+      "url": "https://v-proxies.com/",
+      "title": "V-Proxies — Fast Residential Proxies"
+    },
+    {
+      "url": "https://v-proxies.com/blog/best-residential-proxy-providers-in-2026-honest-reviews-ranked-by-real-value",
+      "title": "Best Residential Proxy Providers in 2026"
+    }
+  ],
+  "research_date": "2026-06-30"
+}

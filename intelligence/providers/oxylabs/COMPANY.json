@@ -1,0 +1,23 @@
+{
+  "slug": "oxylabs",
+  "name": "Oxylabs",
+  "website": "https://oxylabs.io/",
+  "description": "Market-leading proxy and web scraping solution provider. One of the largest proxy pools with 100M+ residential IPs and 2M+ datacenter IPs.",
+  "founded": 2015,
+  "headquarters": "Vilnius, Lithuania",
+  "type": "Private",
+  "founder": "Mindaugas Caplinskas",
+  "employees": "201-500 (approximately 400)",
+  "key_differentiator": "Enterprise-grade proxy solutions, web scraping infrastructure, dedicated customer success",
+  "proxy_network": {
+    "residential_ips": "100M+",
+    "datacenter_ips": "2M+",
+    "countries": "195"
+  },
+  "use_cases": ["web data extraction", "market research", "brand protection", "ad verification", "SEO monitoring"],
+  "sources": [
+    "https://oxylabs.io/about-us",
+    "https://tracxn.com/d/companies/oxylabs",
+    "https://craft.co/oxylabs/locations"
+  ]
+}

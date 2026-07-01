@@ -1,0 +1,22 @@
+{
+  "provider": "MangoProxy",
+  "slug": "mangoproxy",
+  "website": "https://mangoproxy.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription + Pay-as-you-go",
+  "products": {
+    "residential_ipv4": {
+      "price": "$0.75",
+      "unit": "per GB",
+      "notes": "Rotating residential. No expiration on traffic."
+    },
+    "datacenter_ipv4": {
+      "price": "$2.00",
+      "unit": "per IP per month",
+      "notes": "Shared datacenter IPv4."
+    }
+  },
+  "free_trial": "Not available",
+  "sources": ["https://mangoproxy.com/pricing"]
+}

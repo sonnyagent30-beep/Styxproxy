@@ -1,0 +1,31 @@
+{
+  "slug": "proxyrack",
+  "last_updated": "2026-06-30",
+  "trustpilot": {
+    "rating": "4.5",
+    "reviews_count": "135+",
+    "source": "Trustpilot",
+    "notes": "Reliable, stable performance. Customers praise unmetered traffic and stable connections"
+  },
+  "scamalytics": {
+    "status": "Not applicable - this is a proxy provider, not a target for fraud checks",
+    "note": "Proxy providers themselves are not scored on Scamalytics"
+  },
+  "reddit": {
+    "sentiment": "Positive",
+    "key_themes": [
+      "Reliable residential proxies",
+      "Large IP pool keeps block rates low",
+      "Residential IPs behave like real user traffic",
+      "Stable long-term performance"
+    ],
+    "use_cases": "Best Reddit proxies according to their own blog"
+  },
+  "general_reputation": {
+    "status": "Positive - established player",
+    "established": "Multiple years in market",
+    "products": "Residential, datacenter, mobile, ISP, VPN",
+    "note": "One of longer-established names in proxy market"
+  },
+  "risk_assessment": "LOW"
+}

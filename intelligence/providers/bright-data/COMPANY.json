@@ -1,0 +1,48 @@
+{
+  "slug": "bright-data",
+  "name": "Bright Data",
+  "website": "https://brightdata.com/",
+  "description": "The world's #1 web data platform. Award-winning proxy networks, powerful web scrapers, and ready-to-use datasets. Industry leader with 400M+ premium proxies.",
+  "company_info": {
+    "founded": "2014",
+    "headquarters": null,
+    "company_type": "Enterprise Web Data Platform",
+    "specialization": "Residential Proxies, Datacenter Proxies, ISP Proxies, Web Scraping, Datasets"
+  },
+  "network": {
+    "ip_pool_size": "400M+",
+    "countries": "195+",
+    "proxy_types": ["Residential", "Datacenter", "ISP", "Mobile"],
+    "infrastructure": "Proxy Manager, Custom price per GB"
+  },
+  "pricing": {
+    "model": "Per GB (custom pricing)",
+    "notes": "Enterprise-focused pricing, custom quotes available",
+    "starting_price": "Premium pricing tier"
+  },
+  "features": [
+    "400M+ premium residential IPs",
+    "195+ country coverage",
+    "Proxy Manager",
+    "Complete data coverage",
+    "Custom pricing per GB",
+    "Free trial available",
+    "Web scrapers",
+    "Ready-to-use datasets",
+    "Fortune 500 trusted"
+  ],
+  "use_cases": [
+    "Web scraping",
+    "Market research",
+    "Ad verification",
+    "SERP tracking",
+    "Lead enrichment",
+    "Competitive intelligence"
+  ],
+  "sources": [
+    "https://brightdata.com/",
+    "https://brightdata.com/proxy-types",
+    "https://www.vpsrated.com/provider/brightdata"
+  ],
+  "research_date": "2026-06-30"
+}

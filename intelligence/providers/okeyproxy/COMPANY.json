@@ -1,0 +1,24 @@
+{
+  "slug": "okeyproxy",
+  "name": "OkeyProxy",
+  "website": "https://www.okeyproxy.com/",
+  "description": "Global residential and dedicated SOCKS5 proxy provider offering 150M+ rotating residential proxies and 5M+ static residential proxies across 200+ regions.",
+  "founded": 2016,
+  "headquarters": "Malaysia",
+  "type": "Private",
+  "key_differentiator": "High anonymity with real residential IPs, 99.5% uptime guarantee",
+  "proxy_network": {
+    "rotating_residential_ips": "150M+",
+    "static_residential_ips": "5M+",
+    "countries": "200+"
+  },
+  "use_cases": ["web scraping", "ad verification", "ecommerce", "data collection"],
+  "ratings": {
+    "trustpilot": "4.6/5"
+  },
+  "sources": [
+    "https://www.okeyproxy.com/",
+    "https://slashdot.org/software/p/OkeyProxy/",
+    "https://www.trustpilot.com/review/www.okeyproxy.com"
+  ]
+}

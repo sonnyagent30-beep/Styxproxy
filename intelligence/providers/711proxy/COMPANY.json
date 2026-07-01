@@ -1,0 +1,53 @@
+{
+  "slug": "711proxy",
+  "name": "711Proxy",
+  "website": "https://www.711proxy.com/",
+  "description": "Global high-quality residential IP proxy provider offering both rotating and static residential IPs across 200+ countries.",
+  "company_info": {
+    "founded": null,
+    "headquarters": null,
+    "company_type": "Proxy Service Provider",
+    "specialization": "Residential Proxies, Static Residential Proxies"
+  },
+  "network": {
+    "ip_pool_size": "100M+",
+    "countries": "200+",
+    "success_rate": "99.7%",
+    "proxy_types": ["Rotating Residential", "Static Residential"]
+  },
+  "pricing": {
+    "residential_proxies": {
+      "rotating": "from $0.55/GB",
+      "static": null
+    },
+    "plans": [
+      {
+        "name": "1 Day Unlimited Rotating Proxies",
+        "price": "$280/day",
+        "type": "subscription"
+      }
+    ],
+    "model": "Per GB + Subscription"
+  },
+  "features": [
+    "100M+ IP pool",
+    "200+ country coverage",
+    "99.7% success rate",
+    "Enterprise plans with discounts",
+    "24/7 customer support",
+    "Proxy trials available"
+  ],
+  "use_cases": [
+    "Data collection",
+    "Web scraping",
+    "Market research",
+    "Ad verification",
+    "SEO monitoring"
+  ],
+  "sources": [
+    "https://www.711proxy.com/",
+    "https://www.saasworthy.com/product/711proxy",
+    "https://russiavps.site/provider/711proxy/"
+  ],
+  "research_date": "2026-06-30"
+}

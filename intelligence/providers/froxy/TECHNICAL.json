@@ -1,0 +1,70 @@
+{
+  "slug": "froxy",
+  "technical_features": {
+    "proxy_types": {
+      "residential": {
+        "available": true,
+        "ip_pool": "120M+",
+        "countries": "200+",
+        "description": "Rotating residential IPs"
+      },
+      "mobile": {
+        "available": true,
+        "description": "Mobile proxy network"
+      },
+      "datacenter": {
+        "available": true,
+        "description": "Datacenter proxy servers"
+      },
+      "isp": {
+        "available": true,
+        "static": true,
+        "description": "Static ISP residential proxies"
+      }
+    },
+    "protocols": {
+      "http": true,
+      "https": true,
+      "socks5": true
+    },
+    "authentication": {
+      "user_pass": true,
+      "ip_whitelist": true,
+      "api_auth": true
+    },
+    "api": {
+      "proxy_api": true,
+      "geo_targeting_api": true
+    },
+    "session_control": {
+      "rotating_sessions": true,
+      "sticky_sessions": true,
+      "flexible_subscription": true
+    },
+    "bandwidth": {
+      "pause_resume": true,
+      "affiliate_program": true,
+      "promotional_discounts": true
+    },
+    "infrastructure": {
+      "locations": "200+",
+      "accessibility": "99%"
+    }
+  },
+  "targeting": {
+    "geo_levels": ["country", "city", "provider", "asn"],
+    "country_coverage": "200+"
+  },
+  "integration": {
+    "scrapeops_integration": true,
+    "antidetect_browsers": true,
+    "python_integration": true
+  },
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://froxy.com/",
+    "https://froxy.com/en/proxy-features",
+    "https://froxy.com/en/private-proxies",
+    "https://scrapeops.io/proxy-providers/froxy/python-froxy-residential-proxy-guide/"
+  ]
+}

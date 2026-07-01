@@ -1,0 +1,30 @@
+{
+  "slug": "smartdns-proxy",
+  "last_updated": "2026-06-30",
+  "trustpilot": {
+    "rating": "3.57",
+    "reviews_count": "5,779",
+    "source": "Trustpilot",
+    "notes": "Mixed reviews - some customers for 6+ years, but concerns about Netflix detection and refund policies"
+  },
+  "scamalytics": {
+    "status": "Not applicable - this is a proxy/DNS service, not a target for fraud checks",
+    "note": "Smart DNS Proxy redirects geolocation data, not an anonymization service"
+  },
+  "reddit": {
+    "sentiment": "Mixed",
+    "key_discussions": [
+      "Streaming service - works with many platforms but not Netflix",
+      "Long-term customers but frustration with changes",
+      "Prepaid long-term contracts with limited refund"
+    ]
+  },
+  "general_reputation": {
+    "status": "Mixed - established streaming service",
+    "established": "Multiple years",
+    "products": "Smart DNS Proxy, VPN, SmartVPN",
+    "note": "Designed for streaming unblocking, not privacy/security"
+  },
+  "risk_assessment": "LOW-MEDIUM",
+  "caveats": "Not a true proxy for anonymity; designed for streaming. Limited refund policy on long-term contracts"
+}

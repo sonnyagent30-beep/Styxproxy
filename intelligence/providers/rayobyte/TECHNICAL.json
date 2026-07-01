@@ -1,0 +1,19 @@
+{
+  "provider": "Rayobyte",
+  "slug": "rayobyte",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "ISP", "Datacenter"],
+  "pool_size": "Not disclosed",
+  "countries": "Not disclosed",
+  "geo_targeting": ["Country", "City", "ASN"],
+  "session_types": ["Rotating", "Sticky"],
+  "rotation": "Per request or sticky",
+  "sticky_sessions": "Yes",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "99.9%",
+  "unique_features": ["Formerly Blazing SEO", "US-based (Nebraska)", "EWDCI certified", "Ethical sourcing"],
+  "sources": ["rayobyte.com"]
+}

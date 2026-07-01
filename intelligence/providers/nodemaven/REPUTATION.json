@@ -1,0 +1,21 @@
+{
+  "slug": "nodemaven",
+  "provider_name": "NodeMaven",
+  "research_date": "2026-06-30",
+  "scamalytics": {
+    "fraud_score": null,
+    "risk_level": "No specific Scamalytics data found",
+    "notes": "Provider claims 95% of IPs have clean records due to real-time filtering"
+  },
+  "trustpilot": {
+    "rating": 4.6,
+    "review_count": 117,
+    "url": "https://www.trustpilot.com/review/nodemaven.com"
+  },
+  "reddit": {
+    "sentiment": "Positive",
+    "notes": "Frequently mentioned in discussions about high-quality residential proxies for scraping and automation. Praised for clean IPs and reliability."
+  },
+  "overall_reputation": "Good",
+  "notes": "Premium residential proxy provider with advanced IP filtering algorithm. Popular for multi-accounting and tasks requiring clean IPs. Offers $3.50 trial."
+}

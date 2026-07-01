@@ -1,0 +1,46 @@
+{
+  "provider": "okeyproxy",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://okeyproxy.net/contact.html + Trustpilot",
+  "refund_policy": {
+    "status": "VERIFIED",
+    "policy_text": "24-hour money-back guarantee applies only to technical issues that cannot be fixed immediately by support.",
+    "money_back_days": 1,
+    "conditions": ["technical issues only", "must be unfixable by support", "contact support first"],
+    "residential_refund": "24hr money-back for technical issues",
+    "isp_refund": "24hr money-back for technical issues"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found"
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "VERIFIED",
+    "methods": ["paypal", "visa", "mastercard", "usdt", "btc", "alipay_hk"]
+  },
+  "support": {
+    "channels": ["telegram", "whatsapp", "email"],
+    "hours": "Not stated, but Telegram/WhatsApp suggest near-24/7",
+    "response_time": "Typically fast (live channels)",
+    "status": "VERIFIED"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": true,
+    "commission_percent": null,
+    "payout_methods": ["not publicly stated"]
+  },
+  "accepts_crypto": true,
+  "notes": "150M+ residential proxies, 200+ countries. Telegram and WhatsApp support is a differentiator. $2/GB trial available. Trustpilot 4.6/Excellent."
+}

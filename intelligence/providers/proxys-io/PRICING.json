@@ -1,0 +1,48 @@
+{
+  "provider": "proxys-io",
+  "website": "https://proxys.io",
+  "pricing_page": "https://proxys.io",
+  "last_verified": "2026-06-30",
+  "pricing_model": "pay-as-you-go",
+  "products": {
+    "residential": {
+      "type": "residential",
+      "pricing": [
+        {"amount": 5, "unit": "USD", "per": "GB", "description": "base price"},
+        {"amount": 2, "unit": "USD", "per": "GB", "description": "bulk pricing"}
+      ],
+      "features": ["Rotating", "195+ countries"]
+    },
+    "mobile": {
+      "type": "mobile",
+      "pricing": [
+        {"amount": 5, "unit": "USD", "per": "GB"}
+      ]
+    },
+    "ipv4": {
+      "type": "datacenter_ipv4",
+      "pricing": [
+        {"amount": 0.13, "unit": "USD", "per": "IP", "per_month": true, "description": "IPv6 starting price"}
+      ],
+      "features": ["Individual", "Shared (3-user)"]
+    },
+    "ipv6": {
+      "type": "ipv6",
+      "pricing": [
+        {"amount": 0.13, "unit": "USD", "per": "IP", "per_month": true}
+      ]
+    },
+    "isp": {
+      "type": "isp",
+      "pricing": [
+        {"amount": 2.5, "unit": "USD", "per": "IP", "per_month": true}
+      ]
+    }
+  },
+  "notes": [
+    "UK-based provider",
+    "240+ countries",
+    "Flexible pricing with automated distribution",
+    "Specialized in Russia/Eastern Europe geo-targeting"
+  ]
+}

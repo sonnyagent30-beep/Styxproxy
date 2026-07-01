@@ -1,0 +1,75 @@
+{
+  "slug": "decodo",
+  "technical_features": {
+    "proxy_types": {
+      "residential": {
+        "available": true,
+        "ip_pool": "125M+",
+        "countries": "195+",
+        "description": "Rotating residential proxies"
+      },
+      "isp": {
+        "available": true,
+        "static": true,
+        "description": "Static ISP residential proxies"
+      },
+      "datacenter": {
+        "available": true,
+        "dedicated": true,
+        "description": "Datacenter and dedicated datacenter proxies"
+      },
+      "mobile": {
+        "available": true,
+        "description": "Mobile proxy network"
+      }
+    },
+    "protocols": {
+      "http": true,
+      "https": true,
+      "socks5": true
+    },
+    "authentication": {
+      "user_pass": true,
+      "ip_whitelist": true,
+      "api_auth": true
+    },
+    "api": {
+      "proxy_api": true,
+      "site_unblocker": true,
+      "scraping_apis": true,
+      "n8n_integration": true
+    },
+    "session_control": {
+      "rotating_sessions": true,
+      "sticky_sessions": true,
+      "concurrent_sessions": "Unlimited"
+    },
+    "bandwidth": {
+      "pay_as_you_go": true,
+      "free_trial": true
+    },
+    "infrastructure": {
+      "former_name": "Smartproxy",
+      "rebrand_date": "2025",
+      "response_time": "#1 ranking",
+      "success_rate": "99.92%"
+    }
+  },
+  "targeting": {
+    "geo_levels": ["country", "continent", "state", "city", "zip", "asn", "isp", "carrier"],
+    "country_coverage": "195+",
+    "notes": "Advanced ZIP-level precision available"
+  },
+  "integration": {
+    "browser_fingerprinting_protection": true,
+    "unattended_scraping": true,
+    "javascript_website_support": true
+  },
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://decodo.com/",
+    "https://decodo.com/proxies/features",
+    "https://docs.proxiesapi.xyz/reseller-apis/decodo-smart-proxy",
+    "https://geekflare.com/proxy/smartproxy-review/"
+  ]
+}

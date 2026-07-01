@@ -1,0 +1,24 @@
+{
+  "provider": "shiftproxy",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "NOT_FOUND",
+    "policy_text": "Compensation or refunds offered to affected customers during service outages. Customer support handles individual cases. No formal refund policy.",
+    "money_back_days": null,
+    "conditions": [
+      "Must be affected by service outage",
+      "Contact customer support"
+    ],
+    "residential_refund": "No refund policy found",
+    "isp_refund": "No refund policy found"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["website", "forum"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "FLAG AS UNKNOWN - Provider has had infrastructure issues in the past. Exercise caution."
+}

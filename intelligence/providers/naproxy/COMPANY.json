@@ -1,0 +1,41 @@
+{
+  "slug": "naproxy",
+  "name": "NaProxy",
+  "website": "https://www.naproxy.com/",
+  "description": "Hong Kong-based residential proxy service with 90M+ IPs globally, offering competitive pricing for data scraping",
+  "headquarters": "Hong Kong",
+  "registered_entity": "Xinghan Network Technology Co., Limited",
+  "address": "Kwun Tong, Kowloon, Hong Kong",
+  "proxy_types": [
+    "Rotating Residential Proxies",
+    "Unlimited Residential Proxies",
+    "Static Residential Proxies",
+    "Long-acting ISP Proxies",
+    "Static Datacenter Proxies",
+    "Custom Service"
+  ],
+  "ip_pool_size": "90+ million",
+  "geo_coverage": "200+ countries",
+  "features": [
+    "Unlimited traffic options",
+    "Automatic IP rotation",
+    "Country-level targeting",
+    "Easy control panel and API",
+    "Compatible with any software/tool"
+  ],
+  "use_cases": [
+    "Data Scraping",
+    "Privacy Protection",
+    "Automation",
+    "Market Research"
+  ],
+  "pricing_starting": "Competitive (cheapest pricing claimed)",
+  "target_market": "Developers and businesses",
+  "reviews": {
+    "g2": "16 reviews noted",
+    "trustworthiness": "Mixed reviews, some concerns noted about legitimacy"
+  },
+  "data_sources": {
+    "Residential IPs from real ISP devices"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "provider": "smartproxy",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "CONTACT_SALES",
+    "policy_text": "REBRANDED TO DECODO. See Decodo entry for current refund policy. Previously 14-day self-service refund with usage limits.",
+    "money_back_days": null,
+    "conditions": [],
+    "residential_refund": "Contact Decodo",
+    "isp_refund": "Contact Decodo"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["website"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "REBRANDED TO DECODO as of April 2025. Redirect all inquiries to Decodo."
+}

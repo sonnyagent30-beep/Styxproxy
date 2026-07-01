@@ -1,0 +1,21 @@
+{
+  "slug": "pia-proxy",
+  "provider_name": "PIA Proxy (formerly PIA S5 Proxy)",
+  "research_date": "2026-06-30",
+  "scamalytics": {
+    "fraud_score": null,
+    "risk_level": "No specific Scamalytics data found"
+  },
+  "trustpilot": {
+    "rating": 3.4,
+    "review_count": null,
+    "url": "https://www.trustpilot.com/review/www.myprivateproxy.net",
+    "notes": "Now operating at pia-proxy.com. Previous brand PIA S5 Proxy had 4.0 rating."
+  },
+  "reddit": {
+    "sentiment": "Positive",
+    "notes": "Praised for large IP pool (350M+ residential IPs in 200+ countries). One of the largest residential proxy services."
+  },
+  "overall_reputation": "Average",
+  "notes": "Claims to be world's largest commercial residential proxy service with 350M+ IPs. Direct continuation of PIA S5 Proxy."
+}

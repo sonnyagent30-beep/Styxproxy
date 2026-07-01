@@ -1,0 +1,19 @@
+{
+  "provider": "LegionProxy",
+  "slug": "legionproxy",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "ISP"],
+  "pool_size": "Not disclosed",
+  "countries": "Globally",
+  "geo_targeting": ["Country"],
+  "session_types": ["Rotating"],
+  "rotation": "Per request",
+  "sticky_sessions": "Limited",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["Commercial res+ISP proxies"],
+  "sources": ["legionproxy.io"]
+}

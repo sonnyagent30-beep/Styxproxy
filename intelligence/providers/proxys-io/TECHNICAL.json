@@ -1,0 +1,19 @@
+{
+  "provider": "Proxys.io",
+  "slug": "proxys-io",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "Datacenter"],
+  "pool_size": "Not disclosed",
+  "countries": "88 countries",
+  "geo_targeting": ["Country", "City"],
+  "session_types": ["Rotating", "Static"],
+  "rotation": "Per request or sticky",
+  "sticky_sessions": "Yes",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["2Captcha backed", "London-based", "IPv6 available"],
+  "sources": ["proxys.io"]
+}

@@ -1,0 +1,20 @@
+{
+  "provider": "SpaceProxy",
+  "slug": "spaceproxy",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Datacenter IPv4", "Datacenter IPv6"],
+  "pool_size": "Not disclosed",
+  "countries": "Russia + globally",
+  "geo_targeting": ["Country"],
+  "session_types": ["Static (dedicated)"],
+  "rotation": "None — dedicated IPs",
+  "sticky_sessions": "Permanent",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["Russia-based", "IPv4 + IPv6", "167K+ clients"],
+  "sources": ["spaceproxy.net"],
+  "warning": "Trustpilot fake reviews investigation"
+}

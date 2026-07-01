@@ -1,0 +1,20 @@
+{
+  "provider": "2extract",
+  "slug": "2extract",
+  "verified_date": "2026-06-30",
+  "protocols": ["Unknown"],
+  "ip_types": ["Residential"],
+  "pool_size": "Unknown",
+  "countries": "Unknown",
+  "geo_targeting": ["Unknown"],
+  "session_types": ["Unknown"],
+  "rotation": "Unknown",
+  "sticky_sessions": "Unknown",
+  "api": "Unknown",
+  "auth_methods": ["Unknown"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": [],
+  "sources": [],
+  "warning": "Provider could not be verified — may not exist"
+}

@@ -1,0 +1,78 @@
+{
+  "slug": "evomi",
+  "technical_features": {
+    "proxy_types": {
+      "residential": {
+        "available": true,
+        "ip_pool": "54M+",
+        "countries": "150+",
+        "description": "Premium residential proxies"
+      },
+      "mobile": {
+        "available": true,
+        "description": "Mobile proxy network"
+      },
+      "datacenter": {
+        "available": true,
+        "description": "Datacenter proxy servers"
+      },
+      "isp": {
+        "available": true,
+        "static": true,
+        "shared_dedicated": "Both available",
+        "description": "Static ISP residential proxies"
+      },
+      "socks5": {
+        "available": true,
+        "udp_support": true,
+        "description": "SOCKS5 with UDP support"
+      }
+    },
+    "protocols": {
+      "http": true,
+      "https": true,
+      "socks5": true,
+      "udp": true
+    },
+    "authentication": {
+      "user_pass": true,
+      "ip_whitelist": true,
+      "api_auth": true
+    },
+    "api": {
+      "browser_extension": true,
+      "beta_scraping_tools": 2
+    },
+    "session_control": {
+      "rotating_sessions": true,
+      "sticky_sessions": true,
+      "traffic_based_pricing": true
+    },
+    "bandwidth": {
+      "affordable_pricing": true,
+      "free_trial": true,
+      "money_back_guarantee": true
+    },
+    "infrastructure": {
+      "headquarters": "Switzerland",
+      "founded": "2023",
+      "years_experience": "7+ years proxy infrastructure"
+    }
+  },
+  "targeting": {
+    "geo_levels": ["country", "region", "city", "isp"],
+    "country_coverage": "150+"
+  },
+  "integration": {
+    "transparent_pricing": true,
+    "clear_documentation": true,
+    "beta_tools": true
+  },
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://evomi.com/",
+    "https://evomi.com/product/residential-proxies",
+    "https://caproxy.com/en/list/evomi/",
+    "https://proxyway.com/reviews/evomi-review"
+  ]
+}

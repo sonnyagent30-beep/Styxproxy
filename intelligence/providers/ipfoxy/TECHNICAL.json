@@ -1,0 +1,19 @@
+{
+  "provider": "IPFoxy",
+  "slug": "ipfoxy",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["ISP (Static)"],
+  "pool_size": "Not disclosed",
+  "countries": "50+ countries",
+  "geo_targeting": ["Country", "City"],
+  "session_types": ["Static (dedicated)"],
+  "rotation": "None — dedicated",
+  "sticky_sessions": "Permanent",
+  "api": "REST API",
+  "auth_methods": ["Username/password", "IP whitelist"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["Enterprise-grade ISP focus", "Static IPs only"],
+  "sources": ["ipfoxy.com"]
+}

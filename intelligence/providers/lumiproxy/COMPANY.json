@@ -1,0 +1,34 @@
+{
+  "slug": "lumiproxy",
+  "name": "LumiProxy",
+  "website": "https://www.lumiproxy.com/",
+  "description": "Global rotating residential proxy service offering IPs from multiple countries at affordable prices",
+  "headquarters": "Not publicly disclosed",
+  "proxy_types": [
+    "Rotating Residential Proxies",
+    "Static Residential Proxies",
+    "Datacenter Proxies",
+    "ISP Proxies"
+  ],
+  "geo_coverage": "Germany, United States, India, Canada, France, and worldwide",
+  "features": [
+    "Rotating residential proxies",
+    "Country-level targeting",
+    "Affordable pricing",
+    "24/7 technical support"
+  ],
+  "use_cases": [
+    "Market Research",
+    "E-commerce",
+    "Brand Protection",
+    "Web Scraping"
+  ],
+  "pricing_starting": "$0.80/GB",
+  "target_market": "Individual and business users",
+  "reviews": {
+    "ratingfacts": "4.87/5 stars from 30 customer reviews"
+  },
+  "data_sources": {
+    "Residential IPs from real devices"
+  }
+}

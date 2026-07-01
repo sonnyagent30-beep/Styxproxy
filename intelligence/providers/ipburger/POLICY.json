@@ -1,0 +1,46 @@
+{
+  "provider": "ipburger",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://www.ipburger.com/tos/ + https://www.ipburger.com/support/",
+  "refund_policy": {
+    "status": "VERIFIED",
+    "policy_text": "Unfortunately, due to the intangibleness of the services provided and the lack of customer activity monitoring, IPBurger does not offer refunds. However, a store credit may be issued under certain circumstances. Chargebacks without prior contact = account suspension and forfeiture of refund eligibility.",
+    "money_back_days": 0,
+    "conditions": ["NO refunds", "store credit possible under certain circumstances", "chargeback = account suspension"],
+    "residential_refund": "NO REFUND — store credit only",
+    "isp_refund": "NO REFUND — store credit only"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found"
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "VERIFIED",
+    "methods": ["card", "paypal", "crypto"]
+  },
+  "support": {
+    "channels": ["email", "ticket"],
+    "hours": "Not stated",
+    "response_time": "Trustpilot reviews praise fast, helpful support",
+    "status": "VERIFIED"
+  },
+  "reseller_program": {
+    "exists": true,
+    "discount": "30% recurring commission via affiliate program",
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": true,
+    "commission_percent": 30,
+    "payout_methods": ["paypal", "bank_transfer"]
+  },
+  "accepts_crypto": true,
+  "notes": "⚠️ NO-REFUND POLICY IS MAJOR RISK for resellers. If IPs don't work, you absorb the loss. Trustpilot 4.4/434 reviews — excellent support but terrible refund policy. Scamalytics 0 (clean). Premium pricing ($11.29/GB resi) makes no-refund policy even riskier. AVOID as primary reseller. OK as backup with small test orders only."
+}

@@ -1,0 +1,46 @@
+{
+  "provider": "floppydata",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://floppydata.com/pricing/ + https://floppydata.com/terms-of-service/",
+  "refund_policy": {
+    "status": "VERIFIED",
+    "policy_text": "No free trial. If proxies don't work and you can provide proof, we'll issue a refund for the non-functional proxies only. Must provide proof of non-functionality.",
+    "money_back_days": null,
+    "conditions": ["must provide proof proxies don't work", "only non-functional portion refunded", "no free trial"],
+    "residential_refund": "refund for non-functional proxies only (with proof)",
+    "isp_refund": "refund for non-functional proxies only (with proof)"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found"
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "VERIFIED",
+    "methods": ["card", "paypal", "crypto"]
+  },
+  "support": {
+    "channels": ["email", "ticket"],
+    "hours": "Not publicly stated",
+    "response_time": "Not publicly stated",
+    "status": "VERIFIED"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": false,
+    "commission_percent": null,
+    "payout_methods": null
+  },
+  "accepts_crypto": true,
+  "notes": "Better-than-nothing refund policy — only covers non-functional proxies with proof. No free trial increases risk. Industry expert team. Multiple proxy types offered. Small/medium tier provider. USE WITH CAUTION."
+}

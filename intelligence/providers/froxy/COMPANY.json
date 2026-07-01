@@ -1,0 +1,59 @@
+{
+  "slug": "froxy",
+  "name": "Froxy",
+  "legalName": "Froxy",
+  "website": "https://froxy.com/",
+  "aboutUrl": "https://froxy.com/en",
+  "pricingUrl": "https://froxy.com/en/pricing",
+  "description": "Froxy is a proxy service provider offering residential, mobile, and datacenter proxies with a pool of over 120 million IPs across 200+ locations. They emphasize reliable, secure proxy services for various online activities including web scraping, SEO monitoring, and privacy.",
+  "companyInfo": {
+    "founded": "Not publicly disclosed",
+    "headquarters": "Not publicly disclosed",
+    "ipPoolSize": "120M+",
+    "geoCoverage": "200+ locations worldwide"
+  },
+  "products": [
+    {
+      "type": "Residential Proxies",
+      "description": "Rotating residential IPs"
+    },
+    {
+      "type": "Mobile Proxies",
+      "description": "Mobile proxy network"
+    },
+    {
+      "type": "Datacenter Proxies",
+      "description": "Datacenter proxy servers"
+    },
+    {
+      "type": "ISP Proxies",
+      "description": "Static ISP proxies"
+    }
+  ],
+  "pricing": {
+    "notes": "Flexible pricing models with pause/resume subscription options. Promotional discounts available.",
+    "affiliateProgram": true
+  },
+  "features": [
+    "120M+ IP pool",
+    "200+ location coverage",
+    "Flexible subscription (pause/resume)",
+    "Promotional discounts",
+    "Affiliate program",
+    "99% accessibility claim"
+  ],
+  "useCases": [
+    "Web scraping",
+    "SEO monitoring",
+    "Social media management",
+    "Ad verification",
+    "Online privacy",
+    "Ecommerce activities"
+  ],
+  "sources": [
+    "https://froxy.com/",
+    "https://froxy.com/en/pricing",
+    "https://blog.froxy.com/en"
+  ],
+  "researchDate": "2026-06-30"
+}

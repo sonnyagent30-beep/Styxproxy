@@ -1,0 +1,14 @@
+{
+  "provider": "MangoProxy",
+  "slug": "mangoproxy",
+  "verified_date": "2026-06-30",
+  "sources": ["mangoproxy.com"],
+  "trustpilot": "Not found",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Limited",
+  "overall": "NEUTRAL_UNKNOWN",
+  "pros": ["Includes API scraper", "90M+ IPs"],
+  "cons": ["No Trustpilot", "Founded 2023 — new", "Unknown HQ"],
+  "flags": [],
+  "risk_level": "MEDIUM"
+}

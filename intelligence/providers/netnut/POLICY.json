@@ -1,0 +1,23 @@
+{
+  "provider": "netnut",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "CONTACT_SALES",
+    "policy_text": "Generally no refunds, but willing to consider refund requests based on plan usage. Contact support@netnut.io for cases.",
+    "money_back_days": null,
+    "conditions": [
+      "Considered on case-by-case basis"
+    ],
+    "residential_refund": "Contact sales",
+    "isp_refund": "Contact sales"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["email", "support_portal"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "NASDAQ:ALAR listed. Starlink IPs. Enterprise tier proxy provider. Accepts cryptocurrency."
+}

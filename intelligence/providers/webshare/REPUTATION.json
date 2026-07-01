@@ -1,0 +1,21 @@
+{
+  "provider": "Webshare",
+  "slug": "webshare",
+  "verified_date": "2026-06-30",
+  "sources": ["Trustpilot", "Scamalytics"],
+  "trustpilot": "4.5/5",
+  "trustpilot_reviews": "~500",
+  "scamalytics_score": 0,
+  "scamalytics_flags": {
+    "anonymizing_vpn": "0%",
+    "tor_exit_node": "0%",
+    "server": "81%",
+    "public_proxy": "9%"
+  },
+  "reddit_sentiment": "Positive — used for scraping",
+  "overall": "POSITIVE_WITH_FLAGS",
+  "pros": ["Acquired by Oxylabs 2022", "99.97% uptime", "Reliable datacenter"],
+  "cons": ["81% datacenter IPs not true residential", "9% public proxy flags"],
+  "flags": ["81% server IPs", "9% public proxy — not true residential"],
+  "risk_level": "MEDIUM"
+}

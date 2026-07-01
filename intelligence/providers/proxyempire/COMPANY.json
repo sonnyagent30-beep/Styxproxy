@@ -1,0 +1,28 @@
+{
+  "slug": "proxyempire",
+  "name": "ProxyEmpire",
+  "website": "https://proxyempire.io/",
+  "description": "Buy Proxy Server - Power Web Scraping & Data Gathering with our Top Mobile, Unlimited & Residential Proxies. 170+ countries | 30M+ Premium IPs.",
+  "services": [
+    "Residential proxies",
+    "Mobile proxies",
+    "Datacenter proxies",
+    "Rotating proxies"
+  ],
+  "features": {
+    "ip_pool_size": "30M+ premium IPs",
+    "country_coverage": "170+ countries",
+    "residential_ips": "9M+",
+    "mobile_ips": "Available",
+    "datacenter_ips": "200,000+",
+    "unlimited": true
+  },
+  "target_audience": ["Web scrapers", "Data gatherers", "Marketers"],
+  "sources": [
+    {
+      "title": "ProxyEmpire | Buy Residential & Mobile Proxies | Best Proxy",
+      "url": "https://proxyempire.io/"
+    }
+  ],
+  "research_date": "2026-06-30"
+}

@@ -1,0 +1,28 @@
+{
+  "provider": "decodo",
+  "research_date": "2026-06-30",
+  "refund_policy": {
+    "status": "conditional",
+    "description": "Refund eligibility criteria available - varies by payment method, usage, and refund window.",
+    "details": "Contact support for refund requests. Eligibility depends on payment method used, usage limits, and refund window.",
+    "source": "https://decodo.com/faq/billing/can-i-get-a-refund"
+  },
+  "sla": {
+    "status": "license_governs",
+    "description": "License Agreement is legally binding contract governing service terms.",
+    "source": "https://decodo.com/legal/license-agreement"
+  },
+  "kyc": {
+    "status": "not_confirmed",
+    "notes": "No explicit KYC requirements found in public documentation."
+  },
+  "payment_terms": {
+    "methods": "Various (contact for details)",
+    "notes": "Formerly Smartproxy - established proxy provider with 65M+ IPs."
+  },
+  "support": {
+    "source": "https://decodo.com"
+  },
+  "terms_url": "https://decodo.com/legal/license-agreement",
+  "privacy_url": null
+}

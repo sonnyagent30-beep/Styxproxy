@@ -1,0 +1,29 @@
+{
+  "provider": "IPRoyal",
+  "slug": "iproyal",
+  "website": "https://iproyal.com",
+  "verified_date": "2026-06-30",
+  "sources": ["iproyal.com", "Trustpilot"],
+  "trustpilot": "4.2/5",
+  "trustpilot_reviews": "~1,200",
+  "scamalytics_score": 0,
+  "scamalytics_flags": {
+    "anonymizing_vpn": "92%",
+    "tor_exit_node": "0%",
+    "server": "2%"
+  },
+  "reddit_sentiment": "Positive — popular for Glide UK pool",
+  "overall": "POSITIVE",
+  "pros": [
+    "Glide UK broadband pool — TIER_1 IPs",
+    "No contracts",
+    "Pawns app — earn while sharing bandwidth",
+    "Good Trustpilot rating"
+  ],
+  "cons": [
+    "General pool IPs — 92% flagged as VPN",
+    "Glide pool size limited"
+  ],
+  "flags": ["92% VPN flag on general pool"],
+  "risk_level": "MEDIUM"
+}

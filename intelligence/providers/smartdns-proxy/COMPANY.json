@@ -1,0 +1,49 @@
+{
+  "name": "SmartDNS Proxy",
+  "slug": "smartdns-proxy",
+  "website": "https://www.smartdnsproxy.com",
+  "description": "A DNS-based proxy service that provides access to geo-restricted websites and streaming services. Operated by KeepSolid.",
+  "company_type": "dns_proxy_service",
+  "parent_company": "KeepSolid Inc.",
+  "founded": 2013,
+  "headquarters": "New York, USA",
+  "legal_entity": "KeepSolid Inc.",
+  "parent_company_founded": 2013,
+  "parent_company_website": "https://www.keepsolid.com",
+  "parent_company_description": "Cybersecurity and privacy software company offering VPN Unlimited, Passwarden, DNS Firewall, SmartDNS, and MonoDefense",
+  "products": [
+    "SmartDNS (DNS proxy for geo-unblocking)",
+    "SmartVPN (VPN service)",
+    "VPN Unlimited"
+  ],
+  "key_features": [
+    "Faster than VPN (no encryption overhead)",
+    "Access to 400+ streaming sites and services",
+    "PPTP, L2TP & OpenVPN Support",
+    "5 Simultaneous VPN Connections",
+    "Unlimited Device Access"
+  ],
+  "supported_regions": ["US", "UK", "Global"],
+  "target_use_cases": [
+    "Streaming geo-restricted content",
+    "Access to Facebook, Twitter, YouTube, Vevo",
+    "PlayStation app access",
+    "Google services"
+  ],
+  "industry_tenure": "Since 1995 (according to marketing)",
+  "sources": [
+    {
+      "url": "https://www.smartdnsproxy.com/",
+      "title": "Smart DNS Proxy"
+    },
+    {
+      "url": "https://www.keepsolid.com/smartdns/",
+      "title": "KeepSolid SmartDNS"
+    },
+    {
+      "url": "https://www.crunchbase.com/organization/keepsolid",
+      "title": "KeepSolid - Crunchbase"
+    }
+  ],
+  "research_date": "2026-06-30"
+}

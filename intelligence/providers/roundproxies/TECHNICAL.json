@@ -1,0 +1,19 @@
+{
+  "provider": "RoundProxies",
+  "slug": "roundproxies",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "Datacenter"],
+  "pool_size": "180M+ residential",
+  "countries": "Globally",
+  "geo_targeting": ["Country", "City"],
+  "session_types": ["Rotating"],
+  "rotation": "Per request",
+  "sticky_sessions": "Available",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["180M+ IPs", "Wyoming-based", "Founded 2020"],
+  "sources": ["roundproxies.com"]
+}

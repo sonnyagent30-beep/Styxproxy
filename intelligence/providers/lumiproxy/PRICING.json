@@ -1,0 +1,22 @@
+{
+  "provider": "LumiProxy",
+  "slug": "lumiproxy",
+  "website": "https://lumiproxy.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "$0.75",
+      "unit": "per GB",
+      "notes": "Global coverage."
+    },
+    "datacenter_ipv4": {
+      "price": "$1.20",
+      "unit": "per IP per month",
+      "notes": "Datacenter IPv4 proxies."
+    }
+  },
+  "free_trial": "Not available",
+  "sources": ["https://lumiproxy.com/pricing"]
+}

@@ -1,0 +1,46 @@
+{
+  "provider": "proxymesh",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://trustpilot.com/review/proxymesh.net",
+  "refund_policy": {
+    "status": "NOT_FOUND",
+    "policy_text": "No public refund policy found. Trustpilot 2.8/5 with 8 reviews — below average.",
+    "money_back_days": null,
+    "conditions": ["unknown"],
+    "residential_refund": "unknown",
+    "isp_refund": "unknown"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found"
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "PARTIAL",
+    "methods": ["paypal"]
+  },
+  "support": {
+    "channels": ["email"],
+    "hours": "Not stated",
+    "response_time": "Trustpilot 2.8 indicates slow/poor support",
+    "status": "VERIFIED"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": false,
+    "commission_percent": null,
+    "payout_methods": null
+  },
+  "accepts_crypto": false,
+  "notes": "Trustpilot 2.8/5 — BELOW AVERAGE. Very limited information available. Small provider with low trust signals. Below-average reputation. AVOID."
+}

@@ -1,0 +1,15 @@
+{
+  "provider": "DataImpulse",
+  "slug": "dataimpulse",
+  "verified_date": "2026-06-30",
+  "sources": ["Trustpilot"],
+  "trustpilot": "3.7/5",
+  "trustpilot_reviews": "270",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Neutral — budget buyers",
+  "overall": "NEUTRAL",
+  "pros": ["Non-expiring traffic", "Affordable", "Simple model"],
+  "cons": ["Mixed reviews on quality", "Support slower"],
+  "flags": [],
+  "risk_level": "LOW"
+}

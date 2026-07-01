@@ -1,0 +1,14 @@
+{
+  "provider": "IPBurger",
+  "slug": "ipburger",
+  "verified_date": "2026-06-30",
+  "sources": ["ipburger.com"],
+  "trustpilot": "Not found",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Limited",
+  "overall": "NEUTRAL_UNKNOWN",
+  "pros": ["100M+ IPs", "2014 cities", "99.95% success rate"],
+  "cons": ["No Trustpilot", "Unknown HQ", "Opaque pricing"],
+  "flags": ["No independent verification"],
+  "risk_level": "MEDIUM"
+}

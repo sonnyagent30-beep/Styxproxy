@@ -1,0 +1,39 @@
+{
+  "provider": "lumiproxy",
+  "slug": "lumiproxy",
+  "website": "https://www.lumiproxy.com",
+  "last_updated": "2026-06-30",
+  "refund_policy": {
+    "status": "conditional",
+    "url": "https://www.lumiproxy.com/faq/20906/",
+    "policy_text": "Refunds offered to customers who cancel subscription within 14 days of original payment transaction",
+    "conditions": [
+      "New users only who purchase proxies through customer support",
+      "Cancel within 14 days of original payment transaction"
+    ],
+    "notes": "90M+ residential IPs across 195+ countries. ISO/IEC 27001:2022 certified."
+  },
+  "terms_of_service": {
+    "status": "not_found",
+    "notes": "No explicit Terms of Service page found."
+  },
+  "acceptable_use_policy": {
+    "status": "not_found",
+    "notes": "No explicit Acceptable Use Policy found."
+  },
+  "support": {
+    "notes": "FAQ section available. User guides for API extraction and authentication."
+  },
+  "data": {
+    "sources": [
+      {
+        "type": "web_search",
+        "query": "site:lumiproxy.com policy refund terms"
+      },
+      {
+        "type": "web_search",
+        "query": "Lumiproxy refund policy"
+      }
+    ]
+  }
+}

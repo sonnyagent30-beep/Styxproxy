@@ -1,0 +1,20 @@
+{
+  "provider": "IPEAK",
+  "slug": "ipeak",
+  "website": "https://www.ippeak.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "CONTACT_SALES",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "Contact sales",
+      "unit": "per GB",
+      "notes": "80M+ residential IPs. Market-competitive pricing."
+    }
+  },
+  "free_trial": "Contact sales",
+  "min_purchase": "Undisclosed",
+  "single_ip_available": false,
+  "billing": ["Monthly"],
+  "sources": ["https://www.ippeak.com"]
+}

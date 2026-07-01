@@ -1,0 +1,26 @@
+{
+  "provider": "oxylabs",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "CONTACT_SALES",
+    "policy_text": "Self-service customers can request refunds within 3 calendar days of first transaction. Must not exceed 20% usage for Regular plans or 10% for Enterprise plans. Pay as you go plans are non-refundable.",
+    "money_back_days": 3,
+    "conditions": [
+      "Within 3 calendar days of first transaction",
+      "Regular plans: max 20% usage",
+      "Enterprise plans: max 10% usage",
+      "Pay as you go: non-refundable"
+    ],
+    "residential_refund": "3-day refund with usage limits",
+    "isp_refund": "3-day refund with usage limits"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["email", "help_center", "documentation"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "AVOID - Scamalytics 62/100 (worst provider). Expensive ($8/GB). Trustpilot 3.5. Known for poor reputation."
+}

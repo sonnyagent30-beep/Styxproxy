@@ -1,0 +1,32 @@
+{
+  "provider": "dataimpulse",
+  "research_date": "2026-06-30",
+  "refund_policy": {
+    "status": "limited",
+    "description": "7-day refund policy applicable only to first-time purchase of 'Intro' plan.",
+    "details": "Refunds not applicable for payments made with cryptocurrency.",
+    "eligibility": {
+      "plan": "Intro plan only (first-time purchase)",
+      "time_window": "7 days",
+      "exclusion": "cryptocurrency payments"
+    },
+    "source": "https://dataimpulse.com/terms-of-services/"
+  },
+  "sla": {
+    "status": "not_confirmed",
+    "notes": "No explicit SLA terms found in public documentation."
+  },
+  "kyc": {
+    "status": "not_confirmed",
+    "notes": "No explicit KYC requirements found."
+  },
+  "payment_terms": {
+    "methods": ["Standard methods", "cryptocurrency (excluded from refunds)"],
+    "notes": "Non-expiring traffic - purchased GB never expire."
+  },
+  "support": {
+    "source": "https://dataimpulse.com"
+  },
+  "terms_url": "https://dataimpulse.com/terms-of-services/",
+  "privacy_url": null
+}

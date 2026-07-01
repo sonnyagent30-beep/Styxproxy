@@ -1,0 +1,33 @@
+{
+  "provider": "Decodo",
+  "slug": "decodo",
+  "website": "https://decodo.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "CONTACT_SALES",
+  "pricing_model": "Subscription + Pay-as-you-go",
+  "products": {
+    "residential_ipv4": {
+      "price": "$2.00",
+      "unit": "per GB",
+      "notes": "Starting price. Smartproxy rebranded to Decodo 2025."
+    },
+    "datacenter_ipv4": {
+      "price": "$10.00",
+      "unit": "per month",
+      "notes": "Datacenter proxies from $10/mo"
+    },
+    "isp_ipv4": {
+      "price": "Contact sales",
+      "unit": "N/A",
+      "notes": "No public pricing for dedicated ISP"
+    }
+  },
+  "free_trial": "3-day free trial",
+  "min_purchase": "Undisclosed",
+  "single_ip_available": false,
+  "billing": ["Monthly", "Annual"],
+  "sources": [
+    "https://decodo.com",
+    "https://decodo.com/pricing"
+  ]
+}

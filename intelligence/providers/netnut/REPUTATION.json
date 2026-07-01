@@ -1,0 +1,22 @@
+{
+  "slug": "netnut",
+  "provider_name": "NetNut",
+  "research_date": "2026-06-30",
+  "scamalytics": {
+    "fraud_score": 12,
+    "risk_level": "Low Risk",
+    "source": "toproxylab.com test of sample IP",
+    "url": "https://scamalytics.com/ip/68.101.149.219"
+  },
+  "trustpilot": {
+    "rating": 4.0,
+    "review_count": 190,
+    "url": "https://www.trustpilot.com/review/netnut.io"
+  },
+  "reddit": {
+    "sentiment": "Positive",
+    "notes": "Generally viewed as enterprise-grade, reliable proxy service with good support"
+  },
+  "overall_reputation": "Good",
+  "notes": "Israel-based company listed on NASDAQ (ALAR). Known for large residential pool (85M+) and 5M mobile proxies. Enterprise-focused with strong customer support."
+}

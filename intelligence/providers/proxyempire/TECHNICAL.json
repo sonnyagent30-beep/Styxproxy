@@ -1,0 +1,19 @@
+{
+  "provider": "ProxyEmpire",
+  "slug": "proxyempire",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "Mobile", "Datacenter"],
+  "pool_size": "30M+ residential",
+  "countries": "170+ countries",
+  "geo_targeting": ["Country", "City"],
+  "session_types": ["Rotating"],
+  "rotation": "Per request",
+  "sticky_sessions": "Available",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["30M+ IPs", "170+ countries"],
+  "sources": ["proxyempire.io"]
+}

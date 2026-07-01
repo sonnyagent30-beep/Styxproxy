@@ -1,0 +1,14 @@
+{
+  "provider": "NaProxy",
+  "slug": "naproxy",
+  "verified_date": "2026-06-30",
+  "sources": ["Various"],
+  "trustpilot": "Not found",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Mixed — scam-detector concerns flagged",
+  "overall": "NEGATIVE",
+  "pros": ["90M+ IPs", "200+ countries"],
+  "cons": ["Scam-detector concerns", "Hong Kong jurisdiction", "No Trustpilot"],
+  "flags": ["SCAM CONCERNS — HIGH RISK"],
+  "risk_level": "HIGH"
+}

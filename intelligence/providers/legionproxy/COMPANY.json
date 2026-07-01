@@ -1,0 +1,31 @@
+{
+  "slug": "legionproxy",
+  "name": "LegionProxy",
+  "website": "https://legionproxy.io/",
+  "description": "Commercial residential and ISP proxy network with global coverage for scraping, automation, and secure data collection",
+  "headquarters": "Not publicly disclosed",
+  "proxy_types": [
+    "Residential Proxies",
+    "ISP Proxies"
+  ],
+  "geo_coverage": "Global",
+  "features": [
+    "High-performance connections",
+    "Global coverage",
+    "Easy setup and management",
+    "User-friendly interface"
+  ],
+  "use_cases": [
+    "Web Scraping",
+    "Data Analysis",
+    "Automation"
+  ],
+  "pricing_starting": "$0.60/GB",
+  "target_market": "Individual and business users",
+  "reviews": {
+    "trustpilot": "Limited reviews (3 reviews noted)"
+  },
+  "data_sources": {
+    " Not publicly disclosed"
+  }
+}

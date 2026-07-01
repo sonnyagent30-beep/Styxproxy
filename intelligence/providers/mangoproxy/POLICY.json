@@ -1,0 +1,42 @@
+{
+  "provider": "mangoproxy",
+  "slug": "mangoproxy",
+  "website": "https://mangoproxy.com",
+  "last_updated": "2026-06-30",
+  "refund_policy": {
+    "status": "found",
+    "notes": "Has Refund Policy page mentioned. Referenced in Privacy Policy, Terms of Service page.",
+    "url": "https://mangoproxy.com/terms-of-service/"
+  },
+  "terms_of_service": {
+    "status": "found",
+    "url": "https://mangoproxy.com/terms-of-service/",
+    "effective_date": "2025-05-19",
+    "summary": "Users must be at least 18 years old. Prohibited uses include: sending spam or unsolicited content, hosting or distributing malware, illegal activities.",
+    "key_points": [
+      "Eligibility: Must be at least 18 years old and capable of forming binding contract",
+      "Acceptable Use: No spam, no malware, no illegal activities"
+    ]
+  },
+  "acceptable_use_policy": {
+    "status": "implied",
+    "notes": "Terms of Service includes acceptable use prohibitions."
+  },
+  "support": {
+    "email": "support@mangoproxy.com",
+    "hours": "08:00 - 20:00 (GMT+3)",
+    "notes": "99.9% uptime guarantee mentioned."
+  },
+  "data": {
+    "sources": [
+      {
+        "type": "web_search",
+        "query": "site:mangoproxy.com policy refund terms"
+      },
+      {
+        "type": "web_search",
+        "query": "MangoProxy Terms of Service"
+      }
+    ]
+  }
+}

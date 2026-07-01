@@ -1,0 +1,33 @@
+{
+  "provider": "ProxyRack",
+  "slug": "proxyrack",
+  "website": "https://proxyrack.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Thread-based (uncapped bandwidth)",
+  "products": {
+    "residential_rotating": {
+      "price": "$0.90",
+      "unit": "per GB (100GB from $110/mo)",
+      "notes": "Thread-based model. 100GB=$110 ($1.10/GB), 200GB=$180 ($0.90/GB), 500GB=$425 ($0.85/GB). Unlimited bandwidth on unmetered plans."
+    },
+    "residential_unmetered": {
+      "price": "$0.90-$3.00",
+      "unit": "per thread per month",
+      "notes": "Unmetered residential threads: 1000 threads=$1000/mo ($1/thread), 2000 threads=$2500/mo ($1.25/thread), 5000 threads=$4500/mo ($0.90/thread)"
+    },
+    "datacenter_rotating": {
+      "price": "$1.00-$1.50",
+      "unit": "per thread per month",
+      "notes": "100 threads=$150/mo ($1.50/thread), 250 threads=$280/mo ($1.12/thread), 500 threads=$480/mo ($0.96/thread)"
+    },
+    "mobile_ipv4": {
+      "price": "$0.60-$1.00",
+      "unit": "per GB",
+      "notes": "50GB=$50/mo ($1/GB), 150GB=$110/mo ($0.73/GB), 300GB=$170/mo ($0.57/GB)"
+    }
+  },
+  "free_trial": "7-day trial for $13.95",
+  "billing": ["Monthly"],
+  "sources": ["https://www.proxyrack.com/pricing-new/"]
+}

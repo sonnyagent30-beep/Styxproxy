@@ -1,0 +1,19 @@
+{
+  "provider": "IPBurger",
+  "slug": "ipburger",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "ISP"],
+  "pool_size": "100M+ residential",
+  "countries": "Globally (2,014 cities)",
+  "geo_targeting": ["Country", "City", "ISP"],
+  "session_types": ["Rotating", "Sticky"],
+  "rotation": "Per request or time-based",
+  "sticky_sessions": "Yes",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "99.95%",
+  "uptime": "99.95%",
+  "unique_features": ["100M+ IPs", "2,014 cities", "99.95% success rate"],
+  "sources": ["ipburger.com"]
+}

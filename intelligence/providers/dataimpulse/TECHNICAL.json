@@ -1,0 +1,70 @@
+{
+  "slug": "dataimpulse",
+  "technical_features": {
+    "proxy_types": {
+      "residential": {
+        "available": true,
+        "ip_pool": "90M+",
+        "countries": "195+",
+        "description": "Ethical rotating residential proxies"
+      },
+      "mobile": {
+        "available": true,
+        "description": "Mobile proxy network"
+      },
+      "datacenter": {
+        "available": true,
+        "description": "Datacenter proxy servers"
+      },
+      "premium_residential": {
+        "available": true,
+        "description": "Premium grade residential IPs"
+      }
+    },
+    "protocols": {
+      "http": true,
+      "https": true,
+      "socks5": true
+    },
+    "authentication": {
+      "user_pass": true,
+      "ip_whitelist": true,
+      "api_auth": true
+    },
+    "api": {
+      "browser_extension": true,
+      "api_access": true,
+      "custom_proxy_services": true
+    },
+    "session_control": {
+      "sticky_sessions": true,
+      "duration": "Up to 120 minutes",
+      "auto_rotation": true
+    },
+    "bandwidth": {
+      "no_expiry_traffic": true,
+      "pay_as_you_go": true,
+      "flexible_pricing": true
+    },
+    "infrastructure": {
+      "first_party_pool": true,
+      "ethical_sourcing": true,
+      "not_resold": true
+    }
+  },
+  "targeting": {
+    "geo_levels": ["country", "region", "city", "isp"],
+    "country_coverage": "195+"
+  },
+  "integration": {
+    "browser_extension": true,
+    "api_access": true,
+    "custom_services": true
+  },
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://dataimpulse.com/",
+    "https://dataimpulse.com/residential-proxies/",
+    "https://gist.github.com/ysvanmg/a8fb668ccb6142d2d8f571cd45c5e892"
+  ]
+}

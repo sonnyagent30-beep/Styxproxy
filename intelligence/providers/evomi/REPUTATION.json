@@ -1,0 +1,24 @@
+{
+  "provider": "evomi",
+  "scamalytics": {
+    "found": false,
+    "fraud_score": null,
+    "risk_level": null,
+    "notes": "No specific Scamalytics data found"
+  },
+  "trustpilot": {
+    "found": true,
+    "rating": 4.5,
+    "reviews": null,
+    "sentiment": "positive",
+    "notes": "4.5/5 stars on Trustpilot. Swiss-based provider with ethical proxy sourcing"
+  },
+  "reddit": {
+    "found": true,
+    "mentions": 2,
+    "sentiment": "positive",
+    "notes": "Positive reviews on Proxyway. Described as impressive newcomer. $0.49/GB residential pricing"
+  },
+  "overall_reputation": "positive",
+  "last_updated": "2026-06-30"
+}

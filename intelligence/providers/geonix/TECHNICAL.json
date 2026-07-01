@@ -1,0 +1,19 @@
+{
+  "provider": "Geonix",
+  "slug": "geonix",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "ISP", "Datacenter", "Mobile"],
+  "pool_size": "15M+ residential",
+  "countries": "210+ countries",
+  "geo_targeting": ["Country", "City", "ASN", "Carrier"],
+  "session_types": ["Rotating", "Sticky"],
+  "rotation": "Time-based or per request",
+  "sticky_sessions": "Yes",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["Pay-as-you-go", "Multiple proxy types", "210+ countries"],
+  "sources": ["geonix.com"]
+}

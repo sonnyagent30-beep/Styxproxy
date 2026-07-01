@@ -1,0 +1,46 @@
+{
+  "slug": "roundproxies",
+  "name": "RoundProxies",
+  "website": "https://roundproxies.com/",
+  "description": "Proxy service provider with over 180M+ residential and 3M datacenter IP proxies across 190+ countries. Offers residential, datacenter, ISP, and mobile proxies.",
+  "founding_year": 2020,
+  "headquarters": "Wyoming, USA",
+  "operator": "Roundlabs, LLC",
+  "company_type": "Private",
+  "locations": [
+    "190+ countries"
+  ],
+  "ip_count": {
+    "residential": "180M+",
+    "datacenter": "3M+"
+  },
+  "proxy_types": [
+    "Residential",
+    "Datacenter",
+    "ISP",
+    "Mobile"
+  ],
+  "key_features": [
+    "Unlimited concurrent sessions",
+    "Geo-targeting",
+    "Enterprise-style infrastructure",
+    "No enterprise contracts required"
+  ],
+  "target_users": [
+    "Scraping teams",
+    "SEO professionals",
+    "SERP researchers",
+    "Social account operators"
+  ],
+  "sources": [
+    {
+      "title": "RoundProxies - Crunchbase",
+      "url": "https://www.crunchbase.com/organization/roundproxies"
+    },
+    {
+      "title": "RoundProxies Review - ProxyLook",
+      "url": "https://proxylook.com/providers/roundproxies"
+    }
+  ],
+  "data_created": "2026-06-30"
+}

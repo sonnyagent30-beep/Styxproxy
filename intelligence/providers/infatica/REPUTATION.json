@@ -1,0 +1,30 @@
+{
+  "provider": "Infatica",
+  "slug": "infatica",
+  "website": "https://infatica.io",
+  "verified_date": "2026-06-30",
+  "sources": ["infatica.io", "Trustpilot"],
+  "trustpilot": "4.5/5",
+  "trustpilot_reviews": "~300",
+  "scamalytics_score": 0,
+  "scamalytics_flags": {
+    "anonymizing_vpn": "0%",
+    "tor_exit_node": "0%",
+    "server": "0%"
+  },
+  "reddit_sentiment": "Positive",
+  "overall": "POSITIVE",
+  "pros": [
+    "Scamalytics 0 — clean IPs",
+    "Singapore HQ — ethical sourcing",
+    "Enterprise-grade quality",
+    "Affordable pricing"
+  ],
+  "cons": [
+    "No ISP proxies",
+    "No mobile proxies",
+    "Limited product range"
+  ],
+  "flags": [],
+  "risk_level": "LOW"
+}

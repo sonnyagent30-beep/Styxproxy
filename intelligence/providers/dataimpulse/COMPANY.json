@@ -1,0 +1,51 @@
+{
+  "slug": "dataimpulse",
+  "name": "DataImpulse",
+  "website": "https://dataimpulse.com/",
+  "description": "Affordable ethical rotating proxy service with 90M+ residential IPs. Known for competitive pricing starting at $1/GB with pay-as-you-go model.",
+  "company_info": {
+    "founded": null,
+    "headquarters": null,
+    "company_type": "Proxy Service Provider",
+    "specialization": "Residential Proxies, Mobile Proxies, Datacenter Proxies",
+    "ip_sourcing": "First-party (not resold)"
+  },
+  "network": {
+    "ip_pool_size": "90M+",
+    "countries": "195+",
+    "session_length": "Up to 120 minutes",
+    "proxy_types": ["Residential", "Mobile", "Datacenter", "Premium Residential"]
+  },
+  "pricing": {
+    "residential": {
+      "starting": "$1/GB"
+    },
+    "model": "Pay-as-you-go (non-expiring traffic)",
+    "notes": "Most affordable residential proxy at $1/GB. Does not expire unused traffic."
+  },
+  "features": [
+    "90M+ residential IPs",
+    "195+ country coverage",
+    "Session lengths up to 120 minutes",
+    "First-party IP pool (ethically sourced)",
+    "Pay-as-you-go pricing",
+    "Non-expiring traffic",
+    "Browser extension",
+    "API access",
+    "Custom proxy services"
+  ],
+  "use_cases": [
+    "Web scraping",
+    "Ad verification",
+    "Data gathering",
+    "SEO monitoring",
+    "Market research"
+  ],
+  "sources": [
+    "https://dataimpulse.com/",
+    "https://dataimpulse.com/residential-proxies/",
+    "https://www.saasultra.com/dataimpulse-review/",
+    "https://bestproxyfinder.com/providers/dataimpulse-review/"
+  ],
+  "research_date": "2026-06-30"
+}

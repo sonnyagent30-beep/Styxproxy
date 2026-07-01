@@ -1,0 +1,46 @@
+{
+  "provider": "spaceproxy",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://www.trustpilot.com/review/spaceproxy.net",
+  "refund_policy": {
+    "status": "NOT_FOUND",
+    "policy_text": "Refund policy not found on public site.",
+    "money_back_days": null,
+    "conditions": ["unknown"],
+    "residential_refund": "unknown",
+    "isp_refund": "unknown"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found"
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "PARTIAL",
+    "methods": ["card", "paypal", "crypto"]
+  },
+  "support": {
+    "channels": ["email"],
+    "hours": "Not stated",
+    "response_time": "Not publicly stated",
+    "status": "NOT_FOUND"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": false,
+    "commission_percent": null,
+    "payout_methods": null
+  },
+  "accepts_crypto": true,
+  "notes": "⚠️ HIGH RISK — TRUSTPILOT FAKE REVIEWS FLAGGED. Trustpilot has flagged and removed suspicious reviews. DO NOT TRUST Trustpilot rating. No public refund policy found. AVOID."
+}

@@ -1,0 +1,26 @@
+{
+  "provider": "Proxy6",
+  "slug": "proxy6",
+  "website": "https://proxy6.net",
+  "verified_date": "2026-06-30",
+  "sources": ["Trustpilot", "scamadviser.com"],
+  "trustpilot": "1.5/5 ⚠️",
+  "trustpilot_reviews": "99",
+  "scamadviser": "65/100 — mixed trust signals",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Negative — blacklisted IPs, poor support",
+  "overall": "NEGATIVE",
+  "pros": [
+    "IPv4 + IPv6 available",
+    "Cheap IPv6 ($0.10/IP)",
+    "Single IP available"
+  ],
+  "cons": [
+    "⚠️ Trustpilot 1.5/5 — most users dissatisfied",
+    "Blacklisted IPs reported",
+    "Rude support team",
+    "Poor quality control"
+  ],
+  "flags": ["Trustpilot 1.5 — AVOID", "Blacklisted IPs"],
+  "risk_level": "HIGH"
+}

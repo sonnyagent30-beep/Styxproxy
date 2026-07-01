@@ -1,0 +1,20 @@
+{
+  "provider": "NaProxy",
+  "slug": "naproxy",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential"],
+  "pool_size": "90M+ residential",
+  "countries": "200+ countries",
+  "geo_targeting": ["Country", "City"],
+  "session_types": ["Rotating"],
+  "rotation": "Per request",
+  "sticky_sessions": "Limited",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["200+ countries", "Xinghan Network Technology (Hong Kong)"],
+  "sources": ["naproxy.com"],
+  "warning": "Scam-detector concerns flagged"
+}

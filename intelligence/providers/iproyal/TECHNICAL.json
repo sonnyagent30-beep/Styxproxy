@@ -1,0 +1,19 @@
+{
+  "provider": "IPRoyal",
+  "slug": "iproyal",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "ISP", "Datacenter", "Mobile"],
+  "pool_size": "500K+ residential (Glide UK pool dedicated)",
+  "countries": "Globe",
+  "geo_targeting": ["Country", "City (selected)"],
+  "session_types": ["Rotating", "Sticky (1-30 days)"],
+  "rotation": "Adjustable — per request or time-based",
+  "sticky_sessions": "Yes — up to 30 days",
+  "api": "REST API, proxy endpoints",
+  "auth_methods": ["Username/password", "IP whitelist"],
+  "sla": "99%",
+  "uptime": "99%",
+  "unique_features": ["Pawns app — earn while sharing bandwidth", "Glide UK broadband pool", "No contracts"],
+  "sources": ["iproyal.com"]
+}

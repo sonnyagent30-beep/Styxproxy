@@ -1,0 +1,25 @@
+{
+  "provider": "NodeMaven",
+  "slug": "nodemaven",
+  "website": "https://nodemaven.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription + Pay-as-you-go",
+  "products": {
+    "residential_ipv4": {
+      "price": "$2.20",
+      "unit": "per GB",
+      "notes": "Starting price for monthly plans. Residential proxies with AI-agent/anti-detect focus. Traffic rollover included. Cashback on unused bandwidth."
+    },
+    "mobile_ipv4": {
+      "price": "$2.20",
+      "unit": "per GB",
+      "notes": "Same pool as residential. All plans include both residential + mobile access."
+    }
+  },
+  "free_trial": "Contact sales",
+  "min_purchase": "Undisclosed",
+  "billing": ["Monthly", "Pay-as-you-go"],
+  "notes": ["Quality-first proxy specialist", "High success rate on protected targets", "4.6/5 Trustpilot rating"],
+  "sources": ["https://nodemaven.com/pricing/"]
+}

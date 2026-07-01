@@ -1,0 +1,35 @@
+{
+  "provider": "RoundProxies",
+  "slug": "roundproxies",
+  "website": "https://roundproxies.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_rotating": {
+      "price": "$3.50",
+      "unit": "per GB",
+      "notes": "Base price $3.50/GB. Volume discounts available. RP50 code gives 50% discount bringing effective price to $1.75/GB."
+    },
+    "datacenter_static": {
+      "price": "$0.30",
+      "unit": "per IP per month",
+      "notes": "Static datacenter IPs with unlimited traffic. Minimum 3 IPs. Dedicated from $2.25/IP/mo."
+    },
+    "datacenter_shared": {
+      "price": "$0.65",
+      "unit": "per GB",
+      "notes": "Shared datacenter bandwidth."
+    },
+    "isp_ipv4": {
+      "price": "$79.00",
+      "unit": "per month",
+      "notes": "Static residential IPs with datacenter-level speed. Starting price."
+    }
+  },
+  "free_trial": "Not available",
+  "min_purchase": "Undisclosed",
+  "billing": ["Monthly"],
+  "notes": ["US (Wyoming), founded 2020", "180M+ residential IPs", "Trustpilot 4.7", "Free IP replacement"],
+  "sources": ["https://roundproxies.com"]
+}

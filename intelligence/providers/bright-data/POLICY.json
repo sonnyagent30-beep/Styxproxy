@@ -1,0 +1,27 @@
+{
+  "provider": "bright-data",
+  "research_date": "2026-06-30",
+  "refund_policy": {
+    "status": "limited",
+    "description": "Known refund policy frustrations reported in customer reviews.",
+    "details": "Critical reviews mention frustration regarding company's refund policy.",
+    "source": "https://www.pcmag.com/reviews/bright-data"
+  },
+  "sla": {
+    "status": "not_confirmed",
+    "notes": "No explicit SLA terms published publicly. License Agreement governs service terms."
+  },
+  "kyc": {
+    "status": "enterprise_kyc",
+    "description": "Enterprise-level KYC likely required for business accounts."
+  },
+  "payment_terms": {
+    "methods": "Standard payment methods",
+    "notes": "Various proxy products available - residential, ISP, datacenter, mobile."
+  },
+  "support": {
+    "source": "https://brightdata.com"
+  },
+  "terms_url": "https://brightdata.com/license",
+  "privacy_url": null
+}

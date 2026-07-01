@@ -1,0 +1,56 @@
+{
+  "name": "Smartproxy (now Decodo)",
+  "slug": "smartproxy",
+  "website": "https://www.smartproxy.org",
+  "current_brand": "Decodo",
+  "current_brand_website": "https://decodo.com",
+  "description": "A residential proxy and web scraping provider offering 125M+ IPs. Rebranded to Decodo in 2025.",
+  "company_type": "proxy_provider",
+  "founded": 2018,
+  "headquarters": "Vilnius, Lithuania",
+  "legal_entity": "Decodo",
+  "company_size": "142 employees",
+  "rebrand_date": "2025",
+  "mission": "Create a user-friendly ecosystem to help users overcome geo-restrictions and anti-bot measures with proxies",
+  "leadership": [
+    {
+      "name": "Founding team",
+      "description": "Industry professionals and entrepreneurs"
+    }
+  ],
+  "products": [
+    "Residential Proxies",
+    "Datacenter Proxies",
+    "ISP Proxies",
+    "Mobile Proxies",
+    "eCommerce Scraping API",
+    "SERP Scraping API",
+    "Social Media Scraping API"
+  ],
+  "proxy_pool_size": "125M+ residential IPs (as Decodo)",
+  "performance": {
+    "response_time": "sub-2.5ms"
+  },
+  "coverage": "Global (nearly every country and major city)",
+  "key_features": [
+    "Intuitive dashboard",
+    "Premium quality at mid-range prices",
+    "Scraper APIs for various use cases"
+  ],
+  "target_customers": "Mid-size scraping operations",
+  "sources": [
+    {
+      "url": "https://www.smartproxy.org/",
+      "title": "SmartProxy"
+    },
+    {
+      "url": "https://decodo.com/smartproxy",
+      "title": "Smartproxy is Now Decodo"
+    },
+    {
+      "url": "https://synthient.com/context/provider/smartproxy",
+      "title": "Smartproxy: Proxy Provider Profile"
+    }
+  ],
+  "research_date": "2026-06-30"
+}

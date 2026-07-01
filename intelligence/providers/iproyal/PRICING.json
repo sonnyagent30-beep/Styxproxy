@@ -1,0 +1,38 @@
+{
+  "provider": "IPRoyal",
+  "slug": "iproyal",
+  "website": "https://iproyal.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription + Pay-as-you-go",
+  "products": {
+    "residential_rotating": {
+      "price": "$1.75",
+      "unit": "per GB",
+      "notes": "Non-expiring traffic"
+    },
+    "static_residential": {
+      "price": "$1.75",
+      "unit": "per GB"
+    },
+    "isp_ipv4": {
+      "price": "$1.80–$2.40",
+      "unit": "per proxy per month",
+      "notes": "$2.40 on 24-hour plan, $1.80 on 90-day plan"
+    },
+    "datacenter_ipv4": {
+      "price": "$1.39",
+      "unit": "per proxy per month",
+      "notes": "Shared datacenter proxies"
+    }
+  },
+  "free_trial": "Yes — via Pawns app (earn while sharing bandwidth)",
+  "min_purchase": "$5 minimum payment",
+  "single_ip_available": false,
+  "billing": ["Monthly", "Annual"],
+  "sources": [
+    "https://iproyal.com/pricing/",
+    "https://iproyal.com/pricing/isp-proxies/",
+    "https://use-apify.com/blog/iproyal-pricing-plans-2026"
+  ]
+}

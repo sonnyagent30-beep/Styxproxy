@@ -1,0 +1,46 @@
+{
+  "provider": "proxyon",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://proxyon.io/legal/terms-of-service",
+  "refund_policy": {
+    "status": "CONTACT_SALES",
+    "policy_text": "Terms of service published. Specific refund policy not found on public site. Contact support for refund requests.",
+    "money_back_days": null,
+    "conditions": ["contact support"],
+    "residential_refund": "contact support",
+    "isp_refund": "contact support"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found"
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "VERIFIED",
+    "methods": ["card", "paypal"]
+  },
+  "support": {
+    "channels": ["email", "ticket"],
+    "hours": "Not stated",
+    "response_time": "Not publicly stated",
+    "status": "NOT_FOUND"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": false,
+    "commission_percent": null,
+    "payout_methods": null
+  },
+  "accepts_crypto": false,
+  "notes": "Pay-as-you-go model (no subscription lock-in). $5 starting. 150+ countries. Newer provider (2025). ISP and mobile proxies available. Terms of service exist. Trustpilot 4.0."
+}

@@ -1,0 +1,24 @@
+{
+  "provider": "711proxy",
+  "scamalytics": {
+    "found": false,
+    "fraud_score": null,
+    "risk_level": null,
+    "notes": "No specific Scamalytics data found for this provider in search results"
+  },
+  "trustpilot": {
+    "found": false,
+    "rating": null,
+    "reviews": null,
+    "sentiment": null,
+    "notes": "No official Trustpilot page found. Third-party reviews show 3.5 stars on Proxy DB"
+  },
+  "reddit": {
+    "found": false,
+    "mentions": 0,
+    "sentiment": "neutral",
+    "notes": "No major Reddit discussions found. Provider mentioned in blog reviews as a legitimate service"
+  },
+  "overall_reputation": "neutral",
+  "last_updated": "2026-06-30"
+}

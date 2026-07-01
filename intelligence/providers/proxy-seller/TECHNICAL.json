@@ -1,0 +1,19 @@
+{
+  "provider": "Proxy-Seller",
+  "slug": "proxy-seller",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["ISP", "Datacenter", "Mobile"],
+  "pool_size": "500K+ clients",
+  "countries": "100+ countries",
+  "geo_targeting": ["Country", "City", "ASN"],
+  "session_types": ["Static (dedicated)"],
+  "rotation": "None — dedicated IPs",
+  "sticky_sessions": "Permanent until revoked",
+  "api": "REST API",
+  "auth_methods": ["Username/password", "IP whitelist"],
+  "sla": "99%",
+  "uptime": "99%",
+  "unique_features": ["IPv4 + IPv6 + MTProto", "Single IP purchase", "Instant delivery"],
+  "sources": ["proxy-seller.com"]
+}

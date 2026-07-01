@@ -1,0 +1,46 @@
+{
+  "provider": "proxyempire",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://proxyempire.io/docs/what-is-proxyempires-refund-policy/",
+  "refund_policy": {
+    "status": "VERIFIED",
+    "policy_text": "ALL PAYMENTS AND SUBSCRIPTIONS ARE STRICTLY NON-REFUNDABLE. The provider offers a $1.97 trial (100MB residential + 50MB mobile) to test before committing. No refund after purchase.",
+    "money_back_days": 0,
+    "conditions": ["NO refunds after purchase", "$1.97 trial to test first"],
+    "residential_refund": "STRICTLY NO REFUND after purchase",
+    "isp_refund": "STRICTLY NO REFUND after purchase"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found"
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "VERIFIED",
+    "methods": ["card", "paypal", "crypto"]
+  },
+  "support": {
+    "channels": ["email", "ticket"],
+    "hours": "Not stated",
+    "response_time": "Not publicly stated",
+    "status": "NOT_FOUND"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": false,
+    "commission_percent": null,
+    "payout_methods": null
+  },
+  "accepts_crypto": true,
+  "notes": "NON-REFUNDABLE POLICY is major business risk for resellers. If Bunche buys and can't resell, losses are absorbed entirely. AVOID as primary. $1.97 trial is interesting for testing quality. No Trustpilot found."
+}

@@ -1,0 +1,25 @@
+{
+  "provider": "SpaceProxy",
+  "slug": "spaceproxy",
+  "website": "https://spaceproxy.net",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "datacenter_ipv4": {
+      "price": "$1.50",
+      "unit": "per IP per month",
+      "notes": "IPv4 datacenter proxies. 167K+ clients. Russia-based."
+    },
+    "datacenter_ipv6": {
+      "price": "$0.50",
+      "unit": "per IP per month",
+      "notes": "IPv6 proxies from $0.50/IP/mo"
+    }
+  },
+  "free_trial": "Not available",
+  "min_purchase": "1 IP",
+  "single_ip_available": true,
+  "billing": ["Monthly"],
+  "sources": ["https://spaceproxy.net"]
+}

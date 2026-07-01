@@ -1,0 +1,45 @@
+{
+  "slug": "proxyon",
+  "name": "ProxyOn",
+  "website": "https://proxyon.io/",
+  "description": "Reliable proxy provider offering clean, rotating proxies with 150+ countries. Pay-as-you-go residential, datacenter, ISP, and mobile proxies.",
+  "founding_year": 2025,
+  "headquarters": "United States",
+  "locations": [
+    "France (datacenters)",
+    "United States (datacenters)",
+    "Canada (datacenters)",
+    "195+ global locations (residential)"
+  ],
+  "company_type": "Private",
+  "employees": "Unknown",
+  "funding_status": "Bootstrapped",
+  "proxy_types": [
+    "Residential",
+    "Datacenter",
+    "ISP",
+    "Mobile",
+    "IPv6"
+  ],
+  "pricing": {
+    "residential": "$1.75/GB",
+    "datacenter": "$1.50/IP"
+  },
+  "key_features": [
+    "Pay-as-you-go pricing",
+    "No subscriptions required",
+    "City-level targeting",
+    "150+ countries"
+  ],
+  "sources": [
+    {
+      "title": "ProxyOn - TrustMRR",
+      "url": "https://trustmrr.com/startup/proxyon"
+    },
+    {
+      "title": "ProxyOn LinkedIn",
+      "url": "https://www.linkedin.com/company/proxyonio"
+    }
+  ],
+  "data_created": "2026-06-30"
+}

@@ -1,0 +1,20 @@
+{
+  "provider": "OkeyProxy",
+  "slug": "okeyproxy",
+  "website": "https://www.okeyproxy.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "$0.75",
+      "unit": "per GB",
+      "notes": "150M+ rotating residential proxies. Malaysia-based, founded 2016."
+    }
+  },
+  "free_trial": "Not available",
+  "min_purchase": "Undisclosed",
+  "single_ip_available": false,
+  "billing": ["Monthly"],
+  "sources": ["https://www.okeyproxy.com"]
+}

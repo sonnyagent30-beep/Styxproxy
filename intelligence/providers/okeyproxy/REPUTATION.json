@@ -1,0 +1,21 @@
+{
+  "slug": "okeyproxy",
+  "provider_name": "OkeyProxy",
+  "research_date": "2026-06-30",
+  "scamalytics": {
+    "fraud_score": null,
+    "risk_level": "No specific Scamalytics data found"
+  },
+  "trustpilot": {
+    "rating": 4.6,
+    "review_count": null,
+    "url": "https://www.trustpilot.com/review/www.okeyproxy.com",
+    "descriptor": "Excellent"
+  },
+  "reddit": {
+    "sentiment": "Neutral",
+    "notes": "Limited Reddit presence"
+  },
+  "overall_reputation": "Good",
+  "notes": "Provides rotating and static residential proxies, datacenter proxies, and 150M+ SOCKS5 proxy IPs. Rated highly on Trustpilot."
+}

@@ -1,0 +1,142 @@
+[
+  {
+    "name": "Bright Data",
+    "website": "https://brightdata.com",
+    "type": "ISP/Static Residential",
+    "countries": "Global (1,300,000+ IPs)",
+    "source_url": "https://brightdata.com/proxy-types/isp-proxies"
+  },
+  {
+    "name": "Oxylabs",
+    "website": "https://oxylabs.io",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://oxylabs.io/products/dedicated-isp-proxies"
+  },
+  {
+    "name": "NetNut",
+    "website": "https://netnut.io",
+    "type": "ISP Proxies",
+    "countries": "Global",
+    "source_url": "https://netnut.io/isp-proxies/"
+  },
+  {
+    "name": "IPRoyal",
+    "website": "https://iproyal.com",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://iproyal.com/other-proxies/dedicated-residential-isp-proxies/"
+  },
+  {
+    "name": "Decodo (formerly Smartproxy)",
+    "website": "https://decodo.com",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://decodo.com/proxies/static-residential-proxies"
+  },
+  {
+    "name": "Webshare",
+    "website": "https://www.webshare.io",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://www.webshare.io/"
+  },
+  {
+    "name": "IPBurger",
+    "website": "https://www.ipburger.com",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://www.ipburger.com/"
+  },
+  {
+    "name": "711Proxy",
+    "website": "https://www.711proxy.com",
+    "type": "ISP/Static Residential",
+    "countries": "200+ countries",
+    "source_url": "https://www.711proxy.com/"
+  },
+  {
+    "name": "ProxyEmpire",
+    "website": "https://proxyempire.io",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://proxyempire.io/static-residential-proxies/"
+  },
+  {
+    "name": "NaProxy",
+    "website": "https://www.naproxy.com",
+    "type": "ISP/Static Residential",
+    "countries": "Global (90M+ IPs)",
+    "source_url": "https://www.naproxy.com/"
+  },
+  {
+    "name": "ABCproxy",
+    "website": "https://www.abcproxy.com",
+    "type": "ISP/Static Residential",
+    "countries": "200+ countries",
+    "source_url": "https://www.abcproxy.com/"
+  },
+  {
+    "name": "NodeMaven",
+    "website": "https://nodemaven.com",
+    "type": "ISP Proxies",
+    "countries": "Global",
+    "source_url": "https://nodemaven.com/blog/best-isp-proxy-providers/"
+  },
+  {
+    "name": "Rayobyte",
+    "website": "https://rayobyte.com",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://whoerip.com/blog/best-isp-static-residential-providers/"
+  },
+  {
+    "name": "LumiProxy",
+    "website": "https://www.lumiproxy.com",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://www.lumiproxy.com/"
+  },
+  {
+    "name": "OkeyProxy",
+    "website": "https://www.okeyproxy.com",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://www.okeyproxy.com/en"
+  },
+  {
+    "name": "DataImpulse",
+    "website": "https://dataimpulse.com",
+    "type": "ISP/Static Residential",
+    "countries": "195+ countries",
+    "source_url": "https://dataimpulse.com/"
+  },
+  {
+    "name": "IPFoxy",
+    "website": "https://www.ipfoxy.com",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://www.ipfoxy.com/"
+  },
+  {
+    "name": "FloppyData",
+    "website": "https://floppydata.com",
+    "type": "ISP/Static Residential",
+    "countries": "195+ countries",
+    "source_url": "https://floppydata.com/"
+  },
+  {
+    "name": "LegionProxy",
+    "website": "https://legionproxy.io",
+    "type": "ISP/Static Residential",
+    "countries": "Global",
+    "source_url": "https://legionproxy.io/"
+  },
+  {
+    "name": "ProxyLite",
+    "website": "https://www.proxylite.com",
+    "type": "ISP/Static Residential",
+    "countries": "Global (70M+ IPs)",
+    "source_url": "https://www.proxylite.com"
+  }
+]

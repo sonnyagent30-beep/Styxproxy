@@ -1,0 +1,33 @@
+{
+  "provider": "SOAX",
+  "slug": "soax",
+  "website": "https://soax.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription (traffic-based)",
+  "products": {
+    "residential_ipv4": {
+      "price": "$90.00",
+      "unit": "per month (25 GB included)",
+      "notes": "$3.60/GB effective. Starter plan available."
+    },
+    "mobile_ipv4": {
+      "price": "$99.00",
+      "unit": "per month",
+      "notes": "Mobile proxies. Includes 15 GB."
+    },
+    "isp_ipv4": {
+      "price": "$40.00",
+      "unit": "per month (starter)",
+      "notes": "ISP proxies. City/ASN targeting available."
+    }
+  },
+  "free_trial": "Not publicly available — contact sales",
+  "min_purchase": "25 GB residential plan ($90/mo)",
+  "single_ip_available": false,
+  "billing": ["Monthly", "Annual"],
+  "sources": [
+    "https://soax.com/pricing",
+    "https://cybernews.com/best-proxy/soax-proxy-review/"
+  ]
+}

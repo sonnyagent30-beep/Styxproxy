@@ -1,0 +1,43 @@
+{
+  "slug": "proxys-io",
+  "name": "Proxys.io",
+  "website": "https://www.proxys.io/",
+  "description": "Proxy provider offering mobile, residential, server, IPv4, and IPv6 proxies across 88 countries. Operated by 2Captcha.",
+  "founding_year": 2016,
+  "headquarters": "London, United Kingdom",
+  "registered_company": "ONLINE CONNECT LTD",
+  "companies_house_number": "15419378",
+  "locations": [
+    "88 countries"
+  ],
+  "company_type": "Private",
+  "parent_company": "2Captcha",
+  "funding_status": "Unfunded",
+  "proxy_types": [
+    "Mobile",
+    "Residential",
+    "Datacenter",
+    "IPv4",
+    "IPv6"
+  ],
+  "pricing": {
+    "starting": "$0.13/GB"
+  },
+  "key_features": [
+    "88 geolocations",
+    "Private proxy servers",
+    "Secure and anonymous",
+    "All proxy types available"
+  ],
+  "sources": [
+    {
+      "title": "Proxys.io - ProxyLook",
+      "url": "https://proxylook.com/providers/proxys-io"
+    },
+    {
+      "title": "Proxys.io Review - BestProxyFinder",
+      "url": "https://bestproxyfinder.com/providers/proxys-review/"
+    }
+  ],
+  "data_created": "2026-06-30"
+}

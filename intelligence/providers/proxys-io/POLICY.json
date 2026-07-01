@@ -1,0 +1,24 @@
+{
+  "provider": "proxys-io",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "CONTACT_SALES",
+    "policy_text": "24-hour money-back guarantee. Customers can return proxies within 24 hours of purchase if unsuitable. Proxies used and no longer resalable are non-refundable.",
+    "money_back_days": 1,
+    "conditions": [
+      "Within 24 hours of payment",
+      "Proxies must not have been used"
+    ],
+    "residential_refund": "24-hour money-back guarantee",
+    "isp_refund": "24-hour money-back guarantee"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["dashboard"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "Small provider. Contact sales for enterprise plans."
+}

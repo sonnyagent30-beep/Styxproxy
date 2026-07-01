@@ -1,0 +1,21 @@
+{
+  "provider": "legionproxy",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "CONTACT_SALES",
+    "policy_text": "No explicit refund policy found on website. Contact sales for custom arrangements.",
+    "money_back_days": null,
+    "conditions": [],
+    "residential_refund": "Contact sales",
+    "isp_refund": "Contact sales"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["telegram"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "4.5M+ residential IPs across 195+ countries. Trustpilot 4.0. Commercial residential and ISP proxy network."
+}

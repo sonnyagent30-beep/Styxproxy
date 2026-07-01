@@ -1,0 +1,28 @@
+{
+  "provider": "711proxy",
+  "research_date": "2026-06-30",
+  "refund_policy": {
+    "status": "no_refunds",
+    "description": "No refunds offered. Services are intangible and non-revocable.",
+    "details": "Once payment is submitted, customer is responsible for all charges. Smallest package available for testing.",
+    "source": "https://docs.711proxy.com/faq/payments-and-accounts/can-i-apply-for-a-refund"
+  },
+  "sla": {
+    "status": "mentioned_in_sla",
+    "description": "Service quality complies with conditions stipulated in Service Level Agreement (SLA).",
+    "source": "https://www.711proxy.com/policy/RefundPolicy"
+  },
+  "kyc": {
+    "status": "not_confirmed",
+    "notes": "No explicit KYC requirements found in public documentation."
+  },
+  "payment_terms": {
+    "methods": "Standard payment methods (not specified)",
+    "notes": "Testing via smallest package recommended before larger purchases."
+  },
+  "support": {
+    "source": "https://docs.711proxy.com"
+  },
+  "terms_url": null,
+  "privacy_url": null
+}

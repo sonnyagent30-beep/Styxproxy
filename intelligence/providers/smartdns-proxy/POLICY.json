@@ -1,0 +1,26 @@
+{
+  "provider": "smartdns-proxy",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "CONTACT_SALES",
+    "policy_text": "30-day money-back guarantee for new customers. Full refund if canceled within 30 calendar days of first payment. Renewed subscriptions and Bitcoin payments are non-refundable.",
+    "money_back_days": 30,
+    "conditions": [
+      "New customers only",
+      "Within 30 calendar days of first payment",
+      "Must request via support team",
+      "Bitcoin/Altcoin payments non-refundable"
+    ],
+    "residential_refund": "30-day money-back guarantee",
+    "isp_refund": "30-day money-back guarantee"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["support_team"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "Unot Ventures, privacy VPN-style service. SNI proxy technology for streaming."
+}

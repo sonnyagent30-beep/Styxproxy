@@ -1,0 +1,31 @@
+{
+  "slug": "smartproxy",
+  "last_updated": "2026-06-30",
+  "trustpilot": {
+    "rating": "4.6-4.7",
+    "reviews_count": "36",
+    "source": "Trustpilot",
+    "notes": "Now operates as Decodo. Formerly Smartproxy, rebranded in 2025"
+  },
+  "scamalytics": {
+    "status": "Not applicable - this is a proxy provider, not a target for fraud checks",
+    "note": "Proxy providers themselves are not scored on Scamalytics"
+  },
+  "reddit": {
+    "sentiment": "Mixed to positive",
+    "key_themes": [
+      "Generally seen as legitimate and secure",
+      "Well-regarded for performance, ease of use, competitive pricing",
+      "Some sneaker-focused users advise against - recommend Cookie, Zenu, Leaf",
+      "Good for general web scraping and multi-accounting"
+    ],
+    "sources": "r/shoebots, r/proxies"
+  },
+  "general_reputation": {
+    "status": "Positive - established industry player",
+    "established": "2018",
+    "products": "Residential proxies, datacenter pool, scraping APIs",
+    "note": "Now Decodo - ranks 4th on G2 with 4.7/5 rating"
+  },
+  "risk_assessment": "LOW"
+}

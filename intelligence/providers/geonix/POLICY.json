@@ -1,0 +1,46 @@
+{
+  "provider": "geonix",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://geonix.io/ (general research)",
+  "refund_policy": {
+    "status": "CONTACT_SALES",
+    "policy_text": "No public refund policy found on geonix.io. Contact support directly for refund requests.",
+    "money_back_days": null,
+    "conditions": ["contact support"],
+    "residential_refund": "contact support",
+    "isp_refund": "contact support"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found"
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "VERIFIED",
+    "methods": ["card", "paypal", "crypto"]
+  },
+  "support": {
+    "channels": ["email", "ticket"],
+    "hours": "Not publicly stated",
+    "response_time": "Not publicly stated",
+    "status": "VERIFIED"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": false,
+    "commission_percent": null,
+    "payout_methods": null
+  },
+  "accepts_crypto": true,
+  "notes": "Best DC prices verified: €0.90/IP/mo datacenter, €2.00/IP/mo ISP. Multiple DC locations (US, DE, NL, UK, FR, CH). Cheapest verified DC provider. No refund policy public = risk for resellers. Trustpilot 4.0. USE WITH CAUTION for reselling — no public refund = hard to recover costs if IPs are bad."
+}

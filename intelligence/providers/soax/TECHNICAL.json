@@ -1,0 +1,19 @@
+{
+  "provider": "SOAX",
+  "slug": "soax",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "Mobile", "ISP", "Datacenter"],
+  "pool_size": "191M+ IPs",
+  "countries": "195+ countries",
+  "geo_targeting": ["Country", "Region", "City", "ASN", "Carrier", "ZIP"],
+  "session_types": ["Rotating", "Sticky"],
+  "rotation": "Per request, time-based, or manual",
+  "sticky_sessions": "Yes — up to 30 days",
+  "api": "REST API, Proxy Checker tool",
+  "auth_methods": ["Username/password", "IP whitelist"],
+  "sla": "99.9%",
+  "uptime": "99.9%",
+  "unique_features": ["Series A funded (UK)", "City/ASN targeting", "SERP API", "Proxy checker tool"],
+  "sources": ["soax.com"]
+}

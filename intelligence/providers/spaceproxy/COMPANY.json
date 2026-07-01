@@ -1,0 +1,51 @@
+{
+  "name": "SpaceProxy",
+  "slug": "spaceproxy",
+  "website": "https://spaceproxy.net",
+  "description": "A Russian datacenter proxy provider selling IPv4 and IPv6 addresses, primarily targeting SEO specialists, social media marketers, and developers.",
+  "company_type": "datacenter_proxy_provider",
+  "target_regions": "Russia, United States, Europe, CIS countries",
+  "products": [
+    "IPv4 Proxies",
+    "IPv6 Proxies",
+    "Shared Proxies",
+    "Private Proxies"
+  ],
+  "coverage": "100+ countries",
+  "pricing_model": "Rental from 5 days",
+  "key_features": [
+    "Flexible minimum rental period",
+    "High-quality dedicated servers",
+    "24/7 technical support",
+    "Quick activation",
+    "Guarantee"
+  ],
+  "statistics": {
+    "clients": "167,000+",
+    "repeat_orders": "91%"
+  },
+  "target_customers": [
+    "SEO specialists",
+    "Social media marketers",
+    "Arbitrage professionals",
+    "Developers"
+  ],
+  "alternative_domains": [
+    "space-proxy.info"
+  ],
+  "sources": [
+    {
+      "url": "https://spaceproxy.net/en/",
+      "title": "SpaceProxy"
+    },
+    {
+      "url": "https://rating-proxy.org/spaceproxy-net/",
+      "title": "spaceproxy.net Review 2026"
+    },
+    {
+      "url": "https://caproxy.com/en/list/spaceproxy/",
+      "title": "Spaceproxy Review 2026"
+    }
+  ],
+  "research_date": "2026-06-30"
+}

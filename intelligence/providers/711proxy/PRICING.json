@@ -1,0 +1,20 @@
+{
+  "provider": "711Proxy",
+  "slug": "711proxy",
+  "website": "https://www.711proxy.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "$0.55",
+      "unit": "per GB",
+      "notes": "Rotating residential. 200+ countries. $99/mo for 180GB."
+    }
+  },
+  "free_trial": "Not available",
+  "min_purchase": "Undisclosed",
+  "single_ip_available": false,
+  "billing": ["Monthly"],
+  "sources": ["https://www.711proxy.com"]
+}

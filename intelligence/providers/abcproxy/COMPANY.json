@@ -1,0 +1,50 @@
+{
+  "slug": "abcproxy",
+  "name": "ABCproxy",
+  "website": "https://www.abcproxy.com/",
+  "description": "World-leading provider of residential, ISP, and SOCKS5 proxies. Features 350M+ ethically sourced residential IPs across 200+ countries.",
+  "company_info": {
+    "founded": "2018",
+    "headquarters": null,
+    "company_type": "Proxy Service Provider",
+    "specialization": "Residential Proxies, ISP Proxies, Datacenter Proxies, Mobile Proxies, SOCKS5 Proxies"
+  },
+  "network": {
+    "ip_pool_size": "350M+",
+    "countries": "200+",
+    "regions": "50+",
+    "proxy_types": ["Residential", "ISP", "Datacenter", "Mobile", "SOCKS5", "Static Residential"],
+    "targeting": ["Country", "City", "Postcode", "ISP"]
+  },
+  "pricing": {
+    "model": "Subscription + Pay-per-GB",
+    "plans": [
+      {
+        "name": "Unlimited Residential Proxies",
+        "description": "Covers 50+ regions worldwide"
+      }
+    ],
+    "notes": "Flexible pricing plans catering to different usage levels"
+  },
+  "features": [
+    "350M+ residential IPs",
+    "200+ countries and regions",
+    "City, postcode, and ISP targeting",
+    "Unlimited traffic plans available",
+    "SERP API available",
+    "Since 2018 - Trusted by thousands of businesses"
+  ],
+  "use_cases": [
+    "Automation",
+    "Data scraping",
+    "Account management",
+    "SERP tracking",
+    "Market research"
+  ],
+  "sources": [
+    "https://www.abcproxy.com/",
+    "https://abc-proxy.com/",
+    "https://www.abcproxy.com/pricing/serp-api.html"
+  ],
+  "research_date": "2026-06-30"
+}

@@ -1,0 +1,19 @@
+{
+  "provider": "V-Proxies",
+  "slug": "v-proxies",
+  "website": "https://v-proxies.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Pay-as-you-go (bandwidth-based)",
+  "products": {
+    "residential_rotating": {
+      "price": "$0.99",
+      "unit": "per GB",
+      "notes": "Starting price. Rotating residential proxies, 196+ countries, 99.97% uptime, instant delivery, SOCKS5/HTTP(S) support, unlimited concurrency. Volume discounts available."
+    }
+  },
+  "free_trial": "1 GB free trial",
+  "billing": ["Pay-as-you-go"],
+  "notes": ["Cheapest verified residential proxy in this survey", "Global coverage 196+ countries", "No subscription required"],
+  "sources": ["https://v-proxies.com/pricing"]
+}

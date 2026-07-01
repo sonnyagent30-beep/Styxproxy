@@ -1,0 +1,27 @@
+{
+  "slug": "proxys-io",
+  "last_updated": "2026-06-30",
+  "trustpilot": {
+    "rating": "Mixed",
+    "reviews_count": "211+",
+    "trust_score": "79/100",
+    "source": "Trustpilot, ScamAdviser",
+    "notes": "Mixed reviews - some positive about consistency, some negative about constant problems"
+  },
+  "scamalytics": {
+    "trust_score": "79/100",
+    "assessment": "Mostly positive signals with some caution points",
+    "domain_age": "9.8 years"
+  },
+  "reddit": {
+    "sentiment": "Mixed",
+    "positive": "Consistent, no sudden drops during long sessions; simple, stable",
+    "negative": "Terrible service, constant problems with proxy work"
+  },
+  "general_reputation": {
+    "status": "Mixed - exercise caution",
+    "established": "Several years",
+    "note": "Proxys.io has never let some users down - inexpensive, fast, quality"
+  },
+  "risk_assessment": "MEDIUM"
+}

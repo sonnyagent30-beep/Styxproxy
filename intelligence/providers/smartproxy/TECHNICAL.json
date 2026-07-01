@@ -1,0 +1,20 @@
+{
+  "provider": "Smartproxy",
+  "slug": "smartproxy",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "Mobile", "ISP", "Datacenter"],
+  "pool_size": "125M+ (now Decodo)",
+  "countries": "Globally",
+  "geo_targeting": ["Country", "City", "ASN"],
+  "session_types": ["Rotating", "Sticky"],
+  "rotation": "Per request or sticky",
+  "sticky_sessions": "Yes",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "99.5%",
+  "uptime": "99.5%",
+  "unique_features": ["REBRANDED TO DECODO April 2025", "Founded 2018 Lithuania"],
+  "sources": ["smartproxy.com (now decodo.com)"],
+  "warning": "Smartproxy is now Decodo"
+}

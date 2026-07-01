@@ -1,0 +1,21 @@
+{
+  "provider": "superproxy",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "NOT_FOUND",
+    "policy_text": "Could not locate official website or documentation. No refund or policy information found.",
+    "money_back_days": null,
+    "conditions": [],
+    "residential_refund": "No refund policy found",
+    "isp_refund": "No refund policy found"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": [], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "INACTIVE/DEFUNCT - Believed inactive or defunct. Could not locate official website. Remove from active list."
+}

@@ -1,0 +1,24 @@
+{
+  "provider": "evomi",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "VERIFIED",
+    "policy_text": "Refund available if unsatisfied with service and have utilized less than 10% of allotted data or maximum of 2GB. Within 7 days from date of purchase. Free trials available for individual users.",
+    "money_back_days": 7,
+    "conditions": [
+      "Less than 10% data usage or maximum 2GB",
+      "Within 7 days from purchase date"
+    ],
+    "residential_refund": "7-day money-back guarantee for residential proxies",
+    "isp_refund": "7-day money-back guarantee for ISP proxies"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "VERIFIED", "methods": ["credit_card", "paypal", "crypto"] },
+  "support": { "channels": ["email", "website"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "Swiss provider (TeraShift GmbH, Zug). Trustpilot 4.3. Founded 2019. Residential + datacenter proxies."
+}

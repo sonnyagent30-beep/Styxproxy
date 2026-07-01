@@ -1,0 +1,72 @@
+{
+  "slug": "floppydata",
+  "technical_features": {
+    "proxy_types": {
+      "residential": {
+        "available": true,
+        "countries": "195+",
+        "description": "Premium residential proxies"
+      },
+      "mobile": {
+        "available": true,
+        "carrier_targeting": true,
+        "description": "Mobile proxy network with authentic mobile IPs"
+      },
+      "datacenter": {
+        "available": true,
+        "description": "Datacenter proxy servers"
+      }
+    },
+    "protocols": {
+      "http": true,
+      "https": true,
+      "socks5": true
+    },
+    "authentication": {
+      "user_pass": true,
+      "ip_whitelist": true,
+      "api_auth": true
+    },
+    "api": {
+      "dashboard": true,
+      "instant_access": true
+    },
+    "session_control": {
+      "rotating_sessions": true,
+      "sticky_sessions": true,
+      "duration": "1-60 minutes"
+    },
+    "bandwidth": {
+      "high_speed": true,
+      "uptime_guarantee": "99.99%",
+      "transparent_pricing": true,
+      "no_contracts": true
+    },
+    "infrastructure": {
+      "headquarters": "Dubai, UAE (Digital Park)",
+      "legal_entity": "FLOPPYDATA-FZCO",
+      "founded": "2024"
+    }
+  },
+  "targeting": {
+    "geo_levels": ["country", "city", "asn", "carrier"],
+    "country_coverage": "195+"
+  },
+  "specialized_proxies": {
+    "brand_protection": true,
+    "market_research": true,
+    "price_monitoring": true,
+    "seo": true
+  },
+  "integration": {
+    "user_friendly_dashboard": true,
+    "instant_access": true,
+    "monthly_annual_plans": true
+  },
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://floppydata.com/",
+    "https://floppydata.com/pricing/",
+    "https://floppydata.com/about-floppydata/"
+  ]
+}

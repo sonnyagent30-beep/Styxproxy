@@ -1,0 +1,24 @@
+{
+  "provider": "floppydata",
+  "scamalytics": {
+    "found": false,
+    "fraud_score": null,
+    "risk_level": null,
+    "notes": "No specific Scamalytics data found"
+  },
+  "trustpilot": {
+    "found": true,
+    "rating": 4.0,
+    "reviews": null,
+    "sentiment": "positive",
+    "notes": "4.0/5 stars average Trustpilot rating. 65M+ IPs worldwide. Positive reviews for speed and pricing"
+  },
+  "reddit": {
+    "found": true,
+    "mentions": 1,
+    "sentiment": "neutral",
+    "notes": "Not commonly discussed in Reddit proxy communities. One source noted limited discussion in active Reddit proxy communities"
+  },
+  "overall_reputation": "positive",
+  "last_updated": "2026-06-30"
+}
