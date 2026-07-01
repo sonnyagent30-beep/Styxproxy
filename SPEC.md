@@ -179,6 +179,23 @@ URL: `bunche.ng/manage` or `bunche.ng/order/<tx_ref>`
 
 ---
 
+## Admin Dashboard
+
+All admin operations move from Telegram to a dedicated web dashboard at `admin.bunche.ng`.
+
+**Telegram is no longer used for admin commands.** All admin staff log in via web only.
+
+| Role | What they can do |
+|---|---|
+| **Admin** | View orders, issue refunds, process ban claims, view own credentials, view own audit actions |
+| **SuperAdmin** | Everything Admin + create/delete admins, view all audit logs, view provider costs, change system settings |
+
+**Login:** email + password + TOTP (6-digit code from authenticator app)
+
+**All actions logged** to `admin_commands_log` — immutable, no DELETE allowed.
+
+---
+
 ## What Stays the Same
 
 - Flutterwave for all payments
@@ -286,10 +303,11 @@ Implications for the build:
 1. **Backend API** — Flutterwave webhook → IP generation → instant_orders table
 2. **Instant website** — product pages → Flutterwave Checkout → thank-you page with IP
 3. **Management portal** — bunche.ng/manage
-4. **Telegram bot** — full ordering + support
-5. **WhatsApp bot** — full ordering + support
-6. **Free trial** — Telegram + WhatsApp (after bots are working)
-7. **Account linking** — optional (for customers who want unified history)
+4. **Admin dashboard** — admin.bunche.ng (SuperAdmin + Admin roles)
+5. **Telegram bot** — full ordering + support (via n8n)
+6. **WhatsApp bot** — full ordering + support (via n8n)
+7. **Free trial** — Telegram + WhatsApp (after bots are working)
+8. **Account linking** — optional (for customers who want unified history)
 
 ---
 

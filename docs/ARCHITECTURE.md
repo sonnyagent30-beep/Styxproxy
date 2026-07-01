@@ -105,6 +105,25 @@
 
 **Base URL:** `https://api.bunche.ng`
 
+**CRITICAL: n8n is NOT in the Instant (website) path.**
+
+The website talks ONLY to the backend API. n8n is completely out of the path for website orders.
+
+```
+WEBSITE ORDER PATH (Instant):
+Flutterwave → webhook to backend API → IP generated → DB updated
+                         ↑
+                         │
+                   Website polls /order/:tx_ref → shows IP
+                   (no n8n involved at all)
+
+n8n IS involved ONLY in:
+- Telegram chat orders (Telegram → n8n → backend)
+- WhatsApp chat orders (WhatsApp → n8n → backend)
+- Admin alert notifications (backend → n8n → admin Telegram/WhatsApp)
+- Theorem Reach postbacks (Theorem Reach → backend → n8n records survey)
+```
+
 **Endpoints:**
 
 | Method | Path | Purpose |
@@ -122,10 +141,9 @@
 - Flutterwave webhook: HMAC verification
 - Telegram webhook: bot token verification
 - WhatsApp webhook: verify token
-- All endpoints: rate limiting (express-rate-limit)
-- CORS: restricted to bunche.ng domain
-
----
+- All endpoints: rate limiting (SlowAPI)
+- CORS: restricted to bunche.ng + admin.bunche.ng domains
+- Pydantic validation on all request bodies
 
 ### 3. PostgreSQL Database
 
@@ -267,48 +285,48 @@ WhatsApp Cloud API → POST https://api.bunche.ng/webhook/whatsapp
 ```
 1. Customer selects product on bunche.ng
    → POST /invoice/create { product, country }
-   
-2. Backend creates instant_orders record (status=pending)
-   → Calls Flutterwave Rave API → creates invoice
-   → Returns Flutterwave payment URL
+   (backend API creates record, calls Flutterwave → returns payment link)
 
-3. Customer redirected to Flutterwave Checkout
+2. Customer redirected to Flutterwave Checkout
    → Pays with card/bank/ussd
    → Flutterwave redirects to /thank-you?tx_ref=TXF-xxx
 
-4. Flutterwave sends webhook to /webhook/flutterwave
+3. Flutterwave sends webhook to /webhook/flutterwave
    → HMAC verify ✓
    → Idempotency check ✓
    → Mark instant_orders.status = 'paid'
-   → Call Proxy-Seller API → generate IP
+   → Call Proxy-Seller API → generate IP (async background task)
    → Update instant_orders: ip, port, username, status='fulfilled'
-   → Send email (if provided) with credentials
 
-5. Customer's /thank-you page polls GET /order/:tx_ref
+4. Customer's /thank-you page polls GET /order/:tx_ref
    → Returns { status, ip, port, username, password }
-   → Page displays credentials
+   → Page displays credentials immediately
+
+n8n is NOT involved in this flow.
 ```
 
 ### Chat Order Flow (Telegram/WhatsApp)
 
 ```
 1. Customer messages bot: "I want ISP UK"
-   → Telegram/WhatsApp webhook → n8n
+   → Telegram/WhatsApp webhook → n8n workflow
 
 2. n8n workflow:
    → Check if existing customer
+   → POST /invoice/create { product } via backend API
    → Generate Flutterwave payment link
    → Send link in chat
 
 3. Customer pays via Flutterwave link
-   → Flutterwave webhook → n8n workflow payment-confirmation
+   → Flutterwave webhook → backend API (n8n NOT in path)
 
-4. n8n workflow:
-   → Generate IP via Proxy-Seller
-   → Store in bunche_credentials + orders
+4. n8n workflow receives order update via polling or trigger:
+   → Generate IP via backend API
    → Send credentials in chat
    → Capture name + offer PIN
    → Fulfill order
+
+n8n orchestrates the chat flow. Backend API handles payment and IP generation.
 ```
 
 ### Free Trial Flow
@@ -320,13 +338,14 @@ WhatsApp Cloud API → POST https://api.bunche.ng/webhook/whatsapp
 2. Customer completes survey on Theorem Reach
    → Theorem Reach postback → /webhook/theorem-reach
    → Backend records in pending_trial_surveys
+   → n8n workflow notified of new postback
 
 3. Customer says "done" (12 surveys max)
    → n8n workflow:
      → Count surveys in pending_trial_surveys
      → Calculate time: surveys × 2hr (max 24hr)
-     → Generate trial credentials
-     → Call manage-3proxy-trial.sh add
+     → POST /trial/create via backend API
+     → Backend calls manage-3proxy-trial.sh add
      → Send credentials in chat
      → Create free_trials record
 
