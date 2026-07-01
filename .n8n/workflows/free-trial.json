@@ -1,5 +1,6 @@
 {
-  "name": "Free Trial",
+  "name": "Free Trial Handler (WhatsApp)",
+  "tags": ["bunche", "free-trial", "whatsapp", "3proxy"],
   "nodes": [
     {
       "parameters": {
@@ -8,367 +9,364 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "ft-trigger",
+      "id": "ft-wh-trigger",
       "name": "Free Trial WhatsApp Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [0, 300],
-      "webhookId": "free-trial-webhook"
+      "position": [250, 300],
+      "webhookId": "free-trial"
     },
     {
       "parameters": {
-        "functionCode": "// Extract message and normalize\nconst message = ($input.item.json.body?.message?.text || '').toLowerCase().trim();\nconst phone = $input.item.json.body?.from || '';\n\n// Keywords that trigger free trial flow\nconst trialKeywords = ['free trial', 'free plan', 'trial', 'try free'];\nconst doneKeywords = ['done', 'completed', 'done!', 'finished'];\n\nconst isTrialRequest = trialKeywords.some(k => message.includes(k));\nconst isDoneReply = doneKeywords.includes(message);\n\nreturn {\n  json: {\n    phone,\n    message,\n    is_trial_request: isTrialRequest,\n    is_done_reply: isDoneReply\n  }\n};"
+        "jsCode": "// Extract message and normalize for WhatsApp\nconst body = $input.item.json.body || {};\nconst message = (body.message?.text || '').toLowerCase().trim();\nconst phone = body.from || '';\n\n// Keywords\nconst trialKeywords = ['free trial', 'free plan', 'trial', 'try free'];\nconst doneKeywords = ['done', 'completed', 'done!', 'finished'];\n\nconst isTrialRequest = trialKeywords.some(k => message.includes(k));\nconst isDoneReply = doneKeywords.includes(message);\n\nreturn {\n  json: {\n    phone,\n    message,\n    is_trial_request: isTrialRequest,\n    is_done_reply: isDoneReply\n  }\n};"
       },
       "id": "ft-parse",
       "name": "Parse Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [200, 300]
+      "position": [470, 300]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose"},
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
             {
-              "id": "trial-request",
+              "id": "cond-trial-req",
               "leftValue": "={{$json.is_trial_request}}",
               "rightValue": true,
-              "operator": {"type": "boolean", "operation": "true"}
+              "operator": { "type": "boolean", "operation": "true" }
             }
           ]
-        }
+        },
+        "options": {}
       },
       "id": "ft-if-trial",
       "name": "If Trial Request",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [400, 300]
+      "position": [690, 200]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": false, "leftValue": "", "typeValidation": "loose"},
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
           "conditions": [
             {
-              "id": "done-reply",
+              "id": "cond-done-reply",
               "leftValue": "={{$json.is_done_reply}}",
               "rightValue": true,
-              "operator": {"type": "boolean", "operation": "true"}
+              "operator": { "type": "boolean", "operation": "true" }
             }
           ]
-        }
+        },
+        "options": {}
       },
       "id": "ft-if-done",
       "name": "If DONE Reply",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [400, 500]
+      "position": [690, 420]
     },
     {
       "parameters": {
-        "functionCode": "// Send Part C Disclaimer + Survey Link\nconst surveyLink = process.env.THEOREM_REACH_SURVEY_URL || 'https://theoremreach.com/survey/XXXXX';\n\nconst message = `🎁 FREE TRIAL — DISCLAIMER\\n\\nBefore we send your free IP, please read:\\n\\n━━━━━━━━━━━━━━━━━━\\n⚠️ FREE TRIAL TERMS ⚠️\\n━━━━━━━━━━━━━━━━━━\\n\\nThis free trial uses a Bunche-hosted proxy\\nshared with other trial users. By accepting, you agree:\\n\\n❌ NOT for production/critical use\\n❌ Not guaranteed private (shared with other trials)\\n❌ IP shared = if one user misbehaves, IP could get flagged\\n❌ No replacement if proxy dies or expires\\n❌ Used entirely at YOUR OWN RISK\\n\\n✅ Bunche-hosted proxy — generally reliable\\n✅ Auto-expires after 2 hours\\n✅ For testing our service only\\n✅ Upgrade to paid plan for reliability + privacy\\n\\n━━━━━━━━━━━━━━━━━━\\n\\nComplete ONE survey to unlock your IP:\\n\\n${surveyLink}\\n\\nAfter completing, reply DONE`;\n\nreturn { json: { message } };"
+        "command": "SELECT COUNT(*) AS survey_count FROM pending_trial_surveys WHERE platform_user_id = '{{$json.phone}}' AND platform = 'whatsapp' AND credited = FALSE;",
+        "options": {}
       },
-      "id": "ft-disclaimer",
-      "name": "Generate Disclaimer Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [600, 200]
-    },
-    {
-      "parameters": {
-        "message": "={{$json.message}}",
-        "extraOptions": {}
-      },
-      "id": "ft-send-disclaimer",
-      "name": "Send Disclaimer + Survey Link",
-      "type": "n8n-nodes-base.whatsApp",
-      "typeVersion": 1,
-      "position": [800, 200]
-    },
-    {
-      "parameters": {
-        "command": "SELECT COUNT(*) AS trials_today FROM free_trials WHERE phone_hash = md5('{{$json.phone}}') AND created_at >= CURRENT_DATE AND status IN ('active', 'expired');"
-      },
-      "id": "ft-check-daily",
-      "name": "Check Daily Limit (Customer)",
+      "id": "ft-count",
+      "name": "Count Pending Surveys",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2,
-      "position": [600, 500]
+      "typeVersion": 1,
+      "position": [1130, 420],
+      "credentials": { "postgres": { "id": "1", "name": "PostgreSQL" } }
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"caseSensitive": false},
+          "options": { "caseSensitive": false },
           "conditions": [
             {
-              "id": "limit-not-hit",
-              "leftValue": "={{$json.trials_today}}",
-              "rightValue": 3,
-              "operator": {"type": "number", "operation": "lt"}
+              "id": "cond-has-surveys",
+              "leftValue": "={{ $json.survey_count }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
             }
           ]
-        }
+        },
+        "options": {}
       },
-      "id": "ft-if-limit-ok",
-      "name": "If Daily Limit OK",
+      "id": "ft-if-has-surveys",
+      "name": "If Has Surveys",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [800, 500]
+      "position": [1350, 300]
     },
     {
       "parameters": {
-        "functionCode": "// Generate unique user_id: trial_ + 8 hex chars\nconst crypto = require('crypto');\n\nconst userId = 'trial_' + crypto.randomBytes(4).toString('hex');\nconst password = crypto.randomBytes(8).toString('base64').replace(/[+/=]/g, '').substring(0, 16);\n\n// Get next available port from 8001-8100\n// For now, use a simple increment - in production, query active trials\nconst port = 8001 + Math.floor(Math.random() * 99); // Random port in range\n\n// Compute 2-hour expiry\nconst expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);\nconst expiresStr = expiresAt.toLocaleString('en-GB', { \n  hour: '2-digit', minute: '2-digit' });\n\nreturn {\n  json: {\n    user_id: userId,\n    password: password,\n    port: port,\n    expires_at: expiresAt.toISOString(),\n    expires_display: expiresStr,\n    trials_today: $input.item.json.trials_today || 0\n  }\n};"
+        "jsCode": "// No surveys yet\nconst message = `You no complete any survey yet.\\n\\nTo get your free proxy:\\n1. Click the survey link I sent earlier\\n2. Complete the survey\\n3. Come back and tell me \"done\"\\n\\nYou fit do as many surveys as you want — each one give you 2 more hours!\\nCome back when you don complete at least one survey. 👋`;\n\nreturn { json: { message } };"
+      },
+      "id": "ft-no-surveys",
+      "name": "Generate No Surveys Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 550]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate hours\nconst surveyCountRaw = $input.item.json.survey_count;\nconst surveyCount = parseInt(surveyCountRaw, 10);\nconst MAX_SURVEYS = 12;\nconst HOURS_PER_SURVEY = 2;\n\nconst cappedCount = Math.min(surveyCount, MAX_SURVEYS);\nconst totalHours = cappedCount * HOURS_PER_SURVEY;\nconst hitCap = surveyCount >= MAX_SURVEYS;\n\nreturn {\n  json: {\n    survey_count: surveyCount,\n    total_hours: totalHours,\n    hit_cap: hitCap,\n    port: 8001 + Math.floor(Math.random() * 99)\n  }\n};"
+      },
+      "id": "ft-calc",
+      "name": "Calculate Hours + Cap",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1570, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "id": "cond-slot-ok",
+              "leftValue": "={{$json.port}}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ft-if-slot-ok",
+      "name": "If Slot Available",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1790, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate credentials\nconst crypto = require('crypto');\n\nconst phone = $('Parse Message').first().json.phone;\nconst totalHours = parseInt($input.item.json.total_hours);\nconst port = parseInt($input.item.json.port);\n\nconst userId = 'trial_' + crypto.randomBytes(4).toString('hex');\nconst password = crypto.randomBytes(8).toString('base64').replace(/[+/=]/g, '').substring(0, 16);\n\nconst expiresAt = new Date(Date.now() + totalHours * 60 * 60 * 1000).toISOString();\nconst expiresDisplay = new Date(Date.now() + totalHours * 60 * 60 * 1000)\n  .toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' });\n\nreturn {\n  json: {\n    phone,\n    user_id: userId,\n    password,\n    port,\n    expires_at: expiresAt,\n    expires_display: expiresDisplay,\n    total_hours: totalHours,\n    survey_count: Math.floor(totalHours / 2)\n  }\n};"
       },
       "id": "ft-gen-creds",
       "name": "Generate Trial Credentials",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, 450]
+      "position": [2010, 200]
     },
     {
       "parameters": {
         "command": "/usr/local/bin/manage-3proxy-trial.sh add {{$json.user_id}} '{{$json.password}}' {{$json.port}}",
         "options": {}
       },
-      "id": "ft-add-3proxy",
-      "name": "Add 3proxy User (Shell)",
+      "id": "ft-3proxy-add",
+      "name": "Add 3proxy User",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [1200, 450]
+      "position": [2230, 200]
     },
     {
       "parameters": {
-        "operation": "insert",
-        "schema": "public",
-        "table": "free_trials",
-        "columns": "order_id,phone_hash,user_id,password_hash,proxy_ip,proxy_port,expires_at,status,survey_provider,survey_completed_at",
-        "additionalFields": "{}",
+        "command": "UPDATE pending_trial_surveys SET credited = TRUE WHERE platform_user_id = '{{ $('Parse Message').first().json.phone }}' AND platform = 'whatsapp' AND credited = FALSE;",
         "options": {}
       },
-      "id": "ft-insert-trial",
-      "name": "Insert Free Trial Record",
+      "id": "ft-mark-credited",
+      "name": "Mark Surveys Credited",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2,
-      "position": [1400, 450]
+      "typeVersion": 1,
+      "position": [2450, 200],
+      "credentials": { "postgres": { "id": "1", "name": "PostgreSQL" } }
     },
     {
       "parameters": {
-        "functionCode": "// Generate success message with credentials\nconst creds = $input.item.json;\nconst proxyIp = process.env.VPS_PUBLIC_IP || 'bunche.ng';\n\nconst message = `✅ Survey verified! Trial ready.\\n\\n━━━━━━━━━━━━━━━━━━\\n🌐 BUNCHE TRIAL PROXY — 2 HOURS\\n━━━━━━━━━━━━━━━━━━\\n\\n🔗 IP: ${proxyIp}\\n🔌 Port: ${creds.port}\\n👤 User: ${creds.user_id}\\n🔑 Pass: ${creds.password}\\n\\n⏰ Expires: ${creds.expires_display}\\n\\n⚠️ Shared proxy — other trial users share this IP.\\nFor private/production use, upgrade to a paid plan.\\n\\n🛡️ You've used ${creds.trials_today + 1}/3 free trials today.\\n\\n💡 Want reliable private proxies? Reply menu to see paid plans.`;\n\nreturn { json: { message } };"
+        "jsCode": "// Compose success message\nconst c = $input.item.json;\nconst totalHours = parseInt(c.total_hours);\nconst remaining = Math.max(0, 12 - parseInt(c.survey_count));\nconst hitCap = parseInt(c.survey_count) >= 12;\n\nlet hoursLine = `${totalHours} hours`;\nif (hitCap) hoursLine = '24 hours (maximum!)';\n\nconst message = `Survey verified! Trial ready.\\n\\n━━━━━━━━━━━━━━━━━━\\n🌐 BUNCHE TRIAL PROXY\\n━━━━━━━━━━━━━━━━━━\\n\\n🔗 IP: proxy.bunche.ng\\n🔌 Port: ${c.port}\\n👤 User: ${c.user_id}\\n🔑 Pass: ${c.password}\\n\\n⏰ Expires: ${c.expires_display}\\n\\n⚠️ Shared proxy — other trial users share this IP.\\nFor private/production use, upgrade to a paid plan.\\n\\n🛡️ You have used ${c.survey_count}/12 surveys.\\n\\n💡 Want more time? You can do up to ${remaining} more surveys!\\nJust come back and tell me \"done\" again. 😊`;\n\nreturn { json: { message, phone: c.phone } };"
       },
-      "id": "ft-success-msg",
+      "id": "ft-gen-success",
       "name": "Generate Success Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1600, 450]
+      "position": [2670, 200]
     },
     {
       "parameters": {
         "message": "={{$json.message}}",
-        "extraOptions": {}
+        "options": {}
       },
       "id": "ft-send-creds",
       "name": "Send Credentials via WhatsApp",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [1800, 450]
+      "position": [2890, 200],
+      "credentials": { "whatsAppApi": { "id": "3", "name": "WhatsApp Cloud API" } }
     },
     {
       "parameters": {
-        "functionCode": "// Daily limit hit message\nconst trialsToday = $input.item.json.trials_today || 3;\n\nconst message = `🛡️ Daily limit reached — you've used 3/3 free trials today.\\n\\nCome back tomorrow, or skip the wait with a paid plan:\\n• ISP UK/US: ₦6,500/mo (private, reliable)\\n• Residential 5GB: ₦5,000 (data never expires)\\n• Mobile 5GB: ₦20,000 (4G)\\n\\nReply menu to order, or wait until tomorrow for another free trial.`;\n\nreturn { json: { message, trials_today: trialsToday } };"
-      },
-      "id": "ft-limit-msg",
-      "name": "Generate Daily Limit Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1000, 650]
-    },
-    {
-      "parameters": {
-        "message": "={{$json.message}}",
-        "extraOptions": {}
-      },
-      "id": "ft-send-limit",
-      "name": "Send Daily Limit Message",
-      "type": "n8n-nodes-base.whatsApp",
-      "typeVersion": 1,
-      "position": [1200, 650]
-    },
-    {
-      "parameters": {
-        "functionCode": "// Slots busy message\nconst trialsToday = $input.item.json.trials_today || 0;\n\nconst message = `⚠️ All trial slots busy right now.\\n\\nWe'll ping you the moment one opens up (usually within 30 minutes).\\n\\n🛡️ You've used ${trialsToday}/3 free trials today.\\n\\n💡 Want reliable proxies now? Reply menu.`;\n\nreturn { json: { message } };"
+        "jsCode": "// Busy message\nconst message = `⚠️ All trial slots busy right now.\\n\\nWe will ping you the moment one opens up (usually within 30 minutes).\\n\\n💡 Want reliable proxies now? Reply menu.`;\n\nreturn { json: { message } };"
       },
       "id": "ft-busy-msg",
       "name": "Generate Busy Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1000, 850]
+      "position": [2010, 420]
     },
     {
       "parameters": {
         "message": "={{$json.message}}",
-        "extraOptions": {}
+        "options": {}
       },
       "id": "ft-send-busy",
       "name": "Send Busy Message",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [1200, 850]
+      "position": [2230, 420],
+      "credentials": { "whatsAppApi": { "id": "3", "name": "WhatsApp Cloud API" } }
     },
     {
       "parameters": {
-        "command": "SELECT COUNT(*) AS active_trials FROM free_trials WHERE status = 'active' AND expires_at > NOW();"
+        "jsCode": "// Disclaimer + survey link\nconst surveyLink = process.env.THEOREM_REACH_SURVEY_URL || 'https://theoremreach.com/survey/XXXXX';\n\nconst message = `🎁 FREE TRIAL — DISCLAIMER\\n\\nBefore we send your free IP, please read:\\n\\n━━━━━━━━━━━━━━━━━━\\n⚠️ FREE TRIAL TERMS ⚠️\\n━━━━━━━━━━━━━━━━━━\\n\\nThis free trial uses a Bunche-hosted proxy\\nshared with other trial users. By accepting, you agree:\\n\\n❌ NOT for production/critical use\\n❌ Not guaranteed private (shared with other trials)\\n❌ IP shared = if one user misbehaves, IP could get flagged\\n❌ No replacement if proxy dies or expires\\n❌ Used entirely at YOUR OWN RISK\\n\\n✅ Bunche-hosted proxy — generally reliable\\n✅ Auto-expires based on how many surveys you complete\\n✅ For testing our service only\\n✅ Upgrade to paid plan for reliability + privacy\\n\\n━━━━━━━━━━━━━━━━━━\\n\\nHow e go work:\\n1. Complete surveys to earn proxy time\\n2. Each survey = 2 hours of proxy access\\n3. Do up to 12 surveys = up to 24 hours free!\\n4. When you ready, tell me \"done\" and I go send your proxy details\\n\\nComplete ONE survey to start:\\n${surveyLink}\\n\\nAfter completing, come back and tell me \"done\"\\nYou fit do more surveys to get more time! 👇`;\n\nreturn { json: { message } };"
       },
-      "id": "ft-check-slots",
-      "name": "Check Active Trial Slots",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2,
-      "position": [800, 700]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {"caseSensitive": false},
-          "conditions": [
-            {
-              "id": "slots-available",
-              "leftValue": "={{$json.active_trials}}",
-              "rightValue": 100,
-              "operator": {"type": "number", "operation": "lt"}
-            }
-          ]
-        }
-      },
-      "id": "ft-if-slots-avail",
-      "name": "If Slots Available",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [1000, 700]
-    },
-    {
-      "parameters": {
-        "functionCode": "// Fallback: check if this is a DONE reply without postback\n// Show waiting message\nconst message = `⏳ We're still waiting for survey confirmation...\\n\\nPlease complete the survey and wait for the confirmation ping, then reply DONE.\\n\\nNeed help? Reply support.`;\n\nreturn { json: { message } };"
-      },
-      "id": "ft-waiting-msg",
-      "name": "Generate Waiting Message",
+      "id": "ft-gen-disc",
+      "name": "Generate Disclaimer Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [600, 850]
+      "position": [910, 200]
     },
     {
       "parameters": {
         "message": "={{$json.message}}",
-        "extraOptions": {}
+        "options": {}
       },
-      "id": "ft-send-waiting",
-      "name": "Send Waiting Message",
+      "id": "ft-send-disc",
+      "name": "Send Disclaimer + Survey Link",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [800, 850]
+      "position": [1130, 200],
+      "credentials": { "whatsAppApi": { "id": "3", "name": "WhatsApp Cloud API" } }
+    },
+    {
+      "parameters": {
+        "message": "={{$json.message}}",
+        "options": {}
+      },
+      "id": "ft-send-no-surveys",
+      "name": "Send No Surveys Message",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [1570, 550],
+      "credentials": { "whatsAppApi": { "id": "3", "name": "WhatsApp Cloud API" } }
     },
     {
       "parameters": {
         "respondWith": "json",
         "responseBody": "{\"status\":\"ok\"}",
-        "options": {"responseCode": 200}
+        "options": { "responseCode": 200 }
       },
-      "id": "ft-respond-ok",
+      "id": "ft-respond-200",
       "name": "Respond 200 OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [2000, 300]
+      "position": [3110, 300]
     }
   ],
   "connections": {
     "Free Trial WhatsApp Trigger": {
-      "main": [[{"node": "Parse Message", "type": "main", "index": 0}]]
+      "main": [
+        [{ "node": "Parse Message", "type": "main", "index": 0 }]
+      ]
     },
     "Parse Message": {
       "main": [
-        [{"node": "If Trial Request", "type": "main", "index": 0}],
-        [{"node": "If DONE Reply", "type": "main", "index": 1}]
+        [{ "node": "If Trial Request", "type": "main", "index": 0 }],
+        [{ "node": "If DONE Reply", "type": "main", "index": 0 }]
       ]
     },
     "If Trial Request": {
       "main": [
-        [{"node": "Generate Disclaimer Message", "type": "main", "index": 0}],
-        []
+        [{ "node": "Generate Disclaimer Message", "type": "main", "index": 0 }]
       ]
     },
     "If DONE Reply": {
       "main": [
-        [{"node": "Check Daily Limit (Customer)", "type": "main", "index": 0}],
-        [{"node": "Generate Waiting Message", "type": "main", "index": 1}]
+        [{ "node": "Count Pending Surveys", "type": "main", "index": 0 }]
       ]
     },
-    "Generate Disclaimer Message": {
-      "main": [[{"node": "Send Disclaimer + Survey Link", "type": "main", "index": 0}]]
-    },
-    "Send Disclaimer + Survey Link": {
-      "main": [[{"node": "Respond 200 OK", "type": "main", "index": 0}]]
-    },
-    "Check Daily Limit (Customer)": {
-      "main": [[{"node": "If Daily Limit OK", "type": "main", "index": 0}]]
-    },
-    "If Daily Limit OK": {
+    "Count Pending Surveys": {
       "main": [
-        [{"node": "Check Active Trial Slots", "type": "main", "index": 0}],
-        [{"node": "Generate Daily Limit Message", "type": "main", "index": 1}]
+        [{ "node": "If Has Surveys", "type": "main", "index": 0 }]
       ]
     },
-    "Check Active Trial Slots": {
-      "main": [[{"node": "If Slots Available", "type": "main", "index": 0}]]
-    },
-    "If Slots Available": {
+    "If Has Surveys": {
       "main": [
-        [{"node": "Generate Trial Credentials", "type": "main", "index": 0}],
-        [{"node": "Generate Busy Message", "type": "main", "index": 1}]
+        [{ "node": "Calculate Hours + Cap", "type": "main", "index": 0 }],
+        [{ "node": "Generate No Surveys Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate No Surveys Message": {
+      "main": [
+        [{ "node": "Send No Surveys Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send No Surveys Message": {
+      "main": [
+        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
+      ]
+    },
+    "Calculate Hours + Cap": {
+      "main": [
+        [{ "node": "If Slot Available", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Slot Available": {
+      "main": [
+        [{ "node": "Generate Trial Credentials", "type": "main", "index": 0 }],
+        [{ "node": "Generate Busy Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate Busy Message": {
+      "main": [
+        [{ "node": "Send Busy Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Busy Message": {
+      "main": [
+        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
       ]
     },
     "Generate Trial Credentials": {
-      "main": [[{"node": "Add 3proxy User (Shell)", "type": "main", "index": 0}]]
+      "main": [
+        [{ "node": "Add 3proxy User", "type": "main", "index": 0 }]
+      ]
     },
-    "Add 3proxy User (Shell)": {
-      "main": [[{"node": "Insert Free Trial Record", "type": "main", "index": 0}]]
+    "Add 3proxy User": {
+      "main": [
+        [{ "node": "Mark Surveys Credited", "type": "main", "index": 0 }]
+      ]
     },
-    "Insert Free Trial Record": {
-      "main": [[{"node": "Generate Success Message", "type": "main", "index": 0}]]
+    "Mark Surveys Credited": {
+      "main": [
+        [{ "node": "Generate Success Message", "type": "main", "index": 0 }]
+      ]
     },
     "Generate Success Message": {
-      "main": [[{"node": "Send Credentials via WhatsApp", "type": "main", "index": 0}]]
+      "main": [
+        [{ "node": "Send Credentials via WhatsApp", "type": "main", "index": 0 }]
+      ]
     },
     "Send Credentials via WhatsApp": {
-      "main": [[{"node": "Respond 200 OK", "type": "main", "index": 0}]]
+      "main": [
+        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
+      ]
     },
-    "Generate Daily Limit Message": {
-      "main": [[{"node": "Send Daily Limit Message", "type": "main", "index": 0}]]
+    "Generate Disclaimer Message": {
+      "main": [
+        [{ "node": "Send Disclaimer + Survey Link", "type": "main", "index": 0 }]
+      ]
     },
-    "Send Daily Limit Message": {
-      "main": [[{"node": "Respond 200 OK", "type": "main", "index": 0}]]
-    },
-    "Generate Busy Message": {
-      "main": [[{"node": "Send Busy Message", "type": "main", "index": 0}]]
-    },
-    "Send Busy Message": {
-      "main": [[{"node": "Respond 200 OK", "type": "main", "index": 0}]]
-    },
-    "Generate Waiting Message": {
-      "main": [[{"node": "Send Waiting Message", "type": "main", "index": 0}]]
-    },
-    "Send Waiting Message": {
-      "main": [[{"node": "Respond 200 OK", "type": "main", "index": 0}]]
+    "Send Disclaimer + Survey Link": {
+      "main": [
+        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
+      ]
     }
   },
   "settings": {
-    "executionOrder": "v1",
-    "saveManualExecutions": true,
-    "timezone": "Africa/Lagos"
-  },
-  "staticData": null,
-  "tags": ["bunche", "free-trial", "whatsapp", "3proxy"],
-  "active": false,
-  "id": "free-trial",
-  "meta": {
-    "templateCredsSetupCompleted": false
+    "executionOrder": "v1"
   }
 }
