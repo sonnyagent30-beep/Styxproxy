@@ -53,18 +53,33 @@ Customer gets order ID for tracking
 ```
 Customer → Messages "I want free trial"
     ↓
-System sends disclaimer + terms
+System sends disclaimer + terms + Theorem Reach survey link
     ↓
-Customer confirms use case
+Customer completes survey 1 → Theorem Reach sends postback → system records survey_1 completed (2hr earned)
+Customer completes survey 2 → Theorem Reach sends postback → system records survey_2 completed (4hr total)
+Customer completes survey 3 → Theorem Reach sends postback → system records survey_3 completed (6hr total)
+... customer continues at their own pace, up to 12 surveys max ...
+Customer → Messages "I'm done" or "done"
     ↓
-System checks daily limit (2 per customer/day)
+System checks: how many surveys did this customer complete this session?
     ↓
-System checks slot availability (max 50 concurrent)
-    ↓
-System generates 2-hour trial credentials
-    ↓
-System sends credentials via same channel
+IF surveys_completed >= 1:
+    → total_hours = surveys_completed × 2
+    → Generate credentials with expiry = now + total_hours
+    → Call 3proxy script to create user
+    → Send credentials via same channel
+IF surveys_completed = 0:
+    → "You haven't completed any surveys yet. Complete at least one and try again."
+IF surveys_completed >= 12:
+    → Cap at 12 (24 hours). Generate 24hr credentials.
 ```
+
+**Free trial rules:**
+- Max 12 surveys per session (24 hours of proxy time)
+- No daily limit (session cap replaces daily limit)
+- Credentials sent ONCE after customer says "done" — not after each survey
+- Theorem Reach postback is recorded but does NOT trigger credential delivery
+- 3proxy ports: 8001-8100 (100 concurrent slots)
 
 ### 3.3 Status Check Flow
 ```
@@ -285,6 +300,9 @@ IF Both are down:
 - [x] Admin alerts via Telegram (existing @BuncheHQ bot)
 - [x] Platform accounts table as the identity layer (not phone-based)
 - [x] customers table created at first merge, not at first message
+- [x] Free trial: 1 survey = 2 hours, up to 12 surveys = 24 hours max
+- [x] Free trial: credentials sent once after customer says "done" — not per survey
+- [x] Free trial: no daily limit (session cap = 12 surveys)
 
 ---
 
