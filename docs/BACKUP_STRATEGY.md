@@ -1,32 +1,27 @@
-# Bunche — Database Backup Strategy
+# Bunche — Database Backup Strategy (Free)
 
 **Last Updated:** 2026-07-01
-**Purpose:** Complete backup and restore strategy for PostgreSQL — what to back up, how often, where to, how to restore, and disaster recovery.
+**Purpose:** Complete free backup strategy for Bunche PostgreSQL — what to back up, how often, where to, how to restore.
 
 ---
 
 ## Overview
 
+Fully free. No Hetzner. No paid storage. Upgrade to paid services when Bunche starts earning.
+
 ```
-PostgreSQL (bunche database)
-        │
-        │ pg_dump (daily, 2am)
-        ▼
-/backup/bunche/bunche_YYYY-MM-DD.dump.age
-   (age-encrypted, 7-day local retention)
-        │
-        │ rclone copy → R2
-        ▼
-Cloudflare R2: r2:bunche-backups/daily/
-   (90-day lifecycle rule)
-        │
-        │ (first of each month)
-        ▼
-Cloudflare R2: r2:bunche-backups/monthly/
-   (365-day retention)
+Local disk (6 hours):
+  /backup/bunche/dumps/bunche_20260701_1400.dump
+
+Backblaze B2 (free tier — 5GB):
+  r2:bunche-backups/ ← Restic deduplication (only changed blocks uploaded)
+  Hourly snapshots: last 72 (3 days)
+  Daily snapshots: last 30 (30 days)
 ```
 
-**Encryption:** All backups encrypted with `age` before upload. Private key stored OFF-SERVER (1Password + paper copy).
+**Restic deduplication is the key.** Restic doesn't upload the whole database every hour. It only uploads the blocks that changed. At 10k customers, each hourly backup might only upload 5-10MB of changed data — not 50MB.
+
+**5GB B2 free tier ≈ 500+ hourly backups** even at full scale.
 
 ---
 
@@ -46,7 +41,6 @@ Cloudflare R2: r2:bunche-backups/monthly/
 | `admin_commands_log` | Immutable audit trail | Compliance |
 | `customer_audit_log` | All customer actions | Audit trail |
 | `processed_webhooks` | Idempotency records | Prevents replay attacks |
-| `rate_limit_log` | Rate limit tracking | Security |
 
 **NOT backed up (ephemeral):**
 - Redis data (cache, queues — rebuilt from DB)
@@ -59,14 +53,12 @@ Cloudflare R2: r2:bunche-backups/monthly/
 
 | Time | What | Script | Where it goes |
 |---|---|---|---|
-| 2:00am daily | Full pg_dump + age encrypt + R2 upload | `backup-bunche.sh` | `r2:bunche-backups/daily/` |
-| 2:05am 1st of month | Copy first-of-month to monthly | `backup-monthly-archive.sh` | `r2:bunche-backups/monthly/` |
-| 1st of month | Restore test (verify mode) | `backup-bunche.sh --verify` | Docker temp container |
-| Every 7 days | Delete local backups older than 7 days | `backup-bunche.sh` | Local `/backup/bunche/` |
+| Every hour (:00) | pg_dump → Restic backup | `backup-hourly.sh` | B2 (72 hourly snapshots) |
+| 3am daily | pg_dump → Restic backup | `backup-daily.sh` | B2 (30 daily snapshots) |
+| Every hour | Local pg_dump | `backup-hourly.sh` | `/backup/bunche/dumps/` (6 files max) |
 
-**R2 Lifecycle Rules:**
-- `daily/` prefix: objects expire after 90 days
-- `monthly/` prefix: objects expire after 365 days
+**Local cleanup:** Every hour, local dumps older than 6 hours are deleted.
+**B2 cleanup:** Restic automatically deletes snapshots older than retention policy.
 
 ---
 
@@ -75,86 +67,101 @@ Cloudflare R2: r2:bunche-backups/monthly/
 ```bash
 # /etc/crontab
 
-# Daily backup — 2:00am every day
-0 2 * * * root /usr/local/bin/backup-bunche.sh >> /var/log/bunche-backup.log 2>&1
+# Hourly backup — every hour at :00
+0 * * * * root /usr/local/bin/backup-hourly.sh >> /var/log/bunche-backup.log 2>&1
 
-# Monthly archive — 2:05am on the 1st of each month
-5 2 1 * * root /usr/local/bin/backup-monthly-archive.sh >> /var/log/bunche-backup.log 2>&1
+# Daily backup — 3am every day
+0 3 * * * root /usr/local/bin/backup-daily.sh >> /var/log/bunche-backup.log 2>&1
 ```
+
+---
+
+## What 5GB Actually Holds (Restic Deduplication)
+
+| DB state | Dump size | Restic uploads per hour | Backups in B2 |
+|---|---|---|---|
+| Fresh DB | 50MB | 5MB | ~1,000 |
+| 1,000 orders | 52MB | 5MB | ~1,000 |
+| 5,000 orders | 70MB | 8MB | ~625 |
+| 10,000 orders | 100MB | 10MB | ~500 |
+
+Even at 10,000 customers, you get **~500 hourly backups** before hitting B2's free limit.
+
+When B2 fills up (~3 weeks at 10k customers with full activity):
+- Migrate to **Hetzner Storage Box** (100GB for €3.49/month) or **BunnyNet** (100GB for ~$3/month)
+- Or delete old snapshots to free up space
+
+---
+
+## Data Loss (Honest Answer)
+
+| What | Data loss |
+|---|---|
+| Crash between backups | Up to 1 hour of orders lost |
+| Recoverable? | YES — Flutterwave transaction log |
+
+**How to recover the lost hour:**
+1. Restore from latest pg_dump
+2. Go to Flutterwave Dashboard → Transactions
+3. Find all payments with `tx_ref` in the last hour not in your DB
+4. Manually re-insert into `instant_orders` table
+5. Re-run IP generation for those orders
+
+This is **not zero data loss**. But it's **recoverable data loss** — Flutterwave has every transaction record.
+
+When you upgrade to paid (Hetzner Storage Box), you get Point-In-Time Recovery (PITR) — restore to any second, zero data loss.
 
 ---
 
 ## Restore Procedure
 
-### Step 1: Download from R2
+### Step 1: List available snapshots
 
 ```bash
-# Install age and rclone if not present
-sudo apt install age
-sudo apt install rclone
-
-# Configure rclone (if not already configured)
-rclone config
-# Choose: s3 provider, Cloudflare, enter R2 credentials
-
-# Download the backup you need
-# For a specific date:
-rclone copy "r2:bunche-backups/daily/2026-07-01/" /tmp/restore/ --dry-run  # preview first
-
-rclone copy "r2:bunche-backups/daily/2026-07-01/bunche_2026-07-01.dump.age" /tmp/restore/
-
-# For monthly (longer retention):
-rclone copy "r2:bunche-backups/monthly/2026-07/" /tmp/restore/
+sudo /usr/local/bin/restore.sh --list
 ```
 
-### Step 2: Decrypt
+Output:
+```
+Available snapshots in B2:
+  abc12345 | 2026-07-01 14:00 | hourly | 1 files
+  def67890 | 2026-07-01 13:00 | hourly | 1 files
+  ghi11111 | 2026-07-01 12:00 | daily  | 1 files
+```
+
+### Step 2: Verify the backup first (always do this)
 
 ```bash
-# Get the backup private key (from 1Password — NEVER from the server)
-# On a secure offline machine, extract from 1Password, transfer via USB to server
+# Verify latest backup (no DB overwrite)
+sudo /usr/local/bin/restore.sh --verify
 
-# Decrypt
-age --decrypt \
-  --identity /path/to/bunche-backup-private.key \
-  --output /tmp/restore/bunche_2026-07-01.dump \
-  /tmp/restore/bunche_2026-07-01.dump.age
+# Verify a specific snapshot
+sudo /usr/local/bin/restore.sh --verify abc12345
 ```
 
-### Step 3: Restore to PostgreSQL
+This:
+1. Downloads the snapshot from B2
+2. Restores to a temporary database
+3. Checks row counts in key tables
+4. Reports if backup is valid
+5. Cleans up temp DB
+
+### Step 3: Full restore (overwrites DB)
 
 ```bash
-# Option A: Restore to existing database (DESTRUCTIVE — use only if current DB is corrupt)
-sudo systemctl stop bunche-api  # Stop the API first
-sudo -u postgres psql -c "DROP DATABASE bunche;"  # Must be superuser
-sudo -u postgres psql -c "CREATE DATABASE bunche;"
+# Restore latest backup
+sudo /usr/local/bin/restore.sh --restore
 
-pg_restore \
-  --host=localhost \
-  --username=bunche \
-  --dbname=bunche \
-  --no-owner \
-  --no-privileges \
-  --clean \
-  /tmp/restore/bunche_2026-07-01.dump
-
-sudo systemctl start bunche-api
-
-# Option B: Restore to a new database (for verification, not production)
-sudo -u postgres psql -c "CREATE DATABASE bunche_restore;"
-pg_restore --dbname=bunche_restore /tmp/restore/bunche_2026-07-01.dump
+# Restore specific snapshot
+sudo /usr/local/bin/restore.sh --restore abc12345
 ```
 
-### Step 4: Verify
-
-```bash
-# Check row counts match expectations
-sudo -u postgres psql -d bunche -c "SELECT COUNT(*) FROM instant_orders;"
-sudo -u postgres psql -d bunche -c "SELECT COUNT(*) FROM bunche_credentials;"
-sudo -u postgres psql -d bunche -c "SELECT COUNT(*) FROM admin_auth;"
-
-# Check recent orders exist
-sudo -u postgres psql -d bunche -c "SELECT tx_ref, status, created_at FROM instant_orders ORDER BY created_at DESC LIMIT 5;"
-```
+**What happens:**
+1. Bunche API is stopped
+2. Current database is dropped
+3. Backup is restored
+4. API is restarted
+5. Row counts are verified
 
 ---
 
@@ -162,151 +169,243 @@ sudo -u postgres psql -d bunche -c "SELECT tx_ref, status, created_at FROM insta
 
 ### Scenario 1: Database server crashes
 
-**Recovery time objective (RTO):** 2 hours
-**Recovery point objective (RPO):** 24 hours (last daily backup)
-
-**Steps:**
-1. Provision new PostgreSQL server
-2. Install PostgreSQL 16
-3. Configure `pg_hba.conf` and `postgresql.conf`
-4. Restore latest daily backup (see restore procedure above)
-5. Verify data integrity
-6. Point backend API at new server (update `POSTGRES_HOST` in `.env`)
-7. Restart backend API
-8. Verify site works
-
-### Scenario 2: R2 bucket corrupted (rare)
-
-**Prevention:** R2 has version history — enable versioning on the bucket.
-**Recovery:** Download from a previous version using `rclone ls --avici-join`.
-
-### Scenario 3: Encryption key lost
-
-**Prevention:** Private key in 3 places — 1Password vault, paper copy in fireproof safe, trusted offline USB drive.
-**Recovery:** If key is lost and local unencrypted backups don't exist, data is unrecoverable. This is why key management is critical.
-
-### Scenario 4: Accidental data deletion by admin
-
-**Prevention:** No DELETE permission on `admin_commands_log` for any DB user.
-**Recovery:** Identify the `tx_ref` or admin action. Restore from previous night's backup. Replay any orders that came in after the backup.
-
----
-
-## Backup Verification
-
-### Automated (Monthly)
-
-The `backup-bunche.sh --verify` flag runs on the 1st of every month:
+**Recovery time:** 10-15 minutes
+**Data loss:** Up to 1 hour
 
 ```bash
-# What it does:
-# 1. Decrypts the latest backup
-# 2. Spins up a throwaway Docker PostgreSQL container
-# 3. Restores the backup to that container
-# 4. Runs sanity checks (customer count, order count)
-# 5. Tears down the container
-# 6. Reports result to n8n via webhook
+# 1. Fix/reprovision the server
+# 2. Install PostgreSQL
+# 3. Copy /etc/bunche/backup.conf
+# 4. Install restic: sudo apt install restic
+# 5. Configure rclone: rclone config (add B2 credentials)
+# 6. Restore latest backup:
+sudo /usr/local/bin/restore.sh --restore
+# 7. Verify:
+psql -U bunche -d bunche -c "SELECT COUNT(*) FROM instant_orders;"
+# 8. Restart API
 ```
 
-If verification fails, n8n sends an alert to the admin team.
+### Scenario 2: Accidentally deleted an order
 
-### Manual (Before Any Major Change)
-
-Before any database migration, schema change, or major backend deployment:
+**Recovery time:** 15 minutes
+**Data loss:** 0
 
 ```bash
-# Take a manual backup
-sudo systemctl stop bunche-api
-pg_dump --host=localhost --username=bunche --dbname=bunche --format=custom --file=/backup/bunche/pre-migration.dump
-sudo systemctl start bunche-api
-
-# Verify you can restore it
-pg_restore --dbname=bunche_precheck /backup/bunche/pre-migration.dump
+# 1. Find the tx_ref
+# 2. Check which snapshot had the order:
+#    - Go back through restic snapshots until you find one with the order
+#    - restore.sh --verify on each snapshot
+# 3. Restore to a temp DB to extract the row
+# 4. Re-insert the row into current DB
 ```
+
+### Scenario 3: B2 bucket full
+
+**Detection:** `restic snapshots` shows no new snapshots for 2+ hours
+
+**Fix:**
+```bash
+# Option A: Delete old snapshots to free space
+restic -r b2:bunche-backups forget --keep-hourly 24 --prune
+
+# Option B: Migrate to Hetzner Storage Box
+#   1. Create Hetzner Storage Box account
+#   2. rclone config → hetzner
+#   3. Copy all snapshots: rclone copy b2:bunche-backups hetzner:bunche-backups
+#   4. Update restore.sh to use hetzner remote
+```
+
+### Scenario 4: Encryption key lost
+
+**Prevention:** Private key stored in 3 places (see below).
+
+**If lost:** Backups cannot be decrypted. This is why key management is critical.
 
 ---
 
 ## Encryption Key Management
 
-**Critical rule:** The backup private key must NEVER be on the same server as the backups.
+**Critical rule:** The Restic encryption password must NEVER be on the same server as the backups (or at least not in the same accessible place).
 
-### Generate the Key
+### Generate the Password
 
 ```bash
-# On a secure, offline machine
-age-keygen -o bunche-backup.key
-# Output:
-# age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  <— this goes in /etc/bunche/backup.conf as BACKUP_PUBLIC_KEY
-# The private key (the large base64 string) goes in 1Password + paper + USB
+# On any machine
+openssl rand -base64 32
+# Example output: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=
 ```
 
 ### Store in 3 places minimum
 
 | Location | Format | Who has access |
 |---|---|---|
-| 1Password (Bunche vault) | Private key text | CTO + 1 other trusted person |
-| Paper copy | Printed private key | Fireproof safe, office |
-| Encrypted USB | `.key` file | CTO only |
+| 1Password (Bunche vault) | Password entry | CTO + 1 trusted person |
+| Paper copy | Printed or handwritten | Fireproof safe |
+| Trusted person | Verbal/SMS | 1 other person |
 
 ### Key Rotation
 
-Rotate the backup encryption key every 12 months:
-1. Generate new keypair
-2. Update `BACKUP_PUBLIC_KEY` in `/etc/bunche/backup.conf`
-3. Restart backup cron
-4. Old backups remain encrypted with old key (keep old key accessible for restore)
-5. Store new key in 1Password + paper + USB
+Rotate every 12 months:
+1. Generate new password
+2. Update `RESTIC_PASSWORD` in `/etc/bunche/backup.conf`
+3. Restart cron (the next backup will re-encrypt everything)
+4. Old backups remain accessible with old key (keep both accessible for 30 days)
+5. Update key in 1Password + paper copy
 
 ---
 
-## Storage Costs (R2)
+## Monitoring
 
-| Backup type | Size (estimated) | Monthly cost |
+### Backup Success Monitoring
+
+The scripts log to `/var/log/bunche-backup.log`. Set up a simple check:
+
+```bash
+# Add to crontab (runs at 6am daily)
+0 6 * * * grep -q "complete ✓" /var/log/bunche-backup.log || \
+  curl -s -X POST https://api.pagerduty.com/v2/enqueue \
+    -H "Content-Type: application/json" \
+    -d '{"routing_key":"YOUR_KEY","event_action":"trigger","payload":{"summary":"Backup failed"}}'
+```
+
+Or use UptimeRobot's API to check the log file.
+
+### UptimeRobot (Site Monitoring)
+
+**Free tier:** 50 monitors, 5-minute check interval, email alerts.
+
+```bash
+# Set up at:uptimerobot.com
+# Monitor: https://bunche.ng (check HTTP 200)
+# Monitor: https://api.bunche.ng/health (check HTTP 200)
+# Alert: email to admin@bunche.ng
+```
+
+If the site goes down, UptimeRobot emails you immediately. You decide whether to restore.
+
+**There is NO automatic rollback.** UptimeRobot tells you something is wrong → you assess → you decide if and what to restore.
+
+---
+
+## Pre-Launch Backup Setup (All Free)
+
+```bash
+# 1. Create Backblaze B2 account
+#    → backblaze.com/b2 → sign up (free, no credit card)
+#    → Create bucket: "bunche-backups" (public: no)
+#    → Create application key: note the keyID and applicationKey
+
+# 2. Install restic
+sudo apt install restic
+
+# 3. Configure rclone for B2
+sudo apt install rclone
+rclone config
+# Choose:
+#   name: b2
+#   type: b2
+#   account: <keyID>
+#   key: <applicationKey>
+
+# 4. Generate Restic password
+openssl rand -base64 32
+# Store in 1Password + paper copy + give to trusted person
+
+# 5. Initialize Restic repo
+export RESTIC_PASSWORD="<your-password>"
+restic -r b2:bunche-backups init
+
+# 6. Create config
+sudo cp /root/bunche/scripts/backup.conf.example /etc/bunche/backup.conf
+sudo chmod 600 /etc/bunche/backup.conf
+# Edit: set POSTGRES_USER, POSTGRES_DB, RESTIC_PASSWORD
+
+# 7. Create directories
+sudo mkdir -p /backup/bunche/dumps
+sudo chown root:root /etc/bunche/backup.conf
+sudo chmod 600 /etc/bunche/backup.conf
+
+# 8. Copy scripts
+sudo cp /root/bunche/scripts/backup-hourly.sh /usr/local/bin/
+sudo cp /root/bunche/scripts/backup-daily.sh /usr/local/bin/
+sudo cp /root/bunche/scripts/restore.sh /usr/local/bin/
+sudo chmod +x /usr/local/bin/backup-hourly.sh
+sudo chmod +x /usr/local/bin/backup-daily.sh
+sudo chmod +x /usr/local/bin/restore.sh
+
+# 9. Add cron jobs
+sudo crontab -e
+# Add:
+#   0 * * * * /usr/local/bin/backup-hourly.sh >> /var/log/bunche-backup.log 2>&1
+#   0 3 * * * /usr/local/bin/backup-daily.sh >> /var/log/bunche-backup.log 2>&1
+
+# 10. Test: run first backup
+sudo /usr/local/bin/backup-hourly.sh
+
+# 11. Verify backup is in B2
+restic -r b2:bunche-backups snapshots
+
+# 12. Test restore to temp DB
+sudo /usr/local/bin/restore.sh --verify
+
+# 13. Set up log rotation
+sudo nano /etc/logrotate.d/bunche-backup
+# Contents:
+#   /var/log/bunche-backup.log {
+#     weekly
+#     rotate 4
+#     compress
+#     missingok
+#     notifempty
+#   }
+```
+
+---
+
+## Upgrade Path (When Bunche Earns)
+
+When Bunche starts generating revenue, upgrade from free tier to paid:
+
+| Upgrade | Why | Cost |
 |---|---|---|
-| Daily (90-day retention) | ~50MB compressed × 90 | ~$0.01/month |
-| Monthly (365-day retention) | ~50MB × 12 | ~$0.01/month |
-| **Total** | | **~$0.02/month** |
+| **Hetzner Storage Box** | 100GB, continuous WAL archiving, true PITR | €3.49/month |
+| **Point-in-time recovery** | Restore to any second, zero data loss | Included with Storage Box |
+| **Hetzner Snapshots** | Full VPS disk image, weekly | €1.00/month |
 
-R2 pricing: $0.015/GB/month storage. At 50MB/day × 90 days = 4.5GB = ~$0.07/month. Very cheap insurance.
+Total upgrade cost when ready: **~€4.50/month**
 
 ---
 
-## Pre-Launch Backup Checklist
+## Pre-Launch Checklist
 
-- [ ] PostgreSQL installed and configured on VPS
-- [ ] `pg_hba.conf` set to localhost-only (no external access)
-- [ ] `/etc/bunche/backup.conf` created with correct credentials
+- [ ] Backblaze B2 account created (free)
+- [ ] B2 bucket created: `bunche-backups`
+- [ ] B2 application key created (keyID + applicationKey noted)
+- [ ] rclone configured with B2
+- [ ] Restic repo initialized in B2
+- [ ] Restic password generated and stored in 3 places
+- [ ] `/etc/bunche/backup.conf` created with all credentials
 - [ ] `chmod 600 /etc/bunche/backup.conf`
-- [ ] age installed: `sudo apt install age`
-- [ ] rclone installed and configured with R2 credentials
-- [ ] Backup encryption key generated (on offline machine)
-- [ ] Public key in `backup.conf`, private key in 3 safe places
-- [ ] R2 bucket created: `bunche-backups` with `daily/` and `monthly/` prefixes
-- [ ] R2 lifecycle rules set: daily → 90 days, monthly → 365 days
-- [ ] R2 versioning enabled (for Scenario 2 protection)
+- [ ] Scripts installed to `/usr/local/bin/`
 - [ ] Cron jobs added to `/etc/crontab`
-- [ ] `/var/log/bunche-backup.log` rotation configured (`logrotate`)
-- [ ] Test backup run: `sudo /usr/local/bin/backup-bunche.sh`
-- [ ] Verify backup file appears in R2
-- [ ] Test restore to Docker container: `sudo /usr/local/bin/backup-bunche.sh --verify`
-- [ ] Verify n8n webhook URL is live for backup alerts
-- [ ] Alert tested: manually trigger size alert → does n8n webhook fire?
-- [ ] Backup log rotation: `/var/log/bunche-backup.log` → weekly rotate, 4 weeks kept
+- [ ] `/var/log/bunche-backup.log` rotation configured
+- [ ] Test backup run: `sudo /usr/local/bin/backup-hourly.sh`
+- [ ] Verify B2: `restic -r b2:bunche-backups snapshots`
+- [ ] Test restore: `sudo /usr/local/bin/restore.sh --verify`
+- [ ] UptimeRobot monitors set up (site + API health endpoint)
+- [ ] First backup confirmed in B2 dashboard
 
 ---
 
-## Monitoring Alerts
+## Scripts Reference
 
-The backup system sends alerts via n8n webhook when:
-
-| Alert | Trigger | Severity |
-|---|---|---|
-| Backup size anomaly | Backup is <50% or >200% of 7-day average | High |
-| Backup failed | Script exits with non-zero | Critical |
-| Restore verification failed | `--verify` mode reports empty tables | Critical |
-
-SuperAdmin receives backup failure alerts. If SuperAdmin is unreachable, Admin gets the alert.
+| Script | What it does |
+|---|---|
+| `backup-hourly.sh` | pg_dump → Restic → B2, keep last 72 hourly snapshots |
+| `backup-daily.sh` | pg_dump → Restic → B2, keep last 30 daily snapshots |
+| `restore.sh` | List/verify/restore from B2 snapshots |
+| `backup.conf.example` | Template for `/etc/bunche/backup.conf` |
 
 ---
 
-*This strategy is the source of truth for Bunche backup and restore. Update before launch.*
+*This strategy is the source of truth. Update before launch.*
