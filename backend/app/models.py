@@ -219,7 +219,9 @@ class Order(Base):
         "PlatformAccount", back_populates="orders"
     )
     bunche_credential: Mapped[Optional["BuncheCredential"]] = relationship(
-        "BuncheCredential", back_populates="order"
+        "BuncheCredential",
+        back_populates="order",
+        foreign_keys="[BuncheCredential.order_id]",
     )
 
 
@@ -284,9 +286,15 @@ class BuncheCredential(Base):
     )
 
     # Relationships
-    order: Mapped[Optional[Order]] = relationship("Order", back_populates="bunche_credential")
+    order: Mapped[Optional[Order]] = relationship(
+        "Order",
+        back_populates="bunche_credential",
+        foreign_keys="[BuncheCredential.order_id]",
+    )
     free_trial: Mapped[Optional["FreeTrial"]] = relationship(
-        "FreeTrial", back_populates="bunche_credential"
+        "FreeTrial",
+        back_populates="bunche_credential",
+        foreign_keys="[FreeTrial.bunche_credential_id]",
     )
 
 
