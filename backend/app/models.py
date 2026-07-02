@@ -26,7 +26,7 @@ class Customer(Base):
     lifetime_value_ngn: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     last_active_subscription: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_order_at: Mapped[Optional[datetime]] = mapped_layer(DateTime(timezone=True), nullable=True)
+    last_order_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     replacement_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     consent_given: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     consent_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
