@@ -10,6 +10,7 @@ from app.schemas import (
     AdminBlockRequest,
     FlutterwaveWebhookPayload,
     ErrorResponse,
+    PlatformEnum,
 )
 
 
@@ -68,25 +69,37 @@ class TestValidateCountry:
 
 class TestPlatformRegisterRequest:
     def test_create_with_valid_data(self):
-        req = PlatformRegisterRequest(phone="+2348012345678", name="Test User")
-        assert req.phone == "+2348012345678"
-        assert req.name == "Test User"
-
-    def test_create_with_platform(self):
-        req = PlatformRegisterRequest(phone="+2348012345678", platform="whatsapp")
-        assert req.platform == "whatsapp"
-
-    def test_optional_metadata(self):
-        req = PlatformRegisterRequest(phone="+2348012345678", metadata={"key": "value"})
+        req = PlatformRegisterRequest(
+            platform=PlatformEnum.WHATSAPP,
+            platform_user_id="wa_123456",
+            metadata={"key": "value"},
+        )
+        assert req.platform == PlatformEnum.WHATSAPP
+        assert req.platform_user_id == "wa_123456"
         assert req.metadata == {"key": "value"}
 
-    def test_phone_validation(self):
-        with pytest.raises(ValidationError):
-            PlatformRegisterRequest(phone="123")
+    def test_create_with_platform(self):
+        req = PlatformRegisterRequest(
+            platform=PlatformEnum.TELEGRAM,
+            platform_user_id="tg_user_001",
+        )
+        assert req.platform == PlatformEnum.TELEGRAM
 
-    def test_platform_default(self):
-        req = PlatformRegisterRequest(phone="+2348012345678")
-        assert req.platform == "whatsapp"
+    def test_optional_metadata(self):
+        req = PlatformRegisterRequest(
+            platform=PlatformEnum.WHATSAPP,
+            platform_user_id="wa_123456",
+            metadata={"source": "test"},
+        )
+        assert req.metadata == {"source": "test"}
+
+    def test_platform_required(self):
+        with pytest.raises(ValidationError):
+            PlatformRegisterRequest(platform_user_id="wa_123456")
+
+    def test_platform_user_id_required(self):
+        with pytest.raises(ValidationError):
+            PlatformRegisterRequest(platform=PlatformEnum.WHATSAPP)
 
 
 class TestOrderCreateRequest:
@@ -112,13 +125,13 @@ class TestOrderCreateRequest:
         with pytest.raises(ValidationError):
             OrderCreateRequest(country="NG", quantity=1)
 
-    def test_optional_callback_url(self):
+    def test_optional_idempotency_key(self):
         req = OrderCreateRequest(
             plan_code="ISP-NG-1",
             country="NG",
-            callback_url="https://example.com/callback",
+            idempotency_key="unique-key-123",
         )
-        assert req.callback_url == "https://example.com/callback"
+        assert req.idempotency_key == "unique-key-123"
 
 
 class TestPaymentInitiateRequest:
@@ -151,12 +164,13 @@ class TestPaymentInitiateRequest:
         assert req.quantity == 3
 
     def test_optional_callback_url(self):
+        """PaymentInitiateRequest has callback_url (OrderCreateRequest does not)."""
         req = PaymentInitiateRequest(
             plan_code="ISP-NG-1",
             customer_phone="+2348012345678",
             callback_url="https://example.com/callback",
         )
-        assert req.callback_url is not None
+        assert req.callback_url == "https://example.com/callback"
 
 
 class TestAdminBlockRequest:

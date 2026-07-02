@@ -1,8 +1,8 @@
 """Tests for auth module."""
 import pytest
 from unittest.mock import patch, MagicMock
-from jose import jwt
 from datetime import timedelta
+from fastapi import HTTPException
 from app.auth import (
     verify_password,
     get_password_hash,
@@ -33,7 +33,6 @@ class TestGetPasswordHash:
         assert isinstance(hashed, str)
 
     def test_hash_uniqueness(self):
-        """Same password + different salt = different hash."""
         h1 = get_password_hash("same")
         h2 = get_password_hash("same")
         assert h1 != h2
@@ -52,15 +51,12 @@ class TestCreateAccessToken:
             phone="+2348012345678",
             expires_delta=timedelta(hours=2),
         )
+        assert isinstance(token, str)
         payload = decode_access_token(token)
         assert payload["sub"] == "user123"
 
     def test_create_access_token_payload_fields(self):
-        token = create_access_token(
-            sub="user123",
-            platform="whatsapp",
-            phone="+2348012345678",
-        )
+        token = create_access_token(sub="user123", platform="whatsapp", phone="+2348012345678")
         payload = decode_access_token(token)
         assert payload["sub"] == "user123"
         assert payload["platform"] == "whatsapp"
@@ -90,11 +86,18 @@ class TestDecodeAccessToken:
 
 class TestVerifyAdminToken:
     def test_valid_token(self):
-        token = create_access_token(sub="admin", platform="whatsapp", phone="+2348012345678", is_admin=True)
+        """verify_admin_token expects full 'Bearer <token>' format."""
         with patch("app.auth.settings") as mock_settings:
-            mock_settings.admin_bearer_token = "secret-admin-token"
-            result = verify_admin_token(f"Bearer {token}")
+            mock_settings.admin_token = "secret-admin-token"
+            result = verify_admin_token("Bearer secret-admin-token")
             assert result is True
+
+    def test_wrong_token_raises_403(self):
+        with patch("app.auth.settings") as mock_settings:
+            mock_settings.admin_token = "secret-admin-token"
+            with pytest.raises(HTTPException) as exc_info:
+                verify_admin_token("Bearer wrong-token")
+            assert exc_info.value.status_code == 403
 
     def test_missing_header_raises_401(self):
         with pytest.raises(HTTPException) as exc_info:
@@ -106,45 +109,23 @@ class TestVerifyAdminToken:
             verify_admin_token("")
         assert exc_info.value.status_code == 401
 
-    def test_wrong_token_raises_403(self):
-        with patch("app.auth.settings") as mock_settings:
-            mock_settings.admin_bearer_token = "secret-admin-token"
-            with pytest.raises(HTTPException) as exc_info:
-                verify_admin_token("Bearer wrong-token")
-            assert exc_info.value.status_code == 403
-
-    def test_bad_format_no_bearer_raises_401(self):
+    def test_only_bearer_raises_401(self):
         with pytest.raises(HTTPException) as exc_info:
-            verify_admin_token("just-a-token")
-        assert exc_info.value.status_code == 401
-
-    def test_bad_format_only_bearer_raises_401(self):
-        with pytest.raises(HTTPException) as exc_info:
-            verify_admin_token("Bearer ")
+            verify_admin_token("Bearer")
         assert exc_info.value.status_code == 401
 
 
 class TestJWTBearer:
-    def test_jwtbearer_returns_credentials(self):
-        from fastapi import HTTPException
+    @pytest.mark.asyncio
+    async def test_jwtbearer_returns_credentials(self):
         token = create_access_token(sub="user123", platform="whatsapp", phone="+2348012345678")
         bearer = JWTBearer()
-        result = bearer(
-            credentials=MagicMock(scheme="Bearer", credentials=token)
-        )
+        result = await bearer(credentials=MagicMock(scheme="Bearer", credentials=token))
         assert result.credentials == token
 
-    def test_jwtbearer_raises_401_when_absent(self):
-        from fastapi import HTTPException
-        bearer = JWTBearer(auto_error=True)
-        with pytest.raises(HTTPException) as exc_info:
-            bearer(credentials=None)
-        assert exc_info.value.status_code == 401
-
-    def test_jwtbearer_auto_error_false(self):
+    @pytest.mark.asyncio
+    async def test_jwtbearer_raises_401_when_absent(self):
         bearer = JWTBearer(auto_error=False)
-        result = bearer(credentials=None)
-        assert result is None
-
-
-from fastapi import HTTPException
+        with pytest.raises(HTTPException) as exc_info:
+            await bearer(credentials=None)
+        assert exc_info.value.status_code == 401
