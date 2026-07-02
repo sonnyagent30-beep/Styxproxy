@@ -8,10 +8,12 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
 from app.database import engine
 from app.models import Base
+from app.limiter import limiter
 from app.routers import (
     health,
     platform,
@@ -81,6 +83,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add rate limiter to app state
+app.state.limiter = limiter
+
+# Rate limit exception handler
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Handle rate limit exceeded errors."""
+    return JSONResponse(
+        status_code=429,
+        content={
+            "error": {
+                "code": "RATE_LIMIT_EXCEEDED",
+                "message": f"Rate limit exceeded: {exc.detail}",
+            }
+        },
+    )
+
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -90,6 +110,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Request logging middleware — adds request_id, logs completion with status + duration
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -97,16 +118,13 @@ async def log_requests(request: Request, call_next):
     import time
     import uuid as uuid_lib
 
-    # Generate or extract request ID (allow upstream proxy to pass one via header)
     request_id = request.headers.get("X-Request-ID") or str(uuid_lib.uuid4())[:8]
 
-    # Bind request_id to structlog context so every log line in this request includes it
     structlog.contextvars.clear_contextvars()
     structlog.contextvars.bind_contextvars(request_id=request_id)
 
     start_time = time.perf_counter()
 
-    # Log request start
     logger.info(
         "Request started",
         method=request.method,
@@ -114,13 +132,10 @@ async def log_requests(request: Request, call_next):
         client=request.client.host if request.client else "unknown",
     )
 
-    # Call the endpoint
     response = await call_next(request)
 
-    # Compute elapsed time
     elapsed_ms = round((time.perf_counter() - start_time) * 1000, 1)
 
-    # Log request completion
     logger.info(
         "Request completed",
         method=request.method,
@@ -129,13 +144,11 @@ async def log_requests(request: Request, call_next):
         elapsed_ms=elapsed_ms,
     )
 
-    # Add request_id to response headers so client can correlate logs
     response.headers["X-Request-ID"] = request_id
-
     return response
 
 
-# Global exception handler — request_id already in structlog context
+# Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Handle uncaught exceptions with request context."""
