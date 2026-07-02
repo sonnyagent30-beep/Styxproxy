@@ -1,15 +1,15 @@
 # Bunche — Docker Compose
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
 # Services: api, n8n, postgres, redis, pgbouncer, sentry, nginx
 # Usage:   docker compose up -d
 # Env:     cp .env.production.example .env && edit .env
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
 
 name: bunche
 
 services:
 
-  # ── Database ──────────────────────────────────
+  # ── Database ──────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -28,7 +28,7 @@ services:
     networks:
       - bunche_net
 
-  # ── Cache / Queue ────────────────────────────
+  # ── Cache / Queue ─────────────────────────────────────────
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -43,9 +43,9 @@ services:
     networks:
       - bunche_net
 
-  # ── PgBouncer — n8n connection pooling ───────
+  # ── PgBouncer — n8n connection pooling ───────────────────
+  # n8n uses this for persistent connections.
   # FastAPI uses asyncpg directly (no PgBouncer).
-  # n8n uses this for its persistent connections.
   pgbouncer:
     image: pgbouncer/pgbouncer:latest
     restart: unless-stopped
@@ -68,35 +68,45 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pgbouncer -V && echo 'SELECT 1' | pgbouncer /etc/pgbouncer/pgbouncer.ini -U ${POSTGRES_USER} -d bunche"]
+      test: ["CMD-SHELL", "pgbouncer -V"]
       interval: 30s
       timeout: 5s
       retries: 3
     networks:
       - bunche_net
 
-  # ── API Backend ──────────────────────────────
+  # ── API Backend ────────────────────────────────────────────
   api:
     build:
       context: ../backend
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      # FastAPI uses asyncpg directly — NO PgBouncer
+      # FastAPI uses asyncpg — driver prefix is postgres+asyncpg://
       DATABASE_URL: postgres+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bunche
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+
+      # Payment
       FLUTTERWAVE_SECRET_KEY: ${FLUTTERWAVE_SECRET_KEY}
       FLUTTERWAVE_WEBHOOK_SECRET: ${FLUTTERWAVE_WEBHOOK_SECRET}
+
+      # WhatsApp
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+
+      # LLM
       MINIMAX_API_KEY: ${MINIMAX_API_KEY}
+
+      # Auth — JWT for platform accounts, ADMIN_TOKEN for admin endpoints
       ADMIN_TOKEN: ${ADMIN_TOKEN}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required — openssl rand -base64 32}
+
       CORS_ORIGINS: ${CORS_ORIGINS}
-      # Sentry — error tracking + performance monitoring
+
+      # Sentry
       SENTRY_DSN: ${SENTRY_DSN}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
       SENTRY_TRACES_SAMPLE_RATE: "${SENTRY_TRACES_SAMPLE_RATE:-0.1}"
-      SENTRY_PROFILES_SAMPLE_RATE: "${SENTRY_PROFILES_SAMPLE_RATE:-0.0}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -110,7 +120,7 @@ services:
     networks:
       - bunche_net
 
-  # ── n8n Workflow Automation ──────────────────
+  # ── n8n Workflow Automation ────────────────────────────────
   # n8n connects to PostgreSQL via PgBouncer (transaction pooling)
   n8n:
     image: n8nio/n8n:latest
@@ -128,6 +138,7 @@ services:
       EXECUTIONS_TIMEOUT: ${EXECUTIONS_TIMEOUT:-300}
       GENERIC_TIMEZONE: Africa/Lagos
       N8N_LOG_LEVEL: ${N8N_LOG_LEVEL:-info}
+
       # Sentry — n8n workflow error tracking
       SENTRY_DSN: ${SENTRY_DSN}
       SENTRY_DSN_URL: ${SENTRY_DSN}
@@ -149,7 +160,7 @@ services:
     networks:
       - bunche_net
 
-  # ── Sentry — Error Tracking + APM ─────────────
+  # ── Sentry — Error Tracking + APM ────────────────────────
   # Self-hosted Sentry on-premise
   sentry:
     image: sentry:${SENTRY_VERSION:-latest}
@@ -181,7 +192,7 @@ services:
     networks:
       - bunche_net
 
-  # ── Reverse Proxy + SSL ──────────────────────
+  # ── Reverse Proxy + SSL ───────────────────────────────────
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -206,7 +217,7 @@ services:
     networks:
       - bunche_net
 
-  # ── Certbot (run manually for SSL) ───────────
+  # ── Certbot (run manually for SSL) ───────────────────────
   certbot:
     image: certbot/certbot:latest
     restart: "no"
