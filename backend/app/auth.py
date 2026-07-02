@@ -91,7 +91,7 @@ def decode_access_token(token: str) -> dict:
         ) from e
 
 
-def verify_admin_token(authorization: str) -> bool:
+def verify_admin_token(authorization: Optional[str]) -> bool:
     """Verify the admin token from Authorization header."""
     if not authorization:
         raise HTTPException(
