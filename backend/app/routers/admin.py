@@ -1,9 +1,10 @@
 """Admin router."""
+import re
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from app.database import get_session
@@ -21,9 +22,11 @@ from app.services.audit import get_audit_logs
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
+
 @router.get("/health", dependencies=[Depends(admin_only)])
 async def admin_health():
     return {"status": "healthy", "admin": True}
+
 
 @router.get("/stats", response_model=AdminStatsResponse, dependencies=[Depends(admin_only)])
 async def get_stats(session: AsyncSession = Depends(get_session)):
@@ -32,15 +35,33 @@ async def get_stats(session: AsyncSession = Depends(get_session)):
     total_revenue = (await session.execute(select(func.sum(Order.amount_paid_ngn)).where(Order.status.in_(["active", "fulfilled"])))).scalar() or 0
     free_trials_today = await get_trials_today_count(session)
     active_credentials = (await session.execute(select(func.count()).select_from(BuncheCredential).where(BuncheCredential.status == "active"))).scalar() or 0
-    return AdminStatsResponse(total_customers=total_customers, active_orders=active_orders, total_revenue_ngn=float(total_revenue or 0), free_trials_today=free_trials_today, active_credentials=active_credentials)
+    return AdminStatsResponse(
+        total_customers=total_customers,
+        active_orders=active_orders,
+        total_revenue_ngn=float(total_revenue or 0),
+        free_trials_today=free_trials_today,
+        active_credentials=active_credentials,
+    )
+
 
 @router.get("/customers", response_model=AdminCustomersResponse, dependencies=[Depends(admin_only)])
-async def list_customers(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), blocked: Optional[bool] = None, search: Optional[str] = None, session: AsyncSession = Depends(get_session)):
+async def list_customers(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    blocked: Optional[bool] = None,
+    search: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+):
     conditions = []
     if blocked is not None:
         conditions.append(Customer.blocked == blocked)
     if search:
-        conditions.append((Customer.phone.ilike(f"%{search}%")) | (Customer.name.ilike(f"%{search}%")))
+        # Sanitise search term: escape LIKE/ILIKE special chars (% _ \)
+        escaped = re.sub(r"([%_\\])", r"\\\1", search)
+        conditions.append(
+            (Customer.phone.ilike(f"%{escaped}%", escape="\\"))
+            | (Customer.name.ilike(f"%{escaped}%", escape="\\"))
+        )
     count_stmt = select(func.count()).select_from(Customer)
     if conditions:
         count_stmt = count_stmt.where(and_(*conditions))
@@ -50,7 +71,16 @@ async def list_customers(page: int = Query(1, ge=1), limit: int = Query(20, ge=1
     if conditions:
         stmt = stmt.where(and_(*conditions))
     customers = (await session.execute(stmt)).scalars().all()
-    return AdminCustomersResponse(customers=[AdminCustomerResponse.model_validate(c) for c in customers], pagination={"page": page, "limit": limit, "total_items": total, "total_pages": (total + limit - 1) // limit, "has_next": page * limit < total, "has_prev": page > 1})
+    return AdminCustomersResponse(
+        customers=[AdminCustomerResponse.model_validate(c) for c in customers],
+        pagination={
+            "page": page, "limit": limit, "total_items": total,
+            "total_pages": (total + limit - 1) // limit,
+            "has_next": page * limit < total,
+            "has_prev": page > 1,
+        },
+    )
+
 
 @router.get("/customers/{customer_id}", response_model=AdminCustomerResponse, dependencies=[Depends(admin_only)])
 async def get_customer(customer_id: UUID, session: AsyncSession = Depends(get_session)):
@@ -58,6 +88,7 @@ async def get_customer(customer_id: UUID, session: AsyncSession = Depends(get_se
     if not customer:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
     return AdminCustomerResponse.model_validate(customer)
+
 
 @router.post("/customers/{customer_id}/block", dependencies=[Depends(admin_only)])
 async def block_customer(customer_id: UUID, request: AdminBlockRequest, session: AsyncSession = Depends(get_session)):
@@ -80,8 +111,17 @@ async def unblock_customer(customer_id: UUID, session: AsyncSession = Depends(ge
     await session.commit()
     return {"status": "unblocked", "customer_id": str(customer_id)}
 
+
 @router.get("/orders", response_model=AdminOrdersResponse, dependencies=[Depends(admin_only)])
-async def list_orders(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), status_filter: Optional[str] = Query(None, alias="status"), customer_phone: Optional[str] = None, date_from: Optional[datetime] = None, date_to: Optional[datetime] = None, session: AsyncSession = Depends(get_session)):
+async def list_orders(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    customer_phone: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    session: AsyncSession = Depends(get_session),
+):
     conditions = []
     if status_filter:
         conditions.append(Order.status == status_filter)
@@ -100,7 +140,15 @@ async def list_orders(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, l
     if conditions:
         stmt = stmt.where(and_(*conditions))
     orders = (await session.execute(stmt)).scalars().all()
-    return AdminOrdersResponse(orders=[AdminOrderResponse.model_validate(o) for o in orders], pagination={"page": page, "limit": limit, "total_items": total, "total_pages": (total + limit - 1) // limit, "has_next": page * limit < total, "has_prev": page > 1})
+    return AdminOrdersResponse(
+        orders=[AdminOrderResponse.model_validate(o) for o in orders],
+        pagination={
+            "page": page, "limit": limit, "total_items": total,
+            "total_pages": (total + limit - 1) // limit,
+            "has_next": page * limit < total,
+            "has_prev": page > 1,
+        },
+    )
 
 
 @router.get("/orders/{order_id}", response_model=AdminOrderResponse, dependencies=[Depends(admin_only)])
@@ -109,6 +157,7 @@ async def get_order(order_id: str, session: AsyncSession = Depends(get_session))
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     return AdminOrderResponse.model_validate(order)
+
 
 @router.patch("/orders/{order_id}", dependencies=[Depends(admin_only)])
 async def update_order(order_id: str, request: AdminOrderUpdateRequest, session: AsyncSession = Depends(get_session)):
@@ -152,8 +201,16 @@ async def replace_credential_endpoint(credential_id: int, session: AsyncSession 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found")
     return {"status": "replaced", "old_credential_id": credential_id, "new_credential_id": new_credential.id}
 
+
 @router.get("/credentials", response_model=AdminCredentialsResponse, dependencies=[Depends(admin_only)])
-async def list_credentials(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), status_filter: Optional[str] = Query(None, alias="status"), pool_type: Optional[str] = None, customer_phone: Optional[str] = None, session: AsyncSession = Depends(get_session)):
+async def list_credentials(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    pool_type: Optional[str] = None,
+    customer_phone: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+):
     conditions = []
     if status_filter:
         conditions.append(BuncheCredential.status == status_filter)
@@ -170,18 +227,63 @@ async def list_credentials(page: int = Query(1, ge=1), limit: int = Query(20, ge
     if conditions:
         stmt = stmt.where(and_(*conditions))
     credentials = (await session.execute(stmt)).scalars().all()
-    return AdminCredentialsResponse(credentials=[AdminCredentialResponse.model_validate(c) for c in credentials], pagination={"page": page, "limit": limit, "total_items": total, "total_pages": (total + limit - 1) // limit, "has_next": page * limit < total, "has_prev": page > 1})
+    return AdminCredentialsResponse(
+        credentials=[AdminCredentialResponse.model_validate(c) for c in credentials],
+        pagination={
+            "page": page, "limit": limit, "total_items": total,
+            "total_pages": (total + limit - 1) // limit,
+            "has_next": page * limit < total,
+            "has_prev": page > 1,
+        },
+    )
+
 
 @router.get("/audit", response_model=AdminAuditLogsResponse, dependencies=[Depends(admin_only)])
-async def list_audit_logs(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), customer_hash: Optional[str] = None, event_type: Optional[str] = None, date_from: Optional[datetime] = None, date_to: Optional[datetime] = None, session: AsyncSession = Depends(get_session)):
-    logs, total = await get_audit_logs(session, customer_hash=customer_hash, event_type=event_type, date_from=date_from, date_to=date_to, page=page, limit=limit)
-    return AdminAuditLogsResponse(logs=[AdminAuditLogResponse.model_validate(log) for log in logs], pagination={"page": page, "limit": limit, "total_items": total, "total_pages": (total + limit - 1) // limit, "has_next": page * limit < total, "has_prev": page > 1})
+async def list_audit_logs(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    customer_hash: Optional[str] = None,
+    event_type: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    logs, total = await get_audit_logs(
+        session,
+        customer_hash=customer_hash,
+        event_type=event_type,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        limit=limit,
+    )
+    return AdminAuditLogsResponse(
+        logs=[AdminAuditLogResponse.model_validate(log) for log in logs],
+        pagination={
+            "page": page, "limit": limit, "total_items": total,
+            "total_pages": (total + limit - 1) // limit,
+            "has_next": page * limit < total,
+            "has_prev": page > 1,
+        },
+    )
 
 
 @router.get("/webhooks", response_model=AdminWebhookLogsResponse, dependencies=[Depends(admin_only)])
-async def list_webhook_logs(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le=100), session: AsyncSession = Depends(get_session)):
+async def list_webhook_logs(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
     total = (await session.execute(select(func.count()).select_from(ProcessedWebhook))).scalar() or 0
     offset = (page - 1) * limit
     stmt = select(ProcessedWebhook).order_by(ProcessedWebhook.processed_at.desc()).offset(offset).limit(limit)
     webhooks = (await session.execute(stmt)).scalars().all()
-    return AdminWebhookLogsResponse(webhooks=[AdminWebhookLogResponse.model_validate(w) for w in webhooks], pagination={"page": page, "limit": limit, "total_items": total, "total_pages": (total + limit - 1) // limit, "has_next": page * limit < total, "has_prev": page > 1})
+    return AdminWebhookLogsResponse(
+        webhooks=[AdminWebhookLogResponse.model_validate(w) for w in webhooks],
+        pagination={
+            "page": page, "limit": limit, "total_items": total,
+            "total_pages": (total + limit - 1) // limit,
+            "has_next": page * limit < total,
+            "has_prev": page > 1,
+        },
+    )
