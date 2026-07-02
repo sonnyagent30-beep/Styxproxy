@@ -7,17 +7,68 @@ on:
     branches: [main]
 
 jobs:
-  validate-structure:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: bunche
+          POSTGRES_PASSWORD: bunche
+          POSTGRES_DB: bunche_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -q -e .
+          pip install -q aiosqlite pytest pytest-asyncio pytest-xdist pytest.ini 2>/dev/null
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://bunche:bunche@localhost:5432/bunche_test
+          JWT_SECRET: test-jwt-secret-not-real
+          ADMIN_TOKEN: test-admin-token-not-real
+        run: |
+          cd backend
+          pytest tests/ -q --tb=short
+
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check all required files exist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install ruff > /dev/null 2>&1
+      - run: ruff check backend/app/ --select=E,F,I
+      - run: python3 -m py_compile backend/app/*.py backend/app/**/*.py
+
+  structure:
+    name: Structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required files exist
         run: |
-          for f in docs/BUILD_PACKAGE.md docs/TOOLS_CHECKLIST.md docs/GOOGLE_SHEETS_SETUP.md \
-                    docs/FLUTTERWAVE_WHATSAPP_SETUP.md docs/PROVIDER_SETUP_GUIDE.md \
-                    docs/OPERATIONAL_RUNBOOK.md \
-                    legal/TERMS_OF_SERVICE.md legal/PRIVACY_POLICY.md legal/ACCEPTABLE_USE_POLICY.md \
-                    workflows/WORKFLOW_SPECS.md; do
-            if [ ! -f "$f" ]; then echo "MISSING: $f"; exit 1; fi
-          done
-          echo "All required files present."
+          test -f backend/app/main.py
+          test -f backend/app/models.py
+          test -f backend/app/config.py
+          test -f backend/alembic/versions/001_initial.py
+          echo "All required files present"
