@@ -18,13 +18,13 @@ def generate_temp_password() -> str:
     return "".join(random.choices(string.ascii_letters + string.digits, k=16))
 def get_available_proxy(country: str) -> dict:
     return random.choice(PROXY_POOL.get(country, PROXY_POOL["DEFAULT"]))
-async def create_credential(db_session: AsyncSession, customer_phone: str, order_id: str, pool_type: str = "paid", duration_days: int = 30, country: str = "NG") -> BuncheCredential:
+async def create_credential(db_session: AsyncSession, customer_phone: str, order_id: str, pool_type: str = "paid", duration_days: int = 30, country: str = "NG", protocol: str = "socks5") -> BuncheCredential:
     bun_username = generate_bun_username(customer_phone, order_id)
     password = generate_temp_password()
     password_hash = get_password_hash(password)
     proxy = get_available_proxy(country)
     expires_at = datetime.utcnow() + timedelta(days=duration_days)
-    credential = BuncheCredential(bun_username=bun_username, password_hash=password_hash, customer_phone=customer_phone, order_id=order_id, pool_type=pool_type, upstream_proxy_ip=proxy["ip"], upstream_proxy_port=proxy["port"], dante_port=random.randint(9000, 9999), status="active", expires_at=expires_at)
+    credential = BuncheCredential(bun_username=bun_username, password_hash=password_hash, customer_phone=customer_phone, order_id=order_id, pool_type=pool_type, protocol=protocol, upstream_proxy_ip=proxy["ip"], upstream_proxy_port=proxy["port"], dante_port=random.randint(9000, 9999), status="active", expires_at=expires_at)
     db_session.add(credential)
     await db_session.commit()
     await db_session.refresh(credential)
@@ -49,7 +49,7 @@ async def replace_credential(db_session: AsyncSession, old_credential_id: int, r
     if not order:
         return None
     await revoke_credential(db_session, old_credential_id, reason)
-    new_credential = await create_credential(db_session, customer_phone=old_credential.customer_phone or "", order_id=old_credential.order_id, pool_type=old_credential.pool_type, duration_days=30, country=order.country or "NG")
+    new_credential = await create_credential(db_session, customer_phone=old_credential.customer_phone or "", order_id=old_credential.order_id, pool_type=old_credential.pool_type, duration_days=30, country=order.country or "NG", protocol=old_credential.protocol or "socks5")
     order.bunche_credential_id = new_credential.id
     order.replacement_count += 1
     order.status = "active"

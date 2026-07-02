@@ -60,6 +60,13 @@ class PoolTypeEnum(str, Enum):
     REFUNDED_RECYCLED = "refunded_recycled"
 
 
+class ProtocolEnum(str, Enum):
+    """Proxy protocol types."""
+    HTTP = "http"
+    HTTPS = "https"
+    SOCKS5 = "socks5"
+
+
 class MergeStatusEnum(str, Enum):
     """Merge request status values."""
     PENDING = "pending"
@@ -203,6 +210,7 @@ class BuncheCredentialBrief(BaseModel):
 
     id: int
     bun_username: str
+    protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
     status: str
@@ -302,6 +310,7 @@ class CredentialResponse(BaseModel):
 
     id: int
     bun_username: str
+    protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
     dante_port: Optional[int]
@@ -324,6 +333,7 @@ class TrialClaimRequest(BaseModel):
 class TrialCredentialResponse(BaseModel):
     """Trial credential response."""
     bun_username: str
+    protocol: str
     upstream_proxy_ip: str
     upstream_proxy_port: int
     expires_at: datetime
@@ -428,6 +438,7 @@ class AdminCredentialResponse(BaseModel):
     customer_phone: Optional[str]
     order_id: Optional[str]
     pool_type: str
+    protocol: str
     upstream_proxy_ip: Optional[str]
     status: str
     expires_at: Optional[datetime]

@@ -25,6 +25,9 @@ class Base(DeclarativeBase):
     pass
 
 
+# ============== Table Models ==============
+
+
 class Customer(Base):
     """Customer table - Primary identity table."""
     __tablename__ = "customers"
@@ -72,6 +75,7 @@ class Customer(Base):
     )
     support_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Relationships
     platform_accounts: Mapped[list["PlatformAccount"]] = relationship(
         "PlatformAccount", back_populates="customer"
     )
@@ -101,6 +105,7 @@ class PlatformAccount(Base):
     )
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # Relationships
     customer: Mapped[Optional[Customer]] = relationship(
         "Customer", back_populates="platform_accounts"
     )
@@ -209,6 +214,7 @@ class Order(Base):
         Numeric(10, 4), nullable=True
     )
 
+    # Relationships
     platform_account: Mapped[Optional[PlatformAccount]] = relationship(
         "PlatformAccount", back_populates="orders"
     )
@@ -227,6 +233,7 @@ class BuncheCredential(Base):
         Index("idx_bunche_cred_status", "status"),
         Index("idx_bunche_cred_pool", "pool_type"),
         Index("idx_bunche_cred_expires", "expires_at"),
+        Index("idx_bunche_cred_protocol", "protocol"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -242,6 +249,9 @@ class BuncheCredential(Base):
     )
     pool_type: Mapped[str] = mapped_column(
         String(20), default="paid", nullable=False
+    )
+    protocol: Mapped[str] = mapped_column(
+        String(10), default="socks5", nullable=False
     )
     provider_name: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     provider_order_id: Mapped[Optional[str]] = mapped_column(
@@ -278,12 +288,13 @@ class BuncheCredential(Base):
         Numeric(10, 2), default=0, nullable=False
     )
 
+    # Relationships
     order: Mapped[Optional[Order]] = relationship(
         "Order",
         foreign_keys="[BuncheCredential.order_id]",
     )
     # NOTE: BuncheCredential has no back-reference to FreeTrial
-    # FreeTrial -> BuncheCredential via FreeTrial.bunche_credential_id FK
+    # FreeTrial → BuncheCredential via FreeTrial.bunche_credential_id FK
 
 
 class FreeTrial(Base):
@@ -316,6 +327,7 @@ class FreeTrial(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    # Relationships
     bunche_credential: Mapped[Optional[BuncheCredential]] = relationship(
         "BuncheCredential",
         foreign_keys="[FreeTrial.bunche_credential_id]",
