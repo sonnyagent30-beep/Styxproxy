@@ -1,0 +1,82 @@
+name: bunche-local
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bunche}
+      POSTGRES_USER: ${POSTGRES_USER:-bunche}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bunche}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bunche} -d ${POSTGRES_DB:-bunche}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bunche_local_net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_local_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bunche_local_net
+
+  api:
+    build:
+      context: backend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bunche}:${POSTGRES_PASSWORD:-bunche}@postgres:5432/${POSTGRES_DB:-bunche}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+      FLUTTERWAVE_SECRET_KEY: ${FLUTTERWAVE_SECRET_KEY:-}
+      FLUTTERWAVE_PUBLIC_KEY: ${FLUTTERWAVE_PUBLIC_KEY:-}
+      FLUTTERWAVE_WEBHOOK_SECRET: ${FLUTTERWAVE_WEBHOOK_SECRET:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
+      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./backend/alembic:/app/alembic:ro
+      - ./backend/tests:/app/tests:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bunche_local_net
+
+networks:
+  bunche_local_net:
+    driver: bridge
+
+volumes:
+  postgres_local_data:
+  redis_local_data:
