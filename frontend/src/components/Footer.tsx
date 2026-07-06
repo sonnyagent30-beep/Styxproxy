@@ -71,7 +71,7 @@ export default function Footer() {
           </p>
           <div className="flex items-center space-x-4 mt-4 md:mt-0">
             <a
-              href="https://wa.me/2340000000000"
+              href="https://wa.me/2347032981049"
               target="_blank"
               rel="noopener noreferrer"
               className="text-[var(--muted)] hover:text-[var(--primary)] transition-colors"
