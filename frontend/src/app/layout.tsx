@@ -1,0 +1,26 @@
+import type { Metadata } from "next";
+import "./globals.css";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+
+export const metadata: Metadata = {
+  title: "Bunche — Nigeria's Anonymous Proxy Reseller | ISP, DC, Residential, Mobile 4G",
+  description: "Buy ISP, Datacenter, Residential & Mobile 4G proxies in Nigeria. Order instantly, on Telegram, or via WhatsApp. Pay in NGN via Flutterwave.",
+  keywords: ["Nigeria proxy", "ISP proxy Nigeria", "datacenter proxy Nigeria", "residential proxy Nigeria", "mobile 4G proxy", "buy proxy NGN", "proxy reseller Lagos"],
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className="antialiased">
+        <Header />
+        <main>{children}</main>
+        <Footer />
+      </body>
+    </html>
+  );
+}
