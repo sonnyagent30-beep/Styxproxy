@@ -1,0 +1,11 @@
+{
+  "name": "bunche",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "next": "latest"
+  },
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build"
+  }
+}
