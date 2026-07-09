@@ -30,10 +30,10 @@ export default function Hero() {
         </p>
 
         {/* CTA Buttons — 3 Ways */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <Link
             href="/order"
-            className="w-full sm:w-auto px-8 py-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-lg transition-all hover:scale-105 hover:shadow-lg hover:shadow-[var(--primary)]/20"
+            className="w-full sm:w-auto min-w-[180px] px-8 py-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-bold rounded-xl text-lg transition-all hover:scale-105 hover:shadow-lg hover:shadow-[var(--primary)]/25 text-center"
           >
             ⚡ Get Instant
           </Link>
@@ -41,18 +41,41 @@ export default function Hero() {
             href="https://t.me/BuncheBot"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:w-auto px-8 py-4 bg-[#0088CC] hover:bg-[#0077B5] text-white font-semibold rounded-xl text-lg transition-all hover:scale-105"
+            className="w-full sm:w-auto min-w-[180px] px-8 py-4 bg-[#0088CC] hover:bg-[#0077B5] text-white font-bold rounded-xl text-lg transition-all hover:scale-105 text-center"
           >
-            💬 Order on Telegram
+            💬 Telegram
           </a>
           <a
             href="https://wa.me/2347032981049"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:w-auto px-8 py-4 bg-[#25D366] hover:bg-[#20BD5A] text-white font-semibold rounded-xl text-lg transition-all hover:scale-105"
+            className="w-full sm:w-auto min-w-[180px] px-8 py-4 bg-[#25D366] hover:bg-[#20BD5A] text-white font-bold rounded-xl text-lg transition-all hover:scale-105 text-center"
           >
             📱 WhatsApp
           </a>
+        </div>
+
+        {/* Proxy Types Explainer */}
+        <div className="mt-10 animate-fade-in" style={{ animationDelay: '0.25s' }}>
+          <p className="text-sm text-[var(--muted)] mb-3">Not sure which proxy type you need?</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-left max-w-3xl mx-auto">
+            <div className="p-3 rounded-xl bg-[var(--card)] border border-[var(--border)]">
+              <p className="text-xs font-semibold text-[var(--primary)] mb-1">🌐 ISP</p>
+              <p className="text-xs text-[var(--muted)]">Fast, stable IPs for web scraping & automation</p>
+            </div>
+            <div className="p-3 rounded-xl bg-[var(--card)] border border-[var(--border)]">
+              <p className="text-xs font-semibold text-[var(--primary)] mb-1">🏠 Residential</p>
+              <p className="text-xs text-[var(--muted)]">Real ISP IPs, harder to detect & block</p>
+            </div>
+            <div className="p-3 rounded-xl bg-[var(--card)] border border-[var(--border)]">
+              <p className="text-xs font-semibold text-[var(--primary)] mb-1">📱 Mobile 4G</p>
+              <p className="text-xs text-[var(--muted)]">Mobile carrier IPs for social media & ads</p>
+            </div>
+            <div className="p-3 rounded-xl bg-[var(--card)] border border-[var(--border)]">
+              <p className="text-xs font-semibold text-[var(--primary)] mb-1">🏢 Datacenter</p>
+              <p className="text-xs text-[var(--muted)]">Budget-friendly proxies for general use</p>
+            </div>
+          </div>
         </div>
 
         {/* Trust Indicators */}

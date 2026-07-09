@@ -28,7 +28,6 @@ function ManageContent() {
   const initialRef = searchParams.get('ref') || '';
 
   const [searchInput, setSearchInput] = useState(initialRef);
-  const [phoneInput, setPhoneInput] = useState('');
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -53,22 +52,6 @@ function ManageContent() {
     }
   };
 
-  const handlePhoneSearch = async () => {
-    if (!phoneInput.trim()) { setError('Please enter a phone number'); return; }
-    setLoading(true); setError(''); setOrder(null);
-    try {
-      const API = process.env.NEXT_PUBLIC_API_URL || 'https://bunche.railway.app';
-      const res = await fetch(`${API}/orders/by-phone?phone=${encodeURIComponent(phoneInput.trim())}`);
-      const data = await res.json();
-      if (res.ok && data.order_id) { setOrder(data); }
-      else { setError(data.error || 'No orders found for this phone number'); }
-    } catch {
-      setError('Failed to fetch orders. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const isActive = order?.status === 'fulfilled' || order?.status === 'active';
 
   return (
@@ -82,8 +65,8 @@ function ManageContent() {
 
           {/* Search Forms */}
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-8">
-            <form onSubmit={(e) => { e.preventDefault(); handleSearch(searchInput); }} className="mb-6">
-              <label className="block text-sm font-medium mb-2">Search by Transaction Reference</label>
+            <form onSubmit={(e) => { e.preventDefault(); handleSearch(searchInput); }}>
+              <label className="block text-sm font-medium mb-2">Order ID or Transaction Reference</label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -96,35 +79,6 @@ function ManageContent() {
                   type="submit"
                   disabled={loading}
                   className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {loading ? '...' : 'Search'}
-                </button>
-              </div>
-            </form>
-
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[var(--border)]" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-[var(--card)] text-[var(--muted)]">or</span>
-              </div>
-            </div>
-
-            <form onSubmit={(e) => { e.preventDefault(); handlePhoneSearch(); }}>
-              <label className="block text-sm font-medium mb-2">Search by Phone Number</label>
-              <div className="flex gap-2">
-                <input
-                  type="tel"
-                  value={phoneInput}
-                  onChange={(e) => setPhoneInput(e.target.value)}
-                  placeholder="e.g., +234****1049"
-                  className="flex-1 px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-lg focus:outline-none focus:border-[var(--primary)] transition-colors"
-                />
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-lg transition-colors disabled:opacity-50"
                 >
                   {loading ? '...' : 'Search'}
                 </button>
