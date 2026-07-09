@@ -39,6 +39,16 @@ export default function Footer() {
                   How It Works
                 </Link>
               </li>
+              <li>
+                <Link href="/manage" className="hover:text-[var(--foreground)] transition-colors">
+                  Manage Order
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="hover:text-[var(--foreground)] transition-colors">
+                  Contact
+                </Link>
+              </li>
             </ul>
           </div>
 

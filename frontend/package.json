@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "cobe": "^2.0.1",
     "jspdf": "^4.2.1",
     "next": "16.2.10",
     "react": "19.2.4",
