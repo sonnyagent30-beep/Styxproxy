@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { products, formatPrice } from '@/lib/products';
-import WorldMap from '@/components/WorldMap';
+import GlobeViz from '@/components/GlobeViz';
 
 // Product category data
 const categories = [
@@ -106,9 +106,9 @@ export default function ProductsPage() {
   return (
     <div className="min-h-screen pt-24 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* World Map Hero Section */}
+        {/* Globe Viz Hero Section */}
         <div className="mb-12">
-          <WorldMap />
+          <GlobeViz />
         </div>
 
         {/* Product Category Cards */}
