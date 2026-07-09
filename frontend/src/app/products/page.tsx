@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { products, formatPrice } from '@/lib/products';
+import GlobeMap from '@/components/GlobeMap';
 
 // Product category data
 const categories = [
@@ -105,14 +106,9 @@ export default function ProductsPage() {
   return (
     <div className="min-h-screen pt-24 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <h1 className="text-4xl sm:text-5xl font-bold mb-4">
-            Our <span className="gradient-text">Products</span>
-          </h1>
-          <p className="text-xl text-[var(--muted)] max-w-2xl mx-auto">
-            Bunche offers 4 proxy types to meet your needs — from fast datacenter IPs to premium residential and mobile 4G.
-          </p>
+        {/* Globe Hero Section */}
+        <div className="mb-12">
+          <GlobeMap />
         </div>
 
         {/* Product Category Cards */}
