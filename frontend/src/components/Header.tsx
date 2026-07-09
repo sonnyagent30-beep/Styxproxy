@@ -39,6 +39,12 @@ export default function Header() {
               How It Works
             </Link>
             <Link 
+              href="/manage" 
+              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            >
+              Manage
+            </Link>
+            <Link 
               href="#contact" 
               className="flex items-center gap-2 px-4 py-2 bg-[#25D366] hover:bg-[#20BD5A] text-white font-medium rounded-lg transition-all hover:scale-105"
             >
@@ -98,6 +104,13 @@ export default function Header() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 How It Works
+              </Link>
+              <Link
+                href="/manage"
+                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors py-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Manage
               </Link>
               <Link
                 href="#contact"
