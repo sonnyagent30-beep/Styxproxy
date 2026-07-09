@@ -229,13 +229,9 @@ function ManageContent() {
 export default function ManagePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="animate-pulse text-[var(--muted)]">Loading...</div>
-        </main>
-        <Footer />
-      </div>
+      <main className="flex-1 flex items-center justify-center">
+        <div className="animate-pulse text-[var(--muted)]">Loading...</div>
+      </main>
     }>
       <ManageContent />
     </Suspense>
