@@ -99,3 +99,27 @@ button {
   backdrop-filter: blur(12px);
   border: 1px solid var(--border);
 }
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #fafafa;
+    --foreground: #111111;
+    --primary: #10B981;
+    --primary-dark: #059669;
+    --primary-light: #34D399;
+    --accent: #f59e0b;
+    --accent-dark: #d97706;
+    --card: #f5f5f5;
+    --card-hover: #e5e5e5;
+    --border: #e5e5e5;
+    --muted: #737373;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --error: #ef4444;
+  }
+  .glass-card {
+    background: rgba(245, 245, 245, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+  }
+}
