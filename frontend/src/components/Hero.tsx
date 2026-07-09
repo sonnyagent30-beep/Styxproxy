@@ -49,7 +49,7 @@ export default function Hero() {
             href="https://wa.me/2347032981049"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:w-auto px-8 py-4 border border-[var(--border)] hover:border-[#25D366] text-[var(--foreground)] font-semibold rounded-xl text-lg transition-all hover:bg-[var(--card)]"
+            className="w-full sm:w-auto px-8 py-4 bg-[#25D366] hover:bg-[#20BD5A] text-white font-semibold rounded-xl text-lg transition-all hover:scale-105"
           >
             📱 WhatsApp
           </a>
