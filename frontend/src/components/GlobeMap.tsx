@@ -1,6 +1,8 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { useRef, useEffect, useState, useMemo } from 'react';
+import * as THREE from 'three';
 
 // Country locations with lat/lng
 const LOCATIONS = [
@@ -19,39 +21,167 @@ const LOCATIONS = [
 ];
 
 const ISP_LOCATIONS = LOCATIONS.filter(l => l.type === 'ISP');
+const PURPLE = '#6366F1';
 
-function markerColor(type: string): [number, number, number] {
-  if (type === 'ISP') return [99, 102, 241];
-  if (type === 'RESIDENTIAL') return [168, 85, 247];
-  if (type === 'MOBILE') return [59, 130, 246];
-  return [249, 115, 22];
+// Convert lat/lng to 3D sphere coordinates
+function latLngToVector3(lat: number, lng: number, radius: number = 1): THREE.Vector3 {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lng + 180) * (Math.PI / 180);
+  return new THREE.Vector3(
+    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta)
+  );
 }
 
-// Cobe configs for light and dark mode
-const COBE_CONFIG = {
-  dark: {
-    baseColor: [0.08, 0.08, 0.12],    // near-black sphere
-    mapBrightness: 0.8,
-    mapSamples: 18000,
-    diffuse: 0.6,
-    glowColor: [0.3, 0.1, 0.6],
-    markerColor: [99, 102, 241],
-    arcColor: [99, 102, 241, 0.5] as unknown as [number, number, number],
-  },
-  light: {
-    baseColor: [0.85, 0.85, 0.88],    // light gray sphere
-    mapBrightness: 1.2,
-    mapSamples: 18000,
-    diffuse: 0.4,
-    glowColor: [0.5, 0.3, 0.9],
-    markerColor: [99, 102, 241],
-    arcColor: [99, 102, 241, 0.5] as unknown as [number, number, number],
-  },
-};
+// Globe sphere with dots texture effect
+function GlobeSphere({ isDark }: { isDark: boolean }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  
+  // Create a dotted sphere material using custom shader or points
+  const geometry = useMemo(() => new THREE.SphereGeometry(1, 64, 64), []);
+  
+  // Create dot pattern texture
+  const texture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+    
+    // Background
+    ctx.fillStyle = isDark ? '#0a0a14' : '#d4d4d8';
+    ctx.fillRect(0, 0, 512, 256);
+    
+    // Draw dots in a grid pattern
+    ctx.fillStyle = isDark ? '#1a1a2e' : '#a1a1aa';
+    for (let i = 0; i < 2000; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 256;
+      const size = Math.random() * 1.5 + 0.5;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  }, [isDark]);
+  
+  return (
+    <mesh ref={meshRef} geometry={geometry}>
+      <meshStandardMaterial
+        map={texture}
+        color={isDark ? '#0a0a14' : '#d4d4d8'}
+        emissive={new THREE.Color(PURPLE)}
+        emissiveIntensity={0.05}
+        roughness={0.8}
+        metalness={0.1}
+      />
+    </mesh>
+  );
+}
+
+// Atmosphere glow effect
+function Atmosphere({ isDark }: { isDark: boolean }) {
+  return (
+    <mesh scale={1.15}>
+      <sphereGeometry args={[1, 32, 32]} />
+      <meshBasicMaterial
+        color={PURPLE}
+        transparent
+        opacity={isDark ? 0.15 : 0.08}
+        side={THREE.BackSide}
+      />
+    </mesh>
+  );
+}
+
+// Marker dot at a location
+function Marker({ location, isDark }: { location: typeof LOCATIONS[0]; isDark: boolean }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const pos = useMemo(() => latLngToVector3(location.lat, location.lng, 1.01), [location.lat, location.lng]);
+  
+  const color = useMemo(() => {
+    if (location.type === 'ISP') return PURPLE;
+    if (location.type === 'RESIDENTIAL') return '#a855f7';
+    if (location.type === 'MOBILE') return '#3b82f6';
+    return '#f97316';
+  }, [location.type]);
+  
+  useFrame(({ clock }) => {
+    if (meshRef.current) {
+      const scale = 1 + Math.sin(clock.getElapsedTime() * 2 + location.lat) * 0.1;
+      meshRef.current.scale.setScalar(scale);
+    }
+  });
+  
+  return (
+    <mesh ref={meshRef} position={pos}>
+      <sphereGeometry args={[0.02, 16, 16]} />
+      <meshBasicMaterial color={color} />
+    </mesh>
+  );
+}
+
+// Glowing arc from origin to destination
+function Arc({ from, to, isDark }: { from: typeof LOCATIONS[0]; to: typeof LOCATIONS[0]; isDark: boolean }) {
+  const points = useMemo(() => {
+    const start = latLngToVector3(from.lat, from.lng, 1);
+    const end = latLngToVector3(to.lat, to.lng, 1);
+    
+    // Create curved path using quadratic bezier
+    const mid = start.clone().add(end).multiplyScalar(0.5).normalize().multiplyScalar(1.15);
+    
+    const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+    return curve.getPoints(50);
+  }, [from, to]);
+  
+  const geometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    return geo;
+  }, [points]);
+  
+  const material = useMemo(() => 
+    new THREE.LineBasicMaterial({ color: PURPLE, transparent: true, opacity: 0.5 }), 
+  []);
+  
+  return (
+    <primitive object={new THREE.Line(geometry, material)} />
+  );
+}
+
+// Main globe component
+function Globe({ isDark }: { isDark: boolean }) {
+  const groupRef = useRef<THREE.Group>(null);
+  
+  // Auto-rotate
+  useFrame(() => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y += 0.002;
+    }
+  });
+  
+  return (
+    <group ref={groupRef}>
+      <GlobeSphere isDark={isDark} />
+      <Atmosphere isDark={isDark} />
+      
+      {/* Markers */}
+      {LOCATIONS.map((loc, idx) => (
+        <Marker key={idx} location={loc} isDark={isDark} />
+      ))}
+      
+      {/* Arcs from UK to other ISP locations */}
+      {ISP_LOCATIONS.slice(1).map((loc, idx) => (
+        <Arc key={idx} from={ISP_LOCATIONS[0]} to={loc} isDark={isDark} />
+      ))}
+    </group>
+  );
+}
 
 export default function GlobeMap() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const globeRef = useRef<{ update: (s: object) => void; destroy: () => void } | null>(null);
   const [featuredLocation, setFeaturedLocation] = useState(ISP_LOCATIONS[0]);
   const [isDark, setIsDark] = useState(true);
 
@@ -74,99 +204,20 @@ export default function GlobeMap() {
     return () => clearInterval(interval);
   }, []);
 
-  // Initialize / update cobe globe when theme changes
-  useEffect(() => {
-    let mounted = true;
-    let animationId: number;
-
-    async function initGlobe() {
-      if (!canvasRef.current) return;
-      try {
-        const { default: createGlobe } = await import('cobe');
-
-        // Destroy old globe if exists
-        if (globeRef.current) {
-          globeRef.current.destroy();
-          globeRef.current = null;
-        }
-
-        if (!mounted) return;
-
-        const config = isDark ? COBE_CONFIG.dark : COBE_CONFIG.light;
-
-        // Build markers
-        const markers = LOCATIONS.map(loc => ({
-          location: [loc.lat, loc.lng] as [number, number],
-          size: loc.type === 'ISP' ? 0.9 : 0.5,
-          color: markerColor(loc.type) as [number, number, number],
-        }));
-
-        // Build arcs from UK to other ISP countries
-        const arcs = ISP_LOCATIONS.slice(1).map(loc => ({
-          from: [ISP_LOCATIONS[0].lat, ISP_LOCATIONS[0].lng] as [number, number],
-          to: [loc.lat, loc.lng] as [number, number],
-          color: config.arcColor as unknown as [number, number, number],
-        }));
-
-        let rotation = 0;
-
-        const globe = createGlobe(canvasRef.current, {
-          width: 600,
-          height: 600,
-          phi: 0,
-          theta: 0,
-          mapSamples: config.mapSamples,
-          mapBrightness: config.mapBrightness,
-          baseColor: config.baseColor as [number, number, number],
-          markerColor: config.markerColor as [number, number, number],
-          glowColor: config.glowColor as [number, number, number],
-          markers,
-          arcs,
-          arcColor: config.arcColor,
-          arcWidth: 1.2,
-          arcHeight: 0.25,
-          diffuse: config.diffuse,
-          devicePixelRatio: Math.min(window.devicePixelRatio, 2),
-          dark: isDark ? 1 : 0,
-        });
-
-        globeRef.current = globe;
-
-        const animate = () => {
-          if (!globeRef.current) return;
-          rotation += 0.0025;
-          globeRef.current.update({ theta: rotation });
-          animationId = requestAnimationFrame(animate);
-        };
-        animationId = requestAnimationFrame(animate);
-      } catch (e) {
-        console.error('Failed to load cobe:', e);
-      }
-    }
-
-    initGlobe();
-
-    return () => {
-      mounted = false;
-      cancelAnimationFrame(animationId);
-      if (globeRef.current) {
-        try { globeRef.current.destroy(); } catch (_) {}
-        globeRef.current = null;
-      }
-    };
-  }, [isDark]);
-
   return (
     <div className="relative w-full flex flex-col items-center">
       <div className="relative w-full" style={{ height: '380px' }}>
         {/* Globe canvas */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <canvas
-            ref={canvasRef}
-            width={600}
-            height={600}
-            className="w-full h-full max-w-[380px] max-h-[380px]"
-          />
+          <Canvas
+            camera={{ position: [0, 0, 2.5], fov: 45 }}
+            style={{ width: '100%', height: '100%' }}
+          >
+            <ambientLight intensity={0.5} />
+            <pointLight position={[5, 5, 5]} intensity={0.5} />
+            <pointLight position={[-5, -5, -5]} intensity={0.3} />
+            <Globe isDark={isDark} />
+          </Canvas>
         </div>
 
         {/* Featured location callout card */}
