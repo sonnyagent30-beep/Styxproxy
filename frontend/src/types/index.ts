@@ -3,10 +3,14 @@ export type PlanType = 'ISP' | 'DC' | 'RESIDENTIAL' | 'MOBILE';
 export type OrderStatus = 'pending' | 'paid' | 'fulfilled' | 'active' | 'expired' | 'cancelled' | 'refunded';
 export type CredentialStatus = 'active' | 'expired' | 'revoked' | 'suspended';
 
+export type ProductGroup = 'ISP' | 'RESIDENTIAL' | 'MOBILE' | 'DC';
+
 export interface Product {
   plan_code: string;
   plan_type: PlanType;
+  groupKey: ProductGroup;
   country: string;
+  flag: string;
   price_ngn: number;
   quantity: number;
   duration_days: number;
