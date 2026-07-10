@@ -125,18 +125,17 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
   const atmosphereColor = BRAND_GREEN_LIGHT;
   const atmosphereAlt   = 0.15;
 
-  // Continent outlines — SOFT in both modes.
-  // Dark mode: dim sage green at low opacity.
-  // Light mode: warm gray at low opacity.
-  const outlineColor    = isDark ? 'rgba(132, 204, 22, 0.25)' : 'rgba(100, 116, 139, 0.30)';
-
+  // Continent outlines — CONTRASTING colors so they never disappear into the sphere.
+  // Dark mode sphere: deep dark. Outlines: warm white at low opacity.
+  // Light mode sphere: off-white.    Outlines: slate gray at low opacity.
+  const outlineColor    = isDark ? 'rgba(220, 220, 220, 0.30)' : 'rgba(71, 85, 105, 0.35)';
+  // Sphere material: Lambert (no specular sheen) — pure flat matte look.
+  // This keeps the sphere surface calm so outlines read clearly on top.
   const globeMaterial = useMemo(() => {
-    return new THREE.MeshPhongMaterial({
+    return new THREE.MeshLambertMaterial({
       color: new THREE.Color(sphereBaseColor),
-      emissive: new THREE.Color(isDark ? '#0a2415' : '#dcfce7'),
-      emissiveIntensity: isDark ? 0.35 : 0.15,
-      shininess: 18,
-      specular: new THREE.Color(isDark ? '#2a5a3a' : '#86efac'),
+      emissive: new THREE.Color(isDark ? '#1a1a2e' : '#f0fdf4'),
+      emissiveIntensity: isDark ? 0.20 : 0.08,
     });
   }, [sphereBaseColor, isDark]);
 
