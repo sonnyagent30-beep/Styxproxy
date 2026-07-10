@@ -25,9 +25,6 @@ const LOCATIONS = [
 ];
 
 const BRAND_GREEN  = '#10B981';
-const LIGHT_GREEN  = '#4ADE80';
-const BRAND_DARK   = '#0a0a12';
-const BRAND_LIGHT  = '#ffffff';
 
 export default function GlobeMap() {
   const globeRef   = useRef<GlobeMethods | null>(null);
@@ -47,7 +44,9 @@ export default function GlobeMap() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // Fetch world countries TopoJSON and convert to GeoJSON features
+  // Fetch world countries TopoJSON and convert to GeoJSON features — done at component mount
+  // and converted to GeoJSON features BEFORE passing to react-globe.gl. This is the
+  // proven approach: pre-fetched GeoJSON works reliably where hexTopoData URL access fails.
   useEffect(() => {
     const topoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
     fetch(topoUrl)
@@ -91,48 +90,61 @@ export default function GlobeMap() {
   }, [featuredIdx, ready]);
 
   // ============================================================
-  // VISUAL: SATIN GLOBE THAT POPS IN BOTH MODES
+  // VISUAL DESIGN — premium globe in both modes
   // ============================================================
-  // Dark mode: dark navy sphere with rich green atmosphere halo
-  //   - subtle emissive green so the sphere glows softly from within
-  //   - high-altitude atmosphere that bleeds into the page
-  // Light mode: white sphere with cool silvery atmosphere
-  //   - subtle inner shadow ring to give 3D depth
-  //   - lighter green atmosphere that doesn't darken edges
-  const sphereBaseColor = isDark ? '#0a0a12' : '#ffffff';
-  const atmosphereColor = isDark ? LIGHT_GREEN : BRAND_GREEN;
-  const atmosphereAlt   = isDark ? 0.25 : 0.18;
+  // Sphere base color matches page background — globe "disappears" into the canvas.
+  // Atmosphere glow provides the visible edge in dark mode.
+  // CSS layer (radial gradient + edge vignette) provides the depth in both modes.
+  const sphereBaseColor = isDark ? '#0a0a12' : '#fafafa';
+  const atmosphereColor = isDark ? '#4ADE80' : BRAND_GREEN;
+  const atmosphereAlt   = isDark ? 0.22 : 0.15;
 
-  // Continent outlines: visible, premium, brand-aligned
-  // Dark mode: bright lime-green at 85% — clearly visible against dark sphere
-  // Light mode: deep brand-green at 70% — clearly visible against white sphere
-  const outlineColor    = isDark ? 'rgba(132, 204, 22, 0.85)' : 'rgba(22, 163, 74, 0.70)';
+  // Continent outlines: solid hex colors (NOT rgba) for guaranteed visibility
+  // Dark mode: bright lime-green
+  // Light mode: deep brand-green
+  const outlineColor    = isDark ? '#84cc16' : '#16a34a';
 
   // ============================================================
-  // MATERIAL: emissive MeshPhongMaterial for that satin glow
+  // MATERIAL: Emissive MeshPhongMaterial
   // ============================================================
-  // emissive adds an inner glow that makes the sphere feel alive.
-  // Dark mode: subtle green emissive so the sphere has depth
-  // Light mode: cool white emissive so the sphere feels premium
+  // Emissive adds inner glow — sphere feels alive, not flat.
+  // Light mode: very subtle warm tint, satin specular for sheen.
+  // Dark mode: subtle green emissive matches the brand.
   const globeMaterial = useMemo(() => {
     if (isDark) {
       return new THREE.MeshPhongMaterial({
         color: new THREE.Color(sphereBaseColor),
-        emissive: new THREE.Color('#0a2415'),       // subtle green inner glow
-        emissiveIntensity: 0.35,
-        shininess: 18,
-        specular: new THREE.Color('#2a5a3a'),       // green-tinted highlights
+        emissive: new THREE.Color('#0a2415'),
+        emissiveIntensity: 0.4,
+        shininess: 20,
+        specular: new THREE.Color('#2a5a3a'),
       });
     } else {
       return new THREE.MeshPhongMaterial({
         color: new THREE.Color(sphereBaseColor),
-        emissive: new THREE.Color('#e8f5ed'),       // soft white-green inner glow
-        emissiveIntensity: 0.12,
-        shininess: 35,                               // brighter shine for satin
-        specular: new THREE.Color('#a8d8b8'),       // light green-silver highlights
+        emissive: new THREE.Color('#dcfce7'),
+        emissiveIntensity: 0.18,
+        shininess: 28,
+        specular: new THREE.Color('#86efac'),
       });
     }
   }, [sphereBaseColor, isDark]);
+
+  // ============================================================
+  // CONTINENT MATERIAL — explicit MeshBasicMaterial with visible color.
+  // This is what gets rendered for each country polygon. With opacity 0, the polygon
+  // surface is invisible but the polygon STROKE (perimeter edges) shows in outlineColor.
+  // We use polygonStrokeColor to control the stroke color.
+  const continentMaterial = useMemo(() => {
+    // Solid color material for continent fills when we need them visible.
+    // When outlinesOnly is true, we use opacity 0 for invisible fills.
+    return new THREE.MeshBasicMaterial({
+      color: new THREE.Color(outlineColor),
+      transparent: true,
+      opacity: 0.0,  // transparent fill — only stroke shows
+      side: THREE.DoubleSide,
+    });
+  }, [outlineColor]);
 
   const featured = LOCATIONS[featuredIdx];
 
@@ -148,42 +160,41 @@ export default function GlobeMap() {
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Globe sphere material — emissive Phong for the satin inner glow
+          // Globe sphere material
           globeMaterial={globeMaterial}
-          // Atmosphere: BOTH modes now, with green/lightgreen tones
+          // Atmosphere — only dark mode gets the full glow.
+          // Light mode gets a much smaller, subtler atmosphere.
           showAtmosphere={true}
           atmosphereColor={atmosphereColor}
           atmosphereAltitude={atmosphereAlt}
           backgroundColor="rgba(0,0,0,0)"
-          // Country polygons — use hexTopoData + useDots for guaranteed continent rendering.
-          // This is the approach that consistently shows continent outlines.
-          polygonsData={[]}
-          hexPolygonsData={[]}
-          hexTopoData="https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
-          hexPolygonGeoJsonGeometry={() => 'geometry'}
-          hexPolygonColor={() => outlineColor}
-          hexPolygonAltitude={() => 0.006}
-          hexPolygonCapCurvatureResolution={4}
-          hexPolygonResolution={3}
-          // Country markers — larger green dots with halo via stacked points
+          // Continent polygons — pre-fetched GeoJSON, transparent fills, visible strokes.
+          // This is THE proven approach: polygonsData + polygonGeoJsonGeometry works.
+          polygonsData={countriesData}
+          polygonGeoJsonGeometry={(d: object) => (d as { geometry: object }).geometry}
+          polygonCapColor={() => 'rgba(0,0,0,0)'}
+          polygonSideColor={() => 'rgba(0,0,0,0)'}
+          polygonStrokeColor={() => outlineColor}
+          polygonCapCurvatureResolution={5}
+          polygonAltitude={() => 0.005}
+          // Country markers — bunche cities, brand green
           pointsData={LOCATIONS}
           pointLat="lat"
           pointLng="lng"
           pointColor={() => BRAND_GREEN}
-          pointRadius={0.6}
-          pointAltitude={0.008}
-          // Featured country — pulsing green ring (more vivid)
+          pointRadius={0.55}
+          pointAltitude={0.007}
+          // Featured country — pulsing green ring
           ringsData={ready ? [{ lat: featured.lat, lng: featured.lng }] : []}
           ringColor={() => BRAND_GREEN}
-          ringMaxRadius={5.0}
-          ringPropagationSpeed={1.5}
-          ringRepeat={2.5}
+          ringMaxRadius={4.5}
+          ringPropagationSpeed={1.4}
+          ringRepeat={2.2}
           // No arcs
           arcsData={[]}
           // Auto-rotate
           autoRotate={true}
           autoRotateSpeed={0.3}
-          // On ready
           onGlobeReady={() => {
             setContainerOpacity(1);
             setTimeout(() => setReady(true), 300);
@@ -196,55 +207,28 @@ export default function GlobeMap() {
         />
       </div>
 
-      {/* Radial gradient overlay — creates 3D dimensional shading on top of the globe */}
+      {/* Radial gradient overlay — top-left lit sphere effect. Adds dimensional depth. */}
       <div
         className="absolute left-0 top-0 rounded-full pointer-events-none z-[5]"
         style={{
           width: dims.w,
           height: dims.h,
           background: isDark
-            ? 'radial-gradient(circle at 35% 30%, rgba(74,222,128,0.18) 0%, rgba(74,222,128,0.05) 25%, transparent 55%)'
-            : 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.4) 20%, transparent 50%)',
-          mixBlendMode: isDark ? 'screen' : 'normal',
+            ? 'radial-gradient(circle at 30% 25%, rgba(74,222,128,0.10) 0%, transparent 45%)'
+            : 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.3) 20%, transparent 50%)',
         }}
       />
 
-      {/* Edge vignette — soft inner shadow ring to define the sphere edge */}
+      {/* Sphere edge vignette — soft inner shadow that defines the sphere edge */}
       <div
         className="absolute left-0 top-0 rounded-full pointer-events-none z-[6]"
         style={{
           width: dims.w,
           height: dims.h,
           boxShadow: isDark
-            ? 'inset 0 0 60px 20px rgba(74,222,128,0.20), inset 0 0 0 1px rgba(74,222,128,0.40)'
-            : 'inset 0 0 50px 15px rgba(16,185,129,0.10), inset 0 0 0 1px rgba(16,185,129,0.30)',
+            ? 'inset 0 0 80px 30px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(74,222,128,0.45)'
+            : 'inset 0 0 60px 20px rgba(16,185,129,0.08), inset 0 0 0 1px rgba(16,185,129,0.35)',
         }}
-      />
-
-      {/* Outer halo — breathing green ring around the entire globe */}
-      <motion.div
-        className="absolute left-0 top-0 rounded-full pointer-events-none z-[7]"
-        style={{
-          width: dims.w,
-          height: dims.h,
-          boxShadow: isDark
-            ? '0 0 30px 4px rgba(74,222,128,0.30), 0 0 60px 8px rgba(74,222,128,0.15)'
-            : '0 0 30px 4px rgba(16,185,129,0.25), 0 0 60px 8px rgba(16,185,129,0.10)',
-        }}
-        animate={{
-          boxShadow: isDark
-            ? [
-                '0 0 30px 4px rgba(74,222,128,0.30), 0 0 60px 8px rgba(74,222,128,0.15)',
-                '0 0 40px 6px rgba(74,222,128,0.45), 0 0 80px 12px rgba(74,222,128,0.25)',
-                '0 0 30px 4px rgba(74,222,128,0.30), 0 0 60px 8px rgba(74,222,128,0.15)',
-              ]
-            : [
-                '0 0 30px 4px rgba(16,185,129,0.25), 0 0 60px 8px rgba(16,185,129,0.10)',
-                '0 0 40px 6px rgba(16,185,129,0.40), 0 0 80px 12px rgba(16,185,129,0.20)',
-                '0 0 30px 4px rgba(16,185,129,0.25), 0 0 60px 8px rgba(16,185,129,0.10)',
-              ],
-        }}
-        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
       />
 
       {/* Featured country callout */}
