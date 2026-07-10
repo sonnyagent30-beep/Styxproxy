@@ -163,7 +163,7 @@ export default function GlobeMap() {
           hexPolygonGeoJsonGeometry={() => 'geometry'}
           hexPolygonUseDots={() => true}
           hexPolygonDotResolution={6}
-          hexPolygonMargin={0.2}
+          hexPolygonMargin={1.2}
           hexPolygonColor={() => dotColorHex}
           hexPolygonAltitude={() => 0.004}
           // Country markers
