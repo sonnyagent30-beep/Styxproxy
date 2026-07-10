@@ -24,7 +24,11 @@ const LOCATIONS = [
   { name: 'Singapore',      lat: 1.3521,   lng: 103.8198, flag: '🇸🇬', region: 'Asia Pacific' },
 ];
 
-const BUNCHE_GREEN = '#10B981';
+const BRAND_GREEN = '#10B981';
+// Lighter green for dark-mode continent dots (not brand green)
+const LIGHT_GREEN = '#4ADE80';
+// Lighter gray for light-mode continent dots (not pitch black)
+const LIGHT_GRAY = '#6B7280';
 
 export default function GlobeMap() {
   const globeRef = useRef<GlobeMethods | null>(null);
@@ -36,7 +40,7 @@ export default function GlobeMap() {
   const [containerOpacity, setContainerOpacity] = useState(0);
   const [topoData, setTopoData] = useState<Topology | null>(null);
 
-  // Detect system theme preference
+  // Detect system theme
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     setIsDark(mq.matches);
@@ -64,20 +68,6 @@ export default function GlobeMap() {
       .catch(() => {});
   }, []);
 
-  // Force canvas background transparent after globe mounts
-  useEffect(() => {
-    if (!ready) return;
-    const forceTransparent = () => {
-      const canvas = document.querySelector('#globe-canvas canvas') as HTMLCanvasElement;
-      if (canvas) {
-        canvas.style.background = 'transparent';
-      }
-    };
-    forceTransparent();
-    const interval = setInterval(forceTransparent, 500);
-    return () => clearInterval(interval);
-  }, [ready]);
-
   // Cycle featured country every 4 seconds
   useEffect(() => {
     const interval = setInterval(() => {
@@ -97,13 +87,11 @@ export default function GlobeMap() {
 
   const featured = LOCATIONS[featuredIdx];
 
-  // Brand colors per theme
-  // Dark mode: green dots on dark bg
-  // Light mode: dark dots on light bg
-  const dotColor = isDark ? BUNCHE_GREEN : '#374151';
-  const atmosphereColor = isDark ? BUNCHE_GREEN : '#6ea0ff';
-  const dotColorHex = isDark ? `${BUNCHE_GREEN}cc` : `${BUNCHE_GREEN}99`;
-  const atmosphereAltitude = 0.18;
+  // Per-theme colors
+  const globeBase = isDark ? '#0f0f1a' : '#ffffff';
+  const dotColor = isDark ? LIGHT_GREEN : LIGHT_GRAY;
+  const dotColorHex = isDark ? `${LIGHT_GREEN}cc` : `${LIGHT_GRAY}99`;
+  const atmosphereColor = isDark ? LIGHT_GREEN : '#93C5FD';
 
   return (
     <div
@@ -112,7 +100,7 @@ export default function GlobeMap() {
       className="relative w-full overflow-hidden"
       style={{ height: 480, minHeight: 480 }}
     >
-      {/* Globe canvas — transparent bg */}
+      {/* Globe canvas */}
       <div
         className="absolute left-0 top-0 flex items-center justify-center"
         style={{
@@ -120,22 +108,21 @@ export default function GlobeMap() {
           height: dims.h,
           opacity: containerOpacity,
           transition: 'opacity 700ms ease',
-          background: 'transparent',
         }}
       >
         <Globe
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Fully transparent sphere
-          globeColor={() => 'rgba(0,0,0,0)'}
-          nightColor={() => 'rgba(0,0,0,0)'}
+          // Solid globe sphere — white in light mode, dark in dark mode
+          globeColor={() => globeBase}
+          nightColor={() => globeBase}
           // Transparent canvas background
           backgroundColor="rgba(0,0,0,0)"
-          // Atmosphere
+          // Atmosphere glow
           atmosphereColor={atmosphereColor}
-          atmosphereAltitude={atmosphereAltitude}
-          // Hex-dot continents — dots colored per theme
+          atmosphereAltitude={0.18}
+          // Continent dots — colored per theme
           hexPolygonsData={topoData ? feature(topoData, topoData.objects.countries as GeometryCollection) as object : []}
           hexPolygonGeoJsonGeometry={(polygon) => (polygon as { geometry: object }).geometry}
           hexPolygonUseDots={() => true}
@@ -143,16 +130,16 @@ export default function GlobeMap() {
           hexPolygonMargin={0.25}
           hexPolygonColor={() => dotColorHex}
           hexPolygonAltitude={() => 0.003}
-          // Country markers — colored per theme
+          // Country markers — brand green
           pointsData={LOCATIONS}
           pointLat="lat"
           pointLng="lng"
-          pointColor={() => dotColor}
+          pointColor={() => BRAND_GREEN}
           pointRadius={0.55}
           pointAltitude={0.007}
-          // Featured country — green ring
+          // Featured country — brand green pulsing ring
           ringsData={ready ? [{ lat: featured.lat, lng: featured.lng }] : []}
-          ringColor={() => BUNCHE_GREEN}
+          ringColor={() => BRAND_GREEN}
           ringMaxRadius={4.0}
           ringPropagationSpeed={1.2}
           ringRepeat={2.2}
@@ -190,7 +177,7 @@ export default function GlobeMap() {
             <div>
               <p className="font-bold text-sm text-zinc-100">{featured.name}</p>
               <p className="text-xs mt-0.5 flex items-center gap-1 text-zinc-400">
-                <svg className="w-3 h-3" style={{ color: BUNCHE_GREEN }} fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-3 h-3" style={{ color: BRAND_GREEN }} fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                 </svg>
                 {featured.region}
@@ -211,7 +198,7 @@ export default function GlobeMap() {
         }}
       >
         <p className="text-xs text-zinc-400">9 Countries</p>
-        <p className="text-sm font-bold" style={{ color: BUNCHE_GREEN }}>ISP Coverage</p>
+        <p className="text-sm font-bold" style={{ color: BRAND_GREEN }}>ISP Coverage</p>
       </div>
 
       {/* Orbital ring decoration */}
@@ -221,7 +208,7 @@ export default function GlobeMap() {
           style={{
             width: dims.w * 0.87,
             height: dims.w * 0.87,
-            border: `1px solid ${BUNCHE_GREEN}18`,
+            border: `1px solid ${BRAND_GREEN}18`,
           }}
           animate={{ rotate: 360 }}
           transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
