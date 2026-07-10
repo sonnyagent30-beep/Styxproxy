@@ -144,6 +144,7 @@ export default function GlobeMap() {
         }}
       >
         <Globe
+          key={isDark ? 'dark' : 'light'}
           ref={globeRef}
           width={dims.w}
           height={dims.h}
@@ -156,7 +157,7 @@ export default function GlobeMap() {
           atmosphereAltitude={0.18}
           // Continent dots — hex polygons with useDots
           hexPolygonsData={`${WORLD_COUNTRIES}`}
-          hexPolygonGeoJsonGeometry="geometry"
+          hexPolygonGeoJsonGeometry={() => 'geometry'}
           hexPolygonUseDots={() => true}
           hexPolygonDotResolution={6}
           hexPolygonMargin={0.2}
