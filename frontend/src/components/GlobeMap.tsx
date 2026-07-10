@@ -89,12 +89,14 @@ export default function GlobeMap() {
   }, [featuredIdx, ready]);
 
   // Per-theme colors
-  // Dark mode: dark sphere + light-green outlines + green glow
-  // Light mode: white sphere + dark gray outlines + green glow ring
+  // Dark mode: dark sphere + soft green outlines + green glow
+  // Light mode: white sphere + gray outlines + green glow ring
   const globeBase        = isDark ? '#0a0a12' : '#ffffff';
-  const atmosphereColor  = isDark ? LIGHT_GREEN : '#16a34a';
-  const atmosphereAlt    = isDark ? 0.18 : 0.10;
-  const outlineColor     = isDark ? LIGHT_GREEN : '#374151';
+  const atmosphereColor  = isDark ? '#16A34A' : '#16a34a';
+  // Smaller altitude = tighter/more subtle atmosphere glow
+  const atmosphereAlt    = isDark ? 0.10 : 0.10;
+  // Softer outline in dark mode
+  const outlineColor     = isDark ? '#16A34A' : '#374151';
 
   const featured = LOCATIONS[featuredIdx];
 
