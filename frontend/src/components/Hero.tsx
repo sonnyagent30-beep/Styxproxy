@@ -26,21 +26,18 @@ export default function Hero() {
           {/* Badge */}
           <div className="inline-flex items-center px-4 py-2 rounded-full bg-[var(--card)] border border-[var(--border)] animate-fade-in">
             <span className="w-2 h-2 rounded-full bg-[var(--primary)] mr-2 animate-pulse" />
-            <span className="text-sm text-[var(--muted)]">Credentials delivered instantly — no verification needed</span>
+            <span className="text-sm text-[var(--muted)]">Leave no footprint.</span>
           </div>
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight animate-slide-up">
-            <span className="text-[var(--foreground)]">Fast. </span>
-            <span className="gradient-text">Anonymous.</span>
-            <br />
-            <span className="text-[var(--foreground)]">No </span>
-            <span className="gradient-text">Hassle.</span>
+            <span className="text-[var(--foreground)]">Cross </span>
+            <span className="gradient-text">the Styx.</span>
           </h1>
 
           {/* Subheadline */}
           <p className="text-lg sm:text-xl text-[var(--muted)] animate-slide-up max-w-2xl mx-auto" style={{ animationDelay: '0.1s' }}>
-            ISP, Residential, Mobile &amp; Datacenter proxies — delivered in seconds. No account, no verification, no waiting. Just you and your proxy.
+            ISP, Residential, Mobile &amp; Datacenter proxies — delivered in seconds. Leave no footprint.
           </p>
 
           {/* CTA Buttons — View Products | Order Now | WhatsApp | Telegram */}
