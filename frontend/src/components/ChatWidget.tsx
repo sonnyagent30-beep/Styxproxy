@@ -516,14 +516,42 @@ export default function ChatWidget() {
         }, TYPING_DELAY);
       }, 300);
     } else {
-      // Generic fallback
-      setTimeout(() => {
-        setIsTyping(true);
+      // Keyword matching — most specific first to avoid false matches
+      const lower = text.toLowerCase();
+      const kw = (() => {
+        if (/\bisp\b/i.test(lower) && !/\bresidential\b/i.test(lower) && !/\bmobile\b/i.test(lower)) return 'order_isp';
+        if (/\bresidential\b/i.test(lower)) return 'order_residential';
+        if (/\bmobile\b|4g|4glte|mtn|airtel/i.test(lower)) return 'order_mobile';
+        if (/\bdatacenter\b|\bdc proxy\b/i.test(lower)) return 'order_dc';
+        if (/\border\b|\bbuy\b|\bpurchase\b|\bhow much\b|\bprice\b|\bcost\b|\bplan\b|\bnair?a?\b/i.test(lower)) return 'order_type';
+        if (/\bcheck\b|\bstatus\b|\btrack\b|\bwhere.*order\b|\borde?r.*status\b/i.test(lower)) return 'check_order';
+        if (/\bproxy.*not.?work|\bproxy.*dead|\bproxy.*ban|\bproxy.*fail|\bconnection.*error|\btimeout\b|\brefused\b|\b403\b/i.test(lower)) return 'proxy_dead';
+        if (/\brefund\b|\bmoney.?back\b|\bcharge.?back\b/i.test(lower)) return 'refund_ask';
+        if (/\bban.?replacement\b|\bfree.?replace\b|\bip.?replace\b|\bproxy.?replace\b/i.test(lower)) return 'ban_report';
+        if (/\bbulk\b|\bvolume\b|\bdiscount\b|\b10\+.?proxy\b/i.test(lower)) return 'bulk_pricing';
+        if (/\bpayment\b|\bpay\b|\btransfer\b|\bussd\b|\bcard.?fail\b|\btroubleshoot.?payment\b/i.test(lower)) return 'payment_issue';
+        if (/\bwho\b|\bwhat.*bunche\b|\babout\b|\bcompany\b/i.test(lower)) return 'faq_delivery';
+        if (/\bcontact\b|\bsupport\b|\bhelp\b|\btalk.*human\b|\bhuman\b|\bagent\b/i.test(lower)) return 'escalate';
+        return null;
+      })();
+      if (kw) {
         setTimeout(() => {
-          setIsTyping(false);
-          sendBot('general');
-        }, TYPING_DELAY);
-      }, 300);
+          setIsTyping(true);
+          setTimeout(() => {
+            setIsTyping(false);
+            sendBot(kw);
+          }, TYPING_DELAY);
+        }, 300);
+      } else {
+        // True fallback
+        setTimeout(() => {
+          setIsTyping(true);
+          setTimeout(() => {
+            setIsTyping(false);
+            sendBot('general');
+          }, TYPING_DELAY);
+        }, 300);
+      }
     }
   };
 
@@ -579,7 +607,7 @@ export default function ChatWidget() {
                     whiteSpace: 'pre-line',
                   }}
                 >
-                  {msg.text}
+                  {msg.text.replace(/\*\*(.*?)\*\*/g, '$1').replace(/^#+\s+/gm, '').replace(/•/g, '·').replace(/→/g, '→').replace(/`(.*?)`/g, '$1')}
                 </div>
               </div>
             ))}

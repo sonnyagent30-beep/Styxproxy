@@ -98,7 +98,7 @@ export default function Hero() {
       </div>
 
       {/* How It Works */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full mt-20 mb-16">
+      <div id="how-it-works" className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full mt-20 mb-16">
         <h2 className="text-2xl font-bold text-center mb-10">How It Works</h2>
         <div className="grid md:grid-cols-3 gap-6">
 
