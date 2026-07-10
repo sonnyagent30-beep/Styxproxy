@@ -111,6 +111,7 @@ export default function GlobeMap() {
         }}
       >
         <Globe
+          key={`globe-${isDark}`}
           ref={globeRef}
           width={dims.w}
           height={dims.h}
