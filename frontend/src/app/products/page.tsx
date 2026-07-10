@@ -4,8 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { products, formatPrice, COUNTRIES, type CountryInfo } from '@/lib/products';
 
-import GlobeMap from '@/components/GlobeMap';
-
 // Country lists per product type — drives both the category cards AND the globe
 const PRODUCT_COUNTRIES: Record<string, string[]> = {
   ISP:         ['UK', 'US', 'DE', 'FR', 'CA', 'JP', 'AU', 'BR', 'SG'],
@@ -95,59 +93,53 @@ export default function ProductsPage() {
   return (
     <div className="min-h-screen pt-24 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Globe + Headline Hero */}
-        <div className="flex flex-col lg:flex-row items-center gap-8 mb-16">
-          {/* Globe — filtered by selected product type */}
-          <div className="w-full lg:w-1/2">
-            <GlobeMap productType={activeProduct || 'ALL'} />
-          </div>
+        {/* Page Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl sm:text-5xl font-bold mb-4 leading-tight" style={{ color: 'var(--foreground)' }}>
+            Lightning-fast proxies,<br />
+            <span style={{ color: 'var(--primary)' }}>built to scale.</span>
+          </h1>
+          <p className="text-base sm:text-lg mb-6" style={{ color: 'var(--muted)' }}>
+            {activeProduct
+              ? <>Showing coverage for <span className="font-medium" style={{ color: 'var(--foreground)' }}>{categories.find(c => c.key === activeProduct)?.name}</span> — click another card to switch.</>
+              : <>ISP, Residential, Mobile 4G &amp; Datacenter proxies — available in <span className="font-medium" style={{ color: 'var(--foreground)' }}>18+ countries</span> worldwide.</>
+            }
+          </p>
+        </div>
 
-          {/* Headline */}
-          <div className="w-full lg:w-1/2 text-center lg:text-left">
-            <h1 className="text-4xl sm:text-5xl font-bold mb-4 leading-tight" style={{ color: 'var(--foreground)' }}>
-              Lightning-fast proxies,<br />
-              <span style={{ color: 'var(--primary)' }}>built to scale.</span>
-            </h1>
-            <p className="text-base sm:text-lg mb-6" style={{ color: 'var(--muted)' }}>
-              {activeProduct
-                ? <>Showing coverage for <span className="font-medium" style={{ color: 'var(--foreground)' }}>{categories.find(c => c.key === activeProduct)?.name}</span> — click another card to switch.</>
-                : <>ISP, Residential, Mobile 4G &amp; Datacenter proxies — available in <span className="font-medium" style={{ color: 'var(--foreground)' }}>18+ countries</span> worldwide.</>
-              }
-            </p>
-            {/* Stats Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
-              {[
-                { label: 'Uptime', value: '99.9%', icon: '🟢' },
-                { label: 'IP Pool', value: '50K+ IPs', icon: '🌐' },
-                { label: 'Speed', value: '1 Gbps', icon: '⚡' },
-                { label: 'Delivery', value: 'Instant', icon: '🚀' },
-              ].map(({ label, value, icon }) => (
-                <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-3 text-center">
-                  <div className="text-base mb-0.5">{icon}</div>
-                  <div className="text-xl font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
-                  <div className="text-xs text-[var(--muted)]">{label}</div>
-                </div>
-              ))}
+        {/* Stats Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-2xl mx-auto">
+          {[
+            { label: 'Uptime', value: '99.9%', icon: '🟢' },
+            { label: 'IP Pool', value: '50K+ IPs', icon: '🌐' },
+            { label: 'Speed', value: '1 Gbps', icon: '⚡' },
+            { label: 'Delivery', value: 'Instant', icon: '🚀' },
+          ].map(({ label, value, icon }) => (
+            <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-3 text-center">
+              <div className="text-base mb-0.5">{icon}</div>
+              <div className="text-xl font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
+              <div className="text-xs text-[var(--muted)]">{label}</div>
             </div>
+          ))}
+        </div>
 
-            <div className="flex flex-wrap justify-center lg:justify-start gap-3">
-              <Link
-                href="/order"
-                className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors min-w-[160px] text-center"
-              >
-                Get Instant Access
-              </Link>
-              <a
-                href="https://t.me/buncheproxybot"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] font-medium rounded-xl transition-colors min-w-[160px] text-center"
-                style={{ color: 'var(--foreground)' }}
-              >
-                Start via Telegram
-              </a>
-            </div>
-          </div>
+        {/* CTA Buttons */}
+        <div className="flex flex-wrap justify-center gap-3 mt-8">
+          <Link
+            href="/order"
+            className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors min-w-[160px] text-center"
+          >
+            Get Instant Access
+          </Link>
+          <a
+            href="https://t.me/BuncheBot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] font-medium rounded-xl transition-colors min-w-[160px] text-center"
+            style={{ color: 'var(--foreground)' }}
+          >
+            Start via Telegram
+          </a>
         </div>
 
         {/* Product Category Cards — clicking filters the globe */}
