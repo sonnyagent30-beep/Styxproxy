@@ -11,7 +11,7 @@ const faqs = [
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'We accept all major payment methods in Nigerian Naira (NGN): Visa, Mastercard, Verve, direct bank transfer, USSD, and QR code. All payments are processed securely.',
+    a: 'We accept all major payment methods globally: Visa, Mastercard, direct bank transfer, USSD, QR code, and crypto. All payments are processed securely via our payment processor.',
   },
   {
     q: 'Can I get a refund?',

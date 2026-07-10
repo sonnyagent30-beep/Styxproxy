@@ -31,13 +31,13 @@ export default function Hero() {
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight animate-slide-up">
-            <span className="text-[var(--foreground)]">Nigeria's Anonymous </span>
-            <span className="gradient-text">Proxy Reseller</span>
+            <span className="text-[var(--foreground)]">Anonymous </span>
+            <span className="gradient-text">Proxy Service</span>
           </h1>
 
           {/* Subheadline */}
           <p className="text-lg sm:text-xl text-[var(--muted)] animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            ISP, Residential, Datacenter &amp; Mobile 4G proxies. Order instantly. Pay in NGN. Get credentials on the spot.
+            ISP, Residential, Datacenter &amp; Mobile 4G proxies. Order instantly. Pay globally. Get credentials on the spot.
           </p>
 
           {/* CTA Buttons — View Products | Order Now | WhatsApp | Telegram */}
@@ -108,7 +108,7 @@ export default function Hero() {
               <svg className="w-6 h-6 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25H6a2.25 2.25 0 01-2.25-2.25v7.5A2.25 2.25 0 016 21h12a2.25 2.25 0 012.25-2.25v-7.5A2.25 2.25 0 0118 11.25h-1.5z"/></svg>
             </div>
             <h3 className="text-lg font-semibold mb-2">Choose &amp; Pay</h3>
-            <p className="text-[var(--muted)] text-sm">Pick a proxy type and country. Pay securely via bank transfer, card, USSD, or QR — all in NGN. No account needed.</p>
+            <p className="text-[var(--muted)] text-sm">Pick a proxy type and country. Pay securely — card, bank transfer, or crypto. No account needed.</p>
           </div>
 
           {/* Card 2 — Get Credentials */}

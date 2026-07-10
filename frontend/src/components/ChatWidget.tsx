@@ -408,7 +408,7 @@ Ready to order? → /order`,
   order_mobile: {
     text: `**Mobile 4G Proxies** — IPs from real mobile carrier networks (MTN, Airtel, etc.). Highest trust score on platforms like Instagram, TikTok, and Facebook.
 
-Available in **12 countries** including US, UK, DE, NG (Nigeria!), and more.
+Available in **12 countries** including US, UK, Germany, Japan, and more — with Nigeria in the mix too.
 
 Plans:
 • **5GB** — ₦20,000
@@ -482,7 +482,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
 
   // ---- PAYMENT ISSUE ----
   payment_issue: {
-    text: "I'm sorry to hear you're having a payment issue. Let me walk you through the most common causes:\n\n**1. Payment not yet confirmed**\nMost payments confirm within 10–30 seconds. If you paid via bank transfer, it can take up to 5 minutes. Please wait a bit and check your order at /manage.\n\n**2. Payment failed but amount was deducted**\nThis sometimes happens with bank transfers. Your bank will typically reverse the charge within 24–48 hours automatically.\n\n**3. Card payment declined**\nTry a different card, or use bank transfer instead (available in Nigeria).\n\nWhich situation sounds like yours?",
+    text: "I'm sorry to hear you're having a payment issue. Let me walk you through the most common causes:\n\n**1. Payment not yet confirmed**\nMost payments confirm within 10–30 seconds. If you paid via bank transfer, it can take up to 5 minutes. Please wait a bit and check your order at /manage.\n\n**2. Payment failed but amount was deducted**\nThis sometimes happens with bank transfers. Your bank will typically reverse the charge within 24–48 hours automatically.\n\n**3. Card payment declined**\nTry a different card, or use an alternative payment method.\n\nWhich situation sounds like yours?",
     quickReplies: [
       { label: '✅ Check my order now', next: 'check_order' },
       { label: '💳 Try a different method', next: 'order_type' },
@@ -589,7 +589,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
 
   // ---- ABOUT BUNCHE ----
   about: {
-    text: "**Styxproxy** is a Nigerian proxy reseller — we provide high-quality ISP, Residential, Mobile 4G, and Datacenter proxies for web scraping, social media automation, sneaker bots, and more.\n\nWe partner with top proxy providers to deliver fast, reliable proxies with instant delivery and 24-hour ban replacement.\n\n**Why Styxproxy?**\n• Nigerian-owned business\n• Instant delivery\n• Free ban replacement within 24hrs\n• Multiple payment methods (Card, Bank Transfer, USSD, QR)\n• Anonymous ordering — we don't collect personal data\n• Responsive support via WhatsApp and Telegram\n\nNeed proxies? → /order",
+    text: "**Styxproxy** is a global anonymous proxy service — we provide high-quality ISP, Residential, Mobile 4G, and Datacenter proxies for web scraping, social media automation, sneaker bots, and more.\n\nWe partner with top proxy providers to deliver fast, reliable proxies with instant delivery and 24-hour ban replacement.\n\n**Why Styxproxy?**\n• Global proxy coverage — US, UK, Germany, Nigeria, and more\n• Instant delivery\n• Free ban replacement within 24hrs\n• Multiple payment methods — card, bank transfer, crypto\n• Anonymous ordering — we don't collect personal data\n• Responsive support via WhatsApp and Telegram\n\nNeed proxies? → /order",
     quickReplies: [
       { label: '🛒 Order proxies', next: 'order_type' },
       { label: '📋 FAQ', next: 'faq' },
@@ -637,7 +637,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
   },
 
   faq_payment: {
-    text: "**Payment methods**\n\nWe accept all major payment methods in Nigerian Naira (NGN):\n\n• 💳 **Card** — Visa, Mastercard, Verve\n• 🏦 **Bank Transfer** — Direct transfer to our account\n• 📱 **USSD** — Pay with your bank's USSD code\n• 📱 **QR Code** — Scan and pay with your banking app\n\nAll payments are processed securely. We never see your full card details or bank information.\n\n**Currency:** NGN only. Prices are inclusive of all taxes.",
+    text: "**Payment methods**\n\nWe accept all major payment methods — no matter where you are:\n\n• 💳 **Card** — Visa, Mastercard (global)\n• 🏦 **Bank Transfer** — Available in supported countries\n• 📱 **USSD** — Available in Nigeria\n• 📱 **QR Code** — Scan and pay with your banking app\n• ₿ **Crypto** — Bitcoin, Ethereum, USDT\n\nAll payments are processed securely. We never see your full card details or bank information.\n\n**Currency:** Prices shown in USD. Your card will be charged in your local currency at the prevailing rate.",
     quickReplies: [
       { label: '🛒 Start order', next: 'order_done' },
       { label: '🔙 Back to FAQ', next: 'faq' },
