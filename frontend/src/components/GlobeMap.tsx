@@ -28,11 +28,22 @@ const BUNCHE_GREEN = '#10B981';
 
 export default function GlobeMap() {
   const globeRef = useRef<GlobeMethods | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isDark, setIsDark] = useState(true);
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dims, setDims] = useState({ w: 520, h: 520 });
   const [ready, setReady] = useState(false);
   const [containerOpacity, setContainerOpacity] = useState(0);
   const [topoData, setTopoData] = useState<Topology | null>(null);
+
+  // Detect system theme preference
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    setIsDark(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   // Responsive sizing
   useEffect(() => {
@@ -53,6 +64,20 @@ export default function GlobeMap() {
       .catch(() => {});
   }, []);
 
+  // Force canvas background transparent after globe mounts
+  useEffect(() => {
+    if (!ready) return;
+    const forceTransparent = () => {
+      const canvas = document.querySelector('#globe-canvas canvas') as HTMLCanvasElement;
+      if (canvas) {
+        canvas.style.background = 'transparent';
+      }
+    };
+    forceTransparent();
+    const interval = setInterval(forceTransparent, 500);
+    return () => clearInterval(interval);
+  }, [ready]);
+
   // Cycle featured country every 4 seconds
   useEffect(() => {
     const interval = setInterval(() => {
@@ -72,12 +97,22 @@ export default function GlobeMap() {
 
   const featured = LOCATIONS[featuredIdx];
 
+  // Brand colors per theme
+  // Dark mode: green dots on dark bg
+  // Light mode: dark dots on light bg
+  const dotColor = isDark ? BUNCHE_GREEN : '#374151';
+  const atmosphereColor = isDark ? BUNCHE_GREEN : '#6ea0ff';
+  const dotColorHex = isDark ? `${BUNCHE_GREEN}cc` : `${BUNCHE_GREEN}99`;
+  const atmosphereAltitude = 0.18;
+
   return (
     <div
+      ref={containerRef}
+      id="globe-canvas"
       className="relative w-full overflow-hidden"
       style={{ height: 480, minHeight: 480 }}
     >
-      {/* Globe canvas — transparent bg, dots only */}
+      {/* Globe canvas — transparent bg */}
       <div
         className="absolute left-0 top-0 flex items-center justify-center"
         style={{
@@ -85,34 +120,37 @@ export default function GlobeMap() {
           height: dims.h,
           opacity: containerOpacity,
           transition: 'opacity 700ms ease',
+          background: 'transparent',
         }}
       >
         <Globe
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Transparent sphere — shows dots only
+          // Fully transparent sphere
           globeColor={() => 'rgba(0,0,0,0)'}
           nightColor={() => 'rgba(0,0,0,0)'}
-          // Atmosphere glow — green
-          atmosphereColor={BUNCHE_GREEN}
-          atmosphereAltitude={0.18}
-          // Hex-bin dots from topojson — continent shapes as dots
+          // Transparent canvas background
+          backgroundColor="rgba(0,0,0,0)"
+          // Atmosphere
+          atmosphereColor={atmosphereColor}
+          atmosphereAltitude={atmosphereAltitude}
+          // Hex-dot continents — dots colored per theme
           hexPolygonsData={topoData ? feature(topoData, topoData.objects.countries as GeometryCollection) as object : []}
           hexPolygonGeoJsonGeometry={(polygon) => (polygon as { geometry: object }).geometry}
           hexPolygonUseDots={() => true}
           hexPolygonDotResolution={6}
           hexPolygonMargin={0.25}
-          hexPolygonColor={() => `${BUNCHE_GREEN}cc`}
+          hexPolygonColor={() => dotColorHex}
           hexPolygonAltitude={() => 0.003}
-          // Country markers — green dots
+          // Country markers — colored per theme
           pointsData={LOCATIONS}
           pointLat="lat"
           pointLng="lng"
-          pointColor={() => BUNCHE_GREEN}
+          pointColor={() => dotColor}
           pointRadius={0.55}
           pointAltitude={0.007}
-          // Featured country — green glowing ring
+          // Featured country — green ring
           ringsData={ready ? [{ lat: featured.lat, lng: featured.lng }] : []}
           ringColor={() => BUNCHE_GREEN}
           ringMaxRadius={4.0}
