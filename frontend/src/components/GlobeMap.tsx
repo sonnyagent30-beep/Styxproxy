@@ -33,7 +33,7 @@ const DARK_CONFIG = {
   dark: 1,
   diffuse: 1.2,
   instrument: 'brush' as const,
-  mapSamples: 24000,       // ← THE KEY: dotted/halftone globe texture
+  mapSamples: 12000,       // dotted/halftone globe texture (was 24000)
   mapBrightness: 6,
   baseColor: [0.15, 0.15, 0.15] as [number, number, number],
   glowColor: [0.05, 0.05, 0.05] as [number, number, number],
