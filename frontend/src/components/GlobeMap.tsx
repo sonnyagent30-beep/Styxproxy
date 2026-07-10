@@ -98,16 +98,16 @@ export default function GlobeMap() {
   // Country outlines with reduced opacity — subtle strokes, not bold lines
   const outlineColor    = isDark ? 'rgba(74,222,128,0.55)' : 'rgba(31,41,55,0.50)';
 
-  // Build a custom Three.js material for the globe sphere.
-  // three-globe.js default is MeshPhongMaterial({color: 0x000000}) — BLACK!
-  // globeColor prop is NOT a real prop in three-globe.js, it's silently ignored.
-  // We must build our own MeshBasicMaterial with the correct color per theme.
+  // MeshPhongMaterial gives a satin-like sheen (specular highlights catch the globe's point lights).
+  // MeshBasicMaterial was completely flat — no shading, no depth.
+  // Phong = ambient + diffuse + specular = soft 3D sheen.
   const globeMaterial = useMemo(() => {
-    const mat = new THREE.MeshBasicMaterial({
+    return new THREE.MeshPhongMaterial({
       color: new THREE.Color(sphereColorHex),
+      shininess: 25,        // moderate sheen — satin, not mirror
+      specular: new THREE.Color(isDark ? '#1a3a1a' : '#c8d8c8'), // subtle tint on highlights
     });
-    return mat;
-  }, [sphereColorHex]);
+  }, [sphereColorHex, isDark]);
 
   const featured = LOCATIONS[featuredIdx];
 
