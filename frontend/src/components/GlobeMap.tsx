@@ -15,7 +15,7 @@ const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
 const LOCATIONS = [
   { name: 'United Kingdom',  lat: 51.5074,  lng: -0.1278,  flag: '🇬🇧', region: 'Europe' },
   { name: 'United States',   lat: 39.8283,  lng: -98.5795, flag: '🇺🇸', region: 'North America' },
-  { name: 'Germany',        lat: 51.1657,  lng: 10.4515,  flag: '🇩🇪', region: 'Europe' },
+  { name: 'Germany',         lat: 51.1657,  lng: 10.4515,  flag: '🇩🇪', region: 'Europe' },
   { name: 'France',          lat: 46.6034,  lng: 2.3488,   flag: '🇫🇷', region: 'Europe' },
   { name: 'Canada',          lat: 45.5017,  lng: -73.5673, flag: '🇨🇦', region: 'North America' },
   { name: 'Japan',           lat: 36.2048,  lng: 138.2529, flag: '🇯🇵', region: 'Asia Pacific' },
@@ -24,11 +24,13 @@ const LOCATIONS = [
   { name: 'Singapore',       lat: 1.3521,   lng: 103.8198, flag: '🇸🇬', region: 'Asia Pacific' },
 ];
 
-const BRAND_GREEN = '#10B981';
-const LIGHT_GREEN = '#4ADE80';
+const BRAND_GREEN  = '#10B981';
+const LIGHT_GREEN  = '#4ADE80';
+const BRAND_DARK   = '#0a0a12';
+const BRAND_LIGHT  = '#ffffff';
 
 export default function GlobeMap() {
-  const globeRef        = useRef<GlobeMethods | null>(null);
+  const globeRef   = useRef<GlobeMethods | null>(null);
   const [isDark, setIsDark]               = useState(true);
   const [featuredIdx, setFeaturedIdx]     = useState(0);
   const [dims, setDims]                   = useState({ w: 520, h: 520 });
@@ -88,34 +90,49 @@ export default function GlobeMap() {
     } catch (_) {}
   }, [featuredIdx, ready]);
 
-  // Globe sphere color = page background so globe "disappears"
-  // Atmosphere glow — only in dark mode (GlowMesh darkens light mode sphere edges).
-  // In light mode: use MeshLambertMaterial (no specular = no dark-edge problem).
-  const sphereColorHex = isDark ? '#0f0f0f' : '#ffffff';
-  // Atmosphere: dark mode only — soft green glow. Light mode gets no atmosphere.
-  const atmosphereColor = BRAND_GREEN;
-  const atmosphereAlt = 0.20;
-  const useAtmosphere = isDark;
-  // Country outlines with reduced opacity — subtle strokes
-  const outlineColor = isDark ? 'rgba(74,222,128,0.55)' : 'rgba(31,41,55,0.50)';
+  // ============================================================
+  // VISUAL: SATIN GLOBE THAT POPS IN BOTH MODES
+  // ============================================================
+  // Dark mode: dark navy sphere with rich green atmosphere halo
+  //   - subtle emissive green so the sphere glows softly from within
+  //   - high-altitude atmosphere that bleeds into the page
+  // Light mode: white sphere with cool silvery atmosphere
+  //   - subtle inner shadow ring to give 3D depth
+  //   - lighter green atmosphere that doesn't darken edges
+  const sphereBaseColor = isDark ? '#0a0a12' : '#ffffff';
+  const atmosphereColor = isDark ? LIGHT_GREEN : BRAND_GREEN;
+  const atmosphereAlt   = isDark ? 0.25 : 0.18;
 
-  // Light mode: MeshLambertMaterial — no specular highlights, so NO dark-edge problem.
-  // Dark mode: MeshPhongMaterial — specular gives premium satin sheen.
+  // Continent outlines: visible but tasteful
+  // Dark mode: bright green at 75% — clearly visible against dark sphere
+  // Light mode: dark gray at 60% — clearly visible against white sphere
+  const outlineColor    = isDark ? 'rgba(74,222,128,0.75)' : 'rgba(31,41,55,0.65)';
+
+  // ============================================================
+  // MATERIAL: emissive MeshPhongMaterial for that satin glow
+  // ============================================================
+  // emissive adds an inner glow that makes the sphere feel alive.
+  // Dark mode: subtle green emissive so the sphere has depth
+  // Light mode: cool white emissive so the sphere feels premium
   const globeMaterial = useMemo(() => {
     if (isDark) {
       return new THREE.MeshPhongMaterial({
-        color: new THREE.Color(sphereColorHex),
-        shininess: 20,
-        specular: new THREE.Color('#1a3a1a'),
+        color: new THREE.Color(sphereBaseColor),
+        emissive: new THREE.Color('#0a2415'),       // subtle green inner glow
+        emissiveIntensity: 0.35,
+        shininess: 18,
+        specular: new THREE.Color('#2a5a3a'),       // green-tinted highlights
       });
     } else {
-      // LambertMaterial: diffuse-only lighting, no specular.
-      // No specular = no dark reflection zones at sphere edges.
-      return new THREE.MeshLambertMaterial({
-        color: new THREE.Color(sphereColorHex),
+      return new THREE.MeshPhongMaterial({
+        color: new THREE.Color(sphereBaseColor),
+        emissive: new THREE.Color('#e8f5ed'),       // soft white-green inner glow
+        emissiveIntensity: 0.12,
+        shininess: 35,                               // brighter shine for satin
+        specular: new THREE.Color('#a8d8b8'),       // light green-silver highlights
       });
     }
-  }, [sphereColorHex, isDark]);
+  }, [sphereBaseColor, isDark]);
 
   const featured = LOCATIONS[featuredIdx];
 
@@ -131,38 +148,34 @@ export default function GlobeMap() {
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Globe sphere material — Three.js MeshBasicMaterial with correct color per theme.
-          // CRITICAL: `globeColor` is NOT a real three-globe prop — it's silently ignored.
-          // Must use `globeMaterial` with an actual Three.js Material object.
+          // Globe sphere material — emissive Phong for the satin inner glow
           globeMaterial={globeMaterial}
-          // Atmosphere only in dark mode — GlowMesh makes light mode sphere edges dark.
-          showAtmosphere={useAtmosphere}
-          atmosphereColor={useAtmosphere ? atmosphereColor : undefined}
-          atmosphereAltitude={useAtmosphere ? atmosphereAlt : undefined}
+          // Atmosphere: BOTH modes now, with green/lightgreen tones
+          showAtmosphere={true}
+          atmosphereColor={atmosphereColor}
+          atmosphereAltitude={atmosphereAlt}
           backgroundColor="rgba(0,0,0,0)"
-          // Country polygons - use simpler accessor that extracts geometry properly
-          // polygonCapMaterial/polygonSideMaterial with opacity=0 for invisible fills
-          // polygonStrokeColor for visible country outlines
+          // Country polygons — transparent fill, visible stroke
           polygonsData={countriesData}
           polygonGeoJsonGeometry="geometry"
           polygonCapMaterial={() => ({ transparent: true, opacity: 0 } as any)}
           polygonSideMaterial={() => ({ transparent: true, opacity: 0 } as any)}
           polygonStrokeColor={() => outlineColor}
-          polygonCapCurvatureResolution={3}
+          polygonCapCurvatureResolution={4}
           polygonAltitude={() => 0.005}
-          // Country markers — brand green
+          // Country markers — larger green dots with halo via stacked points
           pointsData={LOCATIONS}
           pointLat="lat"
           pointLng="lng"
           pointColor={() => BRAND_GREEN}
-          pointRadius={0.55}
-          pointAltitude={0.007}
-          // Featured country — green ring
+          pointRadius={0.6}
+          pointAltitude={0.008}
+          // Featured country — pulsing green ring (more vivid)
           ringsData={ready ? [{ lat: featured.lat, lng: featured.lng }] : []}
           ringColor={() => BRAND_GREEN}
-          ringMaxRadius={4.0}
-          ringPropagationSpeed={1.2}
-          ringRepeat={2.2}
+          ringMaxRadius={5.0}
+          ringPropagationSpeed={1.5}
+          ringRepeat={2.5}
           // No arcs
           arcsData={[]}
           // Auto-rotate
@@ -180,6 +193,57 @@ export default function GlobeMap() {
           }}
         />
       </div>
+
+      {/* Radial gradient overlay — creates 3D dimensional shading on top of the globe */}
+      <div
+        className="absolute left-0 top-0 rounded-full pointer-events-none z-[5]"
+        style={{
+          width: dims.w,
+          height: dims.h,
+          background: isDark
+            ? 'radial-gradient(circle at 35% 30%, rgba(74,222,128,0.18) 0%, rgba(74,222,128,0.05) 25%, transparent 55%)'
+            : 'radial-gradient(circle at 35% 30%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.4) 20%, transparent 50%)',
+          mixBlendMode: isDark ? 'screen' : 'normal',
+        }}
+      />
+
+      {/* Edge vignette — soft inner shadow ring to define the sphere edge */}
+      <div
+        className="absolute left-0 top-0 rounded-full pointer-events-none z-[6]"
+        style={{
+          width: dims.w,
+          height: dims.h,
+          boxShadow: isDark
+            ? 'inset 0 0 60px 20px rgba(74,222,128,0.20), inset 0 0 0 1px rgba(74,222,128,0.40)'
+            : 'inset 0 0 50px 15px rgba(16,185,129,0.10), inset 0 0 0 1px rgba(16,185,129,0.30)',
+        }}
+      />
+
+      {/* Outer halo — breathing green ring around the entire globe */}
+      <motion.div
+        className="absolute left-0 top-0 rounded-full pointer-events-none z-[7]"
+        style={{
+          width: dims.w,
+          height: dims.h,
+          boxShadow: isDark
+            ? '0 0 30px 4px rgba(74,222,128,0.30), 0 0 60px 8px rgba(74,222,128,0.15)'
+            : '0 0 30px 4px rgba(16,185,129,0.25), 0 0 60px 8px rgba(16,185,129,0.10)',
+        }}
+        animate={{
+          boxShadow: isDark
+            ? [
+                '0 0 30px 4px rgba(74,222,128,0.30), 0 0 60px 8px rgba(74,222,128,0.15)',
+                '0 0 40px 6px rgba(74,222,128,0.45), 0 0 80px 12px rgba(74,222,128,0.25)',
+                '0 0 30px 4px rgba(74,222,128,0.30), 0 0 60px 8px rgba(74,222,128,0.15)',
+              ]
+            : [
+                '0 0 30px 4px rgba(16,185,129,0.25), 0 0 60px 8px rgba(16,185,129,0.10)',
+                '0 0 40px 6px rgba(16,185,129,0.40), 0 0 80px 12px rgba(16,185,129,0.20)',
+                '0 0 30px 4px rgba(16,185,129,0.25), 0 0 60px 8px rgba(16,185,129,0.10)',
+              ],
+        }}
+        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+      />
 
       {/* Featured country callout */}
       <AnimatePresence mode="wait">
@@ -220,21 +284,6 @@ export default function GlobeMap() {
         <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>9 Countries</p>
         <p className="text-sm font-bold" style={{ color: BRAND_GREEN }}>ISP Coverage</p>
       </div>
-
-      {/* Globe edge ring — CSS border that defines the sphere boundary.
-          Light mode: no atmosphere, so ring must be slightly more visible.
-          Dark mode: atmosphere glow provides the edge, ring is subtle accent. */}
-      <div
-        className="absolute left-0 top-0 rounded-full pointer-events-none z-10"
-        style={{
-          width: dims.w,
-          height: dims.h,
-          boxShadow: isDark
-            ? '0 0 0 1.5px rgba(16,185,129,0.30), inset 0 0 0 1px rgba(16,185,129,0.15)'
-            : '0 0 0 1.5px rgba(16,185,129,0.50), inset 0 0 0 1px rgba(16,185,129,0.30)',
-          borderRadius: '50%',
-        }}
-      />
     </div>
   );
 }
