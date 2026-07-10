@@ -49,7 +49,7 @@ export default function AdminPage() {
           <h1 className="text-4xl font-bold mb-2">
             Admin <span className="gradient-text">Dashboard</span>
           </h1>
-          <p className="text-[var(--muted)]">Monitor your Bunche business</p>
+          <p className="text-[var(--muted)]">Monitor your Styxproxy business</p>
         </div>
 
         {error && (

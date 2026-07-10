@@ -19,7 +19,7 @@ interface OrderData {
   plan_type?: string;
   country?: string;
   amount_paid_ngn?: number;
-  bunche_credential?: {
+  styxproxy_credential?: {
     bun_username?: string;
     upstream_proxy_ip?: string;
     upstream_proxy_port?: number;
@@ -39,7 +39,7 @@ async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: str
   // Header
   doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
-  doc.text('BUNCHE', pageWidth / 2, 25, { align: 'center' });
+  doc.text('STYXPROXY', pageWidth / 2, 25, { align: 'center' });
   
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
@@ -89,7 +89,7 @@ async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: str
   y += 15;
   
   // Credentials (if fulfilled)
-  if (order.bunche_credential) {
+  if (order.styxproxy_credential) {
     doc.line(20, y, pageWidth - 20, y);
     y += 10;
     
@@ -98,7 +98,7 @@ async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: str
     y += 8;
     
     doc.setFont('helvetica', 'normal');
-    const cred = order.bunche_credential;
+    const cred = order.styxproxy_credential;
     doc.text(`Username: ${cred.bun_username || 'N/A'}`, 25, y);
     y += 7;
     doc.text(`Proxy: ${cred.upstream_proxy_ip || 'N/A'}:${cred.upstream_proxy_port || 'N/A'}`, 25, y);
@@ -110,10 +110,10 @@ async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: str
   // Footer
   doc.setFontSize(10);
   doc.setTextColor(128, 128, 128);
-  doc.text('Thank you for choosing Bunche • bunche.ng • hello@bunche.ng', pageWidth / 2, y, { align: 'center' });
+  doc.text('Thank you for choosing Styxproxy • styxproxy.com • hello@styxproxy.com', pageWidth / 2, y, { align: 'center' });
   
   // Save
-  doc.save(`bunche-receipt-${txRef}.pdf`);
+  doc.save(`styxproxy-receipt-${txRef}.pdf`);
 }
 
 function ThankYouContent() {
@@ -129,7 +129,7 @@ function ThankYouContent() {
 
   // Load cart from sessionStorage
   useEffect(() => {
-    const stored = sessionStorage.getItem('bunche_cart');
+    const stored = sessionStorage.getItem('styxproxy_cart');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -253,29 +253,29 @@ function ThankYouContent() {
               <h2 className="text-lg font-semibold mb-4">Proxy Credentials</h2>
               
               {/* If we have credential from API, show it */}
-              {order?.bunche_credential ? (
+              {order?.styxproxy_credential ? (
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm text-[var(--muted)]">Username</label>
-                    <p className="font-mono text-lg">{order.bunche_credential.bun_username}</p>
+                    <p className="font-mono text-lg">{order.styxproxy_credential.bun_username}</p>
                   </div>
                   <div>
                     <label className="text-sm text-[var(--muted)]">Proxy Address</label>
                     <p className="font-mono text-lg">
-                      {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                      {order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm text-[var(--muted)]">Format</label>
                     <p className="font-mono text-sm text-[var(--muted)] break-all">
-                      {order.bunche_credential.bun_username}:your_password@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                      {order.styxproxy_credential.bun_username}:your_password@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm text-[var(--muted)]">Expires</label>
                     <p className="font-medium">
-                      {order.bunche_credential.expires_at
-                        ? new Date(order.bunche_credential.expires_at).toLocaleDateString('en-NG', {
+                      {order.styxproxy_credential.expires_at
+                        ? new Date(order.styxproxy_credential.expires_at).toLocaleDateString('en-NG', {
                             year: 'numeric', month: 'long', day: 'numeric',
                           })
                         : 'N/A'}
@@ -323,7 +323,7 @@ function ThankYouContent() {
 
             {/* Actions */}
             <div className="space-y-3">
-              {order?.bunche_credential && (
+              {order?.styxproxy_credential && (
                 <button
                   onClick={handleDownloadPDF}
                   className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"

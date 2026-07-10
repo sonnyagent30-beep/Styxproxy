@@ -251,7 +251,7 @@ export default function ManagePage() {
                   Order Another
                 </Link>
                 <a
-                  href="https://t.me/BuncheBot"
+                  href="https://t.me/StyxproxyBot"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-5 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl text-sm text-center transition-colors"

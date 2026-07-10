@@ -12,7 +12,7 @@ import { COUNTRIES, PRODUCT_COUNTRIES, type CountryInfo } from '@/lib/products';
 // Load react-globe.gl only on client (SSR disabled)
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
 
-// Brand colors — match Bunche globals.css exactly
+// Brand colors — match Styxproxy globals.css exactly
 const BRAND_GREEN       = '#10B981';   // --primary
 const BRAND_GREEN_LIGHT = '#34D399';   // --primary-light
 

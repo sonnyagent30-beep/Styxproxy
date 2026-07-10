@@ -69,7 +69,7 @@ export default function Hero() {
               WhatsApp
             </a>
             <a
-              href="https://t.me/BuncheBot"
+              href="https://t.me/StyxproxyBot"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto min-w-[200px] px-8 py-4 bg-[#0088cc] hover:bg-[#006699] text-white font-bold rounded-xl text-lg transition-all flex items-center justify-center gap-2"
@@ -140,7 +140,7 @@ export default function Hero() {
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <a
-            href="https://t.me/BuncheBot"
+            href="https://t.me/StyxproxyBot"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-[#0088CC] hover:bg-[#0077B5] text-white font-semibold rounded-xl transition-all hover:scale-105"

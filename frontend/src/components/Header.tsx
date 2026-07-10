@@ -15,7 +15,7 @@ export default function Header() {
             <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center">
               <span className="text-black font-bold text-lg">B</span>
             </div>
-            <span className="text-xl font-bold text-[var(--foreground)]">Bunche</span>
+            <span className="text-xl font-bold text-[var(--foreground)]">Styxproxy</span>
           </Link>
 
           {/* Desktop Navigation */}
