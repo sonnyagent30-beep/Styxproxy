@@ -89,14 +89,14 @@ export default function GlobeMap() {
   }, [featuredIdx, ready]);
 
   // Globe sphere color = page background so globe "disappears"
-  // Atmosphere glow is the PRIMARY visual — make it BIG and visible
-  // Country outlines need HIGH CONTRAST against the sphere
+  // Atmosphere glow — SOFT, not too strong
+  // Country outlines — subtle, not overpowering
   const sphereColorHex = isDark ? '#0f0f0f' : '#ffffff';
-  // Atmosphere glow at 0.40 (per user request)
+  // Softer atmosphere — 0.15 is gentle, 0.20 is more visible
   const atmosphereColor  = BRAND_GREEN;
-  const atmosphereAlt   = 0.40;
-  // Country outlines: must be HIGHLY visible — dark in light mode, bright in dark mode
-  const outlineColor    = isDark ? '#34D399' : '#1f2937';
+  const atmosphereAlt   = 0.18;
+  // Country outlines with reduced opacity — subtle strokes, not bold lines
+  const outlineColor    = isDark ? 'rgba(74,222,128,0.55)' : 'rgba(31,41,55,0.50)';
 
   // Build a custom Three.js material for the globe sphere.
   // three-globe.js default is MeshPhongMaterial({color: 0x000000}) — BLACK!
