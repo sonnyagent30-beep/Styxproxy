@@ -17,6 +17,7 @@ const EDGE_MARGIN = 8;
 function useEdgeDraggable(initial: Position = { x: -1, y: -1 }) {
   const [pos, setPos] = useState<Position>(initial);
   const [dragging, setDragging] = useState(false);
+  const [isClick, setIsClick] = useState(false);
   const dragRef = useRef({ startX: 0, startY: 0, startPosX: 0, startPosY: 0 });
 
   const getDefault = (side: 'x' | 'y') => {
@@ -24,55 +25,10 @@ function useEdgeDraggable(initial: Position = { x: -1, y: -1 }) {
     return window.innerHeight - FAB_SIZE - EDGE_MARGIN;
   };
 
-  // Calculate snap position based on current drag position
-  const calculateSnapPosition = useCallback((x: number, y: number) => {
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
-    
-    // Calculate distances to each edge
-    const left = x;
-    const right = screenW - x - FAB_SIZE;
-    const top = y;
-    const bottom = screenH - y - FAB_SIZE;
-    
-    // Find closest edge
-    const minDist = Math.min(left, right, top, bottom);
-    
-    let snapX = x;
-    let snapY = y;
-    
-    if (minDist === left) {
-      // Snap to left edge
-      snapX = EDGE_MARGIN;
-    } else if (minDist === right) {
-      // Snap to right edge
-      snapX = screenW - FAB_SIZE - EDGE_MARGIN;
-    } else if (minDist === top) {
-      // Snap to top edge
-      snapX = (screenW - FAB_SIZE) / 2; // Center horizontally
-      snapY = EDGE_MARGIN;
-    } else {
-      // Snap to bottom edge
-      snapX = (screenW - FAB_SIZE) / 2; // Center horizontally
-      snapY = screenH - FAB_SIZE - EDGE_MARGIN;
-    }
-    
-    // If centered on top/bottom, adjust based on which corner is closer
-    if (minDist === top || minDist === bottom) {
-      const centerX = (screenW - FAB_SIZE) / 2;
-      if (x < centerX - 50) {
-        snapX = EDGE_MARGIN;
-      } else if (x > centerX + 50) {
-        snapX = screenW - FAB_SIZE - EDGE_MARGIN;
-      }
-    }
-    
-    return { x: snapX, y: snapY };
-  }, []);
-
   const startDrag = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setIsClick(true);
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     const cur = pos.x === -1 ? getDefault('x') : pos.x;
@@ -90,17 +46,49 @@ function useEdgeDraggable(initial: Position = { x: -1, y: -1 }) {
     const newX = Math.max(0, Math.min(window.innerWidth - FAB_SIZE, dragRef.current.startPosX + dx));
     const newY = Math.max(0, Math.min(window.innerHeight - FAB_SIZE, dragRef.current.startPosY + dy));
     setPos({ x: newX, y: newY });
+    // If moved more than 5px, it's a drag not a click
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      setIsClick(false);
+    }
   }, [dragging]);
+
+  const calculateSnapPosition = useCallback((x: number, y: number) => {
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
+    const left = x;
+    const right = screenW - x - FAB_SIZE;
+    const top = y;
+    const bottom = screenH - y - FAB_SIZE;
+    const minDist = Math.min(left, right, top, bottom);
+    let snapX = x;
+    let snapY = y;
+    if (minDist === left) {
+      snapX = EDGE_MARGIN;
+    } else if (minDist === right) {
+      snapX = screenW - FAB_SIZE - EDGE_MARGIN;
+    } else if (minDist === top) {
+      snapX = (screenW - FAB_SIZE) / 2;
+      snapY = EDGE_MARGIN;
+    } else {
+      snapX = (screenW - FAB_SIZE) / 2;
+      snapY = screenH - FAB_SIZE - EDGE_MARGIN;
+    }
+    if (minDist === top || minDist === bottom) {
+      const centerX = (screenW - FAB_SIZE) / 2;
+      if (x < centerX - 50) snapX = EDGE_MARGIN;
+      else if (x > centerX + 50) snapX = screenW - FAB_SIZE - EDGE_MARGIN;
+    }
+    return { x: snapX, y: snapY };
+  }, []);
 
   const endDrag = useCallback(() => {
     if (!dragging) return;
     setDragging(false);
-    // Snap to nearest edge
     const snapped = calculateSnapPosition(pos.x, pos.y);
     setPos(snapped);
   }, [dragging, pos.x, pos.y, calculateSnapPosition]);
 
-  return { pos, startDrag, onDrag, endDrag, dragging };
+  return { pos, startDrag, onDrag, endDrag, dragging, isClick };
 }
 
 // Calculate chat window position based on FAB position
@@ -684,7 +672,7 @@ export default function ChatWidget() {
   const bottomRef                      = useRef<HTMLDivElement>(null);
 
   // --- Edge-snapping draggable position for FAB and chat window ---
-  const { pos: fabPos, startDrag, onDrag, endDrag, dragging } = useEdgeDraggable();
+  const { pos: fabPos, startDrag, onDrag, endDrag, dragging, isClick } = useEdgeDraggable();
   const [windowPos, setWindowPos] = useState({ x: -1, y: -1 });
 
   // Global mouse/touch listeners while dragging
@@ -845,12 +833,10 @@ export default function ChatWidget() {
       {/* ---- CHAT WINDOW ---- */}
       {isOpen && (
         <div
-          className="fixed z-[9999] w-[calc(100vw-32px)] sm:w-[390px] h-[600px] max-h-[600px] flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden cursor-move select-none"
+          className="fixed z-[9999] w-[calc(100vw-32px)] sm:w-[390px] h-[600px] max-h-[600px] flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden select-none"
           style={winStyle}
-          onMouseDown={startDrag}
-          onTouchStart={startDrag}
         >
-          {/* Header — drag handle */}
+          {/* Header — drag handle ONLY this area */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--card)] shrink-0 cursor-move"
                onMouseDown={startDrag}
                onTouchStart={startDrag}>
@@ -966,7 +952,7 @@ export default function ChatWidget() {
 
       {/* ---- FAB — draggable ---- */}
       <button
-        onClick={(e) => { e.stopPropagation(); toggleOpen(!isOpen); }}
+        onClick={(e) => { e.stopPropagation(); if (isClick) toggleOpen(!isOpen); }}
         onMouseDown={startDrag}
         onTouchStart={startDrag}
         aria-label="Open support chat"
