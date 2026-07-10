@@ -1,11 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { products, formatPrice } from '@/lib/products';
+import { products, formatPrice, COUNTRIES, type CountryInfo } from '@/lib/products';
 
 import GlobeMap from '@/components/GlobeMap';
 
-// Product category data
+// Country lists per product type — drives both the category cards AND the globe
+const PRODUCT_COUNTRIES: Record<string, string[]> = {
+  ISP:         ['UK', 'US', 'DE', 'FR', 'CA', 'JP', 'AU', 'BR', 'SG'],
+  RESIDENTIAL: ['US', 'UK', 'DE', 'FR', 'CA', 'JP', 'AU', 'BR', 'IT', 'ES', 'NL', 'IN', 'MX', 'AR'],
+  MOBILE:      ['US', 'UK', 'DE', 'FR', 'CA', 'JP', 'AU', 'BR', 'IT', 'ES'],
+  DC:          ['US', 'UK', 'DE', 'NL', 'JP', 'SG', 'AU', 'CA', 'FR', 'IT', 'ES', 'BR', 'IN', 'AE', 'HK'],
+};
+
+const getCountries = (codes: string[]): CountryInfo[] => codes.map(c => COUNTRIES[c]).filter(Boolean);
+
+// Category metadata — name, price, description, features. Countries are derived from PRODUCT_COUNTRIES.
 const categories = [
   {
     key: 'ISP',
@@ -17,7 +28,6 @@ const categories = [
     name: 'ISP Proxies',
     description: 'High-speed ISP IPs — ideal for web scraping and automation',
     price: '₦6,500/mo',
-    availableIn: ['UK', 'US', 'DE', 'FR', 'CA', 'JP', 'AU', 'BR', 'SG'],
     features: [
       'Fast connection speeds',
       'Stable IP addresses',
@@ -78,40 +88,18 @@ const categories = [
   },
 ];
 
-// Comparison data
-const comparisonData = [
-  {
-    feature: 'Speed',
-    ISP: 'High',
-    Residential: 'Medium',
-    Mobile: 'Medium',
-    Datacenter: 'Very High',
-  },
-  {
-    feature: 'Detection',
-    ISP: 'Low',
-    Residential: 'Very Low',
-    Mobile: 'Very Low',
-    Datacenter: 'High',
-  },
-  {
-    feature: 'Best For',
-    ISP: 'Scraping, automation',
-    Residential: 'Sneakers, ticketing',
-    Mobile: 'Social media, ads',
-    Datacenter: 'General browsing',
-  },
-];
-
 export default function ProductsPage() {
+  // Active filter for the globe — null means "all countries from all products"
+  const [activeProduct, setActiveProduct] = useState<string | null>(null);
+
   return (
     <div className="min-h-screen pt-24 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Globe + Headline Hero */}
         <div className="flex flex-col lg:flex-row items-center gap-8 mb-16">
-          {/* Globe */}
+          {/* Globe — filtered by selected product type */}
           <div className="w-full lg:w-1/2">
-            <GlobeMap />
+            <GlobeMap productType={activeProduct || 'ALL'} />
           </div>
 
           {/* Headline */}
@@ -121,8 +109,10 @@ export default function ProductsPage() {
               <span style={{ color: 'var(--primary)' }}>built to scale.</span>
             </h1>
             <p className="text-base sm:text-lg mb-6" style={{ color: 'var(--muted)' }}>
-              ISP, Residential, Mobile 4G &amp; Datacenter proxies — available in{' '}
-              <span className="font-medium" style={{ color: 'var(--foreground)' }}>UK, US, DE, FR, CA, JP, AU, BR, SG</span>
+              {activeProduct
+                ? <>Showing coverage for <span className="font-medium" style={{ color: 'var(--foreground)' }}>{categories.find(c => c.key === activeProduct)?.name}</span> — click another card to switch.</>
+                : <>ISP, Residential, Mobile 4G &amp; Datacenter proxies — available in <span className="font-medium" style={{ color: 'var(--foreground)' }}>18+ countries</span> worldwide.</>
+              }
             </p>
             <div className="flex flex-wrap justify-center lg:justify-start gap-3">
               <Link
@@ -144,56 +134,80 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* Product Category Cards */}
+        {/* Product Category Cards — clicking filters the globe */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
-          {categories.map((category) => (
-            <div
-              key={category.key}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex flex-col hover:border-[var(--primary)] transition-colors"
-            >
-              {/* Icon */}
-              <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] mb-4">
-                {category.icon}
-              </div>
-
-              {/* Name & Description */}
-              <h3 className="text-lg font-bold mb-2">{category.name}</h3>
-              <p className="text-sm text-[var(--muted)] mb-4">{category.description}</p>
-
-              {/* Price */}
-              <div className="text-lg font-semibold text-[var(--primary)] mb-4">
-                {category.price}
-              </div>
-
-              {/* Available In (for ISP) */}
-              {category.availableIn && (
-                <div className="mb-4">
-                  <span className="text-xs text-[var(--muted)]">Available in:</span>
-                  <p className="text-sm">{category.availableIn.join(', ')}</p>
-                </div>
-              )}
-
-              {/* Features */}
-              <ul className="space-y-2 mb-6 flex-1">
-                {category.features.map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-2 text-sm text-[var(--muted)]">
-                    <svg className="w-4 h-4 text-[var(--primary)] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              {/* Order Now Button */}
-              <Link
-                href="/order"
-                className="w-full px-4 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors text-center"
+          {categories.map((category) => {
+            const isActive = activeProduct === category.key;
+            const countryList = getCountries(PRODUCT_COUNTRIES[category.key] || []);
+            return (
+              <button
+                key={category.key}
+                type="button"
+                onClick={() => setActiveProduct(isActive ? null : category.key)}
+                className={`text-left bg-[var(--card)] border rounded-2xl p-6 flex flex-col transition-all cursor-pointer ${
+                  isActive
+                    ? 'border-[var(--primary)] ring-2 ring-[var(--primary)]/30 shadow-lg'
+                    : 'border-[var(--border)] hover:border-[var(--primary)]'
+                }`}
               >
-                Order Now →
-              </Link>
-            </div>
-          ))}
+                {/* Icon */}
+                <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] mb-4">
+                  {category.icon}
+                </div>
+
+                {/* Name & Description */}
+                <h3 className="text-lg font-bold mb-2">{category.name}</h3>
+                <p className="text-sm text-[var(--muted)] mb-4">{category.description}</p>
+
+                {/* Price */}
+                <div className="text-lg font-semibold text-[var(--primary)] mb-4">
+                  {category.price}
+                </div>
+
+                {/* Available countries — flag chips */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-[var(--muted)]">Available in:</span>
+                    <span className="text-xs font-semibold text-[var(--primary)]">
+                      {countryList.length} countries
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {countryList.map(c => (
+                      <span
+                        key={c.code}
+                        title={c.name}
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-[var(--background)] border border-[var(--border)] text-base leading-none"
+                      >
+                        {c.flag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Features */}
+                <ul className="space-y-2 mb-6 flex-1">
+                  {category.features.map((feature, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-[var(--muted)]">
+                      <svg className="w-4 h-4 text-[var(--primary)] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Action — either "View on globe" or "Order Now" */}
+                <Link
+                  href="/order"
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full px-4 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors text-center"
+                >
+                  {isActive ? '✓ Showing on globe' : 'Order Now →'}
+                </Link>
+              </button>
+            );
+          })}
         </div>
 
         {/* Comparison Table */}
@@ -211,9 +225,13 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {comparisonData.map((row, idx) => (
+                {[
+                  { feature: 'Speed',          ISP: 'High',     Residential: 'Medium',  Mobile: 'Medium',  Datacenter: 'Very High' },
+                  { feature: 'Detection',      ISP: 'Low',      Residential: 'Very Low', Mobile: 'Very Low', Datacenter: 'High' },
+                  { feature: 'Best For',       ISP: 'Scraping, automation', Residential: 'Sneakers, ticketing', Mobile: 'Social media, ads', Datacenter: 'General browsing' },
+                ].map((row, idx) => (
                   <tr key={idx} className="border-b border-[var(--border)]">
-                    <td className="py-4 px-4 text-[var(--muted)]">{row.feature}</td>
+                    <td className="py-4 px-4 font-medium">{row.feature}</td>
                     <td className="text-center py-4 px-4">{row.ISP}</td>
                     <td className="text-center py-4 px-4">{row.Residential}</td>
                     <td className="text-center py-4 px-4">{row.Mobile}</td>
@@ -225,22 +243,25 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* Pricing Reference Grid */}
-        <div>
-          <h2 className="text-2xl font-bold text-center mb-8">All Products & Pricing</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {/* All Products & Pricing */}
+        <div className="mb-20">
+          <h2 className="text-2xl font-bold text-center mb-8">All Products &amp; Pricing</h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {products.map((product) => (
               <div
                 key={product.plan_code}
                 className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 flex items-center justify-between"
               >
                 <div>
-                  <span className="font-medium">{product.country}</span>
-                  <span className="text-[var(--muted)] text-sm ml-2">({product.plan_type})</span>
+                  <p className="font-semibold">{product.flag} {product.country !== 'GLOBAL' ? product.country : product.plan_type}</p>
+                  <p className="text-xs text-[var(--muted)]">{product.features.join(' · ')}</p>
                 </div>
-                <span className="font-semibold text-[var(--primary)]">
+                <Link
+                  href={`/order?plan=${product.plan_code}`}
+                  className="px-3 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors"
+                >
                   {formatPrice(product.price_ngn)}
-                </span>
+                </Link>
               </div>
             ))}
           </div>
@@ -250,9 +271,9 @@ export default function ProductsPage() {
         <div className="mt-20 p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)] text-center">
           <h2 className="text-2xl font-bold mb-4">Need Help Choosing?</h2>
           <p className="text-[var(--muted)] mb-6 max-w-xl mx-auto">
-            Not sure which proxy type is right for you? Our team can help you make the best choice for your use case.
+            Tell us what you need and we'll recommend the right proxy type and country mix.
           </p>
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="flex flex-wrap justify-center gap-3">
             <Link
               href="/order"
               className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors"
@@ -263,7 +284,8 @@ export default function ProductsPage() {
               href="https://wa.me/2347032981049"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-xl transition-colors"
+              className="px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] font-medium rounded-xl transition-colors"
+              style={{ color: 'var(--foreground)' }}
             >
               Chat on WhatsApp
             </a>
