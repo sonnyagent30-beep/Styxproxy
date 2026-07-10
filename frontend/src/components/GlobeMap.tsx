@@ -1,224 +1,142 @@
 'use client';
 
-import { Canvas, useFrame } from '@react-three/fiber';
-import { useRef, useEffect, useState, useMemo } from 'react';
-import * as THREE from 'three';
+import { useEffect, useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import dynamic from 'next/dynamic';
 
-// Earth textures (dark and light variants)
-const EARTH_TEXTURES = {
-  dark: {
-    map: 'https://unpkg.com/three-globe@2.31.0/example/img/earth-dark.jpg',
-    bump: 'https://unpkg.com/three-globe@2.31.0/example/img/earth-topology.png',
-  },
-  light: {
-    map: 'https://unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg',
-    bump: 'https://unpkg.com/three-globe@2.31.0/example/img/earth-topology.png',
-  },
-};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyGlobe = React.ComponentProps<'div'> & Record<string, any>;
 
+// Dynamically import react-globe.gl (SSR disabled)
+const Globe = dynamic(() => import('react-globe.gl'), { ssr: false }) as React.ComponentType<AnyGlobe>;
+
+// Bunche green as primary accent
+const BUNCHE_GREEN = '#10B981';
+
+// Country data — Bunche ISP countries
 const LOCATIONS = [
-  { lat: 51.5074, lng: -0.1278, name: 'UK', country: 'United Kingdom', region: 'Europe', flag: '🇬🇧', type: 'ISP' },
-  { lat: 40.7128, lng: -74.006, name: 'US', country: 'United States', region: 'North America', flag: '🇺🇸', type: 'ISP' },
-  { lat: 52.52, lng: 13.405, name: 'DE', country: 'Germany', region: 'Europe', flag: '🇩🇪', type: 'ISP' },
-  { lat: 48.8566, lng: 2.3522, name: 'FR', country: 'France', region: 'Europe', flag: '🇫🇷', type: 'ISP' },
-  { lat: 45.5017, lng: -73.5673, name: 'CA', country: 'Canada', region: 'North America', flag: '🇨🇦', type: 'ISP' },
-  { lat: 35.6762, lng: 139.6503, name: 'JP', country: 'Japan', region: 'Asia Pacific', flag: '🇯🇵', type: 'ISP' },
-  { lat: -33.8688, lng: 151.2093, name: 'AU', country: 'Australia', region: 'Oceania', flag: '🇦🇺', type: 'ISP' },
-  { lat: -23.5505, lng: -46.6333, name: 'BR', country: 'Brazil', region: 'South America', flag: '🇧🇷', type: 'ISP' },
-  { lat: 1.3521, lng: 103.8198, name: 'SG', country: 'Singapore', region: 'Asia Pacific', flag: '🇸🇬', type: 'ISP' },
-  { lat: 35.0, lng: -40.0, name: 'RES', country: 'Residential', region: 'Global', flag: '🌍', type: 'RESIDENTIAL' },
-  { lat: 25.0, lng: 45.0, name: 'MOB', country: 'Mobile 4G', region: 'Global', flag: '📱', type: 'MOBILE' },
-  { lat: 30.0, lng: -10.0, name: 'DC', country: 'Datacenter', region: 'Global', flag: '🏢', type: 'DC' },
+  { name: 'United Kingdom', location: [51.5074, -0.1278], flag: '🇬🇧', region: 'Europe' },
+  { name: 'United States',   location: [39.8283, -98.5795], flag: '🇺🇸', region: 'North America' },
+  { name: 'Germany',        location: [51.1657, 10.4515], flag: '🇩🇪', region: 'Europe' },
+  { name: 'France',         location: [46.6034, 2.3488], flag: '🇫🇷', region: 'Europe' },
+  { name: 'Canada',          location: [45.5017, -73.5673], flag: '🇨🇦', region: 'North America' },
+  { name: 'Japan',           location: [36.2048, 138.2529], flag: '🇯🇵', region: 'Asia Pacific' },
+  { name: 'Australia',       location: [-25.2744, 133.7751], flag: '🇦🇺', region: 'Oceania' },
+  { name: 'Brazil',          location: [-23.5505, -46.6333], flag: '🇧🇷', region: 'South America' },
+  { name: 'Singapore',       location: [1.3521, 103.8198], flag: '🇸🇬', region: 'Asia Pacific' },
 ];
 
-const ISP_LOCATIONS = LOCATIONS.filter(l => l.type === 'ISP');
-
-const TYPE_COLORS: Record<string, string> = {
-  ISP: '#10B981',         // Bunche green
-  RESIDENTIAL: '#a855f7', // purple
-  MOBILE: '#3b82f6',      // blue
-  DC: '#f97316',          // orange
+// Atlasproxies-style dark config
+const DARK_CONFIG = {
+  phi: 0,
+  theta: 0.2,
+  dark: 1,
+  diffuse: 1.2,
+  instrument: 'brush' as const,
+  mapSamples: 24000,       // ← THE KEY: dotted/halftone globe texture
+  mapBrightness: 6,
+  baseColor: [0.15, 0.15, 0.15] as [number, number, number],
+  glowColor: [0.05, 0.05, 0.05] as [number, number, number],
+  glowRadiusScale: 0.1,
+  atmosphereColor: BUNCHE_GREEN,
+  atmosphereAltitude: 0.15,
+  ringsData: [] as { lat: number; lng: number }[],
+  ringMaxRadius: 3,
+  ringRepeatPeriod: 1500,
+  ringPropagationSpeed: 2,
+  ringColor: () => BUNCHE_GREEN,
+  arcsData: [] as { startLat: number; startLng: number; endLat: number; endLng: number; color: () => string }[],
+  arcStartLat: 'startLat',
+  arcStartLng: 'startLng',
+  arcEndLat: 'endLat',
+  arcEndLng: 'endLng',
+  arcColor: 'color',
+  arcAltitude: 0.3,
+  arcStroke: 0.6,
+  // Points = markers
+  pointsData: [] as { lat: number; lng: number; name: string; flag: string; region: string }[],
+  pointLat: 'lat',
+  pointLng: 'lng',
+  pointAltitude: 0.01,
+  pointColor: () => '#7C3AED',
+  pointRadius: 0.04,
 };
 
-function latLngToVector3(lat: number, lng: number, radius = 1): THREE.Vector3 {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lng + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta)
-  );
-}
+// Atlasproxies-style light config
+const LIGHT_CONFIG = {
+  ...DARK_CONFIG,
+  dark: 0,
+  diffuse: 2,
+  mapBrightness: 1.8,
+  baseColor: [0.95, 0.95, 0.95] as [number, number, number],
+  glowColor: [1, 1, 1] as [number, number, number],
+  glowRadiusScale: 0.05,
+  atmosphereColor: '#6366F1',
+};
 
-// Colored arc between two points
-function Arc({
-  from,
-  to,
-  color,
-}: {
-  from: { lat: number; lng: number };
-  to: { lat: number; lng: number };
-  color: string;
-}) {
-  const points = useMemo(() => {
-    const start = latLngToVector3(from.lat, from.lng, 1);
-    const end = latLngToVector3(to.lat, to.lng, 1);
-    const mid = start.clone().add(end).multiplyScalar(0.5).normalize().multiplyScalar(1.18);
-    const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-    return curve.getPoints(50);
-  }, [from.lat, from.lng, to.lat, to.lng]);
-
-  const geometry = useMemo(() => {
-    return new THREE.BufferGeometry().setFromPoints(points);
-  }, [points]);
-
-  const material = useMemo(() => {
-    return new THREE.LineBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.7,
-    });
-  }, [color]);
-
-  return <primitive object={new THREE.Line(geometry, material)} />;
-}
-
-// Pulsing marker dot
-function Marker({ location }: { location: typeof LOCATIONS[0] }) {
-  const ringRef = useRef<THREE.Mesh>(null);
-  const dotRef = useRef<THREE.Mesh>(null);
-  const pos = useMemo(() => latLngToVector3(location.lat, location.lng, 1.02), [location.lat, location.lng]);
-  const color = TYPE_COLORS[location.type] || '#10B981';
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    const pulse = (Math.sin(t * 2 + location.lat) + 1) / 2;
-    if (ringRef.current) {
-      ringRef.current.scale.setScalar(1 + pulse * 0.8);
-      (ringRef.current.material as THREE.MeshBasicMaterial).opacity = 0.4 * (1 - pulse);
-    }
-    if (dotRef.current) {
-      dotRef.current.scale.setScalar(0.8 + pulse * 0.3);
-    }
-  });
-
+// Loading skeleton — Atlasproxies concentric rings + globe SVG
+function LoadingSkeleton({ isDark }: { isDark: boolean }) {
   return (
-    <group position={pos}>
-      {/* Outer pulsing ring */}
-      <mesh ref={ringRef}>
-        <ringGeometry args={[0.025, 0.038, 32]} />
-        <meshBasicMaterial color={color} transparent opacity={0.4} side={THREE.DoubleSide} />
-      </mesh>
-      {/* Solid center dot */}
-      <mesh ref={dotRef}>
-        <sphereGeometry args={[0.02, 16, 16]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-    </group>
-  );
-}
-
-// Atmosphere glow
-function Atmosphere({ isDark }: { isDark: boolean }) {
-  const color = isDark ? '#10B981' : '#6366F1';
-  const opacity = isDark ? 0.12 : 0.06;
-  return (
-    <mesh scale={1.18}>
-      <sphereGeometry args={[1, 64, 64]} />
-      <meshBasicMaterial color={color} transparent opacity={opacity} side={THREE.BackSide} />
-    </mesh>
-  );
-}
-
-// Main globe mesh
-function GlobeSphere({ isDark, mapUrl, bumpUrl }: {
-  isDark: boolean;
-  mapUrl: string;
-  bumpUrl: string;
-}) {
-  const meshRef = useRef<THREE.Mesh>(null);
-
-  const { mapTexture, bumpTexture } = useMemo(() => {
-    const loader = new THREE.TextureLoader();
-    return {
-      mapTexture: loader.load(mapUrl),
-      bumpTexture: loader.load(bumpUrl),
-    };
-  }, [mapUrl, bumpUrl]);
-
-  // Flip texture horizontally (Earth maps are usually offset)
-  useEffect(() => {
-    if (mapTexture) {
-      mapTexture.wrapS = THREE.RepeatWrapping;
-      mapTexture.repeat.set(-1, 1);
-      mapTexture.needsUpdate = true;
-    }
-    if (bumpTexture) {
-      bumpTexture.wrapS = THREE.RepeatWrapping;
-      bumpTexture.repeat.set(-1, 1);
-      bumpTexture.needsUpdate = true;
-    }
-  }, [mapTexture, bumpTexture]);
-
-  return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[1, 64, 64]} />
-      <meshStandardMaterial
-        map={mapTexture}
-        bumpMap={bumpTexture}
-        bumpScale={isDark ? 0.04 : 0.08}
-        emissive={new THREE.Color('#10B981')}
-        emissiveIntensity={isDark ? 0.06 : 0.02}
-        roughness={0.7}
-        metalness={0.1}
+    <div className="absolute inset-0 flex items-center justify-center">
+      {/* Outermost ring */}
+      <div
+        className="absolute rounded-full"
+        style={{
+          inset: '5%',
+          border: `1px solid ${isDark ? 'rgba(16,185,129,0.12)' : 'rgba(99,102,241,0.12)'}`,
+        }}
       />
-    </mesh>
-  );
-}
-
-// Full globe with auto-rotation
-function GlobeScene({ isDark }: { isDark: boolean }) {
-  const groupRef = useRef<THREE.Group>(null);
-
-  useFrame(() => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += 0.0015;
-    }
-  });
-
-  const textures = isDark ? EARTH_TEXTURES.dark : EARTH_TEXTURES.light;
-
-  return (
-    <group ref={groupRef}>
-      <GlobeSphere
-        isDark={isDark}
-        mapUrl={textures.map}
-        bumpUrl={textures.bump}
+      {/* Middle ring */}
+      <div
+        className="absolute rounded-full"
+        style={{
+          inset: '15%',
+          border: `1px solid ${isDark ? 'rgba(16,185,129,0.12)' : 'rgba(99,102,241,0.12)'}`,
+        }}
       />
-      <Atmosphere isDark={isDark} />
-
-      {/* All markers */}
-      {LOCATIONS.map((loc, i) => (
-        <Marker key={i} location={loc} />
-      ))}
-
-      {/* Arcs from UK to other ISP countries — colored by destination type */}
-      {ISP_LOCATIONS.slice(1).map((loc, i) => (
-        <Arc
-          key={i}
-          from={ISP_LOCATIONS[0]}
-          to={loc}
-          color={TYPE_COLORS[loc.type]}
+      {/* Innermost with gradient glow */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          className="relative rounded-full"
+          style={{
+            width: '72%',
+            aspectRatio: '1',
+            border: `1px solid ${isDark ? 'rgba(16,185,129,0.18)' : 'rgba(99,102,241,0.18)'}`,
+            background: isDark
+              ? 'radial-gradient(circle at 40% 35%, rgba(16,185,129,0.12) 0%, rgba(124,58,237,0.06) 50%, transparent 70%)'
+              : 'radial-gradient(circle at 40% 35%, rgba(99,102,241,0.10) 0%, rgba(16,185,129,0.05) 50%, transparent 70%)',
+            boxShadow: isDark
+              ? '0 0 80px rgba(16,185,129,0.10), 0 0 40px rgba(124,58,237,0.05)'
+              : '0 0 60px rgba(99,102,241,0.08)',
+          }}
         />
-      ))}
-    </group>
+      </div>
+      {/* Globe SVG icon */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <svg
+          className="w-1/3 h-1/3"
+          style={{ color: isDark ? 'rgba(16,185,129,0.4)' : 'rgba(99,102,241,0.4)' }}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <ellipse cx="12" cy="12" rx="6" ry="10" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+        </svg>
+      </div>
+    </div>
   );
 }
 
 export default function GlobeMap() {
-  const [featuredLocation, setFeaturedLocation] = useState(ISP_LOCATIONS[0]);
   const [isDark, setIsDark] = useState(true);
-  const [loaded, setLoaded] = useState(false);
+  const [globeLoaded, setGlobeLoaded] = useState(false);
+  const [featuredIdx, setFeaturedIdx] = useState(0);
+  const [containerOpacity, setContainerOpacity] = useState(0);
 
   // Detect theme
   useEffect(() => {
@@ -229,99 +147,166 @@ export default function GlobeMap() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // Rotate featured country every 4 seconds
+  // Cycle featured country every 4 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      const idx = Math.floor(Date.now() / 4000) % ISP_LOCATIONS.length;
-      setFeaturedLocation(ISP_LOCATIONS[idx]);
+      setFeaturedIdx(i => (i + 1) % LOCATIONS.length);
     }, 4000);
     return () => clearInterval(interval);
   }, []);
 
-  const canvasBg = isDark ? '#0a0a0f' : '#f4f4f5';
-  const cardBg = isDark ? '#1a1a2e' : '#ffffff';
-  const cardText = isDark ? '#f4f4f5' : '#18181b';
-  const cardSubtext = isDark ? '#71717a' : '#71717a';
+  // Points = country markers
+  const points = useMemo(() =>
+    LOCATIONS.map(l => ({
+      lat: l.location[0],
+      lng: l.location[1],
+      name: l.name,
+      flag: l.flag,
+      region: l.region,
+    })),
+    []
+  );
+
+  // Arcs from UK to all others (Bunche green)
+  const arcs = useMemo(() => {
+    const uk = LOCATIONS[0];
+    return LOCATIONS.slice(1).map(l => ({
+      startLat: uk.location[0],
+      startLng: uk.location[1],
+      endLat: l.location[0],
+      endLng: l.location[1],
+      color: () => BUNCHE_GREEN,
+    }));
+  }, []);
+
+  // Rings for each location
+  const rings = useMemo(() =>
+    LOCATIONS.map(l => ({ lat: l.location[0], lng: l.location[1] })),
+    []
+  );
+
+  const config = isDark ? DARK_CONFIG : LIGHT_CONFIG;
 
   return (
-    <div className="relative w-full flex flex-col items-center">
-      <div className="relative w-full" style={{ height: '380px' }}>
-        <Canvas
-          camera={{ position: [0, 0, 3.2], fov: 40 }}
-          style={{ background: canvasBg }}
-          gl={{ antialias: true, alpha: false }}
-        >
-          <ambientLight intensity={isDark ? 0.3 : 0.8} />
-          <directionalLight position={[5, 3, 5]} intensity={isDark ? 0.4 : 0.7} />
-          <pointLight position={[-5, -3, -5]} intensity={isDark ? 0.2 : 0.3} />
-          <GlobeScene isDark={isDark} />
-        </Canvas>
-
-        {/* Floating callout card — themed to match site */}
-        <div
-          className="absolute rounded-2xl shadow-2xl p-4 flex items-center gap-3 transition-all duration-700 border"
-          style={{
-            right: '8%',
-            top: '15%',
-            minWidth: '165px',
-            background: cardBg,
-            borderColor: isDark ? '#10B98133' : '#e4e4e7',
-            animation: 'floatCard 3s ease-in-out infinite',
+    <div
+      className="relative w-full"
+      style={{ height: 520 }}
+    >
+      {/* Globe canvas — starts transparent, fades in */}
+      <div
+        className="absolute inset-0 mx-auto"
+        style={{
+          maxWidth: 600,
+          opacity: containerOpacity,
+          transition: 'opacity 700ms ease',
+        }}
+      >
+        <Globe
+          {...config}
+          ringsData={rings}
+          arcsData={arcs}
+          pointsData={points}
+          width={600}
+          height={600}
+          onGlobeReady={() => {
+            setTimeout(() => setContainerOpacity(1), 50);
+            setGlobeLoaded(true);
           }}
+        />
+      </div>
+
+      {/* Loading skeleton — shown while globe initializes */}
+      <AnimatePresence>
+        {!globeLoaded && (
+          <motion.div
+            key="skeleton"
+            className="absolute inset-0 mx-auto"
+            style={{ maxWidth: 600 }}
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <LoadingSkeleton isDark={isDark} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Featured country callout card — Atlasproxies style */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={featuredIdx}
+          className="absolute pointer-events-none"
+          style={{ right: '5%', top: '10%', minWidth: 165 }}
+          initial={{ opacity: 0, scale: 0.8, y: 8 }}
+          animate={{ opacity: globeLoaded ? 1 : 0, scale: globeLoaded ? 1 : 0.8, y: 0 }}
+          exit={{ opacity: 0, scale: 0.8, y: 8 }}
+          transition={{ duration: 0.45, ease: 'backOut', delay: 0.15 }}
         >
-          <span className="text-3xl">{featuredLocation.flag}</span>
-          <div>
-            <p className="font-bold text-sm leading-tight" style={{ color: cardText }}>
-              {featuredLocation.country}
-            </p>
-            <p className="text-xs flex items-center gap-1 mt-0.5" style={{ color: cardSubtext }}>
-              <svg className="w-3 h-3" style={{ color: '#10B981' }} fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-              </svg>
-              {featuredLocation.region}
-            </p>
+          <div
+            className="rounded-2xl shadow-2xl p-4 flex items-center gap-3 border"
+            style={{
+              background: isDark ? 'rgba(26,26,46,0.93)' : 'rgba(255,255,255,0.93)',
+              borderColor: isDark ? `${BUNCHE_GREEN}33` : '#e4e4e7',
+              backdropFilter: 'blur(12px)',
+            }}
+          >
+            <span className="text-3xl">{LOCATIONS[featuredIdx].flag}</span>
+            <div>
+              <p
+                className="font-bold text-sm leading-tight"
+                style={{ color: isDark ? '#f4f4f5' : '#18181b' }}
+              >
+                {LOCATIONS[featuredIdx].name}
+              </p>
+              <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#71717a' }}>
+                <svg
+                  className="w-3 h-3"
+                  style={{ color: BUNCHE_GREEN }}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {LOCATIONS[featuredIdx].region}
+              </p>
+            </div>
           </div>
-        </div>
+        </motion.div>
+      </AnimatePresence>
 
-        {/* Coverage badge */}
-        <div
-          className="absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border backdrop-blur-sm"
+      {/* Coverage badge — bottom left */}
+      <div
+        className="absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border backdrop-blur-sm"
+        style={{
+          background: isDark ? 'rgba(26,26,46,0.9)' : 'rgba(255,255,255,0.9)',
+          borderColor: isDark ? `${BUNCHE_GREEN}33` : '#e4e4e7',
+        }}
+      >
+        <p className="text-xs" style={{ color: '#71717a' }}>9 Countries</p>
+        <p className="text-sm font-bold" style={{ color: BUNCHE_GREEN }}>ISP Coverage</p>
+      </div>
+
+      {/* Rotating orbital ring — Atlasproxies style */}
+      <div className="absolute pointer-events-none" style={{ inset: 0 }}>
+        <motion.div
+          className="absolute rounded-full"
           style={{
-            background: isDark ? 'rgba(26,26,46,0.9)' : 'rgba(255,255,255,0.9)',
-            borderColor: isDark ? '#10B98133' : '#e4e4e7',
+            top: '50%',
+            left: '50%',
+            width: 280,
+            height: 280,
+            marginTop: -140,
+            marginLeft: -140,
+            border: `1px solid ${BUNCHE_GREEN}20`,
           }}
-        >
-          <p className="text-xs" style={{ color: cardSubtext }}>9 Countries</p>
-          <p className="text-sm font-bold" style={{ color: '#10B981' }}>ISP Coverage</p>
-        </div>
+          animate={{ rotate: 360 }}
+          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+        />
       </div>
-
-      {/* Legend — themed colors */}
-      <div className="flex flex-wrap justify-center gap-5 mt-5 text-sm">
-        <span className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#10B981' }} />
-          <span style={{ color: '#71717a' }}>ISP Proxies</span>
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#a855f7' }} />
-          <span style={{ color: '#71717a' }}>Residential</span>
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#3b82f6' }} />
-          <span style={{ color: '#71717a' }}>Mobile 4G</span>
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: '#f97316' }} />
-          <span style={{ color: '#71717a' }}>Datacenter</span>
-        </span>
-      </div>
-
-      <style>{`
-        @keyframes floatCard {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
-        }
-      `}</style>
     </div>
   );
 }
