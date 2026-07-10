@@ -30,9 +30,9 @@ export default function Hero() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight animate-slide-up">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight animate-slide-up">
             <span className="text-[var(--foreground)]">Cross </span>
-            <span className="gradient-text">the Styx.</span>
+            <span className="gradient-text">the Styx</span>
           </h1>
 
           {/* Subheadline */}
