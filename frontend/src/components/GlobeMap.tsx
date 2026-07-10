@@ -163,8 +163,9 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
           polygonCapColor={() => 'rgba(0,0,0,0)'}
           polygonSideColor={() => 'rgba(0,0,0,0)'}
           polygonStrokeColor={() => outlineColor}
+          polygonStrokeWidth={1.2}
           polygonCapCurvatureResolution={5}
-          polygonAltitude={() => 0.005}
+          polygonAltitude={0.005}
           // Country markers — filtered by productType
           pointsData={LOCATIONS}
           pointLat="lat"
