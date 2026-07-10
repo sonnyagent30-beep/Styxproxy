@@ -121,11 +121,91 @@ function useGlobe(divRef: React.MutableRefObject<HTMLDivElement | null>, isDark:
 }
 
 export default function GlobeMap() {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [isDark, setIsDark] = useState(true);
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dims, setDims] = useState({ w: 520, h: 520 });
-  const { globeRef, ready, opacity } = useGlobe(containerRef, isDark);
+  const globeRef = useRef<unknown>(null);
+  const [ready, setReady] = useState(false);
+  const [opacity, setOpacity] = useState(0);
+
+  // Callback ref — fires when div is mounted
+  const setContainerRef = (el: HTMLDivElement | null) => {
+    containerRef.current = el;
+  };
+
+  // Initialize globe when container mounts
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (globeRef.current) return;
+
+    const initGlobe = (GlobeFn: (opts: { container: HTMLElement; config: object }) => unknown) => {
+      if (globeRef.current || !el) return;
+
+      // @ts-ignore
+      window.Globe = GlobeFn;
+      const myGlobe = GlobeFn({
+        container: el,
+        config: {
+          globeImageUrl: isDark
+            ? 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
+            : 'https://threejs.org/examples/textures/planets/earth_lights_2048.png',
+          bumpImageUrl: 'https://threejs.org/examples/textures/planets/earth_normal_2048.jpg',
+          pointsData: LOCATIONS,
+          pointLat: 'lat',
+          pointLng: 'lng',
+          pointColor: () => BUNCHE_GREEN,
+          pointRadius: 0.5,
+          pointAltitude: 0.01,
+          arcsData: [],
+          ringsData: [],
+          autoRotate: true,
+          rotateSpeed: 0.35,
+        },
+      });
+
+      globeRef.current = myGlobe;
+      setReady(true);
+      setOpacity(1);
+    };
+
+    // Use globe.gl if already loaded, otherwise load via script
+    // @ts-ignore
+    if (window.Globe) {
+      // @ts-ignore
+      initGlobe(window.Globe);
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/globe.gl';
+      script.onload = () => {
+        // @ts-ignore
+        if (window.Globe) initGlobe(window.Globe);
+      };
+      script.onerror = () => console.error('globe.gl CDN failed to load');
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      if (globeRef.current) {
+        try { (globeRef.current as { _destructor?: () => void })._destructor?.(); } catch (_) {}
+        globeRef.current = null;
+      }
+    };
+  }, []); // Run once on mount
+
+  // Update texture on theme change
+  useEffect(() => {
+    if (!globeRef.current) return;
+    try {
+      // @ts-ignore
+      globeRef.current.globeImageUrl(
+        isDark
+          ? 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
+          : 'https://threejs.org/examples/textures/planets/earth_lights_2048.png'
+      );
+    } catch (_) {}
+  }, [isDark]);
 
   // Detect theme
   useEffect(() => {
@@ -175,7 +255,7 @@ export default function GlobeMap() {
   const featured = LOCATIONS[featuredIdx];
 
   return (
-    <div ref={containerRef} className="relative w-full" style={{ height: 480, background: bgColor }}>
+    <div ref={setContainerRef} className="relative w-full" style={{ height: 480, background: bgColor }}>
       {/* Globe canvas */}
       <div
         className="absolute inset-0 flex items-center justify-center mx-auto"
