@@ -27,7 +27,7 @@ const LIGHT_GREEN = '#4ADE80';
 const WORLD_COUNTRIES = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 export default function GlobeMap() {
-  const globeRef  = useRef<GlobeMethods | null>(null);
+  const globeRef = useRef<GlobeMethods | null>(null);
   const [isDark, setIsDark] = useState(true);
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dims, setDims] = useState({ w: 520, h: 520 });
@@ -41,15 +41,6 @@ export default function GlobeMap() {
     const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  // Load world countries TopoJSON
-  useEffect(() => {
-    const topoUrl = WORLD_COUNTRIES;
-    fetch(topoUrl)
-      .then(r => r.json())
-      .then(() => {}) // globe.gl loads this internally via hexTopoData URL
-      .catch(() => {});
   }, []);
 
   // Responsive sizing
@@ -71,8 +62,6 @@ export default function GlobeMap() {
     return () => clearInterval(interval);
   }, []);
 
-  const featured = LOCATIONS[featuredIdx];
-
   // Pan camera when featured country changes
   useEffect(() => {
     if (!globeRef.current || !ready) return;
@@ -83,10 +72,14 @@ export default function GlobeMap() {
   }, [featuredIdx, ready]);
 
   // Per-theme colors
-  const globeBase       = isDark ? '#0a0a12' : '#e8e8ec';
-  const atmosphereColor = isDark ? LIGHT_GREEN : BRAND_GREEN;
-  const atmosphereAlt   = isDark ? 0.18 : 0.14;
-  const dotColorHex     = isDark ? LIGHT_GREEN : '#1F2937';
+  // Dark mode: dark sphere + light-green dots + green glow
+  // Light mode: white sphere + dark dots + green glow ring
+  const globeBase       = isDark ? '#0a0a12' : '#e8e4ef';
+  const atmosphereColor  = isDark ? LIGHT_GREEN : '#22c55e';
+  const atmosphereAlt   = isDark ? 0.18 : 0.12;
+  const dotColorHex     = isDark ? LIGHT_GREEN : '#374151';
+
+  const featured = LOCATIONS[featuredIdx];
 
   return (
     <div
