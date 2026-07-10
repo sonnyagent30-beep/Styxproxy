@@ -1,11 +1,12 @@
 // @ts-nocheck — react-globe.gl types are incomplete; runtime works correctly
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import type { GlobeMethods } from 'react-globe.gl';
 import { feature } from 'topojson-client';
+import * as THREE from 'three';
 
 // Load react-globe.gl only on client (SSR disabled)
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
@@ -90,13 +91,23 @@ export default function GlobeMap() {
   // Globe sphere color = page background so globe "disappears"
   // Atmosphere glow is the PRIMARY visual — make it BIG and visible
   // Country outlines need HIGH CONTRAST against the sphere
-  const globeBase        = isDark ? '#0f0f0f' : '#ffffff';
-  // Atmosphere: VERY high altitude = massive visible glow ring around globe
-  // Using 0.55 for light mode, 0.45 for dark mode - much higher for strong visibility
+  const sphereColorHex = isDark ? '#0f0f0f' : '#ffffff';
+  // Atmosphere glow at 0.40 (per user request)
   const atmosphereColor  = BRAND_GREEN;
-  const atmosphereAlt   = isDark ? 0.45 : 0.60;
+  const atmosphereAlt   = 0.40;
   // Country outlines: must be HIGHLY visible — dark in light mode, bright in dark mode
   const outlineColor    = isDark ? '#34D399' : '#1f2937';
+
+  // Build a custom Three.js material for the globe sphere.
+  // three-globe.js default is MeshPhongMaterial({color: 0x000000}) — BLACK!
+  // globeColor prop is NOT a real prop in three-globe.js, it's silently ignored.
+  // We must build our own MeshBasicMaterial with the correct color per theme.
+  const globeMaterial = useMemo(() => {
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(sphereColorHex),
+    });
+    return mat;
+  }, [sphereColorHex]);
 
   const featured = LOCATIONS[featuredIdx];
 
@@ -112,10 +123,10 @@ export default function GlobeMap() {
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Globe sphere base color — plain strings, no day/night split
-          globeColor={globeBase}
-          // Force no night texture — transparent 1x1 PNG to prevent default dark texture
-          nightImage="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+          // Globe sphere material — Three.js MeshBasicMaterial with correct color per theme.
+          // CRITICAL: `globeColor` is NOT a real three-globe prop — it's silently ignored.
+          // Must use `globeMaterial` with an actual Three.js Material object.
+          globeMaterial={globeMaterial}
           backgroundColor="rgba(0,0,0,0)"
           // Atmosphere glow - STRONG visible halo
           atmosphereColor={atmosphereColor}
