@@ -52,7 +52,7 @@ function useGlobe(divRef: HTMLDivElement | null, isDark: boolean) {
       }
 
       const script = document.createElement('script');
-      script.src = 'https://unpkg.com/globe.gl@2.31.0/globe.gl.min.js';
+      script.src = 'https://unpkg.com/globe.gl';
       script.onload = () => {
         // @ts-ignore
         if (window.Globe) initGlobe(window.Globe);
@@ -68,9 +68,9 @@ function useGlobe(divRef: HTMLDivElement | null, isDark: boolean) {
         container: divRef,
         config: {
           globeImageUrl: isDark
-            ? 'https://unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg'
-            : 'https://unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg',
-          bumpImageUrl: 'https://unpkg.com/three-globe@2.31.0/example/img/earth-topology.png',
+            ? 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
+            : 'https://threejs.org/examples/textures/planets/earth_lights_2048.png',
+          bumpImageUrl: 'https://threejs.org/examples/textures/planets/earth_normal_2048.jpg',
           pointsData: LOCATIONS,
           pointLat: 'lat',
           pointLng: 'lng',
@@ -109,8 +109,8 @@ function useGlobe(divRef: HTMLDivElement | null, isDark: boolean) {
       // @ts-ignore
       globeRef.current.globeImageUrl(
         isDark
-          ? 'https://unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg'
-          : 'https://unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg'
+          ? 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
+          : 'https://threejs.org/examples/textures/planets/earth_lights_2048.png'
       );
     } catch (_) {}
   }, [isDark]);
