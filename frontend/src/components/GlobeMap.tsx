@@ -55,11 +55,21 @@ export default function GlobeMap() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // Responsive sizing
+  // Responsive sizing — container fills available width
   useEffect(() => {
     const update = () => {
-      const w = Math.min(window.innerWidth, 580);
-      setDims({ w, h: w });
+      // Globe should fill the left half of the hero on desktop
+      // On mobile it fills full width
+      const container = document.getElementById('globe-container');
+      if (container) {
+        const w = container.offsetWidth;
+        const size = Math.min(w, 600);
+        setDims({ w: Math.round(size), h: Math.round(size) });
+      } else {
+        // Fallback: use window width (max 600 for globe size)
+        const size = Math.min(window.innerWidth, 600);
+        setDims({ w: Math.round(size), h: Math.round(size) });
+      }
     };
     update();
     window.addEventListener('resize', update);
@@ -88,6 +98,7 @@ export default function GlobeMap() {
 
   return (
     <div
+      id="globe-container"
       className="relative w-full overflow-hidden"
       style={{ height: 480, background: bgColor, minHeight: 480 }}
     >
