@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Styxproxy — Anonymous Proxy Service | ISP, DC, Residential, Mobile 4G",
   description: "Buy ISP, Datacenter, Residential & Mobile 4G proxies. Order instantly or via Telegram. Pay globally with card or bank transfer. Cross over to anonymity.",
   keywords: ["Nigeria proxy", "ISP proxy Nigeria", "datacenter proxy Nigeria", "residential proxy Nigeria", "mobile 4G proxy", "buy proxy NGN", "proxy reseller Lagos"],
+  openGraph: {
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({

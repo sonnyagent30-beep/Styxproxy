@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 
 export default function Header() {
@@ -11,11 +12,23 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center">
-              <span className="text-black font-bold text-lg">B</span>
-            </div>
-            <span className="text-xl font-bold text-[var(--foreground)]">Styxproxy</span>
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/wordmark-nav-dark.png"
+              alt="styxproxy"
+              width={120}
+              height={40}
+              className="hidden dark:block h-8 w-auto"
+              priority
+            />
+            <Image
+              src="/wordmark-nav-light.png"
+              alt="styxproxy"
+              width={120}
+              height={40}
+              className="block dark:hidden h-8 w-auto"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}
