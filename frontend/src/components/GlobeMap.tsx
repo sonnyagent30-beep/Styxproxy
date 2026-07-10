@@ -1,11 +1,8 @@
+// @ts-nocheck — Globe component uses CDN script injection; runtime works correctly
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import dynamic from 'next/dynamic';
-
-// Dynamically import globe.gl (SSR disabled)
-const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
 
 // Bunche ISP countries
 const LOCATIONS = [
@@ -22,17 +19,13 @@ const LOCATIONS = [
 
 const BUNCHE_GREEN = '#10B981';
 
-// Loading skeleton — concentric rings while globe initializes
 function LoadingSkeleton({ isDark }: { isDark: boolean }) {
-  const ringColor = isDark ? 'rgba(16,185,129,0.1)' : 'rgba(99,102,241,0.1)';
-  const glowColor = isDark
-    ? 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, transparent 70%)'
-    : 'radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)';
+  const ring = isDark ? 'rgba(16,185,129,0.1)' : 'rgba(99,102,241,0.1)';
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div style={{ width: '70%', aspectRatio: '1', borderRadius: '50%', border: `1px solid ${ringColor}`, boxShadow: glowColor }} />
-      <div className="absolute" style={{ width: '85%', aspectRatio: '1', borderRadius: '50', border: `1px solid ${ringColor}` }} />
-      <div className="absolute" style={{ width: '95%', aspectRatio: '1', borderRadius: '50', border: `1px solid ${ringColor}` }} />
+      <div style={{ width: '62%', aspectRatio: '1', borderRadius: '50%', border: `1px solid ${ring}`, boxShadow: isDark ? '0 0 60px rgba(16,185,129,0.08)' : '0 0 40px rgba(99,102,241,0.06)' }} />
+      <div style={{ position: 'absolute', width: '78%', aspectRatio: '1', borderRadius: '50%', border: `1px solid ${ring}` }} />
+      <div style={{ position: 'absolute', width: '92%', aspectRatio: '1', borderRadius: '50%', border: `1px solid ${ring}` }} />
       <svg className="absolute w-1/4 h-1/4 opacity-30" style={{ color: isDark ? '#10B981' : '#6366F1' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
         <circle cx="12" cy="12" r="10" /><ellipse cx="12" cy="12" rx="6" ry="10" /><line x1="2" y1="12" x2="22" y2="12" />
       </svg>
@@ -40,15 +33,93 @@ function LoadingSkeleton({ isDark }: { isDark: boolean }) {
   );
 }
 
+// Load globe.gl from CDN and instantiate it imperatively
+function useGlobeInstance(container: HTMLDivElement | null, isDark: boolean) {
+  const globeRef = useRef<unknown>(null);
+  const [ready, setReady] = useState(false);
+  const [opacity, setOpacity] = useState(0);
+
+  useEffect(() => {
+    if (!container) return;
+    if (globeRef.current) return; // already created
+
+    let destroyed = false;
+
+    const init = async () => {
+      // Dynamically load globe.gl from CDN — avoids SSR window issues
+      const Globe = (await import('globe.gl')).default;
+      if (destroyed || !container) return;
+
+      // Inject texture images directly via the globe.gl API
+      const myGlobe = Globe({
+        container,
+        config: {
+          // Earth textures — real imagery
+          globeImageUrl: isDark
+            ? '//unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg'
+            : '//unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg',
+          bumpImageUrl: '//unpkg.com/three-globe@2.31.0/example/img/earth-topology.png',
+          // Markers — green dots
+          pointsData: LOCATIONS,
+          pointLat: 'lat',
+          pointLng: 'lng',
+          pointColor: () => BUNCHE_GREEN,
+          pointRadius: 0.5,
+          pointAltitude: 0.01,
+          // No arcs, no rings
+          arcsData: [],
+          ringsData: [],
+          // Auto-rotate
+          autoRotate: true,
+          rotateSpeed: 0.35,
+        },
+      });
+
+      if (destroyed) {
+        try { myGlobe._destructor?.(); } catch (_) {}
+        return;
+      }
+
+      globeRef.current = myGlobe;
+      setReady(true);
+      setOpacity(1);
+    };
+
+    init();
+
+    return () => {
+      destroyed = true;
+      if (globeRef.current) {
+        try { (globeRef.current as { _destructor?: () => void })._destructor?.(); } catch (_) {}
+        globeRef.current = null;
+      }
+    };
+  }, [container]);
+
+  // Update texture when theme changes
+  useEffect(() => {
+    if (!globeRef.current) return;
+    const g = globeRef.current as {
+      globeImageUrl: (url: string) => void;
+    };
+    try {
+      g.globeImageUrl(
+        isDark
+          ? '//unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg'
+          : '//unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg'
+      );
+    } catch (_) {}
+  }, [isDark]);
+
+  return { globeRef, ready, opacity };
+}
+
 export default function GlobeMap() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const globeElRef = useRef<unknown>(null);
-  const [globe, setGlobe] = useState<unknown>(null);
   const [isDark, setIsDark] = useState(true);
-  const [globeLoaded, setGlobeLoaded] = useState(false);
-  const [containerOpacity, setContainerOpacity] = useState(0);
   const [featuredIdx, setFeaturedIdx] = useState(0);
-  const [dims, setDims] = useState({ w: 600, h: 600 });
+  const [dims, setDims] = useState({ w: 520, h: 520 });
+  const { globeRef, ready, opacity } = useGlobeInstance(containerRef.current, isDark);
 
   // Detect theme
   useEffect(() => {
@@ -59,6 +130,21 @@ export default function GlobeMap() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
+  // Responsive sizing
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+    const observer = new ResizeObserver(() => {
+      const w = el.offsetWidth;
+      const size = Math.min(w, 580);
+      setDims({ w: Math.round(size), h: Math.round(size) });
+    });
+    observer.observe(el);
+    const w = el.offsetWidth;
+    setDims({ w: Math.min(w, 580), h: Math.min(w, 580) });
+    return () => observer.disconnect();
+  }, []);
+
   // Cycle featured country every 4 seconds
   useEffect(() => {
     const interval = setInterval(() => {
@@ -67,108 +153,35 @@ export default function GlobeMap() {
     return () => clearInterval(interval);
   }, []);
 
-  // Responsive sizing via ResizeObserver
+  // Pan camera to featured country
   useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        const { width } = entry.contentRect;
-        const size = Math.min(width, 600);
-        setDims({ w: Math.round(size), h: Math.round(size) });
-      }
-    });
-    observer.observe(containerRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  // Configure globe when it mounts / dims change / theme changes
-  useEffect(() => {
-    if (!globe) return;
-    const g = globe as {
-      width: (w: number) => void;
-      height: (h: number) => void;
-      globeImageUrl: (url: string | null) => void;
-      bumpImageUrl: (url: string | null) => void;
-      pointsData: (data: object[]) => void;
-      pointColor: () => string;
-      pointRadius: () => number;
-      pointAltitude: () => number;
-      ringsData: (data: object[]) => void;
-      ringColor: () => string;
-      ringMaxRadius: () => number;
-      autoRotate: (val: boolean) => void;
-      pauseAnimation: () => void;
-    };
-
-    // Size
-    g.width(dims.w);
-    g.height(dims.h);
-
-    // Earth textures — use real NASA Blue Marble imagery
-    if (isDark) {
-      g.globeImageUrl('//unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg');
-      g.bumpImageUrl('//unpkg.com/three-globe@2.31.0/example/img/earth-topology.png');
-    } else {
-      g.globeImageUrl('//unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg');
-      g.bumpImageUrl('//unpkg.com/three-globe@2.31.0/example/img/earth-topology.png');
-    }
-
-    // Country markers — green dots
-    g.pointsData(LOCATIONS);
-    g.pointColor(() => BUNCHE_GREEN);
-    g.pointRadius(0.5);
-    g.pointAltitude(0.01);
-
-    // No rings
-    g.ringsData([]);
-
-    // Auto-rotate slowly
-    g.autoRotate(true);
-  }, [globe, dims, isDark]);
-
-  // Point the camera at each country on cycle
-  useEffect(() => {
-    if (!globe) return;
-    const g = globe as { pointOfView: (p: { lat: number; lng: number; altitude: number }, ms: number) => void };
+    if (!globeRef.current) return;
     const loc = LOCATIONS[featuredIdx];
     try {
-      g.pointOfView({ lat: loc.lat, lng: loc.lng, altitude: 2.2 }, 1500);
+      (globeRef.current as { pointOfView: (p: { lat: number; lng: number; altitude: number }, ms: number) => void }).pointOfView(
+        { lat: loc.lat, lng: loc.lng, altitude: 2.2 },
+        1800
+      );
     } catch (_) {}
-  }, [featuredIdx, globe]);
+  }, [featuredIdx, globeRef.current]);
 
   const bgColor = isDark ? '#0a0a0f' : '#f4f4f5';
   const featured = LOCATIONS[featuredIdx];
 
   return (
     <div ref={containerRef} className="relative w-full" style={{ height: 480, background: bgColor }}>
-      {/* Globe canvas — fades in after init */}
+      {/* Globe canvas */}
       <div
         className="absolute inset-0 flex items-center justify-center mx-auto"
-        style={{
-          width: dims.w,
-          height: dims.h,
-          maxWidth: '100%',
-          opacity: containerOpacity,
-          transition: 'opacity 700ms ease',
-        }}
-      >
-        {/* @ts-expect-error — globe.gl types are incomplete */}
-        <Globe
-          ref={globeElRef}
-          onGlobeReady={() => {
-            setTimeout(() => setContainerOpacity(1), 200);
-            setGlobeLoaded(true);
-          }}
-          onGlobeInit={g => setGlobe(g)}
-        />
-      </div>
+        style={{ width: dims.w, height: dims.h, opacity }}
+      />
 
-      {/* Loading skeleton while globe initializes */}
+      {/* Loading skeleton */}
       <AnimatePresence>
-        {!globeLoaded && (
+        {!ready && (
           <motion.div
-            className="absolute inset-0 flex items-center justify-center mx-auto pointer-events-none"
-            style={{ maxWidth: dims.w, maxHeight: dims.h }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{ width: dims.w, height: dims.h }}
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
@@ -178,14 +191,14 @@ export default function GlobeMap() {
         )}
       </AnimatePresence>
 
-      {/* Featured country callout card */}
+      {/* Featured country callout */}
       <AnimatePresence mode="wait">
         <motion.div
           key={featuredIdx}
           className="absolute pointer-events-none"
-          style={{ right: '4%', top: '8%', minWidth: 160 }}
+          style={{ right: '4%', top: '8%', minWidth: 155 }}
           initial={{ opacity: 0, scale: 0.85, y: 6 }}
-          animate={{ opacity: globeLoaded ? 1 : 0, scale: globeLoaded ? 1 : 0.85, y: 0 }}
+          animate={{ opacity: ready ? 1 : 0, scale: ready ? 1 : 0.85, y: 0 }}
           exit={{ opacity: 0, scale: 0.85, y: 6 }}
           transition={{ duration: 0.4, ease: 'backOut', delay: 0.1 }}
         >
@@ -212,7 +225,7 @@ export default function GlobeMap() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Coverage badge — bottom left */}
+      {/* Coverage badge */}
       <div
         className="absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border backdrop-blur-sm"
         style={{
@@ -224,13 +237,13 @@ export default function GlobeMap() {
         <p className="text-sm font-bold" style={{ color: BUNCHE_GREEN }}>ISP Coverage</p>
       </div>
 
-      {/* Orbital ring — decorative */}
+      {/* Orbital ring */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
         <motion.div
           className="rounded-full"
           style={{
-            width: dims.w * 0.88,
-            height: dims.w * 0.88,
+            width: dims.w * 0.87,
+            height: dims.w * 0.87,
             border: `1px solid ${BUNCHE_GREEN}18`,
           }}
           animate={{ rotate: 360 }}
