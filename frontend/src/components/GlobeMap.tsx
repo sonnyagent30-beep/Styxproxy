@@ -33,80 +33,84 @@ function LoadingSkeleton({ isDark }: { isDark: boolean }) {
   );
 }
 
-// Load globe.gl from CDN and instantiate it imperatively
-function useGlobeInstance(container: HTMLDivElement | null, isDark: boolean) {
+// Load globe.gl via CDN script tag (avoids SSR window errors)
+function useGlobe(divRef: HTMLDivElement | null, isDark: boolean) {
   const globeRef = useRef<unknown>(null);
   const [ready, setReady] = useState(false);
   const [opacity, setOpacity] = useState(0);
 
   useEffect(() => {
-    if (!container) return;
-    if (globeRef.current) return; // already created
+    if (!divRef) return;
+    if (globeRef.current) return;
 
-    let destroyed = false;
+    const loadGlobe = () => {
+      // Check if already loaded
+      // @ts-ignore
+      if (window.Globe) {
+        initGlobe(window.Globe);
+        return;
+      }
 
-    const init = async () => {
-      // Dynamically load globe.gl from CDN — avoids SSR window issues
-      const Globe = (await import('globe.gl')).default;
-      if (destroyed || !container) return;
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/globe.gl@2.31.0/globe.gl.min.js';
+      script.onload = () => {
+        // @ts-ignore
+        if (window.Globe) initGlobe(window.Globe);
+      };
+      script.onerror = () => console.error('globe.gl CDN failed to load');
+      document.head.appendChild(script);
+    };
 
-      // Inject texture images directly via the globe.gl API
+    const initGlobe = (Globe: (opts: { container: HTMLElement; config: object }) => unknown) => {
+      if (globeRef.current || !divRef) return;
+
       const myGlobe = Globe({
-        container,
+        container: divRef,
         config: {
-          // Earth textures — real imagery
           globeImageUrl: isDark
-            ? '//unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg'
-            : '//unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg',
-          bumpImageUrl: '//unpkg.com/three-globe@2.31.0/example/img/earth-topology.png',
-          // Markers — green dots
+            ? 'https://unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg'
+            : 'https://unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg',
+          bumpImageUrl: 'https://unpkg.com/three-globe@2.31.0/example/img/earth-topology.png',
           pointsData: LOCATIONS,
           pointLat: 'lat',
           pointLng: 'lng',
           pointColor: () => BUNCHE_GREEN,
           pointRadius: 0.5,
           pointAltitude: 0.01,
-          // No arcs, no rings
           arcsData: [],
           ringsData: [],
-          // Auto-rotate
           autoRotate: true,
           rotateSpeed: 0.35,
         },
       });
-
-      if (destroyed) {
-        try { myGlobe._destructor?.(); } catch (_) {}
-        return;
-      }
 
       globeRef.current = myGlobe;
       setReady(true);
       setOpacity(1);
     };
 
-    init();
+    loadGlobe();
 
     return () => {
-      destroyed = true;
       if (globeRef.current) {
-        try { (globeRef.current as { _destructor?: () => void })._destructor?.(); } catch (_) {}
+        try {
+          // @ts-ignore
+          globeRef.current._destructor?.();
+        } catch (_) {}
         globeRef.current = null;
       }
     };
-  }, [container]);
+  }, [divRef]);
 
-  // Update texture when theme changes
+  // Update texture on theme change
   useEffect(() => {
     if (!globeRef.current) return;
-    const g = globeRef.current as {
-      globeImageUrl: (url: string) => void;
-    };
     try {
-      g.globeImageUrl(
+      // @ts-ignore
+      globeRef.current.globeImageUrl(
         isDark
-          ? '//unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg'
-          : '//unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg'
+          ? 'https://unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg'
+          : 'https://unpkg.com/three-globe@2.31.0/example/img/earth-blue-marble.jpg'
       );
     } catch (_) {}
   }, [isDark]);
@@ -119,7 +123,7 @@ export default function GlobeMap() {
   const [isDark, setIsDark] = useState(true);
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dims, setDims] = useState({ w: 520, h: 520 });
-  const { globeRef, ready, opacity } = useGlobeInstance(containerRef.current, isDark);
+  const { globeRef, ready, opacity } = useGlobe(containerRef.current, isDark);
 
   // Detect theme
   useEffect(() => {
