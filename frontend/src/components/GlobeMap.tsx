@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import type { GlobeMethods } from 'react-globe.gl';
+import { feature } from 'topojson-client';
 
 // Load react-globe.gl only on client (SSR disabled)
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
@@ -33,6 +34,7 @@ export default function GlobeMap() {
   const [dims, setDims]                   = useState({ w: 520, h: 520 });
   const [ready, setReady]                 = useState(false);
   const [containerOpacity, setContainerOpacity] = useState(0);
+  const [countriesData, setCountriesData] = useState<object[]>([]);
 
   // Detect system theme
   useEffect(() => {
@@ -41,6 +43,21 @@ export default function GlobeMap() {
     const handler = (e: MediaQueryQueryListEvent) => setIsDark(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // Fetch world countries TopoJSON and convert to GeoJSON features
+  useEffect(() => {
+    const topoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+    fetch(topoUrl)
+      .then(r => r.json())
+      .then(topo => {
+        const countries = feature(
+          topo as { objects: { countries: object } },
+          (topo.objects as { countries: object }).countries
+        ) as { features: object[] };
+        setCountriesData(countries.features);
+      })
+      .catch(() => setCountriesData([]));
   }, []);
 
   // Responsive sizing
@@ -100,13 +117,14 @@ export default function GlobeMap() {
           // Atmosphere glow
           atmosphereColor={atmosphereColor}
           atmosphereAltitude={atmosphereAlt}
-          // Continent outlines — hex polygons over world TopoJSON, rendered as strokes
+          // Continent outlines — polygons with transparent fills + colored strokes
           hexPolygonsData={[]}
-          hexTopoData={`${WORLD_TOPO}`}
-          hexPolygonGeoJsonGeometry={() => 'geometry'}
-          hexPolygonColor={() => outlineColor}
-          hexPolygonStroke={() => outlineColor}
-          hexPolygonAltitude={() => 0.002}
+          polygonsData={countriesData}
+          polygonGeoJsonGeometry={(d: object) => (d as { geometry: object }).geometry}
+          polygonCapColor={() => 'rgba(0,0,0,0)'}
+          polygonSideColor={() => 'rgba(0,0,0,0)'}
+          polygonStrokeColor={() => outlineColor}
+          polygonAltitude={() => 0.001}
           // Country markers — brand green
           pointsData={LOCATIONS}
           pointLat="lat"
