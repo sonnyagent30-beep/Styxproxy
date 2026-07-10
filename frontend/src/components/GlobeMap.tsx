@@ -34,14 +34,15 @@ function LoadingSkeleton({ isDark }: { isDark: boolean }) {
 }
 
 export default function GlobeMap() {
-  // Single ref — globe.gl appends its canvas directly to this element
+  // globe.gl appends its canvas directly to this div
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [isDark, setIsDark] = useState(true);
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dims, setDims] = useState({ w: 520, h: 520 });
   const [ready, setReady] = useState(false);
-  const globeRef = useRef<unknown>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const globeRef = useRef<any>(null);
 
   // Detect theme
   useEffect(() => {
@@ -66,96 +67,85 @@ export default function GlobeMap() {
     return () => ro.disconnect();
   }, []);
 
-  // Initialize globe.gl when container is ready
+  // Initialize globe.gl when container mounts
   useEffect(() => {
     const el = containerRef.current;
     if (!el || globeRef.current) return;
 
-    const initGlobe = (Globe: (opts: { container: HTMLElement; config: object }) => unknown) => {
-      if (globeRef.current || !el) return;
+    let mounted = true;
 
-      console.log('[GlobeMap] initGlobe called, el:', el.tagName, 'dims:', dims);
+    const init = () => {
+      if (!mounted || !el) return;
+      // @ts-ignore
+      const GlobeFn = window.Globe;
+      if (!GlobeFn) return;
 
-      const myGlobe = (Globe as (opts: { container: HTMLElement; config: object }) => unknown)({
-        container: el,
-        config: {
-          width: dims.w,
-          height: dims.h,
-          globeImageUrl: isDark
-            ? 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
-            : 'https://threejs.org/examples/textures/planets/earth_lights_2048.png',
-          bumpImageUrl: 'https://threejs.org/examples/textures/planets/earth_normal_2048.jpg',
-          pointsData: LOCATIONS,
-          pointLat: 'lat',
-          pointLng: 'lng',
-          pointColor: () => BUNCHE_GREEN,
-          pointRadius: 0.5,
-          pointAltitude: 0.01,
-          arcsData: [],
-          ringsData: [],
-          autoRotate: true,
-          rotateSpeed: 0.35,
-        },
-      });
+      const myGlobe = GlobeFn()
+        .container(el)
+        .width(dims.w)
+        .height(dims.h)
+        // Globe sphere color — dark gray for dark mode, white-ish for light
+        .globeColor(() => isDark ? 'rgba(30,30,50,1)' : 'rgba(230,230,240,1)')
+        // Night side color
+        .nightColor(() => isDark ? 'rgba(5,5,20,1)' : 'rgba(180,180,200,1)')
+        // Atmosphere glow
+        .atmosphereColor(() => BUNCHE_GREEN)
+        .atmosphereAltitude(0.15)
+        // City/country dots — green markers
+        .pointsData(LOCATIONS)
+        .pointLat('lat')
+        .pointLng('lng')
+        .pointColor(() => BUNCHE_GREEN)
+        .pointRadius(0.5)
+        .pointAltitude(0.007)
+        // NO arcs between points
+        .arcsData([])
+        // NO rings
+        .ringsData([])
+        // Auto-rotate
+        .autoRotate(true)
+        .autoRotateSpeed(0.35)
+        // No polygon borders
+        .polygonsData([]);
 
-      console.log('[GlobeMap] globe instance created:', typeof myGlobe, Object.keys(myGlobe || {}));
-
-      // Set initial camera position
       try {
         myGlobe.pointOfView({ lat: LOCATIONS[0].lat, lng: LOCATIONS[0].lng, altitude: 2.2 }, 0);
-      } catch (e) {
-        console.error('[GlobeMap] pointOfView error:', e);
-      }
+      } catch (_) {}
 
       globeRef.current = myGlobe;
       setReady(true);
-      console.log('[GlobeMap] ready=true, canvas should appear');
     };
 
     // @ts-ignore
     if (window.Globe) {
-      console.log('[GlobeMap] window.Globe found:', typeof window.Globe);
-      // @ts-ignore
-      initGlobe(window.Globe);
+      init();
     } else {
-      console.log('[GlobeMap] window.Globe NOT found, loading via script');
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/globe.gl';
-      script.onload = () => {
-        console.log('[GlobeMap] script loaded, window.Globe:', typeof window.Globe);
-        // @ts-ignore
-        if (window.Globe) {
-          // @ts-ignore
-          initGlobe(window.Globe);
-        }
-      };
-      script.onerror = (e) => console.error('[GlobeMap] CDN script error:', e);
+      script.onload = init;
+      script.onerror = () => console.error('[GlobeMap] globe.gl CDN failed');
       document.head.appendChild(script);
     }
+
+    return () => { mounted = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update globe when dims change
+  // Update size when dims change
   useEffect(() => {
     if (!globeRef.current) return;
     try {
-      // @ts-ignore
-      globeRef.current.width(dims.w);
-      // @ts-ignore
-      globeRef.current.height(dims.h);
+      globeRef.current.width(dims.w).height(dims.h);
     } catch (_) {}
   }, [dims]);
 
-  // Update texture when theme changes
+  // Update colors when theme changes
   useEffect(() => {
     if (!globeRef.current) return;
     try {
-      // @ts-ignore
-      globeRef.current.globeImageUrl(
-        isDark
-          ? 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
-          : 'https://threejs.org/examples/textures/planets/earth_lights_2048.png'
-      );
+      globeRef.current
+        .globeColor(() => isDark ? 'rgba(30,30,50,1)' : 'rgba(230,230,240,1)')
+        .nightColor(() => isDark ? 'rgba(5,5,20,1)' : 'rgba(180,180,200,1)');
     } catch (_) {}
   }, [isDark]);
 
@@ -172,19 +162,15 @@ export default function GlobeMap() {
     if (!globeRef.current) return;
     const loc = LOCATIONS[featuredIdx];
     try {
-      // @ts-ignore
       globeRef.current.pointOfView({ lat: loc.lat, lng: loc.lng, altitude: 2.2 }, 1800);
     } catch (_) {}
-  }, [featuredIdx]);
+  }, [featuredIdx, globeRef.current]);
 
   // Cleanup
   useEffect(() => {
     return () => {
       if (globeRef.current) {
-        try {
-          // @ts-ignore
-          globeRef.current._destructor?.();
-        } catch (_) {}
+        try { globeRef.current._destructor?.(); } catch (_) {}
         globeRef.current = null;
       }
     };
@@ -197,14 +183,9 @@ export default function GlobeMap() {
     <div
       ref={containerRef}
       className="relative w-full overflow-hidden"
-      style={{
-        height: 480,
-        background: bgColor,
-        // Ensure container has dimensions so globe.gl can fill it
-        minHeight: 480,
-      }}
+      style={{ height: 480, background: bgColor, minHeight: 480 }}
     >
-      {/* Loading skeleton — shown until globe is ready */}
+      {/* Loading skeleton */}
       <AnimatePresence>
         {!ready && (
           <motion.div
