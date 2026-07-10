@@ -5,6 +5,8 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import type { GlobeMethods } from 'react-globe.gl';
+import { feature } from 'topojson-client';
+import type { Topology, GeometryCollection } from 'topojson-specification';
 
 // Load react-globe.gl only on client (SSR disabled)
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
@@ -23,6 +25,7 @@ const LOCATIONS = [
 ];
 
 const BUNCHE_GREEN = '#10B981';
+const ACCENT_PURPLE = '#8B3FE8';
 
 function SunIcon() {
   return (
@@ -47,8 +50,9 @@ export default function GlobeMap() {
   const [dims, setDims] = useState({ w: 520, h: 520 });
   const [ready, setReady] = useState(false);
   const [containerOpacity, setContainerOpacity] = useState(0);
+  const [worldGeojson, setWorldGeojson] = useState<GeoJSON.FeatureCollection | null>(null);
 
-  // Responsive sizing — use container ref
+  // Responsive sizing
   useEffect(() => {
     const update = () => {
       const size = Math.min(window.innerWidth, 600);
@@ -57,6 +61,20 @@ export default function GlobeMap() {
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
+  }, []);
+
+  // Fetch world countries GeoJSON for continent dots
+  useEffect(() => {
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+      .then(r => r.json())
+      .then((topo: Topology) => {
+        const countries = feature(
+          topo,
+          topo.objects.countries as GeometryCollection
+        ) as GeoJSON.FeatureCollection;
+        setWorldGeojson(countries);
+      })
+      .catch(() => {});
   }, []);
 
   // Cycle featured country every 4 seconds
@@ -80,34 +98,12 @@ export default function GlobeMap() {
 
   const featured = LOCATIONS[featuredIdx];
 
-  // Globe globe.gl config based on current theme
-  const globeProps = isDark ? {
-    // Dark mode: Earth texture with night side
-    globeImageUrl: '//unpkg.com/three-globe/example/img/earth-night.jpg',
-    bumpImageUrl: '//unpkg.com/three-globe/example/img/earth-topology.png',
-    backgroundImageUrl: '//unpkg.com/three-globe/example/img/night-sky.png',
-    // Atmosphere
-    atmosphereColor: BUNCHE_GREEN,
-    atmosphereAltitude: 0.15,
-  } : {
-    // Light mode: bright Earth texture
-    globeImageUrl: '//unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
-    bumpImageUrl: '//unpkg.com/three-globe/example/img/earth-topology.png',
-    backgroundImageUrl: '',
-    atmosphereColor: '#6ea0ff',
-    atmosphereAltitude: 0.12,
-  };
-
-  // Build ring data — only the currently featured country glows
-  const ringData = ready ? [{
-    lat: featured.lat,
-    lng: featured.lng,
-    color: BUNCHE_GREEN,
-    radius: 1.2,
-    maxRadius: 4.0,
-    propagationSpeed: 1.5,
-    repeat: 2.5,
-  }] : [];
+  // Globe colors per theme
+  const sphereColor = isDark ? 'rgba(12,12,28,1)' : 'rgba(235,235,245,1)';
+  const polygonFill = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(30,30,50,0.08)';
+  const polygonStroke = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(30,30,50,0.2)';
+  const dotColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(30,30,50,0.45)';
+  const atmosphereColor = isDark ? BUNCHE_GREEN : '#6ea0ff';
 
   return (
     <div
@@ -115,7 +111,6 @@ export default function GlobeMap() {
       style={{
         height: 480,
         minHeight: 480,
-        // Background matches page
         background: isDark ? '#0a0a0f' : '#f4f4f5',
       }}
     >
@@ -157,35 +152,40 @@ export default function GlobeMap() {
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Globe globe.gl colors
-          globeColor={isDark ? 'rgba(10,10,25,1)' : 'rgba(200,215,240,1)'}
-          nightColor={isDark ? 'rgba(5,5,20,1)' : 'rgba(150,160,190,1)'}
-          // Textures for continents
-          {...globeProps}
+          // Dark/light sphere base
+          globeColor={sphereColor}
+          nightColor={isDark ? 'rgba(5,5,15,1)' : 'rgba(180,180,200,1)'}
           // Atmosphere
-          atmosphereColor={globeProps.atmosphereColor}
-          atmosphereAltitude={globeProps.atmosphereAltitude}
+          atmosphereColor={atmosphereColor}
+          atmosphereAltitude={0.18}
+          // World countries as polygon dots — continents as dot outlines
+          polygonsData={worldGeojson?.features ?? []}
+          polygonCapColor={() => polygonFill}
+          polygonSideColor={() => polygonStroke}
+          polygonStrokeColor={() => dotColor}
+          polygonLabel={() => ''}
           // Country markers — green dots
           pointsData={LOCATIONS}
           pointLat="lat"
           pointLng="lng"
           pointColor={() => BUNCHE_GREEN}
-          pointRadius={0.45}
-          pointAltitude={0.006}
-          // Current country glow ring
-          ringsData={ringData}
-          ringColor={() => BUNCHE_GREEN}
-          ringMaxRadius={4.0}
-          ringPropagationSpeed={1.5}
-          ringRepeat={2.5}
-          // No arcs between countries
+          pointRadius={0.55}
+          pointAltitude={0.007}
+          // Featured country — glowing purple ring
+          ringsData={ready ? [{
+            lat: featured.lat,
+            lng: featured.lng,
+          }] : []}
+          ringColor={() => ACCENT_PURPLE}
+          ringMaxRadius={3.5}
+          ringPropagationSpeed={1.2}
+          ringRepeat={2.2}
+          // No arcs
           arcsData={[]}
-          // No polygon borders
-          polygonsData={[]}
           // Auto-rotate
           autoRotate={true}
           autoRotateSpeed={0.3}
-          // Initialized
+          // On ready
           onGlobeReady={() => {
             setContainerOpacity(1);
             setTimeout(() => setReady(true), 300);
@@ -213,7 +213,7 @@ export default function GlobeMap() {
             className="rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md"
             style={{
               background: isDark ? 'rgba(26,26,46,0.92)' : 'rgba(255,255,255,0.92)',
-              borderColor: isDark ? `${BUNCHE_GREEN}44` : '#e4e4e7',
+              borderColor: isDark ? `${ACCENT_PURPLE}55` : '#e4e4e7',
             }}
           >
             <span className="text-3xl">{featured.flag}</span>
