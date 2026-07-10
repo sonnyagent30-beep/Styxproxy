@@ -1,8 +1,13 @@
-// @ts-nocheck — Globe component uses CDN script injection; runtime works correctly
+// @ts-nocheck — react-globe.gl types are incomplete; runtime works correctly
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import dynamic from 'next/dynamic';
+import type { GlobeMethods } from 'react-globe.gl';
+
+// Load react-globe.gl only on client (SSR disabled)
+const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
 
 // Bunche ISP countries
 const LOCATIONS = [
@@ -34,15 +39,12 @@ function LoadingSkeleton({ isDark }: { isDark: boolean }) {
 }
 
 export default function GlobeMap() {
-  // globe.gl appends its canvas directly to this div
-  const containerRef = useRef<HTMLDivElement>(null);
-
+  const globeRef = useRef<GlobeMethods | null>(null);
   const [isDark, setIsDark] = useState(true);
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dims, setDims] = useState({ w: 520, h: 520 });
   const [ready, setReady] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const globeRef = useRef<any>(null);
+  const [containerOpacity, setContainerOpacity] = useState(0);
 
   // Detect theme
   useEffect(() => {
@@ -55,99 +57,14 @@ export default function GlobeMap() {
 
   // Responsive sizing
   useEffect(() => {
-    if (!containerRef.current) return;
-    const el = containerRef.current;
     const update = () => {
-      const w = el.offsetWidth;
-      setDims({ w: Math.min(w, 580), h: Math.min(w, 580) });
+      const w = Math.min(window.innerWidth, 580);
+      setDims({ w, h: w });
     };
     update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
-
-  // Initialize globe.gl when container mounts
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || globeRef.current) return;
-
-    let mounted = true;
-
-    const init = () => {
-      if (!mounted || !el) return;
-      // @ts-ignore
-      const GlobeFn = window.Globe;
-      if (!GlobeFn) return;
-
-      const myGlobe = GlobeFn()
-        .container(el)
-        .width(dims.w)
-        .height(dims.h)
-        // Globe sphere color — dark gray for dark mode, white-ish for light
-        .globeColor(() => isDark ? 'rgba(30,30,50,1)' : 'rgba(230,230,240,1)')
-        // Night side color
-        .nightColor(() => isDark ? 'rgba(5,5,20,1)' : 'rgba(180,180,200,1)')
-        // Atmosphere glow
-        .atmosphereColor(() => BUNCHE_GREEN)
-        .atmosphereAltitude(0.15)
-        // City/country dots — green markers
-        .pointsData(LOCATIONS)
-        .pointLat('lat')
-        .pointLng('lng')
-        .pointColor(() => BUNCHE_GREEN)
-        .pointRadius(0.5)
-        .pointAltitude(0.007)
-        // NO arcs between points
-        .arcsData([])
-        // NO rings
-        .ringsData([])
-        // Auto-rotate
-        .autoRotate(true)
-        .autoRotateSpeed(0.35)
-        // No polygon borders
-        .polygonsData([]);
-
-      try {
-        myGlobe.pointOfView({ lat: LOCATIONS[0].lat, lng: LOCATIONS[0].lng, altitude: 2.2 }, 0);
-      } catch (_) {}
-
-      globeRef.current = myGlobe;
-      setReady(true);
-    };
-
-    // @ts-ignore
-    if (window.Globe) {
-      init();
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/globe.gl';
-      script.onload = init;
-      script.onerror = () => console.error('[GlobeMap] globe.gl CDN failed');
-      document.head.appendChild(script);
-    }
-
-    return () => { mounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Update size when dims change
-  useEffect(() => {
-    if (!globeRef.current) return;
-    try {
-      globeRef.current.width(dims.w).height(dims.h);
-    } catch (_) {}
-  }, [dims]);
-
-  // Update colors when theme changes
-  useEffect(() => {
-    if (!globeRef.current) return;
-    try {
-      globeRef.current
-        .globeColor(() => isDark ? 'rgba(30,30,50,1)' : 'rgba(230,230,240,1)')
-        .nightColor(() => isDark ? 'rgba(5,5,20,1)' : 'rgba(180,180,200,1)');
-    } catch (_) {}
-  }, [isDark]);
 
   // Cycle featured country every 4 seconds
   useEffect(() => {
@@ -157,39 +74,79 @@ export default function GlobeMap() {
     return () => clearInterval(interval);
   }, []);
 
-  // Pan camera to featured country
+  // Pan camera when featured country changes
   useEffect(() => {
     if (!globeRef.current) return;
     const loc = LOCATIONS[featuredIdx];
     try {
       globeRef.current.pointOfView({ lat: loc.lat, lng: loc.lng, altitude: 2.2 }, 1800);
     } catch (_) {}
-  }, [featuredIdx, globeRef.current]);
-
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      if (globeRef.current) {
-        try { globeRef.current._destructor?.(); } catch (_) {}
-        globeRef.current = null;
-      }
-    };
-  }, []);
+  }, [featuredIdx]);
 
   const bgColor = isDark ? '#0a0a0f' : '#f4f4f5';
   const featured = LOCATIONS[featuredIdx];
 
   return (
     <div
-      ref={containerRef}
       className="relative w-full overflow-hidden"
       style={{ height: 480, background: bgColor, minHeight: 480 }}
     >
+      {/* Globe canvas — react-globe.gl manages its own canvas */}
+      <div
+        className="absolute inset-0 flex items-center justify-center"
+        style={{
+          width: dims.w,
+          height: dims.h,
+          margin: 'auto',
+          opacity: containerOpacity,
+          transition: 'opacity 700ms ease',
+        }}
+      >
+        <Globe
+          ref={globeRef}
+          width={dims.w}
+          height={dims.h}
+          // Globe sphere colors — dark for dark mode, light for light mode
+          globeColor={isDark ? 'rgba(20,20,40,1)' : 'rgba(220,220,240,1)'}
+          nightColor={isDark ? 'rgba(5,5,15,1)' : 'rgba(160,160,180,1)'}
+          // Green atmosphere glow
+          atmosphereColor={BUNCHE_GREEN}
+          atmosphereAltitude={0.18}
+          // Country markers — green dots (no arcs, no rings)
+          pointsData={LOCATIONS}
+          pointLat="lat"
+          pointLng="lng"
+          pointColor={() => BUNCHE_GREEN}
+          pointRadius={0.5}
+          pointAltitude={0.007}
+          // No arcs between countries
+          arcsData={[]}
+          // No rings
+          ringsData={[]}
+          // No polygon borders
+          polygonsData={[]}
+          // Auto-rotate slowly
+          autoRotate={true}
+          autoRotateSpeed={0.35}
+          // Initial camera
+          onGlobeReady={() => {
+            setContainerOpacity(1);
+            setTimeout(() => setReady(true), 200);
+            if (globeRef.current) {
+              try {
+                globeRef.current.pointOfView({ lat: LOCATIONS[0].lat, lng: LOCATIONS[0].lng, altitude: 2.2 }, 0);
+              } catch (_) {}
+            }
+          }}
+        />
+      </div>
+
       {/* Loading skeleton */}
       <AnimatePresence>
         {!ready && (
           <motion.div
-            className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{ width: dims.w, height: dims.h, margin: 'auto' }}
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
@@ -201,38 +158,36 @@ export default function GlobeMap() {
 
       {/* Featured country callout */}
       <AnimatePresence mode="wait">
-        {ready && (
-          <motion.div
-            key={featuredIdx}
-            className="absolute pointer-events-none z-20"
-            style={{ right: '4%', top: '8%', minWidth: 155 }}
-            initial={{ opacity: 0, scale: 0.85, y: 6 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.85, y: 6 }}
-            transition={{ duration: 0.4, ease: 'backOut', delay: 0.1 }}
+        <motion.div
+          key={featuredIdx}
+          className="absolute pointer-events-none z-20"
+          style={{ right: '4%', top: '8%', minWidth: 155 }}
+          initial={{ opacity: 0, scale: 0.85, y: 6 }}
+          animate={{ opacity: ready ? 1 : 0, scale: ready ? 1 : 0.85, y: 0 }}
+          exit={{ opacity: 0, scale: 0.85, y: 6 }}
+          transition={{ duration: 0.4, ease: 'backOut', delay: 0.1 }}
+        >
+          <div
+            className="rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md"
+            style={{
+              background: isDark ? 'rgba(26,26,46,0.92)' : 'rgba(255,255,255,0.92)',
+              borderColor: isDark ? `${BUNCHE_GREEN}33` : '#e4e4e7',
+            }}
           >
-            <div
-              className="rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md"
-              style={{
-                background: isDark ? 'rgba(26,26,46,0.92)' : 'rgba(255,255,255,0.92)',
-                borderColor: isDark ? `${BUNCHE_GREEN}33` : '#e4e4e7',
-              }}
-            >
-              <span className="text-3xl">{featured.flag}</span>
-              <div>
-                <p className="font-bold text-sm" style={{ color: isDark ? '#f4f4f5' : '#18181b' }}>
-                  {featured.name}
-                </p>
-                <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#71717a' }}>
-                  <svg className="w-3 h-3" style={{ color: BUNCHE_GREEN }} fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
-                  {featured.region}
-                </p>
-              </div>
+            <span className="text-3xl">{featured.flag}</span>
+            <div>
+              <p className="font-bold text-sm" style={{ color: isDark ? '#f4f4f5' : '#18181b' }}>
+                {featured.name}
+              </p>
+              <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#71717a' }}>
+                <svg className="w-3 h-3" style={{ color: BUNCHE_GREEN }} fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+                {featured.region}
+              </p>
             </div>
-          </motion.div>
-        )}
+          </div>
+        </motion.div>
       </AnimatePresence>
 
       {/* Coverage badge */}
