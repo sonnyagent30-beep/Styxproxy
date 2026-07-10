@@ -127,10 +127,10 @@ export default function GlobeMap() {
           // CRITICAL: `globeColor` is NOT a real three-globe prop — it's silently ignored.
           // Must use `globeMaterial` with an actual Three.js Material object.
           globeMaterial={globeMaterial}
+          // Disable built-in GlowMesh atmosphere — it darkens the globe edge in light mode.
+          // Instead we use a CSS border ring + the orbital ring for the "edge" effect.
+          showAtmosphere={false}
           backgroundColor="rgba(0,0,0,0)"
-          // Atmosphere glow - STRONG visible halo
-          atmosphereColor={atmosphereColor}
-          atmosphereAltitude={atmosphereAlt}
           // Country polygons - use simpler accessor that extracts geometry properly
           // polygonCapMaterial/polygonSideMaterial with opacity=0 for invisible fills
           // polygonStrokeColor for visible country outlines
@@ -212,15 +212,18 @@ export default function GlobeMap() {
         <p className="text-sm font-bold" style={{ color: BRAND_GREEN }}>ISP Coverage</p>
       </div>
 
-      {/* Orbital ring decoration */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center z-0">
-        <motion.div
-          className="rounded-full"
-          style={{ width: dims.w * 0.87, height: dims.w * 0.87, border: `1px solid ${BRAND_GREEN}18` }}
-          animate={{ rotate: 360 }}
-          transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
-        />
-      </div>
+      {/* Globe edge ring — subtle CSS border that shows the globe boundary clearly */}
+      <div
+        className="absolute left-0 top-0 rounded-full pointer-events-none z-10"
+        style={{
+          width: dims.w,
+          height: dims.h,
+          boxShadow: isDark
+            ? '0 0 0 1.5px rgba(16,185,129,0.35), inset 0 0 0 1.5px rgba(16,185,129,0.20)'
+            : '0 0 0 1.5px rgba(16,185,129,0.45), inset 0 0 0 1.5px rgba(16,185,129,0.25)',
+          borderRadius: '50%',
+        }}
+      />
     </div>
   );
 }
