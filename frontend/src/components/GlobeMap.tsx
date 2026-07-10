@@ -89,24 +89,32 @@ export default function GlobeMap() {
   }, [featuredIdx, ready]);
 
   // Globe sphere color = page background so globe "disappears"
-  // Atmosphere glow — SOFT, not too strong
-  // Country outlines — subtle, not overpowering
+  // Atmosphere glow — only in dark mode (GlowMesh darkens light mode sphere edges).
+  // In light mode: use MeshLambertMaterial (no specular = no dark-edge problem).
   const sphereColorHex = isDark ? '#0f0f0f' : '#ffffff';
-  // Softer atmosphere — 0.15 is gentle, 0.20 is more visible
-  const atmosphereColor  = BRAND_GREEN;
-  const atmosphereAlt   = 0.18;
-  // Country outlines with reduced opacity — subtle strokes, not bold lines
-  const outlineColor    = isDark ? 'rgba(74,222,128,0.55)' : 'rgba(31,41,55,0.50)';
+  // Atmosphere: dark mode only — soft green glow. Light mode gets no atmosphere.
+  const atmosphereColor = BRAND_GREEN;
+  const atmosphereAlt = 0.20;
+  const useAtmosphere = isDark;
+  // Country outlines with reduced opacity — subtle strokes
+  const outlineColor = isDark ? 'rgba(74,222,128,0.55)' : 'rgba(31,41,55,0.50)';
 
-  // MeshPhongMaterial gives a satin-like sheen (specular highlights catch the globe's point lights).
-  // MeshBasicMaterial was completely flat — no shading, no depth.
-  // Phong = ambient + diffuse + specular = soft 3D sheen.
+  // Light mode: MeshLambertMaterial — no specular highlights, so NO dark-edge problem.
+  // Dark mode: MeshPhongMaterial — specular gives premium satin sheen.
   const globeMaterial = useMemo(() => {
-    return new THREE.MeshPhongMaterial({
-      color: new THREE.Color(sphereColorHex),
-      shininess: 25,        // moderate sheen — satin, not mirror
-      specular: new THREE.Color(isDark ? '#1a3a1a' : '#c8d8c8'), // subtle tint on highlights
-    });
+    if (isDark) {
+      return new THREE.MeshPhongMaterial({
+        color: new THREE.Color(sphereColorHex),
+        shininess: 20,
+        specular: new THREE.Color('#1a3a1a'),
+      });
+    } else {
+      // LambertMaterial: diffuse-only lighting, no specular.
+      // No specular = no dark reflection zones at sphere edges.
+      return new THREE.MeshLambertMaterial({
+        color: new THREE.Color(sphereColorHex),
+      });
+    }
   }, [sphereColorHex, isDark]);
 
   const featured = LOCATIONS[featuredIdx];
@@ -127,9 +135,10 @@ export default function GlobeMap() {
           // CRITICAL: `globeColor` is NOT a real three-globe prop — it's silently ignored.
           // Must use `globeMaterial` with an actual Three.js Material object.
           globeMaterial={globeMaterial}
-          // Disable built-in GlowMesh atmosphere — it darkens the globe edge in light mode.
-          // Instead we use a CSS border ring + the orbital ring for the "edge" effect.
-          showAtmosphere={false}
+          // Atmosphere only in dark mode — GlowMesh makes light mode sphere edges dark.
+          showAtmosphere={useAtmosphere}
+          atmosphereColor={useAtmosphere ? atmosphereColor : undefined}
+          atmosphereAltitude={useAtmosphere ? atmosphereAlt : undefined}
           backgroundColor="rgba(0,0,0,0)"
           // Country polygons - use simpler accessor that extracts geometry properly
           // polygonCapMaterial/polygonSideMaterial with opacity=0 for invisible fills
@@ -212,15 +221,17 @@ export default function GlobeMap() {
         <p className="text-sm font-bold" style={{ color: BRAND_GREEN }}>ISP Coverage</p>
       </div>
 
-      {/* Globe edge ring — subtle CSS border that shows the globe boundary clearly */}
+      {/* Globe edge ring — CSS border that defines the sphere boundary.
+          Light mode: no atmosphere, so ring must be slightly more visible.
+          Dark mode: atmosphere glow provides the edge, ring is subtle accent. */}
       <div
         className="absolute left-0 top-0 rounded-full pointer-events-none z-10"
         style={{
           width: dims.w,
           height: dims.h,
           boxShadow: isDark
-            ? '0 0 0 1.5px rgba(16,185,129,0.35), inset 0 0 0 1.5px rgba(16,185,129,0.20)'
-            : '0 0 0 1.5px rgba(16,185,129,0.45), inset 0 0 0 1.5px rgba(16,185,129,0.25)',
+            ? '0 0 0 1.5px rgba(16,185,129,0.30), inset 0 0 0 1px rgba(16,185,129,0.15)'
+            : '0 0 0 1.5px rgba(16,185,129,0.50), inset 0 0 0 1px rgba(16,185,129,0.30)',
           borderRadius: '50%',
         }}
       />
