@@ -74,6 +74,8 @@ export default function GlobeMap() {
     const initGlobe = (Globe: (opts: { container: HTMLElement; config: object }) => unknown) => {
       if (globeRef.current || !el) return;
 
+      console.log('[GlobeMap] initGlobe called, el:', el.tagName, 'dims:', dims);
+
       const myGlobe = (Globe as (opts: { container: HTMLElement; config: object }) => unknown)({
         container: el,
         config: {
@@ -96,30 +98,38 @@ export default function GlobeMap() {
         },
       });
 
+      console.log('[GlobeMap] globe instance created:', typeof myGlobe, Object.keys(myGlobe || {}));
+
       // Set initial camera position
       try {
         myGlobe.pointOfView({ lat: LOCATIONS[0].lat, lng: LOCATIONS[0].lng, altitude: 2.2 }, 0);
-      } catch (_) {}
+      } catch (e) {
+        console.error('[GlobeMap] pointOfView error:', e);
+      }
 
       globeRef.current = myGlobe;
       setReady(true);
+      console.log('[GlobeMap] ready=true, canvas should appear');
     };
 
     // @ts-ignore
     if (window.Globe) {
+      console.log('[GlobeMap] window.Globe found:', typeof window.Globe);
       // @ts-ignore
       initGlobe(window.Globe);
     } else {
+      console.log('[GlobeMap] window.Globe NOT found, loading via script');
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/globe.gl';
       script.onload = () => {
+        console.log('[GlobeMap] script loaded, window.Globe:', typeof window.Globe);
         // @ts-ignore
         if (window.Globe) {
           // @ts-ignore
           initGlobe(window.Globe);
         }
       };
-      script.onerror = () => console.error('globe.gl CDN failed to load');
+      script.onerror = (e) => console.error('[GlobeMap] CDN script error:', e);
       document.head.appendChild(script);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
