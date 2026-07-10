@@ -16,17 +16,17 @@ export default function Header() {
             <Image
               src="/header-icon-dark.png"
               alt="styxproxy"
-              width={36}
-              height={36}
-              className="hidden dark:block w-9 h-9"
+              width={40}
+              height={40}
+              className="hidden dark:block w-10 h-10"
               priority
             />
             <Image
               src="/header-icon-light.png"
               alt="styxproxy"
-              width={36}
-              height={36}
-              className="block dark:hidden w-9 h-9"
+              width={40}
+              height={40}
+              className="block dark:hidden w-10 h-10"
               priority
             />
             <span className="text-xl font-bold text-[var(--foreground)]">styxproxy</span>

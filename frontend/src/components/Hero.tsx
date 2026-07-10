@@ -27,16 +27,16 @@ export default function Hero() {
           <Image
             src="/hero-logo-dark.png"
             alt="styxproxy"
-            width={400}
-            height={200}
+            width={800}
+            height={400}
             className="hidden dark:block w-auto h-auto max-w-full"
             priority
           />
           <Image
             src="/hero-logo-light.png"
             alt="styxproxy"
-            width={400}
-            height={200}
+            width={800}
+            height={400}
             className="block dark:hidden w-auto h-auto max-w-full"
             priority
           />
