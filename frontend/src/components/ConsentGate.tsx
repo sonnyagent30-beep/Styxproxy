@@ -7,8 +7,9 @@ export default function ConsentGate() {
 
   useEffect(() => {
     const accepted = sessionStorage.getItem('styxproxy_consent');
-    const isLegalPage = window.location.pathname.startsWith('/legal') ||
-                        window.location.pathname === '/refund-policy';
+    const isLegalPage =
+      window.location.pathname.startsWith('/legal') ||
+      window.location.pathname === '/refund-policy';
 
     if (!accepted && !isLegalPage) {
       const timer = setTimeout(() => setVisible(true), 5000);
@@ -29,158 +30,124 @@ export default function ConsentGate() {
 
   return (
     <>
-      {/* Blur overlay */}
+      {/* Plain dark overlay */}
       <div
         style={{
           position: 'fixed',
           inset: 0,
           zIndex: 99998,
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          background: 'rgba(0, 0, 0, 0.3)',
+          background: 'rgba(0, 0, 0, 0.6)',
         }}
       />
 
-      {/* Modal */}
+      {/* Bottom sheet */}
       <div
         style={{
           position: 'fixed',
-          inset: 0,
+          bottom: 0,
+          left: 0,
+          right: 0,
           zIndex: 99999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '1rem',
+          background: 'var(--card)',
+          borderTop: '1px solid var(--border)',
+          padding: '1.25rem 1.5rem',
         }}
       >
         <div
           style={{
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: '1.5rem',
-            padding: '2.5rem',
-            maxWidth: '460px',
-            width: '100%',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
+            maxWidth: '560px',
+            margin: '0 auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            flexWrap: 'wrap',
           }}
         >
-          {/* Logo + name */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', marginBottom: '1.75rem' }}>
-            <div
+          {/* Text */}
+          <div style={{ flex: 1, minWidth: '200px' }}>
+            <p
               style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '50%',
-                background: 'var(--primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
+                color: 'var(--foreground)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                marginBottom: '0.2rem',
               }}
             >
-              <span style={{ color: '#000', fontSize: '1.1rem', fontWeight: 800 }}>S</span>
-            </div>
-            <div>
-              <p style={{ color: 'var(--foreground)', fontWeight: 700, fontSize: '1rem', lineHeight: 1.2 }}>
-                Styxproxy
-              </p>
-              <p style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>
-                Anonymous Proxy Service
-              </p>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div style={{ height: '1px', background: 'var(--border)', marginBottom: '1.5rem' }} />
-
-          {/* Text */}
-          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '1.25rem' }}>
-            Before you continue, please read and accept our terms. By entering Styxproxy you agree to:
-          </p>
-
-          {/* Legal links */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
-            {[
-              { label: 'Terms of Service', href: '/legal/terms' },
-              { label: 'Refund Policy', href: '/refund-policy' },
-              { label: 'Privacy Policy', href: '/legal/privacy' },
-              { label: 'Acceptable Use Policy', href: '/legal/aup' },
-            ].map(({ label, href }) => (
+              By using Styxproxy you agree to our{' '}
               <a
-                key={href}
-                href={href}
+                href="/legal/terms"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  color: 'var(--foreground)',
-                  fontSize: '0.875rem',
-                  textDecoration: 'none',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid var(--border)',
-                  background: 'var(--background)',
-                  transition: 'border-color 0.15s',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--primary)')}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+                style={{ color: 'var(--primary)' }}
               >
-                <span>{label}</span>
-                <svg style={{ width: '14px', height: '14px', color: 'var(--muted)', flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                </svg>
+                Terms
               </a>
-            ))}
+              ,{' '}
+              <a
+                href="/refund-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--primary)' }}
+              >
+                Refund Policy
+              </a>
+              ,{' '}
+              <a
+                href="/legal/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--primary)' }}
+              >
+                Privacy Policy
+              </a>
+              , and{' '}
+              <a
+                href="/legal/aup"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--primary)' }}
+              >
+                Acceptable Use
+              </a>
+              .
+            </p>
+            <p style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>
+              Read before continuing.
+            </p>
           </div>
 
           {/* Buttons */}
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
             <button
               onClick={handleAccept}
               style={{
-                flex: 1,
-                padding: '0.875rem',
+                padding: '0.5rem 1.25rem',
                 background: 'var(--primary)',
                 color: '#000',
                 fontWeight: 700,
-                fontSize: '0.9rem',
+                fontSize: '0.8rem',
                 border: 'none',
-                borderRadius: '0.75rem',
+                borderRadius: '0.5rem',
                 cursor: 'pointer',
-                transition: 'opacity 0.15s',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
             >
-              Accept & Enter
+              Accept &amp; Enter
             </button>
 
             <button
               onClick={handleLeave}
               style={{
-                flex: 1,
-                padding: '0.875rem',
+                padding: '0.5rem 1.25rem',
                 background: 'transparent',
                 color: 'var(--muted)',
                 fontWeight: 600,
-                fontSize: '0.9rem',
+                fontSize: '0.8rem',
                 border: '1px solid var(--border)',
-                borderRadius: '0.75rem',
+                borderRadius: '0.5rem',
                 cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#444';
-                e.currentTarget.style.color = 'var(--foreground)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border)';
-                e.currentTarget.style.color = 'var(--muted)';
               }}
             >
-              Leave Site
+              Leave
             </button>
           </div>
         </div>
