@@ -195,7 +195,7 @@ function ManageContent() {
                   Order Another
                 </Link>
                 <a
-                  href="https://wa.me/2347032981049"
+                  href="https://t.me/BuncheBot"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-lg text-center transition-colors"

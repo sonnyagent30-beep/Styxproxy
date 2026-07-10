@@ -280,15 +280,6 @@ export default function ProductsPage() {
             >
               Start Ordering
             </Link>
-            <a
-              href="https://wa.me/2347032981049"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] font-medium rounded-xl transition-colors"
-              style={{ color: 'var(--foreground)' }}
-            >
-              Chat on WhatsApp
-            </a>
           </div>
         </div>
       </div>
