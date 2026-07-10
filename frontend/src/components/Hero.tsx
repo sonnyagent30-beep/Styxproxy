@@ -62,12 +62,12 @@ export default function Hero() {
           {/* Trust Indicators */}
           <div className="flex flex-wrap items-center justify-center gap-6 text-[var(--muted)] animate-fade-in" style={{ animationDelay: '0.25s' }}>
             {[
-              { label: 'Instant Delivery', icon: '⚡' },
-              { label: '24/7 Support', icon: '🛟' },
-              { label: 'Free Replacement', icon: '♻️' },
+              { label: 'Instant Delivery', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg> },
+              { label: '24/7 Support', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-6.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"/></svg> },
+              { label: 'Free Replacement', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg> },
             ].map(({ label, icon }) => (
               <div key={label} className="flex items-center space-x-2 text-sm">
-                <span>{icon}</span>
+                <span className="text-[var(--primary)]">{icon}</span>
                 <span>{label}</span>
               </div>
             ))}
@@ -75,38 +75,38 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* Proxy Types Explainer */}
+      {/* How It Works */}
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full mt-20 mb-16">
         <h2 className="text-2xl font-bold text-center mb-10">How It Works</h2>
         <div className="grid md:grid-cols-3 gap-6">
-          {[
-            {
-              num: '1',
-              title: 'Choose & Pay',
-              body: 'Pick a proxy type and country. Pay securely via bank transfer, card, USSD, or QR — all in NGN. No account needed.',
-              icon: '💳',
-            },
-            {
-              num: '2',
-              title: 'Get Credentials',
-              body: 'Receive your proxy username, password, and endpoint instantly after payment. Valid until your plan expires.',
-              icon: '🔑',
-            },
-            {
-              num: '3',
-              title: 'Start Using',
-              body: 'Configure in your browser, bot, or scraper. Need help? Chat with us below — no WhatsApp required.',
-              icon: '🚀',
-            },
-          ].map(({ num, title, body, icon }) => (
-            <div key={num} className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-              <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/20 flex items-center justify-center mb-4 text-2xl">
-                {icon}
-              </div>
-              <h3 className="text-lg font-semibold mb-2">{title}</h3>
-              <p className="text-[var(--muted)] text-sm">{body}</p>
+
+          {/* Card 1 — Choose & Pay */}
+          <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+            <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/20 flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25H6a2.25 2.25 0 01-2.25-2.25v7.5A2.25 2.25 0 016 21h12a2.25 2.25 0 012.25-2.25v-7.5A2.25 2.25 0 0118 11.25h-1.5z"/></svg>
             </div>
-          ))}
+            <h3 className="text-lg font-semibold mb-2">Choose &amp; Pay</h3>
+            <p className="text-[var(--muted)] text-sm">Pick a proxy type and country. Pay securely via bank transfer, card, USSD, or QR — all in NGN. No account needed.</p>
+          </div>
+
+          {/* Card 2 — Get Credentials */}
+          <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+            <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/20 flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Get Credentials</h3>
+            <p className="text-[var(--muted)] text-sm">Receive your proxy username, password, and endpoint instantly after payment. Valid until your plan expires.</p>
+          </div>
+
+          {/* Card 3 — Start Using */}
+          <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+            <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/20 flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/></svg>
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Start Using</h3>
+            <p className="text-[var(--muted)] text-sm">Configure in your browser, bot, or scraper. Need help? Chat with us below — no WhatsApp required.</p>
+          </div>
+
         </div>
       </div>
 

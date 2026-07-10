@@ -89,6 +89,7 @@ const categories = [
 export default function ProductsPage() {
   // Active filter for the globe — null means "all countries from all products"
   const [activeProduct, setActiveProduct] = useState<string | null>(null);
+  const [carouselIdx, setCarouselIdx] = useState(0);
 
   return (
     <div className="min-h-screen pt-24 pb-16">
@@ -110,13 +111,13 @@ export default function ProductsPage() {
         {/* Stats Bar */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-2xl mx-auto">
           {[
-            { label: 'Uptime', value: '99.9%', icon: '🟢' },
-            { label: 'IP Pool', value: '50K+ IPs', icon: '🌐' },
-            { label: 'Speed', value: '1 Gbps', icon: '⚡' },
-            { label: 'Delivery', value: 'Instant', icon: '🚀' },
+            { label: 'Uptime', value: '99.9%', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
+            { label: 'IP Pool', value: '50K+ IPs', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 014 9 15.3 15.3 0 01-4 9 15.3 15.3 0 01-4-9 15.3 15.3 0 014-9z"/></svg> },
+            { label: 'Speed', value: '1 Gbps', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg> },
+            { label: 'Delivery', value: 'Instant', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg> },
           ].map(({ label, value, icon }) => (
             <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-3 text-center">
-              <div className="text-base mb-0.5">{icon}</div>
+              <div className="mb-1 flex justify-center">{icon}</div>
               <div className="text-xl font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
               <div className="text-xs text-[var(--muted)]">{label}</div>
             </div>
@@ -218,136 +219,219 @@ export default function ProductsPage() {
           })}
         </div>
 
-        {/* Comparison Cards — 3D style */}
+        {/* Comparison — 3D Carousel */}
         <div className="mb-20">
           <h2 className="text-2xl font-bold text-center mb-8">Compare Proxy Types</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* ISP Card */}
-            <div className="group relative" style={{ perspective: '1000px' }}>
-              <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl" style={{ transformStyle: 'preserve-3d', '--tw-shadow-color': 'rgba(16,185,129,0.15)' } as React.CSSProperties}>
-                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-[var(--primary)]" />
-                <div className="text-3xl mb-3">🌐</div>
-                <h3 className="text-lg font-bold mb-1">ISP Proxies</h3>
-                <p className="text-sm text-[var(--muted)] mb-4">Fast &amp; stable datacenter-grade IPs</p>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Speed', value: 'High', bar: 90 },
-                    { label: 'Detection', value: 'Low', bar: 30 },
-                    { label: 'Anonymity', value: 'High', bar: 75 },
-                    { label: 'Reliability', value: 'High', bar: 85 },
-                  ].map(({ label, value, bar }) => (
-                    <div key={label}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-[var(--muted)]">{label}</span>
-                        <span className="font-medium">{value}</span>
-                      </div>
-                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${bar}%` }} />
+
+          {/* Carousel container */}
+          <div className="relative max-w-5xl mx-auto">
+            {/* Prev / Next buttons */}
+            <button
+              onClick={() => setCarouselIdx(i => (i - 1 + 4) % 4)}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:-translate-x-14 z-10 w-10 h-10 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+            </button>
+            <button
+              onClick={() => setCarouselIdx(i => (i + 1) % 4)}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-14 z-10 w-10 h-10 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+            </button>
+
+            {/* 3D Carousel Track */}
+            <div className="overflow-hidden">
+              <div
+                className="flex transition-transform duration-500 ease-out"
+                style={{ transform: `translateX(calc(-${carouselIdx * 25}%))` }}
+              >
+                {/* ISP */}
+                <div className="w-full flex-shrink-0 px-4 sm:px-16">
+                  <div className="relative max-w-sm mx-auto" style={{ perspective: '1200px' }}>
+                    <div
+                      className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 transition-transform duration-500"
+                      style={{
+                        transformStyle: 'preserve-3d',
+                        transform: carouselIdx === 0
+                          ? 'rotateY(0deg) scale(1.05) translateZ(30px)'
+                          : 'rotateY(15deg) scale(0.95)',
+                        opacity: carouselIdx === 0 ? 1 : 0.5,
+                        filter: carouselIdx === 0 ? 'none' : 'blur(2px)',
+                      }}
+                    >
+                      <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-[var(--primary)]" />
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-[var(--primary)]/15 flex items-center justify-center mb-4">
+                          <svg className="w-8 h-8 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 014 9 15.3 15.3 0 01-4 9 15.3 15.3 0 01-4-9 15.3 15.3 0 014-9z"/></svg>
+                        </div>
+                        <h3 className="text-xl font-bold mb-1">ISP Proxies</h3>
+                        <p className="text-sm text-[var(--muted)] mb-6">Fast &amp; stable ISP IPs from data centers</p>
+                        <div className="w-full space-y-4 mb-6">
+                          {[{ label: 'Speed', value: 'High', bar: 90 },{ label: 'Detection Risk', value: 'Low', bar: 30 },{ label: 'Anonymity', value: 'High', bar: 75 },{ label: 'Reliability', value: 'High', bar: 85 }].map(({ label, value, bar }) => (
+                            <div key={label}>
+                              <div className="flex justify-between text-xs mb-1.5">
+                                <span className="text-[var(--muted)]">{label}</span>
+                                <span className="font-medium text-[var(--foreground)]">{value}</span>
+                              </div>
+                              <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pt-4 border-t border-[var(--border)] w-full">
+                          <p className="text-xs text-[var(--muted)] mb-1">From</p>
+                          <p className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>N6,500<span className="text-sm font-normal text-[var(--muted)]">/mo</span></p>
+                        </div>
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
-                <div className="mt-5 pt-4 border-t border-[var(--border)]">
-                  <p className="text-xs text-[var(--muted)] mb-1">From</p>
-                  <p className="text-xl font-bold" style={{ color: 'var(--primary)' }}>₦6,500<span className="text-xs font-normal text-[var(--muted)]">/mo</span></p>
+
+                {/* Residential */}
+                <div className="w-full flex-shrink-0 px-4 sm:px-16">
+                  <div className="relative max-w-sm mx-auto" style={{ perspective: '1200px' }}>
+                    <div
+                      className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 transition-transform duration-500"
+                      style={{
+                        transformStyle: 'preserve-3d',
+                        transform: carouselIdx === 1
+                          ? 'rotateY(0deg) scale(1.05) translateZ(30px)'
+                          : 'rotateY(15deg) scale(0.95)',
+                        opacity: carouselIdx === 1 ? 1 : 0.5,
+                        filter: carouselIdx === 1 ? 'none' : 'blur(2px)',
+                      }}
+                    >
+                      <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-[var(--primary)]" />
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-[var(--primary)]/15 flex items-center justify-center mb-4">
+                          <svg className="w-8 h-8 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+                        </div>
+                        <h3 className="text-xl font-bold mb-1">Residential</h3>
+                        <p className="text-sm text-[var(--muted)] mb-6">Real home IPs from real devices</p>
+                        <div className="w-full space-y-4 mb-6">
+                          {[{ label: 'Speed', value: 'Medium', bar: 60 },{ label: 'Detection Risk', value: 'Very Low', bar: 15 },{ label: 'Anonymity', value: 'Very High', bar: 95 },{ label: 'Reliability', value: 'High', bar: 80 }].map(({ label, value, bar }) => (
+                            <div key={label}>
+                              <div className="flex justify-between text-xs mb-1.5">
+                                <span className="text-[var(--muted)]">{label}</span>
+                                <span className="font-medium text-[var(--foreground)]">{value}</span>
+                              </div>
+                              <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pt-4 border-t border-[var(--border)] w-full">
+                          <p className="text-xs text-[var(--muted)] mb-1">From</p>
+                          <p className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>N5,000<span className="text-sm font-normal text-[var(--muted)]">/5GB</span></p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile */}
+                <div className="w-full flex-shrink-0 px-4 sm:px-16">
+                  <div className="relative max-w-sm mx-auto" style={{ perspective: '1200px' }}>
+                    <div
+                      className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 transition-transform duration-500"
+                      style={{
+                        transformStyle: 'preserve-3d',
+                        transform: carouselIdx === 2
+                          ? 'rotateY(0deg) scale(1.05) translateZ(30px)'
+                          : 'rotateY(15deg) scale(0.95)',
+                        opacity: carouselIdx === 2 ? 1 : 0.5,
+                        filter: carouselIdx === 2 ? 'none' : 'blur(2px)',
+                      }}
+                    >
+                      <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-[var(--primary)]" />
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-[var(--primary)]/15 flex items-center justify-center mb-4">
+                          <svg className="w-8 h-8 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M9 9.563A9 9 0 1112 15.5M15 15.5V18m0-2.5a2.5 2.5 0 10-5 0 2.5 2.5 0 005 0z"/></svg>
+                        </div>
+                        <h3 className="text-xl font-bold mb-1">Mobile 4G</h3>
+                        <p className="text-sm text-[var(--muted)] mb-6">Real 4G/LTE carrier IPs</p>
+                        <div className="w-full space-y-4 mb-6">
+                          {[{ label: 'Speed', value: 'Medium', bar: 55 },{ label: 'Detection Risk', value: 'Extremely Low', bar: 8 },{ label: 'Anonymity', value: 'Maximum', bar: 100 },{ label: 'Reliability', value: 'High', bar: 80 }].map(({ label, value, bar }) => (
+                            <div key={label}>
+                              <div className="flex justify-between text-xs mb-1.5">
+                                <span className="text-[var(--muted)]">{label}</span>
+                                <span className="font-medium text-[var(--foreground)]">{value}</span>
+                              </div>
+                              <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pt-4 border-t border-[var(--border)] w-full">
+                          <p className="text-xs text-[var(--muted)] mb-1">From</p>
+                          <p className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>N20,000<span className="text-sm font-normal text-[var(--muted)]">/5GB</span></p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Datacenter */}
+                <div className="w-full flex-shrink-0 px-4 sm:px-16">
+                  <div className="relative max-w-sm mx-auto" style={{ perspective: '1200px' }}>
+                    <div
+                      className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 transition-transform duration-500"
+                      style={{
+                        transformStyle: 'preserve-3d',
+                        transform: carouselIdx === 3
+                          ? 'rotateY(0deg) scale(1.05) translateZ(30px)'
+                          : 'rotateY(15deg) scale(0.95)',
+                        opacity: carouselIdx === 3 ? 1 : 0.5,
+                        filter: carouselIdx === 3 ? 'none' : 'blur(2px)',
+                      }}
+                    >
+                      <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-[var(--primary)]" />
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-[var(--primary)]/15 flex items-center justify-center mb-4">
+                          <svg className="w-8 h-8 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 12H3m0 0l2-2m-2 2l2 2M19 12h2m0 0l2-2m-2 2l2 2M9 4H7a2 2 0 00-2 2v2m0 8v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m0 8v2a2 2 0 01-2 2h-2"/></svg>
+                        </div>
+                        <h3 className="text-xl font-bold mb-1">Datacenter</h3>
+                        <p className="text-sm text-[var(--muted)] mb-6">Budget cloud server IPs</p>
+                        <div className="w-full space-y-4 mb-6">
+                          {[{ label: 'Speed', value: 'Very High', bar: 95 },{ label: 'Detection Risk', value: 'High', bar: 70 },{ label: 'Anonymity', value: 'Medium', bar: 45 },{ label: 'Reliability', value: 'High', bar: 85 }].map(({ label, value, bar }) => (
+                            <div key={label}>
+                              <div className="flex justify-between text-xs mb-1.5">
+                                <span className="text-[var(--muted)]">{label}</span>
+                                <span className="font-medium text-[var(--foreground)]">{value}</span>
+                              </div>
+                              <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                                <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pt-4 border-t border-[var(--border)] w-full">
+                          <p className="text-xs text-[var(--muted)] mb-1">From</p>
+                          <p className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>N3,500<span className="text-sm font-normal text-[var(--muted)]">/mo</span></p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Residential Card */}
-            <div className="group relative" style={{ perspective: '1000px' }}>
-              <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl" style={{ transformStyle: 'preserve-3d', '--tw-shadow-color': 'rgba(16,185,129,0.15)' } as React.CSSProperties}>
-                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-[var(--primary)]" />
-                <div className="text-3xl mb-3">🏠</div>
-                <h3 className="text-lg font-bold mb-1">Residential</h3>
-                <p className="text-sm text-[var(--muted)] mb-4">Real ISP IPs from real devices</p>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Speed', value: 'Medium', bar: 60 },
-                    { label: 'Detection', value: 'Very Low', bar: 15 },
-                    { label: 'Anonymity', value: 'Very High', bar: 95 },
-                    { label: 'Reliability', value: 'High', bar: 80 },
-                  ].map(({ label, value, bar }) => (
-                    <div key={label}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-[var(--muted)]">{label}</span>
-                        <span className="font-medium">{value}</span>
-                      </div>
-                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${bar}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-5 pt-4 border-t border-[var(--border)]">
-                  <p className="text-xs text-[var(--muted)] mb-1">From</p>
-                  <p className="text-xl font-bold" style={{ color: 'var(--primary)' }}>₦5,000<span className="text-xs font-normal text-[var(--muted)]">/5GB</span></p>
-                </div>
-              </div>
-            </div>
-
-            {/* Mobile Card */}
-            <div className="group relative" style={{ perspective: '1000px' }}>
-              <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl" style={{ transformStyle: 'preserve-3d', '--tw-shadow-color': 'rgba(16,185,129,0.15)' } as React.CSSProperties}>
-                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-[var(--primary)]" />
-                <div className="text-3xl mb-3">📱</div>
-                <h3 className="text-lg font-bold mb-1">Mobile 4G</h3>
-                <p className="text-sm text-[var(--muted)] mb-4">Real 4G/LTE carrier IPs</p>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Speed', value: 'Medium', bar: 55 },
-                    { label: 'Detection', value: 'Extremely Low', bar: 8 },
-                    { label: 'Anonymity', value: 'Max', bar: 100 },
-                    { label: 'Reliability', value: 'High', bar: 80 },
-                  ].map(({ label, value, bar }) => (
-                    <div key={label}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-[var(--muted)]">{label}</span>
-                        <span className="font-medium">{value}</span>
-                      </div>
-                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${bar}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-5 pt-4 border-t border-[var(--border)]">
-                  <p className="text-xs text-[var(--muted)] mb-1">From</p>
-                  <p className="text-xl font-bold" style={{ color: 'var(--primary)' }}>₦20,000<span className="text-xs font-normal text-[var(--muted)]">/5GB</span></p>
-                </div>
-              </div>
-            </div>
-
-            {/* Datacenter Card */}
-            <div className="group relative" style={{ perspective: '1000px' }}>
-              <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl" style={{ transformStyle: 'preserve-3d', '--tw-shadow-color': 'rgba(16,185,129,0.15)' } as React.CSSProperties}>
-                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-[var(--primary)]" />
-                <div className="text-3xl mb-3">🏢</div>
-                <h3 className="text-lg font-bold mb-1">Datacenter</h3>
-                <p className="text-sm text-[var(--muted)] mb-4">Budget-friendly cloud server IPs</p>
-                <div className="space-y-3">
-                  {[
-                    { label: 'Speed', value: 'Very High', bar: 95 },
-                    { label: 'Detection', value: 'High', bar: 70 },
-                    { label: 'Anonymity', value: 'Medium', bar: 45 },
-                    { label: 'Reliability', value: 'High', bar: 85 },
-                  ].map(({ label, value, bar }) => (
-                    <div key={label}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-[var(--muted)]">{label}</span>
-                        <span className="font-medium">{value}</span>
-                      </div>
-                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${bar}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-5 pt-4 border-t border-[var(--border)]">
-                  <p className="text-xs text-[var(--muted)] mb-1">From</p>
-                  <p className="text-xl font-bold" style={{ color: 'var(--primary)' }}>₦2,500<span className="text-xs font-normal text-[var(--muted)]">/mo</span></p>
-                </div>
-              </div>
+            {/* Dot indicators */}
+            <div className="flex justify-center gap-2 mt-6">
+              {[0,1,2,3].map(i => (
+                <button
+                  key={i}
+                  onClick={() => setCarouselIdx(i)}
+                  className="h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: carouselIdx === i ? 24 : 8,
+                    background: carouselIdx === i ? 'var(--primary)' : 'var(--border)',
+                  }}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -379,7 +463,7 @@ export default function ProductsPage() {
                       </div>
                     </td>
                     <td className="py-4 px-4 text-sm text-[var(--muted)] hidden sm:table-cell">
-                      {product.country !== 'GLOBAL' ? COUNTRIES[product.country]?.name || product.country : '🌍 Global'}
+                      {product.country !== 'GLOBAL' ? COUNTRIES[product.country]?.name || product.country : '🌍'}
                     </td>
                     <td className="py-4 px-4 text-xs text-[var(--muted)] hidden md:table-cell">
                       {product.features.slice(0, 3).join(' · ')}

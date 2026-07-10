@@ -94,7 +94,9 @@ export default function ContactPage() {
 
           {sent ? (
             <div className="text-center p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-              <div className="text-5xl mb-4">✅</div>
+              <div className="w-16 h-16 rounded-full bg-[var(--primary)]/15 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+              </div>
               <h2 className="text-xl font-bold mb-2">Message Sent!</h2>
               <p className="text-[var(--muted)]">We'll get back to you within 24 hours.</p>
             </div>
