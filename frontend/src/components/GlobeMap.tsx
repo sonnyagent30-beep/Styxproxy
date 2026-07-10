@@ -24,17 +24,19 @@ const LOCATIONS = [
 
 const BUNCHE_GREEN = '#10B981';
 
-function LoadingSkeleton({ isDark }: { isDark: boolean }) {
-  const ring = isDark ? 'rgba(16,185,129,0.1)' : 'rgba(99,102,241,0.1)';
+function SunIcon() {
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-      <div style={{ width: '62%', aspectRatio: '1', borderRadius: '50%', border: `1px solid ${ring}`, boxShadow: isDark ? '0 0 60px rgba(16,185,129,0.08)' : '0 0 40px rgba(99,102,241,0.06)' }} />
-      <div style={{ position: 'absolute', width: '78%', aspectRatio: '1', borderRadius: '50%', border: `1px solid ${ring}` }} />
-      <div style={{ position: 'absolute', width: '92%', aspectRatio: '1', borderRadius: '50%', border: `1px solid ${ring}` }} />
-      <svg className="absolute w-1/4 h-1/4 opacity-30" style={{ color: isDark ? '#10B981' : '#6366F1' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-        <circle cx="12" cy="12" r="10" /><ellipse cx="12" cy="12" rx="6" ry="10" /><line x1="2" y1="12" x2="22" y2="12" />
-      </svg>
-    </div>
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+    </svg>
   );
 }
 
@@ -46,30 +48,11 @@ export default function GlobeMap() {
   const [ready, setReady] = useState(false);
   const [containerOpacity, setContainerOpacity] = useState(0);
 
-  // Detect theme
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    setIsDark(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  // Responsive sizing — container fills available width
+  // Responsive sizing — use container ref
   useEffect(() => {
     const update = () => {
-      // Globe should fill the left half of the hero on desktop
-      // On mobile it fills full width
-      const container = document.getElementById('globe-container');
-      if (container) {
-        const w = container.offsetWidth;
-        const size = Math.min(w, 600);
-        setDims({ w: Math.round(size), h: Math.round(size) });
-      } else {
-        // Fallback: use window width (max 600 for globe size)
-        const size = Math.min(window.innerWidth, 600);
-        setDims({ w: Math.round(size), h: Math.round(size) });
-      }
+      const size = Math.min(window.innerWidth, 600);
+      setDims({ w: Math.round(size), h: Math.round(size) });
     };
     update();
     window.addEventListener('resize', update);
@@ -93,22 +76,79 @@ export default function GlobeMap() {
     } catch (_) {}
   }, [featuredIdx]);
 
-  const bgColor = isDark ? '#0a0a0f' : '#f4f4f5';
+  const toggleTheme = () => setIsDark(d => !d);
+
   const featured = LOCATIONS[featuredIdx];
+
+  // Globe globe.gl config based on current theme
+  const globeProps = isDark ? {
+    // Dark mode: Earth texture with night side
+    globeImageUrl: '//unpkg.com/three-globe/example/img/earth-night.jpg',
+    bumpImageUrl: '//unpkg.com/three-globe/example/img/earth-topology.png',
+    backgroundImageUrl: '//unpkg.com/three-globe/example/img/night-sky.png',
+    // Atmosphere
+    atmosphereColor: BUNCHE_GREEN,
+    atmosphereAltitude: 0.15,
+  } : {
+    // Light mode: bright Earth texture
+    globeImageUrl: '//unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
+    bumpImageUrl: '//unpkg.com/three-globe/example/img/earth-topology.png',
+    backgroundImageUrl: '',
+    atmosphereColor: '#6ea0ff',
+    atmosphereAltitude: 0.12,
+  };
+
+  // Build ring data — only the currently featured country glows
+  const ringData = ready ? [{
+    lat: featured.lat,
+    lng: featured.lng,
+    color: BUNCHE_GREEN,
+    radius: 1.2,
+    maxRadius: 4.0,
+    propagationSpeed: 1.5,
+    repeat: 2.5,
+  }] : [];
 
   return (
     <div
-      id="globe-container"
       className="relative w-full overflow-hidden"
-      style={{ height: 480, background: bgColor, minHeight: 480 }}
+      style={{
+        height: 480,
+        minHeight: 480,
+        // Background matches page
+        background: isDark ? '#0a0a0f' : '#f4f4f5',
+      }}
     >
-      {/* Globe canvas — react-globe.gl manages its own canvas */}
+      {/* Theme toggle button */}
+      <button
+        onClick={toggleTheme}
+        className="absolute top-3 right-3 z-30 rounded-xl p-2.5 border shadow-lg transition-all duration-200 hover:scale-105"
+        style={{
+          background: isDark ? 'rgba(26,26,46,0.9)' : 'rgba(255,255,255,0.9)',
+          borderColor: isDark ? `${BUNCHE_GREEN}33` : '#e4e4e7',
+          color: isDark ? '#f4f4f5' : '#18181b',
+        }}
+        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        <AnimatePresence mode="wait" initial={false}>
+          {isDark ? (
+            <motion.div key="moon" initial={{ opacity: 0, rotate: -90, scale: 0.5 }} animate={{ opacity: 1, rotate: 0, scale: 1 }} exit={{ opacity: 0, rotate: 90, scale: 0.5 }} transition={{ duration: 0.2 }}>
+              <MoonIcon />
+            </motion.div>
+          ) : (
+            <motion.div key="sun" initial={{ opacity: 0, rotate: 90, scale: 0.5 }} animate={{ opacity: 1, rotate: 0, scale: 1 }} exit={{ opacity: 0, rotate: -90, scale: 0.5 }} transition={{ duration: 0.2 }}>
+              <SunIcon />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </button>
+
+      {/* Globe canvas */}
       <div
-        className="absolute inset-0 flex items-center justify-center"
+        className="absolute left-0 top-0 flex items-center justify-center"
         style={{
           width: dims.w,
           height: dims.h,
-          margin: 'auto',
           opacity: containerOpacity,
           transition: 'opacity 700ms ease',
         }}
@@ -117,32 +157,38 @@ export default function GlobeMap() {
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Globe sphere colors — dark for dark mode, light for light mode
-          globeColor={isDark ? 'rgba(20,20,40,1)' : 'rgba(220,220,240,1)'}
-          nightColor={isDark ? 'rgba(5,5,15,1)' : 'rgba(160,160,180,1)'}
-          // Green atmosphere glow
-          atmosphereColor={BUNCHE_GREEN}
-          atmosphereAltitude={0.18}
-          // Country markers — green dots (no arcs, no rings)
+          // Globe globe.gl colors
+          globeColor={isDark ? 'rgba(10,10,25,1)' : 'rgba(200,215,240,1)'}
+          nightColor={isDark ? 'rgba(5,5,20,1)' : 'rgba(150,160,190,1)'}
+          // Textures for continents
+          {...globeProps}
+          // Atmosphere
+          atmosphereColor={globeProps.atmosphereColor}
+          atmosphereAltitude={globeProps.atmosphereAltitude}
+          // Country markers — green dots
           pointsData={LOCATIONS}
           pointLat="lat"
           pointLng="lng"
           pointColor={() => BUNCHE_GREEN}
-          pointRadius={0.5}
-          pointAltitude={0.007}
+          pointRadius={0.45}
+          pointAltitude={0.006}
+          // Current country glow ring
+          ringsData={ringData}
+          ringColor={() => BUNCHE_GREEN}
+          ringMaxRadius={4.0}
+          ringPropagationSpeed={1.5}
+          ringRepeat={2.5}
           // No arcs between countries
           arcsData={[]}
-          // No rings
-          ringsData={[]}
           // No polygon borders
           polygonsData={[]}
-          // Auto-rotate slowly
+          // Auto-rotate
           autoRotate={true}
-          autoRotateSpeed={0.35}
-          // Initial camera
+          autoRotateSpeed={0.3}
+          // Initialized
           onGlobeReady={() => {
             setContainerOpacity(1);
-            setTimeout(() => setReady(true), 200);
+            setTimeout(() => setReady(true), 300);
             if (globeRef.current) {
               try {
                 globeRef.current.pointOfView({ lat: LOCATIONS[0].lat, lng: LOCATIONS[0].lng, altitude: 2.2 }, 0);
@@ -151,21 +197,6 @@ export default function GlobeMap() {
           }}
         />
       </div>
-
-      {/* Loading skeleton */}
-      <AnimatePresence>
-        {!ready && (
-          <motion.div
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            style={{ width: dims.w, height: dims.h, margin: 'auto' }}
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <LoadingSkeleton isDark={isDark} />
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Featured country callout */}
       <AnimatePresence mode="wait">
@@ -182,7 +213,7 @@ export default function GlobeMap() {
             className="rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md"
             style={{
               background: isDark ? 'rgba(26,26,46,0.92)' : 'rgba(255,255,255,0.92)',
-              borderColor: isDark ? `${BUNCHE_GREEN}33` : '#e4e4e7',
+              borderColor: isDark ? `${BUNCHE_GREEN}44` : '#e4e4e7',
             }}
           >
             <span className="text-3xl">{featured.flag}</span>
@@ -202,18 +233,18 @@ export default function GlobeMap() {
       </AnimatePresence>
 
       {/* Coverage badge */}
-      {ready && (
-        <div
-          className="absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border backdrop-blur-sm z-20"
-          style={{
-            background: isDark ? 'rgba(26,26,46,0.9)' : 'rgba(255,255,255,0.9)',
-            borderColor: isDark ? `${BUNCHE_GREEN}33` : '#e4e4e7',
-          }}
-        >
-          <p className="text-xs" style={{ color: '#71717a' }}>9 Countries</p>
-          <p className="text-sm font-bold" style={{ color: BUNCHE_GREEN }}>ISP Coverage</p>
-        </div>
-      )}
+      <div
+        className="absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border backdrop-blur-sm z-20"
+        style={{
+          background: isDark ? 'rgba(26,26,46,0.9)' : 'rgba(255,255,255,0.9)',
+          borderColor: isDark ? `${BUNCHE_GREEN}33` : '#e4e4e7',
+          opacity: ready ? 1 : 0,
+          transition: 'opacity 400ms',
+        }}
+      >
+        <p className="text-xs" style={{ color: '#71717a' }}>9 Countries</p>
+        <p className="text-sm font-bold" style={{ color: BUNCHE_GREEN }}>ISP Coverage</p>
+      </div>
 
       {/* Orbital ring decoration */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center z-0">
