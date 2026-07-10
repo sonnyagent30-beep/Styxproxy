@@ -3,24 +3,75 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
 // =============================================================
-// Draggable position hook
+// Edge-snapping draggable position hook
 // =============================================================
 
 type Position = { x: number; y: number };
 
-function useDraggable(initial: Position = { x: -1, y: -1 }) {
+const FAB_SIZE = 56;
+const CHAT_WIDTH = 390;
+const CHAT_HEIGHT = 580;
+const EDGE_MARGIN = 8;
+
+function useEdgeDraggable(initial: Position = { x: -1, y: -1 }) {
   const [pos, setPos] = useState<Position>(initial);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef({ startX: 0, startY: 0, startPosX: 0, startPosY: 0 });
 
-  // -1 means "use default", 0 means "use current computed default"
   const getDefault = (side: 'x' | 'y') => {
-    if (side === 'x') return window.innerWidth - 70;
-    return window.innerHeight - 70;
+    if (side === 'x') return window.innerWidth - FAB_SIZE - EDGE_MARGIN;
+    return window.innerHeight - FAB_SIZE - EDGE_MARGIN;
   };
+
+  // Calculate snap position based on current drag position
+  const calculateSnapPosition = useCallback((x: number, y: number) => {
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
+    
+    // Calculate distances to each edge
+    const left = x;
+    const right = screenW - x - FAB_SIZE;
+    const top = y;
+    const bottom = screenH - y - FAB_SIZE;
+    
+    // Find closest edge
+    const minDist = Math.min(left, right, top, bottom);
+    
+    let snapX = x;
+    let snapY = y;
+    
+    if (minDist === left) {
+      // Snap to left edge
+      snapX = EDGE_MARGIN;
+    } else if (minDist === right) {
+      // Snap to right edge
+      snapX = screenW - FAB_SIZE - EDGE_MARGIN;
+    } else if (minDist === top) {
+      // Snap to top edge
+      snapX = (screenW - FAB_SIZE) / 2; // Center horizontally
+      snapY = EDGE_MARGIN;
+    } else {
+      // Snap to bottom edge
+      snapX = (screenW - FAB_SIZE) / 2; // Center horizontally
+      snapY = screenH - FAB_SIZE - EDGE_MARGIN;
+    }
+    
+    // If centered on top/bottom, adjust based on which corner is closer
+    if (minDist === top || minDist === bottom) {
+      const centerX = (screenW - FAB_SIZE) / 2;
+      if (x < centerX - 50) {
+        snapX = EDGE_MARGIN;
+      } else if (x > centerX + 50) {
+        snapX = screenW - FAB_SIZE - EDGE_MARGIN;
+      }
+    }
+    
+    return { x: snapX, y: snapY };
+  }, []);
 
   const startDrag = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     const cur = pos.x === -1 ? getDefault('x') : pos.x;
@@ -35,14 +86,69 @@ function useDraggable(initial: Position = { x: -1, y: -1 }) {
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     const dx = clientX - dragRef.current.startX;
     const dy = clientY - dragRef.current.startY;
-    const newX = Math.max(0, Math.min(window.innerWidth - 70, dragRef.current.startPosX + dx));
-    const newY = Math.max(0, Math.min(window.innerHeight - 70, dragRef.current.startPosY + dy));
+    const newX = Math.max(0, Math.min(window.innerWidth - FAB_SIZE, dragRef.current.startPosX + dx));
+    const newY = Math.max(0, Math.min(window.innerHeight - FAB_SIZE, dragRef.current.startPosY + dy));
     setPos({ x: newX, y: newY });
   }, [dragging]);
 
-  const endDrag = useCallback(() => setDragging(false), []);
+  const endDrag = useCallback(() => {
+    if (!dragging) return;
+    setDragging(false);
+    // Snap to nearest edge
+    const snapped = calculateSnapPosition(pos.x, pos.y);
+    setPos(snapped);
+  }, [dragging, pos.x, pos.y, calculateSnapPosition]);
 
   return { pos, startDrag, onDrag, endDrag, dragging };
+}
+
+// Calculate chat window position based on FAB position
+function calculateChatPosition(fabX: number, fabY: number): Position {
+  const screenW = window.innerWidth;
+  const screenH = window.innerHeight;
+  
+  // Determine which edge the FAB is snapped to
+  const left = fabX;
+  const right = screenW - fabX - FAB_SIZE;
+  const top = fabY;
+  const bottom = screenH - fabY - FAB_SIZE;
+  
+  const minH = Math.min(left, right);
+  const minV = Math.min(top, bottom);
+  
+  let chatX: number;
+  let chatY: number;
+  
+  // Position chat near FAB but snapped to edge
+  if (minV <= minH) {
+    // Snap to top or bottom edge
+    if (top < bottom) {
+      // Top edge - position below FAB
+      chatX = Math.min(fabX, screenW - CHAT_WIDTH - EDGE_MARGIN);
+      chatY = fabY + FAB_SIZE + EDGE_MARGIN;
+    } else {
+      // Bottom edge - position above FAB
+      chatX = Math.min(fabX, screenW - CHAT_WIDTH - EDGE_MARGIN);
+      chatY = Math.max(EDGE_MARGIN, fabY - CHAT_HEIGHT - EDGE_MARGIN);
+    }
+  } else {
+    // Snap to left or right edge
+    if (left < right) {
+      // Left edge - position to the right of FAB
+      chatX = fabX + FAB_SIZE + EDGE_MARGIN;
+      chatY = Math.min(fabY, screenH - CHAT_HEIGHT - EDGE_MARGIN);
+    } else {
+      // Right edge - position to the left of FAB
+      chatX = Math.max(EDGE_MARGIN, fabX - CHAT_WIDTH - EDGE_MARGIN);
+      chatY = Math.min(fabY, screenH - CHAT_HEIGHT - EDGE_MARGIN);
+    }
+  }
+  
+  // Keep within screen bounds
+  chatX = Math.max(EDGE_MARGIN, Math.min(chatX, screenW - CHAT_WIDTH - EDGE_MARGIN));
+  chatY = Math.max(EDGE_MARGIN, Math.min(chatY, screenH - CHAT_HEIGHT - EDGE_MARGIN));
+  
+  return { x: chatX, y: chatY };
 }
 
 // =============================================================
@@ -78,7 +184,8 @@ type StateKey =
   | 'faq_replacement'
   | 'faq_payment'
   | 'general'
-  | 'escalate';
+  | 'escalate'
+  | 'about';
 
 type Role = 'user' | 'bot';
 
@@ -95,6 +202,135 @@ interface Message {
 }
 
 // =============================================================
+// Message text formatter
+// =============================================================
+
+function formatMessageText(text: string): React.ReactNode {
+  // First, check if there's a markdown table to convert
+  const tableMatch = text.match(/\|(.+)\|\n\|[-|\s]+\|\n((?:\|.+\|\n?)+)/);
+  
+  if (tableMatch) {
+    // Parse the table
+    const headerRow = tableMatch[1].split('|').map((cell: string) => cell.trim()).filter(Boolean);
+    const bodyRows = tableMatch[2].trim().split('\n').map(row => 
+      row.split('|').map((cell: string) => cell.trim()).filter(Boolean)
+    );
+    
+    // Calculate column widths
+    const colWidths = headerRow.map((header: string, i: number) => {
+      const bodyWidths = bodyRows.map((row: string[]) => (row[i] || '').length);
+      return Math.max(header.length, ...bodyWidths, 5);
+    });
+    
+    // Build the table
+    const buildRow = (cells: string[], char: string) => {
+      return '│ ' + cells.map((cell: string, i: number) => 
+        cell.padEnd(colWidths[i])
+      ).join(' │ ') + ' │';
+    };
+    
+    const separator = '├' + colWidths.map(w => '─'.repeat(w + 2)).join('┼') + '┤';
+    const topBorder = '┌' + colWidths.map(w => '─'.repeat(w + 2)).join('┬') + '┐';
+    const bottomBorder = '└' + colWidths.map(w => '─'.repeat(w + 2)).join('┴') + '┘';
+    
+    const tableText = [
+      topBorder,
+      buildRow(headerRow, '─'),
+      separator,
+      ...bodyRows.map((row: string[]) => buildRow(row, ' ')),
+      bottomBorder
+    ].join('\n');
+    
+    // Replace the original table with formatted version
+    const beforeTable = text.substring(0, tableMatch.index);
+    const afterTable = text.substring(tableMatch.index! + tableMatch[0].length);
+    text = beforeTable + '\n```\n' + tableText + '\n```\n' + afterTable;
+  }
+  
+  // Process remaining markdown
+  const parts: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+  
+  // Split by code blocks first
+  const codeBlockRegex = /```([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match;
+  
+  // Reset regex
+  codeBlockRegex.lastIndex = 0;
+  
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    // Add text before the code block
+    if (match.index > lastIndex) {
+      const textBefore = text.substring(lastIndex, match.index);
+      parts.push(...parseInlineMarkdown(textBefore, key));
+      key += 10;
+    }
+    // Add the code block (already formatted from table conversion or raw)
+    const codeContent = match[1].trim();
+    parts.push(
+      <pre key={`code-${key++}`} className="my-2 p-3 bg-[var(--card-hover)] rounded-lg overflow-x-auto text-xs">
+        {codeContent}
+      </pre>
+    );
+    lastIndex = codeBlockRegex.lastIndex;
+  }
+  
+  // Add remaining text after last code block
+  if (lastIndex < text.length) {
+    const textAfter = text.substring(lastIndex);
+    parts.push(...parseInlineMarkdown(textAfter, key));
+  }
+  
+  if (parts.length === 0) {
+    return <span>{text}</span>;
+  }
+  
+  return <>{parts}</>;
+}
+
+function parseInlineMarkdown(text: string, baseKey: number): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  let key = baseKey;
+  
+  // Pattern for bold, inline code, links, and arrows
+  const inlineRegex = /(\*\*([^*]+)\*\*)|(`([^`]+)`)|(→\s*(\/[a-z]+))|(\*([^*]+)\*)/g;
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = inlineRegex.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      parts.push(<span key={key++}>{text.substring(lastIndex, match.index)}</span>);
+    }
+    
+    if (match[1]) {
+      // Bold: **text**
+      parts.push(<strong key={key++} className="font-semibold">{match[2]}</strong>);
+    } else if (match[3]) {
+      // Inline code: `code`
+      parts.push(<code key={key++} className="px-1.5 py-0.5 bg-[var(--card-hover)] rounded text-xs font-mono">{match[4]}</code>);
+    } else if (match[5]) {
+      // Link: → /order
+      parts.push(<span key={key++} className="text-[var(--primary)] font-medium">{match[5]}</span>);
+    } else if (match[7]) {
+      // Italic: *text* (render as regular text)
+      parts.push(<span key={key++}>{match[8]}</span>);
+    }
+    
+    lastIndex = inlineRegex.lastIndex;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(<span key={key++}>{text.substring(lastIndex)}</span>);
+  }
+  
+  return parts;
+}
+
+// =============================================================
 // Conversation tree — state machine
 // =============================================================
 
@@ -103,7 +339,7 @@ const TYPING_DELAY = 600; // ms "typing" before bot responds
 // Bot messages keyed by state
 const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] }> = {
   start: {
-    text: "👋 Hi! I'm the Bunche support assistant. I can help you with orders, pricing, troubleshooting, and more — all anonymously until you choose to connect with a human. What do you need?",
+    text: "👋 Hi! I'm Mayowa from Bunche support. I can help you with orders, pricing, troubleshooting, and more — all anonymously until you choose to connect with a human. What do you need?",
     quickReplies: [
       { label: '🛒 Order proxies', next: 'order_type' },
       { label: '🔍 Check my order', next: 'check_order' },
@@ -125,7 +361,19 @@ const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] 
   },
 
   order_isp: {
-    text: `**ISP Proxies** — Fast, stable datacenter-grade IPs with ISP ownership. Great for web scraping, automation, and general browsing.\n\nCountries available: 🇬🇧 UK · 🇺🇸 US · 🇩🇪 DE · 🇫🇷 FR · 🇨🇦 CA · 🇯🇵 JP · 🇦🇺 AU · 🇧🇷 BR · 🇸🇬 SG\n\nStarting from **₦6,500/month** (UK/US) · **₦7,500/month** (DE/FR/JP)\n\nFeatures:\n• Rotating or sticky IPs\n• No bandwidth caps\n• Free ban replacement within 24hrs\n• Instant delivery after payment\n\nReady to order? → /order`,
+    text: `**ISP Proxies** — Fast, stable datacenter-grade IPs with ISP ownership. Great for web scraping, automation, and general browsing.
+
+Countries available: 🇬🇧 UK · 🇺🇸 US · 🇩🇪 DE · 🇫🇷 FR · 🇨🇦 CA · 🇯🇵 JP · 🇦🇺 AU · 🇧🇷 BR · 🇸🇬 SG
+
+Starting from **₦6,500/month** (UK/US) · **₦7,500/month** (DE/FR/JP)
+
+Features:
+• Rotating or sticky IPs
+• No bandwidth caps
+• Free ban replacement within 24hrs
+• Instant delivery after payment
+
+Ready to order? → /order`,
     quickReplies: [
       { label: '🛒 Start order', next: 'order_done' },
       { label: '📊 Compare proxy types', next: 'faq_replacement' },
@@ -134,7 +382,22 @@ const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] 
   },
 
   order_residential: {
-    text: `**Residential Proxies** — Real ISP IPs from real devices. Hardest to detect and block. Perfect for social media management, ad verification, and sneaker bots.\n\nAvailable in **14 countries** including US, UK, DE, FR, JP, SG, and more.\n\nPlans:\n• **5GB** — ₦5,000\n• **10GB** — ₦9,000\n• **50GB** — ₦38,000\n\nFeatures:\n• Rotating or sticky sessions\n• Unlimited concurrent connections\n• Instant delivery\n• No expiry until data is used\n\nReady to order? → /order`,
+    text: `**Residential Proxies** — Real ISP IPs from real devices. Hardest to detect and block. Perfect for social media management, ad verification, and sneaker bots.
+
+Available in **14 countries** including US, UK, DE, FR, JP, SG, and more.
+
+Plans:
+• **5GB** — ₦5,000
+• **10GB** — ₦9,000
+• **50GB** — ₦38,000
+
+Features:
+• Rotating or sticky sessions
+• Unlimited concurrent connections
+• Instant delivery
+• No expiry until data is used
+
+Ready to order? → /order`,
     quickReplies: [
       { label: '🛒 Start order', next: 'order_done' },
       { label: '📱 Mobile vs Residential', next: 'faq_replacement' },
@@ -143,7 +406,19 @@ const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] 
   },
 
   order_mobile: {
-    text: `**Mobile 4G Proxies** — IPs from real mobile carrier networks (MTN, Airtel, etc.). Highest trust score on platforms like Instagram, TikTok, and Facebook.\n\nAvailable in **12 countries** including US, UK, DE, NG (Nigeria!), and more.\n\nPlans:\n• **5GB** — ₦20,000\n• **10GB** — ₦35,000\n\nFeatures:\n• Real 4G/LTE carrier IPs\n• Auto-rotation available\n• Instant delivery\n• No expiry until data is used`,
+    text: `**Mobile 4G Proxies** — IPs from real mobile carrier networks (MTN, Airtel, etc.). Highest trust score on platforms like Instagram, TikTok, and Facebook.
+
+Available in **12 countries** including US, UK, DE, NG (Nigeria!), and more.
+
+Plans:
+• **5GB** — ₦20,000
+• **10GB** — ₦35,000
+
+Features:
+• Real 4G/LTE carrier IPs
+• Auto-rotation available
+• Instant delivery
+• No expiry until data is used`,
     quickReplies: [
       { label: '🛒 Start order', next: 'order_done' },
       { label: '🔙 Back to menu', next: 'start' },
@@ -151,7 +426,19 @@ const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] 
   },
 
   order_dc: {
-    text: `**Datacenter Proxies** — Budget-friendly proxies from cloud servers. Fast and cheap, best for general-purpose web scraping and non-platform-sensitive tasks.\n\nAvailable in **14 countries** including US, UK, DE, FR, JP, SG, and more.\n\nStarting from **₦2,500/month**\n\nFeatures:\n• High speed (1Gbps+)\n• Unlimited bandwidth\n• Instant delivery\n• 99.9% uptime SLA\n\nBest for: general scraping, SEO tools, price aggregation, and bot automation.`,
+    text: `**Datacenter Proxies** — Budget-friendly proxies from cloud servers. Fast and cheap, best for general-purpose web scraping and non-platform-sensitive tasks.
+
+Available in **14 countries** including US, UK, DE, FR, JP, SG, and more.
+
+Starting from **₦2,500/month**
+
+Features:
+• High speed (1Gbps+)
+• Unlimited bandwidth
+• Instant delivery
+• 99.9% uptime SLA
+
+Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
     quickReplies: [
       { label: '🛒 Start order', next: 'order_done' },
       { label: '🔙 Back to menu', next: 'start' },
@@ -300,6 +587,16 @@ const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] 
     ],
   },
 
+  // ---- ABOUT BUNCHE ----
+  about: {
+    text: "**Bunche** is a Nigerian proxy reseller — we provide high-quality ISP, Residential, Mobile 4G, and Datacenter proxies for web scraping, social media automation, sneaker bots, and more.\n\nWe partner with top proxy providers to deliver fast, reliable proxies with instant delivery and 24-hour ban replacement.\n\n**Why Bunche?**\n• Nigerian-owned business\n• Instant delivery\n• Free ban replacement within 24hrs\n• Multiple payment methods (Card, Bank Transfer, USSD, QR)\n• Anonymous ordering — we don't collect personal data\n• Responsive support via WhatsApp and Telegram\n\nNeed proxies? → /order",
+    quickReplies: [
+      { label: '🛒 Order proxies', next: 'order_type' },
+      { label: '📋 FAQ', next: 'faq' },
+      { label: '🔙 Back to menu', next: 'start' },
+    ],
+  },
+
   // ---- FAQ ----
   faq: {
     text: "Here are the topics I can help with:",
@@ -331,7 +628,7 @@ const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] 
   },
 
   faq_replacement: {
-    text: "**Ban replacement policy**\n\nIf your proxy IP gets banned within 24 hours of delivery (due to IP-level bans, not account bans), you're eligible for a **free replacement**.\n\n**ISP vs Residential vs Mobile — which should I pick?**\n\n| Type | Best for | Detection | Speed | Cost |\n|------|----------|----------|-------|------|\n| **ISP** | Scraping, automation | Low-Medium | ⚡ Fast | ₦6,500/mo |\n| **Residential** | Social media, ads | Very Low | 🟡 Medium | ₦5,000/5GB |\n| **Mobile 4G** | Instagram, TikTok, Facebook | Extremely Low | 🟡 Medium | ₦20,000/5GB |\n| **Datacenter** | General scraping | High | ⚡ Very Fast | ₦2,500/mo |",
+    text: "**Ban replacement policy**\n\nIf your proxy IP gets banned within 24 hours of delivery (due to IP-level bans, not account bans), you're eligible for a **free replacement**.\n\n**ISP vs Residential vs Mobile — which should I pick?**\n\nHere is how our proxy types compare:\n\n" + "```\n┌────────────┬────────────┬──────────┬─────────┬────────────┐\n│ Type       │ Best for   │ Speed    │ Anonym. │ Starting   │\n├────────────┼────────────┼──────────┼─────────┼────────────┤\n│ ISP        │ Scraping   │ Fast     │ Medium  │ ₦6,500/mo  │\n│ Residential│ Social     │ Medium   │ High    │ ₦5,000/5GB │\n│ Mobile 4G  │ IG, TikTok │ Medium   │ Highest │ ₦20,000/5GB│\n│ Datacenter │ General    │ Very Fast│ Low     │ ₦2,500/mo  │\n└────────────┴────────────┴──────────┴─────────┴────────────┘\n```\n\nReady to order? → /order",
     quickReplies: [
       { label: '🛒 Order ISP', next: 'order_isp' },
       { label: '🛒 Order Residential', next: 'order_residential' },
@@ -385,8 +682,8 @@ export default function ChatWidget() {
   const [currentState, setCurrentState] = useState<StateKey>('start');
   const bottomRef                      = useRef<HTMLDivElement>(null);
 
-  // --- Draggable position for FAB and chat window ---
-  const { pos: fabPos, startDrag, onDrag, endDrag, dragging } = useDraggable();
+  // --- Edge-snapping draggable position for FAB and chat window ---
+  const { pos: fabPos, startDrag, onDrag, endDrag, dragging } = useEdgeDraggable();
   const [windowPos, setWindowPos] = useState({ x: -1, y: -1 });
 
   // Global mouse/touch listeners while dragging
@@ -410,16 +707,15 @@ export default function ChatWidget() {
   const toggleOpen = (open: boolean) => {
     setIsOpen(open);
     if (open) {
-      // Open the chat window near the FAB
-      const wx = fabPos.x === -1 ? window.innerWidth - 430 : fabPos.x;
-      const wy = fabPos.y === -1 ? window.innerHeight - 650 : Math.max(0, fabPos.y - 560);
-      setWindowPos({ x: wx, y: wy });
+      // Calculate position near FAB but snapped to edge
+      const fabX = fabPos.x === -1 ? window.innerWidth - FAB_SIZE - EDGE_MARGIN : fabPos.x;
+      const fabY = fabPos.y === -1 ? window.innerHeight - FAB_SIZE - EDGE_MARGIN : fabPos.y;
+      const newPos = calculateChatPosition(fabX, fabY);
+      setWindowPos(newPos);
     }
   };
 
   // Computed pixel positions (default = bottom-right, -1 means "not yet positioned")
-  // When dragged, positions are stored as absolute pixel values.
-  // Default layout uses bottom/right to avoid SSR window issues.
   const fabStyle: React.CSSProperties = fabPos.x === -1
     ? { bottom: 24, right: 24 }
     : { left: fabPos.x, top: fabPos.y, right: 'auto', bottom: 'auto' };
@@ -482,9 +778,10 @@ export default function ChatWidget() {
     sendBot(next as StateKey);
   };
 
-  // Handle text input submit
+  // Handle text input submit - with comprehensive keyword detection
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const text = input.trim();
     if (!text) return;
 
@@ -515,43 +812,30 @@ export default function ChatWidget() {
           ]);
         }, TYPING_DELAY);
       }, 300);
+      return;
+    }
+
+    // Comprehensive keyword matching
+    const lower = text.toLowerCase();
+    const kw = detectKeyword(lower);
+    
+    if (kw) {
+      setTimeout(() => {
+        setIsTyping(true);
+        setTimeout(() => {
+          setIsTyping(false);
+          sendBot(kw);
+        }, TYPING_DELAY);
+      }, 300);
     } else {
-      // Keyword matching — most specific first to avoid false matches
-      const lower = text.toLowerCase();
-      const kw = (() => {
-        if (/\bisp\b/i.test(lower) && !/\bresidential\b/i.test(lower) && !/\bmobile\b/i.test(lower)) return 'order_isp';
-        if (/\bresidential\b/i.test(lower)) return 'order_residential';
-        if (/\bmobile\b|4g|4glte|mtn|airtel/i.test(lower)) return 'order_mobile';
-        if (/\bdatacenter\b|\bdc proxy\b/i.test(lower)) return 'order_dc';
-        if (/\border\b|\bbuy\b|\bpurchase\b|\bhow much\b|\bprice\b|\bcost\b|\bplan\b|\bnair?a?\b/i.test(lower)) return 'order_type';
-        if (/\bcheck\b|\bstatus\b|\btrack\b|\bwhere.*order\b|\borde?r.*status\b/i.test(lower)) return 'check_order';
-        if (/\bproxy.*not.?work|\bproxy.*dead|\bproxy.*ban|\bproxy.*fail|\bconnection.*error|\btimeout\b|\brefused\b|\b403\b/i.test(lower)) return 'proxy_dead';
-        if (/\brefund\b|\bmoney.?back\b|\bcharge.?back\b/i.test(lower)) return 'refund_ask';
-        if (/\bban.?replacement\b|\bfree.?replace\b|\bip.?replace\b|\bproxy.?replace\b/i.test(lower)) return 'ban_report';
-        if (/\bbulk\b|\bvolume\b|\bdiscount\b|\b10\+.?proxy\b/i.test(lower)) return 'bulk_pricing';
-        if (/\bpayment\b|\bpay\b|\btransfer\b|\bussd\b|\bcard.?fail\b|\btroubleshoot.?payment\b/i.test(lower)) return 'payment_issue';
-        if (/\bwho\b|\bwhat.*bunche\b|\babout\b|\bcompany\b/i.test(lower)) return 'faq_delivery';
-        if (/\bcontact\b|\bsupport\b|\bhelp\b|\btalk.*human\b|\bhuman\b|\bagent\b/i.test(lower)) return 'escalate';
-        return null;
-      })();
-      if (kw) {
+      // True fallback
+      setTimeout(() => {
+        setIsTyping(true);
         setTimeout(() => {
-          setIsTyping(true);
-          setTimeout(() => {
-            setIsTyping(false);
-            sendBot(kw);
-          }, TYPING_DELAY);
-        }, 300);
-      } else {
-        // True fallback
-        setTimeout(() => {
-          setIsTyping(true);
-          setTimeout(() => {
-            setIsTyping(false);
-            sendBot('general');
-          }, TYPING_DELAY);
-        }, 300);
-      }
+          setIsTyping(false);
+          sendBot('general');
+        }, TYPING_DELAY);
+      }, 300);
     }
   };
 
@@ -571,10 +855,10 @@ export default function ChatWidget() {
                onTouchStart={startDrag}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center shrink-0">
-                <span className="text-black font-bold text-lg">B</span>
+                <span className="text-black font-bold text-lg">M</span>
               </div>
               <div>
-                <p className="font-bold text-sm">Bunche Support</p>
+                <p className="font-bold text-sm">Mayowa</p>
                 <p className="text-xs text-[var(--muted)]">Usually replies in minutes</p>
               </div>
             </div>
@@ -604,10 +888,9 @@ export default function ChatWidget() {
                   style={{
                     background: msg.role === 'user' ? USER_BUBBLE_BG : BOT_BUBBLE_BG,
                     color: msg.role === 'user' ? 'black' : 'var(--foreground)',
-                    whiteSpace: 'pre-line',
                   }}
                 >
-                  {msg.text.replace(/\*\*(.*?)\*\*/g, '$1').replace(/^#+\s+/gm, '').replace(/•/g, '·').replace(/→/g, '→').replace(/`(.*?)`/g, '$1')}
+                  {formatMessageText(msg.text)}
                 </div>
               </div>
             ))}
@@ -703,3 +986,229 @@ export default function ChatWidget() {
   );
 }
 
+// =============================================================
+// Comprehensive keyword detection function
+// =============================================================
+
+function detectKeyword(text: string): StateKey | null {
+  // Pricing / ordering
+  if (/\bhow much\b/i.test(text) || 
+      /\bhow much does it cost\b/i.test(text) ||
+      /\bpricing\b/i.test(text) ||
+      /\bhow much is (isp|residential|mobile|datacenter)\b/i.test(text) ||
+      /\bprice\b/i.test(text) ||
+      /\bcost\b/i.test(text) ||
+      /\bplan\b/i.test(text) ||
+      /\bnaira\b/i.test(text) ||
+      /\bngn\b/i.test(text)) {
+    return 'order_type';
+  }
+
+  // Delivery
+  if (/\bdelivery\b/i.test(text) || 
+      /\bhow long\b/i.test(text) ||
+      /\bwhen will i get\b/i.test(text) ||
+      /\binstant\b/i.test(text) ||
+      /\bhow soon\b/i.test(text) ||
+      /\bwhen do i get\b/i.test(text) ||
+      /\bdelivery time\b/i.test(text)) {
+    return 'faq_delivery';
+  }
+
+  // About Bunche
+  if (/\bwhat is bunche\b/i.test(text) ||
+      /\babout you\b/i.test(text) ||
+      /\bwho are you\b/i.test(text) ||
+      /\bwhat do you do\b/i.test(text) ||
+      /\babout bunche\b/i.test(text) ||
+      /\bwhat is this\b/i.test(text)) {
+    return 'about';
+  }
+
+  // Talk to human / escalate
+  if (/\btalk to human\b/i.test(text) ||
+      /\breal person\b/i.test(text) ||
+      /\bagent\b/i.test(text) ||
+      /\bcustomer service\b/i.test(text) ||
+      /\brepresentative\b/i.test(text) ||
+      /\bhuman\b/i.test(text) &&
+      !/\bhumanize\b/i.test(text) ||
+      /\bsupport\b/i.test(text) && /\bhuman\b/i.test(text) ||
+      /\blive chat\b/i.test(text) ||
+      /\bchat with\b.*human\b/i.test(text)) {
+    return 'escalate';
+  }
+
+  // Buy / purchase / order
+  if (/\bbuy\b/i.test(text) ||
+      /\bpurchase\b/i.test(text) ||
+      /\border proxy\b/i.test(text) ||
+      /\bget proxy\b/i.test(text) ||
+      /\bwant to buy\b/i.test(text) ||
+      /\bi need a proxy\b/i.test(text) ||
+      /\bi want\b.*proxy\b/i.test(text) ||
+      /\border now\b/i.test(text)) {
+    return 'order_type';
+  }
+
+  // Check order / track order
+  if (/\bcheck order\b/i.test(text) ||
+      /\btrack order\b/i.test(text) ||
+      /\border status\b/i.test(text) ||
+      /\bmy order\b/i.test(text) ||
+      /\bwhere is my order\b/i.test(text) ||
+      /\bfind order\b/i.test(text) ||
+      /\border details\b/i.test(text) ||
+      /\bcredentials\b/i.test(text) ||
+      /\bmy proxy\b/i.test(text)) {
+    return 'check_order';
+  }
+
+  // Proxy not working / dead
+  if (/\bproxy not working\b/i.test(text) ||
+      /\bdead proxy\b/i.test(text) ||
+      /\btimeout\b/i.test(text) ||
+      /\bconnection refused\b/i.test(text) ||
+      /\bproxy failed\b/i.test(text) ||
+      /\bproxy not working\b/i.test(text) ||
+      /\bproxy down\b/i.test(text) ||
+      /\bnot connecting\b/i.test(text) ||
+      /\bcannot connect\b/i.test(text) ||
+      /\bconnection error\b/i.test(text) ||
+      /\berror\b/i.test(text) && /\bproxy\b/i.test(text)) {
+    return 'proxy_dead';
+  }
+
+  // Ban / blocked
+  if (/\bban\b/i.test(text) ||
+      /\bip banned\b/i.test(text) ||
+      /\bgot banned\b/i.test(text) ||
+      /\bblocked\b/i.test(text) &&
+      !/\bblock\b/i.test(text) && !/\bblocking\b/i.test(text) ||
+      /\bip blocked\b/i.test(text) ||
+      /\baccount banned\b/i.test(text) ||
+      /\bgetting banned\b/i.test(text)) {
+    return 'ban_report';
+  }
+
+  // Refund
+  if (/\brefund\b/i.test(text) ||
+      /\bmoney back\b/i.test(text) ||
+      /\bcancel order\b/i.test(text) ||
+      /\bcancel my order\b/i.test(text) ||
+      /\brefund request\b/i.test(text)) {
+    return 'refund_ask';
+  }
+
+  // Payment issues
+  if (/\bpayment failed\b/i.test(text) ||
+      /\bcannot pay\b/i.test(text) ||
+      /\bcard declined\b/i.test(text) ||
+      /\btransfer failed\b/i.test(text) ||
+      /\bpayment issue\b/i.test(text) ||
+      /\bpayment error\b/i.test(text) ||
+      /\bcant pay\b/i.test(text) ||
+      /\bwon't pay\b/i.test(text) ||
+      /\bpayment problem\b/i.test(text) ||
+      /\bbank transfer\b/i.test(text) && /\bproblem\b/i.test(text) ||
+      /\bussd\b/i.test(text) && /\bfail\b/i.test(text)) {
+    return 'payment_issue';
+  }
+
+  // Privacy / data
+  if (/\bprivacy\b/i.test(text) ||
+      /\bdata\b/i.test(text) &&
+      !/\bdata plan\b/i.test(text) &&
+      !/\bdata usage\b/i.test(text) &&
+      !/\bhow much data\b/i.test(text) ||
+      /\banonymous\b/i.test(text) ||
+      /\blog\b/i.test(text) &&
+      !/\blogin\b/i.test(text) &&
+      !/\bdownload\b/i.test(text) ||
+      /\bcollect\b/i.test(text) && /\binfo\b/i.test(text) ||
+      /\bpersonal data\b/i.test(text) ||
+      /\bmy information\b/i.test(text)) {
+    return 'faq_privacy';
+  }
+
+  // Bulk / volume discount
+  if (/\bbulk\b/i.test(text) ||
+      /\bvolume discount\b/i.test(text) ||
+      /\bmany proxies\b/i.test(text) ||
+      /\bcorporate\b/i.test(text) ||
+      /\bbusiness\b/i.test(text) &&
+      /\bproxy\b/i.test(text) ||
+      /\breseller\b/i.test(text) ||
+      /\b10\+.*proxy\b/i.test(text) ||
+      /\bmass\b/i.test(text)) {
+    return 'bulk_pricing';
+  }
+
+  // Trial / free test
+  if (/\btrial\b/i.test(text) ||
+      /\bfree test\b/i.test(text) ||
+      /\btry before\b/i.test(text) ||
+      /\bfree proxy\b/i.test(text) &&
+      /\btest\b/i.test(text) ||
+      /\bdemo\b/i.test(text) ||
+      /\bfree trial\b/i.test(text)) {
+    return 'trial_info';
+  }
+
+  // Proxy type: ISP
+  if (/\bisp\b/i.test(text) &&
+      !/\bresidential\b/i.test(text) &&
+      !/\bmobile\b/i.test(text) &&
+      !/\bdatacenter\b/i.test(text)) {
+    return 'order_isp';
+  }
+
+  // Proxy type: Residential
+  if (/\bresidential\b/i.test(text)) {
+    return 'order_residential';
+  }
+
+  // Proxy type: Mobile
+  if (/\bmobile\b/i.test(text) ||
+      /\b4g\b/i.test(text) ||
+      /\b4glte\b/i.test(text) ||
+      /\bmtn\b/i.test(text) ||
+      /\bairtel\b/i.test(text) &&
+      !/\bISP\b/i.test(text)) {
+    return 'order_mobile';
+  }
+
+  // Proxy type: Datacenter
+  if (/\bdatacenter\b/i.test(text) ||
+      /\bdc proxy\b/i.test(text) ||
+      /\bserver\b/i.test(text) &&
+      /\bproxy\b/i.test(text)) {
+    return 'order_dc';
+  }
+
+  // Replacement / swap
+  if (/\breplacement\b/i.test(text) ||
+      /\bswap\b/i.test(text) ||
+      /\bchange proxy\b/i.test(text) ||
+      /\bnew proxy\b/i.test(text) ||
+      /\bdifferent proxy\b/i.test(text) ||
+      /\breplace\b/i.test(text)) {
+    return 'faq_replacement';
+  }
+
+  // Help
+  if (/\bhelp\b/i.test(text) &&
+      !/\bhelpful\b/i.test(text)) {
+    return 'start';
+  }
+
+  // Contact
+  if (/\bcontact\b/i.test(text) ||
+      /\breach\b/i.test(text) ||
+      /\btalk\b/i.test(text) && !/\btalk to\b/i.test(text) ||
+      /\bmessage\b/i.test(text)) {
+    return 'escalate';
+  }
+
+  return null;
+}
