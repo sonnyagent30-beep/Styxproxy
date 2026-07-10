@@ -1,7 +1,23 @@
 import React from 'react';
 import { content } from '@/lib/legal/privacy.js';
 
+// Strip dangerous tags/attrs from HTML legal content
+function sanitize(html: string): string {
+  return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/\son\w+\s*=/gi, 'data-removed=')
+    .replace(/javascript:/gi, '')
+    .replace(/data:/gi, '')
+    .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, '')
+    .replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, '')
+    .replace(/<input\b[^>]*>/gi, '')
+    .replace(/<button\b[^>]*>[\s\S]*?<\/button>/gi, '');
+}
+
 export default function Privacy() {
+  const clean = sanitize(content);
+
   return (
     <main className="flex-1 px-4 py-24">
       <article className="max-w-3xl mx-auto">
@@ -11,11 +27,8 @@ export default function Privacy() {
         </div>
         <div
           className="legal-content"
-          dangerouslySetInnerHTML={{ __html: content }}
-          style={{
-            color: 'var(--muted)',
-            lineHeight: 1.8,
-          }}
+          dangerouslySetInnerHTML={{ __html: clean }}
+          style={{ color: 'var(--muted)', lineHeight: 1.8 }}
         />
       </article>
     </main>
