@@ -14,19 +14,11 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/header-icon-dark.png"
+              src="/header-icon.png"
               alt="styxproxy"
               width={40}
               height={40}
-              className="hidden dark:block w-10 h-10"
-              priority
-            />
-            <Image
-              src="/header-icon-light.png"
-              alt="styxproxy"
-              width={40}
-              height={40}
-              className="block dark:hidden w-10 h-10"
+              className="w-10 h-10 object-contain"
               priority
             />
             <span className="text-xl font-bold text-[var(--foreground)]">styxproxy</span>
