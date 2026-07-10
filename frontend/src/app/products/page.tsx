@@ -114,6 +114,22 @@ export default function ProductsPage() {
                 : <>ISP, Residential, Mobile 4G &amp; Datacenter proxies — available in <span className="font-medium" style={{ color: 'var(--foreground)' }}>18+ countries</span> worldwide.</>
               }
             </p>
+            {/* Stats Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
+              {[
+                { label: 'Uptime', value: '99.9%', icon: '🟢' },
+                { label: 'IP Pool', value: '50K+ IPs', icon: '🌐' },
+                { label: 'Speed', value: '1 Gbps', icon: '⚡' },
+                { label: 'Delivery', value: 'Instant', icon: '🚀' },
+              ].map(({ label, value, icon }) => (
+                <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-3 text-center">
+                  <div className="text-base mb-0.5">{icon}</div>
+                  <div className="text-xl font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
+                  <div className="text-xs text-[var(--muted)]">{label}</div>
+                </div>
+              ))}
+            </div>
+
             <div className="flex flex-wrap justify-center lg:justify-start gap-3">
               <Link
                 href="/order"
@@ -210,60 +226,187 @@ export default function ProductsPage() {
           })}
         </div>
 
-        {/* Comparison Table */}
+        {/* Comparison Cards — 3D style */}
         <div className="mb-20">
           <h2 className="text-2xl font-bold text-center mb-8">Compare Proxy Types</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* ISP Card */}
+            <div className="group relative" style={{ perspective: '1000px' }}>
+              <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl" style={{ transformStyle: 'preserve-3d', '--tw-shadow-color': 'rgba(16,185,129,0.15)' } as React.CSSProperties}>
+                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-[var(--primary)]" />
+                <div className="text-3xl mb-3">🌐</div>
+                <h3 className="text-lg font-bold mb-1">ISP Proxies</h3>
+                <p className="text-sm text-[var(--muted)] mb-4">Fast &amp; stable datacenter-grade IPs</p>
+                <div className="space-y-3">
+                  {[
+                    { label: 'Speed', value: 'High', bar: 90 },
+                    { label: 'Detection', value: 'Low', bar: 30 },
+                    { label: 'Anonymity', value: 'High', bar: 75 },
+                    { label: 'Reliability', value: 'High', bar: 85 },
+                  ].map(({ label, value, bar }) => (
+                    <div key={label}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-[var(--muted)]">{label}</span>
+                        <span className="font-medium">{value}</span>
+                      </div>
+                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${bar}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-5 pt-4 border-t border-[var(--border)]">
+                  <p className="text-xs text-[var(--muted)] mb-1">From</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--primary)' }}>₦6,500<span className="text-xs font-normal text-[var(--muted)]">/mo</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Residential Card */}
+            <div className="group relative" style={{ perspective: '1000px' }}>
+              <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl" style={{ transformStyle: 'preserve-3d', '--tw-shadow-color': 'rgba(16,185,129,0.15)' } as React.CSSProperties}>
+                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-[var(--primary)]" />
+                <div className="text-3xl mb-3">🏠</div>
+                <h3 className="text-lg font-bold mb-1">Residential</h3>
+                <p className="text-sm text-[var(--muted)] mb-4">Real ISP IPs from real devices</p>
+                <div className="space-y-3">
+                  {[
+                    { label: 'Speed', value: 'Medium', bar: 60 },
+                    { label: 'Detection', value: 'Very Low', bar: 15 },
+                    { label: 'Anonymity', value: 'Very High', bar: 95 },
+                    { label: 'Reliability', value: 'High', bar: 80 },
+                  ].map(({ label, value, bar }) => (
+                    <div key={label}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-[var(--muted)]">{label}</span>
+                        <span className="font-medium">{value}</span>
+                      </div>
+                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${bar}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-5 pt-4 border-t border-[var(--border)]">
+                  <p className="text-xs text-[var(--muted)] mb-1">From</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--primary)' }}>₦5,000<span className="text-xs font-normal text-[var(--muted)]">/5GB</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Card */}
+            <div className="group relative" style={{ perspective: '1000px' }}>
+              <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl" style={{ transformStyle: 'preserve-3d', '--tw-shadow-color': 'rgba(16,185,129,0.15)' } as React.CSSProperties}>
+                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-[var(--primary)]" />
+                <div className="text-3xl mb-3">📱</div>
+                <h3 className="text-lg font-bold mb-1">Mobile 4G</h3>
+                <p className="text-sm text-[var(--muted)] mb-4">Real 4G/LTE carrier IPs</p>
+                <div className="space-y-3">
+                  {[
+                    { label: 'Speed', value: 'Medium', bar: 55 },
+                    { label: 'Detection', value: 'Extremely Low', bar: 8 },
+                    { label: 'Anonymity', value: 'Max', bar: 100 },
+                    { label: 'Reliability', value: 'High', bar: 80 },
+                  ].map(({ label, value, bar }) => (
+                    <div key={label}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-[var(--muted)]">{label}</span>
+                        <span className="font-medium">{value}</span>
+                      </div>
+                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${bar}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-5 pt-4 border-t border-[var(--border)]">
+                  <p className="text-xs text-[var(--muted)] mb-1">From</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--primary)' }}>₦20,000<span className="text-xs font-normal text-[var(--muted)]">/5GB</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Datacenter Card */}
+            <div className="group relative" style={{ perspective: '1000px' }}>
+              <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-xl" style={{ transformStyle: 'preserve-3d', '--tw-shadow-color': 'rgba(16,185,129,0.15)' } as React.CSSProperties}>
+                <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl bg-[var(--primary)]" />
+                <div className="text-3xl mb-3">🏢</div>
+                <h3 className="text-lg font-bold mb-1">Datacenter</h3>
+                <p className="text-sm text-[var(--muted)] mb-4">Budget-friendly cloud server IPs</p>
+                <div className="space-y-3">
+                  {[
+                    { label: 'Speed', value: 'Very High', bar: 95 },
+                    { label: 'Detection', value: 'High', bar: 70 },
+                    { label: 'Anonymity', value: 'Medium', bar: 45 },
+                    { label: 'Reliability', value: 'High', bar: 85 },
+                  ].map(({ label, value, bar }) => (
+                    <div key={label}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-[var(--muted)]">{label}</span>
+                        <span className="font-medium">{value}</span>
+                      </div>
+                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-[var(--primary)] transition-all" style={{ width: `${bar}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-5 pt-4 border-t border-[var(--border)]">
+                  <p className="text-xs text-[var(--muted)] mb-1">From</p>
+                  <p className="text-xl font-bold" style={{ color: 'var(--primary)' }}>₦2,500<span className="text-xs font-normal text-[var(--muted)]">/mo</span></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* All Products & Pricing Table */}
+        <div className="mb-20">
+          <h2 className="text-2xl font-bold text-center mb-8">All Products &amp; Pricing</h2>
+          <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+            <table className="w-full">
               <thead>
-                <tr className="border-b border-[var(--border)]">
-                  <th className="text-left py-4 px-4 font-semibold">Feature</th>
-                  <th className="text-center py-4 px-4 font-semibold">ISP</th>
-                  <th className="text-center py-4 px-4 font-semibold">Residential</th>
-                  <th className="text-center py-4 px-4 font-semibold">Mobile 4G</th>
-                  <th className="text-center py-4 px-4 font-semibold">Datacenter</th>
+                <tr className="border-b border-[var(--border)] bg-[var(--card)]">
+                  <th className="text-left py-4 px-4 font-semibold text-sm">Proxy Type</th>
+                  <th className="text-left py-4 px-4 font-semibold text-sm hidden sm:table-cell">Country</th>
+                  <th className="text-left py-4 px-4 font-semibold text-sm hidden md:table-cell">Specs</th>
+                  <th className="text-right py-4 px-4 font-semibold text-sm">Price</th>
+                  <th className="py-4 px-4"></th>
                 </tr>
               </thead>
-              <tbody>
-                {[
-                  { feature: 'Speed',          ISP: 'High',     Residential: 'Medium',  Mobile: 'Medium',  Datacenter: 'Very High' },
-                  { feature: 'Detection',      ISP: 'Low',      Residential: 'Very Low', Mobile: 'Very Low', Datacenter: 'High' },
-                  { feature: 'Best For',       ISP: 'Scraping, automation', Residential: 'Sneakers, ticketing', Mobile: 'Social media, ads', Datacenter: 'General browsing' },
-                ].map((row, idx) => (
-                  <tr key={idx} className="border-b border-[var(--border)]">
-                    <td className="py-4 px-4 font-medium">{row.feature}</td>
-                    <td className="text-center py-4 px-4">{row.ISP}</td>
-                    <td className="text-center py-4 px-4">{row.Residential}</td>
-                    <td className="text-center py-4 px-4">{row.Mobile}</td>
-                    <td className="text-center py-4 px-4">{row.Datacenter}</td>
+              <tbody className="divide-y divide-[var(--border)]">
+                {products.map((product) => (
+                  <tr key={product.plan_code} className="bg-[var(--card)] hover:bg-[var(--card-hover)] transition-colors">
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{product.flag}</span>
+                        <div>
+                          <p className="font-semibold text-sm">{product.plan_type}</p>
+                          <p className="text-xs text-[var(--muted)] sm:hidden">{product.country !== 'GLOBAL' ? product.country : 'Global'}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-sm text-[var(--muted)] hidden sm:table-cell">
+                      {product.country !== 'GLOBAL' ? COUNTRIES[product.country]?.name || product.country : '🌍 Global'}
+                    </td>
+                    <td className="py-4 px-4 text-xs text-[var(--muted)] hidden md:table-cell">
+                      {product.features.slice(0, 3).join(' · ')}
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="font-bold" style={{ color: 'var(--primary)' }}>{formatPrice(product.price_ngn)}</span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <Link
+                        href={`/order?plan=${product.plan_code}`}
+                        className="px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-xs transition-colors"
+                      >
+                        Order
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-
-        {/* All Products & Pricing */}
-        <div className="mb-20">
-          <h2 className="text-2xl font-bold text-center mb-8">All Products &amp; Pricing</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {products.map((product) => (
-              <div
-                key={product.plan_code}
-                className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 flex items-center justify-between"
-              >
-                <div>
-                  <p className="font-semibold">{product.flag} {product.country !== 'GLOBAL' ? product.country : product.plan_type}</p>
-                  <p className="text-xs text-[var(--muted)]">{product.features.join(' · ')}</p>
-                </div>
-                <Link
-                  href={`/order?plan=${product.plan_code}`}
-                  className="px-3 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors"
-                >
-                  {formatPrice(product.price_ngn)}
-                </Link>
-              </div>
-            ))}
           </div>
         </div>
 
