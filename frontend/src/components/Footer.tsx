@@ -13,10 +13,10 @@ export default function Footer() {
               <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center">
                 <span className="text-black font-bold text-lg">B</span>
               </div>
-              <span className="text-xl font-bold">Bunche</span>
+              <span className="text-xl font-bold">Styxproxy</span>
             </Link>
             <p className="text-[var(--muted)] text-sm max-w-sm">
-              Nigeria's anonymous proxy reseller. ISP, Residential, Datacenter & Mobile 4G proxies. Order instantly via the Bunche bot or on the website.
+              Nigeria's anonymous proxy reseller. ISP, Residential, Datacenter & Mobile 4G proxies. Order instantly via the Styxproxy bot or on the website.
             </p>
           </div>
 
@@ -77,7 +77,7 @@ export default function Footer() {
 
         <div className="border-t border-[var(--border)] mt-8 pt-8 flex flex-col md:flex-row items-center justify-between">
           <p className="text-sm text-[var(--muted)]">
-            © {new Date().getFullYear()} Bunche. All rights reserved.
+            © {new Date().getFullYear()} Styxproxy. All rights reserved.
           </p>
         </div>
       </div>

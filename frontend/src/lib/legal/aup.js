@@ -1,14 +1,14 @@
 const content = `<h1>Acceptable Use Policy</h1>
-<p><em>Bunche — Automated Proxy Retail Service</em><br><em>Effective Date: 2026-07-01</em></p>
+<p><em>Styxproxy — Automated Proxy Retail Service</em><br><em>Effective Date: 2026-07-01</em></p>
 
 <h2>1. Purpose</h2>
-<p>This Acceptable Use Policy ("AUP") defines acceptable use of Bunche proxy services. By using Bunche, you agree to this policy. Violations may result in immediate credential revocation and permanent suspension from the service without refund.</p>
+<p>This Acceptable Use Policy ("AUP") defines acceptable use of Styxproxy proxy services. By using Styxproxy, you agree to this policy. Violations may result in immediate credential revocation and permanent suspension from the service without refund.</p>
 
 <h2>2. Three Channels, Same Rules</h2>
-<p>This policy applies to all Bunche channels — bunche.ng and the Bunche Telegram bot. The same rules apply regardless of how you purchased your proxy.</p>
+<p>This policy applies to all Styxproxy channels — bunche.ng and the Styxproxy Telegram bot. The same rules apply regardless of how you purchased your proxy.</p>
 
 <h2>3. Permitted Use</h2>
-<p>Bunche proxies may be used for:</p>
+<p>Styxproxy proxies may be used for:</p>
 <ul>
 <li>Web browsing and research</li>
 <li>Social media management</li>
@@ -91,20 +91,20 @@ const content = `<h1>Acceptable Use Policy</h1>
 <p><strong>Via Chat:</strong> Telegram — send "Ban claim for order [tx_ref]" to @BuncheBot.</p>
 
 <h3>5.2 What Happens Next</h3>
-<p>An admin will review your claim. You may be asked to provide additional information. Replacement credentials are issued at Bunche's discretion based on the evidence provided.</p>
+<p>An admin will review your claim. You may be asked to provide additional information. Replacement credentials are issued at Styxproxy's discretion based on the evidence provided.</p>
 
 <h3>5.3 Ban Claims vs. Refunds</h3>
 <p>A ban claim is not a refund. If your IP was blocked by a website after delivery and the service was functioning at the time of delivery, this is a ban claim matter. See our Refund Policy in the Terms of Service.</p>
 
 <h2>6. Abuse Detection</h2>
-<p>Bunche monitors for prohibited use through: traffic pattern analysis, complaint reports from third parties, anomalous usage signals, and automated detection systems.</p>
+<p>Styxproxy monitors for prohibited use through: traffic pattern analysis, complaint reports from third parties, anomalous usage signals, and automated detection systems.</p>
 <p>If prohibited use is detected: We may immediately revoke the affected credentials, suspend the associated account without notice, report the activity to law enforcement if required by law, and refunds are not provided for abuse-related revocations.</p>
 
 <h2>7. Report Abuse</h2>
-<p>If you become aware that a Bunche customer is using the service for prohibited activity, report it: Via Website — go to bunche.ng/manage and select "Report Abuse." Via Chat — Telegram: send "Report abuse for order [tx_ref]" to @BuncheBot. Via Email — hello@bunche.ng. All abuse reports are investigated. We keep reporter information confidential upon request.</p>
+<p>If you become aware that a Styxproxy customer is using the service for prohibited activity, report it: Via Website — go to bunche.ng/manage and select "Report Abuse." Via Chat — Telegram: send "Report abuse for order [tx_ref]" to @BuncheBot. Via Email — hello@styxproxy.ng. All abuse reports are investigated. We keep reporter information confidential upon request.</p>
 
 <h2>8. Credential Revocation</h2>
-<p>Bunche reserves the right to revoke credentials immediately and without notice if: The proxy is used for prohibited activities under this policy, the proxy is used in a way that exposes Bunche or our infrastructure partners to legal liability, the customer engages in threatening, harassing, or abusive behaviour toward Bunche staff, a third party provides evidence that the proxy is being used for illegal activity, or a refund is approved and processed (credentials revoked simultaneously). Revoked credentials cannot be reactivated. A new order must be placed if service is desired after revocation.</p>
+<p>Styxproxy reserves the right to revoke credentials immediately and without notice if: The proxy is used for prohibited activities under this policy, the proxy is used in a way that exposes Styxproxy or our infrastructure partners to legal liability, the customer engages in threatening, harassing, or abusive behaviour toward Styxproxy staff, a third party provides evidence that the proxy is being used for illegal activity, or a refund is approved and processed (credentials revoked simultaneously). Revoked credentials cannot be reactivated. A new order must be placed if service is desired after revocation.</p>
 
 <h2>9. Infrastructure Partners</h2>
 <p>Proxy IPs are sourced from vetted infrastructure partners. Customers do not interact with these partners directly. Prohibited activities that violate a partner's acceptable use policy are also violations of this AUP.</p>
@@ -113,11 +113,11 @@ const content = `<h1>Acceptable Use Policy</h1>
 <p>We may update this AUP from time to time. Material changes will be communicated via Telegram message or notice on bunche.ng.</p>
 
 <h2>11. Contact Us</h2>
-<p><strong>Bunche</strong></p>
+<p><strong>Styxproxy</strong></p>
 <ul>
-<li><strong>Telegram:</strong> @bunche</li>
+<li><strong>Telegram:</strong> @styxproxy</li>
 <li><strong>Chat Widget:</strong> Instant support on bunche.ng</li>
-<li><strong>Email:</strong> hello@bunche.ng</li>
+<li><strong>Email:</strong> hello@styxproxy.ng</li>
 <li><strong>Website:</strong> bunche.ng</li>
 <li><strong>Management Portal:</strong> bunche.ng/manage</li>
 </ul>`;

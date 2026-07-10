@@ -15,7 +15,7 @@ export default function CheckoutPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('bunche_cart');
+    const stored = sessionStorage.getItem('styxproxy_cart');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -41,7 +41,7 @@ export default function CheckoutPage() {
         }
         return item;
       }).filter(item => item.quantity > 0);
-      sessionStorage.setItem('bunche_cart', JSON.stringify(updated));
+      sessionStorage.setItem('styxproxy_cart', JSON.stringify(updated));
       return updated;
     });
   };
@@ -49,7 +49,7 @@ export default function CheckoutPage() {
   const removeItem = (plan_code: string) => {
     const updated = cart.filter(i => i.plan_code !== plan_code);
     setCart(updated);
-    sessionStorage.setItem('bunche_cart', JSON.stringify(updated));
+    sessionStorage.setItem('styxproxy_cart', JSON.stringify(updated));
     if (updated.length === 0) router.replace('/order');
   };
 
@@ -63,7 +63,7 @@ export default function CheckoutPage() {
     try {
       // Store email in sessionStorage for thank-you page
       if (email.trim()) {
-        sessionStorage.setItem('bunche_email', email.trim());
+        sessionStorage.setItem('styxproxy_email', email.trim());
       }
 
       // Initiate payment with first cart item

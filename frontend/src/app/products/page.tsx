@@ -135,7 +135,7 @@ export default function ProductsPage() {
             Get Instant Access
           </Link>
           <a
-            href="https://t.me/BuncheBot"
+            href="https://t.me/StyxproxyBot"
             target="_blank"
             rel="noopener noreferrer"
             className="px-6 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl transition-colors min-w-[160px] text-center"

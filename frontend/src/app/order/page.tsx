@@ -85,7 +85,7 @@ export default function OrderPage() {
 
   // Load cart from sessionStorage
   useEffect(() => {
-    const stored = sessionStorage.getItem('bunche_cart');
+    const stored = sessionStorage.getItem('styxproxy_cart');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
@@ -96,7 +96,7 @@ export default function OrderPage() {
 
   const saveCart = (newCart: CartItem[]) => {
     setCart(newCart);
-    sessionStorage.setItem('bunche_cart', JSON.stringify(newCart));
+    sessionStorage.setItem('styxproxy_cart', JSON.stringify(newCart));
   };
 
   // Open the modal and default the country selector to the first available country

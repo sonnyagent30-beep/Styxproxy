@@ -1,9 +1,9 @@
 const content = `<h1>Privacy Policy</h1>
-<p><em>Bunche — Automated Proxy Retail Service</em><br><em>Effective Date: 2026-07-01</em></p>
+<p><em>Styxproxy — Automated Proxy Retail Service</em><br><em>Effective Date: 2026-07-01</em></p>
 
 <h2>1. Introduction</h2>
-<p>Bunche ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our services across any channel — our website (bunche.ng) or our Telegram bot.</p>
-<p>We collect different information depending on how you interact with us. This policy is designed to be honest and clear about what we collect and why. By using Bunche, you consent to the data practices described in this policy.</p>
+<p>Styxproxy ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our services across any channel — our website (bunche.ng) or our Telegram bot.</p>
+<p>We collect different information depending on how you interact with us. This policy is designed to be honest and clear about what we collect and why. By using Styxproxy, you consent to the data practices described in this policy.</p>
 
 <h2>2. Three Channels, Three Data Models</h2>
 <p>We operate two independent channels: the website and the Telegram bot. Each collects different information.</p>
@@ -21,7 +21,7 @@ const content = `<h1>Privacy Policy</h1>
 <p>We do not know your name, your phone number, your device IP address, or any other identifying information unless you voluntarily provide it. The tx_ref is your only order identifier. You do not create an account.</p>
 
 <h3>2.2 Telegram Bot</h3>
-<p>When you interact with the Bunche Telegram bot, we collect: Telegram chat ID (to identify you and deliver messages), Telegram username if set, display name if shared, messages you send us (90 days), order history (7 years), and PIN if you set one. We do not collect your Telegram phone number.</p>
+<p>When you interact with the Styxproxy Telegram bot, we collect: Telegram chat ID (to identify you and deliver messages), Telegram username if set, display name if shared, messages you send us (90 days), order history (7 years), and PIN if you set one. We do not collect your Telegram phone number.</p>
 
 <h2>3. What We Collect</h2>
 
@@ -51,7 +51,7 @@ const content = `<h1>Privacy Policy</h1>
 <li>Your name (unless you voluntarily provide it)</li>
 <li>Your location (unless you share it with us)</li>
 <li>Cookies on bunche.ng (we do not use cookies)</li>
-<li>Any data from third-party websites or services you access using Bunche proxies</li>
+<li>Any data from third-party websites or services you access using Styxproxy proxies</li>
 </ul>
 
 <h2>4. How We Use Your Information</h2>
@@ -91,13 +91,13 @@ const content = `<h1>Privacy Policy</h1>
 </ul>
 
 <h3>6.1 Deletion Requests</h3>
-<p>You may request deletion of your personal data at any time. To request deletion: Telegram — send "delete my data" to @BuncheBot; Website orders — email hello@bunche.ng with your tx_ref.</p>
+<p>You may request deletion of your personal data at any time. To request deletion: Telegram — send "delete my data" to @BuncheBot; Website orders — email hello@styxproxy.ng with your tx_ref.</p>
 <p>We will delete your personal data within 30 days, except financial records required by law (7 years) and data we are required to retain by Nigerian law.</p>
 
 <h2>7. Data Security</h2>
 <h3>7.1 Technical Measures</h3>
 <ul>
-<li>HTTPS-only on all Bunche properties</li>
+<li>HTTPS-only on all Styxproxy properties</li>
 <li>PostgreSQL with restricted access (localhost only)</li>
 <li>API keys stored in environment variables, not in code</li>
 <li>HMAC verification on all incoming webhooks</li>
@@ -126,10 +126,10 @@ const content = `<h1>Privacy Policy</h1>
 <p><strong>We do not use cookies on bunche.ng.</strong> When you visit bunche.ng, we do not store any cookies in your browser. We do not use third-party tracking pixels or analytics tools. We do not control the cookies or tracking used by Telegram.</p>
 
 <h2>10. Children's Privacy</h2>
-<p>Bunche services are not intended for persons under the age of 18. We do not knowingly collect data from minors. If we become aware that data from a minor has been collected, we will delete it immediately.</p>
+<p>Styxproxy services are not intended for persons under the age of 18. We do not knowingly collect data from minors. If we become aware that data from a minor has been collected, we will delete it immediately.</p>
 
 <h2>11. International Data Transfers</h2>
-<p>Bunche operates primarily in Nigeria. Some of our service providers operate internationally. When your data is transferred outside Nigeria, we ensure appropriate safeguards are in place through standard contractual clauses or equivalent legal mechanisms.</p>
+<p>Styxproxy operates primarily in Nigeria. Some of our service providers operate internationally. When your data is transferred outside Nigeria, we ensure appropriate safeguards are in place through standard contractual clauses or equivalent legal mechanisms.</p>
 
 <h2>12. Data Breach Notification</h2>
 <p>In the event of a data breach that poses a risk to your rights and freedoms, we will notify the Nigeria Data Protection Commission within 72 hours of becoming aware of the breach. We will also notify affected customers via their contact channel as soon as reasonably practicable.</p>
@@ -138,10 +138,10 @@ const content = `<h1>Privacy Policy</h1>
 <p>We may update this Privacy Policy from time to time. Material changes will be communicated via Telegram message or notice on bunche.ng.</p>
 
 <h2>14. Contact Us</h2>
-<p><strong>Bunche</strong></p>
+<p><strong>Styxproxy</strong></p>
 <ul>
-<li><strong>Telegram:</strong> @bunche</li>
-<li><strong>Email:</strong> hello@bunche.ng</li>
+<li><strong>Telegram:</strong> @styxproxy</li>
+<li><strong>Email:</strong> hello@styxproxy.ng</li>
 <li><strong>Website:</strong> bunche.ng</li>
 </ul>
 <p>We will respond to all enquiries within 30 days.</p>`;

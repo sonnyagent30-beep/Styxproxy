@@ -24,12 +24,12 @@ export interface Order {
   plan_type?: PlanType;
   country?: string;
   amount_paid_ngn?: number;
-  bunche_credential?: BuncheCredential;
+  styxproxy_credential?: StyxproxyCredential;
   created_at: string;
   expires_at?: string;
 }
 
-export interface BuncheCredential {
+export interface StyxproxyCredential {
   id: number;
   bun_username: string;
   upstream_proxy_ip?: string;

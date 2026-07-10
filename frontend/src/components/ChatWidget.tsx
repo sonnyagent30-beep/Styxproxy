@@ -339,7 +339,7 @@ const TYPING_DELAY = 600; // ms "typing" before bot responds
 // Bot messages keyed by state
 const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] }> = {
   start: {
-    text: "👋 Hi! I'm Mayowa from Bunche support. I can help you with orders, pricing, troubleshooting, and more — all anonymously until you choose to connect with a human. What do you need?",
+    text: "👋 Hi! I'm Charon from Styxproxy support. I can help you with orders, pricing, troubleshooting, and more — all anonymously until you choose to connect with a human. What do you need?",
     quickReplies: [
       { label: '🛒 Order proxies', next: 'order_type' },
       { label: '🔍 Check my order', next: 'check_order' },
@@ -511,7 +511,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
   },
 
   proxy_dead_diag: {
-    text: "Let's diagnose:\n\n**Step 1:** Check your proxy format:\n`http://username:password@proxy.bunche.ng:port`\n\n**Step 2:** Make sure your tool supports HTTP(S) proxies (not SOCKS5).\n\n**Step 3:** Test with: `curl -x http://username:password@proxy.bunche.ng:port http://httpbin.org/ip`\n\nStill failing? You may be eligible for a free replacement if the IP is dead.",
+    text: "Let's diagnose:\n\n**Step 1:** Check your proxy format:\n`http://username:password@proxy.styxproxy.com:port`\n\n**Step 2:** Make sure your tool supports HTTP(S) proxies (not SOCKS5).\n\n**Step 3:** Test with: `curl -x http://username:password@proxy.styxproxy.com:port http://httpbin.org/ip`\n\nStill failing? You may be eligible for a free replacement if the IP is dead.",
     quickReplies: [
       { label: '⚠️ Request replacement', next: 'ban_report_answer' },
       { label: '🔍 Check my order', next: 'check_order' },
@@ -529,7 +529,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
   },
 
   ban_report_answer: {
-    text: "Your ban report has been noted! Our team will review it and process a replacement if eligible. You'll receive new proxy credentials in your order chat.\n\nIf you don't hear back within 2 hours, please reach out via Telegram with your tx_ref and we'll sort it out. → /t.me/BuncheBot\n\nIs there anything else?",
+    text: "Your ban report has been noted! Our team will review it and process a replacement if eligible. You'll receive new proxy credentials in your order chat.\n\nIf you don't hear back within 2 hours, please reach out via Telegram with your tx_ref and we'll sort it out. → /t.me/StyxproxyBot\n\nIs there anything else?",
     quickReplies: [
       { label: '🔙 Back to menu', next: 'start' },
     ],
@@ -545,7 +545,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
   },
 
   refund_ask_answer: {
-    text: "Your refund request has been logged! Our team will review it and process your refund within 24–48 hours. The amount will be returned to your original payment method.\n\nIf you don't hear back within 48 hours, please contact us via Telegram with your tx_ref. → /t.me/BuncheBot\n\nIs there anything else?",
+    text: "Your refund request has been logged! Our team will review it and process your refund within 24–48 hours. The amount will be returned to your original payment method.\n\nIf you don't hear back within 48 hours, please contact us via Telegram with your tx_ref. → /t.me/StyxproxyBot\n\nIs there anything else?",
     quickReplies: [
       { label: '🔙 Back to menu', next: 'start' },
     ],
@@ -572,7 +572,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
 
   // ---- FREE TRIAL ----
   trial_info: {
-    text: "We offer a **free trial** so you can test our proxies before committing!\n\n**How it works:**\n• Complete simple tasks (surveys, app installs) through our referral partner\n• Earn credits toward free proxy time\n• Credits are applied automatically to your account\n\nTo get started with your free trial, use the Bunche Telegram bot — it's the fastest way to claim trial credits. → /t.me/BuncheBot\n\nAfter you earn credits, order from /order and they'll be applied automatically.",
+    text: "We offer a **free trial** so you can test our proxies before committing!\n\n**How it works:**\n• Complete simple tasks (surveys, app installs) through our referral partner\n• Earn credits toward free proxy time\n• Credits are applied automatically to your account\n\nTo get started with your free trial, use the Styxproxy Telegram bot — it's the fastest way to claim trial credits. → /t.me/StyxproxyBot\n\nAfter you earn credits, order from /order and they'll be applied automatically.",
     quickReplies: [
       { label: '🗣 Start trial via Telegram', next: 'escalate' },
       { label: '🔙 Back to menu', next: 'start' },
@@ -580,7 +580,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
   },
 
   trial_info_answer: {
-    text: "**How to earn free trial credits:**\n\n1. Open the Bunche Telegram bot (@BuncheBot)\n2. Type /trial or tap 'Earn Credits'\n3. Complete offers (surveys, app installs) through our partner\n4. Credits are added to your account automatically\n\nUse credits on any plan at checkout. No credit card needed.",
+    text: "**How to earn free trial credits:**\n\n1. Open the Styxproxy Telegram bot (@StyxproxyBot)\n2. Type /trial or tap 'Earn Credits'\n3. Complete offers (surveys, app installs) through our partner\n4. Credits are added to your account automatically\n\nUse credits on any plan at checkout. No credit card needed.",
     quickReplies: [
       { label: '🗣 Get started', next: 'escalate' },
       { label: '🔙 Back to menu', next: 'start' },
@@ -589,7 +589,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
 
   // ---- ABOUT BUNCHE ----
   about: {
-    text: "**Bunche** is a Nigerian proxy reseller — we provide high-quality ISP, Residential, Mobile 4G, and Datacenter proxies for web scraping, social media automation, sneaker bots, and more.\n\nWe partner with top proxy providers to deliver fast, reliable proxies with instant delivery and 24-hour ban replacement.\n\n**Why Bunche?**\n• Nigerian-owned business\n• Instant delivery\n• Free ban replacement within 24hrs\n• Multiple payment methods (Card, Bank Transfer, USSD, QR)\n• Anonymous ordering — we don't collect personal data\n• Responsive support via WhatsApp and Telegram\n\nNeed proxies? → /order",
+    text: "**Styxproxy** is a Nigerian proxy reseller — we provide high-quality ISP, Residential, Mobile 4G, and Datacenter proxies for web scraping, social media automation, sneaker bots, and more.\n\nWe partner with top proxy providers to deliver fast, reliable proxies with instant delivery and 24-hour ban replacement.\n\n**Why Styxproxy?**\n• Nigerian-owned business\n• Instant delivery\n• Free ban replacement within 24hrs\n• Multiple payment methods (Card, Bank Transfer, USSD, QR)\n• Anonymous ordering — we don't collect personal data\n• Responsive support via WhatsApp and Telegram\n\nNeed proxies? → /order",
     quickReplies: [
       { label: '🛒 Order proxies', next: 'order_type' },
       { label: '📋 FAQ', next: 'faq' },
@@ -611,7 +611,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
   },
 
   faq_privacy: {
-    text: "**Privacy at Bunche**\n\nWe collect the absolute minimum to process your order:\n• tx_ref (payment reference) — to identify your order\n• Product + country — to generate correct proxy\n• Payment amount — for receipt\n\n**We do NOT collect:**\n• Your name\n• Your email (optional for receipt only)\n• Your phone number\n• Your IP address\n• Any personal identifying information\n\nYour order is completely anonymous unless you voluntarily provide contact details.\n\nSee our full Privacy Policy: /legal/privacy",
+    text: "**Privacy at Styxproxy**\n\nWe collect the absolute minimum to process your order:\n• tx_ref (payment reference) — to identify your order\n• Product + country — to generate correct proxy\n• Payment amount — for receipt\n\n**We do NOT collect:**\n• Your name\n• Your email (optional for receipt only)\n• Your phone number\n• Your IP address\n• Any personal identifying information\n\nYour order is completely anonymous unless you voluntarily provide contact details.\n\nSee our full Privacy Policy: /legal/privacy",
     quickReplies: [
       { label: '🔙 Back to FAQ', next: 'faq' },
       { label: '🔙 Back to menu', next: 'start' },
@@ -646,7 +646,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
 
   // ---- ESCALATION ----
   escalate: {
-    text: "I'll connect you with our team via Telegram. Please send a message to @BuncheBot with your **tx_ref** (if you have one) and a brief description of your issue.\n\nOur team typically responds within 2 hours during business hours, and 24/7 for urgent issues.\n\n→ /t.me/BuncheBot",
+    text: "I'll connect you with our team via Telegram. Please send a message to @StyxproxyBot with your **tx_ref** (if you have one) and a brief description of your issue.\n\nOur team typically responds within 2 hours during business hours, and 24/7 for urgent issues.\n\n→ /t.me/StyxproxyBot",
     quickReplies: [
       { label: '🔙 Back to menu', next: 'start' },
     ],
@@ -770,7 +770,7 @@ export default function ChatWidget() {
       return;
     }
     if (next === 'escalate') {
-      window.open('https://t.me/BuncheBot', '_blank');
+      window.open('https://t.me/StyxproxyBot', '_blank');
       toggleOpen(false);
       return;
     }
@@ -855,10 +855,10 @@ export default function ChatWidget() {
                onTouchStart={startDrag}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center shrink-0">
-                <span className="text-black font-bold text-lg">M</span>
+                <span className="text-black font-bold text-lg">C</span>
               </div>
               <div>
-                <p className="font-bold text-sm">Mayowa</p>
+                <p className="font-bold text-sm">Charon</p>
                 <p className="text-xs text-[var(--muted)]">Usually replies in minutes</p>
               </div>
             </div>
@@ -1015,12 +1015,12 @@ function detectKeyword(text: string): StateKey | null {
     return 'faq_delivery';
   }
 
-  // About Bunche
-  if (/\bwhat is bunche\b/i.test(text) ||
+  // About Styxproxy
+  if (/\bwhat is styxproxy\b/i.test(text) ||
       /\babout you\b/i.test(text) ||
       /\bwho are you\b/i.test(text) ||
       /\bwhat do you do\b/i.test(text) ||
-      /\babout bunche\b/i.test(text) ||
+      /\babout styxproxy\b/i.test(text) ||
       /\bwhat is this\b/i.test(text)) {
     return 'about';
   }
