@@ -162,10 +162,10 @@ export default function GlobeMap() {
           hexPolygonsData={`${WORLD_COUNTRIES}`}
           hexPolygonGeoJsonGeometry={() => 'geometry'}
           hexPolygonUseDots={() => true}
-          hexPolygonDotResolution={6}
-          hexPolygonMargin={1.2}
+          hexPolygonDotResolution={12}
+          hexPolygonMargin={0.85}
           hexPolygonColor={() => dotColorHex}
-          hexPolygonAltitude={() => 0.004}
+          hexPolygonAltitude={() => 0.001}
           // Country markers
           pointsData={LOCATIONS}
           pointLat="lat"
