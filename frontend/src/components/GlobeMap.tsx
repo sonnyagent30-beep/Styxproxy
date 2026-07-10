@@ -156,15 +156,14 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
   // Sphere: PhongMaterial (specular allowed) — slightly shinier so surface depth reads well.
   // Polygon altitude bumped to 0.03 so outlines sit clearly above the sphere.
   const globeMaterial = useMemo(() => {
-    return new THREE.MeshPhongMaterial({
-      color: new THREE.Color(sphereBaseColor),
-      specular: new THREE.Color(isDark ? '#334455' : '#cccccc'),
-      shininess: isDark ? 15 : 20,
-      emissive: new THREE.Color(isDark ? '#0f1a2e' : '#e8f5e9'),
-      emissiveIntensity: isDark ? 0.25 : 0.05,
-    });
-  }, [sphereBaseColor, isDark]);
-
+      return new THREE.MeshPhongMaterial({
+        color: new THREE.Color(sphereBaseColor),
+        specular: new THREE.Color(isDark ? '#334455' : '#cccccc'),
+        shininess: isDark ? 15 : 20,
+        emissive: new THREE.Color(isDark ? '#0f1a2e' : '#e8f5e9'),
+        emissiveIntensity: isDark ? 0.25 : 0.05,
+      });
+    }, [sphereBaseColor, isDark]);
   const featured = LOCATIONS[featuredIdx];
 
   return (
@@ -175,7 +174,6 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
         style={{ width: dims.w, height: dims.h, opacity: containerOpacity, transition: 'opacity 700ms ease' }}
       >
         <Globe
-          key={`${isDark ? 'dark' : 'light'}-${productType || 'all'}`}
           ref={globeRef}
           width={dims.w}
           height={dims.h}
