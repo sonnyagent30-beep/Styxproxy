@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Footer() {
   return (
@@ -10,10 +11,8 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
             <Link href="/" className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center">
-                <span className="text-black font-bold text-lg">B</span>
-              </div>
-              <span className="text-xl font-bold">Styxproxy</span>
+              <Image src="/footer-logo.png" alt="styxproxy" width={32} height={32} className="w-8 h-8 object-contain" />
+              <span className="text-xl font-bold">styxproxy</span>
             </Link>
             <p className="text-[var(--muted)] text-sm max-w-sm">
               Global anonymous proxy service. ISP, Residential, Datacenter & Mobile 4G proxies. Order instantly via the Styxproxy bot or on the website.
