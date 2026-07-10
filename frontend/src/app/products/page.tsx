@@ -235,211 +235,220 @@ export default function ProductsPage() {
           <h2 className="text-2xl font-bold text-center mb-8">Compare Proxy Types</h2>
 
           {/* Carousel container */}
-          <div className="relative max-w-5xl mx-auto">
+          <div className="relative max-w-3xl mx-auto">
             {/* Prev / Next buttons */}
             <button
               onClick={() => setCarouselIdx(i => (i - 1 + 4) % 4)}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:-translate-x-14 z-10 w-10 h-10 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors"
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 sm:-translate-x-16 z-10 w-11 h-11 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] hover:bg-[var(--card-hover)] transition-all active:scale-95"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
             </button>
             <button
               onClick={() => setCarouselIdx(i => (i + 1) % 4)}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-14 z-10 w-10 h-10 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors"
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 sm:translate-x-16 z-10 w-11 h-11 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] hover:bg-[var(--card-hover)] transition-all active:scale-95"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
             </button>
 
-            {/* 3D Carousel Track — swipeable */}
-            <div className="overflow-hidden">
+            {/* Card stack — all 4 cards stacked, active one in front */}
+            <div
+              className="relative select-none"
+              style={{ height: 420, perspective: '1000px' }}
+              onTouchStart={e => { touchStartX.current = e.touches[0].clientX; touchDeltaX.current = 0; }}
+              onTouchMove={e => { touchDeltaX.current = e.touches[0].clientX - touchStartX.current; }}
+              onTouchEnd={() => {
+                const threshold = 60;
+                if (touchDeltaX.current < -threshold) setCarouselIdx(i => (i + 1) % 4);
+                else if (touchDeltaX.current > threshold) setCarouselIdx(i => (i - 1 + 4) % 4);
+                touchDeltaX.current = 0;
+              }}
+            >
+              {/* ISP Card — idx 0 */}
               <div
-                className="flex transition-transform duration-500 ease-out select-none"
-                style={{ transform: `translateX(calc(-${carouselIdx * 25}%))` }}
-                onTouchStart={e => {
-                  touchStartX.current = e.touches[0].clientX;
-                  touchDeltaX.current = 0;
-                }}
-                onTouchMove={e => {
-                  touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
-                }}
-                onTouchEnd={() => {
-                  const threshold = 50;
-                  if (touchDeltaX.current < -threshold) setCarouselIdx(i => (i + 1) % 4);
-                  else if (touchDeltaX.current > threshold) setCarouselIdx(i => (i - 1 + 4) % 4);
-                  touchDeltaX.current = 0;
+                className="absolute inset-0 bg-[var(--card)] border rounded-2xl p-6 flex flex-col transition-all duration-500"
+                style={{
+                  transform: carouselIdx === 0
+                    ? 'translateZ(0px) scale(1) rotateY(0deg)'
+                    : carouselIdx === 1
+                    ? 'translateZ(-60px) scale(0.88) rotateY(18deg) translateX(30px)'
+                    : carouselIdx === 3
+                    ? 'translateZ(-60px) scale(0.88) rotateY(-18deg) translateX(-30px)'
+                    : 'translateZ(-80px) scale(0.82)',
+                  opacity: carouselIdx === 0 ? 1 : 0.4,
+                  pointerEvents: carouselIdx === 0 ? 'auto' : 'none',
+                  zIndex: carouselIdx === 0 ? 4 : 1,
                 }}
               >
-                {/* ISP */}
-                <div className="w-full flex-shrink-0 px-4 sm:px-16">
-                  <div className="relative max-w-sm mx-auto" style={{ perspective: '1200px' }}>
-                    <div
-                      className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 transition-transform duration-500"
-                      style={{
-                        transformStyle: 'preserve-3d',
-                        transform: carouselIdx === 0
-                          ? 'rotateY(0deg) scale(1.05) translateZ(30px)'
-                          : 'rotateY(15deg) scale(0.95)',
-                        opacity: carouselIdx === 0 ? 1 : 0.5,
-                        filter: carouselIdx === 0 ? 'none' : 'blur(2px)',
-                      }}
-                    >
-                      <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-[var(--primary)]" />
-                      <div className="flex flex-col items-center text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-[var(--primary)]/15 flex items-center justify-center mb-4">
-                          <svg className="w-8 h-8 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 014 9 15.3 15.3 0 01-4 9 15.3 15.3 0 01-4-9 15.3 15.3 0 014-9z"/></svg>
-                        </div>
-                        <h3 className="text-xl font-bold mb-1">ISP Proxies</h3>
-                        <p className="text-sm text-[var(--muted)] mb-6">Fast &amp; stable ISP IPs from data centers</p>
-                        <div className="w-full space-y-4 mb-6">
-                          {[{ label: 'Speed', value: 'High', bar: 90 },{ label: 'Detection Risk', value: 'Low', bar: 30 },{ label: 'Anonymity', value: 'High', bar: 75 },{ label: 'Reliability', value: 'High', bar: 85 }].map(({ label, value, bar }) => (
-                            <div key={label}>
-                              <div className="flex justify-between text-xs mb-1.5">
-                                <span className="text-[var(--muted)]">{label}</span>
-                                <span className="font-medium text-[var(--foreground)]">{value}</span>
-                              </div>
-                              <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="pt-4 border-t border-[var(--border)] w-full">
-                          <p className="text-xs text-[var(--muted)] mb-1">From</p>
-                          <p className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>N6,500<span className="text-sm font-normal text-[var(--muted)]">/mo</span></p>
-                        </div>
-                      </div>
-                    </div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/15 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 014 9 15.3 15.3 0 01-4 9 15.3 15.3 0 01-4-9 15.3 15.3 0 014-9z"/></svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold">ISP Proxies</h3>
+                    <p className="text-xs text-[var(--muted)]">Fast &amp; stable ISP IPs</p>
+                  </div>
+                  <div className="ml-auto">
+                    <span className="text-lg font-bold" style={{ color: 'var(--primary)' }}>₦6,500</span>
+                    <span className="text-xs text-[var(--muted)]">/mo</span>
                   </div>
                 </div>
+                <div className="flex-1 space-y-2.5">
+                  {[['Speed', 'High', 90],['Detection Risk', 'Low', 30],['Anonymity', 'High', 75],['Reliability', 'High', 85]].map(([label, val, bar]) => (
+                    <div key={label as string}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-[var(--muted)]">{label}</span>
+                        <span className="font-medium text-[10px]">{val}</span>
+                      </div>
+                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Link href="/order" onClick={e => e.stopPropagation()} className="mt-4 w-full py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-sm text-center transition-colors">
+                  Order ISP →
+                </Link>
+              </div>
 
-                {/* Residential */}
-                <div className="w-full flex-shrink-0 px-4 sm:px-16">
-                  <div className="relative max-w-sm mx-auto" style={{ perspective: '1200px' }}>
-                    <div
-                      className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 transition-transform duration-500"
-                      style={{
-                        transformStyle: 'preserve-3d',
-                        transform: carouselIdx === 1
-                          ? 'rotateY(0deg) scale(1.05) translateZ(30px)'
-                          : 'rotateY(15deg) scale(0.95)',
-                        opacity: carouselIdx === 1 ? 1 : 0.5,
-                        filter: carouselIdx === 1 ? 'none' : 'blur(2px)',
-                      }}
-                    >
-                      <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-[var(--primary)]" />
-                      <div className="flex flex-col items-center text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-[var(--primary)]/15 flex items-center justify-center mb-4">
-                          <svg className="w-8 h-8 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
-                        </div>
-                        <h3 className="text-xl font-bold mb-1">Residential</h3>
-                        <p className="text-sm text-[var(--muted)] mb-6">Real home IPs from real devices</p>
-                        <div className="w-full space-y-4 mb-6">
-                          {[{ label: 'Speed', value: 'Medium', bar: 60 },{ label: 'Detection Risk', value: 'Very Low', bar: 15 },{ label: 'Anonymity', value: 'Very High', bar: 95 },{ label: 'Reliability', value: 'High', bar: 80 }].map(({ label, value, bar }) => (
-                            <div key={label}>
-                              <div className="flex justify-between text-xs mb-1.5">
-                                <span className="text-[var(--muted)]">{label}</span>
-                                <span className="font-medium text-[var(--foreground)]">{value}</span>
-                              </div>
-                              <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="pt-4 border-t border-[var(--border)] w-full">
-                          <p className="text-xs text-[var(--muted)] mb-1">From</p>
-                          <p className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>N5,000<span className="text-sm font-normal text-[var(--muted)]">/5GB</span></p>
-                        </div>
-                      </div>
-                    </div>
+              {/* Residential Card — idx 1 */}
+              <div
+                className="absolute inset-0 bg-[var(--card)] border rounded-2xl p-6 flex flex-col transition-all duration-500"
+                style={{
+                  transform: carouselIdx === 1
+                    ? 'translateZ(0px) scale(1) rotateY(0deg)'
+                    : carouselIdx === 2
+                    ? 'translateZ(-60px) scale(0.88) rotateY(18deg) translateX(30px)'
+                    : carouselIdx === 0
+                    ? 'translateZ(-60px) scale(0.88) rotateY(-18deg) translateX(-30px)'
+                    : 'translateZ(-80px) scale(0.82)',
+                  opacity: carouselIdx === 1 ? 1 : 0.4,
+                  pointerEvents: carouselIdx === 1 ? 'auto' : 'none',
+                  zIndex: carouselIdx === 1 ? 4 : 1,
+                }}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/15 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold">Residential</h3>
+                    <p className="text-xs text-[var(--muted)]">Real home IPs from real devices</p>
+                  </div>
+                  <div className="ml-auto">
+                    <span className="text-lg font-bold" style={{ color: 'var(--primary)' }}>₦5,000</span>
+                    <span className="text-xs text-[var(--muted)]">/5GB</span>
                   </div>
                 </div>
+                <div className="flex-1 space-y-2.5">
+                  {[['Speed', 'Medium', 60],['Detection Risk', 'Very Low', 15],['Anonymity', 'Very High', 95],['Reliability', 'High', 80]].map(([label, val, bar]) => (
+                    <div key={label as string}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-[var(--muted)]">{label}</span>
+                        <span className="font-medium text-[10px]">{val}</span>
+                      </div>
+                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Link href="/order" onClick={e => e.stopPropagation()} className="mt-4 w-full py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-sm text-center transition-colors">
+                  Order Residential →
+                </Link>
+              </div>
 
-                {/* Mobile */}
-                <div className="w-full flex-shrink-0 px-4 sm:px-16">
-                  <div className="relative max-w-sm mx-auto" style={{ perspective: '1200px' }}>
-                    <div
-                      className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 transition-transform duration-500"
-                      style={{
-                        transformStyle: 'preserve-3d',
-                        transform: carouselIdx === 2
-                          ? 'rotateY(0deg) scale(1.05) translateZ(30px)'
-                          : 'rotateY(15deg) scale(0.95)',
-                        opacity: carouselIdx === 2 ? 1 : 0.5,
-                        filter: carouselIdx === 2 ? 'none' : 'blur(2px)',
-                      }}
-                    >
-                      <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-[var(--primary)]" />
-                      <div className="flex flex-col items-center text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-[var(--primary)]/15 flex items-center justify-center mb-4">
-                          <svg className="w-8 h-8 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M9 9.563A9 9 0 1112 15.5M15 15.5V18m0-2.5a2.5 2.5 0 10-5 0 2.5 2.5 0 005 0z"/></svg>
-                        </div>
-                        <h3 className="text-xl font-bold mb-1">Mobile 4G</h3>
-                        <p className="text-sm text-[var(--muted)] mb-6">Real 4G/LTE carrier IPs</p>
-                        <div className="w-full space-y-4 mb-6">
-                          {[{ label: 'Speed', value: 'Medium', bar: 55 },{ label: 'Detection Risk', value: 'Extremely Low', bar: 8 },{ label: 'Anonymity', value: 'Maximum', bar: 100 },{ label: 'Reliability', value: 'High', bar: 80 }].map(({ label, value, bar }) => (
-                            <div key={label}>
-                              <div className="flex justify-between text-xs mb-1.5">
-                                <span className="text-[var(--muted)]">{label}</span>
-                                <span className="font-medium text-[var(--foreground)]">{value}</span>
-                              </div>
-                              <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="pt-4 border-t border-[var(--border)] w-full">
-                          <p className="text-xs text-[var(--muted)] mb-1">From</p>
-                          <p className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>N20,000<span className="text-sm font-normal text-[var(--muted)]">/5GB</span></p>
-                        </div>
-                      </div>
-                    </div>
+              {/* Mobile Card — idx 2 */}
+              <div
+                className="absolute inset-0 bg-[var(--card)] border rounded-2xl p-6 flex flex-col transition-all duration-500"
+                style={{
+                  transform: carouselIdx === 2
+                    ? 'translateZ(0px) scale(1) rotateY(0deg)'
+                    : carouselIdx === 3
+                    ? 'translateZ(-60px) scale(0.88) rotateY(18deg) translateX(30px)'
+                    : carouselIdx === 1
+                    ? 'translateZ(-60px) scale(0.88) rotateY(-18deg) translateX(-30px)'
+                    : 'translateZ(-80px) scale(0.82)',
+                  opacity: carouselIdx === 2 ? 1 : 0.4,
+                  pointerEvents: carouselIdx === 2 ? 'auto' : 'none',
+                  zIndex: carouselIdx === 2 ? 4 : 1,
+                }}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/15 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M9 9.563A9 9 0 1112 15.5M15 15.5V18m0-2.5a2.5 2.5 0 10-5 0 2.5 2.5 0 005 0z"/></svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold">Mobile 4G</h3>
+                    <p className="text-xs text-[var(--muted)]">Real 4G/LTE carrier IPs</p>
+                  </div>
+                  <div className="ml-auto">
+                    <span className="text-lg font-bold" style={{ color: 'var(--primary)' }}>₦20,000</span>
+                    <span className="text-xs text-[var(--muted)]">/5GB</span>
                   </div>
                 </div>
+                <div className="flex-1 space-y-2.5">
+                  {[['Speed', 'Medium', 55],['Detection Risk', 'Extremely Low', 8],['Anonymity', 'Maximum', 100],['Reliability', 'High', 80]].map(([label, val, bar]) => (
+                    <div key={label as string}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-[var(--muted)]">{label}</span>
+                        <span className="font-medium text-[10px]">{val}</span>
+                      </div>
+                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Link href="/order" onClick={e => e.stopPropagation()} className="mt-4 w-full py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-sm text-center transition-colors">
+                  Order Mobile →
+                </Link>
+              </div>
 
-                {/* Datacenter */}
-                <div className="w-full flex-shrink-0 px-4 sm:px-16">
-                  <div className="relative max-w-sm mx-auto" style={{ perspective: '1200px' }}>
-                    <div
-                      className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 transition-transform duration-500"
-                      style={{
-                        transformStyle: 'preserve-3d',
-                        transform: carouselIdx === 3
-                          ? 'rotateY(0deg) scale(1.05) translateZ(30px)'
-                          : 'rotateY(15deg) scale(0.95)',
-                        opacity: carouselIdx === 3 ? 1 : 0.5,
-                        filter: carouselIdx === 3 ? 'none' : 'blur(2px)',
-                      }}
-                    >
-                      <div className="absolute top-0 left-0 right-0 h-1.5 rounded-t-2xl bg-[var(--primary)]" />
-                      <div className="flex flex-col items-center text-center">
-                        <div className="w-16 h-16 rounded-2xl bg-[var(--primary)]/15 flex items-center justify-center mb-4">
-                          <svg className="w-8 h-8 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 12H3m0 0l2-2m-2 2l2 2M19 12h2m0 0l2-2m-2 2l2 2M9 4H7a2 2 0 00-2 2v2m0 8v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m0 8v2a2 2 0 01-2 2h-2"/></svg>
-                        </div>
-                        <h3 className="text-xl font-bold mb-1">Datacenter</h3>
-                        <p className="text-sm text-[var(--muted)] mb-6">Budget cloud server IPs</p>
-                        <div className="w-full space-y-4 mb-6">
-                          {[{ label: 'Speed', value: 'Very High', bar: 95 },{ label: 'Detection Risk', value: 'High', bar: 70 },{ label: 'Anonymity', value: 'Medium', bar: 45 },{ label: 'Reliability', value: 'High', bar: 85 }].map(({ label, value, bar }) => (
-                            <div key={label}>
-                              <div className="flex justify-between text-xs mb-1.5">
-                                <span className="text-[var(--muted)]">{label}</span>
-                                <span className="font-medium text-[var(--foreground)]">{value}</span>
-                              </div>
-                              <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                                <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="pt-4 border-t border-[var(--border)] w-full">
-                          <p className="text-xs text-[var(--muted)] mb-1">From</p>
-                          <p className="text-2xl font-bold" style={{ color: 'var(--primary)' }}>N3,500<span className="text-sm font-normal text-[var(--muted)]">/mo</span></p>
-                        </div>
-                      </div>
-                    </div>
+              {/* Datacenter Card — idx 3 */}
+              <div
+                className="absolute inset-0 bg-[var(--card)] border rounded-2xl p-6 flex flex-col transition-all duration-500"
+                style={{
+                  transform: carouselIdx === 3
+                    ? 'translateZ(0px) scale(1) rotateY(0deg)'
+                    : carouselIdx === 0
+                    ? 'translateZ(-60px) scale(0.88) rotateY(18deg) translateX(30px)'
+                    : carouselIdx === 2
+                    ? 'translateZ(-60px) scale(0.88) rotateY(-18deg) translateX(-30px)'
+                    : 'translateZ(-80px) scale(0.82)',
+                  opacity: carouselIdx === 3 ? 1 : 0.4,
+                  pointerEvents: carouselIdx === 3 ? 'auto' : 'none',
+                  zIndex: carouselIdx === 3 ? 4 : 1,
+                }}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/15 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 12H3m0 0l2-2m-2 2l2 2M19 12h2m0 0l2-2m-2 2l2 2M9 4H7a2 2 0 00-2 2v2m0 8v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m0 8v2a2 2 0 01-2 2h-2"/></svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold">Datacenter</h3>
+                    <p className="text-xs text-[var(--muted)]">Budget cloud server IPs</p>
+                  </div>
+                  <div className="ml-auto">
+                    <span className="text-lg font-bold" style={{ color: 'var(--primary)' }}>₦3,500</span>
+                    <span className="text-xs text-[var(--muted)]">/mo</span>
                   </div>
                 </div>
+                <div className="flex-1 space-y-2.5">
+                  {[['Speed', 'Very High', 95],['Detection Risk', 'High', 70],['Anonymity', 'Medium', 45],['Reliability', 'High', 85]].map(([label, val, bar]) => (
+                    <div key={label as string}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-[var(--muted)]">{label}</span>
+                        <span className="font-medium text-[10px]">{val}</span>
+                      </div>
+                      <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-[var(--primary)]" style={{ width: `${bar}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Link href="/order" onClick={e => e.stopPropagation()} className="mt-4 w-full py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-sm text-center transition-colors">
+                  Order Datacenter →
+                </Link>
               </div>
             </div>
 
@@ -449,7 +458,7 @@ export default function ProductsPage() {
                 <button
                   key={i}
                   onClick={() => setCarouselIdx(i)}
-                  className="h-2 rounded-full transition-all duration-300"
+                  className="h-2 rounded-full transition-all duration-300 cursor-pointer"
                   style={{
                     width: carouselIdx === i ? 24 : 8,
                     background: carouselIdx === i ? 'var(--primary)' : 'var(--border)',
@@ -460,53 +469,159 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* All Products & Pricing Table */}
+        {/* All Products & Pricing */}
         <div className="mb-20">
           <h2 className="text-2xl font-bold text-center mb-8">All Products &amp; Pricing</h2>
-          <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--card)]">
-                  <th className="text-left py-4 px-4 font-semibold text-sm">Proxy Type</th>
-                  <th className="text-left py-4 px-4 font-semibold text-sm hidden sm:table-cell">Country</th>
-                  <th className="text-left py-4 px-4 font-semibold text-sm hidden md:table-cell">Specs</th>
-                  <th className="text-right py-4 px-4 font-semibold text-sm">Price</th>
-                  <th className="py-4 px-4"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border)]">
-                {products.map((product) => (
-                  <tr key={product.plan_code} className="bg-[var(--card)] hover:bg-[var(--card-hover)] transition-colors">
-                    <td className="py-4 px-4">
+
+          {/* Proxy type tabs — group by type */}
+          <div className="space-y-10">
+            {/* ISP Proxies */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-[var(--primary)]/15 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 014 9 15.3 15.3 0 01-4 9 15.3 15.3 0 01-4-9 15.3 15.3 0 014-9z"/></svg>
+                </div>
+                <h3 className="font-bold text-lg">ISP Proxies</h3>
+                <span className="ml-auto text-xs text-[var(--muted)] bg-[var(--card)] border border-[var(--border)] rounded-full px-3 py-1">
+                  {products.filter(p => p.plan_type.toUpperCase().includes('ISP')).length} plans
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {products.filter(p => p.plan_type.toUpperCase().includes('ISP')).map((product) => (
+                  <div key={product.plan_code} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--primary)] transition-colors group">
+                    <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-xl">{product.flag}</span>
+                        <span className="text-lg">{product.flag}</span>
                         <div>
-                          <p className="font-semibold text-sm">{product.plan_type}</p>
-                          <p className="text-xs text-[var(--muted)] sm:hidden">{product.country !== 'GLOBAL' ? product.country : 'Global'}</p>
+                          <p className="font-semibold text-sm">{product.country !== 'GLOBAL' ? COUNTRIES[product.country]?.name || product.country : '🌍 Global'}</p>
+                          <p className="text-xs text-[var(--muted)]">{product.features[0]}</p>
                         </div>
                       </div>
-                    </td>
-                    <td className="py-4 px-4 text-sm text-[var(--muted)] hidden sm:table-cell">
-                      {product.country !== 'GLOBAL' ? COUNTRIES[product.country]?.name || product.country : '🌍'}
-                    </td>
-                    <td className="py-4 px-4 text-xs text-[var(--muted)] hidden md:table-cell">
-                      {product.features.slice(0, 3).join(' · ')}
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <span className="font-bold" style={{ color: 'var(--primary)' }}>{formatPrice(product.price_ngn)}</span>
-                    </td>
-                    <td className="py-4 px-4 text-right">
-                      <Link
-                        href={`/order?plan=${product.plan_code}`}
-                        className="px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-xs transition-colors"
-                      >
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-[var(--muted)] mb-0.5">Starting from</p>
+                        <p className="text-lg font-bold" style={{ color: 'var(--primary)' }}>{formatPrice(product.price_ngn)}</p>
+                      </div>
+                      <Link href={`/order?plan=${product.plan_code}`} className="px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-xs transition-colors">
                         Order
                       </Link>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
+
+            {/* Residential */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-[var(--primary)]/15 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+                </div>
+                <h3 className="font-bold text-lg">Residential</h3>
+                <span className="ml-auto text-xs text-[var(--muted)] bg-[var(--card)] border border-[var(--border)] rounded-full px-3 py-1">
+                  {products.filter(p => p.plan_type.toUpperCase().includes('RESIDENTIAL')).length} plans
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {products.filter(p => p.plan_type.toUpperCase().includes('RESIDENTIAL')).map((product) => (
+                  <div key={product.plan_code} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--primary)] transition-colors">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{product.flag}</span>
+                        <div>
+                          <p className="font-semibold text-sm">{product.country !== 'GLOBAL' ? COUNTRIES[product.country]?.name || product.country : '🌍 Global'}</p>
+                          <p className="text-xs text-[var(--muted)]">{product.features[0]}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-[var(--muted)] mb-0.5">Starting from</p>
+                        <p className="text-lg font-bold" style={{ color: 'var(--primary)' }}>{formatPrice(product.price_ngn)}</p>
+                      </div>
+                      <Link href={`/order?plan=${product.plan_code}`} className="px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-xs transition-colors">
+                        Order
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Mobile */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-[var(--primary)]/15 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M9 9.563A9 9 0 1112 15.5M15 15.5V18m0-2.5a2.5 2.5 0 10-5 0 2.5 2.5 0 005 0z"/></svg>
+                </div>
+                <h3 className="font-bold text-lg">Mobile 4G</h3>
+                <span className="ml-auto text-xs text-[var(--muted)] bg-[var(--card)] border border-[var(--border)] rounded-full px-3 py-1">
+                  {products.filter(p => p.plan_type.toUpperCase().includes('MOBILE') || p.plan_type.toUpperCase().includes('4G')).length} plans
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {products.filter(p => p.plan_type.toUpperCase().includes('MOBILE') || p.plan_type.toUpperCase().includes('4G')).map((product) => (
+                  <div key={product.plan_code} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--primary)] transition-colors">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{product.flag}</span>
+                        <div>
+                          <p className="font-semibold text-sm">{product.country !== 'GLOBAL' ? COUNTRIES[product.country]?.name || product.country : '🌍 Global'}</p>
+                          <p className="text-xs text-[var(--muted)]">{product.features[0]}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-[var(--muted)] mb-0.5">Starting from</p>
+                        <p className="text-lg font-bold" style={{ color: 'var(--primary)' }}>{formatPrice(product.price_ngn)}</p>
+                      </div>
+                      <Link href={`/order?plan=${product.plan_code}`} className="px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-xs transition-colors">
+                        Order
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Datacenter */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-[var(--primary)]/15 flex items-center justify-center">
+                  <svg className="w-4 h-4 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 12H3m0 0l2-2m-2 2l2 2M19 12h2m0 0l2-2m-2 2l2 2M9 4H7a2 2 0 00-2 2v2m0 8v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m0 8v2a2 2 0 01-2 2h-2"/></svg>
+                </div>
+                <h3 className="font-bold text-lg">Datacenter</h3>
+                <span className="ml-auto text-xs text-[var(--muted)] bg-[var(--card)] border border-[var(--border)] rounded-full px-3 py-1">
+                  {products.filter(p => p.plan_type.toUpperCase().includes('DATACENTER') || p.plan_type.toUpperCase().includes('DC')).length} plans
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {products.filter(p => p.plan_type.toUpperCase().includes('DATACENTER') || p.plan_type.toUpperCase().includes('DC')).map((product) => (
+                  <div key={product.plan_code} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--primary)] transition-colors">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{product.flag}</span>
+                        <div>
+                          <p className="font-semibold text-sm">{product.country !== 'GLOBAL' ? COUNTRIES[product.country]?.name || product.country : '🌍 Global'}</p>
+                          <p className="text-xs text-[var(--muted)]">{product.features[0]}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-[var(--muted)] mb-0.5">Starting from</p>
+                        <p className="text-lg font-bold" style={{ color: 'var(--primary)' }}>{formatPrice(product.price_ngn)}</p>
+                      </div>
+                      <Link href={`/order?plan=${product.plan_code}`} className="px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-xs transition-colors">
+                        Order
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
