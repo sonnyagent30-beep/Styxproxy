@@ -8,95 +8,75 @@ const GlobeMap = dynamic(() => import('@/components/GlobeMap'), { ssr: false });
 
 export default function Hero() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
+    <section className="relative min-h-screen pt-16 overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-gradient-to-br from-[var(--background)] via-[var(--card)] to-[var(--background)]" />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[var(--primary)]/10 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[var(--accent)]/10 rounded-full blur-3xl" />
 
-      {/* Globe + Headline split */}
-      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-        <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
-          {/* Globe — left side */}
-          <div className="w-full lg:w-1/2">
-            <GlobeMap />
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+
+        {/* Globe — full width above everything */}
+        <div className="w-full">
+          <GlobeMap />
+        </div>
+
+        {/* Headline — centered below globe */}
+        <div className="w-full text-center mt-8 space-y-6">
+          {/* Badge */}
+          <div className="inline-flex items-center px-4 py-2 rounded-full bg-[var(--card)] border border-[var(--border)] animate-fade-in">
+            <span className="w-2 h-2 rounded-full bg-[var(--primary)] mr-2 animate-pulse" />
+            <span className="text-sm text-[var(--muted)]">Order instantly — no account needed</span>
           </div>
 
-          {/* Headline + CTAs — right side */}
-          <div className="w-full lg:w-1/2 text-center lg:text-left space-y-6">
-            {/* Badge */}
-            <div className="inline-flex items-center px-4 py-2 rounded-full bg-[var(--card)] border border-[var(--border)] animate-fade-in">
-              <span className="w-2 h-2 rounded-full bg-[var(--primary)] mr-2 animate-pulse" />
-              <span className="text-sm text-[var(--muted)]">Order instantly — no account needed</span>
-            </div>
+          {/* Headline */}
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight animate-slide-up">
+            <span className="text-[var(--foreground)]">Nigeria's Anonymous </span>
+            <span className="gradient-text">Proxy Reseller</span>
+          </h1>
 
-            {/* Headline */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight animate-slide-up">
-              <span className="text-[var(--foreground)]">Nigeria's Anonymous </span>
-              <span className="gradient-text">Proxy Reseller</span>
-            </h1>
+          {/* Subheadline */}
+          <p className="text-lg sm:text-xl text-[var(--muted)] animate-slide-up" style={{ animationDelay: '0.1s' }}>
+            ISP, Residential, Datacenter &amp; Mobile 4G proxies. Order instantly. Pay in NGN. Get credentials on the spot.
+          </p>
 
-            {/* Subheadline */}
-            <p className="text-lg sm:text-xl text-[var(--muted)] animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              ISP, Residential, Datacenter &amp; Mobile 4G proxies. Order instantly. Pay in NGN. Get credentials on the spot.
-            </p>
+          {/* Primary CTA */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            <Link
+              href="/order"
+              className="w-full sm:w-auto min-w-[200px] px-8 py-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-bold rounded-xl text-lg transition-all hover:scale-105 hover:shadow-lg hover:shadow-[var(--primary)]/25 flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Order Now
+            </Link>
+            <Link
+              href="/products"
+              className="w-full sm:w-auto min-w-[200px] px-8 py-4 bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold rounded-xl text-lg transition-all flex items-center justify-center gap-2"
+            >
+              View Products
+            </Link>
+          </div>
 
-            {/* Primary CTA */}
-            <div className="flex flex-col sm:flex-row items-center lg:justify-start gap-3 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              <Link
-                href="/order"
-                className="w-full sm:w-auto min-w-[200px] px-8 py-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-bold rounded-xl text-lg transition-all hover:scale-105 hover:shadow-lg hover:shadow-[var(--primary)]/25 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Order Now
-              </Link>
-              <Link
-                href="/products"
-                className="w-full sm:w-auto min-w-[200px] px-8 py-4 bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold rounded-xl text-lg transition-all flex items-center justify-center gap-2"
-              >
-                View Products
-              </Link>
-            </div>
-
-            {/* Trust Indicators */}
-            <div className="flex flex-wrap items-center lg:justify-start gap-6 text-[var(--muted)] animate-fade-in" style={{ animationDelay: '0.25s' }}>
-              {[
-                { label: 'Instant Delivery', icon: '⚡' },
-                { label: '24/7 Support', icon: '🛟' },
-                { label: 'Free Replacement', icon: '♻️' },
-              ].map(({ label, icon }) => (
-                <div key={label} className="flex items-center space-x-2 text-sm">
-                  <span>{icon}</span>
-                  <span>{label}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Proxy Type Pills — quick overview */}
-            <div className="flex flex-wrap gap-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-              {[
-                { type: 'ISP',         desc: 'Web scraping' },
-                { type: 'Residential', desc: 'Stealth access' },
-                { type: 'Mobile 4G',  desc: 'Social media' },
-                { type: 'Datacenter',  desc: 'General use' },
-              ].map(({ type, desc }) => (
-                <div
-                  key={type}
-                  className="px-3 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] text-xs"
-                >
-                  <span className="font-semibold text-[var(--primary)]">{type}</span>
-                  <span className="text-[var(--muted)] ml-1">— {desc}</span>
-                </div>
-              ))}
-            </div>
+          {/* Trust Indicators */}
+          <div className="flex flex-wrap items-center justify-center gap-6 text-[var(--muted)] animate-fade-in" style={{ animationDelay: '0.25s' }}>
+            {[
+              { label: 'Instant Delivery', icon: '⚡' },
+              { label: '24/7 Support', icon: '🛟' },
+              { label: 'Free Replacement', icon: '♻️' },
+            ].map(({ label, icon }) => (
+              <div key={label} className="flex items-center space-x-2 text-sm">
+                <span>{icon}</span>
+                <span>{label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Proxy Types Explainer */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full mt-24">
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full mt-20 mb-16">
         <h2 className="text-2xl font-bold text-center mb-10">How It Works</h2>
         <div className="grid md:grid-cols-3 gap-6">
           {[
@@ -131,7 +111,7 @@ export default function Hero() {
       </div>
 
       {/* Contact Section */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full mt-24 mb-16">
+      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full mt-8 mb-16">
         <h2 className="text-2xl font-bold text-center mb-4">Need Help?</h2>
         <p className="text-[var(--muted)] text-center mb-8">
           Use the chat widget below for instant support, or reach us via:

@@ -19,7 +19,7 @@ Bunche operates across three independent channels. All three channels offer the 
 ### 2.1 Instant (Website) — bunche.ng
 
 The primary order path. No account required. No personal data collected beyond what is necessary to process your order.
-- Select product → pay via Flutterwave → receive IP immediately on screen
+- Select product → pay securely via our payment processor → receive IP immediately on screen
 - No registration. No phone number. No email required.
 - Order number (Flutterwave transaction reference) is your only order identifier
 - Management portal: bunche.ng/manage — enter your order number to check status, renew, or raise a ban claim
