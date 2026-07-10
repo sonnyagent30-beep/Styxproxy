@@ -5,7 +5,6 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import type { GlobeMethods } from 'react-globe.gl';
-import { feature } from 'topojson-client';
 
 // Load react-globe.gl only on client (SSR disabled)
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
@@ -25,6 +24,7 @@ const LOCATIONS = [
 
 const BRAND_GREEN = '#10B981';
 const LIGHT_GREEN = '#4ADE80';
+const WORLD_COUNTRIES = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 export default function GlobeMap() {
   const globeRef  = useRef<GlobeMethods | null>(null);
@@ -33,7 +33,6 @@ export default function GlobeMap() {
   const [dims, setDims] = useState({ w: 520, h: 520 });
   const [ready, setReady] = useState(false);
   const [containerOpacity, setContainerOpacity] = useState(0);
-  const [countriesData, setCountriesData] = useState<object[]>([]);
 
   // Detect system theme
   useEffect(() => {
@@ -44,22 +43,13 @@ export default function GlobeMap() {
     return () => mq.removeEventListener('change', handler);
   }, []);
 
-  // Load world countries GeoJSON from CDN
+  // Load world countries TopoJSON
   useEffect(() => {
-    const topoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+    const topoUrl = WORLD_COUNTRIES;
     fetch(topoUrl)
       .then(r => r.json())
-      .then(topo => {
-        const countries = feature(
-          topo as { objects: { countries: object } },
-          (topo.objects as { countries: object }).countries
-        ) as { features: object[] };
-        setCountriesData(countries.features);
-      })
-      .catch(() => {
-        // Fallback: empty array
-        setCountriesData([]);
-      });
+      .then(() => {}) // globe.gl loads this internally via hexTopoData URL
+      .catch(() => {});
   }, []);
 
   // Responsive sizing
@@ -125,14 +115,15 @@ export default function GlobeMap() {
           // Atmosphere glow
           atmosphereColor={atmosphereColor}
           atmosphereAltitude={atmosphereAlt}
-          // Continent dots — hex polygons rendered as dots
-          hexPolygonsData={countriesData}
-          hexPolygonGeoJsonGeometry={(d: object) => (d as { geometry: object }).geometry}
+          // Continent dots — hex bins over world TopoJSON, rendered as dots
+          hexPolygonsData={[]}
+          hexTopoData={`${WORLD_COUNTRIES}`}
+          hexPolygonGeoJsonGeometry={() => 'geometry'}
           hexPolygonUseDots={() => true}
           hexPolygonDotResolution={6}
           hexPolygonMargin={0.6}
           hexPolygonColor={() => dotColorHex}
-          hexPolygonAltitude={() => 0.002}
+          hexPolygonAltitude={() => 0.001}
           // Country markers — brand green
           pointsData={LOCATIONS}
           pointLat="lat"
