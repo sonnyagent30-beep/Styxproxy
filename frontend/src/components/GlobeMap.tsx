@@ -16,6 +16,14 @@ const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
 const BRAND_GREEN       = '#10B981';   // --primary
 const BRAND_GREEN_LIGHT = '#34D399';   // --primary-light
 
+// Short display names for product types
+const PRODUCT_SHORT_NAMES: Record<string, string> = {
+  ISP:         'ISP',
+  RESIDENTIAL: 'Residential',
+  MOBILE:      'Mobile 4G',
+  DC:          'Datacenter',
+};
+
 interface GlobeMapProps {
   /**
    * Filter the globe to show only countries available for this product type.
@@ -234,7 +242,7 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
         )}
       </AnimatePresence>
 
-      {/* Coverage badge — shows country count + available product types */}
+      {/* Coverage badge — shows quick product summary, not just a count */}
       <div
         className={`absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border z-20`}
         style={{
@@ -244,11 +252,11 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
           transition: 'opacity 400ms',
         }}
       >
-        <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{LOCATIONS.length} Countries</p>
-        <p className="text-sm font-bold" style={{ color: BRAND_GREEN }}>
+        <p className="text-xs font-medium" style={{ color: BRAND_GREEN }}>Live Coverage</p>
+        <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
           {productType && productType !== 'ALL'
-            ? `${productType} Proxies`
-            : 'All Proxy Types'}
+            ? `${PRODUCT_SHORT_NAMES[productType] ?? productType} plans available`
+            : 'All plans — ISP, Residential, Mobile & DC'}
         </p>
       </div>
     </div>
