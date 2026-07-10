@@ -295,43 +295,72 @@ export default function OrderPage() {
                 )}
               </div>
 
-              {/* Plan List — filtered by selected country */}
+              {/* Plan List — one card per country (deduplicated by country code) */}
               <div className="p-4 max-h-72 overflow-y-auto space-y-2">
-                {selectedCountry && modalData.variants.map(product => {
-                  // For ISP we resolve the country-specific plan_code when available;
-                  // for GLOBAL plans we surface them all (country is captured separately).
-                  const realPlan = modalData.card?.hasGeoPlans
-                    ? products.find(p => p.plan_code === `ISP-${selectedCountry}-1`) || product
-                    : product;
-
-                  const cartItem = cart.find(
-                    i => i.plan_code === makePlanCode(realPlan.plan_type, selectedCountry, realPlan.plan_code)
-                  );
-                  const inCart = !!cartItem;
-
-                  return (
-                    <div
-                      key={product.plan_code}
-                      className="flex items-center justify-between p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
-                    >
-                      <div>
-                        <p className="font-semibold">
-                          {COUNTRIES[selectedCountry]?.flag} {formatPlanName(realPlan)} ({COUNTRIES[selectedCountry]?.code})
-                        </p>
-                        <p className="text-sm text-[var(--muted)]">{realPlan.features[0]}</p>
+                {selectedCountry && (() => {
+                  // ISP has hasGeoPlans=true → one plan per country (quantity is handled at cart level)
+                  if (modalData.card?.hasGeoPlans) {
+                    // Find the country-specific ISP plan; fall back to first ISP product if not found
+                    const countryPlan = products.find(
+                      p => p.plan_code === `ISP-${selectedCountry}-1`
+                    ) || products.find(p => p.plan_type === 'ISP');
+                    if (!countryPlan) return null;
+                    const cartItem = cart.find(
+                      i => i.plan_code === makePlanCode(countryPlan.plan_type, selectedCountry, countryPlan.plan_code)
+                    );
+                    return (
+                      <div
+                        key={countryPlan.plan_code}
+                        className="flex items-center justify-between p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
+                      >
+                        <div>
+                          <p className="font-semibold">
+                            {COUNTRIES[selectedCountry]?.flag} {countryPlan.country} ISP
+                          </p>
+                          <p className="text-sm text-[var(--muted)]">{countryPlan.features[0]}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-semibold text-[var(--primary)]">{formatPrice(countryPlan.price_ngn)}</span>
+                          <button
+                            onClick={() => addToCart(countryPlan, selectedCountry)}
+                            className="px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium text-sm transition-colors"
+                          >
+                            {cartItem ? '✓ Added' : '+ Add'}
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-semibold text-[var(--primary)]">{formatPrice(realPlan.price_ngn)}</span>
-                        <button
-                          onClick={() => addToCart(realPlan, selectedCountry)}
-                          className="px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium text-sm transition-colors"
-                        >
-                          {inCart ? '✓ Added' : '+ Add'}
-                        </button>
+                    );
+                  }
+
+                  // Non-Geo plans (Residential / Mobile / DC) — show GLOBAL plans
+                  return modalData.variants.map(product => {
+                    const cartItem = cart.find(
+                      i => i.plan_code === makePlanCode(product.plan_type, selectedCountry, product.plan_code)
+                    );
+                    return (
+                      <div
+                        key={product.plan_code}
+                        className="flex items-center justify-between p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
+                      >
+                        <div>
+                          <p className="font-semibold">
+                            {COUNTRIES[selectedCountry]?.flag} {formatPlanName(product)}
+                          </p>
+                          <p className="text-sm text-[var(--muted)]">{product.features[0]}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-semibold text-[var(--primary)]">{formatPrice(product.price_ngn)}</span>
+                          <button
+                            onClick={() => addToCart(product, selectedCountry)}
+                            className="px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium text-sm transition-colors"
+                          >
+                            {cartItem ? '✓ Added' : '+ Add'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
 
                 {!selectedCountry && (
                   <p className="text-sm text-[var(--muted)] text-center py-6">
