@@ -76,18 +76,23 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
 
   // Pre-fetch world countries TopoJSON and convert to GeoJSON
   useEffect(() => {
+    console.info('[GlobeMap] component mounted');
     const sources = [
       '/world-countries-110m.json',
       'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
       'https://unpkg.com/world-atlas@2/countries-110m.json',
     ];
     const tryLoad = (idx: number) => {
+      console.info('[GlobeMap] trying source:', sources[idx]);
       if (idx >= sources.length) {
         setCountriesData([]);
         return;
       }
       fetch(sources[idx])
-        .then(r => r.json())
+        .then(r => {
+          console.info('[GlobeMap] fetch response:', sources[idx], r.status);
+          return r.json();
+        })
         .then(topo => {
           const countries = feature(
             topo as { objects: { countries: object } },
@@ -186,7 +191,7 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
           polygonStrokeColor={() => outlineColor}
           polygonStrokeWidth={2.0}
           polygonCapCurvatureResolution={5}
-          polygonAltitude={0.03}
+          polygonAltitude={0.005}
           // Country markers — filtered by productType
           pointsData={LOCATIONS}
           pointLat="lat"
