@@ -1,6 +1,49 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+
+// =============================================================
+// Draggable position hook
+// =============================================================
+
+type Position = { x: number; y: number };
+
+function useDraggable(initial: Position = { x: -1, y: -1 }) {
+  const [pos, setPos] = useState<Position>(initial);
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef({ startX: 0, startY: 0, startPosX: 0, startPosY: 0 });
+
+  // -1 means "use default", 0 means "use current computed default"
+  const getDefault = (side: 'x' | 'y') => {
+    if (side === 'x') return window.innerWidth - 70;
+    return window.innerHeight - 70;
+  };
+
+  const startDrag = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const cur = pos.x === -1 ? getDefault('x') : pos.x;
+    const curY = pos.y === -1 ? getDefault('y') : pos.y;
+    dragRef.current = { startX: clientX, startY: clientY, startPosX: cur, startPosY: curY };
+    setDragging(true);
+  }, [pos.x, pos.y]);
+
+  const onDrag = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!dragging) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const dx = clientX - dragRef.current.startX;
+    const dy = clientY - dragRef.current.startY;
+    const newX = Math.max(0, Math.min(window.innerWidth - 70, dragRef.current.startPosX + dx));
+    const newY = Math.max(0, Math.min(window.innerHeight - 70, dragRef.current.startPosY + dy));
+    setPos({ x: newX, y: newY });
+  }, [dragging]);
+
+  const endDrag = useCallback(() => setDragging(false), []);
+
+  return { pos, startDrag, onDrag, endDrag, dragging };
+}
 
 // =============================================================
 // Types
@@ -342,6 +385,48 @@ export default function ChatWidget() {
   const [currentState, setCurrentState] = useState<StateKey>('start');
   const bottomRef                      = useRef<HTMLDivElement>(null);
 
+  // --- Draggable position for FAB and chat window ---
+  const { pos: fabPos, startDrag, onDrag, endDrag, dragging } = useDraggable();
+  const [windowPos, setWindowPos] = useState({ x: -1, y: -1 });
+
+  // Global mouse/touch listeners while dragging
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMove = (e: MouseEvent | TouchEvent) => onDrag(e);
+    const handleUp = () => endDrag();
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleUp);
+    };
+  }, [dragging, onDrag, endDrag]);
+
+  // Sync chat window position with FAB when opening
+  const toggleOpen = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      // Open the chat window near the FAB
+      const wx = fabPos.x === -1 ? window.innerWidth - 430 : fabPos.x;
+      const wy = fabPos.y === -1 ? window.innerHeight - 650 : Math.max(0, fabPos.y - 560);
+      setWindowPos({ x: wx, y: wy });
+    }
+  };
+
+  // Computed pixel positions (default = bottom-right, -1 means "not yet positioned")
+  // When dragged, positions are stored as absolute pixel values.
+  // Default layout uses bottom/right to avoid SSR window issues.
+  const fabStyle: React.CSSProperties = fabPos.x === -1
+    ? { bottom: 24, right: 24 }
+    : { left: fabPos.x, top: fabPos.y, right: 'auto', bottom: 'auto' };
+  const winStyle: React.CSSProperties = windowPos.x === -1
+    ? { bottom: 96, right: 24 }
+    : { left: windowPos.x, top: Math.max(0, windowPos.y), right: 'auto', bottom: 'auto' };
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -385,12 +470,12 @@ export default function ChatWidget() {
     // Handle navigate-like states
     if (next === 'order_done') {
       window.location.href = '/order';
-      setIsOpen(false);
+      toggleOpen(false);
       return;
     }
     if (next === 'escalate') {
       window.open('https://t.me/BuncheBot', '_blank');
-      setIsOpen(false);
+      toggleOpen(false);
       return;
     }
 
@@ -444,29 +529,18 @@ export default function ChatWidget() {
 
   return (
     <>
-      {/* ---- FAB ---- */}
-      <button
-        onClick={() => setIsOpen(v => !v)}
-        aria-label="Open support chat"
-        className="fixed bottom-6 right-6 z-[9998] w-14 h-14 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black shadow-lg flex items-center justify-center transition-all hover:scale-110"
-        style={{ boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)' }}
-      >
-        {isOpen ? (
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        ) : (
-          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-        )}
-      </button>
-
       {/* ---- CHAT WINDOW ---- */}
       {isOpen && (
-        <div className="fixed bottom-24 right-4 sm:right-6 z-[9999] w-[calc(100vw-32px)] sm:w-[390px] h-[600px] max-h-[600px] flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden animate-fade-in">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--card)] shrink-0">
+        <div
+          className="fixed z-[9999] w-[calc(100vw-32px)] sm:w-[390px] h-[600px] max-h-[600px] flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden cursor-move select-none"
+          style={winStyle}
+          onMouseDown={startDrag}
+          onTouchStart={startDrag}
+        >
+          {/* Header — drag handle */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--card)] shrink-0 cursor-move"
+               onMouseDown={startDrag}
+               onTouchStart={startDrag}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center shrink-0">
                 <span className="text-black font-bold text-lg">B</span>
@@ -477,7 +551,7 @@ export default function ChatWidget() {
               </div>
             </div>
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={(e) => { e.stopPropagation(); toggleOpen(false); }}
               className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors shrink-0"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -577,6 +651,27 @@ export default function ChatWidget() {
           </form>
         </div>
       )}
+
+      {/* ---- FAB — draggable ---- */}
+      <button
+        onClick={(e) => { e.stopPropagation(); toggleOpen(!isOpen); }}
+        onMouseDown={startDrag}
+        onTouchStart={startDrag}
+        aria-label="Open support chat"
+        className="fixed z-[9998] w-14 h-14 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black shadow-lg flex items-center justify-center transition-all hover:scale-110 cursor-move select-none active:scale-95"
+        style={fabStyle}
+      >
+        {isOpen ? (
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        )}
+      </button>
     </>
   );
 }
+
