@@ -82,7 +82,6 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
     ];
     const tryLoad = (idx: number) => {
       if (idx >= sources.length) {
-        // Last resort: use empty array so globe still renders (no outlines, but no crash)
         setCountriesData([]);
         return;
       }
@@ -94,8 +93,9 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
             (topo.objects as { countries: object }).countries
           ) as { features: object[] };
           setCountriesData(countries.features);
+          console.info('[GlobeMap] TopoJSON loaded:', countries.features.length, 'features');
         })
-        .catch(() => tryLoad(idx + 1));
+        .catch((e: Error) => { console.warn('[GlobeMap] Failed:', sources[idx], e.message); tryLoad(idx + 1); });
     };
     tryLoad(0);
   }, []);
