@@ -16,7 +16,7 @@ export default function Footer() {
               <span className="text-xl font-bold">Bunche</span>
             </Link>
             <p className="text-[var(--muted)] text-sm max-w-sm">
-              Nigeria's anonymous proxy reseller. ISP, Residential, Datacenter & Mobile 4G proxies. Order instantly, on Telegram, or via WhatsApp.
+              Nigeria's anonymous proxy reseller. ISP, Residential, Datacenter & Mobile 4G proxies. Order instantly via the Bunche bot or on the website.
             </p>
           </div>
 
