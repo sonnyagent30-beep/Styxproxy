@@ -4,18 +4,49 @@ import { useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
+const faqs = [
+  {
+    q: 'How fast is delivery?',
+    a: 'Website orders: credentials appear instantly after payment (10–30 seconds). Bank transfers may take 1–5 minutes to confirm. If credentials don\'t appear within 5 minutes, contact us.',
+  },
+  {
+    q: 'What payment methods do you accept?',
+    a: 'We accept all major payment methods in Nigerian Naira (NGN): Visa, Mastercard, Verve, direct bank transfer, USSD, and QR code. All payments are processed securely.',
+  },
+  {
+    q: 'Can I get a refund?',
+    a: 'Yes. If your proxy doesn\'t work and replacement fails, or if payment was made but proxy was never delivered, you\'re eligible for a full refund within 7 days of purchase.',
+  },
+  {
+    q: 'What\'s your ban replacement policy?',
+    a: 'If your IP gets banned within 24 hours of delivery (due to IP-level bans, not account bans), you\'re eligible for a free replacement. Contact us with your tx_ref to claim.',
+  },
+  {
+    q: 'What\'s the difference between ISP, Residential, and Mobile proxies?',
+    a: 'ISP proxies: Fast, stable, best value. Residential proxies: Real ISP IPs, harder to detect. Mobile 4G proxies: Highest trust on social media platforms (Instagram, TikTok). Datacenter proxies: Budget-friendly, general purpose.',
+  },
+  {
+    q: 'Do I need an account to order?',
+    a: 'No. Website orders require no account, no email, and no phone number. Your tx_ref (transaction reference) is your only order identifier.',
+  },
+  {
+    q: 'How do I check my order status?',
+    a: 'Go to /manage and enter your tx_ref to check credentials, expiry, and manage your order. You can also renew or raise a ban claim from there.',
+  },
+];
+
 export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.message) return;
     setLoading(true);
     setError('');
-    // For now, simulate sending — in future this would call an API
     await new Promise(r => setTimeout(r, 1000));
     setSent(true);
     setLoading(false);
@@ -32,6 +63,34 @@ export default function ContactPage() {
           <p className="text-[var(--muted)] text-center mb-10">
             Have a question? Need help? We're here.
           </p>
+
+          {/* FAQ Accordion */}
+          <div className="mb-12">
+            <h2 className="text-xl font-bold mb-6 text-center">Frequently Asked Questions</h2>
+            <div className="space-y-2">
+              {faqs.map((faq, i) => (
+                <div key={i} className="rounded-xl border border-[var(--border)] overflow-hidden">
+                  <button
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    className="w-full flex items-center justify-between px-4 py-3.5 text-left bg-[var(--card)] hover:bg-[var(--card-hover)] transition-colors"
+                  >
+                    <span className="font-medium text-sm pr-4">{faq.q}</span>
+                    <svg
+                      className={`w-4 h-4 shrink-0 transition-transform ${openFaq === i ? 'rotate-180' : ''}`}
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {openFaq === i && (
+                    <div className="px-4 py-3 bg-[var(--background)] border-t border-[var(--border)]">
+                      <p className="text-sm text-[var(--muted)] leading-relaxed">{faq.a}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
 
           {sent ? (
             <div className="text-center p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
