@@ -1,12 +1,10 @@
 // @ts-nocheck — react-globe.gl types are incomplete; runtime works correctly
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import type { GlobeMethods } from 'react-globe.gl';
-import { feature } from 'topojson-client';
-import type { Topology, GeometryCollection } from 'topojson-specification';
 
 // Load react-globe.gl only on client (SSR disabled)
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
@@ -24,21 +22,20 @@ const LOCATIONS = [
   { name: 'Singapore',      lat: 1.3521,   lng: 103.8198, flag: '🇸🇬', region: 'Asia Pacific' },
 ];
 
-const BRAND_GREEN = '#10B981';
-// Lighter green for dark-mode continent dots (not brand green)
-const LIGHT_GREEN = '#4ADE80';
-// Lighter gray for light-mode continent dots (not pitch black)
-const LIGHT_GRAY = '#6B7280';
+const BRAND_GREEN  = '#10B981';
+const LIGHT_GREEN  = '#4ADE80';
+const LIGHT_GRAY   = '#6B7280';
+
+// World countries GeoJSON for continent dots
+const WORLD_COUNTRIES = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 export default function GlobeMap() {
-  const globeRef = useRef<GlobeMethods | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const globeRef  = useRef<GlobeMethods | null>(null);
   const [isDark, setIsDark] = useState(true);
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dims, setDims] = useState({ w: 520, h: 520 });
   const [ready, setReady] = useState(false);
   const [containerOpacity, setContainerOpacity] = useState(0);
-  const [topoData, setTopoData] = useState<Topology | null>(null);
 
   // Detect system theme
   useEffect(() => {
@@ -60,14 +57,6 @@ export default function GlobeMap() {
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  // Fetch world countries topojson
-  useEffect(() => {
-    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-      .then(r => r.json())
-      .then((topo: Topology) => setTopoData(topo))
-      .catch(() => {});
-  }, []);
-
   // Cycle featured country every 4 seconds
   useEffect(() => {
     const interval = setInterval(() => {
@@ -76,27 +65,71 @@ export default function GlobeMap() {
     return () => clearInterval(interval);
   }, []);
 
+  const featured = LOCATIONS[featuredIdx];
+
+  // Apply theme colors imperatively to the THREE.js scene objects
+  const applyTheme = useCallback((globe: GlobeMethods, dark: boolean) => {
+    try {
+      const scene = globe.scene();
+      if (!scene) return;
+
+      const dotHex = dark ? LIGHT_GREEN : LIGHT_GRAY;
+      const sphereHex = dark ? '0f0f1a' : 'ffffff';
+      const atmHex = dark ? LIGHT_GREEN : '93C5FD';
+
+      scene.traverse((obj: object) => {
+        const o = obj as Record<string, unknown>;
+        const mat = (o.material ?? o.side) as Record<string, unknown> | undefined;
+        if (!mat) return;
+
+        const material = mat as Record<string, unknown>;
+        // THREE.MeshBasicMaterial / MeshStandardMaterial has a 'color' property
+        const color = material.color as Record<string, (c: string) => void> | undefined;
+        if (!color || typeof color.set !== 'function') return;
+
+        // Get current hex
+        const getHex = () => {
+          try { return (color.getHexString ?? (() => ''))() as string; } catch { return ''; }
+        };
+        const hex = getHex();
+
+        // Skip known fixed colors
+        if (['10b981', '4ade80', '93c5fd'].includes(hex)) return;
+
+        // Sphere / atmosphere / globe base
+        if (hex === '0f0f1a' || hex === 'ffffff' || hex === '0a0a1e' || hex === '000000') {
+          color.set(dark ? `#${sphereHex}` : `#${sphereHex}`);
+          return;
+        }
+
+        // Anything else → continent dot color
+        color.set(`#${dotHex.replace('#', '')}`);
+      });
+    } catch (_) {}
+  }, []);
+
+  // Apply theme whenever isDark changes AND globe is ready
+  useEffect(() => {
+    if (!ready || !globeRef.current) return;
+    applyTheme(globeRef.current, isDark);
+  }, [isDark, ready, applyTheme]);
+
   // Pan camera when featured country changes
   useEffect(() => {
-    if (!globeRef.current) return;
+    if (!globeRef.current || !ready) return;
     const loc = LOCATIONS[featuredIdx];
     try {
       globeRef.current.pointOfView({ lat: loc.lat, lng: loc.lng, altitude: 2.2 }, 1800);
     } catch (_) {}
-  }, [featuredIdx]);
-
-  const featured = LOCATIONS[featuredIdx];
+  }, [featuredIdx, ready]);
 
   // Per-theme colors
-  const globeBase = isDark ? '#0f0f1a' : '#ffffff';
-  const dotColor = isDark ? LIGHT_GREEN : LIGHT_GRAY;
-  const dotColorHex = isDark ? `${LIGHT_GREEN}cc` : `${LIGHT_GRAY}99`;
+  const globeBase     = isDark ? '#0f0f1a' : '#ffffff';
   const atmosphereColor = isDark ? LIGHT_GREEN : '#93C5FD';
+  const dotColorHex   = isDark ? LIGHT_GREEN : LIGHT_GRAY;
 
   return (
     <div
-      ref={containerRef}
-      id="globe-canvas"
       className="relative w-full overflow-hidden"
       style={{ height: 480, minHeight: 480 }}
     >
@@ -111,34 +144,32 @@ export default function GlobeMap() {
         }}
       >
         <Globe
-          key={`globe-${isDark}`}
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Solid globe sphere — white in light mode, dark in dark mode
+          // Globe sphere base color
           globeColor={() => globeBase}
           nightColor={() => globeBase}
-          // Transparent canvas background
           backgroundColor="rgba(0,0,0,0)"
-          // Atmosphere glow
+          // Atmosphere
           atmosphereColor={atmosphereColor}
           atmosphereAltitude={0.18}
-          // Continent dots — colored per theme
-          hexPolygonsData={topoData ? feature(topoData, topoData.objects.countries as GeometryCollection) as object : []}
-          hexPolygonGeoJsonGeometry={(polygon) => (polygon as { geometry: object }).geometry}
+          // Continent dots — hex polygons with useDots
+          hexPolygonsData={`${WORLD_COUNTRIES}`}
+          hexPolygonGeoJsonGeometry="geometry"
           hexPolygonUseDots={() => true}
           hexPolygonDotResolution={6}
-          hexPolygonMargin={0.25}
+          hexPolygonMargin={0.2}
           hexPolygonColor={() => dotColorHex}
-          hexPolygonAltitude={() => 0.003}
-          // Country markers — brand green
+          hexPolygonAltitude={() => 0.004}
+          // Country markers
           pointsData={LOCATIONS}
           pointLat="lat"
           pointLng="lng"
           pointColor={() => BRAND_GREEN}
           pointRadius={0.55}
           pointAltitude={0.007}
-          // Featured country — brand green pulsing ring
+          // Featured country — green ring
           ringsData={ready ? [{ lat: featured.lat, lng: featured.lng }] : []}
           ringColor={() => BRAND_GREEN}
           ringMaxRadius={4.0}
