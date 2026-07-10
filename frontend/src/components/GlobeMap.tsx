@@ -114,7 +114,8 @@ export default function GlobeMap() {
           height={dims.h}
           // Globe sphere base color — plain strings, no day/night split
           globeColor={globeBase}
-          // Remove nightColor so globe stays uniformly colored
+          // Force no night texture — transparent 1x1 PNG to prevent default dark texture
+          nightImage="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
           backgroundColor="rgba(0,0,0,0)"
           // Atmosphere glow
           atmosphereColor={atmosphereColor}
