@@ -74,10 +74,12 @@ export default function GlobeMap() {
   // Per-theme colors
   // Dark mode: dark sphere + light-green dots + green glow
   // Light mode: white sphere + dark dots + green glow ring
-  const globeBase       = isDark ? '#0a0a12' : '#e8e4ef';
-  const atmosphereColor  = isDark ? LIGHT_GREEN : '#22c55e';
-  const atmosphereAlt   = isDark ? 0.18 : 0.12;
-  const dotColorHex     = isDark ? LIGHT_GREEN : '#374151';
+  const globeBase       = isDark ? '#0a0a12' : '#ffffff';
+  const atmosphereColor = isDark ? LIGHT_GREEN : '#16a34a';
+  const atmosphereAlt   = isDark ? 0.18 : 0.10;
+  // In light mode, continents need high contrast — use dark gray dots
+  // In dark mode, use light green dots
+  const dotColorHex    = isDark ? LIGHT_GREEN : '#1e293b';
 
   const featured = LOCATIONS[featuredIdx];
 
@@ -113,10 +115,10 @@ export default function GlobeMap() {
           hexTopoData={`${WORLD_COUNTRIES}`}
           hexPolygonGeoJsonGeometry={() => 'geometry'}
           hexPolygonUseDots={() => true}
-          hexPolygonDotResolution={6}
-          hexPolygonMargin={0.6}
+          hexPolygonDotResolution={32}
+          hexPolygonMargin={0.3}
           hexPolygonColor={() => dotColorHex}
-          hexPolygonAltitude={() => 0.001}
+          hexPolygonAltitude={() => 0.003}
           // Country markers — brand green
           pointsData={LOCATIONS}
           pointLat="lat"
