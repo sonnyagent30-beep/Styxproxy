@@ -25,7 +25,6 @@ const LOCATIONS = [
 
 const BRAND_GREEN = '#10B981';
 const LIGHT_GREEN = '#4ADE80';
-const WORLD_TOPO  = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 export default function GlobeMap() {
   const globeRef        = useRef<GlobeMethods | null>(null);
@@ -88,16 +87,16 @@ export default function GlobeMap() {
     } catch (_) {}
   }, [featuredIdx, ready]);
 
-  // Per-theme colors — globe color = page background so globe "disappears" into the page
-  // Atmosphere glow then creates a visible green edge outline around the globe
-  //
-  // Light mode: bg #fafafa, atmosphere green edge = globe "aware" of light theme
-  // Dark mode: bg #0f0f0f, atmosphere green edge = globe "aware" of dark theme
-  const globeBase        = isDark ? '#0f0f0f' : '#fafafa';
-  const atmosphereColor  = BRAND_GREEN; // Always green for Bunche branding
-  const atmosphereAlt     = isDark ? 0.15 : 0.22; // Higher = bigger/more visible atmosphere
-  // Continent outlines: visible but not overpowering the atmosphere
-  const outlineColor     = isDark ? '#16A34A' : '#374151';
+  // Globe sphere color = page background so globe "disappears"
+  // Atmosphere glow is the PRIMARY visual — make it BIG and visible
+  // Country outlines need HIGH CONTRAST against the sphere
+  const globeBase        = isDark ? '#0f0f0f' : '#ffffff';
+  // Atmosphere: VERY high altitude = massive visible glow ring around globe
+  // Using 0.5 for light mode, 0.4 for dark mode - significantly higher than before
+  const atmosphereColor  = BRAND_GREEN;
+  const atmosphereAlt   = isDark ? 0.40 : 0.55;
+  // Country outlines: must be HIGHLY visible — dark in light mode, bright in dark mode
+  const outlineColor    = isDark ? '#34D399' : '#1f2937';
 
   const featured = LOCATIONS[featuredIdx];
 
@@ -118,17 +117,18 @@ export default function GlobeMap() {
           // Force no night texture — transparent 1x1 PNG to prevent default dark texture
           nightImage="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
           backgroundColor="rgba(0,0,0,0)"
-          // Atmosphere glow
+          // Atmosphere glow - STRONG visible halo
           atmosphereColor={atmosphereColor}
           atmosphereAltitude={atmosphereAlt}
-          // Continent outlines — polygons with transparent fills + colored strokes
-          hexPolygonsData={[]}
+          // Continent outlines — polygons with INVISIBLE fills + HIGH VISIBILITY strokes
+          // Use polygonCapMaterial/polygonSideMaterial with transparent opacity=0 for invisible fills
+          // polygonStrokeColor for visible outlines
           polygonsData={countriesData}
           polygonGeoJsonGeometry={(d: object) => (d as { geometry: object }).geometry}
-          polygonCapColor={() => 'rgba(0,0,0,0)'}
-          polygonSideColor={() => 'rgba(0,0,0,0)'}
+          polygonCapMaterial={() => ({ transparent: true, opacity: 0 } as any)}
+          polygonSideMaterial={() => ({ transparent: true, opacity: 0 } as any)}
           polygonStrokeColor={() => outlineColor}
-          polygonAltitude={() => 0.001}
+          polygonAltitude={() => 0.01}
           // Country markers — brand green
           pointsData={LOCATIONS}
           pointLat="lat"
