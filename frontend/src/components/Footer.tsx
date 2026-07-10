@@ -62,6 +62,11 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/refund-policy" className="hover:text-[var(--foreground)] transition-colors">
+                  Refund Policy
+                </Link>
+              </li>
+              <li>
                 <Link href="/legal/privacy" className="hover:text-[var(--foreground)] transition-colors">
                   Privacy Policy
                 </Link>
