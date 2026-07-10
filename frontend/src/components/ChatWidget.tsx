@@ -6,24 +6,6 @@ import { useState, useRef, useEffect } from 'react';
 // Types
 // =============================================================
 
-type Role = 'user' | 'bot';
-
-interface Message {
-  id: string;
-  role: Role;
-  text: string;
-  quickReplies?: QuickReply[];
-}
-
-interface QuickReply {
-  label: string;
-  next: string; // next state key
-}
-
-// =============================================================
-// Conversation tree — state machine
-// =============================================================
-
 type StateKey =
   | 'start'
   | 'order_type'
@@ -54,6 +36,24 @@ type StateKey =
   | 'faq_payment'
   | 'general'
   | 'escalate';
+
+type Role = 'user' | 'bot';
+
+interface QuickReply {
+  label: string;
+  next: StateKey;
+}
+
+interface Message {
+  id: string;
+  role: Role;
+  text: string;
+  quickReplies?: QuickReply[];
+}
+
+// =============================================================
+// Conversation tree — state machine
+// =============================================================
 
 const TYPING_DELAY = 600; // ms "typing" before bot responds
 
@@ -160,6 +160,15 @@ const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] 
     ],
   },
 
+  payment_issue_answer: {
+    text: "Here's what to try:\n\n1. **Card declined?** Switch to bank transfer or USSD — both are more reliable.\n2. **Bank transfer pending?** Wait 5 minutes. If still pending after 30 minutes, check with your bank.\n3. **Amount deducted but no credentials?** Go to /manage and enter your tx_ref — if payment went through, your credentials will be there.\n\nIf none of this works, I'll connect you with our team right away.",
+    quickReplies: [
+      { label: '🔍 Check my order', next: 'check_order' },
+      { label: '🗣 Connect to human', next: 'escalate' },
+      { label: '🔙 Back to menu', next: 'start' },
+    ],
+  },
+
   // ---- PROXY NOT WORKING ----
   proxy_dead: {
     text: "Sorry your proxy isn't working! Let's troubleshoot this together.\n\n**Quick checklist before we proceed:**\n\n1. **Is the proxy still within its validity period?** (check at /manage with your tx_ref)\n2. **Is your IP whitelisted?** If you set IP whitelist, make sure your current IP matches.\n3. **Have you tried a different browser or tool?**\n4. **What error are you seeing?** (timeout, connection refused, 403, etc.)\n\nIf your proxy is genuinely dead (IP no longer responds) and you received it within the last 24 hours, you're eligible for a **free ban replacement**.",
@@ -168,6 +177,15 @@ const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] 
       { label: '⚠️ Report a ban', next: 'ban_report' },
       { label: '✅ It started working!', next: 'start' },
       { label: '🗣 Still stuck', next: 'escalate' },
+    ],
+  },
+
+  proxy_dead_diag: {
+    text: "Let's diagnose:\n\n**Step 1:** Check your proxy format:\n`http://username:password@proxy.bunche.ng:port`\n\n**Step 2:** Make sure your tool supports HTTP(S) proxies (not SOCKS5).\n\n**Step 3:** Test with: `curl -x http://username:password@proxy.bunche.ng:port http://httpbin.org/ip`\n\nStill failing? You may be eligible for a free replacement if the IP is dead.",
+    quickReplies: [
+      { label: '⚠️ Request replacement', next: 'ban_report_answer' },
+      { label: '🔍 Check my order', next: 'check_order' },
+      { label: '🔙 Back to menu', next: 'start' },
     ],
   },
 
@@ -213,11 +231,28 @@ const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] 
     ],
   },
 
+  bulk_pricing_answer: {
+    text: "Here's our bulk pricing:\n\n**ISP Proxies:**\n• 1–5: standard price\n• 6–10: 5% off\n• 11–20: 10% off\n• 20+: 15% off + priority support\n\n**Residential/Mobile (data plans):**\n• 1–3: standard\n• 4–9: 5% off\n• 10+: 10% off\n\nFor 25+ proxies or custom corporate setup, connect with our sales team.",
+    quickReplies: [
+      { label: '🗣 Talk to sales', next: 'escalate' },
+      { label: '🛒 Start single order', next: 'order_done' },
+      { label: '🔙 Back to menu', next: 'start' },
+    ],
+  },
+
   // ---- FREE TRIAL ----
   trial_info: {
     text: "We offer a **free trial** so you can test our proxies before committing!\n\n**How it works:**\n• Complete simple tasks (surveys, app installs) through our referral partner\n• Earn credits toward free proxy time\n• Credits are applied automatically to your account\n\nTo get started with your free trial, use the Bunche Telegram bot — it's the fastest way to claim trial credits. → /t.me/BuncheBot\n\nAfter you earn credits, order from /order and they'll be applied automatically.",
     quickReplies: [
       { label: '🗣 Start trial via Telegram', next: 'escalate' },
+      { label: '🔙 Back to menu', next: 'start' },
+    ],
+  },
+
+  trial_info_answer: {
+    text: "**How to earn free trial credits:**\n\n1. Open the Bunche Telegram bot (@BuncheBot)\n2. Type /trial or tap 'Earn Credits'\n3. Complete offers (surveys, app installs) through our partner\n4. Credits are added to your account automatically\n\nUse credits on any plan at checkout. No credit card needed.",
+    quickReplies: [
+      { label: '🗣 Get started', next: 'escalate' },
       { label: '🔙 Back to menu', next: 'start' },
     ],
   },
