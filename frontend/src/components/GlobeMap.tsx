@@ -92,9 +92,9 @@ export default function GlobeMap() {
   // Country outlines need HIGH CONTRAST against the sphere
   const globeBase        = isDark ? '#0f0f0f' : '#ffffff';
   // Atmosphere: VERY high altitude = massive visible glow ring around globe
-  // Using 0.5 for light mode, 0.4 for dark mode - significantly higher than before
+  // Using 0.55 for light mode, 0.45 for dark mode - much higher for strong visibility
   const atmosphereColor  = BRAND_GREEN;
-  const atmosphereAlt   = isDark ? 0.40 : 0.55;
+  const atmosphereAlt   = isDark ? 0.45 : 0.60;
   // Country outlines: must be HIGHLY visible — dark in light mode, bright in dark mode
   const outlineColor    = isDark ? '#34D399' : '#1f2937';
 
@@ -120,15 +120,16 @@ export default function GlobeMap() {
           // Atmosphere glow - STRONG visible halo
           atmosphereColor={atmosphereColor}
           atmosphereAltitude={atmosphereAlt}
-          // Continent outlines — polygons with INVISIBLE fills + HIGH VISIBILITY strokes
-          // Use polygonCapMaterial/polygonSideMaterial with transparent opacity=0 for invisible fills
-          // polygonStrokeColor for visible outlines
+          // Country polygons - use simpler accessor that extracts geometry properly
+          // polygonCapMaterial/polygonSideMaterial with opacity=0 for invisible fills
+          // polygonStrokeColor for visible country outlines
           polygonsData={countriesData}
-          polygonGeoJsonGeometry={(d: object) => (d as { geometry: object }).geometry}
+          polygonGeoJsonGeometry="geometry"
           polygonCapMaterial={() => ({ transparent: true, opacity: 0 } as any)}
           polygonSideMaterial={() => ({ transparent: true, opacity: 0 } as any)}
           polygonStrokeColor={() => outlineColor}
-          polygonAltitude={() => 0.01}
+          polygonCapCurvatureResolution={3}
+          polygonAltitude={() => 0.005}
           // Country markers — brand green
           pointsData={LOCATIONS}
           pointLat="lat"
