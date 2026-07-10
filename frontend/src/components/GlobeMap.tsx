@@ -112,9 +112,9 @@ export default function GlobeMap() {
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Globe sphere base color
-          globeColor={() => globeBase}
-          nightColor={() => globeBase}
+          // Globe sphere base color — plain strings, not functions, for reliable rendering
+          globeColor={globeBase}
+          nightColor={globeBase}
           backgroundColor="rgba(0,0,0,0)"
           // Atmosphere glow
           atmosphereColor={atmosphereColor}
