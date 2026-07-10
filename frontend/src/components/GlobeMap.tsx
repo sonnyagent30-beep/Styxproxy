@@ -88,14 +88,15 @@ export default function GlobeMap() {
     } catch (_) {}
   }, [featuredIdx, ready]);
 
-  // Per-theme colors
-  // Dark mode: dark sphere + soft green outlines + green glow
-  // Light mode: white sphere + gray outlines + green glow ring
-  const globeBase        = isDark ? '#0a0a12' : '#ffffff';
-  const atmosphereColor  = isDark ? '#16A34A' : '#16a34a';
-  // Smaller altitude = tighter/more subtle atmosphere glow
-  const atmosphereAlt    = isDark ? 0.10 : 0.10;
-  // Softer outline in dark mode
+  // Per-theme colors — globe color = page background so globe "disappears" into the page
+  // Atmosphere glow then creates a visible green edge outline around the globe
+  //
+  // Light mode: bg #fafafa, atmosphere green edge = globe "aware" of light theme
+  // Dark mode: bg #0f0f0f, atmosphere green edge = globe "aware" of dark theme
+  const globeBase        = isDark ? '#0f0f0f' : '#fafafa';
+  const atmosphereColor  = BRAND_GREEN; // Always green for Bunche branding
+  const atmosphereAlt     = isDark ? 0.15 : 0.22; // Higher = bigger/more visible atmosphere
+  // Continent outlines: visible but not overpowering the atmosphere
   const outlineColor     = isDark ? '#16A34A' : '#374151';
 
   const featured = LOCATIONS[featuredIdx];
