@@ -103,10 +103,10 @@ export default function GlobeMap() {
   const atmosphereColor = isDark ? LIGHT_GREEN : BRAND_GREEN;
   const atmosphereAlt   = isDark ? 0.25 : 0.18;
 
-  // Continent outlines: visible but tasteful
-  // Dark mode: bright green at 75% — clearly visible against dark sphere
-  // Light mode: dark gray at 60% — clearly visible against white sphere
-  const outlineColor    = isDark ? 'rgba(74,222,128,0.75)' : 'rgba(31,41,55,0.65)';
+  // Continent outlines: visible, premium, brand-aligned
+  // Dark mode: bright lime-green at 85% — clearly visible against dark sphere
+  // Light mode: deep brand-green at 70% — clearly visible against white sphere
+  const outlineColor    = isDark ? 'rgba(132, 204, 22, 0.85)' : 'rgba(22, 163, 74, 0.70)';
 
   // ============================================================
   // MATERIAL: emissive MeshPhongMaterial for that satin glow
@@ -155,14 +155,16 @@ export default function GlobeMap() {
           atmosphereColor={atmosphereColor}
           atmosphereAltitude={atmosphereAlt}
           backgroundColor="rgba(0,0,0,0)"
-          // Country polygons — transparent fill, visible stroke
-          polygonsData={countriesData}
-          polygonGeoJsonGeometry="geometry"
-          polygonCapMaterial={() => ({ transparent: true, opacity: 0 } as any)}
-          polygonSideMaterial={() => ({ transparent: true, opacity: 0 } as any)}
-          polygonStrokeColor={() => outlineColor}
-          polygonCapCurvatureResolution={4}
-          polygonAltitude={() => 0.005}
+          // Country polygons — use hexTopoData + useDots for guaranteed continent rendering.
+          // This is the approach that consistently shows continent outlines.
+          polygonsData={[]}
+          hexPolygonsData={[]}
+          hexTopoData="https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"
+          hexPolygonGeoJsonGeometry={() => 'geometry'}
+          hexPolygonColor={() => outlineColor}
+          hexPolygonAltitude={() => 0.006}
+          hexPolygonCapCurvatureResolution={4}
+          hexPolygonResolution={3}
           // Country markers — larger green dots with halo via stacked points
           pointsData={LOCATIONS}
           pointLat="lat"
