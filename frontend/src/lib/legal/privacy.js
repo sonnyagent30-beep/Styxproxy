@@ -12,7 +12,7 @@ const content = `<h1>Privacy Policy</h1>
 <p><strong>We collect almost nothing.</strong></p>
 <p>When you order via bunche.ng, we collect:</p>
 <ul>
-<li><strong>Flutterwave tx_ref</strong> — To identify your order — Retained 7 years (financial records)</li>
+<li><strong>Transaction reference</strong> — To identify your order — Retained 7 years (financial records)</li>
 <li><strong>Product purchased</strong> — To fulfil your order — Retained 7 years</li>
 <li><strong>Amount paid (NGN)</strong> — To process payment — Retained 7 years</li>
 <li><strong>IP address (of our server)</strong> — Technical operation — Retained 90 days</li>
@@ -31,7 +31,7 @@ const content = `<h1>Privacy Policy</h1>
 <h3>3.1 Information You Give Us</h3>
 <ul>
 <li>Order information: product, country, payment amount, tx_ref</li>
-<li>Payment information: processed entirely by Flutterwave. We never see your card number, bank account, or full bank details</li>
+<li>Payment information: processed entirely by our payment processor. We never see your card number, bank account, or full bank details</li>
 <li>Support communications: messages sent via Telegram, WhatsApp, or email</li>
 <li>PIN: if you choose to set a PIN to secure your chat account</li>
 <li>Optional email: for receipt delivery on website orders</li>
@@ -71,11 +71,11 @@ const content = `<h1>Privacy Policy</h1>
 
 <h2>5. Data Sharing</h2>
 <p><strong>We do not sell your data.</strong> We do not sell, rent, or trade your personal information to any third party.</p>
-<p>We share only what is necessary with: Flutterwave (payment processing), Proxy providers — Proxy-Seller and DataImpulse (to generate and deliver your proxy IP), Telegram and Meta/WhatsApp (to deliver messages via their APIs), Theorem Reach (to track free trial earnings), and Law enforcement as required by Nigerian law.</p>
+<p>We share only what is necessary with: our payment processor (payment processing), Proxy providers — Proxy-Seller and DataImpulse (to generate and deliver your proxy IP), Telegram and Meta/WhatsApp (to deliver messages via their APIs), Theorem Reach (to track free trial earnings), and Law enforcement as required by Nigerian law.</p>
 
 <h3>5.1 Data Processors</h3>
 <ul>
-<li><strong>Flutterwave</strong> — Payment data — flutterwave.com/privacy</li>
+<li><strong>Our payment processor</strong> — Payment data</li>
 <li><strong>Telegram</strong> — Chat messages — telegram.org/privacy</li>
 <li><strong>Meta / WhatsApp</strong> — Chat messages — whatsapp.com/legal/privacy-policy</li>
 <li><strong>Theorem Reach</strong> — Survey data — theoremreach.com/privacy</li>
