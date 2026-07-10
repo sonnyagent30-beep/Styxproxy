@@ -77,6 +77,7 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
   // Pre-fetch world countries TopoJSON and convert to GeoJSON
   useEffect(() => {
     const sources = [
+      '/world-countries-110m.json',
       'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
       'https://unpkg.com/world-atlas@2/countries-110m.json',
     ];
@@ -147,13 +148,15 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
   // Continent outlines — HIGHLY VISIBLE in both modes.
   // Opacity bumped to 0.70 so outlines clearly show through the sphere.
   const outlineColor    = isDark ? 'rgba(255, 255, 255, 0.70)' : 'rgba(30, 41, 59, 0.65)';
-  // Sphere material: Lambert (no specular sheen) — pure flat matte look.
-  // This keeps the sphere surface calm so outlines read clearly on top.
+  // Sphere: PhongMaterial (specular allowed) — slightly shinier so surface depth reads well.
+  // Polygon altitude bumped to 0.03 so outlines sit clearly above the sphere.
   const globeMaterial = useMemo(() => {
-    return new THREE.MeshLambertMaterial({
+    return new THREE.MeshPhongMaterial({
       color: new THREE.Color(sphereBaseColor),
-      emissive: new THREE.Color(isDark ? '#1a1a2e' : '#f0fdf4'),
-      emissiveIntensity: isDark ? 0.20 : 0.08,
+      specular: new THREE.Color(isDark ? '#334455' : '#cccccc'),
+      shininess: isDark ? 15 : 20,
+      emissive: new THREE.Color(isDark ? '#0f1a2e' : '#e8f5e9'),
+      emissiveIntensity: isDark ? 0.25 : 0.05,
     });
   }, [sphereBaseColor, isDark]);
 
@@ -183,7 +186,7 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
           polygonStrokeColor={() => outlineColor}
           polygonStrokeWidth={2.0}
           polygonCapCurvatureResolution={5}
-          polygonAltitude={0.005}
+          polygonAltitude={0.03}
           // Country markers — filtered by productType
           pointsData={LOCATIONS}
           pointLat="lat"
