@@ -47,6 +47,16 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
 
   const LOCATIONS = visibleLocations;
 
+  // Return which proxy types are available in a given country code
+  const getProductsAtCountry = (code: string): string[] => {
+    const available: string[] = [];
+    if (PRODUCT_COUNTRIES.ISP?.includes(code))        available.push('ISP');
+    if (PRODUCT_COUNTRIES.RESIDENTIAL?.includes(code)) available.push('Residential');
+    if (PRODUCT_COUNTRIES.MOBILE?.includes(code))       available.push('Mobile 4G');
+    if (PRODUCT_COUNTRIES.DC?.includes(code))           available.push('DC');
+    return available;
+  };
+
   // Detect system theme
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -206,9 +216,9 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
                   </svg>
                   {featured.region}
                 </p>
-                {/* All proxy types available at this country */}
+                {/* Show only the proxy types actually available in this country */}
                 <div className="flex flex-wrap gap-1 mt-1.5">
-                  {['ISP', 'Residential', 'Mobile 4G', 'DC'].map(pt => (
+                  {(getProductsAtCountry(featured.code)).map(pt => (
                     <span
                       key={pt}
                       className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
