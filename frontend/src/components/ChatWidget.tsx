@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 
 // =============================================================
 // Edge-snapping draggable position hook
@@ -854,8 +855,8 @@ export default function ChatWidget() {
                onMouseDown={startDrag}
                onTouchStart={startDrag}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center shrink-0">
-                <span className="text-black font-bold text-lg">C</span>
+              <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center shrink-0 overflow-hidden">
+                <Image src="/chatbot-logo.png" alt="Charon" width={40} height={40} className="w-full h-full object-cover" />
               </div>
               <div>
                 <p className="font-bold text-sm">Charon</p>

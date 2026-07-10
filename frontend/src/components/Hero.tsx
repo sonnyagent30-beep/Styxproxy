@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import dynamic from 'next/dynamic';
 
 // Load GlobeMap client-side only (SSR disabled — WebGL cannot render server-side)
@@ -19,6 +20,26 @@ export default function Hero() {
         {/* Globe — full width above everything */}
         <div className="w-full">
           <GlobeMap />
+        </div>
+
+        {/* Hero Logo Mark */}
+        <div className="w-full flex justify-center mt-6 mb-2">
+          <Image
+            src="/hero-logo-dark.png"
+            alt="styxproxy"
+            width={400}
+            height={200}
+            className="hidden dark:block w-auto h-auto max-w-full"
+            priority
+          />
+          <Image
+            src="/hero-logo-light.png"
+            alt="styxproxy"
+            width={400}
+            height={200}
+            className="block dark:hidden w-auto h-auto max-w-full"
+            priority
+          />
         </div>
 
         {/* Headline — centered below globe */}
