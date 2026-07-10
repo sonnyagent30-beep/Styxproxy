@@ -34,19 +34,21 @@ function LoadingSkeleton({ isDark }: { isDark: boolean }) {
 }
 
 // Load globe.gl via CDN script tag (avoids SSR window errors)
-function useGlobe(divRef: HTMLDivElement | null, isDark: boolean) {
+function useGlobe(divRef: React.MutableRefObject<HTMLDivElement | null>, isDark: boolean) {
   const globeRef = useRef<unknown>(null);
   const [ready, setReady] = useState(false);
   const [opacity, setOpacity] = useState(0);
 
   useEffect(() => {
-    if (!divRef) return;
+    // Wait for the div to actually mount
+    const el = divRef.current;
+    if (!el) return;
     if (globeRef.current) return;
 
     const loadGlobe = () => {
-      // Check if already loaded
       // @ts-ignore
       if (window.Globe) {
+        // @ts-ignore
         initGlobe(window.Globe);
         return;
       }
@@ -62,10 +64,10 @@ function useGlobe(divRef: HTMLDivElement | null, isDark: boolean) {
     };
 
     const initGlobe = (Globe: (opts: { container: HTMLElement; config: object }) => unknown) => {
-      if (globeRef.current || !divRef) return;
+      if (globeRef.current || !el) return;
 
       const myGlobe = Globe({
-        container: divRef,
+        container: el,
         config: {
           globeImageUrl: isDark
             ? 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
@@ -100,7 +102,7 @@ function useGlobe(divRef: HTMLDivElement | null, isDark: boolean) {
         globeRef.current = null;
       }
     };
-  }, [divRef]);
+  }, [divRef.current]);
 
   // Update texture on theme change
   useEffect(() => {
@@ -123,7 +125,7 @@ export default function GlobeMap() {
   const [isDark, setIsDark] = useState(true);
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dims, setDims] = useState({ w: 520, h: 520 });
-  const { globeRef, ready, opacity } = useGlobe(containerRef.current, isDark);
+  const { globeRef, ready, opacity } = useGlobe(containerRef, isDark);
 
   // Detect theme
   useEffect(() => {
