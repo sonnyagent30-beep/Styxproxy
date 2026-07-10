@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+// Footer is rendered globally in layout.tsx
 
 const faqs = [
   {
@@ -149,7 +149,6 @@ export default function ContactPage() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 }
