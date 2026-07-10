@@ -76,17 +76,28 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
 
   // Pre-fetch world countries TopoJSON and convert to GeoJSON
   useEffect(() => {
-    const topoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
-    fetch(topoUrl)
-      .then(r => r.json())
-      .then(topo => {
-        const countries = feature(
-          topo as { objects: { countries: object } },
-          (topo.objects as { countries: object }).countries
-        ) as { features: object[] };
-        setCountriesData(countries.features);
-      })
-      .catch(() => setCountriesData([]));
+    const sources = [
+      'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
+      'https://unpkg.com/world-atlas@2/countries-110m.json',
+    ];
+    const tryLoad = (idx: number) => {
+      if (idx >= sources.length) {
+        // Last resort: use empty array so globe still renders (no outlines, but no crash)
+        setCountriesData([]);
+        return;
+      }
+      fetch(sources[idx])
+        .then(r => r.json())
+        .then(topo => {
+          const countries = feature(
+            topo as { objects: { countries: object } },
+            (topo.objects as { countries: object }).countries
+          ) as { features: object[] };
+          setCountriesData(countries.features);
+        })
+        .catch(() => tryLoad(idx + 1));
+    };
+    tryLoad(0);
   }, []);
 
   // Responsive sizing
@@ -133,10 +144,9 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
   const atmosphereColor = BRAND_GREEN_LIGHT;
   const atmosphereAlt   = 0.15;
 
-  // Continent outlines — CONTRASTING colors so they never disappear into the sphere.
-  // Dark mode sphere: deep dark. Outlines: warm white at low opacity.
-  // Light mode sphere: off-white.    Outlines: slate gray at low opacity.
-  const outlineColor    = isDark ? 'rgba(220, 220, 220, 0.30)' : 'rgba(71, 85, 105, 0.35)';
+  // Continent outlines — HIGHLY VISIBLE in both modes.
+  // Opacity bumped to 0.70 so outlines clearly show through the sphere.
+  const outlineColor    = isDark ? 'rgba(255, 255, 255, 0.70)' : 'rgba(30, 41, 59, 0.65)';
   // Sphere material: Lambert (no specular sheen) — pure flat matte look.
   // This keeps the sphere surface calm so outlines read clearly on top.
   const globeMaterial = useMemo(() => {
@@ -171,7 +181,7 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
           polygonCapColor={() => 'rgba(0,0,0,0)'}
           polygonSideColor={() => 'rgba(0,0,0,0)'}
           polygonStrokeColor={() => outlineColor}
-          polygonStrokeWidth={1.2}
+          polygonStrokeWidth={2.0}
           polygonCapCurvatureResolution={5}
           polygonAltitude={0.005}
           // Country markers — filtered by productType

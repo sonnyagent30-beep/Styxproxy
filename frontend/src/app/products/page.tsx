@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { products, formatPrice, COUNTRIES, type CountryInfo } from '@/lib/products';
 
@@ -90,6 +90,8 @@ export default function ProductsPage() {
   // Active filter for the globe — null means "all countries from all products"
   const [activeProduct, setActiveProduct] = useState<string | null>(null);
   const [carouselIdx, setCarouselIdx] = useState(0);
+  const touchStartX = useRef(0);
+  const touchDeltaX = useRef(0);
 
   return (
     <div className="min-h-screen pt-24 pb-16">
@@ -125,7 +127,7 @@ export default function ProductsPage() {
         </div>
 
         {/* CTA Buttons */}
-        <div className="flex flex-wrap justify-center gap-3 mt-8">
+        <div className="flex flex-wrap justify-center gap-3 mt-8 mb-6">
           <Link
             href="/order"
             className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors min-w-[160px] text-center"
@@ -136,12 +138,21 @@ export default function ProductsPage() {
             href="https://t.me/BuncheBot"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] font-medium rounded-xl transition-colors min-w-[160px] text-center"
-            style={{ color: 'var(--foreground)' }}
+            className="px-6 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl transition-colors min-w-[160px] text-center"
           >
             Start via Telegram
           </a>
+          <a
+            href="https://wa.me/2347032981049"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-6 py-3 bg-[#25D366] hover:bg-[#1da851] text-white font-semibold rounded-xl transition-colors min-w-[160px] text-center"
+          >
+            Chat on WhatsApp
+          </a>
         </div>
+
+        <div className="mb-16"></div>
 
         {/* Product Category Cards — clicking filters the globe */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
@@ -239,11 +250,24 @@ export default function ProductsPage() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
             </button>
 
-            {/* 3D Carousel Track */}
+            {/* 3D Carousel Track — swipeable */}
             <div className="overflow-hidden">
               <div
-                className="flex transition-transform duration-500 ease-out"
+                className="flex transition-transform duration-500 ease-out select-none"
                 style={{ transform: `translateX(calc(-${carouselIdx * 25}%))` }}
+                onTouchStart={e => {
+                  touchStartX.current = e.touches[0].clientX;
+                  touchDeltaX.current = 0;
+                }}
+                onTouchMove={e => {
+                  touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+                }}
+                onTouchEnd={() => {
+                  const threshold = 50;
+                  if (touchDeltaX.current < -threshold) setCarouselIdx(i => (i + 1) % 4);
+                  else if (touchDeltaX.current > threshold) setCarouselIdx(i => (i - 1 + 4) % 4);
+                  touchDeltaX.current = 0;
+                }}
               >
                 {/* ISP */}
                 <div className="w-full flex-shrink-0 px-4 sm:px-16">
