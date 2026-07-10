@@ -16,7 +16,7 @@ export default function Footer() {
               <span className="text-xl font-bold">Styxproxy</span>
             </Link>
             <p className="text-[var(--muted)] text-sm max-w-sm">
-              Nigeria's anonymous proxy reseller. ISP, Residential, Datacenter & Mobile 4G proxies. Order instantly via the Styxproxy bot or on the website.
+              Global anonymous proxy service. ISP, Residential, Datacenter & Mobile 4G proxies. Order instantly via the Styxproxy bot or on the website.
             </p>
           </div>
 
