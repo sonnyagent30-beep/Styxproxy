@@ -124,9 +124,12 @@ export default function GlobeMap() {
   }, [featuredIdx, ready]);
 
   // Per-theme colors
-  const globeBase     = isDark ? '#0f0f1a' : '#ffffff';
-  const atmosphereColor = isDark ? LIGHT_GREEN : '#93C5FD';
-  const dotColorHex   = isDark ? LIGHT_GREEN : LIGHT_GRAY;
+  // Dark mode: dark sphere + light-green dots + green glow
+  // Light mode: white sphere + dark dots + green glow ring
+  const globeBase       = isDark ? '#0a0a12' : '#e8e8ec';
+  const atmosphereColor = isDark ? LIGHT_GREEN : BRAND_GREEN;
+  const atmosphereAlt   = isDark ? 0.18 : 0.14;
+  const dotColorHex     = isDark ? LIGHT_GREEN : '#1F2937';
 
   return (
     <div
@@ -154,7 +157,7 @@ export default function GlobeMap() {
           backgroundColor="rgba(0,0,0,0)"
           // Atmosphere
           atmosphereColor={atmosphereColor}
-          atmosphereAltitude={0.18}
+          atmosphereAltitude={atmosphereAlt}
           // Continent dots — hex polygons with useDots
           hexPolygonsData={`${WORLD_COUNTRIES}`}
           hexPolygonGeoJsonGeometry={() => 'geometry'}
