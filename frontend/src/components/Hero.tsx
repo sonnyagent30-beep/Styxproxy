@@ -26,7 +26,7 @@ export default function Hero() {
           {/* Badge */}
           <div className="inline-flex items-center px-4 py-2 rounded-full bg-[var(--card)] border border-[var(--border)] animate-fade-in">
             <span className="w-2 h-2 rounded-full bg-[var(--primary)] mr-2 animate-pulse" />
-            <span className="text-sm text-[var(--muted)]">Leave no footprint.</span>
+            <span className="text-sm text-[var(--muted)]">Get instant proxy with 3 methods.</span>
           </div>
 
           {/* Headline */}
