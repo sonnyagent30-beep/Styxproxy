@@ -589,7 +589,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
 
   // ---- ABOUT BUNCHE ----
   about: {
-    text: "**Styxproxy** is a global anonymous proxy service — we provide high-quality ISP, Residential, Mobile 4G, and Datacenter proxies for web scraping, social media automation, sneaker bots, and more.\n\nWe partner with top proxy providers to deliver fast, reliable proxies with instant delivery and 24-hour ban replacement.\n\n**Why Styxproxy?**\n• Global proxy coverage — US, UK, Germany, Nigeria, and more\n• Instant delivery\n• Free ban replacement within 24hrs\n• Multiple payment methods — card, bank transfer, crypto\n• Anonymous ordering — we don't collect personal data\n• Responsive support via WhatsApp and Telegram\n\nNeed proxies? → /order",
+    text: "**Styxproxy** is a global anonymous proxy service — we provide high-quality ISP, Residential, Mobile 4G, and Datacenter proxies for web scraping, social media automation, sneaker bots, and more.\n\nWe partner with top proxy providers to deliver fast, reliable proxies with instant delivery and 24-hour ban replacement.\n\n**Why Styxproxy?**\n• Global proxy coverage — US, UK, Germany, Nigeria, and more\n• Instant delivery\n• Free ban replacement within 24hrs\n• Multiple payment methods — card, bank transfer, USSD, QR\n• Anonymous ordering — we don't collect personal data\n• Responsive support via WhatsApp and Telegram\n\nNeed proxies? → /order",
     quickReplies: [
       { label: '🛒 Order proxies', next: 'order_type' },
       { label: '📋 FAQ', next: 'faq' },
@@ -637,7 +637,7 @@ Best for: general scraping, SEO tools, price aggregation, and bot automation.`,
   },
 
   faq_payment: {
-    text: "**Payment methods**\n\nWe accept all major payment methods — no matter where you are:\n\n• 💳 **Card** — Visa, Mastercard (global)\n• 🏦 **Bank Transfer** — Available in supported countries\n• 📱 **USSD** — Available in Nigeria\n• 📱 **QR Code** — Scan and pay with your banking app\n• ₿ **Crypto** — Bitcoin, Ethereum, USDT\n\nAll payments are processed securely. We never see your full card details or bank information.\n\n**Currency:** Prices shown in USD. Your card will be charged in your local currency at the prevailing rate.",
+    text: "**Payment methods**\n\nWe accept all major payment methods — no matter where you are:\n\n• 💳 **Card** — Visa, Mastercard (global)\n• 🏦 **Bank Transfer** — Available in supported countries\n• 📱 **USSD** — Available in Nigeria\n• 📱 **QR Code** — Scan and pay with your banking app\n\nAll payments are processed securely via Flutterwave. We never see your full card details or bank information.\n\n**Currency:** Prices shown in USD. Your card will be charged in your local currency at the prevailing rate.",
     quickReplies: [
       { label: '🛒 Start order', next: 'order_done' },
       { label: '🔙 Back to FAQ', next: 'faq' },
