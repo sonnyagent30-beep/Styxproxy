@@ -5,7 +5,7 @@ const content = `<h1>Acceptable Use Policy</h1>
 <p>This Acceptable Use Policy ("AUP") defines acceptable use of Bunche proxy services. By using Bunche, you agree to this policy. Violations may result in immediate credential revocation and permanent suspension from the service without refund.</p>
 
 <h2>2. Three Channels, Same Rules</h2>
-<p>This policy applies to all Bunche channels — bunche.ng, the Bunche Telegram bot, and the Bunche WhatsApp bot. The same rules apply regardless of how you purchased your proxy.</p>
+<p>This policy applies to all Bunche channels — bunche.ng and the Bunche Telegram bot. The same rules apply regardless of how you purchased your proxy.</p>
 
 <h2>3. Permitted Use</h2>
 <p>Bunche proxies may be used for:</p>
@@ -87,8 +87,8 @@ const content = `<h1>Acceptable Use Policy</h1>
 <p>If your proxy IP is blocked by a website or service, you may raise a ban claim.</p>
 
 <h3>5.1 How to Raise a Ban Claim</h3>
-<p><strong>Via Website:</strong> Go to bunche.ng/manage, enter your order number (tx_ref), select "Report a Ban," upload a screenshot showing the block or ban, choose Telegram or WhatsApp to continue your support conversation.</p>
-<p><strong>Via Chat:</strong> Telegram — send "Ban claim for order [tx_ref]" to @bunche. WhatsApp — send "Ban claim for order [tx_ref]" to the Bunche WhatsApp bot.</p>
+<p><strong>Via Website:</strong> Go to bunche.ng/manage, enter your order number (tx_ref), select "Report a Ban," upload a screenshot showing the block or ban.</p>
+<p><strong>Via Chat:</strong> Telegram — send "Ban claim for order [tx_ref]" to @BuncheBot.</p>
 
 <h3>5.2 What Happens Next</h3>
 <p>An admin will review your claim. You may be asked to provide additional information. Replacement credentials are issued at Bunche's discretion based on the evidence provided.</p>
@@ -101,7 +101,7 @@ const content = `<h1>Acceptable Use Policy</h1>
 <p>If prohibited use is detected: We may immediately revoke the affected credentials, suspend the associated account without notice, report the activity to law enforcement if required by law, and refunds are not provided for abuse-related revocations.</p>
 
 <h2>7. Report Abuse</h2>
-<p>If you become aware that a Bunche customer is using the service for prohibited activity, report it: Via Website — go to bunche.ng/manage and select "Report Abuse." Via Chat — Telegram: send "Report abuse for order [tx_ref]" to @bunche. WhatsApp: send "Report abuse for order [tx_ref]" to the Bunche WhatsApp bot. Via Email — hello@bunche.ng. All abuse reports are investigated. We keep reporter information confidential upon request.</p>
+<p>If you become aware that a Bunche customer is using the service for prohibited activity, report it: Via Website — go to bunche.ng/manage and select "Report Abuse." Via Chat — Telegram: send "Report abuse for order [tx_ref]" to @BuncheBot. Via Email — hello@bunche.ng. All abuse reports are investigated. We keep reporter information confidential upon request.</p>
 
 <h2>8. Credential Revocation</h2>
 <p>Bunche reserves the right to revoke credentials immediately and without notice if: The proxy is used for prohibited activities under this policy, the proxy is used in a way that exposes Bunche or our infrastructure partners to legal liability, the customer engages in threatening, harassing, or abusive behaviour toward Bunche staff, a third party provides evidence that the proxy is being used for illegal activity, or a refund is approved and processed (credentials revoked simultaneously). Revoked credentials cannot be reactivated. A new order must be placed if service is desired after revocation.</p>
@@ -110,13 +110,13 @@ const content = `<h1>Acceptable Use Policy</h1>
 <p>Proxy IPs are sourced from vetted infrastructure partners. Customers do not interact with these partners directly. Prohibited activities that violate a partner's acceptable use policy are also violations of this AUP.</p>
 
 <h2>10. Changes to This Policy</h2>
-<p>We may update this AUP from time to time. Material changes will be communicated via Telegram message, WhatsApp message, or notice on bunche.ng.</p>
+<p>We may update this AUP from time to time. Material changes will be communicated via Telegram message or notice on bunche.ng.</p>
 
 <h2>11. Contact Us</h2>
 <p><strong>Bunche</strong></p>
 <ul>
 <li><strong>Telegram:</strong> @bunche</li>
-<li><strong>WhatsApp:</strong> Available via bunche.ng</li>
+<li><strong>Chat Widget:</strong> Instant support on bunche.ng</li>
 <li><strong>Email:</strong> hello@bunche.ng</li>
 <li><strong>Website:</strong> bunche.ng</li>
 <li><strong>Management Portal:</strong> bunche.ng/manage</li>

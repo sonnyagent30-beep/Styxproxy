@@ -8,7 +8,7 @@ const content = `# Terms of Service
 
 By accessing or using Bunche's services, you agree to be bound by these Terms of Service, our Privacy Policy, and our Acceptable Use Policy. If you do not agree to these terms, do not use our services.
 
-Your first interaction with Bunche constitutes acceptance of these terms, regardless of channel — website, Telegram, or WhatsApp.
+Your first interaction with Bunche constitutes acceptance of these terms, regardless of channel — website or Telegram bot.
 
 ---
 
@@ -23,7 +23,7 @@ The primary order path. No account required. No personal data collected beyond w
 - No registration. No phone number. No email required.
 - Order number (transaction reference) is your only order identifier
 - Management portal: bunche.ng/manage — enter your order number to check status, renew, or raise a ban claim
-- Contact support: redirected to Telegram or WhatsApp of your choice from the management portal
+- Contact support: use the chat widget on bunche.ng or reach us via Telegram or email from the management portal
 
 ### 2.2 Telegram Bot (@bunche)
 
@@ -32,16 +32,6 @@ Full ordering and support via the Bunche Telegram bot.
 - Identity: your Telegram chat ID (not your phone number)
 - Optional: set a PIN to secure your account
 - Contact: @bunche on Telegram
-
-### 2.3 WhatsApp Bot
-
-Full ordering and support via the Bunche WhatsApp Business bot.
-- Order via chat → payment link → IP delivered in WhatsApp
-- Identity: your WhatsApp phone number (hashed, not stored in plain text)
-- Optional: set a PIN to secure your account
-- Contact: via the Bunche WhatsApp Business number
-
----
 
 ## 3. No Account Required (Website)
 
@@ -62,7 +52,7 @@ Your order number (transaction reference) is the only identifier for website ord
 
 Via Website: Select your product on bunche.ng, complete payment via our payment processor (card, bank transfer, USSD, or QR), your IP and credentials are displayed immediately on the thank-you page.
 
-Via Telegram or WhatsApp: Send your order request to the Bunche bot, Bunche sends a payment link via our payment processor, complete payment via the link, your IP and credentials are delivered in the same chat.
+Via Telegram: Send your order request to the Bunche bot, Bunche sends a payment link via our payment processor, complete payment via the link, your IP and credentials are delivered in the same chat.
 
 ### 4.2 Pricing
 
@@ -86,7 +76,7 @@ All payments are processed by our payment processor. Bunche does not store your 
 
 ### 4.4 Order Fulfilment
 
-Website orders: IP and credentials are displayed on the thank-you page immediately after payment is confirmed. payment processor webhook typically confirms payment within 10-30 seconds. Chat orders: IP and credentials are delivered in the same Telegram or WhatsApp chat within 2 minutes of payment confirmation.
+Website orders: IP and credentials are displayed on the thank-you page immediately after payment is confirmed. payment processor webhook typically confirms payment within 10-30 seconds. Chat orders: IP and credentials are delivered in the Telegram chat within 2 minutes of payment confirmation.
 
 ---
 
@@ -98,7 +88,7 @@ All proxy credentials delivered to customers are issued under Bunche's branding 
 
 ### 5.2 Credential Delivery
 
-Website: Displayed on thank-you page. Website (optional email): Sent to email if provided. Telegram: Sent in Telegram chat. WhatsApp: Sent in WhatsApp chat.
+Website: Displayed on thank-you page. Telegram: Sent in Telegram chat. Optional email: sent if you provide your email.
 
 ### 5.3 Credential Validity
 
@@ -120,9 +110,9 @@ Violations may result in immediate credential revocation without refund.
 
 If your proxy IP is blocked or banned by a website or service:
 
-Via Website (Management Portal): Go to bunche.ng/manage, enter your order number (tx_ref), select Report a Ban, upload a screenshot showing the ban or block, choose Telegram or WhatsApp to continue your support conversation.
+Via Website (Management Portal): Go to bunche.ng/manage, enter your order number (tx_ref), select Report a Ban, upload a screenshot showing the ban or block.
 
-Via Chat (Telegram or WhatsApp): Send a message to the Bunche bot: Ban claim for order [tx_ref].
+Via Chat (Telegram): Send a message to the Bunche bot: Ban claim for order [tx_ref].
 
 Ban claims are reviewed by a human admin. Replacement credentials are issued at Bunche's discretion based on evidence provided.
 
@@ -136,7 +126,7 @@ You may request a refund within 24 hours of receiving your proxy credentials if:
 
 ### 8.2 How to Request a Refund
 
-Request a refund via the Bunche management portal (bunche.ng/manage) or by contacting support via Telegram or WhatsApp. All refund requests are reviewed manually.
+Request a refund via the Bunche management portal (bunche.ng/manage) or by contacting support via Telegram or email. All refund requests are reviewed manually.
 
 ### 8.3 Refund Processing
 
@@ -164,8 +154,8 @@ Unused data does not roll over to the next billing period. If you renew, you rec
 
 Support is available via three channels:
 
-Telegram: @bunche — for orders, support, ban claims
-WhatsApp: Bunche WhatsApp Business — for orders, support, ban claims
+Telegram: @BuncheBot — for orders, support, ban claims
+Chat Widget: bunche.ng — for instant support
 Management Portal: bunche.ng/manage — check status, renew, raise ban claim
 Email: hello@bunche.ng
 
@@ -191,7 +181,7 @@ The free trial is supported by Theorem Reach surveys. Customers who participate 
 
 ## 12. Service Availability
 
-Bunche does not guarantee uninterrupted service. Proxy IPs may be blocked by websites or services at any time. We will make reasonable efforts to notify customers of planned maintenance via Telegram or WhatsApp.
+Bunche does not guarantee uninterrupted service. Proxy IPs may be blocked by websites or services at any time. We will make reasonable efforts to notify customers of planned maintenance via Telegram or the chat widget.
 
 ---
 
@@ -209,7 +199,7 @@ You agree to indemnify and hold Bunche harmless from any claims, damages, or exp
 
 ## 15. Changes to These Terms
 
-We may update these terms from time to time. Material changes will be communicated via Telegram message (for Telegram customers), WhatsApp message (for WhatsApp customers), or Notice on bunche.ng. Changes to pricing take effect immediately for new orders. Changes to other terms take effect 14 days after notification. Your continued use of Bunche after any change constitutes acceptance of the updated terms.
+We may update these terms from time to time. Material changes will be communicated via Telegram message or Notice on bunche.ng. Changes to pricing take effect immediately for new orders. Changes to other terms take effect 14 days after notification. Your continued use of Bunche after any change constitutes acceptance of the updated terms.
 
 ---
 
@@ -222,8 +212,8 @@ These terms are governed by the laws of the Federal Republic of Nigeria. Any dis
 ## 17. Contact Us
 
 Bunche
-Telegram: @bunche
-WhatsApp: Available via bunche.ng/contact
+Telegram: @BuncheBot
+Chat Widget: bunche.ng (instant support)
 Email: hello@bunche.ng
 Website: bunche.ng
 Management Portal: bunche.ng/manage
