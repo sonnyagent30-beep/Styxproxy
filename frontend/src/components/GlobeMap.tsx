@@ -100,10 +100,12 @@ export default function GlobeMap() {
 
   // Single atmosphere color — same brand green in both modes
   const atmosphereColor = BRAND_GREEN_LIGHT;   // #34D399
-  const atmosphereAlt   = 0.20;                  // soft, not aggressive
+  const atmosphereAlt   = 0.15;                  // very subtle, not aggressive
 
-  // Continent outlines — brand greens only (--primary-light or --primary-dark)
-  const outlineColor    = isDark ? BRAND_GREEN_LIGHT : BRAND_GREEN_DARK;
+  // Continent outlines — SOFT in both modes (no aggressive contrast).
+  // Dark mode: dim sage green at low opacity — barely there.
+  // Light mode: warm gray at low opacity — gentle definition, not bold.
+  const outlineColor    = isDark ? 'rgba(132, 204, 22, 0.25)' : 'rgba(100, 116, 139, 0.30)';
 
   // Single material — clean MeshPhongMaterial with very subtle emissive
   const globeMaterial = useMemo(() => {
