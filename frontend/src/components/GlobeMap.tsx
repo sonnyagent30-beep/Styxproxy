@@ -184,13 +184,13 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
         />
       </div>
 
-      {/* Featured country callout */}
+      {/* Featured country callout — shows country name + all products available there */}
       <AnimatePresence mode="wait">
         {featured && (
           <motion.div
             key={`${featuredIdx}-${productType}`}
             className="absolute pointer-events-none z-20"
-            style={{ right: '4%', top: '8%', minWidth: 155 }}
+            style={{ right: '4%', top: '8%', minWidth: 165 }}
             initial={{ opacity: 0, scale: 0.85, y: 6 }}
             animate={{ opacity: ready ? 1 : 0, scale: ready ? 1 : 0.85, y: 0 }}
             exit={{ opacity: 0, scale: 0.85, y: 6 }}
@@ -206,13 +206,25 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
                   </svg>
                   {featured.region}
                 </p>
+                {/* All proxy types available at this country */}
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {['ISP', 'Residential', 'Mobile 4G', 'DC'].map(pt => (
+                    <span
+                      key={pt}
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                      style={{ background: 'rgba(16,185,129,0.15)', color: BRAND_GREEN }}
+                    >
+                      {pt}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Coverage badge — shows the active product's country count */}
+      {/* Coverage badge — shows country count + available product types */}
       <div
         className={`absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border z-20`}
         style={{
@@ -224,7 +236,9 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
       >
         <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{LOCATIONS.length} Countries</p>
         <p className="text-sm font-bold" style={{ color: BRAND_GREEN }}>
-          {productType && productType !== 'ALL' ? `${productType} Coverage` : 'Bunche Coverage'}
+          {productType && productType !== 'ALL'
+            ? `${productType} Proxies`
+            : 'All Proxy Types'}
         </p>
       </div>
     </div>
