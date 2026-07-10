@@ -222,11 +222,11 @@ export default function CheckoutPage() {
           disabled={loading || cart.length === 0}
           className="w-full py-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-xl transition-colors text-lg"
         >
-          {loading ? 'Redirecting to payment...' : `Pay ${formatPrice(subtotal)} via Flutterwave`}
+          {loading ? 'Redirecting to payment...' : `Pay ${formatPrice(subtotal)}`}
         </button>
 
         <p className="text-xs text-center text-[var(--muted)] mt-3">
-          Secured by Flutterwave. Your proxy credentials will be shown on the next page.
+          Your proxy credentials will be shown on the next page.
         </p>
       </div>
     </div>
