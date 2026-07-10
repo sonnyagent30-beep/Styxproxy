@@ -12,23 +12,24 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center">
+          <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/wordmark-nav-dark.png"
+              src="/header-icon-dark.png"
               alt="styxproxy"
-              width={120}
-              height={40}
-              className="hidden dark:block h-8 w-auto"
+              width={36}
+              height={36}
+              className="hidden dark:block w-9 h-9"
               priority
             />
             <Image
-              src="/wordmark-nav-light.png"
+              src="/header-icon-light.png"
               alt="styxproxy"
-              width={120}
-              height={40}
-              className="block dark:hidden h-8 w-auto"
+              width={36}
+              height={36}
+              className="block dark:hidden w-9 h-9"
               priority
             />
+            <span className="text-xl font-bold text-[var(--foreground)]">styxproxy</span>
           </Link>
 
           {/* Desktop Navigation */}
