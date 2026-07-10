@@ -1,5 +1,6 @@
 import React from 'react';
 import { content } from '@/lib/legal/terms.js';
+import LegalContent from '@/components/LegalContent';
 
 export default function Terms() {
   return (
@@ -9,14 +10,9 @@ export default function Terms() {
           <h1 className="text-4xl font-bold mb-4">Terms of Service</h1>
           <p className="text-[var(--muted)] text-sm">Effective Date: 2026-07-01</p>
         </div>
-        <div
-          className="legal-content"
-          dangerouslySetInnerHTML={{ __html: content }}
-          style={{
-            color: 'var(--muted)',
-            lineHeight: 1.8,
-          }}
-        />
+        <div style={{ color: 'var(--muted)', lineHeight: 1.8 }}>
+          <LegalContent content={content} />
+        </div>
       </article>
     </main>
   );
