@@ -7,8 +7,10 @@ export default function ConsentGate() {
 
   useEffect(() => {
     const accepted = sessionStorage.getItem('styxproxy_consent');
-    if (!accepted) {
-      // Delay popup by 5 seconds so user gets a glimpse of the platform
+    const isLegalPage = window.location.pathname.startsWith('/legal') ||
+                        window.location.pathname === '/refund-policy';
+
+    if (!accepted && !isLegalPage) {
       const timer = setTimeout(() => setVisible(true), 5000);
       return () => clearTimeout(timer);
     }
