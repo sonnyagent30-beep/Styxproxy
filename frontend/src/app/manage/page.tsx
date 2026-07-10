@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 
 interface OrderData {
   order_id: string;
@@ -221,7 +220,6 @@ function ManageContent() {
           )}
         </div>
       </main>
-      <Footer />
     </div>
   );
 }
