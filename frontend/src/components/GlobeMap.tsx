@@ -112,9 +112,9 @@ export default function GlobeMap() {
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Globe sphere base color — plain strings, not functions, for reliable rendering
+          // Globe sphere base color — plain strings, no day/night split
           globeColor={globeBase}
-          nightColor={globeBase}
+          // Remove nightColor so globe stays uniformly colored
           backgroundColor="rgba(0,0,0,0)"
           // Atmosphere glow
           atmosphereColor={atmosphereColor}
@@ -169,11 +169,11 @@ export default function GlobeMap() {
           exit={{ opacity: 0, scale: 0.85, y: 6 }}
           transition={{ duration: 0.4, ease: 'backOut', delay: 0.1 }}
         >
-          <div className="rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md bg-[rgba(10,10,20,0.88)] border-[rgba(16,185,129,0.3)]">
+          <div className={`rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md ${isDark ? 'bg-[rgba(10,10,20,0.88)]' : 'bg-white shadow-lg'} ${isDark ? 'border-[rgba(16,185,129,0.3)]' : 'border-[rgba(16,185,129,0.4)]'}`}>
             <span className="text-3xl">{featured.flag}</span>
             <div>
-              <p className="font-bold text-sm text-zinc-100">{featured.name}</p>
-              <p className="text-xs mt-0.5 flex items-center gap-1 text-zinc-400">
+              <p className={`font-bold text-sm ${isDark ? 'text-zinc-100' : 'text-zinc-800'}`}>{featured.name}</p>
+              <p className={`text-xs mt-0.5 flex items-center gap-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
                 <svg className="w-3 h-3" style={{ color: BRAND_GREEN }} fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                 </svg>
@@ -186,10 +186,15 @@ export default function GlobeMap() {
 
       {/* Coverage badge */}
       <div
-        className="absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border backdrop-blur-sm z-20"
-        style={{ background: 'rgba(10,10,20,0.88)', borderColor: 'rgba(16,185,129,0.3)', opacity: ready ? 1 : 0, transition: 'opacity 400ms' }}
+        className={`absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border z-20`}
+        style={{
+          background: isDark ? 'rgba(10,10,20,0.88)' : 'white',
+          borderColor: isDark ? 'rgba(16,185,129,0.3)' : 'rgba(16,185,129,0.4)',
+          opacity: ready ? 1 : 0,
+          transition: 'opacity 400ms',
+        }}
       >
-        <p className="text-xs text-zinc-400">9 Countries</p>
+        <p className={`text-xs ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>9 Countries</p>
         <p className="text-sm font-bold" style={{ color: BRAND_GREEN }}>ISP Coverage</p>
       </div>
 
