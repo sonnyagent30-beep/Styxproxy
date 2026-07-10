@@ -25,32 +25,14 @@ const LOCATIONS = [
 ];
 
 const BUNCHE_GREEN = '#10B981';
-const ACCENT_PURPLE = '#8B3FE8';
-
-function SunIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-    </svg>
-  );
-}
 
 export default function GlobeMap() {
   const globeRef = useRef<GlobeMethods | null>(null);
-  const [isDark, setIsDark] = useState(true);
   const [featuredIdx, setFeaturedIdx] = useState(0);
   const [dims, setDims] = useState({ w: 520, h: 520 });
   const [ready, setReady] = useState(false);
   const [containerOpacity, setContainerOpacity] = useState(0);
-  const [worldGeojson, setWorldGeojson] = useState<GeoJSON.FeatureCollection | null>(null);
+  const [topoData, setTopoData] = useState<Topology | null>(null);
 
   // Responsive sizing
   useEffect(() => {
@@ -63,17 +45,11 @@ export default function GlobeMap() {
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  // Fetch world countries GeoJSON for continent dots
+  // Fetch world countries topojson
   useEffect(() => {
     fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
       .then(r => r.json())
-      .then((topo: Topology) => {
-        const countries = feature(
-          topo,
-          topo.objects.countries as GeometryCollection
-        ) as GeoJSON.FeatureCollection;
-        setWorldGeojson(countries);
-      })
+      .then((topo: Topology) => setTopoData(topo))
       .catch(() => {});
   }, []);
 
@@ -94,51 +70,14 @@ export default function GlobeMap() {
     } catch (_) {}
   }, [featuredIdx]);
 
-  const toggleTheme = () => setIsDark(d => !d);
-
   const featured = LOCATIONS[featuredIdx];
-
-  // Globe colors per theme
-  const sphereColor = isDark ? 'rgba(12,12,28,1)' : 'rgba(235,235,245,1)';
-  const polygonFill = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(30,30,50,0.08)';
-  const polygonStroke = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(30,30,50,0.2)';
-  const dotColor = isDark ? 'rgba(255,255,255,0.55)' : 'rgba(30,30,50,0.45)';
-  const atmosphereColor = isDark ? BUNCHE_GREEN : '#6ea0ff';
 
   return (
     <div
       className="relative w-full overflow-hidden"
-      style={{
-        height: 480,
-        minHeight: 480,
-        background: isDark ? '#0a0a0f' : '#f4f4f5',
-      }}
+      style={{ height: 480, minHeight: 480 }}
     >
-      {/* Theme toggle button */}
-      <button
-        onClick={toggleTheme}
-        className="absolute top-3 right-3 z-30 rounded-xl p-2.5 border shadow-lg transition-all duration-200 hover:scale-105"
-        style={{
-          background: isDark ? 'rgba(26,26,46,0.9)' : 'rgba(255,255,255,0.9)',
-          borderColor: isDark ? `${BUNCHE_GREEN}33` : '#e4e4e7',
-          color: isDark ? '#f4f4f5' : '#18181b',
-        }}
-        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          {isDark ? (
-            <motion.div key="moon" initial={{ opacity: 0, rotate: -90, scale: 0.5 }} animate={{ opacity: 1, rotate: 0, scale: 1 }} exit={{ opacity: 0, rotate: 90, scale: 0.5 }} transition={{ duration: 0.2 }}>
-              <MoonIcon />
-            </motion.div>
-          ) : (
-            <motion.div key="sun" initial={{ opacity: 0, rotate: 90, scale: 0.5 }} animate={{ opacity: 1, rotate: 0, scale: 1 }} exit={{ opacity: 0, rotate: -90, scale: 0.5 }} transition={{ duration: 0.2 }}>
-              <SunIcon />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </button>
-
-      {/* Globe canvas */}
+      {/* Globe canvas — transparent bg, dots only */}
       <div
         className="absolute left-0 top-0 flex items-center justify-center"
         style={{
@@ -152,18 +91,20 @@ export default function GlobeMap() {
           ref={globeRef}
           width={dims.w}
           height={dims.h}
-          // Dark/light sphere base
-          globeColor={sphereColor}
-          nightColor={isDark ? 'rgba(5,5,15,1)' : 'rgba(180,180,200,1)'}
-          // Atmosphere
-          atmosphereColor={atmosphereColor}
+          // Transparent sphere — shows dots only
+          globeColor={() => 'rgba(0,0,0,0)'}
+          nightColor={() => 'rgba(0,0,0,0)'}
+          // Atmosphere glow — green
+          atmosphereColor={BUNCHE_GREEN}
           atmosphereAltitude={0.18}
-          // World countries as polygon dots — continents as dot outlines
-          polygonsData={worldGeojson?.features ?? []}
-          polygonCapColor={() => polygonFill}
-          polygonSideColor={() => polygonStroke}
-          polygonStrokeColor={() => dotColor}
-          polygonLabel={() => ''}
+          // Hex-bin dots from topojson — continent shapes as dots
+          hexPolygonsData={topoData ? feature(topoData, topoData.objects.countries as GeometryCollection) as object : []}
+          hexPolygonGeoJsonGeometry={(polygon) => (polygon as { geometry: object }).geometry}
+          hexPolygonUseDots={() => true}
+          hexPolygonDotResolution={6}
+          hexPolygonMargin={0.25}
+          hexPolygonColor={() => `${BUNCHE_GREEN}cc`}
+          hexPolygonAltitude={() => 0.003}
           // Country markers — green dots
           pointsData={LOCATIONS}
           pointLat="lat"
@@ -171,13 +112,10 @@ export default function GlobeMap() {
           pointColor={() => BUNCHE_GREEN}
           pointRadius={0.55}
           pointAltitude={0.007}
-          // Featured country — glowing purple ring
-          ringsData={ready ? [{
-            lat: featured.lat,
-            lng: featured.lng,
-          }] : []}
-          ringColor={() => ACCENT_PURPLE}
-          ringMaxRadius={3.5}
+          // Featured country — green glowing ring
+          ringsData={ready ? [{ lat: featured.lat, lng: featured.lng }] : []}
+          ringColor={() => BUNCHE_GREEN}
+          ringMaxRadius={4.0}
           ringPropagationSpeed={1.2}
           ringRepeat={2.2}
           // No arcs
@@ -209,19 +147,11 @@ export default function GlobeMap() {
           exit={{ opacity: 0, scale: 0.85, y: 6 }}
           transition={{ duration: 0.4, ease: 'backOut', delay: 0.1 }}
         >
-          <div
-            className="rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md"
-            style={{
-              background: isDark ? 'rgba(26,26,46,0.92)' : 'rgba(255,255,255,0.92)',
-              borderColor: isDark ? `${ACCENT_PURPLE}55` : '#e4e4e7',
-            }}
-          >
+          <div className="rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md bg-[rgba(10,10,20,0.88)] border-[rgba(16,185,129,0.3)]">
             <span className="text-3xl">{featured.flag}</span>
             <div>
-              <p className="font-bold text-sm" style={{ color: isDark ? '#f4f4f5' : '#18181b' }}>
-                {featured.name}
-              </p>
-              <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: '#71717a' }}>
+              <p className="font-bold text-sm text-zinc-100">{featured.name}</p>
+              <p className="text-xs mt-0.5 flex items-center gap-1 text-zinc-400">
                 <svg className="w-3 h-3" style={{ color: BUNCHE_GREEN }} fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                 </svg>
@@ -236,13 +166,13 @@ export default function GlobeMap() {
       <div
         className="absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border backdrop-blur-sm z-20"
         style={{
-          background: isDark ? 'rgba(26,26,46,0.9)' : 'rgba(255,255,255,0.9)',
-          borderColor: isDark ? `${BUNCHE_GREEN}33` : '#e4e4e7',
+          background: 'rgba(10,10,20,0.88)',
+          borderColor: 'rgba(16,185,129,0.3)',
           opacity: ready ? 1 : 0,
           transition: 'opacity 400ms',
         }}
       >
-        <p className="text-xs" style={{ color: '#71717a' }}>9 Countries</p>
+        <p className="text-xs text-zinc-400">9 Countries</p>
         <p className="text-sm font-bold" style={{ color: BUNCHE_GREEN }}>ISP Coverage</p>
       </div>
 
