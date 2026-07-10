@@ -3,16 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { formatPrice } from '@/lib/products';
+import { formatPrice, COUNTRIES } from '@/lib/products';
+import type { CartItem } from '@/types';
 import api from '@/lib/api';
-
-interface CartItem {
-  plan_code: string;
-  name: string;
-  flag: string;
-  price_ngn: number;
-  quantity: number;
-}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -130,53 +123,61 @@ export default function CheckoutPage() {
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-4">Your Order</h2>
           <div className="space-y-3">
-            {cart.map(item => (
-              <div key={item.plan_code} className="flex items-center justify-between p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{item.flag}</span>
-                  <div>
-                    <p className="font-semibold">{item.name}</p>
-                    <p className="text-sm text-[var(--muted)]">{formatPrice(item.price_ngn)} each</p>
+            {cart.map(item => {
+              const country = item.country_code ? COUNTRIES[item.country_code] : null;
+              return (
+                <div key={item.plan_code} className="flex items-center justify-between p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{item.flag}</span>
+                    <div>
+                      <p className="font-semibold">{item.name}</p>
+                      {country && (
+                        <p className="text-xs text-[var(--muted)]">
+                          {country.flag} {country.name} · {country.region}
+                        </p>
+                      )}
+                      <p className="text-sm text-[var(--muted)]">{formatPrice(item.price_ngn)} each</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  {/* Quantity controls */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-4">
+                    {/* Quantity controls */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => updateQuantity(item.plan_code, -1)}
+                        className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                        </svg>
+                      </button>
+                      <span className="w-6 text-center font-medium">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQuantity(item.plan_code, 1)}
+                        className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    </div>
+                    {/* Line total */}
+                    <span className="font-semibold text-[var(--primary)] w-28 text-right">
+                      {formatPrice(item.price_ngn * item.quantity)}
+                    </span>
+                    {/* Remove */}
                     <button
-                      onClick={() => updateQuantity(item.plan_code, -1)}
-                      className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors"
+                      onClick={() => removeItem(item.plan_code)}
+                      className="w-8 h-8 rounded-lg hover:bg-red-500/10 flex items-center justify-center text-[var(--muted)] hover:text-red-400 transition-colors"
+                      title="Remove"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                      </svg>
-                    </button>
-                    <span className="w-6 text-center font-medium">{item.quantity}</span>
-                    <button
-                      onClick={() => updateQuantity(item.plan_code, 1)}
-                      className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
                   </div>
-                  {/* Line total */}
-                  <span className="font-semibold text-[var(--primary)] w-28 text-right">
-                    {formatPrice(item.price_ngn * item.quantity)}
-                  </span>
-                  {/* Remove */}
-                  <button
-                    onClick={() => removeItem(item.plan_code)}
-                    className="w-8 h-8 rounded-lg hover:bg-red-500/10 flex items-center justify-center text-[var(--muted)] hover:text-red-400 transition-colors"
-                    title="Remove"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Subtotal */}

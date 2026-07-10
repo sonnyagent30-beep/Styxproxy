@@ -64,6 +64,19 @@ export interface AdminStats {
   active_credentials: number;
 }
 
+// Cart item — represents a single line in the buyer's cart.
+// Always carries the user-selected country code so the order can be
+// fulfilled against the correct geo, even when the plan is GLOBAL.
+export interface CartItem {
+  plan_code: string;        // either a real plan_code (ISP-UK-1) or a synthetic "{TYPE}-{COUNTRY}-{BASE}" code
+  name: string;
+  flag: string;             // country flag of the selected geo
+  price_ngn: number;
+  quantity: number;
+  country_code: string;     // user-selected country code (always populated)
+  plan_type: PlanType;
+}
+
 // API Response Types
 export interface ApiResponse<T> {
   data?: T;

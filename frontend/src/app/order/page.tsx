@@ -1,21 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { products, getProductsByGroup, formatPrice, groupLabels } from '@/lib/products';
-import { Product } from '@/types';
+import { products, getProductsByGroup, formatPrice } from '@/lib/products';
+import {
+  COUNTRIES,
+  PRODUCT_COUNTRIES,
+  type CountryInfo,
+} from '@/lib/products';
+import { getAvailableCountries, formatPlanName } from '@/lib/products_page';
+import type { CartItem, Product } from '@/types';
 import api from '@/lib/api';
 
-// Cart item type
-interface CartItem {
-  plan_code: string;
-  name: string;
-  flag: string;
-  price_ngn: number;
-  quantity: number;
-}
-
-// Group type cards — no flags, just type + icon
+// Type card metadata
 const typeCards = [
   {
     key: 'ISP',
@@ -27,6 +24,7 @@ const typeCards = [
     ),
     description: 'High-speed ISP IPs, ideal for web scraping and automation',
     price: 'From ₦6,500/mo',
+    hasGeoPlans: true,
   },
   {
     key: 'RESIDENTIAL',
@@ -38,6 +36,7 @@ const typeCards = [
     ),
     description: 'Real residential IPs, harder to detect and block',
     price: 'From ₦5,000',
+    hasGeoPlans: false,
   },
   {
     key: 'MOBILE',
@@ -49,6 +48,7 @@ const typeCards = [
     ),
     description: 'Mobile carrier IPs, perfect for social media and ad verification',
     price: 'From ₦20,000',
+    hasGeoPlans: false,
   },
   {
     key: 'DC',
@@ -60,14 +60,28 @@ const typeCards = [
     ),
     description: 'Fast datacenter proxies for general purpose use',
     price: 'From ₦2,500/mo',
+    hasGeoPlans: false,
   },
 ];
+
+// Build synthetic plan_code for a GLOBAL plan + selected country
+function makePlanCode(planType: string, countryCode: string, baseCode: string) {
+  // If the country matches an existing ISP-{COUNTRY}-1 plan, prefer that real code
+  if (planType === 'ISP') {
+    const realPlan = products.find(p => p.plan_code === `ISP-${countryCode}-1`);
+    if (realPlan) return realPlan.plan_code;
+  }
+  // Otherwise use a synthetic composite code so the cart and checkout can resolve uniquely
+  return `${planType}-${countryCode}-${baseCode}`;
+}
 
 export default function OrderPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [addedMessage, setAddedMessage] = useState('');
+  // Country selected in the active modal — used to scope the plan list
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
   // Load cart from sessionStorage
   useEffect(() => {
@@ -85,29 +99,61 @@ export default function OrderPage() {
     sessionStorage.setItem('bunche_cart', JSON.stringify(newCart));
   };
 
-  const addToCart = (product: Product) => {
-    const name = product.plan_type === 'ISP' ? `${product.country} ISP` : product.country;
-    const existing = cart.find(i => i.plan_code === product.plan_code);
+  // Open the modal and default the country selector to the first available country
+  const openModal = (key: string) => {
+    setActiveModal(key);
+    const firstCountry = (PRODUCT_COUNTRIES[key] || [])[0];
+    setSelectedCountry(firstCountry || null);
+  };
+
+  const closeModal = () => {
+    setActiveModal(null);
+    setSelectedCountry(null);
+  };
+
+  const addToCart = (product: Product, countryCode: string) => {
+    const country = COUNTRIES[countryCode];
+    const planCode = makePlanCode(product.plan_type, countryCode, product.plan_code);
+    const name =
+      product.plan_type === 'ISP'
+        ? `${country.name} ISP`
+        : `${country.name} · ${product.features[0] || ''}`;
+
+    const existing = cart.find(i => i.plan_code === planCode);
     if (existing) {
       const updated = cart.map(i =>
-        i.plan_code === product.plan_code ? { ...i, quantity: i.quantity + 1 } : i
+        i.plan_code === planCode ? { ...i, quantity: i.quantity + 1 } : i
       );
       saveCart(updated);
     } else {
-      saveCart([...cart, {
-        plan_code: product.plan_code,
-        name,
-        flag: product.flag,
-        price_ngn: product.price_ngn,
-        quantity: 1,
-      }]);
+      saveCart([
+        ...cart,
+        {
+          plan_code: planCode,
+          name,
+          flag: country.flag,
+          price_ngn: product.price_ngn,
+          quantity: 1,
+          country_code: countryCode,
+          plan_type: product.plan_type,
+        },
+      ]);
     }
-    setAddedMessage(`${product.flag} ${name} added to cart`);
+    setAddedMessage(`${country.flag} ${name} added to cart`);
     setTimeout(() => setAddedMessage(''), 2000);
   };
 
   const cartTotal = cart.reduce((sum, i) => sum + i.price_ngn * i.quantity, 0);
   const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
+
+  // For the active modal: the variants filtered by selectedCountry (when applicable) and the country list
+  const modalData = useMemo(() => {
+    if (!activeModal) return null;
+    const card = typeCards.find(c => c.key === activeModal);
+    const variants = getProductsByGroup(activeModal);
+    const countries = getAvailableCountries(activeModal);
+    return { card, variants, countries };
+  }, [activeModal]);
 
   return (
     <div className="min-h-screen pt-24 pb-32">
@@ -118,35 +164,36 @@ export default function OrderPage() {
             Choose Your <span className="gradient-text">Proxy Type</span>
           </h1>
           <p className="text-[var(--muted)]">
-            Select a proxy type below, pick your country or plan, and add to cart
+            Pick a proxy type, choose your country, and add to cart
           </p>
         </div>
 
         {/* Type Cards */}
         <div className="grid sm:grid-cols-2 gap-4">
-          {typeCards.map(card => {
-            const variants = getProductsByGroup(card.key);
-            return (
-              <div key={card.key}>
-                <button
-                  onClick={() => setActiveModal(card.key)}
-                  className="w-full p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] transition-all text-left group"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)]/20 transition-colors">
-                      {card.icon}
-                    </div>
-                    <svg className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-bold mb-1">{card.label}</h3>
-                  <p className="text-sm text-[var(--muted)] mb-3">{card.description}</p>
-                  <span className="text-sm font-semibold text-[var(--primary)]">{card.price}</span>
-                </button>
+          {typeCards.map(card => (
+            <button
+              key={card.key}
+              onClick={() => openModal(card.key)}
+              className="w-full p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] transition-all text-left group"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)]/20 transition-colors">
+                  {card.icon}
+                </div>
+                <svg className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </div>
-            );
-          })}
+              <h3 className="text-lg font-bold mb-1">{card.label}</h3>
+              <p className="text-sm text-[var(--muted)] mb-3">{card.description}</p>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-[var(--primary)]">{card.price}</span>
+                <span className="text-xs text-[var(--muted)]">
+                  {(PRODUCT_COUNTRIES[card.key] || []).length} countries
+                </span>
+              </div>
+            </button>
+          ))}
         </div>
 
         {/* Cart Summary Bar */}
@@ -174,7 +221,7 @@ export default function OrderPage() {
         {/* Empty cart nudge */}
         {cart.length === 0 && (
           <div className="mt-16 text-center">
-            <p className="text-[var(--muted)] text-sm">Your cart is empty. Choose a proxy type above to get started.</p>
+            <p className="text-[var(--muted)] text-sm">Your cart is empty. Pick a proxy type above to get started.</p>
           </div>
         )}
 
@@ -185,97 +232,128 @@ export default function OrderPage() {
           </div>
         )}
 
-        {/* Country/Plan Modal */}
-        {activeModal && (() => {
-          const variants = getProductsByGroup(activeModal);
-          const card = typeCards.find(c => c.key === activeModal);
-          return (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              onClick={() => setActiveModal(null)}
-            >
-              {/* Backdrop */}
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        {/* =============================================================
+            Country + Plan Picker Modal
+            Renders: country grid, plan list filtered by selected country
+            ============================================================= */}
+        {modalData && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={closeModal}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-              {/* Modal */}
-              <div
-                className="relative w-full max-w-md bg-[var(--card)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden animate-fade-in"
-                onClick={e => e.stopPropagation()}
-              >
-                {/* Header */}
-                <div className="p-6 border-b border-[var(--border)]">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-bold">{card?.label}</h2>
-                      <p className="text-sm text-[var(--muted)] mt-1">Select your preferred option</p>
-                    </div>
-                    <button
-                      onClick={() => setActiveModal(null)}
-                      className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+            <div
+              className="relative w-full max-w-2xl bg-[var(--card)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden animate-fade-in"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-[var(--border)]">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h2 className="text-xl font-bold">{modalData.card?.label}</h2>
+                    <p className="text-sm text-[var(--muted)] mt-1">
+                      Step 1 — pick your country. Step 2 — pick a plan.
+                    </p>
                   </div>
+                  <button
+                    onClick={closeModal}
+                    className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
 
-                {/* Options List */}
-                <div className="p-4 max-h-80 overflow-y-auto space-y-2">
-                  {variants.map(product => {
-                    const name = product.plan_type === 'ISP'
-                      ? `${product.country} ISP`
-                      : product.plan_type === 'RESIDENTIAL'
-                      ? `Residential ${product.features[0].replace(' Data', ' Data')}`
-                      : product.plan_type === 'MOBILE'
-                      ? `Mobile 4G ${product.features[0].replace('4G ', '').replace(' Data', 'GB')}`
-                      : 'Datacenter Proxy';
-
-                    const cartItem = cart.find(i => i.plan_code === product.plan_code);
-                    const inCart = !!cartItem;
-
+                {/* Country Grid */}
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
+                  {modalData.countries.map(c => {
+                    const isActive = selectedCountry === c.code;
                     return (
-                      <div
-                        key={product.plan_code}
-                        className="flex items-center justify-between p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
+                      <button
+                        key={c.code}
+                        onClick={() => setSelectedCountry(c.code)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+                          isActive
+                            ? 'border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--foreground)] ring-2 ring-[var(--primary)]/30'
+                            : 'border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                        }`}
                       >
-                        <div>
-                          <p className="font-semibold">{product.flag} {name}</p>
-                          <p className="text-sm text-[var(--muted)]">{product.features[0]}</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-semibold text-[var(--primary)]">{formatPrice(product.price_ngn)}</span>
-                          <button
-                            onClick={() => addToCart(product)}
-                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                              inCart
-                                ? 'bg-[var(--primary)] text-black'
-                                : 'bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black'
-                            }`}
-                          >
-                            {inCart ? '✓ Added' : '+ Add'}
-                          </button>
-                        </div>
-                      </div>
+                        <span className="text-base leading-none">{c.flag}</span>
+                        <span className="font-medium">{c.code}</span>
+                      </button>
                     );
                   })}
                 </div>
-
-                {/* Footer */}
-                {cart.length > 0 && (
-                  <div className="p-4 border-t border-[var(--border)]">
-                    <button
-                      onClick={() => { setActiveModal(null); router.push('/order/checkout'); }}
-                      className="w-full py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors"
-                    >
-                      Checkout → {formatPrice(cartTotal)}
-                    </button>
-                  </div>
+                {selectedCountry && (
+                  <p className="text-xs text-[var(--muted)] mt-3">
+                    Showing plans for <span className="font-semibold text-[var(--primary)]">
+                      {COUNTRIES[selectedCountry]?.flag} {COUNTRIES[selectedCountry]?.name}
+                    </span>
+                  </p>
                 )}
               </div>
+
+              {/* Plan List — filtered by selected country */}
+              <div className="p-4 max-h-72 overflow-y-auto space-y-2">
+                {selectedCountry && modalData.variants.map(product => {
+                  // For ISP we resolve the country-specific plan_code when available;
+                  // for GLOBAL plans we surface them all (country is captured separately).
+                  const realPlan = modalData.card?.hasGeoPlans
+                    ? products.find(p => p.plan_code === `ISP-${selectedCountry}-1`) || product
+                    : product;
+
+                  const cartItem = cart.find(
+                    i => i.plan_code === makePlanCode(realPlan.plan_type, selectedCountry, realPlan.plan_code)
+                  );
+                  const inCart = !!cartItem;
+
+                  return (
+                    <div
+                      key={product.plan_code}
+                      className="flex items-center justify-between p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
+                    >
+                      <div>
+                        <p className="font-semibold">
+                          {COUNTRIES[selectedCountry]?.flag} {formatPlanName(realPlan)} ({COUNTRIES[selectedCountry]?.code})
+                        </p>
+                        <p className="text-sm text-[var(--muted)]">{realPlan.features[0]}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold text-[var(--primary)]">{formatPrice(realPlan.price_ngn)}</span>
+                        <button
+                          onClick={() => addToCart(realPlan, selectedCountry)}
+                          className="px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium text-sm transition-colors"
+                        >
+                          {inCart ? '✓ Added' : '+ Add'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {!selectedCountry && (
+                  <p className="text-sm text-[var(--muted)] text-center py-6">
+                    Pick a country above to see plans.
+                  </p>
+                )}
+              </div>
+
+              {/* Footer */}
+              {cart.length > 0 && (
+                <div className="p-4 border-t border-[var(--border)]">
+                  <button
+                    onClick={() => { closeModal(); router.push('/order/checkout'); }}
+                    className="w-full py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors"
+                  >
+                    Checkout → {formatPrice(cartTotal)}
+                  </button>
+                </div>
+              )}
             </div>
-          );
-        })()}
+          </div>
+        )}
       </div>
     </div>
   );
