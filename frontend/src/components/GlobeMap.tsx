@@ -1,10 +1,11 @@
 // @ts-nocheck — react-globe.gl types are incomplete; runtime works correctly
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import type { GlobeMethods } from 'react-globe.gl';
+import { feature } from 'topojson-client';
 
 // Load react-globe.gl only on client (SSR disabled)
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
@@ -22,12 +23,8 @@ const LOCATIONS = [
   { name: 'Singapore',      lat: 1.3521,   lng: 103.8198, flag: '🇸🇬', region: 'Asia Pacific' },
 ];
 
-const BRAND_GREEN  = '#10B981';
-const LIGHT_GREEN  = '#4ADE80';
-const LIGHT_GRAY   = '#6B7280';
-
-// World countries GeoJSON for continent dots
-const WORLD_COUNTRIES = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+const BRAND_GREEN = '#10B981';
+const LIGHT_GREEN = '#4ADE80';
 
 export default function GlobeMap() {
   const globeRef  = useRef<GlobeMethods | null>(null);
@@ -36,6 +33,7 @@ export default function GlobeMap() {
   const [dims, setDims] = useState({ w: 520, h: 520 });
   const [ready, setReady] = useState(false);
   const [containerOpacity, setContainerOpacity] = useState(0);
+  const [countriesData, setCountriesData] = useState<object[]>([]);
 
   // Detect system theme
   useEffect(() => {
@@ -44,6 +42,24 @@ export default function GlobeMap() {
     const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // Load world countries GeoJSON from CDN
+  useEffect(() => {
+    const topoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+    fetch(topoUrl)
+      .then(r => r.json())
+      .then(topo => {
+        const countries = feature(
+          topo as { objects: { countries: object } },
+          (topo.objects as { countries: object }).countries
+        ) as { features: object[] };
+        setCountriesData(countries.features);
+      })
+      .catch(() => {
+        // Fallback: empty array
+        setCountriesData([]);
+      });
   }, []);
 
   // Responsive sizing
@@ -67,53 +83,6 @@ export default function GlobeMap() {
 
   const featured = LOCATIONS[featuredIdx];
 
-  // Apply theme colors imperatively to the THREE.js scene objects
-  const applyTheme = useCallback((globe: GlobeMethods, dark: boolean) => {
-    try {
-      const scene = globe.scene();
-      if (!scene) return;
-
-      const dotHex = dark ? LIGHT_GREEN : LIGHT_GRAY;
-      const sphereHex = dark ? '0f0f1a' : 'ffffff';
-      const atmHex = dark ? LIGHT_GREEN : '93C5FD';
-
-      scene.traverse((obj: object) => {
-        const o = obj as Record<string, unknown>;
-        const mat = (o.material ?? o.side) as Record<string, unknown> | undefined;
-        if (!mat) return;
-
-        const material = mat as Record<string, unknown>;
-        // THREE.MeshBasicMaterial / MeshStandardMaterial has a 'color' property
-        const color = material.color as Record<string, (c: string) => void> | undefined;
-        if (!color || typeof color.set !== 'function') return;
-
-        // Get current hex
-        const getHex = () => {
-          try { return (color.getHexString ?? (() => ''))() as string; } catch { return ''; }
-        };
-        const hex = getHex();
-
-        // Skip known fixed colors
-        if (['10b981', '4ade80', '93c5fd'].includes(hex)) return;
-
-        // Sphere / atmosphere / globe base
-        if (hex === '0f0f1a' || hex === 'ffffff' || hex === '0a0a1e' || hex === '000000') {
-          color.set(dark ? `#${sphereHex}` : `#${sphereHex}`);
-          return;
-        }
-
-        // Anything else → continent dot color
-        color.set(`#${dotHex.replace('#', '')}`);
-      });
-    } catch (_) {}
-  }, []);
-
-  // Apply theme whenever isDark changes AND globe is ready
-  useEffect(() => {
-    if (!ready || !globeRef.current) return;
-    applyTheme(globeRef.current, isDark);
-  }, [isDark, ready, applyTheme]);
-
   // Pan camera when featured country changes
   useEffect(() => {
     if (!globeRef.current || !ready) return;
@@ -124,8 +93,6 @@ export default function GlobeMap() {
   }, [featuredIdx, ready]);
 
   // Per-theme colors
-  // Dark mode: dark sphere + light-green dots + green glow
-  // Light mode: white sphere + dark dots + green glow ring
   const globeBase       = isDark ? '#0a0a12' : '#e8e8ec';
   const atmosphereColor = isDark ? LIGHT_GREEN : BRAND_GREEN;
   const atmosphereAlt   = isDark ? 0.18 : 0.14;
@@ -155,18 +122,18 @@ export default function GlobeMap() {
           globeColor={() => globeBase}
           nightColor={() => globeBase}
           backgroundColor="rgba(0,0,0,0)"
-          // Atmosphere
+          // Atmosphere glow
           atmosphereColor={atmosphereColor}
           atmosphereAltitude={atmosphereAlt}
-          // Continent dots — hex polygons with useDots
-          hexPolygonsData={`${WORLD_COUNTRIES}`}
-          hexPolygonGeoJsonGeometry={() => 'geometry'}
+          // Continent dots — hex polygons rendered as dots
+          hexPolygonsData={countriesData}
+          hexPolygonGeoJsonGeometry={(d: object) => (d as { geometry: object }).geometry}
           hexPolygonUseDots={() => true}
-          hexPolygonDotResolution={12}
-          hexPolygonMargin={0.85}
+          hexPolygonDotResolution={6}
+          hexPolygonMargin={0.6}
           hexPolygonColor={() => dotColorHex}
-          hexPolygonAltitude={() => 0.001}
-          // Country markers
+          hexPolygonAltitude={() => 0.002}
+          // Country markers — brand green
           pointsData={LOCATIONS}
           pointLat="lat"
           pointLng="lng"
