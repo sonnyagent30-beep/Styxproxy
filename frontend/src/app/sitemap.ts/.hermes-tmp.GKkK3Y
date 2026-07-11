@@ -1,0 +1,16 @@
+import { MetadataRoute } from 'next';
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  const base = 'https://styxproxy.com';
+  return [
+    { url: base, lastModified: new Date(), changeFrequency: 'weekly', priority: 1 },
+    { url: `${base}/products`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.9 },
+    { url: `${base}/order`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9 },
+    { url: `${base}/manage`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${base}/contact`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.5 },
+    { url: `${base}/legal/terms`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.4 },
+    { url: `${base}/legal/privacy`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.4 },
+    { url: `${base}/legal/aup`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.4 },
+    { url: `${base}/refund-policy`, lastModified: new Date(), changeFrequency: 'yearly', priority: 0.4 },
+  ];
+}

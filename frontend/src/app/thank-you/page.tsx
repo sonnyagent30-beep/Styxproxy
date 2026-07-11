@@ -19,7 +19,8 @@ interface OrderData {
   plan_type?: string;
   country?: string;
   amount_paid_ngn?: number;
-  styxproxy_credential?: {
+  tx_ref?: string;
+  bunche_credential?: {
     bun_username?: string;
     upstream_proxy_ip?: string;
     upstream_proxy_port?: number;
@@ -89,7 +90,7 @@ async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: str
   y += 15;
   
   // Credentials (if fulfilled)
-  if (order.styxproxy_credential) {
+  if (order.bunche_credential) {
     doc.line(20, y, pageWidth - 20, y);
     y += 10;
     
@@ -98,7 +99,7 @@ async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: str
     y += 8;
     
     doc.setFont('helvetica', 'normal');
-    const cred = order.styxproxy_credential;
+    const cred = order.bunche_credential;
     doc.text(`Username: ${cred.bun_username || 'N/A'}`, 25, y);
     y += 7;
     doc.text(`Proxy: ${cred.upstream_proxy_ip || 'N/A'}:${cred.upstream_proxy_port || 'N/A'}`, 25, y);
@@ -253,29 +254,29 @@ function ThankYouContent() {
               <h2 className="text-lg font-semibold mb-4">Proxy Credentials</h2>
               
               {/* If we have credential from API, show it */}
-              {order?.styxproxy_credential ? (
+              {order?.bunche_credential ? (
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm text-[var(--muted)]">Username</label>
-                    <p className="font-mono text-lg">{order.styxproxy_credential.bun_username}</p>
+                    <p className="font-mono text-lg">{order.bunche_credential.bun_username}</p>
                   </div>
                   <div>
                     <label className="text-sm text-[var(--muted)]">Proxy Address</label>
                     <p className="font-mono text-lg">
-                      {order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
+                      {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm text-[var(--muted)]">Format</label>
                     <p className="font-mono text-sm text-[var(--muted)] break-all">
-                      {order.styxproxy_credential.bun_username}:your_password@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
+                      {order.bunche_credential.bun_username}:your_password@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm text-[var(--muted)]">Expires</label>
                     <p className="font-medium">
-                      {order.styxproxy_credential.expires_at
-                        ? new Date(order.styxproxy_credential.expires_at).toLocaleDateString('en-NG', {
+                      {order.bunche_credential.expires_at
+                        ? new Date(order.bunche_credential.expires_at).toLocaleDateString('en-NG', {
                             year: 'numeric', month: 'long', day: 'numeric',
                           })
                         : 'N/A'}
@@ -323,7 +324,7 @@ function ThankYouContent() {
 
             {/* Actions */}
             <div className="space-y-3">
-              {order?.styxproxy_credential && (
+              {order?.bunche_credential && (
                 <button
                   onClick={handleDownloadPDF}
                   className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
