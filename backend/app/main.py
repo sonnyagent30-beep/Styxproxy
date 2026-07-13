@@ -15,16 +15,17 @@ from app.database import engine
 from app.models import Base
 from app.limiter import limiter
 from app.routers import (
+    admin,
+    charon,
+    credentials,
     health,
-    platform,
-    products,
     orders,
     payments,
-    webhooks,
-    credentials,
-    trials,
-    admin,
+    platform,
+    products,
     session,
+    trials,
+    webhooks,
 )
 
 settings = get_settings()
@@ -196,3 +197,4 @@ app.include_router(credentials.router)
 app.include_router(trials.router)
 app.include_router(admin.router)
 app.include_router(session.router)
+app.include_router(charon.router)

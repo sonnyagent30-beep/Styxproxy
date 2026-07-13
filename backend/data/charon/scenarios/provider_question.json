@@ -1,0 +1,15 @@
+{
+  "id": "provider_question",
+  "name": "Customer asks who the upstream provider is",
+  "trigger": [
+    "(which|what|who).*(provider|upstream|backend|source|where|partner|service provider).*(use|behind|of|do you)",
+    "^(.*)\\b(provider|upstream|backend|source)\\b(.*)$"
+  ],
+  "actions": [
+    {
+      "type": "reply",
+      "text": "We source IPs from a vetted third-party infrastructure network. The specific provider names aren't advertised for security and operational reasons — what matters is that your credentials work, the IPs are verified before delivery, and we have redundancy if any single source goes down. If you have questions about a particular IP or country, ask and I will check availability."
+    }
+  ],
+  "llm_required": false
+}

@@ -1,0 +1,21 @@
+{
+  "id": "refund_request",
+  "name": "Customer asks for a refund",
+  "trigger": [
+    "(want|need|request|asking).*(refund|money back|return)",
+    "^(.*)\\brefund\\b(.*)$",
+    "(cancel|reverse).*(order|charge|payment)"
+  ],
+  "actions": [
+    {
+      "type": "escalate",
+      "summary_template": "Customer requested refund. Transaction reference: {{tx_ref_or_unknown}}",
+      "reason": "refund_request"
+    },
+    {
+      "type": "reply",
+      "text": "I cannot issue refunds directly — refunds are reviewed by our team to confirm the order qualifies. Let me escalate this for you. If you have your transaction reference handy, please paste it; it speeds up the review. Otherwise I'll open the ticket without it. We respond by email within a couple of business hours."
+    }
+  ],
+  "llm_required": false
+}
