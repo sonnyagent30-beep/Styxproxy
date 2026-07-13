@@ -15,6 +15,7 @@ interface OrderData {
   tx_ref?: string;
   bunche_credential?: {
     bun_username?: string;
+    bun_password?: string;
     upstream_proxy_ip?: string;
     upstream_proxy_port?: number;
     expires_at?: string;
@@ -31,7 +32,6 @@ export default function ManagePage() {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
   const [rotating, setRotating] = useState(false);
-  const [renewing, setRenewing] = useState(false);
   const [error, setError] = useState('');
   const { toast } = useToast();
 
@@ -75,23 +75,10 @@ export default function ManagePage() {
     }
   };
 
-  const handleRenew = async () => {
+  // Renew → redirects to checkout
+  const handleRenew = () => {
     if (!order?.order_id) return;
-    setRenewing(true);
-    try {
-      const res = await fetch(`/api/orders/${order.order_id}/renew`, { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        setOrder(prev => prev ? { ...prev, expires_at: data.expires_at, is_renewable: false } : null);
-        toast({ type: 'success', title: 'Proxy renewed!', message: 'Your expiry date has been updated.' });
-      } else {
-        toast({ type: 'error', title: 'Renewal failed', message: data.error || 'Please try again.' });
-      }
-    } catch {
-      toast({ type: 'error', title: 'Network error', message: 'Could not renew. Try again.' });
-    } finally {
-      setRenewing(false);
-    }
+    window.location.href = `/order/checkout?renew=${order.order_id}`;
   };
 
   const isActive = order?.status === 'fulfilled' || order?.status === 'active';
@@ -260,7 +247,7 @@ export default function ManagePage() {
                       </div>
                       <div className="bg-[var(--background)] rounded-xl p-4">
                         <span className="text-xs text-[var(--muted)]">Password</span>
-                        <p className="font-mono text-sm font-medium">demo_password</p>
+                        <p className="font-mono text-sm font-medium">{order.bunche_credential.bun_password || 'N/A'}</p>
                       </div>
                       <div className="bg-[var(--background)] rounded-xl p-4">
                         <span className="text-xs text-[var(--muted)]">Proxy Address</span>
@@ -276,7 +263,7 @@ export default function ManagePage() {
                     <div className="bg-[var(--background)] rounded-xl p-4">
                       <span className="text-xs text-[var(--muted)]">Full Format</span>
                       <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
-                        http://{order.bunche_credential.bun_username}:YOUR_PASSWORD@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                        http://{order.bunche_credential.bun_username}:{order.bunche_credential.bun_password || 'N/A'}@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
                       </p>
                     </div>
 
@@ -297,17 +284,16 @@ export default function ManagePage() {
                       <p className="text-xs text-[var(--muted)] text-center">Rotation limit reached for this proxy.</p>
                     )}
 
-                    {/* Renewal */}
+                    {/* Renewal — takes user to checkout */}
                     {(isNearExpiry || order.is_renewable) && (
                       <button
                         onClick={handleRenew}
-                        disabled={renewing}
-                        className="w-full px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="w-full px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        {renewing ? 'Renewing…' : 'Renew This Proxy'}
+                        Renew This Proxy
                       </button>
                     )}
                   </div>
@@ -323,12 +309,23 @@ export default function ManagePage() {
                   Order Another
                 </Link>
                 <button
-                  onClick={() => window.dispatchEvent(new CustomEvent('open-chat-widget'))}
+                  onClick={() => {
+                    // Open ChatWidget — Charon handles it, escalates to human if needed
+                    window.dispatchEvent(new CustomEvent('open-chat-widget', { detail: { context: 'support', orderId: order?.order_id } }));
+                  }}
                   className="px-5 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl text-sm text-center transition-colors"
                 >
                   Get Support
                 </button>
               </div>
+
+              {/* Chatbot can't help? Direct to human */}
+              <p className="text-xs text-center text-[var(--muted)] pt-2">
+                Charon can&apos;t solve it?{' '}
+                <Link href="/contact" className="text-[var(--primary)] hover:underline font-medium">
+                  Get in touch with a human →
+                </Link>
+              </p>
             </div>
           )}
 
