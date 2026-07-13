@@ -84,54 +84,39 @@ export default function Header() {
         </div>
 
         {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-[var(--border)]">
-            <nav className="flex flex-col space-y-4">
+        <div
+          className="md:hidden overflow-hidden transition-all duration-300 ease-out"
+          style={{
+            maxHeight: mobileMenuOpen ? '400px' : '0',
+            opacity: mobileMenuOpen ? 1 : 0,
+          }}
+        >
+          <nav className="flex flex-col space-y-1 py-4 border-t border-[var(--border)]">
+            {[
+              ['/products', 'Products'],
+              ['/order', 'Order'],
+              ['/#how-it-works', 'How It Works'],
+              ['/manage', 'Manage'],
+              ['/contact', 'Contact'],
+            ].map(([href, label]) => (
               <Link
-                href="/products"
-                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors py-2"
+                key={href}
+                href={href}
+                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors py-2.5 px-1"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Products
+                {label}
               </Link>
-              <Link
-                href="/order"
-                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Order
-              </Link>
-              <Link
-                href="/#how-it-works"
-                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                How It Works
-              </Link>
-              <Link
-                href="/manage"
-                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Manage
-              </Link>
-              <Link
-                href="/contact"
-                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Contact
-              </Link>
-              <Link
-                href="/order"
-                className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors text-center"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Get Proxy
-              </Link>
-            </nav>
-          </div>
-        )}
+            ))}
+            <Link
+              href="/order"
+              className="mt-2 px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors text-center"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Get Proxy
+            </Link>
+          </nav>
+        </div>
       </div>
     </header>
   );
