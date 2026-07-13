@@ -409,6 +409,10 @@ function ThankYouContent() {
         if (data.status === 'fulfilled' || data.status === 'active' ||
             data.status === 'expired' || data.status === 'cancelled') {
           setLoading(false);
+          // Order fulfilled — clear in-flight lock so customer can buy again
+          if (data.status === 'active') {
+            import('@/lib/device-id').then(({ clearInflightOrder }) => clearInflightOrder());
+          }
           return;
         }
         setAttempts(prev => prev + 1);

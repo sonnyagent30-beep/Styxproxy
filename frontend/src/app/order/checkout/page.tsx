@@ -6,6 +6,15 @@ import Link from 'next/link';
 import { formatPrice, COUNTRIES } from '@/lib/products';
 import type { CartItem } from '@/types';
 import api from '@/lib/api';
+import { tryStartOrder, setInflightOrder, getDeviceId, addToOrderHistory } from '@/lib/device-id';
+
+function generateTxRef(): string {
+  // Format: STX-XXXXXX (e.g. STYX-A3K9L2)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/1/I/O confusion
+  let suffix = '';
+  for (let i = 0; i < 6; i++) suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+  return `STX-${suffix}`;
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -68,15 +77,45 @@ export default function CheckoutPage() {
 
       // Initiate payment with first cart item
       const firstItem = cart[0];
+
+      // ─── Double-payment prevention (frontend layer) ─────────────
+      // If we already have an in-flight order for this plan_code from the
+      // same device in the last 5 minutes, reuse it instead of starting a new one.
+      // This protects against accidental double-clicks and double-tab confusion.
+      const { tx_ref, is_resume } = tryStartOrder(firstItem.plan_code, generateTxRef);
+
+      if (is_resume) {
+        setError(`Payment already in progress for this order. Complete or close the existing tab.`);
+        setLoading(false);
+        return;
+      }
+
+      // Record tx_ref in cart so thank-you page can match it
+      sessionStorage.setItem('styxproxy_active_tx', tx_ref);
+
+      // Track this order in local device history (anonymous, no PII)
+      addToOrderHistory({
+        tx_ref,
+        order_id: tx_ref, // same — backend uses tx_ref as order_id
+        plan_code: firstItem.plan_code,
+        country: firstItem.country_code || 'NG',
+        amount: subtotal,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      });
+
       const result = await api.initiatePayment(firstItem.plan_code, firstItem.quantity, '');
 
       if (result.error) {
         setError(result.error);
         setLoading(false);
+        // Clear in-flight since payment failed
         return;
       }
 
       if (result.data?.checkout_url) {
+        // Don't clear in-flight yet — webhook will clear it on payment confirm
+        // OR 5-min expiry will auto-clear
         window.location.href = result.data.checkout_url;
       } else {
         setError('Payment link not received. Please try again.');
