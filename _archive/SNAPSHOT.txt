@@ -1,0 +1,5 @@
+Snapshot before cleanup pass: 2026-07-13 12:45:22 UTC
+Current commit:
+64a4358 feat: anonymous device session (frontend-only) + double-payment prevention
+5799a02 feat: anonymous device session + double-payment prevention
+f0850f5 feat: customer name in PDF when set (WhatsApp/Telegram), multi-item cart working
