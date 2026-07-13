@@ -13,22 +13,22 @@ export default function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo — full lockup, switches with theme */}
           <Link href="/" className="flex items-center gap-2">
-            {/* Dark mode logo */}
+            {/* Dark mode logo — full lockup, no crop */}
             <Image
               src="/header-logo-dark.png"
               alt="styxproxy"
-              width={240}
-              height={60}
-              className="hidden dark:block w-auto h-[60px] object-contain"
+              width={181}
+              height={64}
+              className="hidden dark:block w-auto h-16 object-contain"
               priority
             />
             {/* Light mode logo */}
             <Image
               src="/header-logo-light.png"
               alt="styxproxy"
-              width={240}
-              height={60}
-              className="block dark:hidden w-auto h-[60px] object-contain"
+              width={181}
+              height={64}
+              className="block dark:hidden w-auto h-16 object-contain"
               priority
             />
           </Link>
