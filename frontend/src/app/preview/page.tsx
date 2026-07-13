@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Head from 'next/head';
+// ─── Mock data ────────────────────────────────────────────────────
 
-// Mock data for all preview states
 const MOCK_ORDER = {
   order_id: 'ORD-2025-XXXXX',
   status: 'fulfilled',
@@ -11,7 +10,7 @@ const MOCK_ORDER = {
   country: 'United Kingdom',
   amount_paid_ngn: 6500,
   tx_ref: 'TXF-DANNION-PREVIEW',
-  styxproxy_credential: {
+  bunche_credential: {
     bun_username: 'demo_user_4821',
     upstream_proxy_ip: '185.199.228.105',
     upstream_proxy_port: 8080,
@@ -19,105 +18,299 @@ const MOCK_ORDER = {
   },
   created_at: new Date().toISOString(),
   expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  is_renewable: true,
+  rotation_count: 1,
+  max_rotations: 3,
 };
 
 const MOCK_CART = [
   { plan_code: 'ISP-UK-1', name: 'UK ISP Proxy', flag: '🇬🇧', price_ngn: 6500, quantity: 1 },
 ];
 
+// ─── Download handler ─────────────────────────────────────────────
+
+function handleDownloadReceipt() {
+  import('jspdf').then(({ jsPDF }) => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+
+    // Dark background
+    doc.setFillColor(15, 15, 15);
+    doc.rect(0, 0, W, H, 'F');
+
+    // Top accent bar
+    doc.setFillColor(16, 185, 129);
+    doc.rect(0, 0, W, 6, 'F');
+
+    // Brand logo
+    doc.setFillColor(16, 185, 129);
+    doc.roundedRect(20, 18, 12, 12, 3, 3, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('S', 26, 25.5, { align: 'center' });
+    doc.setTextColor(245, 245, 245);
+    doc.setFontSize(18);
+    doc.text('styxproxy', 35, 25);
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Anonymous Proxy Service', 35, 30.5);
+
+    doc.setTextColor(16, 185, 129);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PAYMENT RECEIPT', W - 20, 22, { align: 'right' });
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(8);
+    doc.text('styxproxy.com', W - 20, 27, { align: 'right' });
+
+    // Divider
+    doc.setDrawColor(42, 42, 42);
+    doc.setLineWidth(0.5);
+    doc.line(20, 40, W - 20, 40);
+
+    // Order IDs box
+    let y = 52;
+    doc.setFillColor(26, 26, 26);
+    doc.roundedRect(20, y - 6, W - 40, 22, 3, 3, 'F');
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TRANSACTION REFERENCE', 25, y);
+    doc.text('ORDER ID', W / 2 + 5, y);
+    doc.setTextColor(245, 245, 245);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TXF-DANNION-PREVIEW', 25, y + 8);
+    doc.text('ORD-2025-XXXXX', W / 2 + 5, y + 8);
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Flutterwave', 25, y + 14);
+    doc.text('Internal', W / 2 + 5, y + 14);
+
+    // Date + Status
+    y = 82;
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DATE', 25, y);
+    doc.text('STATUS', W / 2 + 5, y);
+    doc.setTextColor(245, 245, 245);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }), 25, y + 7);
+    doc.setTextColor(16, 185, 129);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FULFILLED', W / 2 + 5, y + 7);
+
+    // Divider
+    doc.setDrawColor(42, 42, 42);
+    doc.line(20, 98, W - 20, 98);
+
+    // Items header
+    y = 106;
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ITEM', 25, y);
+    doc.text('QTY', W - 45, y, { align: 'right' });
+    doc.text('AMOUNT', W - 20, y, { align: 'right' });
+    doc.setDrawColor(42, 42, 42);
+    doc.line(20, y + 3, W - 20, y + 3);
+
+    y += 10;
+    doc.setTextColor(245, 245, 245);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('🇬🇧 UK ISP Proxy', 25, y);
+    doc.text('1', W - 45, y, { align: 'right' });
+    doc.text('₦6,500', W - 20, y, { align: 'right' });
+
+    y += 4;
+    doc.setDrawColor(42, 42, 42);
+    doc.line(20, y, W - 20, y);
+    y += 10;
+
+    // Total
+    doc.setFillColor(16, 185, 129);
+    doc.roundedRect(W - 70, y - 6, 50, 12, 2, 2, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL', W - 65, y - 1);
+    doc.text('₦6,500', W - 25, y + 3, { align: 'right' });
+
+    // Credentials
+    y += 22;
+    doc.setTextColor(16, 185, 129);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('YOUR PROXY CREDENTIALS', 20, y);
+    doc.setFillColor(26, 26, 26);
+    doc.roundedRect(20, y + 4, W - 40, 48, 3, 3, 'F');
+
+    y += 14;
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('USERNAME', 28, y);
+    doc.setTextColor(52, 211, 153);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('demo_user_4821', 28, y + 7);
+
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PASSWORD', W / 2 + 5, y);
+    doc.setTextColor(52, 211, 153);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('********', W / 2 + 5, y + 7);
+
+    y += 18;
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PROXY ADDRESS', 28, y);
+    doc.setTextColor(52, 211, 153);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('185.199.228.105:8080', 28, y + 7);
+
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PROTOCOL', W / 2 + 5, y);
+    doc.setTextColor(52, 211, 153);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('HTTP / SOCKS5', W / 2 + 5, y + 7);
+
+    y += 18;
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FULL FORMAT', 28, y);
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text('http://demo_user_4821:YOUR_PASSWORD@185.199.228.105:8080', 28, y + 7);
+
+    // Footer
+    const footerY = H - 18;
+    doc.setDrawColor(42, 42, 42);
+    doc.line(20, footerY - 6, W - 20, footerY - 6);
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Need help? Chat with Charon → @StyxproxyBot  |  hello@styxproxy.com  |  styxproxy.com', W / 2, footerY, { align: 'center' });
+    doc.setFontSize(6);
+    doc.text('This receipt was generated automatically. No signature required.', W / 2, footerY + 5, { align: 'center' });
+
+    doc.save('styxproxy-receipt-TXF-DANNION-PREVIEW.pdf');
+  });
+}
+
 // ─── Thank-you preview ───────────────────────────────────────────
+
 function ThankYouPreview() {
   const order = MOCK_ORDER;
   const cart = MOCK_CART;
   const txRef = MOCK_ORDER.tx_ref;
-  const isSuccess = true;
 
   return (
     <div className="max-w-lg w-full">
       <div className="text-center mb-2">
         <span className="text-xs font-mono text-[var(--muted)] bg-[var(--card)] px-2 py-1 rounded border border-[var(--border)]">
-          PREVIEW — /thank-you?tx_ref={txRef}
+          PREVIEW — /thank-you
         </span>
       </div>
 
-      <div className="animate-fade-in">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--primary)]/20 flex items-center justify-center">
-            <svg className="w-8 h-8 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-[var(--primary)] mb-2">Order Complete!</h1>
-          <p className="text-[var(--muted)]">
-            Your proxies are ready. Here are your credentials:
-          </p>
-        </div>
-
-        {/* Credentials Card */}
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Proxy Credentials</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm text-[var(--muted)]">Username</label>
-              <p className="font-mono text-lg">{order.styxproxy_credential?.bun_username}</p>
+      <div className="animate-fade-in space-y-4">
+        {/* Success banner */}
+        <div className="rounded-2xl p-5 border bg-emerald-500/10 border-emerald-500/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
             </div>
             <div>
-              <label className="text-sm text-[var(--muted)]">Proxy Address</label>
-              <p className="font-mono text-lg">
-                {order.styxproxy_credential?.upstream_proxy_ip}:{order.styxproxy_credential?.upstream_proxy_port}
-              </p>
-            </div>
-            <div>
-              <label className="text-sm text-[var(--muted)]">Format</label>
-              <p className="font-mono text-sm text-[var(--muted)] break-all">
-                {order.styxproxy_credential?.bun_username}:your_password@185.199.228.105:8080
-              </p>
-            </div>
-            <div>
-              <label className="text-sm text-[var(--muted)]">Expires</label>
-              <p className="font-medium">
-                {new Date(order.styxproxy_credential?.expires_at!).toLocaleDateString('en-NG', {
-                  year: 'numeric', month: 'long', day: 'numeric',
-                })}
-              </p>
+              <p className="font-semibold text-sm text-emerald-400">Order Complete!</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">Your proxy credentials are ready</p>
             </div>
           </div>
         </div>
 
-        {/* Order Summary */}
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-[var(--muted)]">Order ID</span>
-              <p className="font-medium">{order.order_id}</p>
+        {/* Order info */}
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              ['Transaction Ref', order.tx_ref],
+              ['Order ID', order.order_id],
+              ['Plan', order.plan_type],
+              ['Amount Paid', `₦${order.amount_paid_ngn.toLocaleString('en-NG')}`],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <span className="text-xs text-[var(--muted)]">{label}</span>
+                <p className="font-mono text-sm font-medium mt-0.5">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Credentials card */}
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
+          <h2 className="text-sm font-semibold mb-4 text-[var(--muted)] uppercase tracking-wide">Proxy Credentials</h2>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[var(--background)] rounded-xl p-4">
+                <span className="text-xs text-[var(--muted)]">Username</span>
+                <p className="font-mono text-sm font-medium break-all">{order.bunche_credential.bun_username}</p>
+              </div>
+              <div className="bg-[var(--background)] rounded-xl p-4">
+                <span className="text-xs text-[var(--muted)]">Password</span>
+                <p className="font-mono text-sm text-[var(--muted)]">Sent to email</p>
+              </div>
+              <div className="bg-[var(--background)] rounded-xl p-4">
+                <span className="text-xs text-[var(--muted)]">Proxy Address</span>
+                <p className="font-mono text-sm font-medium">
+                  {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                </p>
+              </div>
+              <div className="bg-[var(--background)] rounded-xl p-4">
+                <span className="text-xs text-[var(--muted)]">Protocol</span>
+                <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
+              </div>
             </div>
-            <div>
-              <span className="text-[var(--muted)]">Amount Paid</span>
-              <p className="font-medium">₦{cart[0].price_ngn.toLocaleString('en-NG')}</p>
-            </div>
-            <div>
-              <span className="text-[var(--muted)]">Status</span>
-              <p className="font-medium text-[var(--primary)] capitalize">{order.status}</p>
-            </div>
-            <div>
-              <span className="text-[var(--muted)]">Items</span>
-              <p className="font-medium">{cart.reduce((s, i) => s + i.quantity, 0)} proxies</p>
+            <div className="bg-[var(--background)] rounded-xl p-4">
+              <span className="text-xs text-[var(--muted)]">Full Format</span>
+              <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
+                http://{order.bunche_credential.bun_username}:YOUR_PASSWORD@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Actions */}
         <div className="space-y-3">
-          <button className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2">
+          <button
+            onClick={handleDownloadReceipt}
+            className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             Download Receipt (PDF)
           </button>
-          <a href="/preview/manage" className="block w-full px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-lg text-center transition-colors">
+          <a href="/manage" className="block w-full px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-lg text-center transition-colors">
             Manage Order →
           </a>
-          <a href="/preview/checkout" className="block w-full px-6 py-3 text-[var(--muted)] hover:text-[var(--foreground)] text-center transition-colors">
+          <a href="/order" className="block w-full px-6 py-3 text-[var(--muted)] hover:text-[var(--foreground)] text-center transition-colors">
             Order Another →
           </a>
         </div>
@@ -127,9 +320,11 @@ function ThankYouPreview() {
 }
 
 // ─── Manage preview ─────────────────────────────────────────────
+
 function ManagePreview() {
   const order = MOCK_ORDER;
   const isActive = true;
+  const rotationsLeft = (order.max_rotations ?? 3) - (order.rotation_count ?? 0);
 
   return (
     <div className="max-w-xl w-full">
@@ -140,7 +335,7 @@ function ManagePreview() {
       </div>
 
       <div className="space-y-4 animate-fade-in">
-        {/* Status Banner */}
+        {/* Status banner */}
         <div className="rounded-2xl p-5 border bg-emerald-500/10 border-emerald-500/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -154,13 +349,13 @@ function ManagePreview() {
                 <p className="text-xs text-[var(--muted)] mt-0.5">Your proxy credentials are ready</p>
               </div>
             </div>
-            <span className="text-xs font-mono px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-400">
+            <span className="text-xs font-mono px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-400 capitalize">
               {order.status}
             </span>
           </div>
         </div>
 
-        {/* Order Details Card */}
+        {/* Order details */}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
           <h2 className="text-sm font-semibold mb-4 text-[var(--muted)] uppercase tracking-wide">Order Details</h2>
           <div className="space-y-3">
@@ -170,7 +365,7 @@ function ManagePreview() {
               ['Plan', order.plan_type],
               ['Country', order.country],
               ['Amount Paid', `₦${order.amount_paid_ngn.toLocaleString('en-NG')}`],
-              ['Ordered', new Date(order.created_at!).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' })],
+              ['Expiry', new Date(order.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' })],
             ].map(([label, value]) => (
               <div key={label} className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0">
                 <span className="text-sm text-[var(--muted)]">{label}</span>
@@ -180,33 +375,72 @@ function ManagePreview() {
           </div>
         </div>
 
-        {/* Credentials Card */}
+        {/* Credentials card */}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
-          <h2 className="text-sm font-semibold mb-4 text-[var(--muted)] uppercase tracking-wide">Your Proxy Credentials</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide">Your Proxy Credentials</h2>
+            <span className="text-xs text-[var(--muted)]">{rotationsLeft} rotation{rotationsLeft !== 1 ? 's' : ''} left</span>
+          </div>
           <div className="space-y-3">
-            {[
-              { label: 'Username', value: order.styxproxy_credential?.bun_username },
-              { label: 'Proxy Address', value: `${order.styxproxy_credential?.upstream_proxy_ip}:${order.styxproxy_credential?.upstream_proxy_port}` },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-[var(--background)] rounded-xl p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-[var(--muted)]">{label}</span>
-                  <button className="text-xs text-[var(--primary)] hover:underline">Copy</button>
-                </div>
-                <p className="font-mono text-sm font-medium">{value}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[var(--background)] rounded-xl p-4">
+                <span className="text-xs text-[var(--muted)]">Username</span>
+                <p className="font-mono text-sm font-medium break-all">{order.bunche_credential.bun_username}</p>
               </div>
-            ))}
+              <div className="bg-[var(--background)] rounded-xl p-4">
+                <span className="text-xs text-[var(--muted)]">Password</span>
+                <p className="font-mono text-sm text-[var(--muted)]">Sent to email</p>
+              </div>
+              <div className="bg-[var(--background)] rounded-xl p-4">
+                <span className="text-xs text-[var(--muted)]">Proxy Address</span>
+                <p className="font-mono text-sm font-medium">
+                  {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                </p>
+              </div>
+              <div className="bg-[var(--background)] rounded-xl p-4">
+                <span className="text-xs text-[var(--muted)]">Protocol</span>
+                <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
+              </div>
+            </div>
+            <div className="bg-[var(--background)] rounded-xl p-4">
+              <span className="text-xs text-[var(--muted)]">Full Format</span>
+              <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
+                http://{order.bunche_credential.bun_username}:YOUR_PASSWORD@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+              </p>
+            </div>
+
+            {/* Rotate button */}
+            <button
+              className="w-full px-4 py-2.5 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Rotate Proxy Key ({rotationsLeft} left)
+            </button>
+
+            {/* Renewal button */}
+            <button
+              className="w-full px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Renew This Proxy
+            </button>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="grid grid-cols-2 gap-3 pt-2">
+        {/* Action buttons */}
+        <div className="grid grid-cols-2 gap-3">
           <a href="/order" className="px-5 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-sm text-center transition-colors">
             Order Another
           </a>
-          <a href="https://t.me/StyxproxyBot" className="px-5 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl text-sm text-center transition-colors">
+          <button
+            className="px-5 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl text-sm text-center transition-colors"
+          >
             Get Support
-          </a>
+          </button>
         </div>
       </div>
     </div>
@@ -214,8 +448,16 @@ function ManagePreview() {
 }
 
 // ─── Checkout preview ───────────────────────────────────────────
+
 function CheckoutPreview() {
-  const [selected, setSelected] = useState('card');
+  const [step, setStep] = useState<'methods' | 'card' | 'transfer' | 'ussd' | 'qr'>('methods');
+
+  const methods = [
+    { id: 'card', label: 'Card Payment', sub: 'Visa, Mastercard', icon: '💳' },
+    { id: 'transfer', label: 'Bank Transfer', sub: 'Access, UBA, GTBank', icon: '🏦' },
+    { id: 'ussd', label: 'USSD', sub: 'Nigerian cards only', icon: '📱' },
+    { id: 'qr', label: 'QR Code', sub: 'Any banking app', icon: '📲' },
+  ];
 
   return (
     <div className="max-w-lg w-full">
@@ -225,121 +467,100 @@ function CheckoutPreview() {
         </span>
       </div>
 
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
-        <div className="space-y-3 mb-4">
-          {MOCK_CART.map(item => (
-            <div key={item.plan_code} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{item.flag}</span>
-                <span className="text-sm font-medium">{item.name} × {item.quantity}</span>
+      <div className="animate-fade-in space-y-4">
+        {/* Order summary */}
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
+          <h2 className="text-sm font-semibold mb-4 text-[var(--muted)] uppercase tracking-wide">Order Summary</h2>
+          <div className="space-y-3">
+            {[
+              { name: '🇬🇧 UK ISP Proxy', qty: 1, price: 6500 },
+            ].map((item, i) => (
+              <div key={i} className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0">
+                <span className="text-sm">{item.name} × {item.qty}</span>
+                <span className="font-mono text-sm">₦{item.price.toLocaleString('en-NG')}</span>
               </div>
-              <span className="text-sm font-semibold">₦{item.price_ngn.toLocaleString('en-NG')}</span>
+            ))}
+            <div className="flex items-center justify-between pt-2">
+              <span className="font-semibold">Total</span>
+              <span className="font-mono font-bold text-[var(--primary)]">₦6,500</span>
             </div>
-          ))}
+          </div>
         </div>
-        <div className="border-t border-[var(--border)] pt-3 flex items-center justify-between">
-          <span className="font-semibold">Total</span>
-          <span className="font-bold text-lg" style={{ color: 'var(--primary)' }}>
-            ₦{MOCK_CART[0].price_ngn.toLocaleString('en-NG')}
-          </span>
-        </div>
-      </div>
 
-      {/* Payment Methods */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Select Payment Method</h2>
-        <div className="space-y-2">
-          {[
-            { id: 'card', label: '💳 Card (Visa/Mastercard)', sub: 'Instant confirmation' },
-            { id: 'bank', label: '🏦 Bank Transfer', sub: 'Nigeria: Access, UBA, GTBank' },
-            { id: 'ussd', label: '📱 USSD', sub: 'Nigerian cards' },
-            { id: 'qr', label: '📲 QR Code', sub: 'Scan with any banking app' },
-          ].map(method => (
-            <button
-              key={method.id}
-              onClick={() => setSelected(method.id)}
-              className={`w-full flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
-                selected === method.id
-                  ? 'border-[var(--primary)] bg-[var(--primary)]/5'
-                  : 'border-[var(--border)] hover:border-[var(--primary)]'
-              }`}
-            >
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                selected === method.id ? 'border-[var(--primary)]' : 'border-[var(--border)]'
-              }`}>
-                {selected === method.id && (
-                  <div className="w-2.5 h-2.5 rounded-full bg-[var(--primary)]" />
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium">{method.label}</p>
-                <p className="text-xs text-[var(--muted)]">{method.sub}</p>
-              </div>
-            </button>
-          ))}
+        {/* Payment method selection */}
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
+          <h2 className="text-sm font-semibold mb-4 text-[var(--muted)] uppercase tracking-wide">Payment Method</h2>
+          <div className="space-y-3">
+            {methods.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setStep(m.id as typeof step)}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border border-[var(--border)] hover:border-[var(--primary)] transition-colors text-left"
+              >
+                <span className="text-2xl">{m.icon}</span>
+                <div>
+                  <p className="font-medium text-sm">{m.label}</p>
+                  <p className="text-xs text-[var(--muted)]">{m.sub}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-[var(--muted)] mt-3 text-center">
+            🔒 All payments secured by Flutterwave
+          </p>
         </div>
       </div>
-
-      {/* Pay Button */}
-      <button className="w-full px-6 py-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-bold rounded-xl transition-colors text-base">
-        Pay ₦{MOCK_CART[0].price_ngn.toLocaleString('en-NG')} →
-      </button>
-
-      <p className="text-xs text-center text-[var(--muted)] mt-3">
-        Secured by Flutterwave. Your card details are never stored.
-      </p>
     </div>
   );
 }
 
-// ─── Main preview page ──────────────────────────────────────────
+// ─── Main preview page ───────────────────────────────────────────
+
 export default function PreviewPage() {
-  const [tab, setTab] = useState<'thank-you' | 'manage' | 'checkout'>('thank-you');
+  const [activeTab, setActiveTab] = useState<'thankyou' | 'manage' | 'checkout'>('thankyou');
+
+  const tabs = [
+    { id: 'thankyou' as const, label: 'Thank You' },
+    { id: 'manage' as const, label: 'Manage' },
+    { id: 'checkout' as const, label: 'Checkout' },
+  ];
 
   return (
-    <>
-      <Head>
-        <title>Page Preview — Styxproxy</title>
-      </Head>
-      <main className="min-h-screen bg-[var(--background)] flex flex-col">
-        {/* Sticky preview banner */}
-        <div className="sticky top-0 z-50 bg-amber-600 text-white text-center py-2 px-4 text-sm font-medium">
-          🔍 <strong>Preview Mode</strong> — This is a simulated preview. Not connected to live backend.
-          {' '}
-          <a href="/" className="underline">← Back to homepage</a>
-        </div>
-
-        {/* Page tabs */}
-        <div className="border-b border-[var(--border)] bg-[var(--card)]">
-          <div className="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto">
-            {([
-              ['thank-you', '✅ Thank-You / Receipt'],
-              ['manage', '📋 Manage Order'],
-              ['checkout', '🛒 Checkout / Payment'],
-            ] as const).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  tab === key
-                    ? 'border-[var(--primary)] text-[var(--primary)]'
-                    : 'border-transparent text-[var(--muted)] hover:text-[var(--foreground)]'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+    <div className="min-h-screen bg-[var(--background)] py-12 px-4">
+        {/* Styxproxy header */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center">
+              <span className="text-black font-black text-sm">S</span>
+            </div>
+            <span className="text-lg font-bold tracking-tight">styxproxy</span>
           </div>
+          <p className="text-sm text-[var(--muted)]">Internal design preview — not for public use</p>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 flex items-start justify-center px-4 py-12">
-          {tab === 'thank-you' && <ThankYouPreview />}
-          {tab === 'manage' && <ManagePreview />}
-          {tab === 'checkout' && <CheckoutPreview />}
+        {/* Tabs */}
+        <div className="flex justify-center gap-2 mb-8">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-[var(--primary)] text-black'
+                  : 'bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      </main>
-    </>
+
+        {/* Tab content */}
+        <div className="flex justify-center">
+          {activeTab === 'thankyou' && <ThankYouPreview />}
+          {activeTab === 'manage' && <ManagePreview />}
+          {activeTab === 'checkout' && <CheckoutPreview />}
+        </div>
+      </div>
   );
 }
