@@ -1,10 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
-import { ToastProvider } from '@/components/Toast';
-
+import { useToast } from '@/components/Toast';
+import { formatPrice } from '@/lib/products';
 // ─── Mock data ────────────────────────────────────────────────────
 
 const MOCK_ORDER = {
@@ -561,10 +559,8 @@ export default function PreviewPage() {
   ];
 
   return (
-    <ToastProvider>
-      <div className="min-h-screen flex flex-col bg-[var(--background)]">
-        <Header />
-        <div className="flex-1 px-4 pt-24 pb-16">
+    <div className="min-h-screen flex flex-col bg-[var(--background)]">
+      <div className="flex-1 px-4 pt-24 pb-16">
           {/* Hero banner — changes per tab */}
           <div className="text-center mb-8">
             {activeTab === 'thankyou' && (
@@ -657,8 +653,6 @@ export default function PreviewPage() {
             {activeTab === 'checkout' && <CheckoutPreview />}
           </div>
         </div>
-        <Footer />
-      </div>
-    </ToastProvider>
+    </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 
 // Cart item type (matches order page)
 interface CartItem {
@@ -367,6 +368,7 @@ async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: str
 function ThankYouContent() {
   const searchParams = useSearchParams();
   const txRef = searchParams.get('tx_ref');
+  const { toast } = useToast();
 
   const [order, setOrder] = useState<OrderData | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -445,6 +447,23 @@ function ThankYouContent() {
     }
   };
 
+  // Handle copy credentials to clipboard
+  const handleCopyCredentials = async (cred?: OrderData['bunche_credential']) => {
+    if (!cred) return;
+    const text = [
+      `Username: ${cred.bun_username || ''}`,
+      `Password: ${cred.bun_password || ''}`,
+      `Proxy: ${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
+      `Full: http://${cred.bun_username || ''}:${cred.bun_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ type: 'success', title: 'Copied!', message: 'Credentials copied to clipboard.' });
+    } catch {
+      toast({ type: 'error', title: 'Copy failed', message: 'Use Ctrl+C / Cmd+C instead.' });
+    }
+  };
+
   if (!txRef || error) {
     return (
       <main className="flex-1 flex items-center justify-center px-4">
@@ -494,7 +513,11 @@ function ThankYouContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h1 className="text-3xl font-bold text-[var(--primary)] mb-2">Order Complete!</h1>
+              <h1 className="text-3xl font-bold text-[var(--primary)] mb-2">
+                {order?.customer_name?.trim()
+                  ? `Thank you, ${order.customer_name.trim()}.`
+                  : 'Thank you, customer.'}
+              </h1>
               <p className="text-[var(--muted)]">
                 Your proxies are ready. Here are your credentials:
               </p>
@@ -502,8 +525,21 @@ function ThankYouContent() {
 
             {/* Credentials Card - Show all proxies from cart */}
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
-              <h2 className="text-lg font-semibold mb-4">Proxy Credentials</h2>
-              
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Proxy Credentials</h2>
+                {order?.bunche_credential && (
+                  <button
+                    onClick={() => handleCopyCredentials(order?.bunche_credential)}
+                    className="text-xs px-3 py-1.5 bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 text-[var(--primary)] border border-[var(--primary)]/30 rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy
+                  </button>
+                )}
+              </div>
+
               {/* If we have credential from API, show it */}
               {order?.bunche_credential ? (
                 <div className="space-y-4">
@@ -528,7 +564,7 @@ function ThankYouContent() {
                   <div className="col-span-2">
                     <label className="text-sm text-[var(--muted)]">Full Format</label>
                     <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
-                      http://{order.bunche_credential.bun_username}:YOUR_PASSWORD@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                      http://{order.bunche_credential.bun_username}:{order.bunche_credential.bun_password || 'YOUR_PASSWORD'}@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
                     </p>
                   </div>
                   <div>
