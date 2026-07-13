@@ -5,8 +5,8 @@ const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 const W = doc.internal.pageSize.getWidth();
 const H = doc.internal.pageSize.getHeight();
 
-// Read logo as base64
-const logoPath = new URL('./public/header-icon.png', import.meta.url);
+// Read logo as base64 — use pdf-icon.png (192x192 S-mark, crisp in PDF)
+const logoPath = new URL('./public/pdf-icon.png', import.meta.url);
 const logoBase64 = readFileSync(logoPath).toString('base64');
 
 doc.setFillColor(15, 15, 15);
