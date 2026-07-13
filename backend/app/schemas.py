@@ -242,6 +242,10 @@ class OrderResponse(BaseModel):
     bunche_credential: Optional[BuncheCredentialBrief]
     created_at: datetime
     expires_at: Optional[datetime]
+    customer_name: Optional[str] = None  # Only populated if customer set a name (WhatsApp/Telegram)
+    is_renewable: Optional[bool] = False
+    rotation_count: Optional[int] = 0
+    max_rotations: Optional[int] = 3
 
 
 class OrderCancelRequest(BaseModel):
