@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  :root {
+    --primary: #10B981;
+    --primary-dark: #059669;
+    --primary-light: #34D399;
+    --background: #0f0f0f;
+    --foreground: #f5f5f5;
+    --card: #1a1a1a;
+    --card-hover: #252525;
+    --border: #2a2a2a;
+    --muted: #737373;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--background);
+    color: var(--foreground);
+    line-height: 1.6;
+    font-size: 13px;
+  }
+
+  .page {
+    width: 794px;
+    min-height: 1123px;
+    margin: 0 auto;
+    background: var(--background);
+    padding: 60px;
+  }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding-bottom: 30px;
+    border-bottom: 2px solid var(--primary);
+  }
+  .header-brand { display: flex; align-items: center; gap: 12px; }
+  .header-icon {
+    width: 44px; height: 44px;
+    background: var(--primary);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .header-icon span { color: #000; font-size: 20px; font-weight: 900; }
+  .brand-name { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .brand-name .styx { color: var(--primary); }
+  .brand-name .proxy { color: var(--foreground); }
+  .doc-label { text-align: right; }
+  .doc-label .type { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: var(--primary); text-transform: uppercase; }
+  .doc-label .title { font-size: 16px; font-weight: 700; }
+
+  /* SECTION HEADERS */
+  h2 {
+    font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 40px 0 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 13px; font-weight: 700; margin: 20px 0 10px; color: var(--foreground); }
+  h4 { font-size: 12px; font-weight: 600; margin: 12px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  p { color: #cccccc; margin-bottom: 8px; }
+  ul { padding-left: 20px; margin-bottom: 8px; }
+  li { color: #cccccc; margin-bottom: 4px; font-size: 12px; }
+
+  /* COLOR SWATCHES */
+  .color-grid {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;
+    margin: 16px 0;
+  }
+  .swatch {
+    text-align: center;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .swatch-color { height: 60px; }
+  .swatch-label { font-size: 9px; font-weight: 700; padding: 6px 4px; background: var(--card); color: var(--muted); }
+  .swatch-hex { font-family: monospace; font-size: 10px; color: var(--foreground); }
+
+  /* TOKENS */
+  .token-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    margin: 16px 0;
+  }
+  .token {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .token-swatch { width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0; }
+  .token-info { flex: 1; }
+  .token-name { font-size: 11px; font-weight: 700; font-family: monospace; }
+  .token-value { font-size: 10px; color: var(--muted); font-family: monospace; }
+
+  /* COMPONENT CARD */
+  .comp-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+  }
+  .comp-preview {
+    padding: 24px;
+    background: var(--background);
+    display: flex; align-items: center; gap: 16px;
+  }
+  .comp-meta { padding: 12px 16px; border-top: 1px solid var(--border); }
+  .comp-name { font-size: 12px; font-weight: 700; }
+  .comp-desc { font-size: 10px; color: var(--muted); }
+
+  /* TYPOGRAPHY */
+  .type-sample {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin: 10px 0;
+  }
+  .type-label { font-size: 9px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; }
+  .type-preview { color: var(--foreground); }
+  .type-meta { font-size: 10px; color: var(--muted); margin-top: 4px; font-family: monospace; }
+
+  /* BADGE PREVIEW */
+  .badge-preview {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary);
+  }
+  .badge-preview .dot { width: 6px; height: 6px; background: var(--primary); border-radius: 50%; }
+
+  /* FOOTER */
+  .footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .footer p { font-size: 10px; color: var(--muted); }
+  .footer-brand { font-size: 12px; font-weight: 800; color: var(--primary); }
+
+  /* DIVIDER */
+  .divider { height: 1px; background: var(--border); margin: 24px 0; }
+
+  /* FEATURE ROW */
+  .feat-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+    margin: 16px 0;
+  }
+  .feat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .feat-icon { font-size: 20px; margin-bottom: 8px; }
+  .feat-title { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .feat-desc { font-size: 10px; color: var(--muted); }
+
+  /* SPEC TABLE */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 11px;
+  }
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: #cccccc;
+  }
+  tr:last-child td { border-bottom: none; }
+  code { font-family: monospace; font-size: 10px; background: var(--card-hover); padding: 1px 5px; border-radius: 3px; color: var(--primary-light); }
+
+  /* HERO MOCK */
+  .hero-mock {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    margin: 16px 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-mock::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-badge { margin-bottom: 16px; display: flex; justify-content: center; }
+  .hero-headline { font-size: 28px; font-weight: 900; letter-spacing: -1px; margin-bottom: 12px; }
+  .hero-headline .g { color: var(--primary); }
+  .hero-sub { font-size: 13px; color: var(--muted); max-width: 400px; margin: 0 auto 20px; }
+  .hero-cta { display: inline-flex; gap: 10px; justify-content: center; }
+  .cta-primary { background: var(--primary); color: #000; font-size: 13px; font-weight: 700; padding: 10px 20px; border-radius: 8px; }
+  .cta-secondary { border: 1px solid var(--border); color: var(--foreground); font-size: 13px; font-weight: 600; padding: 10px 20px; border-radius: 8px; }
+
+  /* PROXY TYPE CARDS */
+  .proxy-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 16px 0; }
+  .proxy-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .proxy-icon { font-size: 18px; margin-bottom: 6px; }
+  .proxy-name { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .proxy-price { font-size: 11px; color: var(--primary); font-weight: 600; margin-bottom: 4px; }
+  .proxy-desc { font-size: 10px; color: var(--muted); }
+
+  /* CHAT WIDGET MOCK */
+  .chat-mock {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+    width: 320px;
+  }
+  .chat-header {
+    background: var(--card-hover);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .chat-avatar { width: 30px; height: 30px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .chat-name { font-size: 12px; font-weight: 700; }
+  .chat-status { font-size: 10px; color: var(--muted); }
+  .chat-msgs { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .chat-msg-bot { background: var(--card-hover); border: 1px solid var(--border); border-radius: 10px 10px 10px 2px; padding: 8px 10px; font-size: 11px; }
+  .chat-typing { display: flex; gap: 3px; }
+  .chat-dot { width: 5px; height: 5px; background: var(--muted); border-radius: 50%; }
+  .chat-input-row { padding: 10px; border-top: 1px solid var(--border); display: flex; gap: 6px; align-items: center; }
+  .chat-input { flex: 1; background: var(--background); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; font-size: 11px; color: var(--muted); }
+  .chat-send { width: 28px; height: 28px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #000; }
+
+  /* BADGE */
+  .tag { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; padding: 2px 8px; border-radius: 4px; margin-right: 4px; }
+  .tag-green { background: rgba(16,185,129,0.15); color: var(--primary); }
+  .tag-dark { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+
+  /* GLOW LINE */
+  .glow-line { height: 2px; background: linear-gradient(90deg, transparent, var(--primary), transparent); margin: 20px 0; }
+
+  /* GLOBE NOTE */
+  .globe-note {
+    background: var(--card);
+    border: 1px solid rgba(16,185,129,0.2);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 12px 0;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .globe-note strong { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-brand">
+      <div class="header-icon"><span>S</span></div>
+      <div class="brand-name">
+        <span class="styx">styx</span><span class="proxy">proxy</span>
+      </div>
+    </div>
+    <div class="doc-label">
+      <div class="type">Design Document</div>
+      <div class="title">UX Brief v2.0</div>
+    </div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <h2>Overview</h2>
+  <p>Styxproxy is a global anonymous proxy service with a dark, cryptic brand identity rooted in Greek mythology — the River Styx as the gateway to anonymity. The design should feel like crossing into a hidden realm: serious, professional, fast, and slightly ominous.</p>
+  <p><span class="tag tag-green">Brand Voice</span> <span class="tag tag-dark">Professional</span> <span class="tag tag-dark">Dark/Cryptic</span> <span class="tag tag-dark">Global</span></p>
+
+  <div class="glow-line"></div>
+
+  <!-- BRAND -->
+  <h2>Brand Identity</h2>
+  <h3>Logo Usage</h3>
+  <p>The logo has two modes: <strong>dark mode</strong> (green mark + white text on black) and <strong>light mode</strong> (black mark + black text on white). Never use the wrong mode on the wrong background.</p>
+  <table>
+    <tr><th style="width:30%">Context</th><th>Asset</th><th>Notes</th></tr>
+    <tr><td>Header nav</td><td><code>header-icon.png</code></td><td>Icon only, 40×40px</td></tr>
+    <tr><td>Hero section</td><td><code>hero-logo-dark.png</code> / <code>hero-logo-light.png</code></td><td>Full lockup (mark + wordmark)</td></tr>
+    <tr><td>Footer</td><td><code>footer-logo.png</code></td><td>Icon only, 32×32px</td></tr>
+    <tr><td>ChatWidget avatar</td><td><code>chatbot-logo.png</code></td><td>Charon character, 48×48px</td></tr>
+    <tr><td>Social / OG</td><td><code>og-image.png</code></td><td>400×400px PNG</td></tr>
+    <tr><td>Favicon</td><td><code>favicon.png</code></td><td>32×32px PNG</td></tr>
+  </table>
+
+  <h3>Bot Name: Charon</h3>
+  <p>In Greek mythology, Charon is the ferryman who rows souls across the River Styx. This is the support chatbot's name — it fits the brand mythology perfectly.</p>
+  <p><strong>Pronunciation:</strong> KAR-on (rhymes with "bar on")</p>
+
+  <!-- COLOR -->
+  <h2>Color System</h2>
+  <div class="color-grid">
+    <div class="swatch"><div class="swatch-color" style="background:#10B981"></div><div class="swatch-label"><div class="swatch-hex">#10B981</div>Primary</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#059669"></div><div class="swatch-label"><div class="swatch-hex">#059669</div>Primary Dark</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#34D399"></div><div class="swatch-label"><div class="swatch-hex">#34D399</div>Primary Light</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#0f0f0f"></div><div class="swatch-label"><div class="swatch-hex">#0f0f0f</div>Background</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#f5f5f5"></div><div class="swatch-label"><div class="swatch-hex">#f5f5f5</div>Foreground</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#1a1a1a"></div><div class="swatch-label"><div class="swatch-hex">#1a1a1a</div>Card</div></div>
+  </div>
+  <div class="color-grid" style="grid-template-columns: repeat(4,1fr)">
+    <div class="swatch"><div class="swatch-color" style="background:#252525"></div><div class="swatch-label"><div class="swatch-hex">#252525</div>Card Hover</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#2a2a2a"></div><div class="swatch-label"><div class="swatch-hex">#2a2a2a</div>Border</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#737373"></div><div class="swatch-label"><div class="swatch-hex">#737373</div>Muted</div></div>
+    <div class="swatch"><div class="swatch-color" style="background:#f59e0b"></div><div class="swatch-label"><div class="swatch-hex">#f59e0b</div>Accent</div></div>
+  </div>
+
+  <h3>CSS Variables</h3>
+  <div class="token-grid">
+    <div class="token"><div class="token-swatch" style="background:#10B981"></div><div class="token-info"><div class="token-name">--primary</div><div class="token-value">#10B981</div></div></div>
+    <div class="token"><div class="token-swatch" style="background:#059669"></div><div class="token-info"><div class="token-name">--primary-dark</div><div class="token-value">#059669</div></div></div>
+    <div class="token"><div class="token-swatch" style="background:#34D399"></div><div class="token-info"><div class="token-name">--primary-light</div><div class="token-value">#34D399</div></div></div>
+    <div class="token"><div class="token-swatch" style="background:#f5f5f5"></div><div class="token-info"><div class="token-name">--foreground</div><div class="token-value">#f5f5f5</div></div></div>
+    <div class="token"><div class="token-swatch" style="background:#0f0f0f"></div><div class="token-info"><div class="token-name">--background</div><div class="token-value">#0f0f0f</div></div></div>
+    <div class="token"><div class="token-swatch" style="background:#1a1a1a"></div><div class="token-info"><div class="token-name">--card</div><div class="token-value">#1a1a1a</div></div></div>
+    <div class="token"><div class="token-swatch" style="background:#2a2a2a"></div><div class="token-info"><div class="token-name">--border</div><div class="token-value">#2a2a2a</div></div></div>
+    <div class="token"><div class="token-swatch" style="background:#737373"></div><div class="token-info"><div class="token-name">--muted</div><div class="token-value">#737373</div></div></div>
+  </div>
+
+  <!-- TYPOGRAPHY -->
+  <h2>Typography</h2>
+  <p>System font stack for performance. No external font imports in production.</p>
+  <div class="type-sample">
+    <div class="type-label">Display / Hero Headline</div>
+    <div class="type-preview" style="font-size:32px;font-weight:900;letter-spacing:-1px">Cross the Styx</div>
+    <div class="type-meta">font-weight: 900 · letter-spacing: -1px</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-label">Section Heading</div>
+    <div class="type-preview" style="font-size:22px;font-weight:800">Section Heading</div>
+    <div class="type-meta">font-weight: 800 · font-size: 22px</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-label">Card Title</div>
+    <div class="type-preview" style="font-size:16px;font-weight:700">Proxy Credentials</div>
+    <div class="type-meta">font-weight: 700 · font-size: 16px</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-label">Body Text</div>
+    <div class="type-preview" style="font-size:13px;color:#cccccc">Your proxies are ready. Here are your credentials. No account, no verification, no waiting.</div>
+    <div class="type-meta">font-size: 13px · color: #cccccc · line-height: 1.6</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-label">Muted / Label</div>
+    <div class="type-preview" style="font-size:11px;color:#737373">Order ID · Transaction Ref · Status</div>
+    <div class="type-meta">font-size: 11px · color: var(--muted)</div>
+  </div>
+  <div class="type-sample">
+    <div class="type-label">Monospace / Credentials</div>
+    <div class="type-preview" style="font-family:monospace;font-size:12px;color:#34D399">demo_user_4821:your_password@185.199.228.105:8080</div>
+    <div class="type-meta">font-family: monospace · font-size: 12px</div>
+  </div>
+
+  <!-- PAGE CONTENT -->
+  <h2>Page Content</h2>
+  <h3>Homepage Hero</h3>
+  <div class="hero-mock">
+    <div class="hero-badge">
+      <div class="badge-preview"><span class="dot"></span>Get instant proxy with 3 methods.</div>
+    </div>
+    <div class="hero-headline">Cross the <span class="g">Styx</span></div>
+    <p class="hero-sub">ISP, Residential, Mobile & Datacenter proxies — delivered in seconds. No account, no verification, no waiting. Just you and your proxy.</p>
+    <div class="hero-cta">
+      <div class="cta-primary">Get Proxy →</div>
+      <div class="cta-secondary">See Products</div>
+    </div>
+  </div>
+
+  <h3>Proxy Types</h3>
+  <div class="proxy-grid">
+    <div class="proxy-card">
+      <div class="proxy-icon">🌐</div>
+      <div class="proxy-name">ISP Proxies</div>
+      <div class="proxy-price">From ₦6,500/mo</div>
+      <div class="proxy-desc">Fast, stable datacenter-grade IPs with ISP ownership.</div>
+    </div>
+    <div class="proxy-card">
+      <div class="proxy-icon">🏠</div>
+      <div class="proxy-name">Residential</div>
+      <div class="proxy-price">From ₦5,000</div>
+      <div class="proxy-desc">Real ISP IPs from real devices. Hardest to detect.</div>
+    </div>
+    <div class="proxy-card">
+      <div class="proxy-icon">📱</div>
+      <div class="proxy-name">Mobile 4G</div>
+      <div class="proxy-price">From ₦20,000</div>
+      <div class="proxy-desc">4G/LTE carrier IPs. Highest trust on social platforms.</div>
+    </div>
+    <div class="proxy-card">
+      <div class="proxy-icon">🏢</div>
+      <div class="proxy-name">Datacenter</div>
+      <div class="proxy-price">From ₦3,000/mo</div>
+      <div class="proxy-desc">Fastest option for SEO, price aggregation, server testing.</div>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <h2>Key Features</h2>
+  <div class="feat-row">
+    <div class="feat-card">
+      <div class="feat-icon">⚡</div>
+      <div class="feat-title">Instant Delivery</div>
+      <div class="feat-desc">Credentials shown immediately after payment confirmation.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔒</div>
+      <div class="feat-title">No Logs Policy</div>
+      <div class="feat-desc">We don't track, log, or share your browsing activity.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🌍</div>
+      <div class="feat-title">20+ Countries</div>
+      <div class="feat-desc">ISP, Residential, Mobile, and Datacenter in major markets.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">💳</div>
+      <div class="feat-title">Multiple Payments</div>
+      <div class="feat-desc">Card, bank transfer, USSD, QR — all via Flutterwave.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔄</div>
+      <div class="feat-title">Ban Replacement</div>
+      <div class="feat-desc">Free replacement if IP is dead on arrival (within 24hrs).</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">💬</div>
+      <div class="feat-title">Charon Support</div>
+      <div class="feat-desc">AI chatbot on website, Telegram, and WhatsApp — 24/7.</div>
+    </div>
+  </div>
+
+  <!-- CHAT WIDGET -->
+  <h2>ChatWidget — Charon</h2>
+  <div class="chat-mock">
+    <div class="chat-header">
+      <div class="chat-avatar">🧑‍✈️</div>
+      <div><div class="chat-name">Charon</div><div class="chat-status">Usually replies in minutes</div></div>
+    </div>
+    <div class="chat-msgs">
+      <div class="chat-msg-bot">👋 Hi! I'm Charon from Styxproxy support. What do you need?</div>
+      <div class="chat-msg-bot" style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:10px;color:#737373">Typing</span>
+        <div class="chat-typing">
+          <div class="chat-dot" style="animation:bounce 0.6s infinite 0ms"></div>
+          <div class="chat-dot" style="animation:bounce 0.6s infinite 150ms"></div>
+          <div class="chat-dot" style="animation:bounce 0.6s infinite 300ms"></div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <div class="chat-input">Type a message…</div>
+      <div class="chat-send">→</div>
+    </div>
+  </div>
+  <div class="globe-note">
+    <strong>Bot name:</strong> Charon (KAR-on) — Greek mythology ferryman<br>
+    <strong>Channels:</strong> Website (ChatWidget) · Telegram @StyxproxyBot · WhatsApp<br>
+    <strong>Quick replies:</strong> Used for all common intents — no free-text fallback needed for simple queries
+  </div>
+
+  <!-- INTERACTIONS -->
+  <h2>Interactions & Motion</h2>
+  <table>
+    <tr><th style="width:35%">Element</th><th>Behavior</th></tr>
+    <tr><td>Mobile nav</td><td>max-height + opacity transition, 300ms ease-out</td></tr>
+    <tr><td>ChatWidget FAB</td><td>Click only toggles if no drag movement (>5px threshold)</td></tr>
+    <tr><td>ChatWidget (mobile)</td><td>Always centered, 80vh max-height, top: 50%, translateY(-50%)</td></tr>
+    <tr><td>ChatWidget (desktop)</td><td>Draggable via header handle only</td></tr>
+    <tr><td>ConsentGate</td><td>5s delay, plain dark overlay, bottom-sheet bar, Accept/Leave buttons</td></tr>
+    <tr><td>Page elements</td><td>fade-in animation on load (opacity 0→1, translateY 10px→0, 500ms)</td></tr>
+    <tr><td>Toast notifications</td><td>Slide in from right, auto-dismiss after 5s, click to dismiss</td></tr>
+  </table>
+
+  <!-- PAYMENT -->
+  <h2>Payment & Checkout</h2>
+  <table>
+    <tr><th>Method</th><th>Details</th><th>Confirmation</th></tr>
+    <tr><td>Card</td><td>Visa, Mastercard</td><td>Instant</td></tr>
+    <tr><td>Bank Transfer</td><td>Access, UBA, GTBank</td><td>1–5 min</td></tr>
+    <tr><td>USSD</td><td>Nigerian cards</td><td>Instant</td></tr>
+    <tr><td>QR Code</td><td>Any banking app</td><td>Instant</td></tr>
+  </table>
+  <p style="margin-top:8px"><strong>Processor:</strong> Flutterwave · <strong>Currency:</strong> NGN (₦) · <strong>No crypto</strong></p>
+
+  <!-- CONSENT GATE -->
+  <h2>ConsentGate Design</h2>
+  <p>The consent gate appears 5 seconds after first visit. Legal pages are always readable — the gate only blocks non-legal routes.</p>
+  <table>
+    <tr><th>Element</th><th>Spec</th></tr>
+    <tr><td>Overlay</td><td>Plain dark color (no blur), covers full screen</td></tr>
+    <tr><td>Bar position</td><td>Bottom of screen, full width</td></tr>
+    <tr><td>Bar style</td><td>Compact — small text, two buttons</td></tr>
+    <tr><td>Buttons</td><td>Accept & Enter (primary) · Leave Site (secondary/text)</td></tr>
+    <tr><td>Legal pages exempt</td><td>/legal/* and /refund-policy — always readable</td></tr>
+    <tr><td>Session-based</td><td>Accepted once per session (sessionStorage)</td></tr>
+  </table>
+
+  <!-- GLOBE -->
+  <h2>Globe Component</h2>
+  <p>The globe shows animated arcs connecting countries. It appears on the <strong>hero section only</strong> — not on other pages.</p>
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Renderer</td><td>react-globe.gl + three.js</td></tr>
+    <tr><td>Background</td><td>Transparent — globe shows through</td></tr>
+    <tr><td>Arc color</td><td>Emerald green rgba(16,185,129,0.6)</td></tr>
+    <tr><td>Point color</td><td>Emerald green rgba(16,185,129,0.8)</td></tr>
+    <tr><td>Atmosphere</td><td>Soft glow, alt: 0.15</td></tr>
+    <tr><td>Brand outlines</td><td>Low opacity emerald green</td></tr>
+    <tr><td>No halos/breathing</td><td>Disabled — keeps it minimal</td></tr>
+  </table>
+
+  <!-- PAGES -->
+  <h2>Site Pages</h2>
+  <table>
+    <tr><th>Route</th><th>Page</th><th>Notes</th></tr>
+    <tr><td>/</td><td>Homepage</td><td>Hero + globe, features, proxy types, CTA</td></tr>
+    <tr><td>/products</td><td>Products</td><td>All 4 proxy types with pricing</td></tr>
+    <tr><td>/order</td><td>Order</td><td>Proxy selection + cart + checkout trigger</td></tr>
+    <tr><td>/order/checkout</td><td>Checkout</td><td>Payment method selection + Flutterwave</td></tr>
+    <tr><td>/thank-you</td><td>Thank You</td><td>Success state with credentials + PDF download</td></tr>
+    <tr><td>/manage</td><td>Manage</td><td>Order lookup by tx_ref or order ID</td></tr>
+    <tr><td>/contact</td><td>Contact</td><td>Contact form + Telegram/WhatsApp links</td></tr>
+    <tr><td>/404</td><td>Not Found</td><td>"Lost in the Styx" — 404 typography + nav links</td></tr>
+    <tr><td>/legal/terms</td><td>Terms of Service</td><td>Always readable (no gate)</td></tr>
+    <tr><td>/legal/privacy</td><td>Privacy Policy</td><td>Always readable (no gate)</td></tr>
+    <tr><td>/legal/aup</td><td>AUP</td><td>Always readable (no gate)</td></tr>
+    <tr><td>/refund-policy</td><td>Refund Policy</td><td>Standalone page, always readable</td></tr>
+    <tr><td>/preview</td><td>Preview</td><td>Internal preview of key pages with mock data</td></tr>
+  </table>
+
+  <!-- FOOTER -->
+  <h2>Footer Structure</h2>
+  <table>
+    <tr><th>Column</th><th>Links</th></tr>
+    <tr><td>Brand</td><td>Logo icon + styxproxy wordmark + tagline</td></tr>
+    <tr><td>Products</td><td>ISP · Residential · Mobile · Datacenter</td></tr>
+    <tr><td>Legal</td><td>Terms · Refund Policy · Privacy · AUP</td></tr>
+    <tr><td>Contact</td><td>Telegram · WhatsApp · hello@styxproxy.com</td></tr>
+  </table>
+
+  <!-- SEO -->
+  <h2>SEO & Metadata</h2>
+  <table>
+    <tr><th>Field</th><th>Value</th></tr>
+    <tr><td>Title</td><td>Styxproxy — Anonymous Proxy Service | ISP, DC, Residential, Mobile 4G</td></tr>
+    <tr><td>Description</td><td>Buy ISP, Datacenter, Residential & Mobile 4G proxies. Order instantly or via Telegram. Pay with card or bank transfer. No logs, no tracking.</td></tr>
+    <tr><td>Keywords</td><td>anonymous proxy, ISP proxy, residential proxy, mobile 4G proxy, datacenter proxy, buy proxy</td></tr>
+    <tr><td>OG Image</td><td>/og-image.png (400×400 PNG)</td></tr>
+    <tr><td>Twitter Card</td><td>summary_large_image</td></tr>
+    <tr><td> sitemap.xml</td><td>/sitemap.xml</td></tr>
+    <tr><td>robots.txt</td><td>/robots.txt</td></tr>
+  </table>
+
+  <!-- PROTOCOL -->
+  <h2>Contact & Protocol</h2>
+  <table>
+    <tr><th>Channel</th><th>Handle / Address</th></tr>
+    <tr><td>Telegram Bot</td><td>@StyxproxyBot</td></tr>
+    <tr><td>WhatsApp</td><td>Via Telegram Bot or website widget</td></tr>
+    <tr><td>Email</td><td>hello@styxproxy.com</td></tr>
+    <tr><td>Domain</td><td>styxproxy.com</td></tr>
+  </table>
+
+  <div class="footer">
+    <div>
+      <p>styxproxy — Cross the Styx · Anonymous Proxy Service</p>
+      <p>hello@styxproxy.com · styxproxy.com</p>
+    </div>
+    <div class="footer-brand">styxproxy</div>
+  </div>
+
+</div>
+</body>
+</html>
