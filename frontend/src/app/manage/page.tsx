@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { useToast } from '@/components/Toast';
 
 interface OrderData {
   order_id: string;
@@ -20,13 +21,19 @@ interface OrderData {
   };
   created_at?: string;
   expires_at?: string;
+  is_renewable?: boolean;
+  rotation_count?: number;
+  max_rotations?: number;
 }
 
 export default function ManagePage() {
   const [searchInput, setSearchInput] = useState('');
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const [renewing, setRenewing] = useState(false);
   const [error, setError] = useState('');
+  const { toast } = useToast();
 
   const handleSearch = async (ref: string) => {
     if (!ref.trim()) { setError('Please enter an order ID or transaction reference'); return; }
@@ -43,7 +50,53 @@ export default function ManagePage() {
     }
   };
 
+  const handleRotateKey = async () => {
+    if (!order?.order_id) return;
+    const maxRot = order.max_rotations ?? 3;
+    const current = order.rotation_count ?? 0;
+    if (current >= maxRot) {
+      toast({ type: 'warning', title: 'Rotation limit reached', message: `You can only rotate ${maxRot} times per proxy.` });
+      return;
+    }
+    setRotating(true);
+    try {
+      const res = await fetch(`/api/orders/${order.order_id}/rotate`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.bunche_credential) {
+        setOrder(prev => prev ? { ...prev, bunche_credential: data.bunche_credential, rotation_count: (prev.rotation_count ?? 0) + 1 } : null);
+        toast({ type: 'success', title: 'Proxy rotated!', message: 'Your new credentials are ready.' });
+      } else {
+        toast({ type: 'error', title: 'Rotation failed', message: data.error || 'Please try again.' });
+      }
+    } catch {
+      toast({ type: 'error', title: 'Network error', message: 'Could not rotate proxy. Try again.' });
+    } finally {
+      setRotating(false);
+    }
+  };
+
+  const handleRenew = async () => {
+    if (!order?.order_id) return;
+    setRenewing(true);
+    try {
+      const res = await fetch(`/api/orders/${order.order_id}/renew`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setOrder(prev => prev ? { ...prev, expires_at: data.expires_at, is_renewable: false } : null);
+        toast({ type: 'success', title: 'Proxy renewed!', message: 'Your expiry date has been updated.' });
+      } else {
+        toast({ type: 'error', title: 'Renewal failed', message: data.error || 'Please try again.' });
+      }
+    } catch {
+      toast({ type: 'error', title: 'Network error', message: 'Could not renew. Try again.' });
+    } finally {
+      setRenewing(false);
+    }
+  };
+
   const isActive = order?.status === 'fulfilled' || order?.status === 'active';
+  const rotationsLeft = (order?.max_rotations ?? 3) - (order?.rotation_count ?? 0);
+  const isNearExpiry = order?.expires_at && new Date(order.expires_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -193,52 +246,71 @@ export default function ManagePage() {
               {/* Credentials Card */}
               {isActive && order.bunche_credential && (
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
-                  <h2 className="text-sm font-semibold mb-4 text-[var(--muted)] uppercase tracking-wide">Your Proxy Credentials</h2>
-                  <div className="space-y-3">
-                    <div className="bg-[var(--background)] rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-[var(--muted)]">Username</span>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(order.bunche_credential!.bun_username!)}
-                          className="text-xs text-[var(--primary)] hover:underline"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <p className="font-mono text-sm font-medium break-all">{order.bunche_credential.bun_username}</p>
-                    </div>
-                    <div className="bg-[var(--background)] rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-[var(--muted)]">Proxy Address</span>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(`${order.bunche_credential!.upstream_proxy_ip}:${order.bunche_credential!.upstream_proxy_port}`)}
-                          className="text-xs text-[var(--primary)] hover:underline"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <p className="font-mono text-sm font-medium">
-                        {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
-                      </p>
-                    </div>
-                    <div className="bg-[var(--background)] rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-[var(--muted)]">Full Proxy String</span>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(`${order.bunche_credential!.bun_username}:your_password@${order.bunche_credential!.upstream_proxy_ip}:${order.bunche_credential!.upstream_proxy_port}`)}
-                          className="text-xs text-[var(--primary)] hover:underline"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <p className="font-mono text-xs text-[var(--muted)] break-all">
-                        {order.bunche_credential.bun_username}:your_password@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide">Your Proxy Credentials</h2>
+                    <span className="text-xs text-[var(--muted)]">
+                      {rotationsLeft} rotation{rotationsLeft !== 1 ? 's' : ''} left
+                    </span>
                   </div>
-                  <p className="text-xs text-[var(--muted)] mt-3">
-                    Replace <code className="bg-[var(--background)] px-1 rounded">your_password</code> with the password sent to your email after payment.
-                  </p>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-[var(--background)] rounded-xl p-4">
+                        <span className="text-xs text-[var(--muted)]">Username</span>
+                        <p className="font-mono text-sm font-medium break-all">{order.bunche_credential.bun_username}</p>
+                      </div>
+                      <div className="bg-[var(--background)] rounded-xl p-4">
+                        <span className="text-xs text-[var(--muted)]">Password</span>
+                        <p className="font-mono text-sm text-[var(--muted)]">Sent to email</p>
+                      </div>
+                      <div className="bg-[var(--background)] rounded-xl p-4">
+                        <span className="text-xs text-[var(--muted)]">Proxy Address</span>
+                        <p className="font-mono text-sm font-medium">
+                          {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                        </p>
+                      </div>
+                      <div className="bg-[var(--background)] rounded-xl p-4">
+                        <span className="text-xs text-[var(--muted)]">Protocol</span>
+                        <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
+                      </div>
+                    </div>
+                    <div className="bg-[var(--background)] rounded-xl p-4">
+                      <span className="text-xs text-[var(--muted)]">Full Format</span>
+                      <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
+                        http://{order.bunche_credential.bun_username}:YOUR_PASSWORD@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                      </p>
+                    </div>
+
+                    {/* Rotate Proxy Key */}
+                    {rotationsLeft > 0 && (
+                      <button
+                        onClick={handleRotateKey}
+                        disabled={rotating}
+                        className="w-full px-4 py-2.5 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {rotating ? 'Rotating…' : `Rotate Proxy Key (${rotationsLeft} left)`}
+                      </button>
+                    )}
+                    {rotationsLeft === 0 && (
+                      <p className="text-xs text-[var(--muted)] text-center">Rotation limit reached for this proxy.</p>
+                    )}
+
+                    {/* Renewal */}
+                    {(isNearExpiry || order.is_renewable) && (
+                      <button
+                        onClick={handleRenew}
+                        disabled={renewing}
+                        className="w-full px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {renewing ? 'Renewing…' : 'Renew This Proxy'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -250,14 +322,12 @@ export default function ManagePage() {
                 >
                   Order Another
                 </Link>
-                <a
-                  href="https://t.me/StyxproxyBot"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-chat-widget'))}
                   className="px-5 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl text-sm text-center transition-colors"
                 >
                   Get Support
-                </a>
+                </button>
               </div>
             </div>
           )}

@@ -240,6 +240,13 @@ export default function ChatWidget() {
     }
   }, [isOpen]);
 
+  // ── Listen for external open event (e.g. from Get Support button) ──
+  useEffect(() => {
+    const handler = () => setIsOpen(true);
+    window.addEventListener('open-chat-widget', handler);
+    return () => window.removeEventListener('open-chat-widget', handler);
+  }, []);
+
   // ── Send bot message ──
   const sendBot = useCallback((key: StateKey) => {
     const s = botMessages[key];
