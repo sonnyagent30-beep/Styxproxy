@@ -5,7 +5,6 @@ import Footer from "@/components/Footer";
 import ChatWidget from "@/components/ChatWidget";
 import ConsentGate from "@/components/ConsentGate";
 import { ToastProvider } from "@/components/Toast";
-import SessionInitializer from "@/components/SessionInitializer";
 
 export const metadata: Metadata = {
   title: "Styxproxy — Anonymous Proxy Service | ISP, DC, Residential, Mobile 4G",
@@ -24,7 +23,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <SessionInitializer />
         <ToastProvider>
           <ConsentGate />
           <Header />
