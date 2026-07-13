@@ -24,6 +24,7 @@ from app.routers import (
     credentials,
     trials,
     admin,
+    session,
 )
 
 settings = get_settings()
@@ -54,6 +55,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Idempotent migration: ensure device_id column exists on platform_accounts
+        # (create_all only creates new tables, doesn't add columns to existing ones)
+        from sqlalchemy import text
+        await conn.execute(text(
+            "ALTER TABLE platform_accounts ADD COLUMN IF NOT EXISTS device_id VARCHAR(64)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_platform_device ON platform_accounts (device_id)"
+        ))
 
     # Initialize Sentry if configured
     if settings.sentry_dsn:
@@ -182,3 +192,4 @@ app.include_router(webhooks.router)
 app.include_router(credentials.router)
 app.include_router(trials.router)
 app.include_router(admin.router)
+app.include_router(session.router)

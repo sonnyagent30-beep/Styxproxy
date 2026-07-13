@@ -1,5 +1,5 @@
 """Orders router."""
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import string
 
@@ -43,12 +43,30 @@ async def create_order(
 ):
     customer = current_user["customer"]
     platform_account = current_user["platform_account"]
+    device_id = current_user.get("device_id")
     if not customer:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
     price = PRODUCT_PRICES.get(request.plan_code)
     if not price:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
     total_amount = price * request.quantity
+
+    # In-flight payment check: prevent double payments on the same device
+    # If there's a 'pending' order for this device in the last 5 minutes, block
+    if device_id:
+        cutoff = datetime.utcnow() - timedelta(minutes=5)
+        inflight_stmt = select(Order).where(
+            Order.platform_account_id == platform_account.id,
+            Order.status == "pending",
+            Order.created_at >= cutoff,
+        )
+        inflight = (await session.execute(inflight_stmt)).scalars().first()
+        if inflight is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Payment already in progress for order {inflight.order_id}. Complete or cancel it before starting a new one.",
+            )
+
     order_id = generate_order_id()
     plan_type = request.plan_code.split("-")[0] if "-" in request.plan_code else "ISP"
     order = Order(
@@ -80,6 +98,56 @@ async def create_order(
         if cred:
             cred_brief = BuncheCredentialBrief(id=cred.id, bun_username=cred.bun_username, protocol=cred.protocol or 'socks5', upstream_proxy_ip=cred.upstream_proxy_ip, upstream_proxy_port=cred.upstream_proxy_port, status=cred.status)
     return OrderResponse(order_id=order.order_id, status=order.status, plan_type=order.plan_type, country=order.country, amount_paid_ngn=order.amount_paid_ngn, bunche_credential=cred_brief, created_at=order.created_at, expires_at=order.expires_at)
+
+
+@router.get("/by-device", response_model=list[OrderResponse])
+async def list_orders_by_device(
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_account),
+):
+    """List all orders for the current device/platform account.
+
+    Lets anonymous web customers see their past orders without login.
+    Sorted by created_at DESC (newest first).
+    """
+    platform_account = current_user["platform_account"]
+    stmt = (
+        select(Order)
+        .where(Order.platform_account_id == platform_account.id)
+        .order_by(Order.created_at.desc())
+        .limit(50)
+    )
+    orders = (await session.execute(stmt)).scalars().all()
+
+    # Build brief responses
+    results = []
+    for order in orders:
+        cred_brief = None
+        if order.bunche_credential_id:
+            cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+            cred = (await session.execute(cred_stmt)).scalar_one_or_none()
+            if cred:
+                cred_brief = BuncheCredentialBrief(
+                    id=cred.id,
+                    bun_username=cred.bun_username,
+                    protocol=cred.protocol or 'socks5',
+                    upstream_proxy_ip=cred.upstream_proxy_ip,
+                    upstream_proxy_port=cred.upstream_proxy_port,
+                    status=cred.status,
+                )
+        customer = current_user.get("customer")
+        results.append(OrderResponse(
+            order_id=order.order_id,
+            status=order.status,
+            plan_type=order.plan_type,
+            country=order.country,
+            amount_paid_ngn=order.amount_paid_ngn,
+            bunche_credential=cred_brief,
+            created_at=order.created_at,
+            expires_at=order.expires_at,
+            customer_name=customer.name if customer and customer.name else None,
+        ))
+    return results
 
 
 @router.get("/{order_id}", response_model=OrderResponse)

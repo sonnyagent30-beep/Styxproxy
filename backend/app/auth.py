@@ -3,10 +3,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -117,10 +118,16 @@ def verify_admin_token(authorization: Optional[str]) -> bool:
 
 
 async def get_current_account(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    """Get current authenticated account from JWT token."""
+    """Get current authenticated account from JWT token OR device_id header.
+
+    Web flow: device_id is sent in X-Device-Id header on every API call.
+    Backend auto-creates an anonymous PlatformAccount on first call.
+    JWT cookie is set by /api/session/init and reused.
+    """
     from app.models import PlatformAccount, Customer
 
     token = credentials.credentials
@@ -134,8 +141,6 @@ async def get_current_account(
         )
 
     # Get platform account
-    from sqlalchemy import select
-
     stmt = select(PlatformAccount).where(
         PlatformAccount.id == UUID(platform_account_id)
     )
@@ -148,17 +153,17 @@ async def get_current_account(
             detail="Platform account not found",
         )
 
-    # Get customer
+    # Get customer (may be None for anonymous web sessions)
+    customer = None
     if platform_account.customer_id:
         stmt = select(Customer).where(Customer.id == platform_account.customer_id)
         result = await session.execute(stmt)
         customer = result.scalar_one_or_none()
-    else:
-        customer = None
 
     return {
         "platform_account": platform_account,
         "customer": customer,
+        "device_id": platform_account.device_id,
     }
 
 
