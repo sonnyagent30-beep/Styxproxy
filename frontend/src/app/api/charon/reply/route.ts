@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const BACKEND = process.env.BACKEND_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const BACKEND = process.env.BACKEND_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || '';
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,6 +42,17 @@ export async function POST(request: NextRequest) {
     };
 
     // Forward to FastAPI without forwarding the customer's IP.
+    if (!BACKEND) {
+      return NextResponse.json(
+        {
+          error:
+            'Charon backend is not configured. Set NEXT_PUBLIC_API_URL or BACKEND_API_BASE_URL on Vercel.',
+          fallback_text:
+            'I am having trouble reaching my support backend. Please email support@styxproxy.com in the meantime.',
+        },
+        { status: 503 },
+      );
+    }
     const resp = await fetch(`${BACKEND.replace(/\/+$/, '')}/api/v1/charon/reply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
