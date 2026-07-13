@@ -33,86 +33,239 @@ interface OrderData {
 // PDF generation function
 async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: string) {
   const { jsPDF } = await import('jspdf');
-  
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  
-  // Header
-  doc.setFontSize(24);
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+
+  // ── Dark background ──────────────────────────────────────────
+  doc.setFillColor(15, 15, 15);
+  doc.rect(0, 0, W, H, 'F');
+
+  // ── Top accent bar ────────────────────────────────────────────
+  doc.setFillColor(16, 185, 129); // primary
+  doc.rect(0, 0, W, 6, 'F');
+
+  // ── Brand logo area ────────────────────────────────────────────
+  doc.setFillColor(16, 185, 129);
+  doc.roundedRect(20, 18, 12, 12, 3, 3, 'F');
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('STYXPROXY', pageWidth / 2, 25, { align: 'center' });
-  
-  doc.setFontSize(14);
+  doc.text('S', 26, 25.5, { align: 'center' });
+
+  doc.setTextColor(245, 245, 245);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('styxproxy', 35, 25);
+
+  doc.setTextColor(115, 115, 115);
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text('Receipt', pageWidth / 2, 35, { align: 'center' });
-  
-  // Divider
-  doc.setDrawColor(200, 200, 200);
-  doc.line(20, 42, pageWidth - 20, 42);
-  
-  // Order details
+  doc.text('Anonymous Proxy Service', 35, 30.5);
+
+  // ── RECEIPT label ─────────────────────────────────────────────
+  doc.setTextColor(16, 185, 129);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PAYMENT RECEIPT', W - 20, 22, { align: 'right' });
+  doc.setTextColor(115, 115, 115);
+  doc.setFontSize(8);
+  doc.text('styxproxy.com', W - 20, 27, { align: 'right' });
+
+  // ── Divider ───────────────────────────────────────────────────
+  doc.setDrawColor(42, 42, 42);
+  doc.setLineWidth(0.5);
+  doc.line(20, 40, W - 20, 40);
+
+  // ── Order IDs ─────────────────────────────────────────────────
+  let y = 52;
+  doc.setFillColor(26, 26, 26);
+  doc.roundedRect(20, y - 6, W - 40, 22, 3, 3, 'F');
+
+  doc.setTextColor(115, 115, 115);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text('TRANSACTION REFERENCE', 25, y);
+  doc.text('ORDER ID', W / 2 + 5, y);
+
+  doc.setTextColor(245, 245, 245);
   doc.setFontSize(11);
-  let y = 55;
-  
   doc.setFont('helvetica', 'bold');
-  doc.text(`Order #: ${txRef}`, 20, y);
-  y += 8;
-  
+  doc.text(txRef || 'N/A', 25, y + 8);
+
+  const orderIdDisplay = order?.order_id || 'N/A';
+  doc.text(orderIdDisplay.length > 20 ? orderIdDisplay.slice(0, 20) + '…' : orderIdDisplay, W / 2 + 5, y + 8);
+
+  doc.setTextColor(115, 115, 115);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Date: ${new Date().toLocaleDateString('en-NG', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })}`, 20, y);
-  y += 15;
-  
-  // Items
+  doc.text('Flutterwave', 25, y + 14);
+  doc.text('Internal', W / 2 + 5, y + 14);
+
+  // ── Date + Status ─────────────────────────────────────────────
+  y = 82;
+  doc.setTextColor(115, 115, 115);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.text('Items:', 20, y);
-  y += 8;
-  
+  doc.text('DATE', 25, y);
+  doc.text('STATUS', W / 2 + 5, y);
+
+  doc.setTextColor(245, 245, 245);
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
+  doc.text(new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }), 25, y + 7);
+
+  const status = order?.status?.toUpperCase() || 'PENDING';
+  doc.setTextColor(16, 185, 129);
+  doc.setFont('helvetica', 'bold');
+  doc.text(status, W / 2 + 5, y + 7);
+
+  // ── Divider ───────────────────────────────────────────────────
+  doc.setDrawColor(42, 42, 42);
+  doc.line(20, 98, W - 20, 98);
+
+  // ── Items ─────────────────────────────────────────────────────
+  y = 106;
+  doc.setTextColor(115, 115, 115);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ITEM', 25, y);
+  doc.text('QTY', W - 45, y, { align: 'right' });
+  doc.text('AMOUNT', W - 20, y, { align: 'right' });
+
+  doc.setDrawColor(42, 42, 42);
+  doc.line(20, y + 3, W - 20, y + 3);
+
   let subtotal = 0;
-  cart.forEach(item => {
+  y += 10;
+
+  doc.setTextColor(245, 245, 245);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+
+  cart.forEach((item) => {
     const lineTotal = item.price_ngn * item.quantity;
     subtotal += lineTotal;
-    doc.text(`${item.flag} ${item.name} × ${item.quantity} = ₦${lineTotal.toLocaleString('en-NG')}`, 25, y);
-    y += 7;
-  });
-  
-  y += 3;
-  doc.line(20, y, pageWidth - 20, y);
-  y += 10;
-  
-  // Total
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Total: ₦${subtotal.toLocaleString('en-NG')}`, 20, y);
-  y += 15;
-  
-  // Credentials (if fulfilled)
-  if (order.bunche_credential) {
-    doc.line(20, y, pageWidth - 20, y);
-    y += 10;
-    
-    doc.setFont('helvetica', 'bold');
-    doc.text('Proxy Credentials:', 20, y);
+
+    doc.setTextColor(245, 245, 245);
+    doc.text(`${item.flag} ${item.name}`, 25, y);
+    doc.text(String(item.quantity), W - 45, y, { align: 'right' });
+    doc.text(`₦${lineTotal.toLocaleString('en-NG')}`, W - 20, y, { align: 'right' });
     y += 8;
-    
-    doc.setFont('helvetica', 'normal');
+  });
+
+  // ── Total ─────────────────────────────────────────────────────
+  y += 4;
+  doc.setDrawColor(42, 42, 42);
+  doc.line(20, y, W - 20, y);
+  y += 10;
+
+  doc.setFillColor(16, 185, 129);
+  doc.roundedRect(W - 70, y - 6, 50, 12, 2, 2, 'F');
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('TOTAL', W - 65, y - 1);
+  doc.text(`₦${subtotal.toLocaleString('en-NG')}`, W - 25, y + 3, { align: 'right' });
+
+  // ── Proxy Credentials ────────────────────────────────────────
+  if (order?.bunche_credential) {
+    y += 22;
+    doc.setTextColor(16, 185, 129);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('YOUR PROXY CREDENTIALS', 20, y);
+
+    doc.setFillColor(26, 26, 26);
+    doc.roundedRect(20, y + 4, W - 40, 48, 3, 3, 'F');
+
     const cred = order.bunche_credential;
-    doc.text(`Username: ${cred.bun_username || 'N/A'}`, 25, y);
-    y += 7;
-    doc.text(`Proxy: ${cred.upstream_proxy_ip || 'N/A'}:${cred.upstream_proxy_port || 'N/A'}`, 25, y);
-    y += 7;
-    doc.text(`Expires: ${cred.expires_at ? new Date(cred.expires_at).toLocaleDateString('en-NG') : 'N/A'}`, 25, y);
-    y += 15;
+    y += 14;
+
+    // Username
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('USERNAME', 28, y);
+    doc.setTextColor(52, 211, 153);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(cred.bun_username || 'N/A', 28, y + 7);
+
+    // Password
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PASSWORD', W / 2 + 5, y);
+    doc.setTextColor(52, 211, 153);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('********', W / 2 + 5, y + 7);
+
+    y += 18;
+
+    // Proxy address
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PROXY ADDRESS', 28, y);
+    const proxyStr = `${cred.upstream_proxy_ip}:${cred.upstream_proxy_port}`;
+    doc.setTextColor(52, 211, 153);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(proxyStr, 28, y + 7);
+
+    // Protocol
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PROTOCOL', W / 2 + 5, y);
+    doc.setTextColor(52, 211, 153);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('HTTP / SOCKS5', W / 2 + 5, y + 7);
+
+    y += 18;
+
+    // Full format string
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FULL FORMAT', 28, y);
+
+    const fullStr = `http://${cred.bun_username}:YOUR_PASSWORD@${proxyStr}`;
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    const lines = doc.splitTextToSize(fullStr, W - 56);
+    doc.text(lines, 28, y + 7);
+
+    //Expires
+    y += 7 + (lines.length * 4);
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('EXPIRES', 28, y);
+    doc.setTextColor(245, 245, 245);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(cred.expires_at ? new Date(cred.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A', 28, y + 6);
   }
-  
-  // Footer
-  doc.setFontSize(10);
-  doc.setTextColor(128, 128, 128);
-  doc.text('Thank you for choosing Styxproxy • styxproxy.com • hello@styxproxy.com', pageWidth / 2, y, { align: 'center' });
-  
+
+  // ── Footer ────────────────────────────────────────────────────
+  const footerY = H - 18;
+  doc.setDrawColor(42, 42, 42);
+  doc.line(20, footerY - 6, W - 20, footerY - 6);
+
+  doc.setTextColor(115, 115, 115);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Need help? Chat with Charon → @StyxproxyBot  |  hello@styxproxy.com  |  styxproxy.com', W / 2, footerY, { align: 'center' });
+
+  doc.setFontSize(6);
+  doc.text('This receipt was generated automatically. No signature required.', W / 2, footerY + 5, { align: 'center' });
+
   // Save
   doc.save(`styxproxy-receipt-${txRef}.pdf`);
 }
@@ -261,15 +414,23 @@ function ThankYouContent() {
                     <p className="font-mono text-lg">{order.bunche_credential.bun_username}</p>
                   </div>
                   <div>
+                    <label className="text-sm text-[var(--muted)]">Protocol</label>
+                    <p className="font-mono text-sm">HTTP / SOCKS5</p>
+                  </div>
+                  <div>
                     <label className="text-sm text-[var(--muted)]">Proxy Address</label>
                     <p className="font-mono text-lg">
                       {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm text-[var(--muted)]">Format</label>
-                    <p className="font-mono text-sm text-[var(--muted)] break-all">
-                      {order.bunche_credential.bun_username}:your_password@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                    <label className="text-sm text-[var(--muted)]">Password</label>
+                    <p className="font-mono text-sm text-[var(--muted)]">Sent to your email after payment</p>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-sm text-[var(--muted)]">Full Format</label>
+                    <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
+                      http://{order.bunche_credential.bun_username}:YOUR_PASSWORD@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
                     </p>
                   </div>
                   <div>
@@ -324,7 +485,7 @@ function ThankYouContent() {
 
             {/* Actions */}
             <div className="space-y-3">
-              {order?.bunche_credential && (
+              {cart.length > 0 && (
                 <button
                   onClick={handleDownloadPDF}
                   className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
