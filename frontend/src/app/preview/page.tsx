@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import { ToastProvider } from '@/components/Toast';
 
 // ─── Mock data ────────────────────────────────────────────────────
 
@@ -558,41 +561,36 @@ export default function PreviewPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--background)] py-16 px-4">
-      {/* Header */}
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center">
-            <span className="text-black font-black text-sm">$</span>
+    <ToastProvider>
+      <div className="min-h-screen flex flex-col bg-[var(--background)]">
+        <Header />
+        <div className="flex-1 px-4 pt-24 pb-16">
+          {/* Tab navigation at top */}
+          <div className="flex justify-center gap-2 mb-8">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-[var(--primary)] text-black'
+                    : 'bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <span className="text-lg font-bold tracking-tight">styxproxy</span>
+
+          {/* Tab content */}
+          <div className="flex justify-center">
+            {activeTab === 'thankyou' && <ThankYouPreview />}
+            {activeTab === 'manage' && <ManagePreview />}
+            {activeTab === 'checkout' && <CheckoutPreview />}
+          </div>
         </div>
-        <p className="text-sm text-[var(--muted)]">Internal design preview — not for public use</p>
+        <Footer />
       </div>
-
-      {/* Tabs */}
-      <div className="flex justify-center gap-2 mb-8">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === tab.id
-                ? 'bg-[var(--primary)] text-black'
-                : 'bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex justify-center">
-        {activeTab === 'thankyou' && <ThankYouPreview />}
-        {activeTab === 'manage' && <ManagePreview />}
-        {activeTab === 'checkout' && <CheckoutPreview />}
-      </div>
-    </div>
+    </ToastProvider>
   );
 }
