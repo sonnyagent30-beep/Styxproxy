@@ -20,6 +20,10 @@ interface OrderData {
   country?: string;
   amount_paid_ngn?: number;
   tx_ref?: string;
+  customer_name?: string | null;  // Only set for orders created via WhatsApp/Telegram
+  is_renewable?: boolean;
+  rotation_count?: number;
+  max_rotations?: number;
   bunche_credential?: {
     bun_username?: string;
     bun_password?: string;
@@ -31,7 +35,7 @@ interface OrderData {
   expires_at?: string;
 }
 
-// PDF generation function
+// PDF generation function — matches the design template
 async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: string) {
   const { jsPDF } = await import('jspdf');
 
@@ -39,233 +43,322 @@ async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: str
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
 
-  // ── Dark background ──────────────────────────────────────────
-  doc.setFillColor(15, 15, 15);
+  // Brand colors (matching template)
+  const PRIMARY: [number, number, number] = [10, 210, 90];   // #0AD25A
+  const BG: [number, number, number] = [10, 10, 10];          // #0a0a0a
+  const CARD: [number, number, number] = [26, 26, 26];        // #1a1a1a
+  const MUTED: [number, number, number] = [156, 163, 175];    // #9CA3AF
+  const DIM: [number, number, number] = [107, 114, 128];      // #6B7280
+  const WHITE: [number, number, number] = [255, 255, 255];
+  const LIGHT: [number, number, number] = [209, 213, 219];    // #D1D5DB
+  const BORDER: [number, number, number] = [38, 38, 38];      // #262626
+
+  // ── Background ──────────────────────────────────────────
+  doc.setFillColor(...BG);
   doc.rect(0, 0, W, H, 'F');
 
-  // ── Top accent bar ────────────────────────────────────────────
-  doc.setFillColor(16, 185, 129); // primary
-  doc.rect(0, 0, W, 6, 'F');
+  // ── Top accent bar ─────────────────────────────────────
+  doc.setFillColor(...PRIMARY);
+  doc.rect(0, 0, W, 4, 'F');
 
-  // ── Brand logo area ────────────────────────────────────────────
-  doc.setFillColor(16, 185, 129);
-  doc.roundedRect(20, 18, 12, 12, 3, 3, 'F');
-  doc.setTextColor(0, 0, 0);
+  // ── Header: full lockup logo (S-mark + wordmark) ───────
+  doc.setFillColor(...PRIMARY);
+  doc.roundedRect(15, 14, 8, 8, 1.5, 1.5, 'F');
+  doc.setTextColor(...BG);
+  doc.setFontSize(6);
+  doc.setFont('helvetica', 'bold');
+  doc.text('S', 19, 19, { align: 'center' });
+
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('styxproxy', 26, 20);
+
+  doc.setTextColor(...MUTED);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Anonymous Proxy Service', 26, 24);
+
+  // ── Right header: PAYMENT RECEIPT label ─────────────────
+  doc.setTextColor(...PRIMARY);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PAYMENT RECEIPT', W - 15, 17, { align: 'right' });
+
+  doc.setTextColor(...MUTED);
+  doc.setFontSize(7);
+  doc.text('styxproxy.com', W - 15, 21.5, { align: 'right' });
+  doc.text(`Issued: ${new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`, W - 15, 25, { align: 'right' });
+
+  // ── Divider ─────────────────────────────────────────────
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.2);
+  doc.line(15, 30, W - 15, 30);
+
+  // ── ORDER CONFIRMATION section ──────────────────────────
+  // Use real name if customer set one (WhatsApp/Telegram orders only)
+  // Website orders remain anonymous — keep generic "customer"
+  const customerName = order?.customer_name?.trim();
+  const thankYouText = customerName ? `Thank you, ${customerName}.` : 'Thank you, customer.';
+
+  doc.setTextColor(...MUTED);
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ORDER CONFIRMATION', 15, 37);
+
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text(thankYouText, 15, 49);
+
+  doc.setTextColor(...MUTED);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Your proxy is ready to use. Below are your credentials.', 15, 56);
+
+  // FULFILLED pill on the right
+  const status = order?.status?.toUpperCase() || 'PENDING';
+  doc.setFillColor(...PRIMARY);
+  doc.roundedRect(W - 50, 43, 35, 9, 4.5, 4.5, 'F');
+  doc.setTextColor(...BG);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(status, W - 32.5, 49, { align: 'center' });
+
+  // ── Order details card ──────────────────────────────────
+  const cardTop = 65;
+  const cardBottom = cardTop - 42;
+  doc.setFillColor(...CARD);
+  doc.roundedRect(15, cardBottom, W - 30, 42, 3, 3, 'F');
+
+  // Row 1: TX Ref | Order ID
+  doc.setTextColor(...MUTED);
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('TRANSACTION REFERENCE', 20, cardTop - 8);
+  doc.text('ORDER ID', W / 2 + 5, cardTop - 8);
+
+  doc.setTextColor(...WHITE);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text('S', 26, 25.5, { align: 'center' });
-
-  doc.setTextColor(245, 245, 245);
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('styxproxy', 35, 25);
-
-  doc.setTextColor(115, 115, 115);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Anonymous Proxy Service', 35, 30.5);
-
-  // ── RECEIPT label ─────────────────────────────────────────────
-  doc.setTextColor(16, 185, 129);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.text('PAYMENT RECEIPT', W - 20, 22, { align: 'right' });
-  doc.setTextColor(115, 115, 115);
-  doc.setFontSize(8);
-  doc.text('styxproxy.com', W - 20, 27, { align: 'right' });
-
-  // ── Divider ───────────────────────────────────────────────────
-  doc.setDrawColor(42, 42, 42);
-  doc.setLineWidth(0.5);
-  doc.line(20, 40, W - 20, 40);
-
-  // ── Order IDs ─────────────────────────────────────────────────
-  let y = 52;
-  doc.setFillColor(26, 26, 26);
-  doc.roundedRect(20, y - 6, W - 40, 22, 3, 3, 'F');
-
-  doc.setTextColor(115, 115, 115);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.text('TRANSACTION REFERENCE', 25, y);
-  doc.text('ORDER ID', W / 2 + 5, y);
-
-  doc.setTextColor(245, 245, 245);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text(txRef || 'N/A', 25, y + 8);
+  doc.text(txRef || 'N/A', 20, cardTop - 16);
 
   const orderIdDisplay = order?.order_id || 'N/A';
-  doc.text(orderIdDisplay.length > 20 ? orderIdDisplay.slice(0, 20) + '…' : orderIdDisplay, W / 2 + 5, y + 8);
+  doc.text(orderIdDisplay.length > 22 ? orderIdDisplay.slice(0, 22) + '…' : orderIdDisplay, W / 2 + 5, cardTop - 16);
 
-  doc.setTextColor(115, 115, 115);
-  doc.setFontSize(7);
+  doc.setTextColor(...DIM);
+  doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
-  doc.text('Flutterwave', 25, y + 14);
-  doc.text('Internal', W / 2 + 5, y + 14);
+  doc.text('Flutterwave payment reference', 20, cardTop - 21);
+  doc.text('Internal order reference', W / 2 + 5, cardTop - 21);
 
-  // ── Date + Status ─────────────────────────────────────────────
-  y = 82;
-  doc.setTextColor(115, 115, 115);
-  doc.setFontSize(7);
+  // Divider inside card
+  doc.setDrawColor(...BORDER);
+  doc.line(20, cardTop - 26, W - 20, cardTop - 26);
+
+  // Row 2: DATE | METHOD
+  doc.setTextColor(...MUTED);
+  doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('DATE', 25, y);
-  doc.text('STATUS', W / 2 + 5, y);
+  doc.text('DATE', 20, cardTop - 32);
+  doc.text('METHOD', W / 2 + 5, cardTop - 32);
 
-  doc.setTextColor(245, 245, 245);
+  doc.setTextColor(...WHITE);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }), 25, y + 7);
+  doc.text(new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }), 20, cardTop - 38);
+  doc.text('Card / Bank / USSD / QR', W / 2 + 5, cardTop - 38);
 
-  const status = order?.status?.toUpperCase() || 'PENDING';
-  doc.setTextColor(16, 185, 129);
-  doc.setFont('helvetica', 'bold');
-  doc.text(status, W / 2 + 5, y + 7);
-
-  // ── Divider ───────────────────────────────────────────────────
-  doc.setDrawColor(42, 42, 42);
-  doc.line(20, 98, W - 20, 98);
-
-  // ── Items ─────────────────────────────────────────────────────
-  y = 106;
-  doc.setTextColor(115, 115, 115);
+  // ── Items section ───────────────────────────────────────
+  let y = 72;
+  doc.setTextColor(...MUTED);
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.text('ITEM', 25, y);
-  doc.text('QTY', W - 45, y, { align: 'right' });
-  doc.text('AMOUNT', W - 20, y, { align: 'right' });
+  doc.text('ITEMS', 15, y);
+  doc.text('QTY', W - 35, y, { align: 'right' });
+  doc.text('AMOUNT', W - 15, y, { align: 'right' });
 
-  doc.setDrawColor(42, 42, 42);
-  doc.line(20, y + 3, W - 20, y + 3);
+  doc.setDrawColor(...BORDER);
+  doc.line(15, y + 2, W - 15, y + 2);
 
+  y += 8;
   let subtotal = 0;
-  y += 10;
-
-  doc.setTextColor(245, 245, 245);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
 
   cart.forEach((item) => {
     const lineTotal = item.price_ngn * item.quantity;
     subtotal += lineTotal;
 
-    doc.setTextColor(245, 245, 245);
-    doc.text(`${item.flag} ${item.name}`, 25, y);
-    doc.text(String(item.quantity), W - 45, y, { align: 'right' });
-    doc.text(`₦${lineTotal.toLocaleString('en-NG')}`, W - 20, y, { align: 'right' });
-    y += 8;
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${item.flag || ''} ${item.name}`, 15, y);
+
+    doc.setTextColor(...MUTED);
+    doc.setFontSize(6.5);
+    doc.text(`${item.quantity} ${item.quantity === 1 ? 'unit' : 'units'}  |  HTTP/SOCKS5`, 15, y + 4);
+
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(10);
+    doc.text(String(item.quantity), W - 35, y, { align: 'right' });
+    doc.text(`N${lineTotal.toLocaleString('en-NG')}`, W - 15, y, { align: 'right' });
+    y += 11;
   });
 
-  // ── Total ─────────────────────────────────────────────────────
-  y += 4;
-  doc.setDrawColor(42, 42, 42);
-  doc.line(20, y, W - 20, y);
-  y += 10;
-
-  doc.setFillColor(16, 185, 129);
-  doc.roundedRect(W - 70, y - 6, 50, 12, 2, 2, 'F');
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(9);
+  // ── TOTAL PAID pill ─────────────────────────────────────
+  doc.setFillColor(...PRIMARY);
+  doc.roundedRect(W - 75, y, 60, 11, 2, 2, 'F');
+  doc.setTextColor(...BG);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL', W - 65, y - 1);
-  doc.text(`₦${subtotal.toLocaleString('en-NG')}`, W - 25, y + 3, { align: 'right' });
+  doc.text('TOTAL PAID', W - 70, y + 7.5);
+  doc.setFontSize(11);
+  doc.text(`N${subtotal.toLocaleString('en-NG')}`, W - 19, y + 7.5, { align: 'right' });
 
-  // ── Proxy Credentials ────────────────────────────────────────
+  // ── Credentials card (if available) ─────────────────────
   if (order?.bunche_credential) {
-    y += 22;
-    doc.setTextColor(16, 185, 129);
+    const cred = order.bunche_credential;
+    y += 18;
+
+    // Section header (above card)
+    doc.setTextColor(...PRIMARY);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.text('YOUR PROXY CREDENTIALS', 20, y);
+    doc.text('YOUR PROXY CREDENTIALS', 15, y);
 
-    doc.setFillColor(26, 26, 26);
-    doc.roundedRect(20, y + 4, W - 40, 48, 3, 3, 'F');
+    // Card with green border
+    const cardH = 70;
+    const credCardTop = y + 2;
+    const credCardBottom = credCardTop - cardH;
+    doc.setFillColor(...BG);
+    doc.setDrawColor(...PRIMARY);
+    doc.setLineWidth(0.6);
+    doc.roundedRect(15, credCardBottom, W - 30, cardH, 3, 3, 'FD');
+    doc.setDrawColor(...BORDER);
+    doc.setLineWidth(0.2);
 
-    const cred = order.bunche_credential;
-    y += 14;
+    // Layout: 4 rows
+    let innerY = credCardTop - 8;
+    const rowH = 16;
 
-    // Username
-    doc.setTextColor(115, 115, 115);
-    doc.setFontSize(7);
+    // Row 1: USERNAME | PASSWORD
+    doc.setTextColor(...MUTED);
+    doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('USERNAME', 28, y);
-    doc.setTextColor(52, 211, 153);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(cred.bun_username || 'N/A', 28, y + 7);
+    doc.text('USERNAME', 20, innerY);
+    doc.text('PASSWORD', W / 2 + 5, innerY);
 
-    // Password
-    doc.setTextColor(115, 115, 115);
-    doc.setFontSize(7);
+    doc.setTextColor(...PRIMARY);
+    doc.setFontSize(9.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('PASSWORD', W / 2 + 5, y);
-    doc.setTextColor(52, 211, 153);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('********', W / 2 + 5, y + 7);
+    doc.text(cred.bun_username || 'N/A', 20, innerY + 5);
+    doc.text(cred.bun_password || 'N/A', W / 2 + 5, innerY + 5);
 
-    y += 18;
+    doc.setDrawColor(...BORDER);
+    doc.line(20, innerY + 8, W - 20, innerY + 8);
+    innerY -= rowH;
 
-    // Proxy address
-    doc.setTextColor(115, 115, 115);
-    doc.setFontSize(7);
+    // Row 2: PROXY ADDRESS | PROTOCOL
+    doc.setTextColor(...MUTED);
+    doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('PROXY ADDRESS', 28, y);
-    const proxyStr = `${cred.upstream_proxy_ip}:${cred.upstream_proxy_port}`;
-    doc.setTextColor(52, 211, 153);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(proxyStr, 28, y + 7);
+    doc.text('PROXY ADDRESS', 20, innerY);
+    doc.text('PROTOCOL', W / 2 + 5, innerY);
 
-    // Protocol
-    doc.setTextColor(115, 115, 115);
-    doc.setFontSize(7);
+    doc.setTextColor(...PRIMARY);
+    doc.setFontSize(9.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('PROTOCOL', W / 2 + 5, y);
-    doc.setTextColor(52, 211, 153);
-    doc.setFontSize(10);
+    doc.text(`${cred.upstream_proxy_ip || 'N/A'}:${cred.upstream_proxy_port || ''}`, 20, innerY + 5);
+    doc.text('HTTP / SOCKS5', W / 2 + 5, innerY + 5);
+
+    doc.setDrawColor(...BORDER);
+    doc.line(20, innerY + 8, W - 20, innerY + 8);
+    innerY -= rowH;
+
+    // Row 3: FULL FORMAT
+    doc.setTextColor(...MUTED);
+    doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('HTTP / SOCKS5', W / 2 + 5, y + 7);
+    doc.text('FULL FORMAT', 20, innerY);
 
-    y += 18;
-
-    // Full format string
-    doc.setTextColor(115, 115, 115);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
-    doc.text('FULL FORMAT', 28, y);
-
-    const fullStr = `http://${cred.bun_username}:YOUR_PASSWORD@${proxyStr}`;
-    doc.setTextColor(115, 115, 115);
+    doc.setTextColor(...LIGHT);
     doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
-    const lines = doc.splitTextToSize(fullStr, W - 56);
-    doc.text(lines, 28, y + 7);
+    doc.setFont('courier', 'normal');
+    const fullStr = `http://${cred.bun_username || 'user'}:${cred.bun_password || 'pass'}@${cred.upstream_proxy_ip || '0.0.0.0'}:${cred.upstream_proxy_port || 8080}`;
+    const lines = doc.splitTextToSize(fullStr, W - 40);
+    doc.text(lines, 20, innerY + 5);
 
-    //Expires
-    y += 7 + (lines.length * 4);
-    doc.setTextColor(115, 115, 115);
-    doc.setFontSize(7);
+    doc.setDrawColor(...BORDER);
+    doc.line(20, innerY + 8, W - 20, innerY + 8);
+    innerY -= rowH;
+
+    // Row 4: EXPIRES | AUTO-RENEW
+    doc.setTextColor(...MUTED);
+    doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('EXPIRES', 28, y);
-    doc.setTextColor(245, 245, 245);
-    doc.setFontSize(9);
+    doc.text('EXPIRES', 20, innerY);
+    doc.text('AUTO-RENEW', W / 2 + 5, innerY);
+
+    doc.setTextColor(...WHITE);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.text(cred.expires_at ? new Date(cred.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A', 28, y + 6);
+    doc.text(cred.expires_at ? new Date(cred.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A', 20, innerY + 5);
+    doc.text('On (manage to disable)', W / 2 + 5, innerY + 5);
+
+    y = credCardBottom;
   }
 
-  // ── Footer ────────────────────────────────────────────────────
-  const footerY = H - 18;
-  doc.setDrawColor(42, 42, 42);
-  doc.line(20, footerY - 6, W - 20, footerY - 6);
+  // ── Support section ─────────────────────────────────────
+  const supY = y - 8;
+  const supH = 18;
+  doc.setFillColor(...CARD);
+  doc.roundedRect(15, supY - supH, W - 30, supH, 3, 3, 'F');
 
-  doc.setTextColor(115, 115, 115);
+  // Left: NEED HELP + Charon
+  doc.setTextColor(...PRIMARY);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text('NEED HELP?', 20, supY - 5);
+
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Chat with Charon:', 20, supY - 10);
+
+  doc.setTextColor(...PRIMARY);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('@StyxproxyBot', 20, supY - 14.5);
+
+  // Right: email + web
+  doc.setTextColor(...MUTED);
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  doc.text('Need help? Chat with Charon → @StyxproxyBot  |  hello@styxproxy.com  |  styxproxy.com', W / 2, footerY, { align: 'center' });
+  doc.text('Email:', 90, supY - 5);
+  doc.text('Web:', 90, supY - 10);
 
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(8);
+  doc.text('hello@styxproxy.com', 100, supY - 5);
+
+  doc.setTextColor(...PRIMARY);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('styxproxy.com', 100, supY - 10);
+
+  // ── Footer ──────────────────────────────────────────────
+  const footerLine = 25;
+  doc.setDrawColor(...BORDER);
+  doc.line(15, footerLine, W - 15, footerLine);
+
+  doc.setTextColor(...DIM);
   doc.setFontSize(6);
-  doc.text('This receipt was generated automatically. No signature required.', W / 2, footerY + 5, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.text('This receipt was generated automatically. No signature required.', W / 2, 20, { align: 'center' });
+  doc.text('© 2026 Styxproxy — Anonymous proxy service for the discerning.', W / 2, 16, { align: 'center' });
+
+  // ── Bottom accent bar ───────────────────────────────────
+  doc.setFillColor(...PRIMARY);
+  doc.rect(0, H - 3, W, 3, 'F');
 
   // Save
   doc.save(`styxproxy-receipt-${txRef}.pdf`);

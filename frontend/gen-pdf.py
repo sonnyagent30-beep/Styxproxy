@@ -1,38 +1,24 @@
-"""Generate sample-receipt.pdf — full lockup, brand green, polished layout."""
+"""Generate sample-receipt.pdf — properly aligned, no overlaps."""
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.colors import HexColor
 from PIL import Image
-import io
 
-W, H = A4
+W, H = A4  # 595 x 842
 pub = '/root/bunche/frontend/public'
 
-# Load FULL lockup (S-mark + wordmark) — cropped from PNG (already done)
-# We need to crop this to a usable header size first
+# Load full lockup
 src_dark = Image.open('/root/sytxproxy_logo_pack/Logo for dark mode.png').convert('RGBA')
-src_light = Image.open('/root/sytxproxy_logo_pack/Logo for light mode.png').convert('RGBA')
-
-# Crop content area (no transparent margins)
 dark_content = src_dark.crop((421, 377, 2911, 1254))  # 2490 x 877
-light_content = src_light.crop((422, 379, 2904, 1253))  # 2482 x 874
 
-# Scale to PDF header size (preserve 2.84:1 aspect)
-# PDF header logo: 360px tall in PDF terms, so 360 x 2.84 = 1022px wide
-# But for PDF we use point sizes (72pt/inch). A4 page is 595x842pt.
-# 360px in PDF = 360 / 96 * 72 = 270 points... too big.
-# Let's use ~120 points wide for the header logo, 42 points tall
-logo_w = 140  # points
-logo_h = 50   # points
-
-# Create the PDF header logo by scaling our content
+# Scale logo to header size (140pt wide, ~50pt tall preserving 2.84:1 aspect)
+logo_w = 130
+logo_h = 46
 def make_pdf_header(src_content, target_w, target_h):
     sw, sh = src_content.size
-    # Calculate scale to fit target height while preserving aspect
     scale = target_h / sh
     new_w = int(sw * scale)
     resized = src_content.resize((new_w, target_h), Image.LANCZOS)
-    # Pad to match target_w if needed (center)
     if new_w < target_w:
         pad = (target_w - new_w) // 2
         new_img = Image.new('RGBA', (target_w, target_h), (0, 0, 0, 0))
@@ -40,16 +26,11 @@ def make_pdf_header(src_content, target_w, target_h):
         return new_img
     return resized
 
-# Make PDF-ready logos
-hdr_logo_dark = make_pdf_header(dark_content, logo_w, logo_h)
-hdr_logo_light = make_pdf_header(light_content, logo_w, logo_h)
-hdr_logo_dark.save('/tmp/pdf-logo-dark.png')
-hdr_logo_light.save('/tmp/pdf-logo-light.png')
+hdr_logo = make_pdf_header(dark_content, logo_w, logo_h)
+hdr_logo.save('/tmp/pdf-logo.png')
 
-# Also make watermark version (very large, faded)
-wm_scale = 4
-wm = dark_content.resize((dark_content.width // wm_scale, dark_content.height // wm_scale), Image.LANCZOS)
-wm.save('/tmp/pdf-watermark.png')
+# Brand green
+PRIMARY = HexColor('#0AD25A')
 
 # Build PDF
 c = canvas.Canvas(f'{pub}/sample-receipt.pdf', pagesize=A4)
@@ -58,87 +39,105 @@ c = canvas.Canvas(f'{pub}/sample-receipt.pdf', pagesize=A4)
 c.setFillColor(HexColor('#0a0a0a'))
 c.rect(0, 0, W, H, fill=1, stroke=0)
 
-# Brand green: #0AD25A exact (matching logo)
-PRIMARY = HexColor('#0AD25A')
-PRIMARY_DARK = HexColor('#08a846')
-PRIMARY_FADED = HexColor('#0AD25A')
-
 # Top accent bar
 c.setFillColor(PRIMARY)
 c.rect(0, H - 12, W, 12, fill=1, stroke=0)
 
-# Logo (top-left) — full lockup
-c.drawImage('/tmp/pdf-logo-dark.png', 40, H - 95, width=logo_w, height=logo_h, mask='auto')
+# ────────────────────────────────────────────────────────────────────
+# HEADER (y range: H-50 to H-20)
+# Logo on left
+c.drawImage('/tmp/pdf-logo.png', 40, H - 80, width=logo_w, height=logo_h, mask='auto')
 
-# Right side receipt label
+# Receipt label block on right — properly spaced
+# Right-aligned, each line 18pt apart
 c.setFillColor(PRIMARY)
-c.setFont('Helvetica-Bold', 11)
-c.drawRightString(W - 40, H - 50, 'PAYMENT RECEIPT')
+c.setFont('Helvetica-Bold', 12)
+c.drawRightString(W - 40, H - 45, 'PAYMENT RECEIPT')
 
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica', 9)
-c.drawRightString(W - 40, H - 65, 'styxproxy.com')
-c.drawRightString(W - 40, H - 80, 'Issued: July 13, 2026')
+c.drawRightString(W - 40, H - 62, 'styxproxy.com')
+c.drawRightString(W - 40, H - 76, 'Issued: July 13, 2026')
 
 # Divider
 c.setStrokeColor(HexColor('#262626'))
 c.setLineWidth(0.5)
-c.line(40, H - 115, W - 40, H - 115)
+c.line(40, H - 100, W - 40, H - 100)
 
-# ── Receipt title row ──
+# ────────────────────────────────────────────────────────────────────
+# HEADLINE SECTION (y range: H-105 to H-180)
+# Section label
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica-Bold', 8)
-c.drawString(40, H - 140, 'ORDER CONFIRMATION')
+c.drawString(40, H - 120, 'ORDER CONFIRMATION')
 
+# Big headline
 c.setFillColor(HexColor('#FFFFFF'))
-c.setFont('Helvetica-Bold', 28)
-c.drawString(40, H - 175, 'Thank you, customer.')
+c.setFont('Helvetica-Bold', 26)
+c.drawString(40, H - 152, 'Thank you, customer.')
 
+# Subtitle
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica', 11)
-c.drawString(40, H - 195, 'Your proxy is ready to use. Below are your credentials.')
+c.drawString(40, H - 172, 'Your proxy is ready to use. Below are your credentials.')
 
-# ── Status pill ──
+# FULFILLED pill on the right, aligned with headline
 c.setFillColor(PRIMARY)
-c.roundRect(W - 130, H - 195, 90, 28, 14, fill=1, stroke=0)
+c.roundRect(W - 140, H - 158, 100, 26, 13, fill=1, stroke=0)
 c.setFillColor(HexColor('#000000'))
 c.setFont('Helvetica-Bold', 11)
-c.drawCentredString(W - 85, H - 184, 'FULFILLED')
+c.drawCentredString(W - 90, H - 149, 'FULFILLED')
 
-# ── Order details card ──
-card_y = H - 245
+# ────────────────────────────────────────────────────────────────────
+# ORDER DETAILS CARD (y range: H-185 to H-340)
+card_top = H - 195
+card_bottom = card_top - 130
+card_h = card_top - card_bottom
+
 c.setFillColor(HexColor('#1a1a1a'))
-c.roundRect(40, card_y - 75, W - 80, 75, 8, fill=1, stroke=0)
+c.roundRect(40, card_bottom, W - 80, card_h, 8, fill=1, stroke=0)
 
-# TX Ref
+# Two columns: left starts at x=60, right at x=W/2+20
+# Row 1: TRANSACTION REFERENCE | ORDER ID (labels)
+row1_y = card_top - 25
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica-Bold', 8)
-c.drawString(60, card_y - 25, 'TRANSACTION REFERENCE')
-c.drawString(W/2 + 20, card_y - 25, 'ORDER ID')
+c.drawString(60, row1_y, 'TRANSACTION REFERENCE')
+c.drawString(W/2 + 20, row1_y, 'ORDER ID')
 
+# Row 1 values
 c.setFillColor(HexColor('#FFFFFF'))
-c.setFont('Helvetica-Bold', 13)
-c.drawString(60, card_y - 45, 'TXF-DANNION-PREVIEW')
-c.drawString(W/2 + 20, card_y - 45, 'ORD-2025-XXXXX')
+c.setFont('Helvetica-Bold', 12)
+c.drawString(60, row1_y - 18, 'TXF-DANNION-PREVIEW')
+c.drawString(W/2 + 20, row1_y - 18, 'ORD-2025-XXXXX')
 
+# Row 1 sub-labels
 c.setFillColor(HexColor('#6B7280'))
-c.setFont('Helvetica', 8)
-c.drawString(60, card_y - 60, 'Flutterwave payment reference')
-c.drawString(W/2 + 20, card_y - 60, 'Internal order reference')
+c.setFont('Helvetica', 7)
+c.drawString(60, row1_y - 32, 'Flutterwave payment reference')
+c.drawString(W/2 + 20, row1_y - 32, 'Internal order reference')
 
-# Date row
+# Divider inside card
+c.setStrokeColor(HexColor('#262626'))
+c.line(60, card_top - 70, W - 60, card_top - 70)
+
+# Row 2: DATE | METHOD
+row2_y = card_top - 88
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica-Bold', 8)
-c.drawString(60, card_y - 78, 'DATE')
-c.drawString(W/2 + 20, card_y - 78, 'METHOD')
+c.drawString(60, row2_y, 'DATE')
+c.drawString(W/2 + 20, row2_y, 'METHOD')
 
 c.setFillColor(HexColor('#FFFFFF'))
 c.setFont('Helvetica', 11)
-c.drawString(60, card_y - 95, 'July 13, 2026')
-c.drawString(W/2 + 20, card_y - 95, 'Card / Bank / USSD / QR')
+c.drawString(60, row2_y - 16, 'July 13, 2026')
+c.drawString(W/2 + 20, row2_y - 16, 'Card / Bank / USSD / QR')
 
-# ── Items section ──
-items_y = card_y - 130
+# ────────────────────────────────────────────────────────────────────
+# ITEMS SECTION (y range: H-360 to H-430)
+items_y = H - 380
+
+# Header row
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica-Bold', 9)
 c.drawString(40, items_y, 'ITEMS')
@@ -148,145 +147,164 @@ c.drawRightString(W - 40, items_y, 'AMOUNT')
 c.setStrokeColor(HexColor('#262626'))
 c.line(40, items_y - 8, W - 40, items_y - 8)
 
-# Item
+# Item row
+item_y = items_y - 30
 c.setFillColor(HexColor('#FFFFFF'))
 c.setFont('Helvetica', 12)
-c.drawString(40, items_y - 30, 'UK ISP Proxy')
+c.drawString(40, item_y, 'UK ISP Proxy')
+
 c.setFillColor(HexColor('#9CA3AF'))
-c.setFont('Helvetica', 9)
-c.drawString(40, items_y - 45, '1 month | HTTP/SOCKS5 | United Kingdom')
+c.setFont('Helvetica', 8)
+c.drawString(40, item_y - 14, '1 month  |  HTTP/SOCKS5  |  United Kingdom')
 
 c.setFillColor(HexColor('#FFFFFF'))
 c.setFont('Helvetica', 12)
-c.drawRightString(W - 175, items_y - 30, '1')
-c.drawRightString(W - 40, items_y - 30, 'N 6,500')
+c.drawRightString(W - 175, item_y, '1')
+c.drawRightString(W - 40, item_y, 'N 6,500')
 
-# ── Total pill ──
-total_y = items_y - 80
+# ────────────────────────────────────────────────────────────────────
+# TOTAL PAID pill (y range: H-470 to H-440)
 c.setFillColor(PRIMARY)
-c.roundRect(W - 200, total_y - 10, 160, 35, 6, fill=1, stroke=0)
+c.roundRect(W - 200, H - 470, 160, 32, 6, fill=1, stroke=0)
 c.setFillColor(HexColor('#000000'))
-c.setFont('Helvetica-Bold', 12)
-c.drawString(W - 185, total_y + 5, 'TOTAL PAID')
-c.setFont('Helvetica-Bold', 16)
-c.drawRightString(W - 50, total_y + 5, 'N 6,500')
+c.setFont('Helvetica-Bold', 11)
+c.drawString(W - 188, H - 458, 'TOTAL PAID')
+c.setFont('Helvetica-Bold', 14)
+c.drawRightString(W - 50, H - 458, 'N 6,500')
 
-# ── Credentials card (highlighted section) ──
-cred_y = total_y - 60
+# ────────────────────────────────────────────────────────────────────
+# CREDENTIALS CARD (y range: H-490 to H-700)
+cred_header_y = H - 500
+cred_card_top = cred_header_y - 12
+cred_card_bottom = cred_card_top - 200  # 200pt tall, 4 rows × 50pt
+cred_card_h = cred_card_top - cred_card_bottom
+
+# "YOUR PROXY CREDENTIALS" header — above the card
 c.setFillColor(PRIMARY)
 c.setFont('Helvetica-Bold', 11)
-c.drawString(40, cred_y, 'YOUR PROXY CREDENTIALS')
+c.drawString(40, cred_header_y, 'YOUR PROXY CREDENTIALS')
 
+# Card with green border
 c.setFillColor(HexColor('#0a0a0a'))
 c.setStrokeColor(PRIMARY)
 c.setLineWidth(1.5)
-cred_card_h = 200
-c.roundRect(40, cred_y - cred_card_h, W - 80, cred_card_h, 8, fill=1, stroke=1)
+c.roundRect(40, cred_card_bottom, W - 80, cred_card_h, 8, fill=1, stroke=1)
 c.setStrokeColor(HexColor('#262626'))
 c.setLineWidth(0.5)
 
-# Layout from top of card downward
-card_top = cred_y - 30
-row_h = 50
+# Inside card layout — 4 rows, 45pt each, top at cred_card_top - 25
+inner_top = cred_card_top - 28
+row_h = 45
 
-# Username + Password (top row)
+# Row 1: USERNAME | PASSWORD
+r1 = inner_top
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica-Bold', 8)
-c.drawString(60, card_top, 'USERNAME')
-c.drawString(W/2 + 20, card_top, 'PASSWORD')
+c.drawString(60, r1, 'USERNAME')
+c.drawString(W/2 + 20, r1, 'PASSWORD')
 
 c.setFillColor(PRIMARY)
-c.setFont('Helvetica-Bold', 13)
-c.drawString(60, card_top - 18, 'demo_user_4821')
-c.drawString(W/2 + 20, card_top - 18, 'proxyPass_4821!')
+c.setFont('Helvetica-Bold', 12)
+c.drawString(60, r1 - 16, 'demo_user_4821')
+c.drawString(W/2 + 20, r1 - 16, 'proxyPass_4821!')
 
-# Divider
-c.setStrokeColor(HexColor('#262626'))
-c.line(60, card_top - 32, W - 60, card_top - 32)
+# Divider 1
+c.line(60, r1 - 28, W - 60, r1 - 28)
 
-# Proxy + Protocol (middle row)
-row2_top = card_top - 50
+# Row 2: PROXY ADDRESS | PROTOCOL
+r2 = r1 - row_h
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica-Bold', 8)
-c.drawString(60, row2_top, 'PROXY ADDRESS')
-c.drawString(W/2 + 20, row2_top, 'PROTOCOL')
+c.drawString(60, r2, 'PROXY ADDRESS')
+c.drawString(W/2 + 20, r2, 'PROTOCOL')
 
 c.setFillColor(PRIMARY)
-c.setFont('Helvetica-Bold', 13)
-c.drawString(60, row2_top - 18, '185.199.228.105:8080')
-c.drawString(W/2 + 20, row2_top - 18, 'HTTP / SOCKS5')
+c.setFont('Helvetica-Bold', 12)
+c.drawString(60, r2 - 16, '185.199.228.105:8080')
+c.drawString(W/2 + 20, r2 - 16, 'HTTP / SOCKS5')
 
-# Divider
-c.line(60, row2_top - 32, W - 60, row2_top - 32)
+c.line(60, r2 - 28, W - 60, r2 - 28)
 
-# Full Format (full width)
-row3_top = row2_top - 50
+# Row 3: FULL FORMAT (full width)
+r3 = r2 - row_h
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica-Bold', 8)
-c.drawString(60, row3_top, 'FULL FORMAT')
+c.drawString(60, r3, 'FULL FORMAT')
 
 c.setFillColor(HexColor('#D1D5DB'))
 c.setFont('Courier', 9)
-c.drawString(60, row3_top - 18, 'http://demo_user_4821:proxyPass_4821!@185.199.228.105:8080')
+c.drawString(60, r3 - 16, 'http://demo_user_4821:proxyPass_4821!@185.199.228.105:8080')
 
-# Divider
-c.line(60, row3_top - 32, W - 60, row3_top - 32)
+c.line(60, r3 - 28, W - 60, r3 - 28)
 
-# Expires (bottom row of card)
-row4_top = row3_top - 50
+# Row 4: EXPIRES | AUTO-RENEW
+r4 = r3 - row_h
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica-Bold', 8)
-c.drawString(60, row4_top, 'EXPIRES')
-c.drawString(W/2 + 20, row4_top, 'AUTO-RENEW')
+c.drawString(60, r4, 'EXPIRES')
+c.drawString(W/2 + 20, r4, 'AUTO-RENEW')
 
 c.setFillColor(HexColor('#FFFFFF'))
-c.setFont('Helvetica', 11)
-c.drawString(60, row4_top - 18, 'August 13, 2026')
-c.drawString(W/2 + 20, row4_top - 18, 'On (manage to disable)')
+c.setFont('Helvetica', 10)
+c.drawString(60, r4 - 16, 'August 13, 2026')
+c.drawString(W/2 + 20, r4 - 16, 'On (manage to disable)')
 
-# ── Support section ──
-sup_y = cred_y - 240
+# ────────────────────────────────────────────────────────────────────
+# SUPPORT SECTION — placed BELOW credentials card
+# cred_card_bottom is the bottom of cred card
+support_y_top = cred_card_bottom - 20  # 20pt gap below credentials card
+sup_top = support_y_top
+sup_h = 65
+
 c.setFillColor(HexColor('#1a1a1a'))
-c.roundRect(40, sup_y - 60, W - 80, 60, 8, fill=1, stroke=0)
+c.roundRect(40, sup_top - sup_h, W - 80, sup_h, 8, fill=1, stroke=0)
 
+# Two columns: left = contact, right = web
+# Left column
 c.setFillColor(PRIMARY)
 c.setFont('Helvetica-Bold', 9)
-c.drawString(60, sup_y - 22, 'NEED HELP?')
+c.drawString(60, sup_top - 18, 'NEED HELP?')
 
 c.setFillColor(HexColor('#FFFFFF'))
 c.setFont('Helvetica', 11)
-c.drawString(60, sup_y - 40, 'Chat with Charon on Telegram:')
+c.drawString(60, sup_top - 35, 'Chat with Charon:')
+
 c.setFillColor(PRIMARY)
 c.setFont('Helvetica-Bold', 11)
-c.drawString(255, sup_y - 40, '@StyxproxyBot')
+c.drawString(60, sup_top - 50, '@StyxproxyBot')
+
+# Right column
+c.setFillColor(HexColor('#9CA3AF'))
+c.setFont('Helvetica', 9)
+c.drawString(290, sup_top - 18, 'Email:')
+
+c.setFillColor(HexColor('#FFFFFF'))
+c.setFont('Helvetica', 11)
+c.drawString(320, sup_top - 18, 'hello@styxproxy.com')
 
 c.setFillColor(HexColor('#9CA3AF'))
 c.setFont('Helvetica', 9)
-c.drawString(W - 200, sup_y - 22, 'Email:')
-c.drawString(W - 200, sup_y - 40, 'Web:')
+c.drawString(290, sup_top - 35, 'Web:')
 
-c.setFillColor(HexColor('#FFFFFF'))
-c.setFont('Helvetica', 11)
-c.drawRightString(W - 60, sup_y - 22, 'hello@styxproxy.com')
-c.setFont('Helvetica-Bold', 11)
 c.setFillColor(PRIMARY)
-c.drawRightString(W - 60, sup_y - 40, 'styxproxy.com')
+c.setFont('Helvetica-Bold', 11)
+c.drawString(320, sup_top - 35, 'styxproxy.com')
 
-# ── Footer ──
+# ────────────────────────────────────────────────────────────────────
+# FOOTER (y range: 20 to 50)
 c.setStrokeColor(HexColor('#262626'))
-c.line(40, 50, W - 40, 50)
+c.line(40, 35, W - 40, 35)
 
 c.setFillColor(HexColor('#6B7280'))
-c.setFont('Helvetica', 8)
-c.drawCentredString(W/2, 35, 'This receipt was generated automatically. No signature required.')
 c.setFont('Helvetica', 7)
-c.drawCentredString(W/2, 22, '© 2026 Styxproxy — Anonymous proxy service for the discerning.')
+c.drawCentredString(W/2, 22, 'This receipt was generated automatically. No signature required.')
+c.drawCentredString(W/2, 12, '© 2026 Styxproxy — Anonymous proxy service for the discerning.')
 
 # Bottom accent bar
 c.setFillColor(PRIMARY)
-c.rect(0, 0, W, 4, fill=1, stroke=0)
+c.rect(0, 0, W, 3, fill=1, stroke=0)
 
 # Save
 c.showPage()
 c.save()
-print('PDF generated with full lockup, exact brand green, polished layout')
+print('PDF regenerated with proper alignment')

@@ -78,7 +78,7 @@ async def create_order(
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
         if cred:
-            cred_brief = BuncheCredentialBrief(id=cred.id, bun_username=cred.bun_username, upstream_proxy_ip=cred.upstream_proxy_ip, upstream_proxy_port=cred.upstream_proxy_port, status=cred.status)
+            cred_brief = BuncheCredentialBrief(id=cred.id, bun_username=cred.bun_username, protocol=cred.protocol or 'socks5', upstream_proxy_ip=cred.upstream_proxy_ip, upstream_proxy_port=cred.upstream_proxy_port, status=cred.status)
     return OrderResponse(order_id=order.order_id, status=order.status, plan_type=order.plan_type, country=order.country, amount_paid_ngn=order.amount_paid_ngn, bunche_credential=cred_brief, created_at=order.created_at, expires_at=order.expires_at)
 
 
@@ -93,13 +93,31 @@ async def get_order(order_id: str, session: AsyncSession = Depends(get_session),
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     cred_brief = None
+    rotation_count = 0
+    max_rotations = 3
     if order.bunche_credential_id:
         cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
         if cred:
-            cred_brief = BuncheCredentialBrief(id=cred.id, bun_username=cred.bun_username, upstream_proxy_ip=cred.upstream_proxy_ip, upstream_proxy_port=cred.upstream_proxy_port, status=cred.status)
-    return OrderResponse(order_id=order.order_id, status=order.status, plan_type=order.plan_type, country=order.country, amount_paid_ngn=order.amount_paid_ngn, bunche_credential=cred_brief, created_at=order.created_at, expires_at=order.expires_at)
+            rotation_count = getattr(cred, 'rotation_count', 0) or 0
+            max_rotations = getattr(cred, 'max_rotations', 3) or 3
+            cred_brief = BuncheCredentialBrief(id=cred.id, bun_username=cred.bun_username, protocol=cred.protocol or 'socks5', upstream_proxy_ip=cred.upstream_proxy_ip, upstream_proxy_port=cred.upstream_proxy_port, status=cred.status)
+    is_renewable = order.status == 'active' and order.expires_at is not None
+    return OrderResponse(
+        order_id=order.order_id,
+        status=order.status,
+        plan_type=order.plan_type,
+        country=order.country,
+        amount_paid_ngn=order.amount_paid_ngn,
+        bunche_credential=cred_brief,
+        created_at=order.created_at,
+        expires_at=order.expires_at,
+        customer_name=customer.name if customer and customer.name else None,
+        is_renewable=is_renewable,
+        rotation_count=rotation_count,
+        max_rotations=max_rotations,
+    )
 
 @router.post("/{order_id}/cancel", response_model=OrderCancelResponse)
 async def cancel_order(order_id: str, request: OrderCancelRequest, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)):
