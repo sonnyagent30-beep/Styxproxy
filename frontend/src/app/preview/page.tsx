@@ -565,8 +565,42 @@ export default function PreviewPage() {
       <div className="min-h-screen flex flex-col bg-[var(--background)]">
         <Header />
         <div className="flex-1 px-4 pt-24 pb-16">
-          {/* Tab navigation at top */}
-          <div className="flex justify-center gap-2 mb-8">
+          {/* Hero banner — changes per tab */}
+          <div className="text-center mb-8">
+            {activeTab === 'thankyou' && (
+              <>
+                <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight" style={{ color: 'var(--foreground)' }}>
+                  Payment Confirmed,<br /><span style={{ color: 'var(--primary)' }}>Proxy Ready.</span>
+                </h1>
+                <p className="text-base" style={{ color: 'var(--muted)' }}>
+                  Your credentials are ready. Download your receipt or manage your order below.
+                </p>
+              </>
+            )}
+            {activeTab === 'manage' && (
+              <>
+                <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight" style={{ color: 'var(--foreground)' }}>
+                  Manage Your<br /><span style={{ color: 'var(--primary)' }}>Proxy Order.</span>
+                </h1>
+                <p className="text-base" style={{ color: 'var(--muted)' }}>
+                  Rotate keys, renew proxies, or contact support — all in one place.
+                </p>
+              </>
+            )}
+            {activeTab === 'checkout' && (
+              <>
+                <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight" style={{ color: 'var(--foreground)' }}>
+                  Complete Your<br /><span style={{ color: 'var(--primary)' }}>Order.</span>
+                </h1>
+                <p className="text-base" style={{ color: 'var(--muted)' }}>
+                  Choose your payment method. All transactions secured by Flutterwave.
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Tab navigation */}
+          <div className="flex justify-center gap-2 mb-6">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -579,6 +613,21 @@ export default function PreviewPage() {
               >
                 {tab.label}
               </button>
+            ))}
+          </div>
+
+          {/* Stats bar */}
+          <div className="grid grid-cols-4 gap-3 max-w-md mx-auto mb-8">
+            {[
+              { label: 'Uptime', value: '99.9%' },
+              { label: 'IPs', value: '50K+' },
+              { label: 'Speed', value: '1 Gbps' },
+              { label: 'Support', value: '24/7' },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-2 py-2 text-center">
+                <div className="text-sm font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
+                <div className="text-xs text-[var(--muted)]">{label}</div>
+              </div>
             ))}
           </div>
 

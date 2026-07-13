@@ -11,17 +11,26 @@ export default function Header() {
     <header className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
+          {/* Logo — full lockup, switches with theme */}
           <Link href="/" className="flex items-center gap-2">
+            {/* Dark mode logo */}
             <Image
-              src="/header-icon.png"
+              src="/header-logo-dark.png"
               alt="styxproxy"
-              width={40}
-              height={40}
-              className="w-10 h-10 object-contain"
+              width={72}
+              height={36}
+              className="hidden dark:block h-9 w-auto object-contain"
               priority
             />
-            <span className="text-xl font-bold text-[var(--foreground)]">styxproxy</span>
+            {/* Light mode logo */}
+            <Image
+              src="/header-logo-light.png"
+              alt="styxproxy"
+              width={72}
+              height={36}
+              className="block dark:hidden h-9 w-auto object-contain"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}

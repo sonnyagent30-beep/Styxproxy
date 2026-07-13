@@ -11,8 +11,8 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
             <Link href="/" className="flex items-center space-x-2 mb-4">
-              <Image src="/footer-logo.png" alt="styxproxy" width={32} height={32} className="w-8 h-8 object-contain" />
-              <span className="text-xl font-bold">styxproxy</span>
+              <Image src="/footer-logo-dark.png" alt="styxproxy" width={56} height={28} className="hidden dark:block w-auto h-7 object-contain" />
+              <Image src="/footer-logo-light.png" alt="styxproxy" width={56} height={28} className="block dark:hidden w-auto h-7 object-contain" />
             </Link>
             <p className="text-[var(--muted)] text-sm max-w-sm">
               Global anonymous proxy service. ISP, Residential, Datacenter & Mobile 4G proxies. Order instantly via the Styxproxy bot or on the website.
