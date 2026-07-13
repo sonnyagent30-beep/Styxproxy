@@ -52,139 +52,139 @@ function formatMessageText(text: string): React.ReactNode {
 
 const botMessages: Partial<Record<StateKey, { text: string; quickReplies?: QuickReply[] }>> = {
   start: {
-    text: "👋 Hi! I'm Charon from Styxproxy support. I can help you with orders, pricing, troubleshooting, and more — all anonymously until you choose to connect with a human. What do you need?",
+    text: "Hi, I'm Charon from Styxproxy support. I can help with orders, pricing, troubleshooting, and more \u2014 all anonymously until you choose to connect with a human. What do you need?",
     quickReplies: [
-      { label: '🛒 Order proxies', next: 'order_type' },
-      { label: '🔍 Check my order', next: 'check_order' },
-      { label: '🔴 Proxy not working', next: 'proxy_dead' },
-      { label: '💳 Payment issue', next: 'payment_issue' },
-      { label: '📋 Other topics', next: 'faq' },
+      { label: 'Order proxies', next: 'order_type' },
+      { label: 'Check my order', next: 'check_order' },
+      { label: 'Proxy not working', next: 'proxy_dead' },
+      { label: 'Payment issue', next: 'payment_issue' },
+      { label: 'Other topics', next: 'faq' },
     ],
   },
   order_type: {
-    text: "We have 4 proxy types. Which one are you interested in?",
+    text: "We have four proxy types. Which one are you interested in?",
     quickReplies: [
-      { label: '🌐 ISP Proxies', next: 'order_isp' },
-      { label: '🏠 Residential', next: 'order_residential' },
-      { label: '📱 Mobile 4G', next: 'order_mobile' },
-      { label: '🏢 Datacenter', next: 'order_dc' },
+      { label: 'ISP Proxies', next: 'order_isp' },
+      { label: 'Residential', next: 'order_residential' },
+      { label: 'Mobile 4G', next: 'order_mobile' },
+      { label: 'Datacenter', next: 'order_dc' },
     ],
   },
   order_isp: {
-    text: `**ISP Proxies** — Fast, stable datacenter-grade IPs with ISP ownership. Great for web scraping, automation, and general browsing.\n\nCountries available: 🇬🇧 UK · 🇺🇸 US · 🇩🇪 DE · 🇫🇷 FR · 🇨🇦 CA · 🇯🇵 JP · 🇦🇺 AU · 🇧🇷 BR · 🇸🇬 SG\n\nStarting from **₦6,500/month** (UK/US) · **₦7,500/month** (DE/FR/JP)\n\nFeatures:\n• Rotating or sticky IPs\n• No bandwidth caps\n• Free ban replacement within 24hrs\n• Instant delivery after payment\n\nReady to order? → /order`,
+    text: `**ISP Proxies** \u2014 Fast, stable IPs with real ISP ownership. Great for web scraping, automation, and general browsing.\n\nAvailable in multiple countries including UK, US, Germany, France, Canada, Japan, Australia, Brazil, and Singapore.\n\nStarting from **\u20A66,500/month**.\n\nFeatures:\n\u2022 Rotating or sticky IPs\n\u2022 No bandwidth caps\n\u2022 Fresh-IP rotation included\n\u2022 Credentials ready in minutes after payment\n\nReady to order? \u2192 /order`,
     quickReplies: [
-      { label: '🛒 Start order', next: 'order_done' },
-      { label: '📊 Compare proxy types', next: 'faq_replacement' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Start order', next: 'order_done' },
+      { label: 'Compare proxy types', next: 'faq_replacement' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   order_residential: {
-    text: `**Residential Proxies** — Real ISP IPs from real devices. Hardest to detect and block. Perfect for social media management, ad verification, and sneaker bots.\n\nAvailable in **14 countries** including US, UK, DE, FR, JP, SG, and more.\n\nPlans:\n• **5GB** — ₦5,000\n• **10GB** — ₦9,000\n• **50GB** — ₦38,000\n\nFeatures:\n• Rotating or sticky sessions\n• Unlimited concurrent connections\n• Instant delivery\n• No expiry until data is used\n\nReady to order? → /order`,
+    text: `**Residential Proxies** \u2014 Real home IPs. Hardest to detect and block. Perfect for social media management, ad verification, and sneaker bots.\n\nAvailable in **14 countries** including US, UK, Germany, France, Japan, Singapore, and more.\n\nPlans:\n\u2022 **5GB** \u2014 \u20A65,000\n\u2022 **10GB** \u2014 \u20A69,000\n\u2022 **50GB** \u2014 \u20A638,000\n\nFeatures:\n\u2022 Rotating or sticky sessions\n\u2022 Unlimited concurrent connections\n\u2022 No expiry until data is used\n\nReady to order? \u2192 /order`,
     quickReplies: [
-      { label: '🛒 Start order', next: 'order_done' },
-      { label: '📱 Mobile vs Residential', next: 'faq_replacement' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Start order', next: 'order_done' },
+      { label: 'Mobile vs Residential', next: 'faq_replacement' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   order_mobile: {
-    text: `**Mobile 4G Proxies** — IPs from real mobile carrier networks (MTN, Airtel, etc.). Highest trust score on platforms like Instagram, TikTok, and Facebook.\n\nAvailable in **12 countries** including US, UK, Germany, Japan, and more — with Nigeria in the mix too.\n\nPlans:\n• **5GB** — ₦20,000\n• **10GB** — ₦35,000\n\nFeatures:\n• Real 4G/LTE carrier IPs\n• Unlimited bandwidth\n• Instant rotation\n• OTP & account creation ready\n\nReady to order? → /order`,
+    text: `**Mobile 4G Proxies** \u2014 IPs from real mobile carrier networks. Highest trust score on social platforms.\n\nAvailable in **12 countries** including US, UK, Germany, Japan, and more.\n\nPlans:\n\u2022 **5GB** \u2014 \u20A620,000\n\u2022 **10GB** \u2014 \u20A635,000\n\nFeatures:\n\u2022 Real 4G/LTE carrier IPs\n\u2022 Unlimited bandwidth\n\u2022 Ready for account creation and OTP flows\n\nReady to order? \u2192 /order`,
     quickReplies: [
-      { label: '🛒 Start order', next: 'order_done' },
-      { label: '🔄 ISP vs Mobile', next: 'faq_replacement' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Start order', next: 'order_done' },
+      { label: 'ISP vs Mobile', next: 'faq_replacement' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   order_dc: {
-    text: `**Datacenter Proxies** — The fastest option. Great for tasks that need speed over stealth — SEO monitoring, price aggregation, server testing.\n\nAvailable in **20+ countries**.\n\nPlans:\n• **10 proxies** — ₦3,000/month\n• **50 proxies** — ₦12,000/month\n• **100 proxies** — ₦20,000/month\n\nFeatures:\n• 1Gbps speed\n• HTTP/HTTPS/SOCKS5 support\n• Instant delivery\n\nReady to order? → /order`,
+    text: `**Datacenter Proxies** \u2014 The fastest option. Great for tasks that need speed over stealth \u2014 SEO monitoring, price aggregation, server testing.\n\nAvailable in **20+ countries**.\n\nPlans:\n\u2022 **10 proxies** \u2014 \u20A63,000/month\n\u2022 **50 proxies** \u2014 \u20A612,000/month\n\u2022 **100 proxies** \u2014 \u20A620,000/month\n\nFeatures:\n\u2022 1Gbps speed\n\u2022 HTTP / HTTPS / SOCKS5 support\n\u2022 Credentials ready in minutes\n\nReady to order? \u2192 /order`,
     quickReplies: [
-      { label: '🛒 Start order', next: 'order_done' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Start order', next: 'order_done' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   order_done: {
-    text: "Great choice! Head to → /order to complete your purchase. You'll receive your proxy credentials instantly after payment.",
+    text: "Great choice! Head to \u2192 /order to complete your purchase. You will receive your proxy credentials in minutes after payment.",
     quickReplies: [
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   check_order: {
-    text: "To check your order, I need your tx_ref. It was sent to your email or phone after payment. You can also find it at → /manage",
+    text: "To check your order, I need your tx_ref. You can find it on the confirmation page after payment, or on the receipt email if you provided one. You can also find recent orders at \u2192 /manage",
     quickReplies: [
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   payment_issue: {
-    text: "I'm sorry to hear you're having a payment issue. Let me walk through the most common causes:\n\n**1. Payment not yet confirmed**\nMost payments confirm within 10–30 seconds. Bank transfers can take up to 5 minutes.\n\n**2. Payment failed but amount was deducted**\nYour bank will typically reverse the charge within 24–48 hours automatically.\n\n**3. Card payment declined**\nTry → /order and select bank transfer or USSD instead.",
+    text: "I'm sorry to hear you're having a payment issue. Let me walk through the most common causes:\n\n**1. Payment not yet confirmed**\nPayments usually confirm quickly. Bank transfers can take a few minutes longer to settle.\n\n**2. Payment failed but amount was deducted**\nYour bank will typically reverse the charge automatically within a couple of business days.\n\n**3. Card payment declined**\nTry \u2192 /order and select bank transfer or USSD instead.",
     quickReplies: [
-      { label: '✅ Check my order now', next: 'check_order' },
-      { label: '🗣 Connect to human', next: 'escalate' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Check my order now', next: 'check_order' },
+      { label: 'Connect to human', next: 'escalate' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   proxy_dead: {
-    text: "Let's diagnose your proxy issue:\n\n**Step 1:** Check your proxy format:\n`http://username:password@proxy.styxproxy.com:port`\n\n**Step 2:** Make sure your tool supports HTTP(S) proxies (not SOCKS5).\n\n**Step 3:** Test with: `curl -x http://username:password@proxy.styxproxy.com:port http://httpbin.org/ip`\n\nStill failing? You may be eligible for a free replacement if the IP is dead.",
+    text: "Let's diagnose your proxy issue:\n\n**Step 1:** Verify your proxy format with the credential you received.\n\n**Step 2:** Confirm your tool supports the protocol listed on your credential (HTTP / HTTPS / SOCKS5).\n\n**Step 3:** Test with `curl` against a known site (your own server, an IP-check service, etc.).\n\nStill failing? You may be eligible for a free replacement if the IP is dead.",
     quickReplies: [
-      { label: '🔍 Check my order', next: 'check_order' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Check my order', next: 'check_order' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   faq: {
-    text: "Here are the topics I can help with:\n\n• **Privacy & anonymity** — how proxies keep you hidden\n• **Delivery time** — when you'll get your credentials\n• **Ban replacement** — what happens if your IP gets banned\n• **Payment methods** — what we accept\n• **Comparing proxy types** — ISP vs Residential vs Mobile",
+    text: "Here are the topics I can help with:\n\n\u2022 **Privacy and anonymity** \u2014 how proxies keep you hidden\n\u2022 **Delivery time** \u2014 when you'll get your credentials\n\u2022 **Ban replacement** \u2014 what happens if your IP gets banned\n\u2022 **Payment methods** \u2014 what we accept\n\u2022 **Comparing proxy types** \u2014 ISP vs Residential vs Mobile vs Datacenter",
     quickReplies: [
-      { label: '🔒 Privacy info', next: 'faq_privacy' },
-      { label: '🚚 Delivery time', next: 'faq_delivery' },
-      { label: '🔄 Ban replacement', next: 'faq_replacement' },
-      { label: '💳 Payment methods', next: 'faq_payment' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Privacy info', next: 'faq_privacy' },
+      { label: 'Delivery time', next: 'faq_delivery' },
+      { label: 'Ban replacement', next: 'faq_replacement' },
+      { label: 'Payment methods', next: 'faq_payment' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   faq_privacy: {
-    text: "**How proxies protect your privacy:**\n\nWhen you connect through a Styxproxy server, your real IP address is hidden. Websites only see the proxy IP.\n\nWe don't log your browsing activity. Your connection is encrypted between you and the proxy server.\n\nFor maximum anonymity, use residential or mobile proxies — those IPs look like real home/mobile user IPs, not data center IPs.",
+    text: "**How proxies protect your privacy:**\n\nWhen you connect through a Styxproxy server, your real IP address is hidden. The destination only sees the proxy IP.\n\nWe do not log your browsing activity. Your connection is encrypted between you and the proxy server.\n\nFor maximum anonymity, residential and mobile proxies are the strongest choice \u2014 those IPs look like real home or mobile users, not datacenter IPs.",
     quickReplies: [
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   faq_delivery: {
-    text: "**Delivery time:**\n\nAfter payment confirmation:\n• **Website orders**: Credentials displayed instantly (usually within 10–30 seconds)\n• **Bank transfer**: 1–5 minutes for bank to confirm\n• **Card / USSD / QR**: Instant confirmation\n\nYou'll receive your tx_ref and credentials via the chat if you ordered through Telegram or WhatsApp.\n\nIf credentials don't appear within 5 minutes, contact us.",
+    text: "**Delivery time:**\n\nAfter payment confirmation:\n\u2022 **Card / USSD / QR**: credentials ready in minutes\n\u2022 **Bank transfer**: a few minutes longer while the bank settles\n\nIf your credentials don't appear shortly after payment is confirmed, visit \u2192 /manage and look them up by tx_ref.",
     quickReplies: [
-      { label: '🔍 Check my order', next: 'check_order' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Check my order', next: 'check_order' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   faq_replacement: {
-    text: "**Ban replacement policy:**\n\nIf your proxy IP gets banned within 24 hours of delivery, we offer a free one-time replacement.\n\nTo claim: go to → /manage, enter your tx_ref, and request a replacement.\n\nThis covers cases where the IP was dead on arrival or banned within 24hrs of first use. Speed and success rates depend on your target website and proxy type chosen.",
+    text: "**Replacement policy:**\n\nIf your proxy IP gets banned shortly after delivery, you can request a free replacement from \u2192 /manage using your tx_ref.\n\nThis covers IPs that were dead on arrival or banned soon after first use. Replacement speed and success rates vary by target and proxy type.",
     quickReplies: [
-      { label: '🔍 Check my order', next: 'check_order' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Check my order', next: 'check_order' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   faq_payment: {
-    text: "**Accepted payment methods:**\n\n• 💳 Credit / Debit card (Visa, Mastercard)\n• 🏦 Bank transfer (Nigeria: Access, UBA, GTBank)\n• 📱 USSD (Nigerian cards)\n• 📲 QR code payment\n\nAll payments are processed securely via Flutterwave. We don't collect or store your card details.\n\nCrypto is **not** accepted.",
+    text: "**Accepted payment methods:**\n\n\u2022 Credit / Debit card (Visa, Mastercard)\n\u2022 Bank transfer\n\u2022 USSD (Nigerian cards)\n\u2022 QR code payment\n\nAll payments are processed through a third-party processor. We do not collect or store your card details.\n\nCrypto is **not** accepted.",
     quickReplies: [
-      { label: '🛒 Start order', next: 'order_type' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Start order', next: 'order_type' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   general: {
     text: "I'm not sure I understood that. Try one of these options below, or type your question differently and I'll do my best to help!",
     quickReplies: [
-      { label: '🛒 Order proxies', next: 'order_type' },
-      { label: '🔍 Check my order', next: 'check_order' },
-      { label: '💳 Payment issue', next: 'payment_issue' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Order proxies', next: 'order_type' },
+      { label: 'Check my order', next: 'check_order' },
+      { label: 'Payment issue', next: 'payment_issue' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   escalate: {
-    text: "I'll connect you with our team right away. You can also reach us directly:\n\n• 📱 Telegram: @StyxproxyBot\n• 💬 WhatsApp: [link]\n• 📧 Email: hello@styxproxy.com\n\nOur team replies within minutes during business hours.",
+    text: "I'll connect you with our team right away. You can also reach us directly:\n\n\u2022 Use the contact form \u2192 /contact\n\u2022 Email support@styxproxy.com\n\nOur team replies during business hours.",
     quickReplies: [
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
   about: {
-    text: "**Styxproxy** is a global anonymous proxy service. We provide fast, reliable proxies in ISP, Residential, Mobile 4G, and Datacenter types — in 20+ countries.\n\nWe believe in anonymous internet access. No logs, no tracking, no fuss.",
+    text: "**Styxproxy** is an anonymous proxy service. We provide fast, reliable proxies in ISP, Residential, Mobile 4G, and Datacenter types \u2014 across multiple countries.\n\nWe believe in anonymous internet access. No logs, no tracking, no fuss.",
     quickReplies: [
-      { label: '🛒 Order proxies', next: 'order_type' },
-      { label: '🔙 Back to menu', next: 'start' },
+      { label: 'Order proxies', next: 'order_type' },
+      { label: 'Back to menu', next: 'start' },
     ],
   },
 };
@@ -284,7 +284,7 @@ export default function ChatWidget() {
     setMessages(prev => [...prev, { id: newId(), role: 'user', text: label }]);
 
     if (next === 'order_done') { window.location.href = '/order'; setIsOpen(false); return; }
-    if (next === 'escalate') { window.open('https://t.me/StyxproxyBot', '_blank'); setIsOpen(false); return; }
+    if (next === 'escalate') { window.location.href = '/contact'; setIsOpen(false); return; }
     sendBot(next as StateKey);
   }, [currentState, sendBot]);
 

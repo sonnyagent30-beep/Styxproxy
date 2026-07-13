@@ -12,7 +12,6 @@ export const products: Product[] = [
     quantity: 1,
     duration_days: 30,
     features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-    provider: 'proxy-seller',
   },
   {
     plan_code: 'ISP-US-1',
@@ -24,7 +23,6 @@ export const products: Product[] = [
     quantity: 1,
     duration_days: 30,
     features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-    provider: 'proxy-seller',
   },
   {
     plan_code: 'ISP-DE-1',
@@ -36,7 +34,6 @@ export const products: Product[] = [
     quantity: 1,
     duration_days: 30,
     features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-    provider: 'proxy-seller',
   },
   {
     plan_code: 'ISP-FR-1',
@@ -48,7 +45,6 @@ export const products: Product[] = [
     quantity: 1,
     duration_days: 30,
     features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-    provider: 'proxy-seller',
   },
   {
     plan_code: 'ISP-CA-1',
@@ -60,7 +56,6 @@ export const products: Product[] = [
     quantity: 1,
     duration_days: 30,
     features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-    provider: 'proxy-seller',
   },
   // ISP Proxies - JP/AU/BR/SG
   {
@@ -73,7 +68,6 @@ export const products: Product[] = [
     quantity: 1,
     duration_days: 30,
     features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-    provider: 'proxy-seller',
   },
   {
     plan_code: 'ISP-AU-1',
@@ -85,7 +79,6 @@ export const products: Product[] = [
     quantity: 1,
     duration_days: 30,
     features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-    provider: 'proxy-seller',
   },
   {
     plan_code: 'ISP-BR-1',
@@ -97,7 +90,6 @@ export const products: Product[] = [
     quantity: 1,
     duration_days: 30,
     features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-    provider: 'proxy-seller',
   },
   {
     plan_code: 'ISP-SG-1',
@@ -109,7 +101,6 @@ export const products: Product[] = [
     quantity: 1,
     duration_days: 30,
     features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-    provider: 'proxy-seller',
   },
   // Residential Proxies
   {
@@ -122,7 +113,6 @@ export const products: Product[] = [
     quantity: 5,
     duration_days: 30,
     features: ['5GB Data', 'No expiry until used', 'Residential IPs'],
-    provider: 'dataimpulse',
   },
   {
     plan_code: 'RES-10GB',
@@ -134,7 +124,6 @@ export const products: Product[] = [
     quantity: 10,
     duration_days: 30,
     features: ['10GB Data', 'No expiry until used', 'Residential IPs'],
-    provider: 'dataimpulse',
   },
   // Mobile 4G Proxies
   {
@@ -147,7 +136,6 @@ export const products: Product[] = [
     quantity: 5,
     duration_days: 30,
     features: ['5GB 4G Data', '30-day window', 'Mobile IPs'],
-    provider: 'dataimpulse',
   },
   {
     plan_code: 'MOB-4G-10GB',
@@ -159,7 +147,6 @@ export const products: Product[] = [
     quantity: 10,
     duration_days: 30,
     features: ['10GB 4G Data', '30-day window', 'Mobile IPs'],
-    provider: 'dataimpulse',
   },
   // Datacenter
   {
@@ -172,7 +159,6 @@ export const products: Product[] = [
     quantity: 1,
     duration_days: 30,
     features: ['Datacenter Proxy', '30-day expiry', 'Fast speeds'],
-    provider: 'proxy-seller',
   },
 ];
 
@@ -239,24 +225,18 @@ export const COUNTRIES: Record<string, CountryInfo> = {
 // =============================================================
 // Countries available per product type
 // =============================================================
-// Sourced from provider websites (Jul 2026):
-// - Proxy-Seller ISP: 22+ countries (USA, UK, DE, FR, CA, JP, AU, BR, SG + 13 more)
-//   https://proxy-seller.com/isp/
-// - Proxy-Seller Datacenter: 50+ locations via MIX packages + per-country
-//   https://proxy-seller.com/mix/ + ipv4 dropdown
-// - DataImpulse Residential: 195+ countries globally
-//   https://dataimpulse.com/proxies-by-location/
-// - DataImpulse Mobile: 100+ countries (dataimpulse.com mobile proxies)
+// Sourced from upstream provider coverage (Jul 2026):
+// - ISP and Datacenter: full country coverage at provider-side
+// - Residential: ~195 countries available; curated subset below
+// - Mobile: ~100 countries available; curated subset below
 //
-// Below we surface a curated subset for the globe:
-//  - ISP and DC use the 22+ and 50+ country lists proxy-seller supports directly
-//  - Residential and Mobile use a wider set driven by dataimpulse's 100+/195+ coverage
+// Below we surface a curated subset for the globe and order picker.
 // =============================================================
 export const PRODUCT_COUNTRIES: Record<string, string[]> = {
-  // ISP — 9 hard-rotating datacenter-grade ISP proxies (matches our ISP-*-1 plans)
+  // ISP — 9 popular ISP proxy regions (matches our ISP-*-1 plans)
   ISP: ['UK', 'US', 'DE', 'FR', 'CA', 'JP', 'AU', 'BR', 'SG'],
 
-  // Datacenter — broader set (Proxy-Seller MIX + extra countries) at $1.50/IP/mo
+  // Datacenter — broader set of regions at standard per-IP pricing
   DC: [
     'US', 'CA', 'MX',                          // North America
     'UK', 'DE', 'FR', 'NL', 'ES', 'IT',       // Europe
@@ -264,14 +244,14 @@ export const PRODUCT_COUNTRIES: Record<string, string[]> = {
     'HK', 'IN',                                // Asia
   ],
 
-  // Residential — 195+ countries via DataImpulse. Curated to 14 popular regions.
+  // Residential — curated to 14 popular regions from global coverage
   RESIDENTIAL: [
     'US', 'CA', 'MX',                          // North America
     'UK', 'DE', 'FR', 'NL', 'ES', 'IT',       // Europe
     'JP', 'SG', 'AU', 'BR', 'HK', 'IN',       // APAC + South America + Asia
   ],
 
-  // Mobile — 100+ countries via DataImpulse mobile. Curated to 12 popular carriers.
+  // Mobile — curated to 12 popular carrier regions from global mobile pool
   MOBILE: [
     'US', 'CA',
     'UK', 'DE', 'FR', 'NL', 'ES', 'IT',

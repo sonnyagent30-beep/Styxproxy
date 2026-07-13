@@ -74,7 +74,7 @@ export default function RefundPolicyPage() {
               {[
                 ["Management Portal", "bunche.ng/manage — enter your order number and submit a refund request"],
                 ["Telegram", "@styxproxy — send 'Refund request for [your tx_ref]'"],
-                ["Email", "hello@styxproxy.com — include your tx_ref and a brief description"],
+                ["Email", "support@styxproxy.com — include your tx_ref and a brief description"],
               ].map(([method, desc]) => (
                 <li key={method} className="flex gap-3 text-[var(--muted)]">
                   <span className="text-[var(--primary)] font-medium shrink-0">{method}:</span>
@@ -154,10 +154,10 @@ export default function RefundPolicyPage() {
             <p className="text-[var(--muted)] leading-relaxed">
               If you have any questions about this policy, contact us at{" "}
               <a
-                href="mailto:hello@styxproxy.com"
+                href="mailto:support@styxproxy.com"
                 className="text-[var(--primary)] hover:underline"
               >
-                hello@styxproxy.com
+                support@styxproxy.com
               </a>{" "}
               or via Telegram at{" "}
               <a

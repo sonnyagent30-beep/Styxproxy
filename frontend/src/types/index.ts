@@ -15,7 +15,6 @@ export interface Product {
   quantity: number;
   duration_days: number;
   features: string[];
-  provider: 'proxy-seller' | 'dataimpulse';
 }
 
 export interface Order {

@@ -7,11 +7,11 @@ import Header from '@/components/Header';
 const faqs = [
   {
     q: 'How fast is delivery?',
-    a: 'Website orders: credentials appear instantly after payment (10–30 seconds). Bank transfers may take 1–5 minutes to confirm. If credentials don\'t appear within 5 minutes, contact us.',
+    a: 'Website orders: credentials are ready in minutes after payment. Bank transfers may take a bit longer while the bank settles. If credentials don\'t appear shortly, contact us.',
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'We accept all major payment methods globally: Visa, Mastercard, direct bank transfer, USSD, QR code, and crypto. All payments are processed securely via our payment processor.',
+    a: 'We accept all major payment methods: Visa, Mastercard, direct bank transfer, USSD, and QR code payments. All payments are processed securely via our payment processor. We do not accept crypto.',
   },
   {
     q: 'Can I get a refund?',

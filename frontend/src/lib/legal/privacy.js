@@ -89,7 +89,7 @@ const content = `<h1>Privacy Policy</h1>
 </ul>
 
 <h3>6.1 Deletion Requests</h3>
-<p>You may request deletion of your personal data at any time. To request deletion: on Telegram, send "delete my data" to @styxproxy; for website orders, email hello@styxproxy.com with your transaction reference.</p>
+<p>You may request deletion of your personal data at any time. To request deletion: on Telegram, send "delete my data" to @styxproxy; for website orders, email support@styxproxy.com with your transaction reference.</p>
 <p>We will delete your personal data within 30 days, except financial records required by law (7 years) and data we are required to retain under applicable law.</p>
 
 <h2>7. Data Security</h2>
@@ -139,7 +139,7 @@ const content = `<h1>Privacy Policy</h1>
 <p><strong>Styxproxy</strong></p>
 <ul>
 <li><strong>Telegram:</strong> @styxproxy</li>
-<li><strong>Email:</strong> hello@styxproxy.com</li>
+<li><strong>Email:</strong> support@styxproxy.com</li>
 <li><strong>Website:</strong> styxproxy.com</li>
 </ul>
 <p>We will respond to all enquiries within 30 days.</p>`;
