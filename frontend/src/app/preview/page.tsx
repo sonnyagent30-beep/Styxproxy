@@ -616,15 +616,34 @@ export default function PreviewPage() {
             ))}
           </div>
 
-          {/* Stats bar */}
-          <div className="grid grid-cols-4 gap-3 max-w-md mx-auto mb-8">
-            {[
-              { label: 'Uptime', value: '99.9%' },
-              { label: 'IPs', value: '50K+' },
-              { label: 'Speed', value: '1 Gbps' },
+          {/* Context bar — relevant info per tab */}
+          <div className="max-w-2xl mx-auto mb-8 grid grid-cols-3 gap-3 text-center">
+            {activeTab === 'thankyou' && [
+              { label: 'Order', value: 'Complete' },
+              { label: 'Delivery', value: 'Instant' },
               { label: 'Support', value: '24/7' },
             ].map(({ label, value }) => (
-              <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-2 py-2 text-center">
+              <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2">
+                <div className="text-sm font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
+                <div className="text-xs text-[var(--muted)]">{label}</div>
+              </div>
+            ))}
+            {activeTab === 'manage' && [
+              { label: 'Rotation', value: '3x' },
+              { label: 'Auto-Renew', value: 'On' },
+              { label: 'Support', value: '24/7' },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2">
+                <div className="text-sm font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
+                <div className="text-xs text-[var(--muted)]">{label}</div>
+              </div>
+            ))}
+            {activeTab === 'checkout' && [
+              { label: 'Payment', value: 'Secure' },
+              { label: 'Methods', value: '4 ways' },
+              { label: 'Delivery', value: 'Instant' },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2">
                 <div className="text-sm font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
                 <div className="text-xs text-[var(--muted)]">{label}</div>
               </div>
