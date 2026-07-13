@@ -101,7 +101,7 @@ export default function ManagePage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 px-4 py-24">
+      <main className="flex-1 px-4 pt-32 pb-16">
         <div className="max-w-xl mx-auto">
 
           {/* Page Header */}
@@ -260,7 +260,7 @@ export default function ManagePage() {
                       </div>
                       <div className="bg-[var(--background)] rounded-xl p-4">
                         <span className="text-xs text-[var(--muted)]">Password</span>
-                        <p className="font-mono text-sm text-[var(--muted)]">Sent to email</p>
+                        <p className="font-mono text-sm font-medium">demo_password</p>
                       </div>
                       <div className="bg-[var(--background)] rounded-xl p-4">
                         <span className="text-xs text-[var(--muted)]">Proxy Address</span>
