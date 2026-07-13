@@ -30,12 +30,14 @@ export default function RootLayout({
           <Footer />
           <ChatWidget />
         </ToastProvider>
-        {/* Analytics placeholder — replace with real provider */}
-        {process.env.NEXT_PUBLIC_ANALYTICS_ID && (
+        {/* Analytics — Plausible (privacy-friendly, no cookies, no fingerprinting)
+            Set NEXT_PUBLIC_PLAUSIBLE_DOMAIN to your site (e.g. "styxproxy.com") to enable.
+            Set NEXT_PUBLIC_ANALYTICS_HOST only if self-hosting Plausible. */}
+        {process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN && (
           <script
             defer
-            src={`https://analytics.styxproxy.com/script.js`}
-            data-site={process.env.NEXT_PUBLIC_ANALYTICS_ID}
+            data-domain={process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN}
+            src={`https://${process.env.NEXT_PUBLIC_ANALYTICS_HOST || 'plausible.io'}/js/script.js`}
           />
         )}
       </body>
