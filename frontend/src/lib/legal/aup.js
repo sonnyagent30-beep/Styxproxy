@@ -100,7 +100,7 @@ const content = `<h1>Acceptable Use Policy</h1>
 <p>If prohibited use is detected: we may immediately revoke affected credentials, suspend the associated account without notice, report the activity to law enforcement if required, and refunds are not provided for abuse-related revocations.</p>
 
 <h2>7. Report Abuse</h2>
-<p>If you become aware that a Styxproxy customer is using the service for prohibited activity, report it via the management portal at styxproxy.com/manage, or by emailing hello@styxproxy.com. All abuse reports are investigated. Reporter information is kept confidential upon request.</p>
+<p>If you become aware that a Styxproxy customer is using the service for prohibited activity, report it via the management portal at styxproxy.com/manage, or by emailing support@styxproxy.com. All abuse reports are investigated. Reporter information is kept confidential upon request.</p>
 
 <h2>8. Credential Revocation</h2>
 <p>Styxproxy reserves the right to revoke credentials immediately and without notice if: the proxy is used for prohibited activities, the proxy exposes Styxproxy or our infrastructure partners to legal liability, the customer engages in abusive behaviour toward Styxproxy staff, a third party provides evidence of illegal use, or a refund is approved (credentials revoked simultaneously). Revoked credentials cannot be reactivated. A new order must be placed if service is desired after revocation.</p>
@@ -116,7 +116,7 @@ const content = `<h1>Acceptable Use Policy</h1>
 <ul>
 <li><strong>Telegram:</strong> @styxproxy</li>
 <li><strong>Chat widget:</strong> styxproxy.com</li>
-<li><strong>Email:</strong> hello@styxproxy.com</li>
+<li><strong>Email:</strong> support@styxproxy.com</li>
 <li><strong>Website:</strong> styxproxy.com</li>
 <li><strong>Management portal:</strong> styxproxy.com/manage</li>
 </ul>`;

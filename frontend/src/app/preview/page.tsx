@@ -215,7 +215,7 @@ function handleDownloadReceipt() {
     doc.setTextColor(115, 115, 115);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text('Need help? Chat with Charon -> @StyxproxyBot  |  hello@styxproxy.com  |  styxproxy.com', W / 2, footerY, { align: 'center' });
+    doc.text('Need help? Visit styxproxy.com/contact  |  support@styxproxy.com  |  styxproxy.com', W / 2, footerY, { align: 'center' });
     doc.setFontSize(6);
     doc.text('This receipt was generated automatically. No signature required.', W / 2, footerY + 5, { align: 'center' });
 

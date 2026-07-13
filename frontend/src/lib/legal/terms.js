@@ -138,7 +138,7 @@ Support is available via:
 - Telegram: @styxproxy
 - Chat widget on the website
 - Management portal at styxproxy.com/manage
-- Email: hello@styxproxy.com
+- Email: support@styxproxy.com
 
 Response time: within 2 hours during business hours (9am-6pm WAT, Monday-Saturday).
 
@@ -195,7 +195,7 @@ These terms are governed by the laws of the Federal Republic of Nigeria. Any dis
 Styxproxy
 - Telegram: @styxproxy
 - Chat widget on styxproxy.com
-- Email: hello@styxproxy.com
+- Email: support@styxproxy.com
 - Website: styxproxy.com
 - Management portal: styxproxy.com/manage
 

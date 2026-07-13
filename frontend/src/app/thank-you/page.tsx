@@ -323,12 +323,12 @@ async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: str
   doc.setTextColor(...WHITE);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text('Chat with Charon:', 20, supY - 10);
+  doc.text('Chat support:', 20, supY - 10);
 
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('@StyxproxyBot', 20, supY - 14.5);
+  doc.text('styxproxy.com/contact', 20, supY - 14.5);
 
   // Right: email + web
   doc.setTextColor(...MUTED);
@@ -339,7 +339,7 @@ async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: str
 
   doc.setTextColor(...WHITE);
   doc.setFontSize(8);
-  doc.text('hello@styxproxy.com', 100, supY - 5);
+  doc.text('support@styxproxy.com', 100, supY - 5);
 
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(8);

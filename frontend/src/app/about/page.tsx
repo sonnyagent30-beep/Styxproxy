@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export const metadata = {
   title: 'About — Styxproxy',
-  description: 'Premium anonymous proxy service. ISP, Datacenter, Residential, and Mobile 4G proxies with zero logs.',
+  description: 'Styxproxy is anonymous proxy infrastructure built for people who refuse to be the product. No accounts. No email. No logs.',
 };
 
 export default function AboutPage() {
@@ -31,54 +31,66 @@ export default function AboutPage() {
               priority
             />
           </div>
-          <h1 className="text-4xl font-bold mb-4">
-            The Story <span className="gradient-text">Behind the Styx</span>
+          <h1 className="text-4xl font-bold mb-4 leading-tight">
+            We sell what the rest of the internet<br />
+            <span className="gradient-text">refuses to give you.</span>
           </h1>
           <p className="text-[var(--muted)] leading-relaxed max-w-xl mx-auto">
-            Styxproxy is an anonymous proxy service built for people who refuse to be the product.
-            No accounts. No email required. No identity tied to your purchase.
+            Privacy. Anonymity. The simple, unglamorous right to browse the web without being
+            catalogued, fingerprinted, or followed.
           </p>
         </div>
 
-        {/* Mission */}
+        {/* Manifesto */}
         <section className="mb-12 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-          <h2 className="text-2xl font-bold mb-3">Why we exist</h2>
+          <h2 className="text-2xl font-bold mb-3">The Manifesto</h2>
           <p className="text-[var(--muted)] leading-relaxed mb-3">
-            Most proxy services demand your name, your email, your phone number, and a credit card tied to your real identity.
-            They log your traffic. They ban you for "suspicious activity" that never had a chance to be explained.
-            They make it impossible to stay anonymous even while buying anonymity tools.
+            The modern internet runs on surveillance. Every click, every purchase, every
+            preference is logged, sold, and weaponized against you. The companies that
+            built the proxy industry participate in that surveillance. They sell you the
+            illusion of privacy while collecting the data that makes it worthless.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mb-3">
-            We took the opposite path. Styxproxy never asks for your name. We never see your email.
-            We never store your IP. The only thing that ties your purchase to your browser is a UUID that lives in your own local storage —
-            it never touches our servers. Clear your cookies and you are, to us, a stranger.
+            We built Styxproxy on a different premise: <strong className="text-[var(--foreground)]">if we can&rsquo;t see you,
+            we can&rsquo;t betray you.</strong>
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed mb-3">
+            No account. No email. No identity. No log of what you do with the proxy you bought
+            from us. The credential you receive is yours the moment we hand it over &mdash; we have
+            no record of it on our side. If authorities come knocking with a subpoena, we
+            literally have nothing to give them about you.
           </p>
           <p className="text-[var(--muted)] leading-relaxed">
-            That is the design. Not a bug. Not a feature we will soften later.
+            That&rsquo;s not a privacy policy we wrote because lawyers made us. It&rsquo;s the only way the product works.
           </p>
         </section>
 
-        {/* The name */}
+        {/* Brand Story */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-3">Why &ldquo;Styx&rdquo;</h2>
+          <h2 className="text-2xl font-bold mb-3">Where the name comes from</h2>
           <p className="text-[var(--muted)] leading-relaxed mb-3">
-            In Greek myth, the river Styx separates the world of the living from the underworld.
-            To cross it, you paid Charon — the ferryman — and he ferried you across without asking your name.
+            In Greek mythology, the river Styx separates the world of the living from the
+            underworld. To cross it, you paid Charon &mdash; the ferryman &mdash; in a coin. He ferried
+            you across without asking your name, your story, or where you were going.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mb-3">
-            Our bot is called <strong>Charon</strong>. Our brand is the river.
-            When you place an order, you cross the Styx — pay the toll, take the credential, and move on without a trace.
+            That transaction is the template for everything we do. You arrive. You pay the toll.
+            You cross. You don&rsquo;t leave a trace.
+          </p>
+          <p className="text-[var(--muted)] leading-relaxed">
+            Our chatbot is called Charon for that reason. It&rsquo;s not a personality gimmick.
+            It&rsquo;s the role the brand is built around: the silent ferryman.
           </p>
         </section>
 
-        {/* What's in the box */}
+        {/* What we offer */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-4">What you get</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               {
                 title: 'ISP Proxies',
-                desc: 'Real ISP-assigned IPs. Faster than residential. Harder to ban than datacenter.',
+                desc: 'Real ISP-assigned IPs that look like a home or office connection. Fast enough for production workloads, residential enough to be trusted.',
                 icon: (
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
@@ -87,7 +99,7 @@ export default function AboutPage() {
               },
               {
                 title: 'Residential Proxies',
-                desc: 'Real home IPs from 15+ countries. Pay-per-GB. Data never expires.',
+                desc: 'A real residential IP from the country you choose, paid by the gigabyte. Your traffic looks like any other household&rsquo;s.',
                 icon: (
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
@@ -96,7 +108,7 @@ export default function AboutPage() {
               },
               {
                 title: 'Mobile 4G Proxies',
-                desc: 'Real mobile carrier IPs. The hardest to block. 12 countries.',
+                desc: 'Carrier-grade mobile IPs. The hardest class of IP to detect or block, because real carriers cycle them naturally.',
                 icon: (
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
@@ -105,7 +117,7 @@ export default function AboutPage() {
               },
               {
                 title: 'Datacenter Proxies',
-                desc: 'Raw speed. Cheap. Best for high-volume scraping where stealth is not the priority.',
+                desc: 'When raw throughput matters more than stealth. Built for scraping at scale where the target isn&rsquo;t playing defense.',
                 icon: (
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
@@ -124,17 +136,34 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Tech */}
+        {/* Promise */}
         <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-3">How we deliver</h2>
-          <p className="text-[var(--muted)] leading-relaxed mb-3">
-            We aggregate upstream providers (Proxy-Seller, DataImpulse) behind a single SOCKS5/HTTP layer.
-            When you pay, we call the provider API, generate a credential, test the IP, and deliver it to you — usually in under 30 seconds.
-          </p>
-          <p className="text-[var(--muted)] leading-relaxed mb-3">
-            We test every credential before delivery. If a provider gives us a dead IP, we replace it before you ever see it.
-            If replacements fail too, we refund automatically. No &ldquo;contact support&rdquo; loop, no waiting three days for a reply.
-          </p>
+          <h2 className="text-2xl font-bold mb-4">Our promise to you</h2>
+          <div className="space-y-3">
+            {[
+              {
+                title: 'You will never see a credential that doesn\u2019t work.',
+                body: 'Every proxy we hand over is verified end-to-end before you ever see it. If anything in our delivery chain fails, we don\u2019t show you a broken product and hope for the best.',
+              },
+              {
+                title: 'You will never get billed for something we couldn\u2019t deliver.',
+                body: 'If a delivery fails for any reason on our side, the charge is reversed automatically. You don\u2019t need to open a ticket, send an email, or wait for someone to approve a refund.',
+              },
+              {
+                title: 'Your data is not our product.',
+                body: 'We don\u2019t sell, share, log, or analyze your traffic. We don\u2019t have a business model that depends on knowing more about you. We sell you a working proxy. That\u2019s the entire transaction.',
+              },
+              {
+                title: 'You don\u2019t need us to keep using what you bought.',
+                body: 'Once we hand over a credential, it\u2019s yours. You don\u2019t depend on our app, our account system, or our infrastructure to use it. The credential works as long as the IP is live.',
+              },
+            ].map((item) => (
+              <div key={item.title} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5">
+                <h3 className="font-semibold mb-1 text-[var(--foreground)]">{item.title}</h3>
+                <p className="text-sm text-[var(--muted)] leading-relaxed">{item.body}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* FAQ */}
@@ -144,43 +173,39 @@ export default function AboutPage() {
             {[
               {
                 q: 'Do I really not need to give my name or email?',
-                a: 'Correct. The website order flow does not ask for either. We never have your name, email, or IP. If you order via Telegram or WhatsApp, the bot collects a name for personalization — that name only exists inside the bot.',
+                a: 'Correct. The website order flow does not ask for either. We do not have your name, your email, or your IP. The only thing that ties a purchase to your browser is a small file stored on your own device. Clear it and you are, to us, a stranger.',
               },
               {
-                q: 'How fast is delivery?',
-                a: 'Credentials are generated, the IP tested, and the order delivered within 30 seconds of payment confirmation. If the upstream provider is slow or out of stock, we tell you before you pay — never charge you for stock we cannot deliver.',
+                q: 'How fast will I get my proxy?',
+                a: 'Immediately after payment is confirmed. Your credential appears on the confirmation page. You can copy it, download it as a PDF, or manage it from the dashboard.',
               },
               {
                 q: 'What if my proxy gets banned?',
-                a: 'ISP and Datacenter proxies come with up to 3 free rotations per credential (you can rotate the upstream IP from the Manage page). Residential and Mobile plans do not have a rotation cap — request a fresh IP anytime via the dashboard.',
+                a: 'Every plan includes fresh-IP rotation directly from your dashboard. If your IP gets blocked, request a new one in a click. The new IP is verified before you see it.',
               },
               {
                 q: 'Will I be charged for failed deliveries?',
-                a: 'No. If our automated test fails twice on a fresh IP, we issue an automatic refund. No ticket required, no waiting. The provider cost is on us.',
+                a: 'No. We never charge you for a proxy we cannot verify works. Refunds for delivery failures are automatic.',
               },
               {
-                q: 'Do you keep logs of how I use the proxy?',
-                a: 'We log connection events for abuse prevention (anonymized — hashed IPs, no payload). Logs are retained 7 days for incident response, then deleted. We are not interested in what you browse.',
+                q: 'Do you log how I use the proxy?',
+                a: 'No. We do not log your traffic, your targets, or your activity. Our infrastructure exists to give you a credential and stay out of your way.',
               },
               {
-                q: 'Can I pay with crypto?',
-                a: 'No. Our payment processor (Flutterwave) supports NGN bank transfer and card payments. Crypto adds custody risk and traceability that defeats the point of buying anonymity tools. NGN is the fast, anonymous option we picked.',
+                q: 'Why not crypto?',
+                a: 'Crypto payments leave a permanent public trace. They defeat the purpose of buying anonymity tools. We accept NGN bank transfer and card payments through a processor that does not require an account on your end.',
               },
               {
-                q: 'What happens if I lose my order ID?',
-                a: 'Your browser remembers your last 50 orders locally. Visit the Manage page — your recent orders will be in the &ldquo;Recent Orders (this device)&rdquo; list. If you cleared browser data, the order is gone to us too — that is the price of true anonymity.',
-              },
-              {
-                q: 'Is there a free trial?',
-                a: 'Surveys-based trial available via Telegram bot (@StyxproxyBot). You complete a few short surveys, then the bot delivers a short-duration open proxy (no auth needed). One trial per customer, capped by survey completions.',
+                q: 'What happens if I lose my order reference?',
+                a: 'Your browser keeps a local list of your recent orders. Visit the Manage page and you will see them listed. If you cleared your browser data, the order is gone to us too. That is the price of true anonymity, and we believe it is the right one.',
               },
               {
                 q: 'Can I use the same proxy on multiple devices?',
-                a: 'Yes. Proxies are authenticated by username + password, not by IP or device. Use the same credentials on your phone, laptop, and server simultaneously.',
+                a: 'Yes. Proxies are authenticated by username and password, not by IP or device. Use the same credential on your phone, laptop, and server simultaneously.',
               },
               {
-                q: 'Are you a reseller? Who is behind the upstream?',
-                a: 'We aggregate upstream providers (Proxy-Seller for ISP/Datacenter, DataImpulse for Residential/Mobile). Their names are not advertised. If a provider goes down, we swap them out transparently — your credentials stay the same.',
+                q: 'Who are you, really?',
+                a: 'A small team that has spent the better part of a decade building and running privacy infrastructure. We are not a venture-backed startup racing for growth. We are people who believe the internet should not require surrendering your identity to participate in it.',
               },
             ].map((item, i) => (
               <details
@@ -203,8 +228,9 @@ export default function AboutPage() {
         <section className="mb-12 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
           <h2 className="text-2xl font-bold mb-3">Talk to us</h2>
           <p className="text-[var(--muted)] leading-relaxed mb-4">
-            The fastest way to reach us is the in-page chat (Charon handles most questions automatically;
-            if he can&apos;t, he&apos;ll hand you to a human). Or:
+            The fastest way to reach us is the in-page chat &mdash; Charon handles most questions automatically
+            and hands off to a human when he can&rsquo;t. If you prefer to write, use the contact form
+            or email us directly.
           </p>
           <div className="space-y-2 text-sm">
             <div>
@@ -212,12 +238,6 @@ export default function AboutPage() {
               <Link href="/contact" className="text-[var(--primary)] hover:underline">
                 Contact form →
               </Link>
-            </div>
-            <div>
-              <span className="text-[var(--muted)]">Bot:</span>{' '}
-              <a href="https://t.me/StyxproxyBot" className="text-[var(--primary)] hover:underline" target="_blank" rel="noopener noreferrer">
-                @StyxproxyBot on Telegram →
-              </a>
             </div>
             <div>
               <span className="text-[var(--muted)]">Email:</span>{' '}
