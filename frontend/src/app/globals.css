@@ -3,9 +3,9 @@
 :root {
   --background: #0f0f0f;
   --foreground: #f5f5f5;
-  --primary: #10B981;
+  --primary: #0AD25A;
   --primary-dark: #059669;
-  --primary-light: #34D399;
+  --primary-light: #22FF7A;
   --accent: #f59e0b;
   --accent-dark: #d97706;
   --card: #1a1a1a;
@@ -104,9 +104,9 @@ button {
   :root {
     --background: #fafafa;
     --foreground: #111111;
-    --primary: #10B981;
+    --primary: #0AD25A;
     --primary-dark: #059669;
-    --primary-light: #34D399;
+    --primary-light: #22FF7A;
     --accent: #f59e0b;
     --accent-dark: #d97706;
     --card: #f5f5f5;

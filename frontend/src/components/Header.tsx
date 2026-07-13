@@ -17,18 +17,18 @@ export default function Header() {
             <Image
               src="/header-logo-dark.png"
               alt="styxproxy"
-              width={72}
-              height={36}
-              className="hidden dark:block h-9 w-auto object-contain"
+              width={240}
+              height={60}
+              className="hidden dark:block w-auto h-[60px] object-contain"
               priority
             />
             {/* Light mode logo */}
             <Image
               src="/header-logo-light.png"
               alt="styxproxy"
-              width={72}
-              height={36}
-              className="block dark:hidden h-9 w-auto object-contain"
+              width={240}
+              height={60}
+              className="block dark:hidden w-auto h-[60px] object-contain"
               priority
             />
           </Link>
