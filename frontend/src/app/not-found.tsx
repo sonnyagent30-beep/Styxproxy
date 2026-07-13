@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export default function NotFound() {
   return (
-    <main className="flex-1 flex items-center justify-center px-4">
+    <main className="flex-1 flex items-start justify-center px-4 pt-32">
       <div className="text-center max-w-md w-full">
         {/* 404 Typography */}
         <div className="mb-8">

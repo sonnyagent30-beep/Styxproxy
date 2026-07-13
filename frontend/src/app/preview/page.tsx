@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+
 // ─── Mock data ────────────────────────────────────────────────────
 
 const MOCK_ORDER = {
@@ -12,6 +13,7 @@ const MOCK_ORDER = {
   tx_ref: 'TXF-DANNION-PREVIEW',
   bunche_credential: {
     bun_username: 'demo_user_4821',
+    bun_password: 'proxyPass_4821!',
     upstream_proxy_ip: '185.199.228.105',
     upstream_proxy_port: 8080,
     expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -27,7 +29,7 @@ const MOCK_CART = [
   { plan_code: 'ISP-UK-1', name: 'UK ISP Proxy', flag: '🇬🇧', price_ngn: 6500, quantity: 1 },
 ];
 
-// ─── Download handler ─────────────────────────────────────────────
+// ─── PDF download ─────────────────────────────────────────────────
 
 function handleDownloadReceipt() {
   import('jspdf').then(({ jsPDF }) => {
@@ -35,21 +37,20 @@ function handleDownloadReceipt() {
     const W = doc.internal.pageSize.getWidth();
     const H = doc.internal.pageSize.getHeight();
 
-    // Dark background
     doc.setFillColor(15, 15, 15);
     doc.rect(0, 0, W, H, 'F');
 
-    // Top accent bar
     doc.setFillColor(16, 185, 129);
     doc.rect(0, 0, W, 6, 'F');
 
-    // Brand logo
+    // Dollar logo
     doc.setFillColor(16, 185, 129);
-    doc.roundedRect(20, 18, 12, 12, 3, 3, 'F');
+    doc.roundedRect(20, 18, 12, 12, 2, 2, 'F');
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text('S', 26, 25.5, { align: 'center' });
+    doc.text('$', 26, 26.5, { align: 'center' });
+
     doc.setTextColor(245, 245, 245);
     doc.setFontSize(18);
     doc.text('styxproxy', 35, 25);
@@ -66,22 +67,21 @@ function handleDownloadReceipt() {
     doc.setFontSize(8);
     doc.text('styxproxy.com', W - 20, 27, { align: 'right' });
 
-    // Divider
     doc.setDrawColor(42, 42, 42);
     doc.setLineWidth(0.5);
     doc.line(20, 40, W - 20, 40);
 
-    // Order IDs box
     let y = 52;
     doc.setFillColor(26, 26, 26);
     doc.roundedRect(20, y - 6, W - 40, 22, 3, 3, 'F');
+
     doc.setTextColor(115, 115, 115);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
     doc.text('TRANSACTION REFERENCE', 25, y);
     doc.text('ORDER ID', W / 2 + 5, y);
     doc.setTextColor(245, 245, 245);
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.text('TXF-DANNION-PREVIEW', 25, y + 8);
     doc.text('ORD-2025-XXXXX', W / 2 + 5, y + 8);
@@ -91,7 +91,6 @@ function handleDownloadReceipt() {
     doc.text('Flutterwave', 25, y + 14);
     doc.text('Internal', W / 2 + 5, y + 14);
 
-    // Date + Status
     y = 82;
     doc.setTextColor(115, 115, 115);
     doc.setFontSize(7);
@@ -106,17 +105,15 @@ function handleDownloadReceipt() {
     doc.setFont('helvetica', 'bold');
     doc.text('FULFILLED', W / 2 + 5, y + 7);
 
-    // Divider
     doc.setDrawColor(42, 42, 42);
     doc.line(20, 98, W - 20, 98);
 
-    // Items header
     y = 106;
     doc.setTextColor(115, 115, 115);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
     doc.text('ITEM', 25, y);
-    doc.text('QTY', W - 45, y, { align: 'right' });
+    doc.text('QTY', W - 48, y, { align: 'right' });
     doc.text('AMOUNT', W - 20, y, { align: 'right' });
     doc.setDrawColor(42, 42, 42);
     doc.line(20, y + 3, W - 20, y + 3);
@@ -125,32 +122,31 @@ function handleDownloadReceipt() {
     doc.setTextColor(245, 245, 245);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text('🇬🇧 UK ISP Proxy', 25, y);
-    doc.text('1', W - 45, y, { align: 'right' });
-    doc.text('₦6,500', W - 20, y, { align: 'right' });
+    doc.text('UK ISP Proxy', 25, y);
+    doc.text('1', W - 48, y, { align: 'right' });
+    doc.text('N 6,500', W - 20, y, { align: 'right' });
 
-    y += 4;
+    y += 8;
     doc.setDrawColor(42, 42, 42);
     doc.line(20, y, W - 20, y);
     y += 10;
 
-    // Total
     doc.setFillColor(16, 185, 129);
-    doc.roundedRect(W - 70, y - 6, 50, 12, 2, 2, 'F');
+    doc.roundedRect(W - 72, y - 6, 52, 12, 2, 2, 'F');
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL', W - 65, y - 1);
-    doc.text('₦6,500', W - 25, y + 3, { align: 'right' });
+    doc.text('TOTAL', W - 67, y - 1);
+    doc.text('N 6,500', W - 23, y + 3, { align: 'right' });
 
-    // Credentials
-    y += 22;
+    y += 24;
     doc.setTextColor(16, 185, 129);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text('YOUR PROXY CREDENTIALS', 20, y);
+
     doc.setFillColor(26, 26, 26);
-    doc.roundedRect(20, y + 4, W - 40, 48, 3, 3, 'F');
+    doc.roundedRect(20, y + 4, W - 40, 64, 3, 3, 'F');
 
     y += 14;
     doc.setTextColor(115, 115, 115);
@@ -169,9 +165,9 @@ function handleDownloadReceipt() {
     doc.setTextColor(52, 211, 153);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text('********', W / 2 + 5, y + 7);
+    doc.text('proxyPass_4821!', W / 2 + 5, y + 7);
 
-    y += 18;
+    y += 20;
     doc.setTextColor(115, 115, 115);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
@@ -190,7 +186,7 @@ function handleDownloadReceipt() {
     doc.setFont('helvetica', 'bold');
     doc.text('HTTP / SOCKS5', W / 2 + 5, y + 7);
 
-    y += 18;
+    y += 20;
     doc.setTextColor(115, 115, 115);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
@@ -198,16 +194,27 @@ function handleDownloadReceipt() {
     doc.setTextColor(115, 115, 115);
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'normal');
-    doc.text('http://demo_user_4821:YOUR_PASSWORD@185.199.228.105:8080', 28, y + 7);
+    const fmt = 'http://demo_user_4821:proxyPass_4821!@185.199.228.105:8080';
+    const fmtLines = doc.splitTextToSize(fmt, W - 56);
+    doc.text(fmtLines, 28, y + 7);
 
-    // Footer
+    y += 7 + fmtLines.length * 5;
+    doc.setTextColor(115, 115, 115);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('EXPIRES', 28, y);
+    doc.setTextColor(245, 245, 245);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('August 13, 2026', 28, y + 6);
+
     const footerY = H - 18;
     doc.setDrawColor(42, 42, 42);
     doc.line(20, footerY - 6, W - 20, footerY - 6);
     doc.setTextColor(115, 115, 115);
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text('Need help? Chat with Charon → @StyxproxyBot  |  hello@styxproxy.com  |  styxproxy.com', W / 2, footerY, { align: 'center' });
+    doc.text('Need help? Chat with Charon -> @StyxproxyBot  |  hello@styxproxy.com  |  styxproxy.com', W / 2, footerY, { align: 'center' });
     doc.setFontSize(6);
     doc.text('This receipt was generated automatically. No signature required.', W / 2, footerY + 5, { align: 'center' });
 
@@ -215,22 +222,48 @@ function handleDownloadReceipt() {
   });
 }
 
+// ─── Credential grid shared component ────────────────────────────
+
+function CredentialGrid({ password }: { password: string }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="bg-[var(--background)] rounded-xl p-4">
+        <span className="text-xs text-[var(--muted)]">Username</span>
+        <p className="font-mono text-sm font-medium break-all">{MOCK_ORDER.bunche_credential.bun_username}</p>
+      </div>
+      <div className="bg-[var(--background)] rounded-xl p-4">
+        <span className="text-xs text-[var(--muted)]">Password</span>
+        <p className="font-mono text-sm font-medium">{password}</p>
+      </div>
+      <div className="bg-[var(--background)] rounded-xl p-4">
+        <span className="text-xs text-[var(--muted)]">Proxy Address</span>
+        <p className="font-mono text-sm font-medium">
+          {MOCK_ORDER.bunche_credential.upstream_proxy_ip}:{MOCK_ORDER.bunche_credential.upstream_proxy_port}
+        </p>
+      </div>
+      <div className="bg-[var(--background)] rounded-xl p-4">
+        <span className="text-xs text-[var(--muted)]">Protocol</span>
+        <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Thank-you preview ───────────────────────────────────────────
 
 function ThankYouPreview() {
   const order = MOCK_ORDER;
-  const cart = MOCK_CART;
   const txRef = MOCK_ORDER.tx_ref;
 
   return (
     <div className="max-w-lg w-full">
-      <div className="text-center mb-2">
+      <div className="text-center mb-6">
         <span className="text-xs font-mono text-[var(--muted)] bg-[var(--card)] px-2 py-1 rounded border border-[var(--border)]">
           PREVIEW — /thank-you
         </span>
       </div>
 
-      <div className="animate-fade-in space-y-4">
+      <div className="space-y-4">
         {/* Success banner */}
         <div className="rounded-2xl p-5 border bg-emerald-500/10 border-emerald-500/30">
           <div className="flex items-center gap-3">
@@ -253,7 +286,7 @@ function ThankYouPreview() {
               ['Transaction Ref', order.tx_ref],
               ['Order ID', order.order_id],
               ['Plan', order.plan_type],
-              ['Amount Paid', `₦${order.amount_paid_ngn.toLocaleString('en-NG')}`],
+              ['Amount Paid', `N${order.amount_paid_ngn.toLocaleString('en-NG')}`],
             ].map(([label, value]) => (
               <div key={label}>
                 <span className="text-xs text-[var(--muted)]">{label}</span>
@@ -263,34 +296,21 @@ function ThankYouPreview() {
           </div>
         </div>
 
-        {/* Credentials card */}
+        {/* Credentials */}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
           <h2 className="text-sm font-semibold mb-4 text-[var(--muted)] uppercase tracking-wide">Proxy Credentials</h2>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-[var(--background)] rounded-xl p-4">
-                <span className="text-xs text-[var(--muted)]">Username</span>
-                <p className="font-mono text-sm font-medium break-all">{order.bunche_credential.bun_username}</p>
-              </div>
-              <div className="bg-[var(--background)] rounded-xl p-4">
-                <span className="text-xs text-[var(--muted)]">Password</span>
-                <p className="font-mono text-sm text-[var(--muted)]">Sent to email</p>
-              </div>
-              <div className="bg-[var(--background)] rounded-xl p-4">
-                <span className="text-xs text-[var(--muted)]">Proxy Address</span>
-                <p className="font-mono text-sm font-medium">
-                  {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
-                </p>
-              </div>
-              <div className="bg-[var(--background)] rounded-xl p-4">
-                <span className="text-xs text-[var(--muted)]">Protocol</span>
-                <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
-              </div>
-            </div>
+            <CredentialGrid password="proxyPass_4821!" />
             <div className="bg-[var(--background)] rounded-xl p-4">
               <span className="text-xs text-[var(--muted)]">Full Format</span>
               <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
-                http://{order.bunche_credential.bun_username}:YOUR_PASSWORD@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                http://{order.bunche_credential.bun_username}:{order.bunche_credential.bun_password}@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+              </p>
+            </div>
+            <div className="bg-[var(--background)] rounded-xl p-4">
+              <span className="text-xs text-[var(--muted)]">Expires</span>
+              <p className="font-medium text-sm">
+                {new Date(order.bunche_credential.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
           </div>
@@ -323,18 +343,17 @@ function ThankYouPreview() {
 
 function ManagePreview() {
   const order = MOCK_ORDER;
-  const isActive = true;
   const rotationsLeft = (order.max_rotations ?? 3) - (order.rotation_count ?? 0);
 
   return (
     <div className="max-w-xl w-full">
-      <div className="text-center mb-2">
+      <div className="text-center mb-6">
         <span className="text-xs font-mono text-[var(--muted)] bg-[var(--card)] px-2 py-1 rounded border border-[var(--border)]">
           PREVIEW — /manage
         </span>
       </div>
 
-      <div className="space-y-4 animate-fade-in">
+      <div className="space-y-4">
         {/* Status banner */}
         <div className="rounded-2xl p-5 border bg-emerald-500/10 border-emerald-500/30">
           <div className="flex items-center justify-between">
@@ -364,7 +383,7 @@ function ManagePreview() {
               ['Transaction Ref', order.tx_ref],
               ['Plan', order.plan_type],
               ['Country', order.country],
-              ['Amount Paid', `₦${order.amount_paid_ngn.toLocaleString('en-NG')}`],
+              ['Amount Paid', `N${order.amount_paid_ngn.toLocaleString('en-NG')}`],
               ['Expiry', new Date(order.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' })],
             ].map(([label, value]) => (
               <div key={label} className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0">
@@ -375,41 +394,22 @@ function ManagePreview() {
           </div>
         </div>
 
-        {/* Credentials card */}
+        {/* Credentials */}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide">Your Proxy Credentials</h2>
             <span className="text-xs text-[var(--muted)]">{rotationsLeft} rotation{rotationsLeft !== 1 ? 's' : ''} left</span>
           </div>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-[var(--background)] rounded-xl p-4">
-                <span className="text-xs text-[var(--muted)]">Username</span>
-                <p className="font-mono text-sm font-medium break-all">{order.bunche_credential.bun_username}</p>
-              </div>
-              <div className="bg-[var(--background)] rounded-xl p-4">
-                <span className="text-xs text-[var(--muted)]">Password</span>
-                <p className="font-mono text-sm text-[var(--muted)]">Sent to email</p>
-              </div>
-              <div className="bg-[var(--background)] rounded-xl p-4">
-                <span className="text-xs text-[var(--muted)]">Proxy Address</span>
-                <p className="font-mono text-sm font-medium">
-                  {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
-                </p>
-              </div>
-              <div className="bg-[var(--background)] rounded-xl p-4">
-                <span className="text-xs text-[var(--muted)]">Protocol</span>
-                <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
-              </div>
-            </div>
+            <CredentialGrid password="proxyPass_4821!" />
             <div className="bg-[var(--background)] rounded-xl p-4">
               <span className="text-xs text-[var(--muted)]">Full Format</span>
               <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
-                http://{order.bunche_credential.bun_username}:YOUR_PASSWORD@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                http://{order.bunche_credential.bun_username}:{order.bunche_credential.bun_password}@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
               </p>
             </div>
 
-            {/* Rotate button */}
+            {/* Rotate */}
             <button
               className="w-full px-4 py-2.5 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
             >
@@ -419,7 +419,7 @@ function ManagePreview() {
               Rotate Proxy Key ({rotationsLeft} left)
             </button>
 
-            {/* Renewal button */}
+            {/* Renew */}
             <button
               className="w-full px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
             >
@@ -431,7 +431,7 @@ function ManagePreview() {
           </div>
         </div>
 
-        {/* Action buttons */}
+        {/* Actions */}
         <div className="grid grid-cols-2 gap-3">
           <a href="/order" className="px-5 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-sm text-center transition-colors">
             Order Another
@@ -450,7 +450,8 @@ function ManagePreview() {
 // ─── Checkout preview ───────────────────────────────────────────
 
 function CheckoutPreview() {
-  const [step, setStep] = useState<'methods' | 'card' | 'transfer' | 'ussd' | 'qr'>('methods');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
 
   const methods = [
     { id: 'card', label: 'Card Payment', sub: 'Visa, Mastercard', icon: '💳' },
@@ -459,49 +460,64 @@ function CheckoutPreview() {
     { id: 'qr', label: 'QR Code', sub: 'Any banking app', icon: '📲' },
   ];
 
+  const handlePay = () => {
+    if (!selected) return;
+    setPaying(true);
+    setTimeout(() => {
+      window.location.href = '/thank-you?tx_ref=TXF-DEMO-CHECKOUT';
+    }, 2000);
+  };
+
   return (
     <div className="max-w-lg w-full">
-      <div className="text-center mb-2">
+      <div className="text-center mb-6">
         <span className="text-xs font-mono text-[var(--muted)] bg-[var(--card)] px-2 py-1 rounded border border-[var(--border)]">
           PREVIEW — /order/checkout
         </span>
       </div>
 
-      <div className="animate-fade-in space-y-4">
+      <div className="space-y-4">
         {/* Order summary */}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
           <h2 className="text-sm font-semibold mb-4 text-[var(--muted)] uppercase tracking-wide">Order Summary</h2>
           <div className="space-y-3">
-            {[
-              { name: '🇬🇧 UK ISP Proxy', qty: 1, price: 6500 },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0">
-                <span className="text-sm">{item.name} × {item.qty}</span>
-                <span className="font-mono text-sm">₦{item.price.toLocaleString('en-NG')}</span>
+            {MOCK_CART.map((item) => (
+              <div key={item.plan_code} className="flex items-center justify-between py-2 border-b border-[var(--border)]">
+                <span className="text-sm">{item.flag} {item.name} × {item.quantity}</span>
+                <span className="font-mono text-sm">N{item.price_ngn.toLocaleString('en-NG')}</span>
               </div>
             ))}
             <div className="flex items-center justify-between pt-2">
               <span className="font-semibold">Total</span>
-              <span className="font-mono font-bold text-[var(--primary)]">₦6,500</span>
+              <span className="font-mono font-bold text-[var(--primary)]">N 6,500</span>
             </div>
           </div>
         </div>
 
-        {/* Payment method selection */}
+        {/* Payment methods */}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
           <h2 className="text-sm font-semibold mb-4 text-[var(--muted)] uppercase tracking-wide">Payment Method</h2>
           <div className="space-y-3">
             {methods.map((m) => (
               <button
                 key={m.id}
-                onClick={() => setStep(m.id as typeof step)}
-                className="w-full flex items-center gap-4 p-4 rounded-xl border border-[var(--border)] hover:border-[var(--primary)] transition-colors text-left"
+                onClick={() => setSelected(m.id)}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-colors text-left ${
+                  selected === m.id
+                    ? 'border-[var(--primary)] bg-[var(--primary)]/5'
+                    : 'border-[var(--border)] hover:border-[var(--primary)]'
+                }`}
               >
                 <span className="text-2xl">{m.icon}</span>
                 <div>
                   <p className="font-medium text-sm">{m.label}</p>
                   <p className="text-xs text-[var(--muted)]">{m.sub}</p>
                 </div>
+                {selected === m.id && (
+                  <svg className="w-5 h-5 text-[var(--primary)] ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
               </button>
             ))}
           </div>
@@ -509,6 +525,22 @@ function CheckoutPreview() {
             🔒 All payments secured by Flutterwave
           </p>
         </div>
+
+        {/* Pay button */}
+        <button
+          onClick={handlePay}
+          disabled={!selected || paying}
+          className="w-full px-6 py-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-bold rounded-xl transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {paying ? (
+            <>
+              <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              Redirecting to Flutterwave…
+            </>
+          ) : (
+            'Pay N 6,500 Now'
+          )}
+        </button>
       </div>
     </div>
   );
@@ -526,41 +558,41 @@ export default function PreviewPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--background)] py-12 px-4">
-        {/* Styxproxy header */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center">
-              <span className="text-black font-black text-sm">S</span>
-            </div>
-            <span className="text-lg font-bold tracking-tight">styxproxy</span>
+    <div className="min-h-screen bg-[var(--background)] py-16 px-4">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <div className="inline-flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-[var(--primary)] flex items-center justify-center">
+            <span className="text-black font-black text-sm">$</span>
           </div>
-          <p className="text-sm text-[var(--muted)]">Internal design preview — not for public use</p>
+          <span className="text-lg font-bold tracking-tight">styxproxy</span>
         </div>
-
-        {/* Tabs */}
-        <div className="flex justify-center gap-2 mb-8">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-[var(--primary)] text-black'
-                  : 'bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab content */}
-        <div className="flex justify-center">
-          {activeTab === 'thankyou' && <ThankYouPreview />}
-          {activeTab === 'manage' && <ManagePreview />}
-          {activeTab === 'checkout' && <CheckoutPreview />}
-        </div>
+        <p className="text-sm text-[var(--muted)]">Internal design preview — not for public use</p>
       </div>
+
+      {/* Tabs */}
+      <div className="flex justify-center gap-2 mb-8">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === tab.id
+                ? 'bg-[var(--primary)] text-black'
+                : 'bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--primary)]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="flex justify-center">
+        {activeTab === 'thankyou' && <ThankYouPreview />}
+        {activeTab === 'manage' && <ManagePreview />}
+        {activeTab === 'checkout' && <CheckoutPreview />}
+      </div>
+    </div>
   );
 }

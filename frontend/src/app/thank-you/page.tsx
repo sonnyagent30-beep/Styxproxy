@@ -22,6 +22,7 @@ interface OrderData {
   tx_ref?: string;
   bunche_credential?: {
     bun_username?: string;
+    bun_password?: string;
     upstream_proxy_ip?: string;
     upstream_proxy_port?: number;
     expires_at?: string;
@@ -371,7 +372,7 @@ function ThankYouContent() {
   const isErrorState = order?.status === 'expired' || order?.status === 'cancelled';
 
   return (
-    <main className="flex-1 flex items-center justify-center px-4 py-24">
+    <main className="flex-1 flex items-start justify-center px-4 pt-32 pb-16">
       <div className="max-w-lg w-full">
         {/* Pending/Processing State */}
         {loading && isPending && (
@@ -425,7 +426,7 @@ function ThankYouContent() {
                   </div>
                   <div>
                     <label className="text-sm text-[var(--muted)]">Password</label>
-                    <p className="font-mono text-sm text-[var(--muted)]">Sent to your email after payment</p>
+                    <p className="font-mono text-sm">{order.bunche_credential.bun_password || 'N/A'}</p>
                   </div>
                   <div className="col-span-2">
                     <label className="text-sm text-[var(--muted)]">Full Format</label>
