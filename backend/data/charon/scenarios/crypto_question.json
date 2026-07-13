@@ -1,0 +1,18 @@
+{
+  "id": "crypto_question",
+  "name": "Crypto / cryptocurrency payment question",
+  "trigger": [
+    "do you accept (crypto|bitcoin|btc|ethereum|eth|usdt|crypto|cryptocurrency|stablecoin)",
+    "can i pay with (crypto|bitcoin|btc|ethereum)",
+    "^(.*)\\bcrypto\\b(.*)\\b(accept|pay|use)\\b"
+  ],
+  "actions": [
+    {
+      "type": "reply",
+      "text": "We don't accept crypto payments. The reason is that crypto transactions are pseudonymous but the public ledger is permanently traceable — which defeats the point of buying an anonymous proxy with it. We accept card / bank transfer / USSD / QR via a third-party processor. Those are settled through the customer's bank and don't appear on any public ledger."
+    }
+  ],
+  "fallback_when_missing_tool": null,
+  "log_only_after_hours": 0,
+  "llm_required": false
+}

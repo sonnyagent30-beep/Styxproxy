@@ -1,0 +1,14 @@
+{
+  "id": "thanks_acknowledgement",
+  "name": "Customer thanks / signs off",
+  "trigger": [
+    "^(thanks|thank you|thx|ty|appreciated|cheers|ok thanks|that helps|that helps a lot)\\s*[!.\\s]*$"
+  ],
+  "actions": [
+    {
+      "type": "reply",
+      "text": "Anytime. If anything else comes up, I'm here — or reach the team at styxproxy.com/contact."
+    }
+  ],
+  "llm_required": false
+}
