@@ -75,26 +75,52 @@ export default function AboutPage() {
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-4">What you get</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
-              <div className="text-2xl mb-2">🌐</div>
-              <h3 className="font-semibold mb-1">ISP Proxies</h3>
-              <p className="text-sm text-[var(--muted)]">Real ISP-assigned IPs. Faster than residential. Harder to ban than datacenter.</p>
-            </div>
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
-              <div className="text-2xl mb-2">🏠</div>
-              <h3 className="font-semibold mb-1">Residential Proxies</h3>
-              <p className="text-sm text-[var(--muted)]">Real home IPs from 15+ countries. Pay-per-GB. Data never expires.</p>
-            </div>
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
-              <div className="text-2xl mb-2">📱</div>
-              <h3 className="font-semibold mb-1">Mobile 4G Proxies</h3>
-              <p className="text-sm text-[var(--muted)]">Real mobile carrier IPs. The hardest to block. 12 countries.</p>
-            </div>
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
-              <div className="text-2xl mb-2">🖥️</div>
-              <h3 className="font-semibold mb-1">Datacenter Proxies</h3>
-              <p className="text-sm text-[var(--muted)]">Raw speed. Cheap. Best for high-volume scraping where stealth is not the priority.</p>
-            </div>
+            {[
+              {
+                title: 'ISP Proxies',
+                desc: 'Real ISP-assigned IPs. Faster than residential. Harder to ban than datacenter.',
+                icon: (
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+                  </svg>
+                ),
+              },
+              {
+                title: 'Residential Proxies',
+                desc: 'Real home IPs from 15+ countries. Pay-per-GB. Data never expires.',
+                icon: (
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                  </svg>
+                ),
+              },
+              {
+                title: 'Mobile 4G Proxies',
+                desc: 'Real mobile carrier IPs. The hardest to block. 12 countries.',
+                icon: (
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                  </svg>
+                ),
+              },
+              {
+                title: 'Datacenter Proxies',
+                desc: 'Raw speed. Cheap. Best for high-volume scraping where stealth is not the priority.',
+                icon: (
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                  </svg>
+                ),
+              },
+            ].map((item) => (
+              <div key={item.title} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
+                <div className="w-9 h-9 mb-2 text-[var(--primary)] [&_svg]:w-9 [&_svg]:h-9">
+                  {item.icon}
+                </div>
+                <h3 className="font-semibold mb-1">{item.title}</h3>
+                <p className="text-sm text-[var(--muted)]">{item.desc}</p>
+              </div>
+            ))}
           </div>
         </section>
 
