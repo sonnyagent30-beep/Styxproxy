@@ -86,6 +86,7 @@ class PlatformAccount(Base):
     __tablename__ = "platform_accounts"
     __table_args__ = (
         UniqueConstraint("platform", "platform_user_id", name="uq_platform_user"),
+        Index("idx_platform_device", "device_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -104,6 +105,11 @@ class PlatformAccount(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Anonymous device session: ties anonymous website orders to a specific browser
+    # via a UUID stored in localStorage on the client. No PII — just a UUID.
+    device_id: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, unique=False
+    )
 
     # Relationships
     customer: Mapped[Optional[Customer]] = relationship(
