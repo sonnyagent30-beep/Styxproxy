@@ -75,6 +75,28 @@ export default function Footer() {
                   Acceptable Use
                 </Link>
               </li>
+              <li>
+                <Link href="/cookie-policy" className="hover:text-[var(--foreground)] transition-colors">
+                  Cookie Policy
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div>
+            <h4 className="font-semibold mb-4">Company</h4>
+            <ul className="space-y-2 text-sm text-[var(--muted)]">
+              <li>
+                <Link href="/about" className="hover:text-[var(--foreground)] transition-colors">
+                  About
+                </Link>
+              </li>
+              <li>
+                <a href="https://t.me/StyxproxyBot" className="hover:text-[var(--foreground)] transition-colors" target="_blank" rel="noopener noreferrer">
+                  Telegram Bot
+                </a>
+              </li>
             </ul>
           </div>
         </div>
