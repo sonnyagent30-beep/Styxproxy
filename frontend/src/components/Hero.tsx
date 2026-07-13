@@ -22,21 +22,21 @@ export default function Hero() {
           <GlobeMap />
         </div>
 
-        {/* Hero Logo Mark */}
+        {/* Hero Logo — full lockup, no crop, preserves 2.84:1 aspect */}
         <div className="w-full flex justify-center mt-6 mb-2">
           <Image
             src="/hero-logo-dark.png"
             alt="styxproxy"
-            width={800}
-            height={400}
+            width={1022}
+            height={360}
             className="hidden dark:block w-auto h-auto max-w-full"
             priority
           />
           <Image
             src="/hero-logo-light.png"
             alt="styxproxy"
-            width={800}
-            height={400}
+            width={1022}
+            height={360}
             className="block dark:hidden w-auto h-auto max-w-full"
             priority
           />
