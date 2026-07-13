@@ -1,0 +1,22 @@
+#!/bin/bash
+# Safe-snapshot: archive a snapshot of the entire repo state (untracked + ignored files too)
+# Usage: .bin/safe-snapshot "label"
+
+LABEL="${1:-manual}"
+TS=$(date +%Y-%m-%d_%H%M%S)
+ARCHIVE="/root/bunche/_archive/snapshots/${TS}_${LABEL}"
+mkdir -p "$ARCHIVE"
+
+cd /root/bunche
+
+# Files that aren't tracked by git but might be in the working tree
+git ls-files --others --exclude-standard | tar -cf "$ARCHIVE/untracked.tar" -T -
+
+# Git index snapshot
+cp .git/index "$ARCHIVE/git-index"
+cp HEAD "$ARCHIVE/HEAD"
+git log -1 --oneline > "$ARCHIVE/last-commit.txt"
+
+echo "Snapshot: $ARCHIVE"
+echo "Untracked: $(git ls-files --others --exclude-standard | wc -l) files"
+echo "Last commit: $(cat "$ARCHIVE/last-commit.txt")"

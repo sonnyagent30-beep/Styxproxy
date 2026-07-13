@@ -1,0 +1,49 @@
+#!/bin/bash
+# Safe-delete: copy files to _archive/ before removing them.
+# Usage: .bin/safe-delete <path> [<path>...]
+# Restoring: _archive/<safe-name> → original location (full path preserved)
+
+set -e
+
+ARCHIVE="/root/bunche/_archive/snapshots/$(date +%Y-%m-%d_%H%M%S)_$$"
+mkdir -p "$ARCHIVE"
+
+if [ $# -eq 0 ]; then
+  echo "Usage: .bin/safe-delete <path> [<path>...]"
+  echo "Restoring: git checkout <commit> -- <path>"
+  exit 1
+fi
+
+for path in "$@"; do
+  if [ ! -e "$path" ]; then
+    echo "SKIP (not found): $path"
+    continue
+  fi
+
+  # Flatten the path: /root/bunche/foo/bar.ts → root_bunche_foo_bar.ts
+  safe_name="$(echo "$path" | sed 's|/|_|g; s|^_*||')"
+
+  if [ -d "$path" ]; then
+    cp -r "$path" "$ARCHIVE/${safe_name}.dir"
+  else
+    cp "$path" "$ARCHIVE/${safe_name}"
+  fi
+
+  echo "ARCHIVED: $path → $ARCHIVE/${safe_name}{,.dir}"
+done
+
+echo ""
+echo "All paths archived to: $ARCHIVE"
+echo "Proceeding with deletion in 3 seconds (Ctrl-C to abort)..."
+sleep 3
+
+for path in "$@"; do
+  if [ -e "$path" ]; then
+    rm -rf "$path"
+    echo "DELETED: $path"
+  fi
+done
+
+echo ""
+echo "To restore from git: git -C /root/bunche checkout <commit> -- <path>"
+echo "To restore from archive: cp -r $ARCHIVE/<safe-name>{,.dir} <path>"

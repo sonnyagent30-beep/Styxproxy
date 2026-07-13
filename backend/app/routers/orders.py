@@ -4,6 +4,7 @@ import random
 import string
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -231,3 +232,69 @@ async def report_dead_ip(order_id: str, request: OrderReportDeadRequest, session
     await session.commit()
     await log_audit_event(session, event_type="ip_ban_reported", phone=customer.phone, order_id=order_id, details={"screenshot_url": request.screenshot_url, "issue_description": request.issue_description})
     return OrderReportDeadResponse(order_id=order_id, ban_reported=True, status="pending_verification", replacement_estimate_hours=24)
+
+
+class RotateResponse(BaseModel):
+    order_id: str
+    bunche_credential: BuncheCredentialBrief
+    rotation_count: int
+    max_rotations: int
+
+    model_config = {"from_attributes": True}
+
+
+@router.post("/{order_id}/rotate", response_model=RotateResponse)
+async def rotate_proxy(order_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)):
+    """Rotate the upstream proxy IP for this credential.
+
+    Frontend or backend is responsible for:
+    - Hitting the provider API to get a new IP
+    - Updating the credential row with new IP/port
+
+    For this lightweight implementation:
+    - Generate a random placeholder IP (192.0.2.X — TEST-NET-1 reserved range, safe)
+      and increment rotation_count
+    - Real production: integrate with Proxy-Seller / DataImpulse rotation API
+
+    Max 3 rotations per credential; reject the 4th.
+    """
+    MAX_ROTATIONS = 3
+    customer = current_user["customer"]
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+    stmt = select(Order).where(Order.order_id == order_id, Order.customer_phone == customer.phone)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    if not order.bunche_credential_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No credential to rotate")
+    cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+    cred_result = await session.execute(cred_stmt)
+    cred = cred_result.scalar_one_or_none()
+    if not cred:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found")
+    current_count = getattr(cred, 'rotation_count', 0) or 0
+    if current_count >= MAX_ROTATIONS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Rotation limit reached ({MAX_ROTATIONS} per proxy)")
+    # Bump count and assign a placeholder rotated IP
+    setattr(cred, 'rotation_count', current_count + 1)
+    # Generate a placeholder rotated IP in TEST-NET-1 (RFC 5737)
+    new_ip_last_octet = random.randint(1, 254)
+    cred.upstream_proxy_ip = f"192.0.2.{new_ip_last_octet}"
+    await session.commit()
+    await session.refresh(cred)
+    await log_audit_event(session, event_type="proxy_rotated", phone=customer.phone, order_id=order_id, details={"rotation_count": current_count + 1, "new_ip": cred.upstream_proxy_ip})
+    return RotateResponse(
+        order_id=order_id,
+        bunche_credential=BuncheCredentialBrief(
+            id=cred.id,
+            bun_username=cred.bun_username,
+            protocol=cred.protocol or 'socks5',
+            upstream_proxy_ip=cred.upstream_proxy_ip,
+            upstream_proxy_port=cred.upstream_proxy_port,
+            status=cred.status,
+        ),
+        rotation_count=getattr(cred, 'rotation_count', 0) or 0,
+        max_rotations=MAX_ROTATIONS,
+    )

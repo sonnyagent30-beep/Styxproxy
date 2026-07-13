@@ -64,6 +64,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS idx_platform_device ON platform_accounts (device_id)"
         ))
+        await conn.execute(text(
+            "ALTER TABLE bunche_credentials ADD COLUMN IF NOT EXISTS rotation_count INTEGER NOT NULL DEFAULT 0"
+        ))
 
     # Initialize Sentry if configured
     if settings.sentry_dsn:

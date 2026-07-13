@@ -293,6 +293,9 @@ class BuncheCredential(Base):
     gb_used: Mapped[float] = mapped_column(
         Numeric(10, 2), default=0, nullable=False
     )
+    rotation_count: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
 
     # Relationships
     order: Mapped[Optional[Order]] = relationship(

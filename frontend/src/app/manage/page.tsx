@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/components/Toast';
+import { getOrderHistory, type OrderHistoryEntry, getInflightOrder, clearInflightOrder } from '@/lib/device-id';
 
 interface OrderData {
   order_id: string;
@@ -33,7 +34,15 @@ export default function ManagePage() {
   const [loading, setLoading] = useState(false);
   const [rotating, setRotating] = useState(false);
   const [error, setError] = useState('');
+  const [history, setHistory] = useState<OrderHistoryEntry[]>([]);
+  const [inflight, setInflight] = useState(getInflightOrder());
   const { toast } = useToast();
+
+  // Load local order history on mount
+  useEffect(() => {
+    setHistory(getOrderHistory());
+    setInflight(getInflightOrder());
+  }, []);
 
   const handleSearch = async (ref: string) => {
     if (!ref.trim()) { setError('Please enter an order ID or transaction reference'); return; }
@@ -100,6 +109,75 @@ export default function ManagePage() {
               Enter your order ID or transaction reference to view your proxy details.
             </p>
           </div>
+
+          {/* In-flight order banner */}
+          {inflight && !order && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-amber-400 text-sm font-medium">Order In Progress</p>
+                  <p className="text-xs text-[var(--muted)] mt-1">
+                    You have an unpaid order <span className="font-mono text-foreground">{inflight.tx_ref}</span>{' '}
+                    for {inflight.plan_code}.{' '}
+                    <button
+                      onClick={() => handleSearch(inflight.tx_ref)}
+                      className="text-[var(--primary)] hover:underline font-medium"
+                    >
+                      Check status →
+                    </button>
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    clearInflightOrder();
+                    setInflight(null);
+                    toast({ type: 'info', title: 'In-flight order cleared', message: 'You can place a new order now.' });
+                  }}
+                  className="text-[var(--muted)] hover:text-foreground text-xs"
+                  aria-label="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Local order history */}
+          {history.length > 0 && !order && (
+            <div className="mb-6">
+              <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">
+                Recent Orders (this device)
+              </h2>
+              <div className="space-y-2">
+                {history.slice(0, 5).map((h) => (
+                  <button
+                    key={h.tx_ref}
+                    onClick={() => handleSearch(h.tx_ref)}
+                    className="w-full text-left bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] rounded-xl p-3 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-mono text-sm font-medium">{h.tx_ref}</span>
+                        <p className="text-xs text-[var(--muted)] mt-0.5">
+                          {h.plan_code} · {h.country} · ₦{h.amount.toLocaleString('en-NG')}
+                        </p>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-md ${
+                        h.status === 'active' || h.status === 'fulfilled'
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {h.status}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Search Card */}
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
