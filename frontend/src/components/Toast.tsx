@@ -18,7 +18,7 @@ interface ToastProps {
 
 function ToastItem({ toast, onDismiss }: ToastProps) {
   const [visible, setVisible] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     // Mount animation

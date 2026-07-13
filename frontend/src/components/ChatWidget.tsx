@@ -20,7 +20,7 @@ type StateKey =
 type Role = 'user' | 'bot';
 
 interface QuickReply { label: string; next: StateKey; }
-interface Message { id: string; role: Role; text: string; quickReplies?: QuickReply[][]; }
+interface Message { id: string; role: Role; text: string; quickReplies?: QuickReply[]; }
 
 const TYPING_DELAY = 600;
 const newId = () => Math.random().toString(36).slice(2);
@@ -50,7 +50,7 @@ function formatMessageText(text: string): React.ReactNode {
 // Bot message tree
 // =============================================================
 
-const botMessages: Record<StateKey, { text: string; quickReplies?: QuickReply[] }> = {
+const botMessages: Partial<Record<StateKey, { text: string; quickReplies?: QuickReply[] }>> = {
   start: {
     text: "👋 Hi! I'm Charon from Styxproxy support. I can help you with orders, pricing, troubleshooting, and more — all anonymously until you choose to connect with a human. What do you need?",
     quickReplies: [
@@ -248,7 +248,7 @@ export default function ChatWidget() {
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
-      setMessages(prev => [...prev, { id: newId(), role: 'bot', text: s.text, quickReplies: s.quickReplies }]);
+      setMessages(prev => [...prev, { id: newId(), role: 'bot', text: s.text, quickReplies: s.quickReplies ?? undefined }]);
     }, TYPING_DELAY);
   }, []);
 
