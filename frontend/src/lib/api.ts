@@ -8,7 +8,12 @@ import type {
   PaginatedResponse,
   StyxproxyCredential,
   CharonConversation,
-  CharonLogEntry
+  CharonLogEntry,
+  LearnedFile,
+  LearnedFilesResponse,
+  LearnContentResponse,
+  LearnRequest,
+  LearnResponse
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -148,6 +153,29 @@ class ApiClient {
 
   getCharonStreamUrl(): string {
     return `${this.baseUrl}/charon/stream`;
+  }
+
+  // Learned Files Management
+  async getLearnedFiles(): Promise<ApiResponse<LearnedFilesResponse>> {
+    return this.request<LearnedFilesResponse>('/admin/charon/learned');
+  }
+
+  async getLearnedFileContent(filename: string): Promise<ApiResponse<LearnContentResponse>> {
+    return this.request<LearnContentResponse>(`/admin/charon/learned/${encodeURIComponent(filename)}`);
+  }
+
+  async deleteLearnedFile(filename: string): Promise<ApiResponse<{ ok: boolean; message: string }>> {
+    return this.request('/admin/charon/learned', {
+      method: 'DELETE',
+      body: JSON.stringify({ filename }),
+    });
+  }
+
+  async learnContent(data: LearnRequest): Promise<ApiResponse<LearnResponse>> {
+    return this.request<LearnResponse>('/charon/learn', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   // Health

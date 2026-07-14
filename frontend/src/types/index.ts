@@ -117,3 +117,33 @@ export interface CharonLogEntry {
     error?: string;
   }>;
 }
+
+// Learned Files Types
+export interface LearnedFile {
+  name: string;
+  path: string;
+  size: number;
+  modified_at: string;
+}
+
+export interface LearnedFilesResponse {
+  files: LearnedFile[];
+}
+
+export interface LearnContentResponse {
+  name: string;
+  path: string;
+  content: string;
+}
+
+export interface LearnRequest {
+  title: string;
+  content: string;
+  filename?: string;
+}
+
+export interface LearnResponse {
+  ok: boolean;
+  filepath: string;
+  message: string;
+}

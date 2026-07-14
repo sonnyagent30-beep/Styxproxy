@@ -290,3 +290,71 @@ async def list_webhook_logs(
             "has_prev": page > 1,
         },
     )
+
+
+# Charon Learned Files Management
+LEARNED_DIR = Path(__file__).parents[3] / "data" / "charon" / "learned"
+
+
+@router.get("/charon/learned", response_model=LearnedFilesResponse, dependencies=[Depends(admin_only)])
+async def list_learned_files():
+    """List all learned files in the RAG knowledge base."""
+    if not LEARNED_DIR.exists():
+        return LearnedFilesResponse(files=[])
+    
+    files = []
+    for path in sorted(LEARNED_DIR.rglob("*.md")):
+        stat = path.stat()
+        files.append(LearnedFileResponse(
+            name=path.name,
+            path=str(path.relative_to(LEARNED_DIR.parent.parent)),
+            size=stat.st_size,
+            modified_at=datetime.fromtimestamp(stat.st_mtime),
+        ))
+    return LearnedFilesResponse(files=files)
+
+
+@router.get("/charon/learned/{filename}", response_model=LearnContentResponse, dependencies=[Depends(admin_only)])
+async def get_learned_file_content(filename: str):
+    """Get the content of a specific learned file."""
+    # Security: prevent path traversal
+    filename = filename.replace("..", "").replace("/", "")
+    filepath = LEARNED_DIR / filename
+    
+    if not filepath.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    
+    if not filepath.is_file():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a file")
+    
+    content = filepath.read_text(encoding="utf-8")
+    return LearnContentResponse(
+        name=filepath.name,
+        path=str(filepath.relative_to(LEARNED_DIR.parent.parent)),
+        content=content,
+    )
+
+
+@router.delete("/charon/learned", response_model=DeleteLearnedFileResponse, dependencies=[Depends(admin_only)])
+async def delete_learned_file(request: DeleteLearnedFileRequest):
+    """Delete a learned file from the RAG knowledge base."""
+    # Security: prevent path traversal
+    filename = request.filename.replace("..", "").replace("/", "")
+    filepath = LEARNED_DIR / filename
+    
+    if not filepath.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    
+    if not filepath.is_file():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a file")
+    
+    filepath.unlink()
+    
+    # Invalidate cache after deletion
+    from app.services.charon.knowledge import invalidate_cache
+    invalidate_cache()
+    
+    return DeleteLearnedFileResponse(
+        ok=True,
+        message=f"Deleted {filename}",
+    )
