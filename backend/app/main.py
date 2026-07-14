@@ -16,6 +16,7 @@ from app.models import Base
 from app.limiter import limiter
 from app.routers import (
     admin,
+    auth,
     charon,
     credentials,
     health,
@@ -198,3 +199,4 @@ app.include_router(trials.router)
 app.include_router(admin.router)
 app.include_router(session.router)
 app.include_router(charon.router)
+app.include_router(auth.router)

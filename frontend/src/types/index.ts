@@ -147,3 +147,93 @@ export interface LearnResponse {
   filepath: string;
   message: string;
 }
+
+// ============== Admin Auth Types ==============
+export type AdminRole = 'admin' | 'superadmin' | 'viewer';
+
+export interface AdminSetupRequest {
+  invite_code: string;
+  pin: string;
+  totp_code?: string;
+}
+
+export interface AdminSetupResponse {
+  admin_phone: string;
+  role: string;
+  totp_enabled: boolean;
+  message: string;
+}
+
+export interface AdminLoginRequest {
+  admin_phone: string;
+  pin: string;
+  totp_code?: string;
+}
+
+export interface AdminLoginResponse {
+  access_token: string;
+  token_type: string;
+  admin_phone: string;
+  role: string;
+  totp_enabled: boolean;
+  expires_in: number;
+}
+
+export interface AdminMeResponse {
+  admin_phone: string;
+  role: string;
+  totp_enabled: boolean;
+  pin_set_at?: string;
+  failed_attempts: number;
+  locked_until?: string;
+  created_at: string;
+  last_used?: string;
+}
+
+export interface AdminChangePasswordRequest {
+  current_pin: string;
+  new_pin: string;
+}
+
+export interface AdminChangePasswordResponse {
+  message: string;
+  pin_set_at: string;
+}
+
+export interface AdminChangeTOTPRequest {
+  action: 'enable' | 'disable';
+  totp_code?: string;
+}
+
+export interface AdminChangeTOTPResponse {
+  totp_enabled: boolean;
+  message: string;
+}
+
+// Admin Team Member
+export interface AdminTeamMember {
+  id: string;
+  phone: string;
+  role: AdminRole;
+  totp_enabled: boolean;
+  created_at: string;
+  last_used?: string;
+  failed_attempts: number;
+  locked_until?: string;
+}
+
+export interface AdminInviteCreateRequest {
+  email?: string;
+  role: AdminRole;
+  expires_in_hours?: number;
+  max_uses?: number;
+}
+
+export interface AdminInviteCreateResponse {
+  invite_code: string;
+  email?: string;
+  role: string;
+  expires_at?: string;
+  max_uses: number;
+  created_by: string;
+}

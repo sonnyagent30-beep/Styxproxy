@@ -542,3 +542,220 @@ class FlutterwaveWebhookPayload(BaseModel):
     """Flutterwave webhook payload."""
     event: str
     data: dict[str, Any]
+
+
+# ============== Admin Auth Schemas ==============
+
+class AdminRole(str, Enum):
+    """Admin role values."""
+    ADMIN = "admin"
+    SUPERADMIN = "superadmin"
+    VIEWER = "viewer"
+
+
+class AdminSetupRequest(BaseModel):
+    """Request to set up initial admin credentials."""
+    invite_code: str = Field(..., min_length=8, max_length=32)
+    pin: str = Field(..., min_length=4, max_length=6)
+    totp_code: Optional[str] = Field(None, min_length=6, max_length=6)
+
+
+class AdminSetupResponse(BaseModel):
+    """Response after setting up admin credentials."""
+    admin_phone: str
+    role: str
+    totp_enabled: bool
+    message: str
+
+
+class AdminLoginRequest(BaseModel):
+    """Request to log in as admin."""
+    admin_phone: str = Field(..., min_length=10, max_length=20)
+    pin: str = Field(..., min_length=4, max_length=6)
+    totp_code: Optional[str] = Field(None, min_length=6, max_length=6)
+
+
+class AdminLoginResponse(BaseModel):
+    """Response after admin login."""
+    access_token: str
+    token_type: str = "bearer"
+    admin_phone: str
+    role: str
+    totp_enabled: bool
+    expires_in: int
+
+
+class AdminMeResponse(BaseModel):
+    """Response for /api/admin/auth/me endpoint."""
+    admin_phone: str
+    role: str
+    totp_enabled: bool
+    pin_set_at: Optional[datetime]
+    failed_attempts: int
+    locked_until: Optional[datetime]
+    created_at: datetime
+    last_used: Optional[datetime]
+
+
+class AdminChangePasswordRequest(BaseModel):
+    """Request to change admin PIN."""
+    current_pin: str = Field(..., min_length=4, max_length=6)
+    new_pin: str = Field(..., min_length=4, max_length=6)
+
+
+class AdminChangePasswordResponse(BaseModel):
+    """Response after changing admin PIN."""
+    message: str
+    pin_set_at: datetime
+
+
+class AdminChangeTOTPRequest(BaseModel):
+    """Request to enable/disable TOTP."""
+    action: str = Field(..., pattern="^(enable|disable)$")
+    totp_code: Optional[str] = Field(None, min_length=6, max_length=6)
+
+
+class AdminChangeTOTPResponse(BaseModel):
+    """Response after changing TOTP status."""
+    totp_enabled: bool
+    message: str
+
+
+class AdminInviteCreateRequest(BaseModel):
+    """Request to create an admin invite."""
+    email: Optional[str] = Field(None, max_length=255)
+    role: AdminRole = AdminRole.ADMIN
+    expires_in_hours: int = Field(default=24, ge=1, le=168)
+    max_uses: int = Field(default=1, ge=1, le=100)
+
+
+class AdminInviteCreateResponse(BaseModel):
+    """Response after creating an admin invite."""
+    invite_code: str
+    email: Optional[str]
+    role: str
+    expires_at: Optional[datetime]
+    max_uses: int
+    created_by: str
+
+
+class AdminInviteResponse(BaseModel):
+    """Response for an admin invite."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    invite_code: str
+    email: Optional[str]
+    role: str
+    expires_at: Optional[datetime]
+    used_at: Optional[datetime]
+    max_uses: int
+    uses_count: int
+    created_at: datetime
+
+
+class AdminInvitesListResponse(BaseModel):
+    """List of admin invites response."""
+    invites: list[AdminInviteResponse]
+    pagination: dict[str, Any]
+
+
+class AdminInviteUseRequest(BaseModel):
+    """Request to use an invite code."""
+    invite_code: str = Field(..., min_length=8, max_length=32)
+    admin_phone: str = Field(..., min_length=10, max_length=20)
+    pin: str = Field(..., min_length=4, max_length=6)
+
+
+class AdminInviteUseResponse(BaseModel):
+    """Response after using an invite code."""
+    admin_phone: str
+    role: str
+    message: str
+
+
+# ============== Feature Flag Schemas ==============
+
+class FeatureFlagCreateRequest(BaseModel):
+    """Request to create a feature flag."""
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    enabled: bool = False
+    enabled_for: Optional[str] = None
+
+
+class FeatureFlagUpdateRequest(BaseModel):
+    """Request to update a feature flag."""
+    description: Optional[str] = None
+    enabled: Optional[bool] = None
+    enabled_for: Optional[str] = None
+    admin_overrides: Optional[list[str]] = None
+
+
+class FeatureFlagResponse(BaseModel):
+    """Response for a feature flag."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    description: Optional[str]
+    enabled: bool
+    enabled_for: Optional[str]
+    admin_overrides: Optional[list[str]]
+    created_at: datetime
+    updated_at: datetime
+
+
+class FeatureFlagsListResponse(BaseModel):
+    """List of feature flags response."""
+    flags: list[FeatureFlagResponse]
+
+
+class FeatureFlagCheckResponse(BaseModel):
+    """Response for checking a feature flag."""
+    name: str
+    enabled: bool
+
+
+# ============== Team Management Schemas ==============
+
+class AdminTeamMemberResponse(BaseModel):
+    """Response for an admin team member."""
+    admin_phone: str
+    role: str
+    totp_enabled: bool
+    failed_attempts: int
+    locked_until: Optional[datetime]
+    created_at: datetime
+    last_used: Optional[datetime]
+
+
+class AdminTeamListResponse(BaseModel):
+    """List of admin team members response."""
+    members: list[AdminTeamMemberResponse]
+    pagination: dict[str, Any]
+
+
+class AdminUpdateRoleRequest(BaseModel):
+    """Request to update an admin's role."""
+    role: AdminRole
+
+
+class AdminUpdateRoleResponse(BaseModel):
+    """Response after updating an admin's role."""
+    admin_phone: str
+    role: str
+    message: str
+
+
+class AdminLockRequest(BaseModel):
+    """Request to lock/unlock an admin account."""
+    action: str = Field(..., pattern="^(lock|unlock)$")
+
+
+class AdminLockResponse(BaseModel):
+    """Response after locking/unlocking an admin."""
+    admin_phone: str
+    locked: bool
+    locked_until: Optional[datetime]
+    message: str
