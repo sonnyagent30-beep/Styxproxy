@@ -14,11 +14,14 @@ from app.schemas import (
     AdminOrderResponse, AdminOrdersResponse, AdminOrderUpdateRequest, AdminRefundRequest,
     AdminCredentialResponse, AdminCredentialsResponse, AdminAuditLogsResponse, AdminAuditLogResponse,
     AdminWebhookLogsResponse, AdminWebhookLogResponse,
+    LearnedFilesResponse, LearnedFileResponse, LearnContentResponse, 
+    DeleteLearnedFileRequest, DeleteLearnedFileResponse,
 )
 from app.auth import admin_only
 from app.services.credential import replace_credential
 from app.services.trial import get_trials_today_count
 from app.services.audit import get_audit_logs
+from pathlib import Path
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 

@@ -31,6 +31,7 @@ from typing import Any, Iterable
 
 from . import knowledge, scenarios, tools
 from .llm import LLMResponse, call_llm
+import sentry_sdk
 
 logger = logging.getLogger(__name__)
 
@@ -209,8 +210,16 @@ def _emit_escalation(scenario: scenarios.Scenario, action, tx_ref: str | None) -
         "reason": action.reason,
     }
     logger.warning(json.dumps(record))
-    # We forward to operator hooks via environment-driven URLs (Sentry
-    # already captures logger warnings; nothing to do here).
+    # Capture escalation in Sentry for alerting
+    sentry_sdk.capture_message(
+        f"[Charon Escalation] {scenario.id}: {summary}",
+        level="info",
+        extras={
+            "scenario_id": scenario.id,
+            "tx_ref": tx_ref or "none",
+            "reason": action.reason or "customer_requested",
+        }
+    )
 
 
 async def _try_tool_call(
@@ -282,7 +291,16 @@ async def _try_tool_call(
                         tokens_used=log_ctx.get("tokens", 0),
                     )
             else:
-                # tool failure → escalate
+                # tool failure → escalate — capture in Sentry
+                sentry_sdk.capture_message(
+                    f"[Charon Tool Error] {tool_name}: {result.error}",
+                    level="warning",
+                    extras={
+                        "tool": tool_name,
+                        "params": tool_params,
+                        "error": result.error or "unknown",
+                    }
+                )
                 return Reply(
                     text=(
                         "I cannot complete this step automatically right now. Let me escalate so the team "

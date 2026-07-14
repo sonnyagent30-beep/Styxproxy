@@ -492,6 +492,37 @@ class AdminWebhookLogsResponse(BaseModel):
     pagination: dict[str, Any]
 
 
+class LearnedFileResponse(BaseModel):
+    """Learned file response."""
+    name: str
+    path: str
+    size: int
+    modified_at: datetime
+
+
+class LearnedFilesResponse(BaseModel):
+    """List of learned files."""
+    files: list[LearnedFileResponse]
+
+
+class LearnContentResponse(BaseModel):
+    """Content of a learned file."""
+    name: str
+    path: str
+    content: str
+
+
+class DeleteLearnedFileRequest(BaseModel):
+    """Request to delete a learned file."""
+    filename: str = Field(..., description="Filename to delete")
+
+
+class DeleteLearnedFileResponse(BaseModel):
+    """Response after deleting a learned file."""
+    ok: bool
+    message: str
+
+
 # ============== Error Schemas ==============
 
 class ErrorDetail(BaseModel):

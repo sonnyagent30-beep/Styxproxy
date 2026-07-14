@@ -6,7 +6,9 @@ import type {
   Customer,
   ApiResponse,
   PaginatedResponse,
-  StyxproxyCredential
+  StyxproxyCredential,
+  CharonConversation,
+  CharonLogEntry
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -119,6 +121,33 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
+  }
+
+  // Charon Admin
+  async getCharonConversations(page: number = 1, limit: number = 20): Promise<ApiResponse<{ conversations: CharonConversation[]; total: number; limit: number; offset: number }>> {
+    return this.request(`/charon/conversations?page=${page}&limit=${limit}`);
+  }
+
+  async getCharonLogs(
+    limit: number = 100,
+    offset: number = 0,
+    conversationId?: string,
+    channel?: string,
+    escalated?: boolean,
+    dateFrom?: string,
+    dateTo?: string
+  ): Promise<ApiResponse<{ logs: CharonLogEntry[]; total: number; limit: number; offset: number }>> {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (conversationId) params.append('conversation_id', conversationId);
+    if (channel) params.append('channel', channel);
+    if (escalated !== undefined) params.append('escalated', String(escalated));
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    return this.request(`/charon/logs?${params.toString()}`);
+  }
+
+  getCharonStreamUrl(): string {
+    return `${this.baseUrl}/charon/stream`;
   }
 
   // Health

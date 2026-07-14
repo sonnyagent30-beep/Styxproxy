@@ -82,10 +82,16 @@ export default function AdminPage() {
 
         {/* Tabs */}
         <div className="flex space-x-2 mb-6 overflow-x-auto">
-          {['overview', 'customers', 'orders', 'credentials', 'logs'].map((tab) => (
+          {['overview', 'customers', 'orders', 'credentials', 'logs', 'charon'].map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                if (tab === 'charon') {
+                  window.location.href = '/admin/charon';
+                } else {
+                  setActiveTab(tab);
+                }
+              }}
               className={`px-6 py-2 rounded-full font-medium capitalize transition-all whitespace-nowrap ${
                 activeTab === tab
                   ? 'bg-[var(--primary)] text-black'

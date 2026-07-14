@@ -91,3 +91,29 @@ export interface PaginatedResponse<T> {
     total_pages: number;
   };
 }
+
+// Charon Admin Types
+export interface CharonConversation {
+  conversation_id: string;
+  last_message: string;
+  last_message_at: string;
+  message_count: number;
+  escalated: boolean;
+}
+
+export interface CharonLogEntry {
+  ts: string;
+  channel: string;
+  conversation_id: string;
+  user_message: string;
+  response?: string;
+  scenario_id?: string;
+  escalated?: boolean;
+  error?: string;
+  tool_calls?: Array<{
+    tool: string;
+    params: Record<string, unknown>;
+    result?: Record<string, unknown>;
+    error?: string;
+  }>;
+}

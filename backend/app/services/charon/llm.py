@@ -21,6 +21,7 @@ import os
 from dataclasses import dataclass
 
 import httpx
+import sentry_sdk
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,17 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
 
     if resp.status_code >= 400:
         logger.warning("LLM API error %d: %s", resp.status_code, resp.text[:300])
+        # Capture 5xx (server-side LLM provider errors) in Sentry
+        if resp.status_code >= 500:
+            sentry_sdk.capture_message(
+                f"Charon LLM 5xx error: {resp.status_code}",
+                level="warning",
+                extras={
+                    "status_code": resp.status_code,
+                    "model": model,
+                    "response_preview": resp.text[:200],
+                }
+            )
         return LLMResponse(
             content="", model=model,
             error=f"LLM API returned {resp.status_code}",
