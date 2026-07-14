@@ -1,114 +1,104 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import { CharonConversation, CharonLogEntry } from '@/types';
+import { LearnedFile, LearnContentResponse, LearnRequest } from '@/types';
 
-export default function CharonAdminPage() {
-  const [activeTab, setActiveTab] = useState<'conversations' | 'logs' | 'stream'>('conversations');
-  const [conversations, setConversations] = useState<CharonConversation[]>([]);
-  const [logs, setLogs] = useState<CharonLogEntry[]>([]);
-  const [totalConversations, setTotalConversations] = useState(0);
-  const [totalLogs, setTotalLogs] = useState(0);
+export default function AdminCharonPage() {
+  const [files, setFiles] = useState<LearnedFile[]>([]);
+  const [selectedFile, setSelectedFile] = useState<LearnContentResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Filters
-  const [filterConversationId, setFilterConversationId] = useState('');
-  const [filterChannel, setFilterChannel] = useState('');
-  const [filterEscalated, setFilterEscalated] = useState<boolean | null>(null);
+  // Form state
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [filename, setFilename] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
   
-  // Pagination
-  const [page, setPage] = useState(1);
-  const limit = 50;
-
-  // SSE Stream
-  const [streamEvents, setStreamEvents] = useState<Array<{ ts: string; data: unknown }>>([]);
-  const eventSourceRef = useRef<EventSource | null>(null);
-
-  // Load conversations
-  const loadConversations = useCallback(async () => {
-    setLoading(true);
-    const result = await api.getCharonConversations(page, limit);
-    if (result.error) {
-      setError(result.error);
-    } else if (result.data) {
-      setConversations(result.data.conversations);
-      setTotalConversations(result.data.total);
-    }
-    setLoading(false);
-  }, [page]);
-
-  // Load logs
-  const loadLogs = useCallback(async () => {
-    setLoading(true);
-    const result = await api.getCharonLogs(
-      limit,
-      (page - 1) * limit,
-      filterConversationId || undefined,
-      filterChannel || undefined,
-      filterEscalated ?? undefined
-    );
-    if (result.error) {
-      setError(result.error);
-    } else if (result.data) {
-      setLogs(result.data.logs);
-      setTotalLogs(result.data.total);
-    }
-    setLoading(false);
-  }, [page, filterConversationId, filterChannel, filterEscalated]);
-
-  // Connect to SSE stream
-  const connectStream = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
-    
-    const streamUrl = api.getCharonStreamUrl();
-    const eventSource = new EventSource(streamUrl);
-    eventSourceRef.current = eventSource;
-    
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        setStreamEvents(prev => [...prev.slice(-99), { ts: new Date().toISOString(), data }]);
-      } catch {
-        // Ignore parse errors
-      }
-    };
-    
-    eventSource.onerror = () => {
-      eventSource.close();
-      // Try to reconnect after 3 seconds
-      setTimeout(() => {
-        if (activeTab === 'stream') {
-          connectStream();
-        }
-      }, 3000);
-    };
-  }, [activeTab]);
+  // View mode
+  const [activeTab, setActiveTab] = useState<'files' | 'write'>('files');
 
   useEffect(() => {
-    if (activeTab === 'conversations') {
-      loadConversations();
-    } else if (activeTab === 'logs') {
-      loadLogs();
-    } else if (activeTab === 'stream') {
-      connectStream();
-    }
-  }, [activeTab, loadConversations, loadLogs, connectStream]);
-
-  useEffect(() => {
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-    };
+    loadFiles();
   }, []);
 
-  const formatDate = (ts: string) => {
-    if (!ts) return '-';
-    return new Date(ts).toLocaleString();
+  const loadFiles = async () => {
+    setLoading(true);
+    const result = await api.getLearnedFiles();
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setFiles(result.data?.files || []);
+    }
+    setLoading(false);
+  };
+
+  const loadFileContent = async (filename: string) => {
+    const result = await api.getLearnedFileContent(filename);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setSelectedFile(result.data || null);
+    }
+  };
+
+  const handleDelete = async (filename: string) => {
+    if (!confirm(`Delete "${filename}"? This cannot be undone.`)) return;
+    
+    const result = await api.deleteLearnedFile(filename);
+    if (result.error) {
+      setError(result.error);
+    } else {
+      await loadFiles();
+      setSelectedFile(null);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !content.trim()) {
+      setSaveMessage('Title and content are required');
+      return;
+    }
+    
+    setSaving(true);
+    setSaveMessage('');
+    
+    const data: LearnRequest = {
+      title: title.trim(),
+      content: content.trim(),
+      filename: filename.trim() || undefined,
+    };
+    
+    const result = await api.learnContent(data);
+    if (result.error) {
+      setSaveMessage(result.error);
+    } else {
+      setSaveMessage(`Saved to ${result.data?.filepath}`);
+      setTitle('');
+      setContent('');
+      setFilename('');
+      await loadFiles();
+      setActiveTab('files');
+    }
+    setSaving(false);
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
@@ -116,195 +106,179 @@ export default function CharonAdminPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">
-            Charon <span className="gradient-text">Admin</span>
-          </h1>
-          <p className="text-[var(--muted)]">Monitor Charon conversations, logs, and live events</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold mb-2">
+                Charon <span className="gradient-text">Knowledge</span>
+              </h1>
+              <p className="text-[var(--muted)]">Manage Charon's learned knowledge base</p>
+            </div>
+            <a
+              href="/admin"
+              className="px-4 py-2 rounded-lg bg-[var(--card)] border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            >
+              ← Back to Admin
+            </a>
+          </div>
         </div>
 
         {error && (
           <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
             {error}
+            <button onClick={() => setError('')} className="ml-4 text-red-300 hover:text-white">
+              ✕
+            </button>
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex space-x-2 mb-6 overflow-x-auto">
-          {(['conversations', 'logs', 'stream'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => { setActiveTab(tab); setPage(1); setError(''); }}
-              className={`px-6 py-2 rounded-full font-medium capitalize transition-all whitespace-nowrap ${
-                activeTab === tab
-                  ? 'bg-[var(--primary)] text-black'
-                  : 'bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] border border-[var(--border)]'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="flex space-x-2 mb-6">
+          <button
+            onClick={() => setActiveTab('files')}
+            className={`px-6 py-2 rounded-full font-medium transition-all ${
+              activeTab === 'files'
+                ? 'bg-[var(--primary)] text-black'
+                : 'bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] border border-[var(--border)]'
+            }`}
+          >
+            Learned Files
+          </button>
+          <button
+            onClick={() => setActiveTab('write')}
+            className={`px-6 py-2 rounded-full font-medium transition-all ${
+              activeTab === 'write'
+                ? 'bg-[var(--primary)] text-black'
+                : 'bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] border border-[var(--border)]'
+            }`}
+          >
+            Write New
+          </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-          
-          {/* Conversations Tab */}
-          {activeTab === 'conversations' && (
-            <div>
-              <div className="mb-4 flex justify-between items-center">
-                <p className="text-[var(--muted)]">{totalConversations} total conversations</p>
+        {/* Tab Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left: File List */}
+          <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+            <h2 className="text-xl font-semibold mb-4">Learned Files</h2>
+            
+            {loading ? (
+              <div className="text-center py-8 text-[var(--muted)]">Loading...</div>
+            ) : files.length === 0 ? (
+              <div className="text-center py-8 text-[var(--muted)]">
+                No learned files yet. Write some content!
               </div>
-              
-              {loading ? (
-                <div className="text-center py-12 text-[var(--muted)]">Loading...</div>
-              ) : conversations.length === 0 ? (
-                <div className="text-center py-12 text-[var(--muted)]">No conversations yet</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-[var(--muted)] text-sm border-b border-[var(--border)]">
-                        <th className="pb-3 pr-4">Conversation ID</th>
-                        <th className="pb-3 pr-4">Last Message</th>
-                        <th className="pb-3 pr-4">Messages</th>
-                        <th className="pb-3 pr-4">Last Activity</th>
-                        <th className="pb-3">Escalated</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {conversations.map((conv) => (
-                        <tr key={conv.conversation_id} className="border-b border-[var(--border)]/50 hover:bg-[var(--card-hover)]">
-                          <td className="py-3 pr-4 font-mono text-sm">{conv.conversation_id.slice(0, 12)}...</td>
-                          <td className="py-3 pr-4 text-sm max-w-xs truncate">{conv.last_message}</td>
-                          <td className="py-3 pr-4 text-sm">{conv.message_count}</td>
-                          <td className="py-3 pr-4 text-sm text-[var(--muted)]">{formatDate(conv.last_message_at)}</td>
-                          <td className="py-3">
-                            {conv.escalated ? (
-                              <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-400">Yes</span>
-                            ) : (
-                              <span className="text-[var(--muted)]">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Logs Tab */}
-          {activeTab === 'logs' && (
-            <div>
-              {/* Filters */}
-              <div className="mb-6 flex flex-wrap gap-4">
-                <input
-                  type="text"
-                  placeholder="Conversation ID"
-                  value={filterConversationId}
-                  onChange={(e) => setFilterConversationId(e.target.value)}
-                  className="px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--primary)]"
-                />
-                <select
-                  value={filterChannel}
-                  onChange={(e) => setFilterChannel(e.target.value)}
-                  className="px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--primary)]"
-                >
-                  <option value="">All Channels</option>
-                  <option value="web">Web</option>
-                  <option value="telegram">Telegram</option>
-                  <option value="whatsapp">WhatsApp</option>
-                </select>
-                <select
-                  value={filterEscalated === null ? '' : filterEscalated.toString()}
-                  onChange={(e) => setFilterEscalated(e.target.value === '' ? null : e.target.value === 'true')}
-                  className="px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] text-sm focus:outline-none focus:border-[var(--primary)]"
-                >
-                  <option value="">All Escalations</option>
-                  <option value="true">Escalated</option>
-                  <option value="false">Not Escalated</option>
-                </select>
-                <button
-                  onClick={() => { setPage(1); loadLogs(); }}
-                  className="px-4 py-2 rounded-lg bg-[var(--primary)] text-black font-medium text-sm hover:opacity-90"
-                >
-                  Apply Filters
-                </button>
-              </div>
-
-              <div className="mb-4 flex justify-between items-center">
-                <p className="text-[var(--muted)]">{totalLogs} total logs</p>
-              </div>
-              
-              {loading ? (
-                <div className="text-center py-12 text-[var(--muted)]">Loading...</div>
-              ) : logs.length === 0 ? (
-                <div className="text-center py-12 text-[var(--muted)]">No logs found</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-[var(--muted)] text-sm border-b border-[var(--border)]">
-                        <th className="pb-3 pr-4">Time</th>
-                        <th className="pb-3 pr-4">Channel</th>
-                        <th className="pb-3 pr-4">User Message</th>
-                        <th className="pb-3 pr-4">Response</th>
-                        <th className="pb-3 pr-4">Scenario</th>
-                        <th className="pb-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {logs.map((log, idx) => (
-                        <tr key={idx} className="border-b border-[var(--border)]/50 hover:bg-[var(--card-hover)]">
-                          <td className="py-3 pr-4 text-sm text-[var(--muted)]">{formatDate(log.ts)}</td>
-                          <td className="py-3 pr-4 text-sm font-mono">{log.channel}</td>
-                          <td className="py-3 pr-4 text-sm max-w-xs truncate">{log.user_message}</td>
-                          <td className="py-3 pr-4 text-sm max-w-xs truncate">{log.response || '-'}</td>
-                          <td className="py-3 pr-4 text-sm font-mono">{log.scenario_id || '-'}</td>
-                          <td className="py-3">
-                            {log.escalated ? (
-                              <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-400">Escalated</span>
-                            ) : log.error ? (
-                              <span className="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-400">Error</span>
-                            ) : (
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400">OK</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Stream Tab */}
-          {activeTab === 'stream' && (
-            <div>
-              <div className="mb-4 flex justify-between items-center">
-                <p className="text-[var(--muted)]">Live event stream from Charon</p>
-                <span className="flex items-center gap-2 text-sm text-green-400">
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
-                  Connected
-                </span>
-              </div>
-              
-              <div className="bg-[var(--card-hover)] rounded-lg p-4 h-[500px] overflow-y-auto font-mono text-sm">
-                {streamEvents.length === 0 ? (
-                  <div className="text-center py-12 text-[var(--muted)]">Waiting for events...</div>
-                ) : (
-                  streamEvents.map((event, idx) => (
-                    <div key={idx} className="mb-2 pb-2 border-b border-[var(--border)]/30">
-                      <span className="text-[var(--muted)]">[{formatDate(event.ts)}]</span>{' '}
-                      <pre className="inline whitespace-pre-wrap break-all">{JSON.stringify(event.data, null, 2)}</pre>
+            ) : (
+              <div className="space-y-2">
+                {files.map((file) => (
+                  <div
+                    key={file.name}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                      selectedFile?.name === file.name
+                        ? 'bg-[var(--primary)]/10 border-[var(--primary)]'
+                        : 'bg-[var(--card-hover)] border-transparent hover:border-[var(--border)]'
+                    }`}
+                    onClick={() => loadFileContent(file.name)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{file.name}</p>
+                        <p className="text-sm text-[var(--muted)]">
+                          {formatSize(file.size)} • {formatDate(file.modified_at)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(file.name);
+                        }}
+                        className="p-2 text-[var(--muted)] hover:text-red-400 transition-colors"
+                        title="Delete file"
+                      >
+                        🗑
+                      </button>
                     </div>
-                  ))
-                )}
+                  </div>
+                ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Right: Content Preview or Write Form */}
+          <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+            {activeTab === 'files' ? (
+              <>
+                <h2 className="text-xl font-semibold mb-4">Content Preview</h2>
+                {selectedFile ? (
+                  <div className="prose prose-invert max-w-none">
+                    <pre className="whitespace-pre-wrap text-sm bg-[var(--card-hover)] p-4 rounded-lg overflow-auto max-h-[500px]">
+                      {selectedFile.content}
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-[var(--muted)]">
+                    Select a file to preview its content
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-semibold mb-4">Write New Content</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Title</label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g., Refund Policy"
+                      className="w-full px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Custom Filename <span className="text-[var(--muted)]">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={filename}
+                      onChange={(e) => setFilename(e.target.value)}
+                      placeholder="e.g., refund-policy (will add .md)"
+                      className="w-full px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                    />
+                    <p className="text-xs text-[var(--muted)] mt-1">
+                      If not provided, filename will be generated from title + timestamp
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Content (Markdown)</label>
+                    <textarea
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      placeholder="Write your knowledge content here... Use Markdown for formatting."
+                      className="w-full px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none min-h-[300px]"
+                      required
+                    />
+                  </div>
+                  
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="w-full py-3 rounded-lg bg-[var(--primary)] text-black font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save to Knowledge Base'}
+                  </button>
+                  
+                  {saveMessage && (
+                    <p className={`text-center text-sm ${saveMessage.includes('Saved') ? 'text-green-400' : 'text-red-400'}`}>
+                      {saveMessage}
+                    </p>
+                  )}
+                </form>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -65,7 +65,7 @@ export default function AdminPage() {
               <p className="text-[var(--muted)] text-sm mb-1">Total Customers</p>
               <p className="text-3xl font-bold">{stats.total_customers.toLocaleString()}</p>
             </div>
-            <div className="p-6 rounded-2xl bg-[var(--card)] border border-[--border]">
+            <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
               <p className="text-[var(--muted)] text-sm mb-1">Active Orders</p>
               <p className="text-3xl font-bold">{stats.active_orders.toLocaleString()}</p>
             </div>
@@ -107,12 +107,12 @@ export default function AdminPage() {
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--card-hover)]">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--card-hover)] border border-[var(--border)]">
                 <div>
                   <p className="font-medium">Active Credentials</p>
                   <p className="text-sm text-[var(--muted)]">Currently active proxy credentials</p>
                 </div>
-                <p className="text-2xl font-bold text-[var(--primary)]">{stats?.active_credentials || 0}</p>
+                <p className="text-2xl font-bold text-[var(--primary)]">{stats?.active_credentials ?? 0}</p>
               </div>
               <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--card-hover)]">
                 <div>
