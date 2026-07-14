@@ -759,3 +759,138 @@ class AdminLockResponse(BaseModel):
     locked: bool
     locked_until: Optional[datetime]
     message: str
+
+
+# ============== Blog/Post Schemas ==============
+
+class PostStatusEnum(str, Enum):
+    """Post status values."""
+    DRAFT = "draft"
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+
+class PostCreateRequest(BaseModel):
+    """Request to create a blog post."""
+    title: str = Field(..., min_length=1, max_length=255)
+    content: str = Field(..., min_length=1)
+    excerpt: Optional[str] = Field(None, max_length=500)
+    cover_image_url: Optional[str] = Field(None, max_length=500)
+    meta_description: Optional[str] = Field(None, max_length=160)
+    tags: Optional[list[str]] = None
+    scheduled_at: Optional[datetime] = None
+
+
+class PostUpdateRequest(BaseModel):
+    """Request to update a blog post."""
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    content: Optional[str] = None
+    excerpt: Optional[str] = Field(None, max_length=500)
+    cover_image_url: Optional[str] = Field(None, max_length=500)
+    meta_description: Optional[str] = Field(None, max_length=160)
+    tags: Optional[list[str]] = None
+    scheduled_at: Optional[datetime] = None
+
+
+class PostResponse(BaseModel):
+    """Response for a blog post."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    slug: str
+    content: str
+    excerpt: Optional[str]
+    cover_image_url: Optional[str]
+    author: str
+    status: str
+    submitted_at: Optional[datetime]
+    reviewed_by: Optional[str]
+    reviewed_at: Optional[datetime]
+    rejection_reason: Optional[str]
+    scheduled_at: Optional[datetime]
+    published_at: Optional[datetime]
+    meta_description: Optional[str]
+    tags: Optional[list[str]]
+    view_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class PostBriefResponse(BaseModel):
+    """Brief response for a blog post (list view)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    slug: str
+    excerpt: Optional[str]
+    cover_image_url: Optional[str]
+    author: str
+    status: str
+    published_at: Optional[datetime]
+    view_count: int
+    created_at: datetime
+
+
+class PostListResponse(BaseModel):
+    """List of blog posts response."""
+    posts: list[PostBriefResponse]
+    pagination: dict[str, Any]
+
+
+class PostSubmitRequest(BaseModel):
+    """Request to submit a post for review."""
+    pass
+
+
+class PostSubmitResponse(BaseModel):
+    """Response after submitting a post for review."""
+    post_id: UUID
+    status: str
+    submitted_at: datetime
+
+
+class PostApproveRequest(BaseModel):
+    """Request to approve a post."""
+    pass
+
+
+class PostRejectRequest(BaseModel):
+    """Request to reject a post."""
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
+class PostReviewResponse(BaseModel):
+    """Response after reviewing a post."""
+    post_id: UUID
+    status: str
+    reviewed_by: str
+    reviewed_at: datetime
+
+
+class PostPublishRequest(BaseModel):
+    """Request to publish a post."""
+    publish_now: bool = True
+
+
+class PostPublishResponse(BaseModel):
+    """Response after publishing a post."""
+    post_id: UUID
+    status: str
+    published_at: datetime
+
+
+class PostScheduleRequest(BaseModel):
+    """Request to schedule a post."""
+    scheduled_at: datetime
+
+
+class PostScheduleResponse(BaseModel):
+    """Response after scheduling a post."""
+    post_id: UUID
+    status: str
+    scheduled_at: datetime
