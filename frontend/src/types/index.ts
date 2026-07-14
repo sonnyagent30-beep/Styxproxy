@@ -237,3 +237,39 @@ export interface AdminInviteCreateResponse {
   max_uses: number;
   created_by: string;
 }
+
+// ============== Blog Types ==============
+export interface BlogPost {
+  id: number;
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  cover_image?: string;
+  author: string;
+  published: boolean;
+  published_at?: string;
+  created_at: string;
+  updated_at: string;
+  tags?: string[];
+}
+
+export interface BlogPostCreate {
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  cover_image?: string;
+  author?: string;
+  published?: boolean;
+  tags?: string[];
+}
+
+export interface BlogPostUpdate extends Partial<BlogPostCreate> {}
+
+export interface BlogPostsResponse {
+  posts: BlogPost[];
+  total: number;
+  page: number;
+  limit: number;
+}

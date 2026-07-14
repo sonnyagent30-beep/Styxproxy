@@ -22,6 +22,10 @@ import type {
   AdminTeamMember,
   AdminInviteCreateRequest,
   AdminInviteCreateResponse,
+  BlogPost,
+  BlogPostCreate,
+  BlogPostUpdate,
+  BlogPostsResponse,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -281,6 +285,54 @@ class ApiClient {
     return this.request('/admin/auth/totp', {
       method: 'POST',
       body: JSON.stringify({ action, totp_code: totpCode }),
+    });
+  }
+
+  // ============== Blog ==============
+
+  // Get all published blog posts (public)
+  async getBlogPosts(page: number = 1, limit: number = 10): Promise<ApiResponse<BlogPostsResponse>> {
+    return this.request<BlogPostsResponse>(`/blog/posts?page=${page}&limit=${limit}&published=true`);
+  }
+
+  // Get single blog post by slug (public)
+  async getBlogPost(slug: string): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/blog/posts/${slug}`);
+  }
+
+  // Get all blog posts for admin (includes unpublished)
+  async getAdminBlogPosts(page: number = 1, limit: number = 20): Promise<ApiResponse<BlogPostsResponse>> {
+    return this.request<BlogPostsResponse>(`/admin/blog/posts?page=${page}&limit=${limit}`);
+  }
+
+  // Create blog post (admin)
+  async createBlogPost(data: BlogPostCreate): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>('/admin/blog/posts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update blog post (admin)
+  async updateBlogPost(id: number, data: BlogPostUpdate): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/admin/blog/posts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Delete blog post (admin)
+  async deleteBlogPost(id: number): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/admin/blog/posts/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Publish/unpublish blog post (admin)
+  async toggleBlogPostPublish(id: number, published: boolean): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/admin/blog/posts/${id}/publish`, {
+      method: 'POST',
+      body: JSON.stringify({ published }),
     });
   }
 }

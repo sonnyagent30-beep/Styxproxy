@@ -7,6 +7,7 @@ import ConsentGate from "@/components/ConsentGate";
 import { ToastProvider } from "@/components/Toast";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://styxproxy.com'),
   title: "Styxproxy — Anonymous Proxy Service | ISP, DC, Residential, Mobile 4G",
   description: "Buy ISP, Datacenter, Residential & Mobile 4G proxies. Order instantly or via Telegram. Pay with card or bank transfer. No logs, no tracking.",
   keywords: ["anonymous proxy", "ISP proxy", "residential proxy", "mobile 4G proxy", "datacenter proxy", "buy proxy"],
@@ -20,8 +21,18 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://styxproxy.com';
+  
   return (
     <html lang="en">
+      <head>
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="Styxproxy Blog RSS Feed"
+          href={`${siteUrl}/blog/rss.xml`}
+        />
+      </head>
       <body className="antialiased">
         <ToastProvider>
           <ConsentGate />

@@ -17,6 +17,7 @@ from app.limiter import limiter
 from app.routers import (
     admin,
     auth,
+    blog,
     charon,
     credentials,
     health,
@@ -200,3 +201,4 @@ app.include_router(admin.router)
 app.include_router(session.router)
 app.include_router(charon.router)
 app.include_router(auth.router)
+app.include_router(blog.router)

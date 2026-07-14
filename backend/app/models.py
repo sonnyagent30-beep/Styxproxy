@@ -498,6 +498,53 @@ class FeatureFlag(Base):
     enabled_for: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     # JSON array of admin phones that have this feature enabled (null = all)
     admin_overrides: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+
+class Post(Base):
+    """Blog posts table - CMS for blog articles with approval workflow."""
+    __tablename__ = "posts"
+    __table_args__ = (
+        Index("idx_posts_slug", "slug", unique=True),
+        Index("idx_posts_status", "status"),
+        Index("idx_posts_published", "published_at"),
+        Index("idx_posts_scheduled", "scheduled_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    excerpt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    cover_image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    author: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Status: draft, pending, approved, rejected, published, archived
+    status: Mapped[str] = mapped_column(
+        String(20), default="draft", nullable=False
+    )
+    # Approval workflow
+    submitted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reviewed_by: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Scheduling
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    published_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # SEO
+    meta_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tags: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Counters
+    view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
