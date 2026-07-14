@@ -13,16 +13,45 @@ import type {
   LearnedFilesResponse,
   LearnContentResponse,
   LearnRequest,
-  LearnResponse
+  LearnResponse,
+  AdminLoginRequest,
+  AdminLoginResponse,
+  AdminSetupRequest,
+  AdminSetupResponse,
+  AdminMeResponse,
+  AdminTeamMember,
+  AdminInviteCreateRequest,
+  AdminInviteCreateResponse,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 class ApiClient {
   private baseUrl: string;
+  private adminToken: string | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
+  }
+
+  // Store admin token
+  setAdminToken(token: string | null) {
+    this.adminToken = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem('admin_token', token);
+      } else {
+        localStorage.removeItem('admin_token');
+      }
+    }
+  }
+
+  getAdminToken(): string | null {
+    if (this.adminToken) return this.adminToken;
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('admin_token');
+    }
+    return null;
   }
 
   private async request<T>(
@@ -30,12 +59,20 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
+      // Add admin token to headers if available
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string>),
+      };
+      
+      const adminToken = this.getAdminToken();
+      if (adminToken && endpoint.startsWith('/admin')) {
+        headers['Authorization'] = `Bearer ${adminToken}`;
+      }
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -181,6 +218,70 @@ class ApiClient {
   // Health
   async healthCheck(): Promise<ApiResponse<{ status: string; version: string; database: string; timestamp: string }>> {
     return this.request('/health');
+  }
+
+  // ============== Admin Auth ==============
+  
+  // Check if admin is already set up
+  async checkAdminSetupStatus(): Promise<ApiResponse<{ setup_required: boolean }>> {
+    return this.request('/admin/auth/status');
+  }
+
+  // Initial admin setup (first time)
+  async setupAdmin(data: AdminSetupRequest): Promise<ApiResponse<AdminSetupResponse>> {
+    return this.request<AdminSetupResponse>('/admin/auth/setup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Admin login
+  async adminLogin(data: AdminLoginRequest): Promise<ApiResponse<AdminLoginResponse>> {
+    return this.request<AdminLoginResponse>('/admin/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Get current admin info
+  async getAdminMe(): Promise<ApiResponse<AdminMeResponse>> {
+    return this.request<AdminMeResponse>('/admin/auth/me');
+  }
+
+  // Admin logout
+  async adminLogout(): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/admin/auth/logout', {
+      method: 'POST',
+    });
+  }
+
+  // Get admin team (SuperAdmin only)
+  async getAdminTeam(): Promise<ApiResponse<{ members: AdminTeamMember[] }>> {
+    return this.request('/admin/auth/team');
+  }
+
+  // Create admin invite (SuperAdmin only)
+  async createAdminInvite(data: AdminInviteCreateRequest): Promise<ApiResponse<AdminInviteCreateResponse>> {
+    return this.request<AdminInviteCreateResponse>('/admin/auth/invite', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Change admin PIN
+  async changeAdminPin(currentPin: string, newPin: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/admin/auth/password', {
+      method: 'POST',
+      body: JSON.stringify({ current_pin: currentPin, new_pin: newPin }),
+    });
+  }
+
+  // Toggle TOTP
+  async toggleAdminTOTP(action: 'enable' | 'disable', totpCode?: string): Promise<ApiResponse<{ totp_enabled: boolean; message: string }>> {
+    return this.request('/admin/auth/totp', {
+      method: 'POST',
+      body: JSON.stringify({ action, totp_code: totpCode }),
+    });
   }
 }
 

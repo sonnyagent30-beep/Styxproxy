@@ -447,3 +447,60 @@ class AdminAuth(Base):
     last_used: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class AdminInvite(Base):
+    """Admin invites table - Invite codes for new admin registration."""
+    __tablename__ = "admin_invites"
+    __table_args__ = (
+        Index("idx_admin_invites_code", "invite_code", unique=True),
+        Index("idx_admin_invites_email", "email"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    invite_code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    role: Mapped[str] = mapped_column(
+        String(20), default="admin", nullable=False
+    )  # admin, superadmin, viewer
+    created_by: Mapped[Optional[str]] = mapped_column(
+        String(20), ForeignKey("admin_auth.admin_phone"), nullable=True
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    used_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    used_by: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    max_uses: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    uses_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class FeatureFlag(Base):
+    """Feature flags table - Toggle features globally or per-admin."""
+    __tablename__ = "feature_flags"
+    __table_args__ = (
+        Index("idx_feature_flags_name", "name", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    enabled_for: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # JSON array of admin phones that have this feature enabled (null = all)
+    admin_overrides: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
