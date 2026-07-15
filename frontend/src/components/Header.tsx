@@ -35,17 +35,17 @@ export default function Header() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link 
-              href="/products" 
+            <Link
+              href="/products"
               className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
               Products
             </Link>
-            <Link 
-              href="/order" 
+            <Link
+              href="/order"
               className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
-              Order
+              Pricing
             </Link>
             <Link
               href="/#how-it-works"
@@ -53,23 +53,17 @@ export default function Header() {
             >
               How It Works
             </Link>
-            <Link 
-              href="/manage" 
+            <Link
+              href="/blog"
               className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
-              Manage
+              Blog
             </Link>
-            <Link 
-              href="/contact" 
+            <Link
+              href="/contact"
               className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
               Contact
-            </Link>
-            <Link 
-              href="/about" 
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              About
             </Link>
           </nav>
 
@@ -109,11 +103,10 @@ export default function Header() {
           <nav className="flex flex-col space-y-1 py-4 border-t border-[var(--border)]">
             {[
               ['/products', 'Products'],
-              ['/order', 'Order'],
+              ['/order', 'Pricing'],
               ['/#how-it-works', 'How It Works'],
-              ['/manage', 'Manage'],
+              ['/blog', 'Blog'],
               ['/contact', 'Contact'],
-              ['/about', 'About'],
             ].map(([href, label]) => (
               <Link
                 key={href}

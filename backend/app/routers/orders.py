@@ -627,159 +627,294 @@ async def get_receipt_pdf(
     tx_ref: str,
     session: AsyncSession = Depends(get_session),
 ):
-    """Generate and download PDF receipt."""
+    """Generate and download a dark-themed PDF receipt."""
+    from reportlab.pdfgen import canvas as pdf_canvas
+
     import asyncio
-    
+
     # Query by tx_ref or payment_reference
     stmt = select(Order, Customer).outerjoin(
         Customer, Order.customer_phone == Customer.phone
     ).where(
         (Order.tx_ref == tx_ref) | (Order.payment_reference == tx_ref)
     ).limit(1)
-    
+
     result = asyncio.get_event_loop().run_until_complete(session.execute(stmt))
     row = result.first()
-    
+
     if not row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Order not found"
         )
-    
+
     order, customer = row
-    
+
     # Get credential if exists
     cred = None
     if order.bunche_credential_id:
         cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
         cred_result = asyncio.get_event_loop().run_until_complete(session.execute(cred_stmt))
         cred = cred_result.scalar_one_or_none()
-    
-    # Build PDF
+
+    # ── Build PDF with canvas (full dark-theme control) ──────────
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=20*mm, bottomMargin=20*mm)
-    story = []
-    
-    styles = getSampleStyleSheet()
-    
-    # Title style
-    title_style = ParagraphStyle(
-        'Title',
-        parent=styles['Heading1'],
-        fontSize=24,
-        textColor=colors.HexColor('#0AD25A'),
-        spaceAfter=10,
-    )
-    
-    # Normal text styles
-    normal_white = ParagraphStyle(
-        'NormalWhite',
-        parent=styles['Normal'],
-        textColor=colors.white,
-    )
-    
-    normal_muted = ParagraphStyle(
-        'NormalMuted',
-        parent=styles['Normal'],
-        textColor=colors.HexColor('#9CA3AF'),
-        fontSize=10,
-    )
-    
+    W, H = A4
+    c = pdf_canvas.Canvas(buffer, pagesize=A4)
+
+    def rgb(hex_str):
+        h = hex_str.lstrip('#')
+        return tuple(int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+
+    GREEN  = rgb('#0AD25A')
+    BG     = rgb('#0a0a0a')
+    CARD   = rgb('#1a1a1a')
+    MUTED  = rgb('#9CA3AF')
+    DIM    = rgb('#6B7280')
+    WHITE  = rgb('#ffffff')
+    LIGHT  = rgb('#D1D5DB')
+    BORDER = rgb('#262626')
+
+    # Background
+    c.setFillColorRGB(*BG)
+    c.rect(0, 0, W, H, fill=1, stroke=0)
+
+    # Top accent bar
+    c.setFillColorRGB(*GREEN)
+    c.rect(0, H - 4*mm, W, 4*mm, fill=1, stroke=0)
+
     # Header
-    story.append(Paragraph("PAYMENT RECEIPT", title_style))
-    story.append(Paragraph(f"styxproxy.com • {datetime.now().strftime('%B %d, %Y')}", normal_muted))
-    story.append(Spacer(1, 20))
-    
-    # Order info table
-    order_data = [
-        ['Transaction Reference:', tx_ref],
-        ['Order ID:', order.order_id],
-        ['Status:', order.status.upper()],
-        ['Date:', order.created_at.strftime('%B %d, %Y') if order.created_at else 'N/A'],
-    ]
-    
-    order_table = Table(order_data, colWidths=[60*mm, 120*mm])
-    order_table.setStyle(TableStyle([
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#9CA3AF')),
-        ('TEXTCOLOR', (1, 0), (1, -1), colors.white),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    story.append(order_table)
-    story.append(Spacer(1, 20))
-    
-    # Items section
-    story.append(Paragraph("ITEMS", normal_muted))
-    
-    # Build items from order
-    item_name = f"{order.plan_code or 'Proxy'} - {order.country or 'N/A'}"
+    y = H - 14*mm
+
+    # S-mark logo
+    c.setFillColorRGB(*GREEN)
+    c.roundRect(15*mm, y - 8*mm, 8*mm, 8*mm, 1.5*mm, fill=1, stroke=0)
+    c.setFillColorRGB(*BG)
+    c.setFont('Helvetica-Bold', 6)
+    c.drawCentredString(19*mm, y - 4.5*mm, 'S')
+
+    c.setFillColorRGB(*WHITE)
+    c.setFont('Helvetica-Bold', 16)
+    c.drawString(26*mm, y - 4*mm, 'styxproxy')
+
+    c.setFillColorRGB(*MUTED)
+    c.setFont('Helvetica', 7)
+    c.drawString(26*mm, y - 8*mm, 'Anonymous Proxy Service')
+
+    c.setFillColorRGB(*GREEN)
+    c.setFont('Helvetica-Bold', 9)
+    c.drawRightString(W - 15*mm, y - 3*mm, 'PAYMENT RECEIPT')
+
+    c.setFillColorRGB(*MUTED)
+    c.setFont('Helvetica', 7)
+    c.drawRightString(W - 15*mm, y - 7*mm, 'styxproxy.com')
+    c.drawRightString(W - 15*mm, y - 10.5*mm, f"Issued: {datetime.now().strftime('%B %d, %Y')}")
+
+    y = y - 13*mm
+    c.setStrokeColorRGB(*BORDER)
+    c.setLineWidth(0.2)
+    c.line(15*mm, y, W - 15*mm, y)
+
+    # Order confirmation
+    y = y - 7*mm
+    c.setFillColorRGB(*MUTED)
+    c.setFont('Helvetica-Bold', 6.5)
+    c.drawString(15*mm, y, 'ORDER CONFIRMATION')
+
+    customer_name = customer.name.strip() if customer and customer.name else None
+    thank_you = f"Thank you, {customer_name}." if customer_name else "Thank you, customer."
+    y = y - 12*mm
+    c.setFillColorRGB(*WHITE)
+    c.setFont('Helvetica-Bold', 22)
+    c.drawString(15*mm, y, thank_you)
+
+    y = y - 7*mm
+    c.setFillColorRGB(*MUTED)
+    c.setFont('Helvetica', 9)
+    c.drawString(15*mm, y, 'Your proxy is ready to use. Below are your credentials.')
+
+    status = (order.status or 'pending').upper()
+    c.setFillColorRGB(*GREEN)
+    c.roundRect(W - 50*mm, y - 4.5*mm, 35*mm, 9*mm, 4.5*mm, fill=1, stroke=0)
+    c.setFillColorRGB(*BG)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawCentredString(W - 32.5*mm, y - 0.5*mm, status)
+
+    # Order details card
+    y = y - 16*mm
+    card_top = y
+    c.setFillColorRGB(*CARD)
+    c.roundRect(15*mm, card_top - 42*mm, W - 30*mm, 42*mm, 3*mm, fill=1, stroke=0)
+
+    row_y = card_top - 8*mm
+    c.setFillColorRGB(*MUTED)
+    c.setFont('Helvetica-Bold', 6.5)
+    c.drawString(20*mm, row_y, 'TRANSACTION REFERENCE')
+    c.drawString(W/2 + 5*mm, row_y, 'ORDER ID')
+
+    row_y -= 8*mm
+    c.setFillColorRGB(*WHITE)
+    c.setFont('Helvetica-Bold', 10)
+    c.drawString(20*mm, row_y, tx_ref)
+    oid = order.order_id or 'N/A'
+    if len(oid) > 22:
+        oid = oid[:22] + '…'
+    c.drawString(W/2 + 5*mm, row_y, oid)
+
+    row_y -= 5*mm
+    c.setFillColorRGB(*DIM)
+    c.setFont('Helvetica', 6)
+    c.drawString(20*mm, row_y, 'Flutterwave payment reference')
+    c.drawString(W/2 + 5*mm, row_y, 'Internal order reference')
+
+    row_y -= 5*mm
+    c.setStrokeColorRGB(*BORDER)
+    c.line(20*mm, row_y, W - 20*mm, row_y)
+
+    row_y -= 6*mm
+    c.setFillColorRGB(*MUTED)
+    c.setFont('Helvetica-Bold', 6.5)
+    c.drawString(20*mm, row_y, 'DATE')
+    c.drawString(W/2 + 5*mm, row_y, 'METHOD')
+
+    row_y -= 6*mm
+    c.setFillColorRGB(*WHITE)
+    c.setFont('Helvetica', 9)
+    date_str = order.created_at.strftime('%B %d, %Y') if order.created_at else datetime.now().strftime('%B %d, %Y')
+    c.drawString(20*mm, row_y, date_str)
+    c.drawString(W/2 + 5*mm, row_y, 'Card / Bank / USSD / QR')
+
+    # Items
+    y = card_top - 52*mm
+    c.setFillColorRGB(*MUTED)
+    c.setFont('Helvetica-Bold', 7)
+    c.drawString(15*mm, y, 'ITEMS')
+    c.drawRightString(W - 35*mm, y, 'QTY')
+    c.drawRightString(W - 15*mm, y, 'AMOUNT')
+
+    y += 2*mm
+    c.setStrokeColorRGB(*BORDER)
+    c.line(15*mm, y, W - 15*mm, y)
+
+    y += 8*mm
+    amount = float(order.amount_paid_ngn or 0)
     quantity = order.quantity or 1
-    amount = order.amount_paid_ngn or 0
-    
-    items_data = [
-        [item_name, str(quantity), f"₦{amount:,.0f}"]
-    ]
-    
-    items_table = Table(items_data, colWidths=[120*mm, 30*mm, 40*mm])
-    items_table.setStyle(TableStyle([
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.white),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica'),
-        ('FONTNAME', (1, 0), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
-        ('LINEABOVE', (0, 0), (-1, 0), 1, colors.HexColor('#262626')),
-    ]))
-    story.append(items_table)
-    story.append(Spacer(1, 10))
-    
-    # Total
-    story.append(Paragraph(f"<b>TOTAL PAID:</b> ₦{amount:,.0f}", normal_white))
-    story.append(Spacer(1, 20))
-    
-    # Credentials section (if available)
+    plan_label = f"{order.plan_code or 'Proxy'} - {order.country or 'N/A'}"
+
+    c.setFillColorRGB(*WHITE)
+    c.setFont('Helvetica', 10)
+    c.drawString(15*mm, y, plan_label)
+    c.setFillColorRGB(*MUTED)
+    c.setFont('Helvetica', 6.5)
+    c.drawString(15*mm, y - 4*mm, f'{quantity} unit{"s" if quantity != 1 else ""}  |  HTTP/SOCKS5')
+    c.setFillColorRGB(*WHITE)
+    c.setFont('Helvetica', 10)
+    c.drawRightString(W - 35*mm, y, str(quantity))
+    c.drawRightString(W - 15*mm, y, f'₦{amount:,.0f}')
+
+    y += 14*mm
+
+    c.setFillColorRGB(*GREEN)
+    c.roundRect(W - 75*mm, y - 2*mm, 60*mm, 11*mm, 2*mm, fill=1, stroke=0)
+    c.setFillColorRGB(*BG)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawString(W - 70*mm, y + 3.5*mm, 'TOTAL PAID')
+    c.setFont('Helvetica-Bold', 11)
+    c.drawRightString(W - 19*mm, y + 3.5*mm, f'₦{amount:,.0f}')
+
+    # Credentials card
     if cred:
-        story.append(Paragraph("YOUR PROXY CREDENTIALS", title_style))
-        story.append(Spacer(1, 10))
-        
-        cred_data = [
-            ['Username:', cred.bun_username or 'N/A'],
-            ['Password:', '********'],  # Don't expose password
-            ['Proxy Address:', f"{cred.upstream_proxy_ip or 'N/A'}:{cred.upstream_proxy_port or 'N/A'}"],
-            ['Protocol:', cred.protocol or 'SOCKS5'],
-            ['Expires:', cred.expires_at.strftime('%B %d, %Y') if cred.expires_at else 'N/A'],
-        ]
-        
-        cred_table = Table(cred_data, colWidths=[40*mm, 140*mm])
-        cred_table.setStyle(TableStyle([
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#9CA3AF')),
-            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#0AD25A')),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ]))
-        story.append(cred_table)
-        story.append(Spacer(1, 20))
-    
+        y -= 8*mm
+        c.setFillColorRGB(*GREEN)
+        c.setFont('Helvetica-Bold', 8)
+        c.drawString(15*mm, y, 'YOUR PROXY CREDENTIALS')
+
+        card_h = 70*mm
+        c_top = y - 2*mm
+        c_bottom = c_top - card_h
+
+        c.setFillColorRGB(*BG)
+        c.setStrokeColorRGB(*GREEN)
+        c.setLineWidth(0.6)
+        c.roundRect(15*mm, c_bottom, W - 30*mm, card_h, 3*mm, fill=1, stroke=1)
+        c.setStrokeColorRGB(*BORDER)
+        c.setLineWidth(0.2)
+
+        inner_y = c_top - 8*mm
+        row_h = 16*mm
+
+        def _row(label, val, x):
+            nonlocal inner_y
+            c.setFillColorRGB(*MUTED)
+            c.setFont('Helvetica-Bold', 6.5)
+            c.drawString(x, inner_y, label)
+            c.setFillColorRGB(*GREEN)
+            c.setFont('Helvetica-Bold', 9.5)
+            c.drawString(x, inner_y - 5*mm, str(val))
+            c.setStrokeColorRGB(*BORDER)
+            c.line(x, inner_y - 8*mm, W - 20*mm, inner_y - 8*mm)
+            inner_y -= row_h
+
+        _row('USERNAME', cred.bun_username or 'N/A', 20*mm)
+        _row('PASSWORD', cred.bun_password or 'N/A', W/2 + 5*mm)
+        _row('PROXY ADDRESS', f"{cred.upstream_proxy_ip or 'N/A'}:{cred.upstream_proxy_port or ''}", 20*mm)
+        _row('PROTOCOL', 'HTTP / SOCKS5', W/2 + 5*mm)
+
+        c.setFillColorRGB(*MUTED)
+        c.setFont('Helvetica-Bold', 6.5)
+        c.drawString(20*mm, inner_y, 'FULL FORMAT')
+        c.setFillColorRGB(*LIGHT)
+        c.setFont('Courier', 7.5)
+        full_str = f"http://{cred.bun_username or 'user'}:{cred.bun_password or 'pass'}@{cred.upstream_proxy_ip or '0.0.0.0'}:{cred.upstream_proxy_port or 8080}"
+        c.drawString(20*mm, inner_y - 5*mm, full_str)
+
+        inner_y -= row_h
+        c.setFillColorRGB(*MUTED)
+        c.setFont('Helvetica-Bold', 6.5)
+        c.drawString(20*mm, inner_y, 'EXPIRES')
+        exp_str = cred.expires_at.strftime('%B %d, %Y') if cred.expires_at else 'N/A'
+        c.setFillColorRGB(*WHITE)
+        c.setFont('Helvetica', 8)
+        c.drawString(20*mm, inner_y - 5*mm, exp_str)
+        c.drawString(W/2 + 5*mm, inner_y, 'AUTO-RENEW')
+        c.drawString(W/2 + 5*mm, inner_y - 5*mm, 'On (manage to disable)')
+
+        y = c_bottom - 8*mm
+    else:
+        y = y - 18*mm
+
+    # Support section
+    sup_y = max(y, 20*mm + 5*mm)
+    sup_h = 18*mm
+    c.setFillColorRGB(*CARD)
+    c.roundRect(15*mm, sup_y - sup_h, W - 30*mm, sup_h, 3*mm, fill=1, stroke=0)
+
+    c.setFillColorRGB(*GREEN)
+    c.setFont('Helvetica-Bold', 7)
+    c.drawString(20*mm, sup_y - 5*mm, 'NEED HELP?')
+    c.setFillColorRGB(*WHITE)
+    c.setFont('Helvetica', 8)
+    c.drawString(20*mm, sup_y - 10*mm, 'Chat support:')
+    c.setFillColorRGB(*GREEN)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawString(20*mm, sup_y - 14.5*mm, 'styxproxy.com/contact')
+    c.setFillColorRGB(*MUTED)
+    c.setFont('Helvetica', 7)
+    c.drawString(90*mm, sup_y - 5*mm, 'Email:')
+    c.drawString(90*mm, sup_y - 10*mm, 'Web:')
+    c.setFillColorRGB(*WHITE)
+    c.setFont('Helvetica-Bold', 8)
+    c.drawString(100*mm, sup_y - 5*mm, 'oyebiyiayomide30@gmail.com')
+    c.drawString(100*mm, sup_y - 10*mm, 'styxproxy.com')
+
     # Footer
-    story.append(Spacer(1, 30))
-    story.append(Paragraph(
-        "This receipt was generated automatically. No signature required.",
-        normal_muted
-    ))
-    story.append(Paragraph(
-        "© 2026 Styxproxy — Anonymous proxy service.",
-        normal_muted
-    ))
-    
-    # Build PDF
-    doc.build(story)
-    
-    # Return PDF
+    c.setFillColorRGB(*DIM)
+    c.setFont('Helvetica', 6.5)
+    c.drawCentredString(W/2, 8*mm, 'This receipt was generated automatically. No signature required.')
+
+    c.save()
     buffer.seek(0)
-    
+
     from fastapi.responses import StreamingResponse
     return StreamingResponse(
         iter([buffer.getvalue()]),
