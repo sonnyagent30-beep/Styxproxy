@@ -337,6 +337,44 @@ class OrderReportDeadResponse(BaseModel):
     replacement_estimate_hours: int
 
 
+class PrecheckRequest(BaseModel):
+    """Request to precheck order availability."""
+    plan_code: str = Field(..., min_length=1, max_length=50)
+    country: str = Field(..., min_length=2, max_length=10)
+    quantity: int = Field(default=1, ge=1)
+
+    @field_validator("country")
+    @classmethod
+    def validate_country_code(cls, v: str) -> str:
+        return validate_country(v)
+
+
+class PrecheckResponse(BaseModel):
+    """Response from precheck endpoint."""
+    available: bool
+    reason: Optional[str] = None
+    price_ngn: Optional[float] = None
+    estimated_delivery_seconds: int = 30
+
+
+class ReceiptOrderResponse(BaseModel):
+    """Receipt response - order with credential data for public receipt page."""
+    model_config = ConfigDict(from_attributes=True)
+
+    order_id: str
+    tx_ref: Optional[str] = None
+    status: str
+    plan_type: Optional[str] = None
+    plan_code: Optional[str] = None
+    country: Optional[str] = None
+    quantity: Optional[int] = None
+    amount_paid_ngn: Optional[float] = None
+    customer_name: Optional[str] = None
+    created_at: datetime
+    expires_at: Optional[datetime] = None
+    bunche_credential: Optional[BuncheCredentialBrief] = None
+
+
 # ============== Payments Schemas ==============
 
 class PaymentInitiateRequest(BaseModel):

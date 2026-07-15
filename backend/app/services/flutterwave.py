@@ -1,8 +1,13 @@
 """Flutterwave service for payment processing."""
+import logging
 import hmac, hashlib, httpx, uuid
 from datetime import datetime
 from typing import Optional
 from app.config import get_settings
+from app.services.n8n import trigger_credentials_delivered_webhook
+from app.services.credential import create_credential
+
+logger = logging.getLogger(__name__)
 settings = get_settings()
 def verify_flutterwave_signature(payload: bytes, signature: str, secret: str) -> bool:
     computed = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
@@ -55,5 +60,50 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                 order.status = "paid"
                 order.amount_paid_ngn = data.get("amount")
                 await db_session.commit()
+                
+                # Full pipeline: provider → test → Dante → DB → n8n notification
+                try:
+                    # create_credential returns (BuncheCredential, plaintext_password)
+                    credential, plaintext_password = await create_credential(
+                        db_session=db_session,
+                        order_id=order.order_id,
+                        customer_phone=order.customer_phone or "",
+                        plan_code=order.plan_code or "unknown",
+                        country=order.country or "NG",
+                        proxy_type="isp",
+                        quantity=1,
+                        duration_days=30,
+                        protocol="socks5",
+                        pool_type="paid",
+                    )
+
+                    order.bunche_credential_id = credential.id
+                    order.status = "fulfilled"
+                    await db_session.commit()
+
+                    # Trigger n8n webhook with the plaintext password
+                    if credential.expires_at:
+                        await trigger_credentials_delivered_webhook(
+                            order_id=order.order_id,
+                            tx_ref=tx_ref,
+                            phone=order.customer_phone or "",
+                            channel=order.channel or "web",
+                            bun_username=credential.bun_username,
+                            bun_password=plaintext_password,
+                            proxy_ip=credential.upstream_proxy_ip or "",
+                            proxy_port=credential.upstream_proxy_port or 1080,
+                            expires_at=credential.expires_at,
+                        )
+                except Exception as e:
+                    from app.services.audit import log_audit_event
+                    await log_audit_event(
+                        db_session,
+                        event_type="credential_creation_failed",
+                        phone=order.customer_phone,
+                        order_id=order.order_id,
+                        details={"error": str(e), "tx_ref": tx_ref},
+                    )
+                    logger.error(f"Failed to create credential for order {order.order_id}: {e}")
+                
                 return {"status": "processed", "order_id": order.order_id}
     return {"status": "ignored"}

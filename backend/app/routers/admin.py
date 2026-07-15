@@ -17,6 +17,7 @@ from app.schemas import (
     LearnedFilesResponse, LearnedFileResponse, LearnContentResponse, 
     DeleteLearnedFileRequest, DeleteLearnedFileResponse,
     PlanResponse, PlansResponse, PlanCreateRequest, PlanUpdateRequest,
+    ChannelFeatureFlagsResponse, ChannelFeatureFlagsUpdate, ChannelConfig,
 )
 from app.auth import admin_only
 from app.services.credential import replace_credential
@@ -514,14 +515,8 @@ async def get_channel_feature_flags(session: AsyncSession = Depends(get_session)
     whatsapp_url = whatsapp_flag.admin_overrides.get("url", "") if whatsapp_flag.admin_overrides else ""
     
     return ChannelFeatureFlagsResponse(
-        telegram={
-            "enabled": telegram_flag.enabled,
-            "url": telegram_url,
-        },
-        whatsapp={
-            "enabled": whatsapp_flag.enabled,
-            "url": whatsapp_url,
-        },
+        telegram=ChannelConfig(enabled=telegram_flag.enabled, url=telegram_url),
+        whatsapp=ChannelConfig(enabled=whatsapp_flag.enabled, url=whatsapp_url),
     )
 
 
@@ -546,12 +541,12 @@ async def update_channel_feature_flags(
     await session.refresh(whatsapp_flag)
     
     return ChannelFeatureFlagsResponse(
-        telegram={
-            "enabled": telegram_flag.enabled,
-            "url": telegram_flag.admin_overrides.get("url", "") if telegram_flag.admin_overrides else "",
-        },
-        whatsapp={
-            "enabled": whatsapp_flag.enabled,
-            "url": whatsapp_flag.admin_overrides.get("url", "") if whatsapp_flag.admin_overrides else "",
-        },
+        telegram=ChannelConfig(
+            enabled=telegram_flag.enabled,
+            url=telegram_flag.admin_overrides.get("url", "") if telegram_flag.admin_overrides else "",
+        ),
+        whatsapp=ChannelConfig(
+            enabled=whatsapp_flag.enabled,
+            url=whatsapp_flag.admin_overrides.get("url", "") if whatsapp_flag.admin_overrides else "",
+        ),
     )
