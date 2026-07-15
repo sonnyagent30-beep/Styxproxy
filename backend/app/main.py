@@ -72,6 +72,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "ALTER TABLE bunche_credentials ADD COLUMN IF NOT EXISTS rotation_count INTEGER NOT NULL DEFAULT 0"
         ))
 
+    # Seed initial trigger weights if they don't exist
+    from sqlalchemy import text
+    async with engine.connect() as conn:
+        TRIGGERS = [
+            'repeat_pricing', 'pricing_dwell', 'product_browse', 'cart_abandon',
+            'order_confusion', 'session_stuck', 'scroll_bottom', 'exit_intent', 'geo_question'
+        ]
+        for trigger_id in TRIGGERS:
+            await conn.execute(
+                text("""
+                    INSERT INTO trigger_weights (trigger_id, weight, total_fires, total_opens, total_dismissed, total_converted, positive_rate)
+                    VALUES (:tid, 1.0, 0, 0, 0, 0, 0)
+                    ON CONFLICT (trigger_id) DO NOTHING
+                """),
+                {"tid": trigger_id}
+            )
+        await conn.commit()
+
     # Initialize Sentry if configured
     if settings.sentry_dsn:
         import sentry_sdk
