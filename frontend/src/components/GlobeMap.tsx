@@ -106,10 +106,13 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
     tryLoad(0);
   }, []);
 
-  // Responsive sizing
+  // Responsive sizing — globe takes full width of its container on all breakpoints
   useEffect(() => {
     const update = () => {
-      const size = Math.min(window.innerWidth, 600);
+      // Read the container's actual pixel width (globe is inside a w-full parent)
+      const container = document.getElementById('globe-container');
+      const containerW = container ? container.offsetWidth : window.innerWidth;
+      const size = Math.min(containerW, 640);
       setDims({ w: Math.round(size), h: Math.round(size) });
     };
     update();
@@ -167,11 +170,11 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
   const featured = LOCATIONS[featuredIdx];
 
   return (
-    <div className="relative w-full overflow-hidden" style={{ height: 480, minHeight: 480 }}>
-      {/* Globe canvas */}
+    <div id="globe-container" className="relative w-full" style={{ height: 480, minHeight: 480 }}>
+      {/* Globe canvas — centered within container */}
       <div
-        className="absolute left-0 top-0 flex items-center justify-center"
-        style={{ width: dims.w, height: dims.h, opacity: containerOpacity, transition: 'opacity 700ms ease' }}
+        className="absolute left-1/2 top-0 flex items-center"
+        style={{ width: dims.w, height: dims.h, transform: 'translateX(-50%)', opacity: containerOpacity, transition: 'opacity 700ms ease' }}
       >
         <Globe
           ref={globeRef}
