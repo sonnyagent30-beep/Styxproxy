@@ -7,175 +7,30 @@ import { api } from '@/lib/api';
 import type { BlogPost } from '@/types';
 
 // Demo blog posts — used when API is unavailable (local dev, no DB)
-const DEMO_POSTS: BlogPost[] = [
-  {
-    id: 'demo-1',
-    slug: 'residential-vs-datacenter-proxies',
-    title: 'Residential vs Datacenter Proxies: Which Should You Choose?',
-    excerpt: 'Understand the fundamental differences between residential and datacenter proxies and which one fits your use case.',
-    content: '',
-    cover_image_url: '/blog/cover-1.png',
-    author: 'Oyebiyi Ayomide',
-    status: 'published',
-    view_count: 0,
-    updated_at: '2026-06-01T09:00:00Z',
-    tags: ['proxies', 'residential', 'datacenter', 'guide'],
-    created_at: '2026-06-01T09:00:00Z',
-    published_at: '2026-06-01T09:00:00Z',
-  },
-  {
-    id: 'demo-2',
-    slug: 'how-to-configure-socks5-proxies',
-    title: 'How to Configure SOCKS5 Proxies in 5 Minutes',
-    excerpt: 'A practical step-by-step guide to configuring your Sytxproxy SOCKS5 credentials in any application.',
-    content: '',
-    cover_image_url: '/blog/cover-2.png',
-    author: 'Oyebiyi Ayomide',
-    status: 'published',
-    view_count: 0,
-    updated_at: '2026-06-08T10:00:00Z',
-    tags: ['tutorial', 'socks5', 'configuration'],
-    created_at: '2026-06-08T10:00:00Z',
-    published_at: '2026-06-08T10:00:00Z',
-  },
-  {
-    id: 'demo-3',
-    slug: 'web-scraping-nigeria-guide',
-    title: 'Web Scraping in Nigeria: A Practical Guide for 2026',
-    excerpt: 'Everything you need to know about scraping Nigerian websites legally and effectively in 2026.',
-    content: '',
-    cover_image_url: '/blog/cover-3.png',
-    author: 'Oyebiyi Ayomide',
-    status: 'published',
-    view_count: 0,
-    updated_at: '2026-06-15T08:00:00Z',
-    tags: ['nigeria', 'web-scraping', 'data'],
-    created_at: '2026-06-15T08:00:00Z',
-    published_at: '2026-06-15T08:00:00Z',
-  },
-  {
-    id: 'demo-4',
-    slug: 'http-vs-socks5-vs-https-proxies',
-    title: 'HTTP vs SOCKS5 vs HTTPS Proxies: Complete Comparison',
-    excerpt: 'A technical breakdown of HTTP, HTTPS, and SOCKS5 proxy protocols and which one you should use.',
-    content: '',
-    cover_image_url: '/blog/cover-4.png',
-    author: 'Oyebiyi Ayomide',
-    status: 'published',
-    view_count: 0,
-    updated_at: '2026-06-22T11:00:00Z',
-    tags: ['technical', 'socks5', 'http', 'comparison'],
-    created_at: '2026-06-22T11:00:00Z',
-    published_at: '2026-06-22T11:00:00Z',
-  },
-  {
-    id: 'demo-5',
-    slug: 'web-automation-stack-nigerian-businesses',
-    title: 'Building an Affordable Web Automation Stack for Nigerian Businesses',
-    excerpt: 'How Nigerian businesses can build a professional web automation infrastructure for under ₦20,000/month.',
-    content: '',
-    cover_image_url: '/blog/cover-5.png',
-    author: 'Oyebiyi Ayomide',
-    status: 'published',
-    view_count: 0,
-    updated_at: '2026-07-01T09:30:00Z',
-    tags: ['automation', 'business', 'nigeria'],
-    created_at: '2026-07-01T09:30:00Z',
-    published_at: '2026-07-01T09:30:00Z',
-  },
-  {
-    id: 'demo-6',
-    slug: 'proxy-authentication-methods',
-    title: 'Proxy Authentication Methods Explained: IP Whitelist vs Username/Password',
-    excerpt: 'IP whitelisting vs username/password — which proxy authentication method is right for your use case.',
-    content: '',
-    cover_image_url: '/blog/cover-6.png',
-    author: 'Oyebiyi Ayomide',
-    status: 'published',
-    view_count: 0,
-    updated_at: '2026-07-05T10:00:00Z',
-    tags: ['security', 'authentication', 'technical'],
-    created_at: '2026-07-05T10:00:00Z',
-    published_at: '2026-07-05T10:00:00Z',
-  },
-  {
-    id: 'demo-7',
-    slug: '4g-mobile-proxies-social-media',
-    title: '4G Mobile Proxies: The Secret Weapon for Social Media Automation',
-    excerpt: 'How 4G mobile proxies from Nigerian carriers provide unmatched stealth for social media automation.',
-    content: '',
-    cover_image_url: '/blog/cover-7.png',
-    author: 'Oyebiyi Ayomide',
-    status: 'published',
-    view_count: 0,
-    updated_at: '2026-07-08T08:00:00Z',
-    tags: ['mobile', 'social-media', '4g', 'nigeria'],
-    created_at: '2026-07-08T08:00:00Z',
-    published_at: '2026-07-08T08:00:00Z',
-  },
-  {
-    id: 'demo-8',
-    slug: 'speed-vs-security-proxy-tradeoff',
-    title: 'Speed vs Security: The Proxy Trade-off You Need to Understand',
-    excerpt: 'Optimize your proxy setup by understanding the real trade-offs between speed and security.',
-    content: '',
-    cover_image_url: '/blog/cover-8.png',
-    author: 'Oyebiyi Ayomide',
-    status: 'published',
-    view_count: 0,
-    updated_at: '2026-07-10T11:00:00Z',
-    tags: ['security', 'speed', 'performance'],
-    created_at: '2026-07-10T11:00:00Z',
-    published_at: '2026-07-10T11:00:00Z',
-  },
-  {
-    id: 'demo-9',
-    slug: 'bypassing-geo-restrictions-nigeria',
-    title: 'Bypassing Geo-Restrictions: A Practical Guide for Nigerian Internet Users',
-    excerpt: 'A clear-eyed look at how proxies help Nigerian users access geo-restricted content legally.',
-    content: '',
-    cover_image_url: '/blog/cover-9.png',
-    author: 'Oyebiyi Ayomide',
-    status: 'published',
-    view_count: 0,
-    updated_at: '2026-07-12T09:00:00Z',
-    tags: ['geo-restrictions', 'privacy', 'legal'],
-    created_at: '2026-07-12T09:00:00Z',
-    published_at: '2026-07-12T09:00:00Z',
-  },
-  {
-    id: 'demo-10',
-    slug: 'nigeria-africa-proxy-hub',
-    title: 'Why Nigeria Is Becoming Africa\'s Proxy Hub',
-    excerpt: 'How Nigeria is positioning itself as Africa\'s premier destination for quality proxy services.',
-    content: '',
-    cover_image_url: '/blog/cover-10.png',
-    author: 'Oyebiyi Ayomide',
-    status: 'published',
-    view_count: 0,
-    updated_at: '2026-07-14T10:00:00Z',
-    tags: ['nigeria', 'africa', 'market', 'trends'],
-    created_at: '2026-07-14T10:00:00Z',
-    published_at: '2026-07-14T10:00:00Z',
-  },
-];
+import { DEMO_POSTS } from '@/data/blog-posts';
 
 export default function BlogPage() {
   const [posts, setPosts] = useState<BlogPost[]>(DEMO_POSTS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(3);
+  const [totalPages, setTotalPages] = useState(Math.ceil(DEMO_POSTS.length / 9));
 
   useEffect(() => {
     async function fetchPosts() {
       setLoading(true);
-      const result = await api.getBlogPosts(page, 9);
-      if (result.data) {
-        setPosts(result.data.posts);
-        setTotalPages(Math.ceil(result.data.pagination.total_items / 9));
-      } else if (result.error) {
-        // API unavailable — show demo posts
+      try {
+        const result = await api.getBlogPosts(page, 9);
+        if (result.data) {
+          setPosts(result.data.posts);
+          setTotalPages(Math.ceil(result.data.pagination.total_items / 9));
+        } else {
+          // API unavailable — show demo posts
+          setPosts(DEMO_POSTS);
+          setTotalPages(Math.ceil(DEMO_POSTS.length / 9));
+        }
+      } catch (_) {
+        // Network error — show demo posts
         setPosts(DEMO_POSTS);
         setTotalPages(Math.ceil(DEMO_POSTS.length / 9));
       }
