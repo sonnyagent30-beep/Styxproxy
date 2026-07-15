@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { DEMO_POSTS } from '@/data/blog-posts';
-import BlogCard from '@/components/blog/BlogCard';
+import PostRow from '@/components/blog/PostRow';
 import TagFilter from '@/components/blog/TagFilter';
 import type { BlogPost } from '@/types';
 
@@ -24,34 +24,52 @@ function getAllTags(posts: BlogPost[]): string[] {
 export default function BlogPage() {
   const allPosts = DEMO_POSTS;
   const tags = getAllTags(allPosts);
-  const [featured, ...rest] = allPosts;
+  
+  // Sort by date - newest first
+  const sortedPosts = [...allPosts].sort(
+    (a, b) => new Date(b.published_at || b.created_at).getTime() -
+              new Date(a.published_at || a.created_at).getTime()
+  );
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[var(--foreground)] mb-2">Blog</h1>
-        <p className="text-[var(--muted)]">
-          Latest news, tutorials, and insights about proxies, automation, and staying anonymous online.
+      <div className="mb-10">
+        <h1 className="text-4xl sm:text-5xl font-bold text-[#f5f5f5] mb-3 tracking-tight" style={{ letterSpacing: '-0.03em' }}>
+          Blog
+        </h1>
+        <p className="text-base text-[var(--muted)] max-w-2xl">
+          Insights, tutorials, and guides on proxies, automation, and staying anonymous online. Built for developers and businesses in Africa.
         </p>
       </div>
 
-      {/* Tag filter bar */}
-      <div className="mb-8">
+      {/* Tag filter bar - horizontal scrollable */}
+      <div className="mb-12">
         <TagFilter tags={tags} />
       </div>
 
-      {/* Featured post */}
-      <div className="mb-10">
-        <BlogCard post={featured} featured />
-      </div>
+      {/* Featured post - full-width editorial row */}
+      {sortedPosts.length > 0 && (
+        <div className="mb-16">
+          <PostRow post={sortedPosts[0]} featured imagePosition="left" />
+        </div>
+      )}
 
-      {/* Post list */}
-      <div className="space-y-1">
-        {rest.map((post) => (
-          <BlogCard key={post.id} post={post} />
-        ))}
-      </div>
+      {/* Post list - alternate image position for visual rhythm */}
+      {sortedPosts.slice(1).map((post, index) => (
+        <PostRow 
+          key={post.id} 
+          post={post} 
+          imagePosition={index % 2 === 0 ? 'right' : 'left'} 
+        />
+      ))}
+
+      {/* Empty state */}
+      {allPosts.length === 0 && (
+        <div className="text-center py-16">
+          <p className="text-[var(--muted)]">No blog posts yet. Check back soon!</p>
+        </div>
+      )}
     </main>
   );
 }

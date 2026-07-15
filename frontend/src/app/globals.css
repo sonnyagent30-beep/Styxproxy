@@ -1,13 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0f0f0f;
+  --background: #000000;
   --foreground: #f5f5f5;
   --primary: #0AD25A;
   --primary-dark: #059669;
   --primary-light: #22FF7A;
   --accent: #f59e0b;
   --accent-dark: #d97706;
+  --surface: #111111;
   --card: #1a1a1a;
   --card-hover: #252525;
   --border: #2a2a2a;
@@ -25,6 +26,7 @@
   --color-primary-light: var(--primary-light);
   --color-accent: var(--accent);
   --color-accent-dark: var(--accent-dark);
+  --color-surface: var(--surface);
   --color-card: var(--card);
   --color-card-hover: var(--card-hover);
   --color-border: var(--border);
@@ -109,6 +111,7 @@ button {
     --primary-light: #22FF7A;
     --accent: #f59e0b;
     --accent-dark: #d97706;
+    --surface: #f5f5f5;
     --card: #f5f5f5;
     --card-hover: #e5e5e5;
     --border: #e5e5e5;
@@ -122,4 +125,182 @@ button {
     backdrop-filter: blur(12px);
     border: 1px solid var(--border);
   }
+}
+
+/* Blog article content styles */
+.blog-content {
+  color: var(--foreground);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+.blog-content h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  color: var(--foreground);
+}
+.blog-content h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: var(--foreground);
+}
+.blog-content p {
+  margin-bottom: 1.25rem;
+}
+.blog-content ul, .blog-content ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+.blog-content li {
+  margin-bottom: 0.5rem;
+}
+.blog-content ul li::marker {
+  color: var(--primary);
+}
+.blog-content ol li::marker {
+  color: var(--primary);
+  font-weight: 600;
+}
+.blog-content strong {
+  font-weight: 600;
+  color: var(--foreground);
+}
+.blog-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.blog-content a:hover {
+  color: var(--primary-light);
+}
+.blog-content pre {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.blog-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875em;
+}
+.blog-content pre code {
+  background: none;
+  padding: 0;
+}
+.blog-content blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* Styxproxy article prose — used by individual blog post pages */
+.prose-styx {
+  color: var(--foreground);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+.prose-styx > * + * {
+  margin-top: 1.25rem;
+}
+.prose-styx h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.25;
+}
+.prose-styx h3 {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.3;
+}
+.prose-styx p {
+  color: var(--foreground);
+}
+.prose-styx strong {
+  color: #fff;
+  font-weight: 600;
+}
+.prose-styx a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+.prose-styx a:hover {
+  color: var(--primary-light);
+}
+.prose-styx ul,
+.prose-styx ol {
+  padding-left: 1.5rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+.prose-styx ul {
+  list-style: disc;
+}
+.prose-styx ol {
+  list-style: decimal;
+}
+.prose-styx li {
+  margin-top: 0.5rem;
+}
+.prose-styx code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875em;
+  background: var(--surface);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  color: var(--primary);
+}
+.prose-styx pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.prose-styx pre code {
+  background: transparent;
+  padding: 0;
+  color: var(--foreground);
+}
+.prose-styx blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: var(--muted);
+}
+.prose-styx table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.prose-styx th,
+.prose-styx td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.prose-styx th {
+  background: var(--surface);
+  font-weight: 600;
+  color: #fff;
 }

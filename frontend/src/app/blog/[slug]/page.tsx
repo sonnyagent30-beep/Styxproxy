@@ -5,9 +5,9 @@ import { notFound } from 'next/navigation';
 import { api } from '@/lib/api';
 import { getDemoPostBySlug, DEMO_POSTS } from '@/data/blog-posts';
 import type { BlogPost } from '@/types';
-import ShareSidebar from '@/components/blog/ShareSidebar';
-import PrevNextNav from '@/components/blog/PrevNextNav';
-import RelatedPosts from '@/components/blog/RelatedPosts';
+import TagPill from '@/components/blog/TagPill';
+import ShareButtons from '@/components/blog/ShareButtons';
+import PostNav from '@/components/blog/PostNav';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -94,8 +94,8 @@ export default async function BlogPostPage({ params }: Props) {
   const jsonLd = generateJsonLd(post, siteUrl);
   const readTime = estimateReadTime(post.content || post.excerpt || '');
 
-  // Find prev/next
-  const sorted = DEMO_POSTS.sort(
+  // Find prev/next (chronological: previous is older, next is newer)
+  const sorted = [...DEMO_POSTS].sort(
     (a, b) => new Date(b.published_at || b.created_at).getTime() -
                new Date(a.published_at || a.created_at).getTime()
   );
@@ -106,13 +106,12 @@ export default async function BlogPostPage({ params }: Props) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <ShareSidebar title={post.title} url={post.slug} />
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-16">
         {/* Back link */}
         <Link
           href="/blog"
-          className="inline-flex items-center gap-1 text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors mb-6"
+          className="inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--primary)] transition-colors mb-8"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
             <polyline points="15 18 9 12 15 6" />
@@ -122,45 +121,42 @@ export default async function BlogPostPage({ params }: Props) {
 
         {/* Cover image */}
         {post.cover_image_url && (
-          <div className="relative w-full h-64 sm:h-80 rounded-2xl overflow-hidden mb-8">
+          <div className="relative w-full aspect-[16/9] overflow-hidden rounded-xl bg-[var(--surface)] mb-10">
             <Image
               src={post.cover_image_url}
               alt={post.title}
               fill
               priority
               className="object-cover"
-              sizes="(max-width: 768px) 100vw, 768px"
+              sizes="(max-width: 768px) 100vw, 896px"
             />
           </div>
         )}
 
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-5">
             {post.tags.map((tag) => (
-              <Link
-                key={tag}
-                href={`/blog/tag/${encodeURIComponent(tag)}`}
-                className="px-3 py-1 rounded-full text-xs font-medium bg-[var(--surface)] border border-[var(--border)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white transition-all"
-              >
-                #{tag}
-              </Link>
+              <TagPill key={tag} tag={tag} />
             ))}
           </div>
         )}
 
         {/* Title */}
-        <h1 className="text-2xl sm:text-3xl font-bold text-[var(--foreground)] mb-4 leading-tight">
+        <h1
+          className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-[-0.03em] leading-[1.1] mb-6"
+          style={{ textWrap: 'balance' }}
+        >
           {post.title}
         </h1>
 
-        {/* Meta row */}
-        <div className="flex items-center gap-3 pb-6 border-b border-[var(--border)] mb-8">
-          <div className="w-9 h-9 rounded-full bg-[var(--accent)] flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+        {/* Meta */}
+        <div className="flex items-center gap-3 pb-8 border-b border-[var(--border)] mb-10">
+          <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold flex-shrink-0">
             {post.author?.charAt(0)}
           </div>
           <div>
-            <p className="text-sm font-medium text-[var(--foreground)]">{post.author}</p>
+            <p className="text-sm font-medium text-white">{post.author}</p>
             <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
               <time dateTime={post.published_at || post.created_at}>
                 {new Date(post.published_at || post.created_at).toLocaleDateString('en-US', {
@@ -175,17 +171,19 @@ export default async function BlogPostPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Content */}
-        <div
-          className="prose prose-invert max-w-none"
+        {/* Article body — centered editorial column, max ~65ch */}
+        <article
+          className="prose-styx max-w-[65ch] mx-auto"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
 
-        {/* Prev/Next navigation */}
-        <PrevNextNav prev={prev} next={next} />
+        {/* Share buttons — inline, centered */}
+        <div className="max-w-[65ch] mx-auto">
+          <ShareButtons title={post.title} slug={post.slug} />
+        </div>
 
-        {/* Related posts */}
-        <RelatedPosts posts={DEMO_POSTS} excludeSlug={slug} />
+        {/* Prev / next */}
+        <PostNav prev={prev} next={next} />
       </main>
     </>
   );

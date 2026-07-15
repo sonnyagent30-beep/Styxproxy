@@ -1,7 +1,6 @@
 'use client';
-import { useRouter, usePathname } from 'next/navigation';
-import { useSearchParams } from 'next/navigation';
-import { useCallback } from 'react';
+import Link from 'next/link';
+import TagPill from './TagPill';
 
 interface Props {
   tags: string[];
@@ -9,46 +8,22 @@ interface Props {
 }
 
 export default function TagFilter({ tags, activeTag }: Props) {
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const handleTagClick = useCallback(
-    (tag: string) => {
-      if (tag === activeTag) {
-        router.push('/blog');
-      } else {
-        router.push(`/blog/tag/${encodeURIComponent(tag)}`);
-      }
-    },
-    [activeTag, router]
-  );
-
-  if (!tags.length) return null;
-
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-      <button
-        onClick={() => router.push('/blog')}
-        className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+    <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+      <Link
+        href="/blog"
+        className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 flex-shrink-0 ${
           !activeTag
-            ? 'bg-[var(--accent)] text-white shadow-sm'
-            : 'bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-hover)] border border-[var(--border)]'
+            ? 'bg-[var(--primary)] text-black'
+            : 'bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:text-white hover:border-[var(--primary)]'
         }`}
       >
         All
-      </button>
+      </Link>
       {tags.map((tag) => (
-        <button
-          key={tag}
-          onClick={() => handleTagClick(tag)}
-          className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
-            tag === activeTag
-              ? 'bg-[var(--accent)] text-white shadow-sm'
-              : 'bg-[var(--surface)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-hover)] border border-[var(--border)]'
-          }`}
-        >
-          #{tag}
-        </button>
+        <div key={tag} className="flex-shrink-0">
+          <TagPill tag={tag} active={tag === activeTag} />
+        </div>
       ))}
     </div>
   );
