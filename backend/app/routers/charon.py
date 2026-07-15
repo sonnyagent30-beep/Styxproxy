@@ -420,3 +420,122 @@ async def post_learn(payload: LearnRequest):
         filepath=str(filepath.relative_to(LEARNED_DIR.parent.parent)),
         message=f"Successfully saved to {filepath.name}",
     )
+
+
+# =============================================================================
+# TRIGGER ENDPOINTS - Record and query trigger event weights
+# =============================================================================
+
+from app.database import async_session
+from sqlalchemy import text
+
+
+class TriggerEventRequest(BaseModel):
+    session_id: str = Field(..., min_length=1, max_length=64)
+    trigger_id: str = Field(..., min_length=1, max_length=50)
+    outcome: str = Field(..., description="One of: opened_chat, dismissed, ignored, converted")
+    charon_msg: Optional[str] = Field(default=None, description="Optional Charon message that was shown")
+
+
+VALID_OUTCOMES = {"opened_chat", "dismissed", "ignored", "converted"}
+
+
+@router.post("/trigger-event")
+async def post_trigger_event(payload: TriggerEventRequest):
+    """Record a trigger outcome and update aggregate weights.
+    
+    This endpoint records how users responded to behavioral triggers
+    (e.g., repeat_pricing, cart_abandon). The outcome updates:
+    - total_fires (always +1)
+    - total_opens (if opened_chat or converted)
+    - total_dismissed (if dismissed)
+    - total_converted (if converted)
+    - positive_rate = (opens + converted * 1.5) / total_fires
+    """
+    # Validate outcome
+    if payload.outcome not in VALID_OUTCOMES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid outcome. Must be one of: {', '.join(VALID_OUTCOMES)}"
+        )
+
+    async with async_session() as session:
+        # Insert trigger event
+        await session.execute(
+            text("""
+                INSERT INTO trigger_events (session_id, trigger_id, outcome, charon_msg)
+                VALUES (:session_id, :trigger_id, :outcome, :charon_msg)
+            """),
+            {
+                "session_id": payload.session_id,
+                "trigger_id": payload.trigger_id,
+                "outcome": payload.outcome,
+                "charon_msg": payload.charon_msg,
+            }
+        )
+
+        # Determine counter updates based on outcome
+        if payload.outcome == "opened_chat":
+            update_sql = """
+                UPDATE trigger_weights
+                SET total_fires = total_fires + 1,
+                    total_opens = total_opens + 1,
+                    positive_rate = (total_opens + 1 + total_converted * 1.5) / (total_fires + 1),
+                    updated_at = NOW()
+                WHERE trigger_id = :trigger_id
+            """
+        elif payload.outcome == "dismissed":
+            update_sql = """
+                UPDATE trigger_weights
+                SET total_fires = total_fires + 1,
+                    total_dismissed = total_dismissed + 1,
+                    positive_rate = (total_opens + total_converted * 1.5) / (total_fires + 1),
+                    updated_at = NOW()
+                WHERE trigger_id = :trigger_id
+            """
+        elif payload.outcome == "converted":
+            update_sql = """
+                UPDATE trigger_weights
+                SET total_fires = total_fires + 1,
+                    total_opens = total_opens + 1,
+                    total_converted = total_converted + 1,
+                    positive_rate = (total_opens + 1 + (total_converted + 1) * 1.5) / (total_fires + 1),
+                    updated_at = NOW()
+                WHERE trigger_id = :trigger_id
+            """
+        else:  # ignored
+            update_sql = """
+                UPDATE trigger_weights
+                SET total_fires = total_fires + 1,
+                    positive_rate = (total_opens + total_converted * 1.5) / (total_fires + 1),
+                    updated_at = NOW()
+                WHERE trigger_id = :trigger_id
+            """
+
+        await session.execute(text(update_sql), {"trigger_id": payload.trigger_id})
+        await session.commit()
+
+    return {"ok": True}
+
+
+@router.get("/weights")
+async def get_weights():
+    """Get all trigger weights.
+    
+    Returns a dict mapping trigger_id to {weight, total_fires}.
+    """
+    async with async_session() as session:
+        result = await session.execute(
+            text("""
+                SELECT trigger_id, weight, total_fires
+                FROM trigger_weights
+                ORDER BY trigger_id
+            """)
+        )
+        rows = result.fetchall()
+
+    weights = {
+        row[0]: {"weight": float(row[1]), "total_fires": row[2]}
+        for row in rows
+    }
+    return {"weights": weights}
