@@ -19,13 +19,12 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* Quick Links + Legal + Company combined */}
           <div>
             <h4 className="font-semibold mb-4">Product</h4>
             <ul className="space-y-2 text-sm text-[var(--muted)]">
               <li><Link href="/products" className="hover:text-[var(--foreground)] transition-colors">Products</Link></li>
-              <li><Link href="/order" className="hover:text-[var(--foreground)] transition-colors">Order Now</Link></li>
-              <li><Link href="/manage" className="hover:text-[var(--foreground)] transition-colors">Manage Order</Link></li>
+              <li><Link href="/order" className="hover:text-[var(--foreground)] transition-colors">Pricing</Link></li>
+              <li><Link href="/blog" className="hover:text-[var(--foreground)] transition-colors">Blog</Link></li>
               <li><Link href="/contact" className="hover:text-[var(--foreground)] transition-colors">Contact</Link></li>
             </ul>
           </div>
@@ -33,8 +32,8 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Resources</h4>
             <ul className="space-y-2 text-sm text-[var(--muted)]">
-              <li><Link href="/about" className="hover:text-[var(--foreground)] transition-colors">About</Link></li>
               <li><Link href="/#how-it-works" className="hover:text-[var(--foreground)] transition-colors">How It Works</Link></li>
+              <li><Link href="/manage" className="hover:text-[var(--foreground)] transition-colors">Manage Order</Link></li>
               <li>
                 <a href="https://t.me/StyxproxyBot" className="hover:text-[var(--foreground)] transition-colors" target="_blank" rel="noopener noreferrer">
                   Telegram Bot
@@ -47,9 +46,9 @@ export default function Footer() {
             <h4 className="font-semibold mb-4">Legal</h4>
             <ul className="space-y-2 text-sm text-[var(--muted)]">
               <li><Link href="/legal/terms" className="hover:text-[var(--foreground)] transition-colors">Terms of Service</Link></li>
-              <li><Link href="/refund-policy" className="hover:text-[var(--foreground)] transition-colors">Refund Policy</Link></li>
               <li><Link href="/legal/privacy" className="hover:text-[var(--foreground)] transition-colors">Privacy Policy</Link></li>
               <li><Link href="/legal/aup" className="hover:text-[var(--foreground)] transition-colors">Acceptable Use</Link></li>
+              <li><Link href="/refund-policy" className="hover:text-[var(--foreground)] transition-colors">Refund Policy</Link></li>
               <li><Link href="/cookie-policy" className="hover:text-[var(--foreground)] transition-colors">Cookie Policy</Link></li>
             </ul>
           </div>
