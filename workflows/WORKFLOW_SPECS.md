@@ -1,8 +1,8 @@
 # Bunche — Workflow Specifications
 
-**Last Updated:** 2026-06-27
-**SHA:** Bunche-Auth-Layer-v1
-**Status:** Ready for Implementation
+**Last Updated:** 2026-07-15
+**SHA:** Bunche-Fulfillment-v1
+**Status:** Fulfillment pipeline built (Railway backend); n8n for delivery only
 
 ---
 
@@ -67,32 +67,46 @@ Customer sees:   proxy1.bunche.ng:1080
 
 ### Credential Lifecycle
 
-**Order Flow:**
-1. Customer pays → Flutterwave webhook
-2. n8n calls provider API → gets provider IP + credentials
-3. n8n generates Bunche username/password
-4. n8n calls `manage-bunche-credentials.sh add USERNAME PASSWORD`
-5. n8n inserts row into `bunche_credentials` DB table
-6. n8n sends Bunche-branded credentials via WhatsApp
+**Order Flow (2026-07-15 — Railway Backend handles fulfillment):**
+1. Customer pays → Flutterwave webhook to Railway
+2. Railway calls provider API → gets raw provider IP + credentials
+3. Railway tests proxy (up to 5 retries) — alive + fast enough
+4. Railway registers on Dante → generates Bunche username/password → routes to upstream IP
+5. Railway saves `BuncheCredential` to DB (branded creds stored, raw hidden)
+6. Railway updates order: paid → fulfilled
+7. Railway triggers n8n webhook: `POST /webhook/credentials-delivered`
+8. Railway sends email with credentials + PDF receipt link
+9. Railway triggers n8n webhook
+10. n8n sends WhatsApp/Telegram with credentials + receipt URL
+
+**Rotation via Dante (customer-initiated):**
+1. Customer clicks "Rotate" on their dashboard
+2. Railway calls Dante → generates new bun_username + bun_password
+3. Dante keeps same upstream provider IP
+4. Old credentials invalidated immediately
+5. Railway sends new credentials: email + WhatsApp/Telegram
+
+**Provider IP Rotation (admin-approved escalation):**
+1. Escalation → admin approves in /admin panel
+2. Railway calls provider rotate API
+3. Railway calls Dante → updates upstream IP (same bun creds)
+4. Customer keeps same bun_username/bun_password
+5. Notification sent to customer: email + WhatsApp/Telegram
 
 **Refund Flow:**
 1. Admin approves refund on Flutterwave dashboard
-2. Flutterwave processes refund
-3. n8n calls `manage-bunche-credentials.sh revoke USERNAME`
-4. Dante reloads → old credentials instantly fail
-5. n8n updates `bunche_credentials.status = 'revoked'`
-6. Provider IP is NOT returned to provider (already paid for monthly)
-7. Provider IP goes into free_trial pool with new temp password
+2. Flutterwave processes refund → webhook to Railway
+3. Railway revokes BuncheCredential in DB
+4. Railway calls Dante → revoke credential
+5. Railway calls n8n webhook: credential revoked
+6. n8n sends WhatsApp/Telegram: "Your order has been refunded"
 
 **Free Trial Flow:**
 1. Customer completes survey → verified via webhook
-2. n8n picks an available IP from free_trial pool
-3. n8n generates session password
-4. n8n calls `manage-bunche-credentials.sh free_trial TRIALUSER SESSIONPASS`
-5. Credentials sent to customer with 2hr expiry warning
-6. Cron runs every 5 min → checks `bunche_credentials.expires_at`
-7. Expired trials → `manage-bunche-credentials.sh revoke TRIALUSER`
-8. IP returned to free_trial pool
+2. Railway generates trial credentials via Dante (self-hosted proxy)
+3. Railway sends credentials with 2hr expiry warning
+4. Cron runs every 5 min → checks expires_at
+5. Expired trials → Railway revokes via Dante
 
 ### Credential Management
 
