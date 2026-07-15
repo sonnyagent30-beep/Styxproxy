@@ -12,7 +12,8 @@ export default function ConsentGate() {
       window.location.pathname === '/refund-policy';
 
     if (!accepted && !isLegalPage) {
-      const timer = setTimeout(() => setVisible(true), 5000);
+      // Show after a brief delay so users see the page first
+      const timer = setTimeout(() => setVisible(true), 2000);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -23,135 +24,117 @@ export default function ConsentGate() {
   };
 
   const handleLeave = () => {
-    window.location.href = 'https://www.google.com';
+    // Just close the banner — don't redirect away
+    setVisible(false);
   };
 
   if (!visible) return null;
 
   return (
-    <>
-      {/* Plain dark overlay */}
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 99998,
+        background: 'var(--background)',
+        borderTop: '1px solid var(--border)',
+        padding: '1rem 1.5rem',
+      }}
+    >
       <div
         style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 99998,
-          background: 'rgba(0, 0, 0, 0.6)',
-        }}
-      />
-
-      {/* Bottom sheet */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 99999,
-          background: 'var(--card)',
-          borderTop: '1px solid var(--border)',
-          padding: '1.25rem 1.5rem',
+          maxWidth: '720px',
+          margin: '0 auto',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1.25rem',
+          flexWrap: 'wrap',
         }}
       >
-        <div
-          style={{
-            maxWidth: '560px',
-            margin: '0 auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            flexWrap: 'wrap',
-          }}
-        >
-          {/* Text */}
-          <div style={{ flex: 1, minWidth: '200px' }}>
-            <p
-              style={{
-                color: 'var(--foreground)',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                marginBottom: '0.2rem',
-              }}
+        {/* Text */}
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <p
+            style={{
+              color: 'var(--muted)',
+              fontSize: '0.8rem',
+              lineHeight: 1.5,
+            }}
+          >
+            We use cookies to deliver a smooth, anonymous browsing experience.{' '}
+            <a
+              href="/cookie-policy"
+              style={{ color: 'var(--primary)', textDecoration: 'underline' }}
             >
-              By using Styxproxy you agree to our{' '}
-              <a
-                href="/legal/terms"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'var(--primary)' }}
-              >
-                Terms
-              </a>
-              ,{' '}
-              <a
-                href="/refund-policy"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'var(--primary)' }}
-              >
-                Refund Policy
-              </a>
-              ,{' '}
-              <a
-                href="/legal/privacy"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'var(--primary)' }}
-              >
-                Privacy Policy
-              </a>
-              , and{' '}
-              <a
-                href="/legal/aup"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'var(--primary)' }}
-              >
-                Acceptable Use
-              </a>
-              .
-            </p>
-            <p style={{ color: 'var(--muted)', fontSize: '0.72rem' }}>
-              Read before continuing.
-            </p>
-          </div>
+              Learn more
+            </a>
+            . By continuing, you agree to our{' '}
+            <a
+              href="/legal/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--primary)', textDecoration: 'underline' }}
+            >
+              Terms
+            </a>
+            ,{' '}
+            <a
+              href="/legal/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--primary)', textDecoration: 'underline' }}
+            >
+              Privacy Policy
+            </a>
+            , and{' '}
+            <a
+              href="/legal/aup"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--primary)', textDecoration: 'underline' }}
+            >
+              Acceptable Use Policy
+            </a>
+            .
+          </p>
+        </div>
 
-          {/* Buttons */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-            <button
-              onClick={handleAccept}
-              style={{
-                padding: '0.5rem 1.25rem',
-                background: 'var(--primary)',
-                color: '#000',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                border: 'none',
-                borderRadius: '0.5rem',
-                cursor: 'pointer',
-              }}
-            >
-              Accept &amp; Enter
-            </button>
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+          <button
+            onClick={handleAccept}
+            style={{
+              padding: '0.5rem 1.25rem',
+              background: 'var(--primary)',
+              color: '#000',
+              fontWeight: 700,
+              fontSize: '0.8rem',
+              border: 'none',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+            }}
+          >
+            Accept &amp; Continue
+          </button>
 
-            <button
-              onClick={handleLeave}
-              style={{
-                padding: '0.5rem 1.25rem',
-                background: 'transparent',
-                color: 'var(--muted)',
-                fontWeight: 600,
-                fontSize: '0.8rem',
-                border: '1px solid var(--border)',
-                borderRadius: '0.5rem',
-                cursor: 'pointer',
-              }}
-            >
-              Leave
-            </button>
-          </div>
+          <button
+            onClick={handleLeave}
+            style={{
+              padding: '0.5rem 1.25rem',
+              background: 'transparent',
+              color: 'var(--muted)',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              border: '1px solid var(--border)',
+              borderRadius: '0.5rem',
+              cursor: 'pointer',
+            }}
+          >
+            No thanks
+          </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
