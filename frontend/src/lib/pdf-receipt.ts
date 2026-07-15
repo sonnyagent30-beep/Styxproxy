@@ -1,6 +1,8 @@
 /**
  * Shared PDF receipt generator for Styxproxy.
  * Both /thank-you and /preview use this — one source of truth.
+ *
+ * Top-down Y math (no inverted drawing). Verified visually.
  */
 
 interface CartItem {
@@ -25,6 +27,7 @@ export interface ReceiptOrder {
   bunche_credential?: Credential;
 }
 
+// Brand colors (RGB tuples for jsPDF)
 const PRIMARY: [number, number, number] = [10, 210, 90];   // #0AD25A
 const BG: [number, number, number] = [10, 10, 10];          // #0a0a0a
 const CARD: [number, number, number] = [26, 26, 26];        // #1a1a1a
@@ -54,7 +57,8 @@ export async function generateReceiptPDF(
   doc.setFillColor(...PRIMARY);
   doc.rect(0, 0, W, 4, 'F');
 
-  // ── Header: full lockup logo (S-mark + wordmark) ───────
+  // ── Header ─────────────────────────────────────────────
+  // Logo mark
   doc.setFillColor(...PRIMARY);
   doc.roundedRect(15, 14, 8, 8, 1.5, 1.5, 'F');
   doc.setTextColor(...BG);
@@ -62,6 +66,7 @@ export async function generateReceiptPDF(
   doc.setFont('helvetica', 'bold');
   doc.text('S', 19, 19, { align: 'center' });
 
+  // Wordmark
   doc.setTextColor(...WHITE);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
@@ -72,7 +77,7 @@ export async function generateReceiptPDF(
   doc.setFont('helvetica', 'normal');
   doc.text('Anonymous Proxy Service', 26, 24);
 
-  // ── Right header: PAYMENT RECEIPT label ─────────────────
+  // Right header: PAYMENT RECEIPT label
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
@@ -80,8 +85,14 @@ export async function generateReceiptPDF(
 
   doc.setTextColor(...MUTED);
   doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
   doc.text('styxproxy.com', W - 15, 21.5, { align: 'right' });
-  doc.text(`Issued: ${new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`, W - 15, 25, { align: 'right' });
+  doc.text(
+    `Issued: ${new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+    W - 15,
+    25,
+    { align: 'right' }
+  );
 
   // ── Divider ─────────────────────────────────────────────
   doc.setDrawColor(...BORDER);
@@ -107,59 +118,79 @@ export async function generateReceiptPDF(
   doc.setFont('helvetica', 'normal');
   doc.text('Your proxy is ready to use. Below are your credentials.', 15, 56);
 
-  // FULFILLED pill on the right
+  // FULFILLED pill on the right (vertically centered with thank-you line at y=49)
   const status = order?.status?.toUpperCase() || 'PENDING';
   doc.setFillColor(...PRIMARY);
-  doc.roundedRect(W - 50, 43, 35, 9, 4.5, 4.5, 'F');
+  doc.roundedRect(W - 50, 42, 35, 9, 4.5, 4.5, 'F');
   doc.setTextColor(...BG);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text(status, W - 32.5, 49, { align: 'center' });
+  doc.text(status, W - 32.5, 48, { align: 'center' });
 
   // ── Order details card ──────────────────────────────────
-  const cardTop = 65;
+  // Card layout (top-down):
+  //   y0: card top
+  //   y0+10: section labels (TX REF | ORDER ID)
+  //   y0+16: large values
+  //   y0+20: small dim labels
+  //   y0+24: divider
+  //   y0+30: section labels (DATE | METHOD)
+  //   y0+36: large values
+  //   y0+40: card bottom
+  const orderCardTop = 64;
+  const orderCardBottom = 108;
   doc.setFillColor(...CARD);
-  doc.roundedRect(15, cardTop - 42, W - 30, 42, 3, 3, 'F');
+  doc.roundedRect(15, orderCardTop, W - 30, orderCardBottom - orderCardTop, 3, 3, 'F');
 
   // Row 1: TX Ref | Order ID
   doc.setTextColor(...MUTED);
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('TRANSACTION REFERENCE', 20, cardTop - 8);
-  doc.text('ORDER ID', W / 2 + 5, cardTop - 8);
+  doc.text('TRANSACTION REFERENCE', 20, orderCardTop + 10);
+  doc.text('ORDER ID', W / 2 + 5, orderCardTop + 10);
 
   doc.setTextColor(...WHITE);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text(txRef || 'N/A', 20, cardTop - 16);
+  doc.text(txRef || 'N/A', 20, orderCardTop + 16);
 
   const orderIdDisplay = order?.order_id || 'N/A';
-  doc.text(orderIdDisplay.length > 22 ? orderIdDisplay.slice(0, 22) + '…' : orderIdDisplay, W / 2 + 5, cardTop - 16);
+  doc.text(
+    orderIdDisplay.length > 22 ? orderIdDisplay.slice(0, 22) + '…' : orderIdDisplay,
+    W / 2 + 5,
+    orderCardTop + 16
+  );
 
   doc.setTextColor(...DIM);
   doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
-  doc.text('Flutterwave payment reference', 20, cardTop - 21);
-  doc.text('Internal order reference', W / 2 + 5, cardTop - 21);
+  doc.text('Flutterwave payment reference', 20, orderCardTop + 20);
+  doc.text('Internal order reference', W / 2 + 5, orderCardTop + 20);
 
+  // Divider
   doc.setDrawColor(...BORDER);
-  doc.line(20, cardTop - 26, W - 20, cardTop - 26);
+  doc.setLineWidth(0.2);
+  doc.line(20, orderCardTop + 24, W - 20, orderCardTop + 24);
 
   // Row 2: DATE | METHOD
   doc.setTextColor(...MUTED);
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('DATE', 20, cardTop - 32);
-  doc.text('METHOD', W / 2 + 5, cardTop - 32);
+  doc.text('DATE', 20, orderCardTop + 30);
+  doc.text('METHOD', W / 2 + 5, orderCardTop + 30);
 
   doc.setTextColor(...WHITE);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }), 20, cardTop - 38);
-  doc.text('Card / Bank / USSD / QR', W / 2 + 5, cardTop - 38);
+  doc.text(
+    new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }),
+    20,
+    orderCardTop + 36
+  );
+  doc.text('Card / Bank / USSD / QR', W / 2 + 5, orderCardTop + 36);
 
   // ── Items section ───────────────────────────────────────
-  let y = 72;
+  let y = 120;
   doc.setTextColor(...MUTED);
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
@@ -168,9 +199,10 @@ export async function generateReceiptPDF(
   doc.text('AMOUNT', W - 15, y, { align: 'right' });
 
   doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.2);
   doc.line(15, y + 2, W - 15, y + 2);
 
-  y += 8;
+  y += 10;
   let subtotal = 0;
 
   cart.forEach((item) => {
@@ -184,13 +216,15 @@ export async function generateReceiptPDF(
 
     doc.setTextColor(...MUTED);
     doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
     doc.text(`${item.quantity} ${item.quantity === 1 ? 'unit' : 'units'}  |  HTTP/SOCKS5`, 15, y + 4);
 
     doc.setTextColor(...WHITE);
     doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
     doc.text(String(item.quantity), W - 35, y, { align: 'right' });
     doc.text(`N${lineTotal.toLocaleString('en-NG')}`, W - 15, y, { align: 'right' });
-    y += 11;
+    y += 14;
   });
 
   // ── TOTAL PAID pill ─────────────────────────────────────
@@ -201,136 +235,163 @@ export async function generateReceiptPDF(
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL PAID', W - 70, y + 7.5);
   doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
   doc.text(`N${subtotal.toLocaleString('en-NG')}`, W - 19, y + 7.5, { align: 'right' });
 
   // ── Credentials card (if available) ─────────────────────
   if (order?.bunche_credential) {
     const cred = order.bunche_credential;
-    y += 18;
+    y += 22; // breathing room after total pill
 
+    // Section label
     doc.setTextColor(...PRIMARY);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text('YOUR PROXY CREDENTIALS', 15, y);
 
-    const cardH = 70;
-    const credCardTop = y + 2;
-    const credCardBottom = credCardTop - cardH;
+    // Card (top-down y math)
+    const cardH = 80;
+    const cardTop = y + 5;
+    const cardBottom = cardTop + cardH;
     doc.setFillColor(...BG);
     doc.setDrawColor(...PRIMARY);
     doc.setLineWidth(0.6);
-    doc.roundedRect(15, credCardBottom, W - 30, cardH, 3, 3, 'FD');
+    doc.roundedRect(15, cardTop, W - 30, cardH, 3, 3, 'FD');
     doc.setDrawColor(...BORDER);
     doc.setLineWidth(0.2);
 
-    let innerY = credCardTop - 8;
+    // Layout: each row 16mm tall
+    //   label at rowTop+5
+    //   value at rowTop+12
+    //   divider at rowTop+15
     const rowH = 16;
+    let rowTop = cardTop + 5;
 
     // Row 1: USERNAME | PASSWORD
     doc.setTextColor(...MUTED);
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('USERNAME', 20, innerY);
-    doc.text('PASSWORD', W / 2 + 5, innerY);
+    doc.text('USERNAME', 20, rowTop + 3);
+    doc.text('PASSWORD', W / 2 + 5, rowTop + 3);
 
     doc.setTextColor(...PRIMARY);
-    doc.setFontSize(9.5);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text(cred.bun_username || 'N/A', 20, innerY + 5);
-    doc.text(cred.bun_password || 'N/A', W / 2 + 5, innerY + 5);
+    doc.text(cred.bun_username || 'N/A', 20, rowTop + 10);
+    doc.text(cred.bun_password || 'N/A', W / 2 + 5, rowTop + 10);
 
     doc.setDrawColor(...BORDER);
-    doc.line(20, innerY + 8, W - 20, innerY + 8);
-    innerY -= rowH;
+    doc.line(20, rowTop + 13, W - 20, rowTop + 13);
+    rowTop += rowH;
 
     // Row 2: PROXY ADDRESS | PROTOCOL
     doc.setTextColor(...MUTED);
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('PROXY ADDRESS', 20, innerY);
-    doc.text('PROTOCOL', W / 2 + 5, innerY);
+    doc.text('PROXY ADDRESS', 20, rowTop + 3);
+    doc.text('PROTOCOL', W / 2 + 5, rowTop + 3);
 
     doc.setTextColor(...PRIMARY);
-    doc.setFontSize(9.5);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${cred.upstream_proxy_ip || 'N/A'}:${cred.upstream_proxy_port || ''}`, 20, innerY + 5);
-    doc.text('HTTP / SOCKS5', W / 2 + 5, innerY + 5);
+    doc.text(`${cred.upstream_proxy_ip || 'N/A'}:${cred.upstream_proxy_port || ''}`, 20, rowTop + 10);
+    doc.text('HTTP / SOCKS5', W / 2 + 5, rowTop + 10);
 
     doc.setDrawColor(...BORDER);
-    doc.line(20, innerY + 8, W - 20, innerY + 8);
-    innerY -= rowH;
+    doc.line(20, rowTop + 13, W - 20, rowTop + 13);
+    rowTop += rowH;
 
-    // Row 3: FULL FORMAT
+    // Row 3: FULL FORMAT (full-width)
     doc.setTextColor(...MUTED);
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('FULL FORMAT', 20, innerY);
+    doc.text('FULL FORMAT', 20, rowTop + 3);
 
     doc.setTextColor(...LIGHT);
     doc.setFontSize(7.5);
     doc.setFont('courier', 'normal');
     const fullStr = `http://${cred.bun_username || 'user'}:${cred.bun_password || 'pass'}@${cred.upstream_proxy_ip || '0.0.0.0'}:${cred.upstream_proxy_port || 8080}`;
     const lines = doc.splitTextToSize(fullStr, W - 40);
-    doc.text(lines, 20, innerY + 5);
+    doc.text(lines, 20, rowTop + 10);
 
     doc.setDrawColor(...BORDER);
-    doc.line(20, innerY + 8, W - 20, innerY + 8);
-    innerY -= rowH;
+    doc.line(20, rowTop + 13, W - 20, rowTop + 13);
+    rowTop += rowH;
 
     // Row 4: EXPIRES | AUTO-RENEW
     doc.setTextColor(...MUTED);
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('EXPIRES', 20, innerY);
-    doc.text('AUTO-RENEW', W / 2 + 5, innerY);
+    doc.text('EXPIRES', 20, rowTop + 3);
+    doc.text('AUTO-RENEW', W / 2 + 5, rowTop + 3);
 
     doc.setTextColor(...WHITE);
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.text(cred.expires_at ? new Date(cred.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A', 20, innerY + 5);
-    doc.text('On (manage to disable)', W / 2 + 5, innerY + 5);
+    doc.text(
+      cred.expires_at
+        ? new Date(cred.expires_at).toLocaleDateString('en-NG', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })
+        : 'N/A',
+      20,
+      rowTop + 10
+    );
+    doc.text('On (manage to disable)', W / 2 + 5, rowTop + 10);
 
-    y = credCardBottom;
+    y = cardBottom;
   }
 
   // ── Support section ─────────────────────────────────────
-  const supY = y - 8;
-  const supH = 18;
+  y += 14; // breathing room after credentials
+  const supH = 22;
+  const supTop = y;
   doc.setFillColor(...CARD);
-  doc.roundedRect(15, supY - supH, W - 30, supH, 3, 3, 'F');
+  doc.roundedRect(15, supTop, W - 30, supH, 3, 3, 'F');
 
-  doc.setTextColor(...PRIMARY);
+  // Left column
+  doc.setTextColor(...MUTED);
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.text('NEED HELP?', 20, supY - 5);
+  doc.text('NEED HELP?', 20, supTop + 6);
 
   doc.setTextColor(...WHITE);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text('Chat support:', 20, supY - 10);
+  doc.text('Chat support:', 20, supTop + 12);
 
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('styxproxy.com/contact', 20, supY - 14.5);
+  doc.text('styxproxy.com/contact', 20, supTop + 18);
 
+  // Right column
   doc.setTextColor(...MUTED);
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  doc.text('Email:', 90, supY - 5);
-  doc.text('Web:', 90, supY - 10);
+  doc.text('Email:', 95, supTop + 12);
+  doc.text('Web:', 95, supTop + 18);
 
   doc.setTextColor(...WHITE);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('oyebiyiayomide30@gmail.com', 100, supY - 5);
-  doc.text('styxproxy.com', 100, supY - 10);
+  doc.text('oyebiyiayomide30@gmail.com', 105, supTop + 12);
+  doc.text('styxproxy.com', 105, supTop + 18);
+
+  y = supTop + supH;
 
   // ── Footer ─────────────────────────────────────────────
   doc.setTextColor(...DIM);
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'normal');
-  doc.text('This receipt was generated automatically. No signature required.', W / 2, H - 8, { align: 'center' });
+  doc.text(
+    'This receipt was generated automatically. No signature required.',
+    W / 2,
+    H - 8,
+    { align: 'center' }
+  );
 
   // ── Save ───────────────────────────────────────────────
   doc.save(filename || `styxproxy-receipt-${txRef}.pdf`);
