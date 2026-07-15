@@ -1,19 +1,21 @@
 'use client';
 
 /**
- * ChatWidget — Charon support chatbot.
+ * ChatWidget — Charon support chatbot with behavioral awareness.
  *
- * Charon only responds when the customer initiates. No proactive messages,
- * no behavioral tracking, no unsolicited outreach. The customer is in full
- * control of when they engage.
+ * Charon is quiet during payment/checkout flows (customer is in a transaction).
+ * On all other pages, Charon watches anonymous session behavior and may reach out
+ * once — a single contextual prompt, never repeated until cooldown expires.
  *
- * Learning happens on the backend when customers open conversations — the
- * trigger_event records the chat open, and the learning cron adjusts weights.
- * This is aggregate learning from conversation open rates, not individual tracking.
+ * Tracking is fully anonymous: no PII, sessionStorage only, no cookies.
+ * Outreach is suppressed on /order, /thank-you, /preview, /receipt.
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
+import { SessionTracker } from '@/lib/SessionTracker';
+import { TriggerEngine, Trigger } from '@/lib/TriggerEngine';
 
 type Role = 'user' | 'assistant' | 'system';
 
@@ -52,7 +54,7 @@ interface ChatReplyResponse {
   error?: string | null;
 }
 
-/** Generate or retrieve the anonymous session ID (no PII). */
+/** Anonymous session ID — random, no PII, sessionStorage only. */
 function getSessionId(): string {
   const key = 'charon_session_id';
   let id = sessionStorage.getItem(key);
@@ -63,18 +65,14 @@ function getSessionId(): string {
   return id;
 }
 
-/** Report a conversation open to the backend for aggregate learning (silent failure). */
-async function reportChatOpen() {
+/** Report trigger outcome to backend for aggregate learning (silent failure). */
+async function reportOutcome(triggerId: string, outcome: string) {
   const sessionId = getSessionId();
   try {
     await fetch('/api/charon/trigger-event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session_id: sessionId,
-        trigger_id: 'chat_opened',
-        outcome: 'opened_chat',
-      }),
+      body: JSON.stringify({ session_id: sessionId, trigger_id: triggerId, outcome }),
     });
   } catch {
     // never block UX for analytics
@@ -90,42 +88,118 @@ export default function ChatWidget() {
 
   const [fabX, setFabX] = useState(-1);
   const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, startFabX: 0 });
-  const isBusyRef = useRef(false);
-  isBusyRef.current = isBusy;
 
-  // ── Drag handlers ─────────────────────────────────────────────────
-  const onHeaderMouseDown = useCallback((e: React.MouseEvent) => {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) return;
-    e.preventDefault();
-    dragState.current = {
-      dragging: true,
-      moved: false,
-      startX: e.clientX,
-      startY: e.clientY,
-      startFabX: fabX === -1 ? window.innerWidth - 80 : fabX,
-    };
-  }, [fabX]);
+  // ── Behavioral awareness ───────────────────────────────────────────
+  const trackerRef = useRef<SessionTracker | null>(null);
+  const engineRef = useRef<TriggerEngine | null>(null);
+  const [activeTrigger, setActiveTrigger] = useState<Trigger | null>(null);
+  const [showBubble, setShowBubble] = useState(false);
+  const ignoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathname = usePathname();
 
-  const onMouseMove = useCallback((e: MouseEvent) => {
-    if (!dragState.current.dragging) return;
-    const dx = e.clientX - dragState.current.startX;
-    if (Math.abs(dx) > 3) dragState.current.moved = true;
-    const newX = Math.max(8, Math.min(window.innerWidth - 64, dragState.current.startFabX + dx));
-    setFabX(newX);
-  }, []);
+  // Refs to avoid stale closures in intervals
+  const isOpenRef = useRef(false);
+  const activeTriggerRef = useRef<Trigger | null>(null);
+  const pathnameRef = useRef(pathname);
+  isOpenRef.current = isOpen;
+  activeTriggerRef.current = activeTrigger;
+  pathnameRef.current = pathname;
 
-  const onMouseUp = useCallback(() => {
-    dragState.current.dragging = false;
-  }, []);
-
+  // ── Init tracker + engine once ────────────────────────────────────
   useEffect(() => {
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+    if (!trackerRef.current) {
+      trackerRef.current = new SessionTracker();
+      engineRef.current = new TriggerEngine(trackerRef.current);
+    }
+  }, []);
+
+  // ── Track page visits ─────────────────────────────────────────────
+  useEffect(() => {
+    trackerRef.current?.onPageVisit(pathname);
+    // Dismiss bubble on any navigation
+    setShowBubble(false);
+    setActiveTrigger(null);
+    if (ignoreTimerRef.current) clearTimeout(ignoreTimerRef.current);
+  }, [pathname]);
+
+  // ── Track scroll depth ─────────────────────────────────────────────
+  useEffect(() => {
+    const onScroll = () => {
+      const scrolled = window.scrollY + window.innerHeight;
+      const total = document.documentElement.scrollHeight;
+      if (scrolled >= total - 120) {
+        trackerRef.current?.onScrollBottom(pathnameRef.current);
+      }
     };
-  }, [onMouseMove, onMouseUp]);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // ── Track cart events ─────────────────────────────────────────────
+  useEffect(() => {
+    const onCartAdd = () => trackerRef.current?.onCartAdd();
+    const onCartClear = () => trackerRef.current?.onCartClear();
+    window.addEventListener('cart-add', onCartAdd);
+    window.addEventListener('cart-clear', onCartClear);
+    return () => {
+      window.removeEventListener('cart-add', onCartAdd);
+      window.removeEventListener('cart-clear', onCartClear);
+    };
+  }, []);
+
+  // ── Trigger evaluation loop (every 5s) — suppressed on payment pages ─
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (isOpenRef.current) return; // don't intrude while chat is open
+      if (!engineRef.current || !trackerRef.current) return;
+
+      // Refresh weights from backend (cached after first load)
+      await engineRef.current.refreshWeights();
+
+      // evaluate() already returns null on payment pages
+      const trigger = engineRef.current.evaluate(pathnameRef.current);
+      if (!trigger) return;
+
+      // Fire
+      trackerRef.current.markTriggerFired(trigger.id);
+      setActiveTrigger(trigger);
+      setShowBubble(true);
+
+      // Auto-dismiss after 8s if ignored
+      if (ignoreTimerRef.current) clearTimeout(ignoreTimerRef.current);
+      ignoreTimerRef.current = setTimeout(() => {
+        setShowBubble(false);
+        void reportOutcome(trigger.id, 'ignored');
+      }, 8000);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // ── Exit-intent detection (desktop only) — suppressed on payment pages ─
+  useEffect(() => {
+    const onMouseLeave = (e: MouseEvent) => {
+      if (e.clientY <= 5 && !isOpenRef.current && engineRef.current && trackerRef.current) {
+        const trigger = engineRef.current.evaluate(pathnameRef.current);
+        if (
+          trigger?.id === 'exit_intent' &&
+          trackerRef.current.canFire('exit_intent', (trigger.cooldownMs ?? 5 * 60 * 1000))
+        ) {
+          trackerRef.current.markTriggerFired(trigger.id);
+          setActiveTrigger(trigger);
+          setShowBubble(true);
+
+          if (ignoreTimerRef.current) clearTimeout(ignoreTimerRef.current);
+          ignoreTimerRef.current = setTimeout(() => {
+            setShowBubble(false);
+            void reportOutcome(trigger.id, 'ignored');
+          }, 8000);
+        }
+      }
+    };
+    document.addEventListener('mouseleave', onMouseLeave);
+    return () => document.removeEventListener('mouseleave', onMouseLeave);
+  }, []);
 
   // ── Auto-scroll ───────────────────────────────────────────────────
   useEffect(() => {
@@ -146,16 +220,32 @@ export default function ChatWidget() {
     return () => window.removeEventListener('open-chat-widget', handler);
   }, []);
 
-  // ── Open chat (reports open to backend for aggregate learning) ────
+  // ── Open chat ──────────────────────────────────────────────────────
   const openChat = useCallback(() => {
-    void reportChatOpen(); // fire-and-forget, never blocks UX
+    const t = activeTriggerRef.current;
+    setShowBubble(false);
+    if (t) {
+      void reportOutcome(t.id, 'opened_chat');
+    }
     setIsOpen(true);
+  }, []);
+
+  // ── Dismiss bubble ────────────────────────────────────────────────
+  const dismissBubble = useCallback(() => {
+    const t = activeTriggerRef.current;
+    setShowBubble(false);
+    if (t) {
+      trackerRef.current?.dismissTrigger?.(t.id);
+      void reportOutcome(t.id, 'dismissed');
+    }
   }, []);
 
   // ── Send message ──────────────────────────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || isBusyRef.current) return;
+    if (!trimmed || isBusy) return;
+
+    const t = activeTriggerRef.current;
 
     setMessages(prev => [
       ...prev,
@@ -163,6 +253,12 @@ export default function ChatWidget() {
     ]);
     setInput('');
     setIsBusy(true);
+
+    // Dismiss any trigger bubble when user types
+    setShowBubble(false);
+    if (t) {
+      void reportOutcome(t.id, 'opened_chat');
+    }
 
     try {
       const history = messages
@@ -208,7 +304,41 @@ export default function ChatWidget() {
     } finally {
       setIsBusy(false);
     }
-  }, [messages]);
+  }, [isBusy, messages]);
+
+  // ── Drag handlers ─────────────────────────────────────────────────
+  const onHeaderMouseDown = useCallback((e: React.MouseEvent) => {
+    if (typeof window !== 'undefined' && window.innerWidth < 640) return;
+    e.preventDefault();
+    dragState.current = {
+      dragging: true,
+      moved: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      startFabX: fabX === -1 ? window.innerWidth - 80 : fabX,
+    };
+  }, [fabX]);
+
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    if (!dragState.current.dragging) return;
+    const dx = e.clientX - dragState.current.startX;
+    if (Math.abs(dx) > 3) dragState.current.moved = true;
+    const newX = Math.max(8, Math.min(window.innerWidth - 64, dragState.current.startFabX + dx));
+    setFabX(newX);
+  }, []);
+
+  const onMouseUp = useCallback(() => {
+    dragState.current.dragging = false;
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [onMouseMove, onMouseUp]);
 
   const toggleOpen = (open: boolean) => {
     if (!open && dragState.current.moved) return;
@@ -220,6 +350,10 @@ export default function ChatWidget() {
   const fabStyle: React.CSSProperties = fabX === -1
     ? { bottom: 24, right: 24 }
     : { bottom: 24, left: fabX, right: 'auto' };
+
+  const bubbleStyle: React.CSSProperties = fabX === -1
+    ? { bottom: 88, right: 24 }
+    : { bottom: 88, left: fabX, right: 'auto' };
 
   return (
     <>
@@ -306,24 +440,56 @@ export default function ChatWidget() {
         </div>
       )}
 
-      {/* ── FAB button ────────────────────────────────────────────── */}
+      {/* ── FAB + Reach-out bubble ──────────────────────────────── */}
       {!isOpen && (
-        <button
-          onClick={openChat}
-          className="fixed z-[9998] charon-fab w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
-          style={fabStyle}
-          aria-label="Open chat with Charon"
-        >
-          <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-        </button>
+        <>
+          {/* Behavioral reach-out bubble */}
+          {showBubble && activeTrigger && (
+            <button
+              onClick={openChat}
+              className="fixed z-[9997] animate-reach-out"
+              style={bubbleStyle}
+              aria-label="Chat with Charon"
+            >
+              <div className="relative flex items-center gap-2 pl-3 pr-4 py-2.5 bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-xl max-w-[240px]">
+                <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full bg-[var(--primary)]" />
+                <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-[var(--primary)]">
+                  <Image src="/chatbot-logo.png" alt="Charon" width={28} height={28} className="w-full h-full object-cover" />
+                </div>
+                <p className="text-sm text-[var(--foreground)] text-left leading-snug">
+                  {activeTrigger.message}
+                </p>
+                <button
+                  onClick={e => { e.stopPropagation(); dismissBubble(); }}
+                  className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-[var(--card-hover)] text-[var(--muted)]"
+                  aria-label="Dismiss"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </button>
+          )}
+
+          {/* FAB */}
+          <button
+            onClick={openChat}
+            className="fixed z-[9998] charon-fab w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
+            style={fabStyle}
+            aria-label="Open chat with Charon"
+          >
+            <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </button>
+        </>
       )}
     </>
   );
 }
 
-/* ── MessageBubble ────────────────────────────────────────────────────── */
+/* ── MessageBubble ───────────────────────────────────────────────────── */
 function MessageBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === 'user';
   return (

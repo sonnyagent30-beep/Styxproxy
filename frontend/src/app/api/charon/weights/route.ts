@@ -4,13 +4,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://bunche.railway.app'
 
 export async function GET() {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/charon/weights`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return NextResponse.json({ weights: {} });
+    const res = await fetch(`${API_BASE}/api/v1/charon/weights`);
+    if (!res.ok) return NextResponse.json({ error: 'upstream error' }, { status: 502 });
     const data = await res.json();
     return NextResponse.json(data);
   } catch {
-    return NextResponse.json({ weights: {} });
+    return NextResponse.json({ error: 'fetch failed' }, { status: 503 });
   }
 }
