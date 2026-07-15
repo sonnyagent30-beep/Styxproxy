@@ -186,9 +186,41 @@ export default function ChatWidget() {
     setIsOpen(open);
   };
 
+  // ── Proactive reach-out: bubble appears 6 s after page load if chat not opened ──
+  const [showReachOut, setShowReachOut] = useState(false);
+
+  useEffect(() => {
+    // Only trigger on first visit (sessionStorage flag)
+    const key = 'charon_reachout_dismissed';
+    if (sessionStorage.getItem(key)) return;
+
+    const timer = setTimeout(() => {
+      if (!isOpen) {
+        setShowReachOut(true);
+      }
+    }, 6000);
+
+    return () => clearTimeout(timer);
+  }, [isOpen]);
+
+  const handleReachOutClick = () => {
+    setShowReachOut(false);
+    setIsOpen(true);
+  };
+
+  const dismissReachOut = () => {
+    setShowReachOut(false);
+    sessionStorage.setItem('charon_reachout_dismissed', '1');
+  };
+
   const fabStyle: React.CSSProperties = fabX === -1
     ? { bottom: 24, right: 24 }
     : { bottom: 24, left: fabX, right: 'auto' };
+
+  // Reach-out bubble position — sits above the FAB, left-aligned
+  const reachOutStyle: React.CSSProperties = fabX === -1
+    ? { bottom: 88, right: 24 }
+    : { bottom: 88, left: fabX, right: 'auto' };
 
   return (
     <>
@@ -267,14 +299,58 @@ export default function ChatWidget() {
       )}
 
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed z-[9998] w-12 h-12 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black shadow-lg flex items-center justify-center transition-transform active:scale-95"
-          style={fabStyle}
-          aria-label="Open Charon support"
-        >
-          <Image src="/chatbot-logo.png" alt="Charon" width={36} height={36} className="w-9 h-9 rounded-full object-cover" />
-        </button>
+        <>
+          {/* Proactive reach-out bubble */}
+          {showReachOut && (
+            <button
+              onClick={handleReachOutClick}
+              className="fixed z-[9997] animate-reach-out"
+              style={reachOutStyle}
+              aria-label="Chat with Charon"
+            >
+              <div className="relative flex items-center gap-2 pl-3 pr-4 py-2.5 bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-xl max-w-[220px]">
+                {/* Green accent line on left */}
+                <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full bg-[var(--primary)]" />
+                {/* Avatar */}
+                <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 bg-[var(--primary)]">
+                  <Image src="/chatbot-logo.png" alt="Charon" width={28} height={28} className="w-full h-full object-cover" />
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold leading-tight">Charon here</p>
+                  <p className="text-[10px] text-[var(--muted)] leading-tight mt-0.5">Need help with your proxy? I&apos;m online.</p>
+                </div>
+                {/* Dismiss */}
+                <button
+                  onClick={e => { e.stopPropagation(); dismissReachOut(); }}
+                  className="ml-1 w-5 h-5 rounded-full flex items-center justify-center text-[var(--muted)] hover:text-[var(--foreground)] shrink-0"
+                  aria-label="Dismiss"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* Animated pulse ring above bubble */}
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 bg-[var(--card)] border-l border-b border-[var(--border)]" />
+            </button>
+          )}
+
+          {/* FAB with breathing halo */}
+          <button
+            onClick={() => setIsOpen(true)}
+            className="fixed z-[9998] w-12 h-12 rounded-full bg-[var(--primary)] text-black shadow-lg flex items-center justify-center transition-transform active:scale-95 charon-fab"
+            style={fabStyle}
+            aria-label="Open Charon support"
+          >
+            {/* Breathing halo rings */}
+            <span className="absolute inset-0 rounded-full charon-halo charon-halo--1" />
+            <span className="absolute inset-0 rounded-full charon-halo charon-halo--2" />
+            {/* Avatar */}
+            <div className="relative z-10 w-10 h-10 rounded-full overflow-hidden">
+              <Image src="/chatbot-logo.png" alt="Charon" width={40} height={40} className="w-full h-full object-cover" />
+            </div>
+          </button>
+        </>
       )}
     </>
   );
