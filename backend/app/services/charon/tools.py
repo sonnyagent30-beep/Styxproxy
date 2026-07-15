@@ -241,19 +241,52 @@ async def _generate_order_link(tx_ref: str) -> ToolResult:
 
 
 async def _generate_receipt_link(tx_ref: str) -> ToolResult:
-    """Generate a direct download link for the customer's receipt PDF.
-    Use after fulfilling an order — the customer can download their official receipt."""
-    url = f"{PUBLIC_URL}/preview?tx_ref={tx_ref}"
-    return ToolResult(
-        ok=True,
-        data={
-            "url": url,
-            "display_text": "Download your receipt",
-            "message": (
-                f"You can download your official receipt here: {url}"
-            ),
-        },
-    )
+    """Generate a receipt PDF download link, but only if the order is confirmed paid.
+    Verifies the order exists and has a paid status before sharing the receipt URL."""
+    try:
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models import Order
+
+        async with async_session() as session:
+            stmt = select(Order).where(Order.tx_ref == tx_ref)
+            result = await session.execute(stmt)
+            order = result.scalar_one_or_none()
+
+        if not order:
+            return ToolResult(
+                ok=False,
+                error=(
+                    f"I couldn't find an order with reference '{tx_ref}'. "
+                    "Please double-check your transaction reference and try again."
+                ),
+            )
+
+        if order.status not in ("paid", "fulfilling", "fulfilled", "active"):
+            return ToolResult(
+                ok=False,
+                error=(
+                    "Your order hasn't been confirmed yet. Once your payment is confirmed "
+                    "by Flutterwave, I'll send you your receipt right away. "
+                    "This usually takes a few minutes after payment."
+                ),
+            )
+
+        url = f"{PUBLIC_URL}/preview?tx_ref={tx_ref}"
+        return ToolResult(
+            ok=True,
+            data={
+                "url": url,
+                "display_text": "Download your receipt",
+                "message": f"Your official receipt is ready. You can download it here: {url}",
+            },
+        )
+    except Exception as exc:
+        logger.exception("generate_receipt_link failed for tx_ref=%s", tx_ref)
+        return ToolResult(
+            ok=False,
+            error=f"Receipt generation failed: {exc}. Please try again or contact support.",
+        )
 
 
 async def _get_product_catalog() -> ToolResult:
