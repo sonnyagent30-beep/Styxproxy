@@ -8,19 +8,19 @@ import { useChannelFlags } from '@/lib/feature-flags';
 const faqs = [
   {
     q: 'How fast is delivery?',
-    a: 'Website orders: credentials are ready in minutes after payment. Bank transfers may take a bit longer while the bank settles. If credentials don\'t appear shortly, contact us.',
+    a: 'Website orders: credentials are ready within seconds of payment confirmation. If you do not see your credentials after payment, open the chat widget and say "I paid but didn\'t get my proxy" — share your transaction reference and Charon will look it up immediately.',
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'We accept all major payment methods: Visa, Mastercard, direct bank transfer, USSD, and QR code payments. All payments are processed securely via our payment processor. We do not accept crypto.',
+    a: 'We accept all major payment methods via Flutterwave: Visa, Mastercard, direct bank transfer, USSD, and QR code. All payments are processed securely. We do not accept crypto.',
   },
   {
     q: 'Can I get a refund?',
-    a: 'Yes. If your proxy doesn\'t work and replacement fails, or if payment was made but proxy was never delivered, you\'re eligible for a full refund within 7 days of purchase.',
+    a: 'Yes — within 24 hours of receiving your credentials, if the proxy did not work at the time of delivery. Contact us via the chat widget, Telegram (@styxproxy), or email support@styxproxy.com with your transaction reference.',
   },
   {
     q: 'What\'s your ban replacement policy?',
-    a: 'If your IP gets banned within 24 hours of delivery (due to IP-level bans, not account bans), you\'re eligible for a free replacement. Contact us with your tx_ref to claim.',
+    a: 'If your IP gets blocked by a website after delivery (while the service was working at time of delivery), this is a ban claim — not a refund. Contact us via the chat widget, @styxproxy on Telegram, or support@styxproxy.com with your transaction reference.',
   },
   {
     q: 'What\'s the difference between ISP, Residential, and Mobile proxies?',
@@ -28,11 +28,15 @@ const faqs = [
   },
   {
     q: 'Do I need an account to order?',
-    a: 'No. Website orders require no account, no email, and no phone number. Your tx_ref (transaction reference) is your only order identifier.',
+    a: 'No. Website orders require no account, no email, and no phone number. Your Flutterwave transaction reference is your only order identifier. Keep it to retrieve your credentials at any time.',
   },
   {
-    q: 'How do I check my order status?',
-    a: 'Go to /manage and enter your tx_ref to check credentials, expiry, and manage your order. You can also renew or raise a ban claim from there.',
+    q: 'How do I check my order status or retrieve my credentials?',
+    a: 'Go to styxproxy.com/manage and enter your transaction reference. Or open the chat widget on the website and say "I paid but didn\'t get my proxy" — Charon will look up your order and deliver your credentials in the chat.',
+  },
+  {
+    q: 'I paid but didn\'t get my proxy. What do I do?',
+    a: 'Don\'t worry — your proxy was likely generated. Open the chat widget on the website and say "I paid but didn\'t get my proxy". Share your Flutterwave transaction reference when asked. Charon will find your order and send you your credentials directly in the chat. You can also check styxproxy.com/manage.',
   },
 ];
 
@@ -170,7 +174,7 @@ export default function ContactPage() {
               )}
               
               {/* Email - always available */}
-              <a href="mailto:hello@bunche.ng" className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3.5 bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold rounded-xl transition-colors min-w-[160px]">
+              <a href="mailto:support@styxproxy.com" className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-3.5 bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold rounded-xl transition-colors min-w-[160px]">
                 <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                 Email
               </a>

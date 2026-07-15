@@ -16,7 +16,7 @@ export default function RefundPolicyPage() {
         <div className="max-w-3xl mx-auto">
           {/* Page Header */}
           <div className="mb-10">
-            <p className="text-sm text-[var(--muted)] mb-2">Effective Date: July 1, 2026</p>
+            <p className="text-sm text-[var(--muted)] mb-2">Effective Date: July 15, 2026</p>
             <h1 className="text-4xl font-bold mb-4">
               Refund <span className="gradient-text">Policy</span>
             </h1>
@@ -72,7 +72,8 @@ export default function RefundPolicyPage() {
             </p>
             <ul className="space-y-3">
               {[
-                ["Management Portal", "bunche.ng/manage — enter your order number and submit a refund request"],
+                ["Chat Widget (Charon)", "bunche-api-push.vercel.app — open the chat widget and say 'I want a refund for [your tx_ref]'"],
+                ["Management Portal", "bunche-api-push.vercel.app/manage — enter your order number and submit a refund request"],
                 ["Telegram", "@styxproxy — send 'Refund request for [your tx_ref]'"],
                 ["Email", "support@styxproxy.com — include your tx_ref and a brief description"],
               ].map(([method, desc]) => (
@@ -174,7 +175,7 @@ export default function RefundPolicyPage() {
 
           {/* Last updated */}
           <p className="text-sm text-[var(--muted)] border-t border-[var(--border)] pt-6">
-            Last updated: July 1, 2026
+            Last updated: July 15, 2026
           </p>
         </div>
       </main>

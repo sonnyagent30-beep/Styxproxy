@@ -1,12 +1,12 @@
 const content = `<h1>Privacy Policy</h1>
-<p><em>Styxproxy — Anonymous Proxy Service</em><br><em>Effective Date: July 1, 2026</em></p>
+<p><em>Styxproxy — Anonymous Proxy Service</em><br><em>Effective Date: July 15, 2026</em></p>
 
 <h2>1. Introduction</h2>
-<p>Styxproxy ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our services across any channel — our website or our Telegram bot.</p>
+<p>Styxproxy ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our services across any channel — our website, our Telegram bot, or our chat widget.</p>
 <p>We collect different information depending on how you interact with us. This policy is designed to be honest and clear about what we collect and why. By using Styxproxy, you consent to the data practices described in this policy.</p>
 
 <h2>2. Our Service Channels</h2>
-<p>We operate two independent channels: the website and the Telegram bot. Each collects different information.</p>
+<p>We operate three independent channels: the website, the website chat widget (Charon), and the Telegram bot. Each collects different information.</p>
 
 <h3>2.1 Website — Anonymous Orders</h3>
 <p>When you order via styxproxy.com, we collect almost nothing.</p>
@@ -19,7 +19,16 @@ const content = `<h1>Privacy Policy</h1>
 </ul>
 <p>We do not know your name, your device IP address, your phone number, or any other identifying information unless you voluntarily provide it. The transaction reference is your only order identifier. You do not create an account.</p>
 
-<h3>2.2 Telegram Bot</h3>
+<h3>2.2 Chat Widget (Charon)</h3>
+<p>Our website includes an AI-powered chat assistant called Charon. When you chat with Charon:</p>
+<ul>
+<li><strong>Messages you send</strong> — To understand your request and provide support — Retained 90 days</li>
+<li><strong>Session data</strong> — Pages you visited, time spent on pages, scroll behaviour, cart actions — To enable proactive support — Stored in your browser only (sessionStorage), never transmitted to us in an identifiable form</li>
+<li><strong>No account required</strong> — Charon identifies your conversation by a random session token, not by your identity</li>
+</ul>
+<p>Charon may proactively reach out with helpful suggestions (e.g., offering help if you are comparing plans). This is based on anonymous session behaviour only. We do not link this data to any individual, and no personal information is collected or stored as part of this behaviour analysis.</p>
+
+<h3>2.3 Telegram Bot</h3>
 <p>When you interact with the Styxproxy Telegram bot, we collect: your Telegram chat ID (to identify you and deliver messages), Telegram username if set, display name if shared, messages you send us (90 days), order history (7 years), and PIN if you set one. We do not collect your Telegram phone number.</p>
 
 <h2>3. What We Collect</h2>
@@ -40,6 +49,7 @@ const content = `<h1>Privacy Policy</h1>
 <li>Proxy credentials issued: username, hashed password, validity period</li>
 <li>Free trial records: survey postback data, earned trial time</li>
 <li>Audit logs: timestamped records of significant system events</li>
+<li>Behavioural trigger data: anonymous aggregates of how customers interact with proactive support features — used to improve Charon's responses. This data is aggregate only and contains no personal information.</li>
 </ul>
 
 <h3>3.3 Information We Do NOT Collect</h3>
@@ -63,6 +73,7 @@ const content = `<h1>Privacy Policy</h1>
 <li><strong>Detect and prevent fraud</strong> — order patterns, payment verification</li>
 <li><strong>Comply with legal obligations</strong> — financial records, audit logs</li>
 <li><strong>Send service notifications</strong> — chat ID or email if provided</li>
+<li><strong>Improve Charon's proactive support</strong> — anonymous aggregate engagement data from behavioural triggers. This data is used only in aggregate form to adjust which prompts Charon uses. No personal data is associated with this improvement process.</li>
 </ul>
 
 <h2>5. Data Sharing</h2>
@@ -71,10 +82,10 @@ const content = `<h1>Privacy Policy</h1>
 
 <h3>5.1 Data Processors</h3>
 <ul>
-<li><strong>Payment processor</strong> — Payment data</li>
+<li><strong>Payment processor (Flutterwave)</strong> — Payment data</li>
 <li><strong>Telegram</strong> — Chat messages — telegram.org/privacy</li>
 <li><strong>Theorem Reach</strong> — Survey data — theoremreach.com/privacy</li>
-<li><strong>Email service</strong> — Transactional emails — resend.com/privacy</li>
+<li><strong>Email service (Resend)</strong> — Transactional emails — resend.com/privacy</li>
 </ul>
 
 <h2>6. Data Retention</h2>
@@ -86,6 +97,7 @@ const content = `<h1>Privacy Policy</h1>
 <li><strong>Audit logs</strong> — 7 years — compliance</li>
 <li><strong>Error logs</strong> — 1 year — system troubleshooting</li>
 <li><strong>Rate limit logs</strong> — 90 days — security</li>
+<li><strong>Behavioural trigger engagement data</strong> — Aggregate only, no individual records — used to tune Charon's proactive support</li>
 </ul>
 
 <h3>6.1 Deletion Requests</h3>
@@ -121,7 +133,8 @@ const content = `<h1>Privacy Policy</h1>
 </ul>
 
 <h2>9. Cookies and Tracking</h2>
-<p><strong>We do not use cookies on our website.</strong> We do not store any cookies in your browser. We do not use third-party tracking pixels or analytics tools. We do not control the cookies or tracking used by Telegram.</p>
+<p><strong>We do not use cookies on our website.</strong> We do not store any cookies in your browser. We do not use third-party tracking pixels or analytics tools that fingerprint visitors.</p>
+<p>We use Plausible Analytics — a privacy-first, cookie-free analytics service that collects only aggregate, non-personal website usage data (pages visited, referrer). This data cannot be used to identify individual users and is not shared with any third party. We do not control the cookies or tracking used by Telegram.</p>
 
 <h2>10. Children's Privacy</h2>
 <p>Styxproxy services are not intended for persons under the age of 18. We do not knowingly collect data from minors. If we become aware that data from a minor has been collected, we will delete it immediately.</p>
@@ -133,11 +146,12 @@ const content = `<h1>Privacy Policy</h1>
 <p>In the event of a data breach that poses a risk to your rights and freedoms, we will notify the Nigeria Data Protection Commission within 72 hours of becoming aware of the breach. We will also notify affected customers via their contact channel as soon as reasonably practicable.</p>
 
 <h2>13. Changes to This Policy</h2>
-<p>We may update this Privacy Policy from time to time. Material changes will be communicated via Telegram or notice on our website.</p>
+<p>We may update this Privacy Policy from time to time. Material changes will be communicated via Telegram, the chat widget, or notice on our website.</p>
 
 <h2>14. Contact Us</h2>
 <p><strong>Styxproxy</strong></p>
 <ul>
+<li><strong>Chat widget:</strong> styxproxy.com (open the chat widget)</li>
 <li><strong>Telegram:</strong> @styxproxy</li>
 <li><strong>Email:</strong> support@styxproxy.com</li>
 <li><strong>Website:</strong> styxproxy.com</li>
