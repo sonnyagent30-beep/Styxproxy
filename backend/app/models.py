@@ -512,6 +512,45 @@ class Plan(Base):
     )
 
 
+class TriggerEvent(Base):
+    """Trigger events table — anonymous behavioral trigger firings."""
+    __tablename__ = "trigger_events"
+    __table_args__ = (
+        Index("idx_trigger_events_trigger_fired", "trigger_id", "fired_at"),
+        Index("idx_trigger_events_session", "session_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    trigger_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    fired_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    outcome: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )  # opened_chat | dismissed | ignored | converted
+    charon_msg: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class TriggerWeight(Base):
+    """Trigger weights table — aggregate learning weights per trigger."""
+    __tablename__ = "trigger_weights"
+
+    trigger_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    weight: Mapped[float] = mapped_column(Numeric(5, 3), default=1.0, nullable=False)
+    total_fires: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_opens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_dismissed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    total_converted: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    positive_rate: Mapped[float] = mapped_column(Numeric(5, 4), default=0, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class FeatureFlag(Base):
     """Feature flags table - Toggle features globally or per-admin."""
     __tablename__ = "feature_flags"
