@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field
 from app.services.charon import agent
 from app.services.charon.agent import Message
 from app.services.charon.knowledge import invalidate_cache
+from app.services.email import send_charon_escalation_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/charon", tags=["charon"])
@@ -52,6 +53,8 @@ class ChatReplyRequest(BaseModel):
     conversation_id: Optional[str] = Field(default=None)
     user_message: str = Field(..., min_length=1, max_length=4000)
     history: list[ChatMessage] = Field(default_factory=list)
+    customer_email: Optional[str] = Field(default=None, description="Customer email for escalation notifications")
+    customer_phone: Optional[str] = Field(default=None, description="Customer phone for escalation notifications")
 
 
 class ToolCallRecord(BaseModel):
@@ -116,6 +119,20 @@ async def post_reply(payload: ChatReplyRequest):
         user_message=payload.user_message,
         history=history,
     )
+
+    # Send escalation email if the conversation was escalated
+    if result.escalated and (payload.customer_email or payload.customer_phone):
+        # Build history summary for the email
+        history_summary = "\n".join(
+            f"{m.role}: {m.content[:200]}" for m in history[-5:]
+        )
+        await send_charon_escalation_email(
+            conversation_id=payload.conversation_id or "unknown",
+            customer_email=payload.customer_email,
+            customer_phone=payload.customer_phone,
+            message=payload.user_message,
+            history_summary=history_summary,
+        )
 
     return ChatReplyResponse(
         text=result.text,

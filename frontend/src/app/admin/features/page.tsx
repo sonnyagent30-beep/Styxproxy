@@ -2,18 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import type { AdminMeResponse } from '@/types';
-
-// Feature flags interface (would come from API in real implementation)
-interface FeatureFlags {
-  free_trial_enabled: boolean;
-  free_trial_max_surveys: number;
-  free_trial_hours_per_survey: number;
-  refund_window_hours: number;
-  max_active_proxies_per_customer: number;
-  whatsapp_enabled: boolean;
-  telegram_enabled: boolean;
-}
+import type { AdminMeResponse, ChannelFeatureFlags } from '@/types';
 
 export default function AdminFeaturesPage() {
   const [admin, setAdmin] = useState<AdminMeResponse | null>(null);
@@ -22,14 +11,16 @@ export default function AdminFeaturesPage() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   
-  const [features, setFeatures] = useState<FeatureFlags>({
-    free_trial_enabled: true,
-    free_trial_max_surveys: 12,
-    free_trial_hours_per_survey: 2,
-    refund_window_hours: 24,
-    max_active_proxies_per_customer: 5,
-    whatsapp_enabled: true,
-    telegram_enabled: true,
+  // Feature flags state
+  const [features, setFeatures] = useState<ChannelFeatureFlags>({
+    telegram: {
+      enabled: false,
+      url: 'https://t.me/StyxproxyBot',
+    },
+    whatsapp: {
+      enabled: false,
+      url: '',
+    },
   });
 
   useEffect(() => {
@@ -55,8 +46,11 @@ export default function AdminFeaturesPage() {
       return;
     }
 
-    // Load feature flags (mock for now - would come from API)
-    // In real implementation: await api.getFeatureFlags()
+    // Load channel feature flags from API
+    const flagsResult = await api.getChannelFeatureFlags();
+    if (flagsResult.data) {
+      setFeatures(flagsResult.data);
+    }
     
     setLoading(false);
   };
@@ -65,12 +59,16 @@ export default function AdminFeaturesPage() {
     setSaving(true);
     setSaveMessage('');
     
-    // Simulate API call - in real implementation:
-    // const result = await api.updateFeatureFlags(features);
+    const result = await api.updateChannelFeatureFlags(features);
     
-    // Mock success
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setSaveMessage('Features saved successfully!');
+    if (result.error) {
+      setSaveMessage('Error: ' + result.error);
+    } else {
+      setSaveMessage('Features saved successfully!');
+      if (result.data) {
+        setFeatures(result.data);
+      }
+    }
     setSaving(false);
     
     setTimeout(() => setSaveMessage(''), 3000);
@@ -113,131 +111,89 @@ export default function AdminFeaturesPage() {
       )}
 
       {saveMessage && (
-        <div className="mb-6 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400">
+        <div className={`mb-6 p-4 rounded-xl border ${saveMessage.startsWith('Error') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-green-500/10 border-green-500/20 text-green-400'}`}>
           {saveMessage}
         </div>
       )}
 
       {/* Feature Sections */}
       <div className="space-y-6">
-        {/* Free Trial Settings */}
-        <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-          <h2 className="text-xl font-semibold mb-4">Free Trial</h2>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Enable Free Trial</p>
-                <p className="text-sm text-[var(--muted)]">Allow new users to claim free trials</p>
-              </div>
-              <button
-                onClick={() => setFeatures(f => ({ ...f, free_trial_enabled: !f.free_trial_enabled }))}
-                className={`w-14 h-8 rounded-full transition-colors ${
-                  features.free_trial_enabled ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'
-                }`}
-              >
-                <div className={`w-6 h-6 rounded-full bg-white transition-transform ${
-                  features.free_trial_enabled ? 'translate-x-7' : 'translate-x-1'
-                }`} />
-              </button>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Max Surveys</label>
-                <input
-                  type="number"
-                  value={features.free_trial_max_surveys}
-                  onChange={(e) => setFeatures(f => ({ ...f, free_trial_max_surveys: parseInt(e.target.value) || 0 }))}
-                  min={1}
-                  max={100}
-                  className="w-full px-4 py-3 rounded-xl bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Hours per Survey</label>
-                <input
-                  type="number"
-                  value={features.free_trial_hours_per_survey}
-                  onChange={(e) => setFeatures(f => ({ ...f, free_trial_hours_per_survey: parseInt(e.target.value) || 0 }))}
-                  min={1}
-                  max={24}
-                  className="w-full px-4 py-3 rounded-xl bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Order Settings */}
-        <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-          <h2 className="text-xl font-semibold mb-4">Orders & Refunds</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Refund Window (hours)</label>
-              <input
-                type="number"
-                value={features.refund_window_hours}
-                onChange={(e) => setFeatures(f => ({ ...f, refund_window_hours: parseInt(e.target.value) || 0 }))}
-                min={0}
-                max={168}
-                className="w-full sm:w-48 px-4 py-3 rounded-xl bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
-              />
-              <p className="text-xs text-[var(--muted)] mt-1">Time window after order to request refund</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Max Active Proxies per Customer</label>
-              <input
-                type="number"
-                value={features.max_active_proxies_per_customer}
-                onChange={(e) => setFeatures(f => ({ ...f, max_active_proxies_per_customer: parseInt(e.target.value) || 0 }))}
-                min={1}
-                max={50}
-                className="w-full sm:w-48 px-4 py-3 rounded-xl bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
-              />
-            </div>
-          </div>
-        </div>
-
         {/* Channel Settings */}
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
           <h2 className="text-xl font-semibold mb-4">Channels</h2>
+          <p className="text-sm text-[var(--muted)] mb-6">
+            Configure Telegram and WhatsApp channels. When disabled, customers will see "features will be available soon" instead of the buttons.
+          </p>
           
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">WhatsApp Channel</p>
-                <p className="text-sm text-[var(--muted)]">Enable WhatsApp ordering and support</p>
+          <div className="space-y-6">
+            {/* Telegram */}
+            <div className="p-4 rounded-xl bg-[var(--card-hover)] border border-[var(--border)]">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="font-medium flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                    Telegram Channel
+                  </p>
+                  <p className="text-sm text-[var(--muted)]">Enable Telegram ordering and support</p>
+                </div>
+                <button
+                  onClick={() => setFeatures(f => ({ ...f, telegram: { ...f.telegram, enabled: !f.telegram.enabled } }))}
+                  className={`w-14 h-8 rounded-full transition-colors ${
+                    features.telegram.enabled ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-full bg-white transition-transform ${
+                    features.telegram.enabled ? 'translate-x-7' : 'translate-x-1'
+                  }`} />
+                </button>
               </div>
-              <button
-                onClick={() => setFeatures(f => ({ ...f, whatsapp_enabled: !f.whatsapp_enabled }))}
-                className={`w-14 h-8 rounded-full transition-colors ${
-                  features.whatsapp_enabled ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'
-                }`}
-              >
-                <div className={`w-6 h-6 rounded-full bg-white transition-transform ${
-                  features.whatsapp_enabled ? 'translate-x-7' : 'translate-x-1'
-                }`} />
-              </button>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">Telegram Bot URL</label>
+                <input
+                  type="url"
+                  value={features.telegram.url}
+                  onChange={(e) => setFeatures(f => ({ ...f, telegram: { ...f.telegram, url: e.target.value } }))}
+                  placeholder="https://t.me/YourBotUsername"
+                  className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                />
+                <p className="text-xs text-[var(--muted)] mt-1">Default: https://t.me/StyxproxyBot</p>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Telegram Channel</p>
-                <p className="text-sm text-[var(--muted)]">Enable Telegram ordering and support</p>
+            {/* WhatsApp */}
+            <div className="p-4 rounded-xl bg-[var(--card-hover)] border border-[var(--border)]">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="font-medium flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    WhatsApp Channel
+                  </p>
+                  <p className="text-sm text-[var(--muted)]">Enable WhatsApp ordering and support</p>
+                </div>
+                <button
+                  onClick={() => setFeatures(f => ({ ...f, whatsapp: { ...f.whatsapp, enabled: !f.whatsapp.enabled } }))}
+                  className={`w-14 h-8 rounded-full transition-colors ${
+                    features.whatsapp.enabled ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-full bg-white transition-transform ${
+                    features.whatsapp.enabled ? 'translate-x-7' : 'translate-x-1'
+                  }`} />
+                </button>
               </div>
-              <button
-                onClick={() => setFeatures(f => ({ ...f, telegram_enabled: !f.telegram_enabled }))}
-                className={`w-14 h-8 rounded-full transition-colors ${
-                  features.telegram_enabled ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'
-                }`}
-              >
-                <div className={`w-6 h-6 rounded-full bg-white transition-transform ${
-                  features.telegram_enabled ? 'translate-x-7' : 'translate-x-1'
-                }`} />
-              </button>
+              
+              <div>
+                <label className="block text-sm font-medium mb-2">WhatsApp URL / Number</label>
+                <input
+                  type="url"
+                  value={features.whatsapp.url}
+                  onChange={(e) => setFeatures(f => ({ ...f, whatsapp: { ...f.whatsapp, url: e.target.value } }))}
+                  placeholder="https://wa.me/2347032981049"
+                  className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                />
+                <p className="text-xs text-[var(--muted)] mt-1">Enter wa.me link or phone number</p>
+              </div>
             </div>
           </div>
         </div>

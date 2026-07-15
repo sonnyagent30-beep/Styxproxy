@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { products, formatPrice, COUNTRIES, type CountryInfo } from '@/lib/products';
+import { useChannelFlags } from '@/lib/feature-flags';
 
 // Country lists per product type — drives both the category cards AND the globe
 const PRODUCT_COUNTRIES: Record<string, string[]> = {
@@ -92,6 +93,9 @@ export default function ProductsPage() {
   const [carouselIdx, setCarouselIdx] = useState(0);
   const touchStartX = useRef(0);
   const touchDeltaX = useRef(0);
+  
+  // Channel feature flags
+  const { isChannelEnabled, getChannelUrl, loading: flagsLoading } = useChannelFlags();
 
   return (
     <div className="min-h-screen pt-24 pb-16">
@@ -134,22 +138,38 @@ export default function ProductsPage() {
           >
             Get Instant Access
           </Link>
-          <a
-            href="https://t.me/StyxproxyBot"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-6 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl transition-colors min-w-[160px] text-center"
-          >
-            Start via Telegram
-          </a>
-          <a
-            href="https://wa.me/2347032981049"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-6 py-3 bg-[#25D366] hover:bg-[#1da851] text-white font-semibold rounded-xl transition-colors min-w-[160px] text-center"
-          >
-            Chat on WhatsApp
-          </a>
+          
+          {/* Telegram Button - conditional based on feature flag */}
+          {isChannelEnabled('telegram') ? (
+            <a
+              href={getChannelUrl('telegram') || 'https://t.me/StyxproxyBot'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl transition-colors min-w-[160px] text-center"
+            >
+              Start via Telegram
+            </a>
+          ) : (
+            <span className="px-6 py-3 bg-[var(--card)] border border-[var(--border)] text-[var(--muted)] font-semibold rounded-xl min-w-[160px] text-center cursor-not-allowed">
+              Telegram (coming soon)
+            </span>
+          )}
+          
+          {/* WhatsApp Button - conditional based on feature flag */}
+          {isChannelEnabled('whatsapp') ? (
+            <a
+              href={getChannelUrl('whatsapp') || 'https://wa.me/2347032981049'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-3 bg-[#25D366] hover:bg-[#1da851] text-white font-semibold rounded-xl transition-colors min-w-[160px] text-center"
+            >
+              Chat on WhatsApp
+            </a>
+          ) : (
+            <span className="px-6 py-3 bg-[var(--card)] border border-[var(--border)] text-[var(--muted)] font-semibold rounded-xl min-w-[160px] text-center cursor-not-allowed">
+              WhatsApp (coming soon)
+            </span>
+          )}
         </div>
 
         <div className="mb-16"></div>

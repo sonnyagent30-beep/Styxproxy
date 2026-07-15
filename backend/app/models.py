@@ -482,6 +482,33 @@ class AdminInvite(Base):
     )
 
 
+class Plan(Base):
+    """Plans table - Proxy plans with pricing for each country/type combo."""
+    __tablename__ = "plans"
+    __table_args__ = (
+        Index("idx_plans_code", "plan_code", unique=True),
+        Index("idx_plans_type_country", "plan_type", "country"),
+        Index("idx_plans_active", "is_active"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    plan_code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    plan_type: Mapped[str] = mapped_column(String(20), nullable=False)  # ISP, DC, RESIDENTIAL, MOBILE
+    country: Mapped[str] = mapped_column(String(10), nullable=False)
+    price_ngn: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    duration_days: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+    features: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class FeatureFlag(Base):
     """Feature flags table - Toggle features globally or per-admin."""
     __tablename__ = "feature_flags"

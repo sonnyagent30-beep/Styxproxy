@@ -60,10 +60,10 @@ export default function BlogPostClient({ post }: Props) {
         </Link>
 
         {/* Cover Image */}
-        {post.cover_image && (
+        {post.cover_image_url && (
           <div className="relative w-full h-64 sm:h-80 lg:h-96 mb-8 rounded-2xl overflow-hidden">
             <Image
-              src={post.cover_image}
+              src={post.cover_image_url}
               alt={post.title}
               fill
               className="object-cover"

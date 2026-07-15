@@ -19,7 +19,7 @@ export default function BlogPage() {
       const result = await api.getBlogPosts(page, 9);
       if (result.data) {
         setPosts(result.data.posts);
-        setTotalPages(Math.ceil(result.data.total / 9));
+        setTotalPages(Math.ceil(result.data.pagination.total_items / 9));
       } else if (result.error) {
         setError(result.error);
       }
@@ -108,9 +108,9 @@ export default function BlogPage() {
                 <article className="relative bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden hover:border-[var(--primary)] transition-all">
                   <div className="grid lg:grid-cols-2 gap-0">
                     <div className="relative h-64 lg:h-80">
-                      {posts[0].cover_image ? (
+                      {posts[0].cover_image_url ? (
                         <Image
-                          src={posts[0].cover_image}
+                          src={posts[0].cover_image_url}
                           alt={posts[0].title}
                           fill
                           className="object-cover"
@@ -155,9 +155,9 @@ export default function BlogPage() {
                 <Link key={post.id} href={`/blog/${post.slug}`} className="group">
                   <article className="h-full bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden hover:border-[var(--primary)] transition-all">
                     <div className="relative h-48">
-                      {post.cover_image ? (
+                      {post.cover_image_url ? (
                         <Image
-                          src={post.cover_image}
+                          src={post.cover_image_url}
                           alt={post.title}
                           fill
                           className="object-cover"

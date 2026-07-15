@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { api } from '@/lib/api';
-import type { BlogPost, BlogPostCreate } from '@/types';
+import type { BlogPost, BlogPostCreate, PostStatus } from '@/types';
 
 export default function AdminBlogPage() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -12,18 +11,18 @@ export default function AdminBlogPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
   const [saving, setSaving] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const [formData, setFormData] = useState<BlogPostCreate>({
+  const emptyForm: BlogPostCreate = {
     title: '',
-    slug: '',
-    excerpt: '',
     content: '',
-    cover_image: '',
-    author: '',
-    published: false,
-    tags: [],
-  });
+    excerpt: '',
+    cover_image_url: '',
+    meta_description: '',
+    tags: '',
+  };
+
+  const [formData, setFormData] = useState<BlogPostCreate>(emptyForm);
 
   useEffect(() => {
     loadPosts();
@@ -32,55 +31,29 @@ export default function AdminBlogPage() {
   const loadPosts = async () => {
     setLoading(true);
     const result = await api.getAdminBlogPosts(1, 100);
-    if (result.data) {
-      setPosts(result.data.posts);
-    } else if (result.error) {
-      setError(result.error);
-    }
+    if (result.error) setError(result.error);
+    else setPosts(result.data?.posts || []);
     setLoading(false);
-  };
-
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-  };
-
-  const handleTitleChange = (title: string) => {
-    setFormData(prev => ({
-      ...prev,
-      title,
-      slug: prev.slug || generateSlug(title),
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.title || !formData.content) {
+      alert('Title and content are required');
+      return;
+    }
     setSaving(true);
-
     const result = editingPost
       ? await api.updateBlogPost(editingPost.id, formData)
       : await api.createBlogPost(formData);
-
     if (result.error) {
       alert(result.error);
       setSaving(false);
       return;
     }
-
     setShowModal(false);
     setEditingPost(null);
-    setFormData({
-      title: '',
-      slug: '',
-      excerpt: '',
-      content: '',
-      cover_image: '',
-      author: '',
-      published: false,
-      tags: [],
-    });
+    setFormData(emptyForm);
     loadPosts();
     setSaving(false);
   };
@@ -89,189 +62,148 @@ export default function AdminBlogPage() {
     setEditingPost(post);
     setFormData({
       title: post.title,
-      slug: post.slug,
-      excerpt: post.excerpt,
       content: post.content,
-      cover_image: post.cover_image || '',
-      author: post.author,
-      published: post.published,
-      tags: post.tags || [],
+      excerpt: post.excerpt || '',
+      cover_image_url: post.cover_image_url || '',
+      meta_description: post.meta_description || '',
+      tags: Array.isArray(post.tags) ? post.tags.join(', ') : (post.tags || ''),
     });
     setShowModal(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Delete this post? This cannot be undone.')) return;
     const result = await api.deleteBlogPost(id);
     if (result.error) {
       alert(result.error);
       return;
     }
-    setDeleteConfirm(null);
     loadPosts();
   };
 
   const handleTogglePublish = async (post: BlogPost) => {
-    const result = await api.toggleBlogPostPublish(post.id, !post.published);
-    if (result.data) {
-      loadPosts();
+    const isPublished = post.status === 'published';
+    const result = isPublished
+      ? await api.unpublishPost(post.id)
+      : await api.publishPost(post.id);
+    if (!result.error) loadPosts();
+  };
+
+  const handleApprove = async (post: BlogPost) => {
+    const result = await api.approvePost(post.id);
+    if (!result.error) loadPosts();
+  };
+
+  const handleReject = async (post: BlogPost) => {
+    const reason = window.prompt('Rejection reason:');
+    if (!reason) return;
+    const result = await api.rejectPost(post.id, reason);
+    if (!result.error) loadPosts();
+  };
+
+  const generateSlug = (title: string) =>
+    title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case 'published': return 'bg-green-500/20 text-green-400';
+      case 'pending': return 'bg-yellow-500/20 text-yellow-400';
+      case 'approved': return 'bg-blue-500/20 text-blue-400';
+      case 'scheduled': return 'bg-purple-500/20 text-purple-400';
+      case 'archived': return 'bg-gray-500/20 text-gray-400';
+      default: return 'bg-gray-500/20 text-gray-400';
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingPost(null);
-    setFormData({
-      title: '',
-      slug: '',
-      excerpt: '',
-      content: '',
-      cover_image: '',
-      author: '',
-      published: false,
-      tags: [],
-    });
-  };
+  const filteredPosts = statusFilter === 'all'
+    ? posts
+    : posts.filter(p => p.status === statusFilter);
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl lg:text-4xl font-bold mb-2">
             Blog <span className="gradient-text">Posts</span>
           </h1>
-          <p className="text-[var(--muted)]">Manage your blog content</p>
+          <p className="text-[var(--muted)]">Manage blog posts</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
-          className="px-5 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors flex items-center gap-2"
+          onClick={() => { setEditingPost(null); setFormData(emptyForm); setShowModal(true); }}
+          className="px-6 py-3 rounded-xl bg-[var(--primary)] text-black font-medium hover:opacity-90 transition-opacity"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          New Post
+          + New Post
         </button>
       </div>
 
       {error && (
         <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
           {error}
-          <button onClick={loadPosts} className="ml-4 text-red-300 hover:text-white">
-            Retry
-          </button>
         </div>
       )}
 
+      {/* Status Filter */}
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {['all', 'draft', 'pending', 'approved', 'published', 'scheduled', 'archived'].map(s => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium capitalize transition-all ${
+              statusFilter === s
+                ? 'bg-[var(--primary)] text-black'
+                : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)]'
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
       {/* Posts Table */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden">
+      <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-[var(--muted)]">Loading...</div>
-        ) : posts.length === 0 ? (
-          <div className="p-8 text-center">
-            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--border)] flex items-center justify-center">
-              <svg className="w-6 h-6 text-[var(--muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-              </svg>
-            </div>
-            <p className="text-[var(--muted)] mb-4">No blog posts yet</p>
-            <button
-              onClick={() => setShowModal(true)}
-              className="text-[var(--primary)] hover:underline"
-            >
-              Create your first post
-            </button>
-          </div>
+        ) : filteredPosts.length === 0 ? (
+          <div className="p-8 text-center text-[var(--muted)]">No posts yet. Create your first post!</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  <th className="text-left px-6 py-4 text-sm font-medium text-[var(--muted)]">Title</th>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-[var(--muted)]">Status</th>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-[var(--muted)]">Author</th>
-                  <th className="text-left px-6 py-4 text-sm font-medium text-[var(--muted)]">Date</th>
-                  <th className="text-right px-6 py-4 text-sm font-medium text-[var(--muted)]">Actions</th>
+                  <th className="text-left p-4 font-medium text-[var(--muted)]">Title</th>
+                  <th className="text-left p-4 font-medium text-[var(--muted)]">Status</th>
+                  <th className="text-left p-4 font-medium text-[var(--muted)]">Views</th>
+                  <th className="text-left p-4 font-medium text-[var(--muted)]">Created</th>
+                  <th className="text-right p-4 font-medium text-[var(--muted)]">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {posts.map((post) => (
+                {filteredPosts.map(post => (
                   <tr key={post.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--card-hover)]">
-                    <td className="px-6 py-4">
-                      <div className="font-medium">{post.title}</div>
-                      <div className="text-sm text-[var(--muted)]">/{post.slug}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                          post.published
-                            ? 'bg-green-500/20 text-green-400'
-                            : 'bg-yellow-500/20 text-yellow-400'
-                        }`}
-                      >
-                        {post.published ? 'Published' : 'Draft'}
+                    <td className="p-4 font-medium">{post.title}</td>
+                    <td className="p-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${statusColor(post.status)}`}>
+                        {post.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-[var(--muted)]">{post.author}</td>
-                    <td className="px-6 py-4 text-sm text-[var(--muted)]">
-                      {formatDate(post.published_at || post.created_at)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleTogglePublish(post)}
-                          className="p-2 rounded-lg hover:bg-[var(--border)] transition-colors"
-                          title={post.published ? 'Unpublish' : 'Publish'}
-                        >
-                          {post.published ? (
-                            <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          )}
-                        </button>
-                        {post.published && (
-                          <Link
-                            href={`/blog/${post.slug}`}
-                            target="_blank"
-                            className="p-2 rounded-lg hover:bg-[var(--border)] transition-colors"
-                            title="View"
-                          >
-                            <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </Link>
+                    <td className="p-4 text-[var(--muted)]">{post.view_count}</td>
+                    <td className="p-4 text-[var(--muted)]">{formatDate(post.created_at)}</td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-2 flex-wrap">
+                        {post.status === 'pending' && (
+                          <>
+                            <button onClick={() => handleApprove(post)} className="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-400 text-xs hover:bg-blue-500/30">Approve</button>
+                            <button onClick={() => handleReject(post)} className="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs hover:bg-red-500/30">Reject</button>
+                          </>
                         )}
-                        <button
-                          onClick={() => handleEdit(post)}
-                          className="p-2 rounded-lg hover:bg-[var(--border)] transition-colors"
-                          title="Edit"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
+                        <button onClick={() => handleEdit(post)} className="px-3 py-1 rounded-lg bg-[var(--card-hover)] text-[var(--muted)] text-xs hover:text-[var(--foreground)]">Edit</button>
+                        <button onClick={() => handleTogglePublish(post)} className={`px-3 py-1 rounded-lg text-xs ${post.status === 'published' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'}`}>
+                          {post.status === 'published' ? 'Unpublish' : 'Publish'}
                         </button>
-                        <button
-                          onClick={() => setDeleteConfirm(post.id)}
-                          className="p-2 rounded-lg hover:bg-[var(--border)] transition-colors"
-                          title="Delete"
-                        >
-                          <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                        <button onClick={() => handleDelete(post.id)} className="px-3 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs hover:bg-red-500/30">Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -282,165 +214,101 @@ export default function AdminBlogPage() {
         )}
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleCloseModal} />
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--card)] rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-[var(--border)]">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">
-                {editingPost ? 'Edit Post' : 'Create New Post'}
-              </h2>
-              <button
-                onClick={handleCloseModal}
-                className="p-2 rounded-lg hover:bg-[var(--border)] transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <h2 className="text-xl font-bold">{editingPost ? 'Edit Post' : 'New Post'}</h2>
+              <button onClick={() => setShowModal(false)} className="text-[var(--muted)] hover:text-white text-xl">&times;</button>
             </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Title</label>
+                <label className="block text-sm font-medium mb-2">Title *</label>
                 <input
                   type="text"
                   value={formData.title}
-                  onChange={(e) => handleTitleChange(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl focus:border-[var(--primary)] focus:outline-none"
+                  onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Post title"
+                  className="w-full px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   required
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-2">Slug</label>
                 <input
                   type="text"
-                  value={formData.slug}
-                  onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl focus:border-[var(--primary)] focus:outline-none"
-                  required
+                  value={formData.tags || ''}
+                  placeholder="auto-generated-from-title"
+                  className="w-full px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none opacity-60"
+                  readOnly
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-2">Excerpt</label>
                 <textarea
-                  value={formData.excerpt}
-                  onChange={(e) => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
-                  rows={2}
-                  className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl focus:border-[var(--primary)] focus:outline-none resize-none"
-                  required
+                  value={formData.excerpt || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
+                  placeholder="Short summary for cards and meta description"
+                  className="w-full px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none min-h-[80px]"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Content (Markdown supported)</label>
-                <textarea
-                  value={formData.content}
-                  onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                  rows={12}
-                  className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl focus:border-[var(--primary)] focus:outline-none font-mono text-sm"
-                  required
-                />
-              </div>
-
               <div>
                 <label className="block text-sm font-medium mb-2">Cover Image URL</label>
                 <input
                   type="url"
-                  value={formData.cover_image}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cover_image: e.target.value }))}
+                  value={formData.cover_image_url || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, cover_image_url: e.target.value }))}
                   placeholder="https://..."
-                  className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl focus:border-[var(--primary)] focus:outline-none"
+                  className="w-full px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Author</label>
-                  <input
-                    type="text"
-                    value={formData.author}
-                    onChange={(e) => setFormData(prev => ({ ...prev, author: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl focus:border-[var(--primary)] focus:outline-none"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Tags (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={formData.tags?.join(', ') || ''}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean)
-                    }))}
-                    placeholder="proxy, tutorial, news"
-                    className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl focus:border-[var(--primary)] focus:outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Content (Markdown) *</label>
+                <textarea
+                  value={formData.content}
+                  onChange={e => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                  placeholder="Write your post in Markdown..."
+                  className="w-full px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none min-h-[300px]"
+                  required
+                />
               </div>
-
-              <div className="flex items-center gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-2">SEO Meta Description</label>
+                <textarea
+                  value={formData.meta_description || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, meta_description: e.target.value }))}
+                  placeholder="Custom meta description for search engines"
+                  className="w-full px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none min-h-[60px]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Tags (comma-separated)</label>
                 <input
-                  type="checkbox"
-                  id="published"
-                  checked={formData.published}
-                  onChange={(e) => setFormData(prev => ({ ...prev, published: e.target.checked }))}
-                  className="w-4 h-4 rounded border-[var(--border)] text-[var(--primary)] focus:ring-[var(--primary)]"
+                  type="text"
+                  value={formData.tags || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+                  placeholder="proxy, guide, tutorial"
+                  className="w-full px-4 py-2 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                 />
-                <label htmlFor="published" className="text-sm font-medium">
-                  Publish immediately
-                </label>
               </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="flex-1 px-5 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl hover:border-[var(--muted)] transition-colors"
-                >
-                  Cancel
-                </button>
+              <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-5 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors disabled:opacity-50"
+                  className="flex-1 py-3 rounded-xl bg-[var(--primary)] text-black font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : editingPost ? 'Update Post' : 'Create Post'}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-6 py-3 rounded-xl border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                >
+                  Cancel
+                </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
-          <div className="relative w-full max-w-md bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-            <h3 className="text-lg font-bold mb-2">Delete Post?</h3>
-            <p className="text-[var(--muted)] mb-6">
-              This action cannot be undone. The post will be permanently deleted.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-5 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl hover:border-[var(--muted)] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-colors"
-              >
-                Delete
-              </button>
-            </div>
           </div>
         </div>
       )}

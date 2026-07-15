@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from app.database import get_session
-from app.models import Customer, Order, BuncheCredential, FreeTrial, CustomerAuditLog, ProcessedWebhook
+from app.models import Customer, Order, BuncheCredential, FreeTrial, CustomerAuditLog, ProcessedWebhook, FeatureFlag, Plan
 from app.schemas import (
     AdminStatsResponse, AdminCustomerResponse, AdminCustomersResponse, AdminBlockRequest,
     AdminOrderResponse, AdminOrdersResponse, AdminOrderUpdateRequest, AdminRefundRequest,
@@ -16,11 +16,13 @@ from app.schemas import (
     AdminWebhookLogsResponse, AdminWebhookLogResponse,
     LearnedFilesResponse, LearnedFileResponse, LearnContentResponse, 
     DeleteLearnedFileRequest, DeleteLearnedFileResponse,
+    PlanResponse, PlansResponse, PlanCreateRequest, PlanUpdateRequest,
 )
 from app.auth import admin_only
 from app.services.credential import replace_credential
 from app.services.trial import get_trials_today_count
 from app.services.audit import get_audit_logs
+from app.services.email import send_refund_request_notification, send_refund_approved_notification
 from pathlib import Path
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -194,6 +196,15 @@ async def refund_order(order_id: str, request: AdminRefundRequest, session: Asyn
         if cred:
             cred.status = "revoked"
     await session.commit()
+    
+    # Send admin notification
+    await send_refund_approved_notification(
+        order_id=order_id,
+        customer_phone=order.customer_phone or "",
+        amount=float(order.amount_paid_ngn or 0),
+        currency="NGN",
+    )
+    
     return {"status": "refunded", "order_id": order_id, "refund_amount": float(order.amount_paid_ngn or 0)}
 
 
@@ -357,4 +368,190 @@ async def delete_learned_file(request: DeleteLearnedFileRequest):
     return DeleteLearnedFileResponse(
         ok=True,
         message=f"Deleted {filename}",
+    )
+
+
+# ============== Plans CRUD ==============
+
+@router.get("/plans", response_model=PlansResponse, dependencies=[Depends(admin_only)])
+async def list_plans(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    plan_type: Optional[str] = None,
+    country: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """List all plans with pagination and filters."""
+    conditions = []
+    if plan_type:
+        conditions.append(Plan.plan_type == plan_type.upper())
+    if country:
+        conditions.append(Plan.country == country.upper())
+    if is_active is not None:
+        conditions.append(Plan.is_active == is_active)
+    
+    count_stmt = select(func.count()).select_from(Plan)
+    if conditions:
+        count_stmt = count_stmt.where(and_(*conditions))
+    total = (await session.execute(count_stmt)).scalar() or 0
+    
+    offset = (page - 1) * limit
+    stmt = select(Plan).order_by(Plan.sort_order, Plan.plan_code).offset(offset).limit(limit)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    plans = (await session.execute(stmt)).scalars().all()
+    
+    return PlansResponse(
+        plans=[PlanResponse.model_validate(p) for p in plans],
+        pagination={
+            "page": page, "limit": limit, "total_items": total,
+            "total_pages": (total + limit - 1) // limit,
+            "has_next": page * limit < total,
+            "has_prev": page > 1,
+        },
+    )
+
+
+@router.get("/plans/{plan_id}", response_model=PlanResponse, dependencies=[Depends(admin_only)])
+async def get_plan(plan_id: int, session: AsyncSession = Depends(get_session)):
+    """Get a single plan by ID."""
+    plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+    return PlanResponse.model_validate(plan)
+
+
+@router.post("/plans", response_model=PlanResponse, dependencies=[Depends(admin_only)])
+async def create_plan(request: PlanCreateRequest, session: AsyncSession = Depends(get_session)):
+    """Create a new plan."""
+    # Check for duplicate plan_code
+    existing = (await session.execute(select(Plan).where(Plan.plan_code == request.plan_code))).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Plan code already exists")
+    
+    plan = Plan(
+        plan_code=request.plan_code,
+        plan_type=request.plan_type.upper(),
+        country=request.country.upper(),
+        price_ngn=request.price_ngn,
+        quantity=request.quantity,
+        duration_days=request.duration_days,
+        features=request.features,
+        is_active=request.is_active,
+        sort_order=request.sort_order,
+    )
+    session.add(plan)
+    await session.commit()
+    await session.refresh(plan)
+    return PlanResponse.model_validate(plan)
+
+
+@router.patch("/plans/{plan_id}", response_model=PlanResponse, dependencies=[Depends(admin_only)])
+async def update_plan(plan_id: int, request: PlanUpdateRequest, session: AsyncSession = Depends(get_session)):
+    """Update a plan."""
+    plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+    
+    if request.price_ngn is not None:
+        plan.price_ngn = request.price_ngn
+    if request.quantity is not None:
+        plan.quantity = request.quantity
+    if request.duration_days is not None:
+        plan.duration_days = request.duration_days
+    if request.features is not None:
+        plan.features = request.features
+    if request.is_active is not None:
+        plan.is_active = request.is_active
+    if request.sort_order is not None:
+        plan.sort_order = request.sort_order
+    
+    await session.commit()
+    await session.refresh(plan)
+    return PlanResponse.model_validate(plan)
+
+
+@router.delete("/plans/{plan_id}", dependencies=[Depends(admin_only)])
+async def delete_plan(plan_id: int, session: AsyncSession = Depends(get_session)):
+    """Delete a plan."""
+    plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+    
+    await session.delete(plan)
+    await session.commit()
+    return {"status": "deleted", "plan_id": plan_id}
+
+
+# ============== Channel Feature Flags ==============
+
+async def get_or_create_feature_flag(session: AsyncSession, name: str, default_url: str = "") -> FeatureFlag:
+    """Get or create a feature flag for a channel."""
+    flag = (await session.execute(select(FeatureFlag).where(FeatureFlag.name == name))).scalar_one_or_none()
+    if not flag:
+        flag = FeatureFlag(
+            name=name,
+            description=f"Channel configuration for {name}",
+            enabled=False,
+        )
+        session.add(flag)
+        await session.commit()
+        await session.refresh(flag)
+    return flag
+
+
+@router.get("/features/channels", response_model=ChannelFeatureFlagsResponse)
+async def get_channel_feature_flags(session: AsyncSession = Depends(get_session)):
+    """Get channel feature flags (Telegram, WhatsApp) - public endpoint."""
+    # Get or create Telegram flag
+    telegram_flag = await get_or_create_feature_flag(session, "telegram")
+    # Get or create WhatsApp flag
+    whatsapp_flag = await get_or_create_feature_flag(session, "whatsapp")
+    
+    # Parse admin_overrides (JSON) for URLs - using {"url": "..."} format
+    telegram_url = telegram_flag.admin_overrides.get("url", "") if telegram_flag.admin_overrides else ""
+    whatsapp_url = whatsapp_flag.admin_overrides.get("url", "") if whatsapp_flag.admin_overrides else ""
+    
+    return ChannelFeatureFlagsResponse(
+        telegram={
+            "enabled": telegram_flag.enabled,
+            "url": telegram_url,
+        },
+        whatsapp={
+            "enabled": whatsapp_flag.enabled,
+            "url": whatsapp_url,
+        },
+    )
+
+
+@router.put("/features/channels", response_model=ChannelFeatureFlagsResponse, dependencies=[Depends(admin_only)])
+async def update_channel_feature_flags(
+    request: ChannelFeatureFlagsUpdate,
+    session: AsyncSession = Depends(get_session),
+):
+    """Update channel feature flags (admin only)."""
+    # Update Telegram
+    telegram_flag = await get_or_create_feature_flag(session, "telegram")
+    telegram_flag.enabled = request.telegram.enabled
+    telegram_flag.admin_overrides = {"url": request.telegram.url}
+    
+    # Update WhatsApp
+    whatsapp_flag = await get_or_create_feature_flag(session, "whatsapp")
+    whatsapp_flag.enabled = request.whatsapp.enabled
+    whatsapp_flag.admin_overrides = {"url": request.whatsapp.url}
+    
+    await session.commit()
+    await session.refresh(telegram_flag)
+    await session.refresh(whatsapp_flag)
+    
+    return ChannelFeatureFlagsResponse(
+        telegram={
+            "enabled": telegram_flag.enabled,
+            "url": telegram_flag.admin_overrides.get("url", "") if telegram_flag.admin_overrides else "",
+        },
+        whatsapp={
+            "enabled": whatsapp_flag.enabled,
+            "url": whatsapp_flag.admin_overrides.get("url", "") if whatsapp_flag.admin_overrides else "",
+        },
     )

@@ -26,6 +26,10 @@ import type {
   BlogPostCreate,
   BlogPostUpdate,
   BlogPostsResponse,
+  ChannelFeatureFlags,
+  Plan,
+  PlanCreate,
+  PlanUpdate,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -155,7 +159,11 @@ class ApiClient {
 
   // Admin
   async getAdminStats(): Promise<ApiResponse<AdminStats>> {
-    return this.request<AdminStats>('/admin/stats');
+    return this.request<AdminStats>('/api/admin/stats');
+  }
+
+  async getOrders(page: number = 1, limit: number = 20): Promise<ApiResponse<PaginatedResponse<Order>>> {
+    return this.request<PaginatedResponse<Order>>(`/admin/orders?page=${page}&limit=${limit}`);
   }
 
   async getCustomers(page: number = 1, limit: number = 20): Promise<ApiResponse<PaginatedResponse<Customer>>> {
@@ -198,7 +206,7 @@ class ApiClient {
 
   // Learned Files Management
   async getLearnedFiles(): Promise<ApiResponse<LearnedFilesResponse>> {
-    return this.request<LearnedFilesResponse>('/admin/charon/learned');
+    return this.request<LearnedFilesResponse>('/api/admin/charon/learned');
   }
 
   async getLearnedFileContent(filename: string): Promise<ApiResponse<LearnContentResponse>> {
@@ -206,7 +214,7 @@ class ApiClient {
   }
 
   async deleteLearnedFile(filename: string): Promise<ApiResponse<{ ok: boolean; message: string }>> {
-    return this.request('/admin/charon/learned', {
+    return this.request('/api/admin/charon/learned', {
       method: 'DELETE',
       body: JSON.stringify({ filename }),
     });
@@ -228,12 +236,12 @@ class ApiClient {
   
   // Check if admin is already set up
   async checkAdminSetupStatus(): Promise<ApiResponse<{ setup_required: boolean }>> {
-    return this.request('/admin/auth/status');
+    return this.request('/api/admin/auth/status');
   }
 
   // Initial admin setup (first time)
   async setupAdmin(data: AdminSetupRequest): Promise<ApiResponse<AdminSetupResponse>> {
-    return this.request<AdminSetupResponse>('/admin/auth/setup', {
+    return this.request<AdminSetupResponse>('/api/admin/auth/setup', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -241,7 +249,7 @@ class ApiClient {
 
   // Admin login
   async adminLogin(data: AdminLoginRequest): Promise<ApiResponse<AdminLoginResponse>> {
-    return this.request<AdminLoginResponse>('/admin/auth/login', {
+    return this.request<AdminLoginResponse>('/api/admin/auth/login', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -249,24 +257,24 @@ class ApiClient {
 
   // Get current admin info
   async getAdminMe(): Promise<ApiResponse<AdminMeResponse>> {
-    return this.request<AdminMeResponse>('/admin/auth/me');
+    return this.request<AdminMeResponse>('/api/admin/auth/me');
   }
 
   // Admin logout
   async adminLogout(): Promise<ApiResponse<{ message: string }>> {
-    return this.request('/admin/auth/logout', {
+    return this.request('/api/admin/auth/logout', {
       method: 'POST',
     });
   }
 
   // Get admin team (SuperAdmin only)
   async getAdminTeam(): Promise<ApiResponse<{ members: AdminTeamMember[] }>> {
-    return this.request('/admin/auth/team');
+    return this.request('/api/admin/auth/team');
   }
 
   // Create admin invite (SuperAdmin only)
   async createAdminInvite(data: AdminInviteCreateRequest): Promise<ApiResponse<AdminInviteCreateResponse>> {
-    return this.request<AdminInviteCreateResponse>('/admin/auth/invite', {
+    return this.request<AdminInviteCreateResponse>('/api/admin/auth/invite', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -274,7 +282,7 @@ class ApiClient {
 
   // Change admin PIN
   async changeAdminPin(currentPin: string, newPin: string): Promise<ApiResponse<{ message: string }>> {
-    return this.request('/admin/auth/password', {
+    return this.request('/api/admin/auth/password', {
       method: 'POST',
       body: JSON.stringify({ current_pin: currentPin, new_pin: newPin }),
     });
@@ -282,7 +290,7 @@ class ApiClient {
 
   // Toggle TOTP
   async toggleAdminTOTP(action: 'enable' | 'disable', totpCode?: string): Promise<ApiResponse<{ totp_enabled: boolean; message: string }>> {
-    return this.request('/admin/auth/totp', {
+    return this.request('/api/admin/auth/totp', {
       method: 'POST',
       body: JSON.stringify({ action, totp_code: totpCode }),
     });
@@ -292,47 +300,118 @@ class ApiClient {
 
   // Get all published blog posts (public)
   async getBlogPosts(page: number = 1, limit: number = 10): Promise<ApiResponse<BlogPostsResponse>> {
-    return this.request<BlogPostsResponse>(`/blog/posts?page=${page}&limit=${limit}&published=true`);
+    return this.request<BlogPostsResponse>(`/api/blog/posts?page=${page}&limit=${limit}`);
   }
 
   // Get single blog post by slug (public)
   async getBlogPost(slug: string): Promise<ApiResponse<BlogPost>> {
-    return this.request<BlogPost>(`/blog/posts/${slug}`);
+    return this.request<BlogPost>(`/api/blog/posts/${slug}`);
   }
 
   // Get all blog posts for admin (includes unpublished)
   async getAdminBlogPosts(page: number = 1, limit: number = 20): Promise<ApiResponse<BlogPostsResponse>> {
-    return this.request<BlogPostsResponse>(`/admin/blog/posts?page=${page}&limit=${limit}`);
+    return this.request<BlogPostsResponse>(`/api/admin/blog/posts?page=${page}&limit=${limit}`);
   }
 
   // Create blog post (admin)
   async createBlogPost(data: BlogPostCreate): Promise<ApiResponse<BlogPost>> {
-    return this.request<BlogPost>('/admin/blog/posts', {
+    return this.request<BlogPost>('/api/admin/blog/posts', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   // Update blog post (admin)
-  async updateBlogPost(id: number, data: BlogPostUpdate): Promise<ApiResponse<BlogPost>> {
-    return this.request<BlogPost>(`/admin/blog/posts/${id}`, {
+  async updateBlogPost(id: string, data: BlogPostUpdate): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/admin/blog/posts/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
   // Delete blog post (admin)
-  async deleteBlogPost(id: number): Promise<ApiResponse<{ message: string }>> {
-    return this.request(`/admin/blog/posts/${id}`, {
+  async deleteBlogPost(id: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/blog/posts/${id}`, {
       method: 'DELETE',
     });
   }
 
-  // Publish/unpublish blog post (admin)
-  async toggleBlogPostPublish(id: number, published: boolean): Promise<ApiResponse<BlogPost>> {
-    return this.request<BlogPost>(`/admin/blog/posts/${id}/publish`, {
+  // Blog post workflow actions
+  async publishPost(id: string): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/admin/blog/posts/${id}/publish`, {
       method: 'POST',
-      body: JSON.stringify({ published }),
+    });
+  }
+
+  async unpublishPost(id: string): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/admin/blog/posts/${id}/unpublish`, {
+      method: 'POST',
+    });
+  }
+
+  async approvePost(id: string): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/admin/blog/posts/${id}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectPost(id: string, reason: string): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/admin/blog/posts/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  // ============== Channel Feature Flags ==============
+
+  // Get channel feature flags (public - no auth required)
+  async getChannelFeatureFlags(): Promise<ApiResponse<ChannelFeatureFlags>> {
+    return this.request<ChannelFeatureFlags>('/api/admin/features/channels');
+  }
+
+  // Update channel feature flags (admin only)
+  async updateChannelFeatureFlags(data: ChannelFeatureFlags): Promise<ApiResponse<ChannelFeatureFlags>> {
+    return this.request<ChannelFeatureFlags>('/api/admin/features/channels', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ============== Plans (Admin) ==============
+
+  async getPlans(page: number = 1, limit: number = 20, filters?: {
+    plan_type?: string;
+    country?: string;
+    is_active?: boolean;
+  }): Promise<ApiResponse<PaginatedResponse<Plan>>> {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (filters?.plan_type) params.append('plan_type', filters.plan_type);
+    if (filters?.country) params.append('country', filters.country);
+    if (filters?.is_active !== undefined) params.append('is_active', String(filters.is_active));
+    return this.request<PaginatedResponse<Plan>>(`/api/admin/plans?${params.toString()}`);
+  }
+
+  async getPlan(planId: number): Promise<ApiResponse<Plan>> {
+    return this.request<Plan>(`/api/admin/plans/${planId}`);
+  }
+
+  async createPlan(data: PlanCreate): Promise<ApiResponse<Plan>> {
+    return this.request<Plan>('/api/admin/plans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePlan(planId: number, data: PlanUpdate): Promise<ApiResponse<Plan>> {
+    return this.request<Plan>(`/api/admin/plans/${planId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deletePlan(planId: number): Promise<ApiResponse<{ status: string; plan_id: number }>> {
+    return this.request(`/api/admin/plans/${planId}`, {
+      method: 'DELETE',
     });
   }
 }

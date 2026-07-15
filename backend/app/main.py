@@ -19,6 +19,7 @@ from app.routers import (
     auth,
     blog,
     charon,
+    contact,
     credentials,
     health,
     orders,
@@ -200,5 +201,6 @@ app.include_router(trials.router)
 app.include_router(admin.router)
 app.include_router(session.router)
 app.include_router(charon.router)
+app.include_router(contact.router)
 app.include_router(auth.router)
 app.include_router(blog.router)
