@@ -1,7 +1,7 @@
 """Charon's tool registry.
 
 Each tool is a Python function. Charon can call it through the
-function-calling loop in `tool_loop()`.
+function-calling loop in `agent.py`.
 
 Tool authorization is enforced at registration time. Charon cannot
 add tools it has not been granted. Adding refund/replacement tools
@@ -9,11 +9,13 @@ to this file grants Charon the ability to perform those actions —
 do this only when the underlying API call has its own auth
 constraints (admin role, signed JWT, etc.).
 
-The HTTP backend (legacy orders endpoint) is not yet known to Charon.
-Once that route is migrated to a stable address, register the
-real implementations. Until then, tool calls return a clear
-"not yet wired" message so Charon can answer "I don't know yet"
-honestly while being able to teach the team how to integrate.
+Live tools:
+- lookup_order: DB query by tx_ref, returns status + redacted credentials
+- lookup_payment_status: Flutterwave API verification
+- generate_order_link: builds styxproxy.com/receipt/{tx_ref}
+- generate_receipt_link: builds receipt PDF download URL
+- get_product_catalog: hardcoded plan list
+- suggest_articles: RAG over knowledge base
 """
 from __future__ import annotations
 
