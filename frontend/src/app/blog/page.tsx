@@ -1,74 +1,96 @@
 import { Metadata } from 'next';
-import { DEMO_POSTS } from '@/data/blog-posts';
+import {
+  DEMO_POSTS,
+  getAllTags,
+  getPostsByAuthor,
+} from '@/data/blog-posts';
 import PostRow from '@/components/blog/PostRow';
 import TagFilter from '@/components/blog/TagFilter';
-import type { BlogPost } from '@/types';
 
 export const metadata: Metadata = {
   title: 'Blog | Styxproxy',
-  description: 'Latest news, tutorials, and insights about proxies, automation, and staying anonymous online.',
+  description: 'Notes on proxies, automation, anonymity, and building infrastructure that works.',
   openGraph: {
     title: 'Blog | Styxproxy',
-    description: 'Latest news, tutorials, and insights about proxies, automation, and staying anonymous online.',
+    description: 'Notes on proxies, automation, anonymity, and building infrastructure that works.',
     type: 'website',
     siteName: 'Styxproxy',
   },
 };
 
-function getAllTags(posts: BlogPost[]): string[] {
-  const tagSet = new Set<string>();
-  posts.forEach(p => p.tags?.forEach(t => tagSet.add(t)));
-  return Array.from(tagSet).sort();
-}
-
 export default function BlogPage() {
-  const allPosts = DEMO_POSTS;
-  const tags = getAllTags(allPosts);
-  
-  // Sort by date - newest first
-  const sortedPosts = [...allPosts].sort(
-    (a, b) => new Date(b.published_at || b.created_at).getTime() -
-              new Date(a.published_at || a.created_at).getTime()
+  const allPosts = [...DEMO_POSTS].sort(
+    (a, b) =>
+      new Date(b.published_at || b.created_at).getTime() -
+      new Date(a.published_at || a.created_at).getTime()
   );
+  const tags = getAllTags();
+  const [hero, ...rest] = allPosts;
+  const author = 'Oyebiyi Ayomide';
+  const authorPosts = getPostsByAuthor(author, hero?.slug);
 
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
       {/* Header */}
-      <div className="mb-10">
-        <h1 className="text-4xl sm:text-5xl font-bold text-[#f5f5f5] mb-3 tracking-tight" style={{ letterSpacing: '-0.03em' }}>
+      <header className="mb-10">
+        <h1
+          className="text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-[-0.03em] leading-[1.05] mb-3"
+          style={{ textWrap: 'balance' }}
+        >
           Blog
         </h1>
-        <p className="text-base text-[var(--muted)] max-w-2xl">
-          Insights, tutorials, and guides on proxies, automation, and staying anonymous online. Built for developers and businesses in Africa.
+        <p className="text-base sm:text-lg text-[var(--muted)] max-w-2xl leading-relaxed">
+          Notes on proxies, anonymity, and the infrastructure that keeps the web working.
         </p>
-      </div>
+      </header>
 
-      {/* Tag filter bar - horizontal scrollable */}
-      <div className="mb-12">
+      {/* Search + tag filter */}
+      <div className="mb-10">
         <TagFilter tags={tags} />
       </div>
 
-      {/* Featured post - full-width editorial row */}
-      {sortedPosts.length > 0 && (
-        <div className="mb-16">
-          <PostRow post={sortedPosts[0]} featured imagePosition="left" />
-        </div>
-      )}
+      {/* Hero post — latest */}
+      <div className="mb-12">
+        <PostRow post={hero} variant="hero" />
+      </div>
 
-      {/* Post list - alternate image position for visual rhythm */}
-      {sortedPosts.slice(1).map((post, index) => (
-        <PostRow 
-          key={post.id} 
-          post={post} 
-          imagePosition={index % 2 === 0 ? 'right' : 'left'} 
-        />
-      ))}
-
-      {/* Empty state */}
-      {allPosts.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-[var(--muted)]">No blog posts yet. Check back soon!</p>
+      {/* Latest posts — masonry with varied variants */}
+      <section className="mb-12">
+        <h2 className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-4">
+          Latest posts
+        </h2>
+        <div>
+          {rest.map((post, idx) => (
+            <PostRow
+              key={post.id}
+              post={post}
+              variant={idx === 0 ? 'feature' : 'standard'}
+              imagePosition={idx % 2 === 0 ? 'left' : 'right'}
+            />
+          ))}
+          <div className="border-t border-[var(--border)]" />
         </div>
+      </section>
+
+      {/* More from author */}
+      {authorPosts.length > 0 && (
+        <section className="mt-16 pt-10 border-t border-[var(--border)]">
+          <div className="flex items-end justify-between mb-6">
+            <div>
+              <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-2">
+                More from {author}
+              </p>
+              <h3 className="text-xl font-bold text-[var(--foreground)] tracking-[-0.02em]">
+                Recent from the author
+              </h3>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2">
+            {authorPosts.slice(0, 4).map((post) => (
+              <PostRow key={post.id} post={post} variant="compact" />
+            ))}
+          </div>
+        </section>
       )}
     </main>
   );
