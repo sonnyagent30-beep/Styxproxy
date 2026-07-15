@@ -341,3 +341,46 @@ response = requests.get(url, proxies=proxies)</code></pre>
 export function getDemoPostBySlug(slug: string): BlogPost | undefined {
   return DEMO_POSTS.find(p => p.slug === slug);
 }
+
+export function getRelatedPosts(slug: string, limit = 3): BlogPost[] {
+  const current = getDemoPostBySlug(slug);
+  if (!current) return DEMO_POSTS.slice(0, limit);
+  const currentTags = current.tags || [];
+  return DEMO_POSTS
+    .filter((p) => p.slug !== slug)
+    .map((p) => ({
+      post: p,
+      score: (p.tags || []).filter((t) => currentTags.includes(t)).length,
+    }))
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.post)
+    .slice(0, limit);
+}
+
+export function getPostsByAuthor(author: string, excludeSlug?: string): BlogPost[] {
+  return DEMO_POSTS.filter(
+    (p) => p.author === author && p.slug !== excludeSlug
+  );
+}
+
+export function getPostsByTag(tag: string): BlogPost[] {
+  return DEMO_POSTS.filter((p) => p.tags?.includes(tag));
+}
+
+export function getAllTags(): string[] {
+  const tagSet = new Set<string>();
+  DEMO_POSTS.forEach((p) => p.tags?.forEach((t) => tagSet.add(t)));
+  return Array.from(tagSet).sort();
+}
+
+export function searchPosts(query: string): BlogPost[] {
+  if (!query.trim()) return DEMO_POSTS;
+  const q = query.toLowerCase();
+  return DEMO_POSTS.filter(
+    (p) =>
+      p.title.toLowerCase().includes(q) ||
+      p.excerpt.toLowerCase().includes(q) ||
+      p.content?.toLowerCase().includes(q) ||
+      p.tags?.some((t) => t.toLowerCase().includes(q))
+  );
+}

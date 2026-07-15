@@ -3,11 +3,17 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { api } from '@/lib/api';
-import { getDemoPostBySlug, DEMO_POSTS } from '@/data/blog-posts';
+import {
+  DEMO_POSTS,
+  getDemoPostBySlug,
+  getRelatedPosts,
+  getPostsByAuthor,
+} from '@/data/blog-posts';
 import type { BlogPost } from '@/types';
 import TagPill from '@/components/blog/TagPill';
-import ShareButtons from '@/components/blog/ShareButtons';
+import EngagementRow from '@/components/blog/EngagementRow';
 import PostNav from '@/components/blog/PostNav';
+import RelatedPosts from '@/components/blog/RelatedPosts';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -35,6 +41,10 @@ function generateJsonLd(post: BlogPost, siteUrl: string) {
 function estimateReadTime(content: string): number {
   const words = content.replace(/<[^>]+>/g, '').split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.ceil(words / 200));
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 async function resolvePost(slug: string): Promise<BlogPost | null> {
@@ -96,32 +106,47 @@ export default async function BlogPostPage({ params }: Props) {
 
   // Find prev/next (chronological: previous is older, next is newer)
   const sorted = [...DEMO_POSTS].sort(
-    (a, b) => new Date(b.published_at || b.created_at).getTime() -
-               new Date(a.published_at || a.created_at).getTime()
+    (a, b) =>
+      new Date(b.published_at || b.created_at).getTime() -
+      new Date(a.published_at || a.created_at).getTime()
   );
-  const idx = sorted.findIndex(p => p.slug === slug);
+  const idx = sorted.findIndex((p) => p.slug === slug);
   const prev = idx < sorted.length - 1 ? sorted[idx + 1] : null;
   const next = idx > 0 ? sorted[idx - 1] : null;
 
+  // Related by tag overlap
+  const related = getRelatedPosts(slug, 6);
+  const authorPosts = getPostsByAuthor(post.author, slug);
+
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-16">
-        {/* Back link */}
-        <Link
-          href="/blog"
-          className="inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--primary)] transition-colors mb-8"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          All posts
-        </Link>
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-2 text-sm text-[var(--muted)] mb-8">
+          <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
+            Blog
+          </Link>
+          {post.tags && post.tags[0] && (
+            <>
+              <span>/</span>
+              <Link
+                href={`/blog/tag/${encodeURIComponent(post.tags[0])}`}
+                className="hover:text-[var(--primary)] transition-colors"
+              >
+                #{post.tags[0]}
+              </Link>
+            </>
+          )}
+        </nav>
 
         {/* Cover image */}
         {post.cover_image_url && (
-          <div className="relative w-full aspect-[16/9] overflow-hidden rounded-xl bg-[var(--surface)] mb-10">
+          <div className="relative w-full aspect-[16/9] overflow-hidden rounded-2xl bg-[var(--surface)] mb-8">
             <Image
               src={post.cover_image_url}
               alt={post.title}
@@ -144,7 +169,7 @@ export default async function BlogPostPage({ params }: Props) {
 
         {/* Title */}
         <h1
-          className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-[-0.03em] leading-[1.1] mb-6"
+          className="text-3xl sm:text-4xl md:text-5xl font-bold text-[var(--foreground)] tracking-[-0.03em] leading-[1.1] mb-6"
           style={{ textWrap: 'balance' }}
         >
           {post.title}
@@ -152,38 +177,73 @@ export default async function BlogPostPage({ params }: Props) {
 
         {/* Meta */}
         <div className="flex items-center gap-3 pb-8 border-b border-[var(--border)] mb-10">
-          <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold flex-shrink-0">
-            {post.author?.charAt(0)}
-          </div>
-          <div>
-            <p className="text-sm font-medium text-white">{post.author}</p>
-            <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-              <time dateTime={post.published_at || post.created_at}>
-                {new Date(post.published_at || post.created_at).toLocaleDateString('en-US', {
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                })}
-              </time>
-              <span>·</span>
-              <span>{readTime} min read</span>
+          <Link href={`/blog/author/${encodeURIComponent(post.author)}`} className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold flex-shrink-0">
+              {post.author?.charAt(0)}
             </div>
-          </div>
+            <div>
+              <p className="text-sm font-medium text-white group-hover:text-[var(--primary)] transition-colors">
+                {post.author}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                <time dateTime={post.published_at || post.created_at}>
+                  {formatDate(post.published_at || post.created_at)}
+                </time>
+                <span>·</span>
+                <span>{readTime} min read</span>
+              </div>
+            </div>
+          </Link>
         </div>
 
-        {/* Article body — centered editorial column, max ~65ch */}
+        {/* Article body */}
         <article
           className="prose-styx max-w-[65ch] mx-auto"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
 
-        {/* Share buttons — inline, centered */}
-        <div className="max-w-[65ch] mx-auto">
-          <ShareButtons title={post.title} slug={post.slug} />
-        </div>
+        {/* Engagement row — inline reactions, save, share, link */}
+        <EngagementRow
+          postSlug={post.slug}
+          postTitle={post.title}
+          initialViews={post.view_count || 0}
+        />
+
+        {/* Tag cross-link — "explore more in #tag" */}
+        {post.tags && post.tags.length > 0 && (
+          <div className="mt-12 pt-8 border-t border-[var(--border)]">
+            <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-4">
+              Explore more
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {post.tags.map((tag) => (
+                <TagPill key={tag} tag={tag} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Prev / next */}
         <PostNav prev={prev} next={next} />
+
+        {/* Related by tag */}
+        {related.length > 0 && (
+          <RelatedPosts
+            posts={related}
+            excludeSlug={slug}
+            title="Related by topic"
+            emptyMessage="More posts coming soon."
+          />
+        )}
+
+        {/* More from author */}
+        {authorPosts.length > 0 && (
+          <RelatedPosts
+            posts={authorPosts}
+            excludeSlug={slug}
+            title={`More from ${post.author}`}
+          />
+        )}
       </main>
     </>
   );
