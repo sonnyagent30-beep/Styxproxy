@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Union
 
@@ -85,35 +86,171 @@ class _Registry:
 
 registry = _Registry()
 
+# ─── Site URL (configured via env) ─────────────────────────────────────────
+
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://styxproxy.com")
 
 
-# ─── Read tools (Charon is allowed to use these) ──────────────────
+# ─── Read tools (Charon is allowed to use these) ───────────────────────────
 
 
 async def _lookup_order_tx_ref(tx_ref: str) -> ToolResult:
-    """Look up an order by transaction reference. Returns redacted
-    credentials if the order is active. Currently a placeholder until
-    the legacy HTTP route is wired into this agent runtime."""
-    return ToolResult(
-        ok=False,
-        error=(
-            "Order lookup is not yet wired into Charon's runtime — the legacy "
-            "FastAPI route is at /api/orders/{tx_ref} but I do not have auth "
-            "context for it yet. Until then, please ask the customer to use "
-            "/manage to look up their order directly."
-        ),
-    )
+    """Look up an order by Flutterwave transaction reference.
+    Returns order status, plan details, and redacted credentials if active.
+    Does NOT require auth — Charon runs inside the service boundary."""
+    try:
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models import Order, BuncheCredential
+
+        async with async_session() as session:
+            stmt = select(Order).where(Order.tx_ref == tx_ref)
+            result = await session.execute(stmt)
+            order = result.scalar_one_or_none()
+
+            if not order:
+                return ToolResult(
+                    ok=False,
+                    error=(
+                        f"No order found for transaction reference '{tx_ref}'. "
+                        "Please ask the customer to double-check the reference — "
+                        "it should be in their Flutterwave confirmation message."
+                    ),
+                )
+
+            # Get credentials if fulfilled
+            creds = None
+            if (
+                order.bunche_credential_id
+                and order.status in ("fulfilled", "active", "fulfilling")
+            ):
+                cred_stmt = select(BuncheCredential).where(
+                    BuncheCredential.id == order.bunche_credential_id
+                )
+                cred_result = await session.execute(cred_stmt)
+                cred = cred_result.scalar_one_or_none()
+                if cred:
+                    pwd = cred.provider_password or ""
+                    redacted_password = f"***{pwd[-4:]}" if len(pwd) >= 4 else "****"
+                    creds = {
+                        "username": cred.bun_username,
+                        "password_preview": redacted_password,
+                        "proxy_address": str(cred.upstream_proxy_ip) if cred.upstream_proxy_ip else None,
+                        "port": cred.upstream_proxy_port,
+                        "protocol": cred.protocol,
+                        "status": cred.status,
+                        "expires_at": cred.expires_at.isoformat() if cred.expires_at else None,
+                    }
+
+            status_message = ""
+            if order.status == "pending":
+                status_message = (
+                    "Payment is pending — the customer may still be completing checkout on Flutterwave. "
+                    "Ask them to confirm the payment was made."
+                )
+            elif order.status == "paid":
+                status_message = (
+                    "Payment confirmed but proxy not yet generated. "
+                    "The customer should wait a moment. If they already refreshed, "
+                    "escalate to the support team."
+                )
+            elif order.status in ("fulfilled", "active", "fulfilling"):
+                status_message = "Proxy is ready. Share the credentials with the customer."
+
+            return ToolResult(
+                ok=True,
+                data={
+                    "tx_ref": order.tx_ref,
+                    "order_id": order.order_id,
+                    "status": order.status,
+                    "plan_type": order.plan_type,
+                    "plan_code": order.plan_code,
+                    "country": order.country,
+                    "quantity": order.quantity,
+                    "amount_paid_ngn": float(order.amount_paid_ngn) if order.amount_paid_ngn else None,
+                    "created_at": order.created_at.isoformat() if order.created_at else None,
+                    "expires_at": order.expires_at.isoformat() if order.expires_at else None,
+                    "credential": creds,
+                    "status_message": status_message,
+                },
+            )
+    except Exception as exc:
+        logger.exception("lookup_order failed for tx_ref=%s", tx_ref)
+        return ToolResult(ok=False, error=f"Order lookup failed: {exc}")
 
 
 async def _lookup_payment_status(tx_ref: str) -> ToolResult:
-    """Look up payment status by transaction reference. Placeholder."""
+    """Look up payment status for a transaction reference via Flutterwave."""
+    try:
+        from app.services.flutterwave import verify_flutterwave_payment
+
+        data = await verify_flutterwave_payment(tx_ref)
+        status = data.get("status", "unknown")
+        amount = data.get("amount", 0)
+        currency = data.get("currency", "NGN")
+
+        message = ""
+        if status == "successful":
+            message = "Payment was successful."
+        elif status == "pending":
+            message = "Payment is still pending — the customer may still be on Flutterwave."
+        elif status == "failed":
+            message = "Payment failed. The customer may need to try again."
+        elif status == "refunded":
+            message = "Payment was refunded."
+        else:
+            message = f"Payment status is: {status}."
+
+        return ToolResult(
+            ok=True,
+            data={
+                "tx_ref": tx_ref,
+                "status": status,
+                "amount": amount,
+                "currency": currency,
+                "message": message,
+            },
+        )
+    except Exception as exc:
+        logger.exception("lookup_payment_status failed for tx_ref=%s", tx_ref)
+        return ToolResult(
+            ok=False,
+            error=f"Payment status lookup failed: {exc}. "
+                   "Please ask the customer for their Flutterwave confirmation "
+                   "reference and try again.",
+        )
+
+
+async def _generate_order_link(tx_ref: str) -> ToolResult:
+    """Generate a direct link to the customer's order/receipt page.
+    Use when the customer needs to check their order status or retrieve credentials."""
+    url = f"{PUBLIC_URL}/receipt/{tx_ref}"
     return ToolResult(
-        ok=False,
-        error=(
-            "Payment status lookup from Charon is not yet wired. Payment "
-            "processing is on /webhooks/flutterwave; the team handles "
-            "status questions via support@styxproxy.com today."
-        ),
+        ok=True,
+        data={
+            "url": url,
+            "display_text": "View your order",
+            "message": (
+                f"Here is your order link — bookmark it to check your status anytime: "
+                f"{url}"
+            ),
+        },
+    )
+
+
+async def _generate_receipt_link(tx_ref: str) -> ToolResult:
+    """Generate a direct download link for the customer's receipt PDF.
+    Use after fulfilling an order — the customer can download their official receipt."""
+    url = f"{PUBLIC_URL}/preview?tx_ref={tx_ref}"
+    return ToolResult(
+        ok=True,
+        data={
+            "url": url,
+            "display_text": "Download your receipt",
+            "message": (
+                f"You can download your official receipt here: {url}"
+            ),
+        },
     )
 
 
@@ -147,14 +284,20 @@ async def _suggest_articles(topic: str) -> ToolResult:
     )
 
 
-# Register read-tools
+# ─── Register read-tools ─────────────────────────────────────────────────────
+
 registry.register(ToolSpec(
     name="lookup_order",
-    description="Look up an order by its transaction reference (tx_ref). Returns the order's status, plan, country, payment status, and redacted credentials if the order is active.",
+    description=(
+        "Look up an order by its Flutterwave transaction reference (tx_ref). "
+        "Returns the order's status, plan, country, payment status, and redacted credentials "
+        "if the proxy is already active. Use this when a customer provides a transaction reference "
+        "to check on their order or retrieve their proxy credentials."
+    ),
     schema={
         "type": "object",
         "properties": {
-            "tx_ref": {"type": "string", "description": "The customer's transaction reference"}
+            "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
         },
         "required": ["tx_ref"],
     },
@@ -164,11 +307,14 @@ registry.register(ToolSpec(
 
 registry.register(ToolSpec(
     name="lookup_payment_status",
-    description="Look up payment status for a transaction reference. Returns 'pending', 'paid', 'failed', or 'refunded'.",
+    description=(
+        "Look up payment status for a transaction reference via Flutterwave. "
+        "Returns 'pending', 'successful', 'failed', or 'refunded'."
+    ),
     schema={
         "type": "object",
         "properties": {
-            "tx_ref": {"type": "string", "description": "The customer's transaction reference"}
+            "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
         },
         "required": ["tx_ref"],
     },
@@ -177,8 +323,43 @@ registry.register(ToolSpec(
 
 
 registry.register(ToolSpec(
+    name="generate_order_link",
+    description=(
+        "Generate a direct link to the customer's order page where they can view their "
+        "order status and credentials. Use when a customer needs to retrieve their proxy "
+        "or check their order status — especially if they were disconnected during checkout."
+    ),
+    schema={
+        "type": "object",
+        "properties": {
+            "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
+        },
+        "required": ["tx_ref"],
+    },
+    handler=_generate_order_link,
+))
+
+
+registry.register(ToolSpec(
+    name="generate_receipt_link",
+    description=(
+        "Generate a download link for the customer's official receipt PDF. "
+        "Use after fulfilling an order to send the customer their receipt."
+    ),
+    schema={
+        "type": "object",
+        "properties": {
+            "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
+        },
+        "required": ["tx_ref"],
+    },
+    handler=_generate_receipt_link,
+))
+
+
+registry.register(ToolSpec(
     name="get_product_catalog",
-    description="Return the full product catalog with plans and prices. Use this when the customer wants plan details.",
+    description="Return the full product catalog with plans and prices. Use when the customer wants plan details.",
     schema={"type": "object", "properties": {}},
     handler=_get_product_catalog,
 ))
@@ -190,7 +371,7 @@ registry.register(ToolSpec(
     schema={
         "type": "object",
         "properties": {
-            "topic": {"type": "string", "description": "Topic keyword or phrase"}
+            "topic": {"type": "string", "description": "Topic keyword or phrase"},
         },
         "required": ["topic"],
     },
@@ -198,7 +379,7 @@ registry.register(ToolSpec(
 ))
 
 
-# ─── Forbidden tools (not registered — these are the actions Charon cannot perform) ───
+# ─── Forbidden tools (not registered — guard rails) ───────────────────────────
 
 # The following operations exist in the system but Charon is NOT
 # authorized to invoke them. They are listed here as a guard rail —
