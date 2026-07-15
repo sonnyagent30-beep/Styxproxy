@@ -87,8 +87,10 @@ export interface PaginatedResponse<T> {
   pagination: {
     page: number;
     limit: number;
-    total: number;
+    total_items: number;
     total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
   };
 }
 
@@ -239,37 +241,100 @@ export interface AdminInviteCreateResponse {
 }
 
 // ============== Blog Types ==============
+export type PostStatus = 'draft' | 'pending' | 'approved' | 'published' | 'scheduled' | 'archived';
+
 export interface BlogPost {
-  id: number;
+  id: string; // UUID
   slug: string;
   title: string;
   excerpt: string;
   content: string;
-  cover_image?: string;
-  author: string;
-  published: boolean;
+  cover_image_url?: string;
+  author: string; // admin phone/email
+  status: PostStatus;
+  submitted_at?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  rejection_reason?: string;
+  scheduled_at?: string;
   published_at?: string;
+  meta_description?: string;
+  tags?: string[];
+  view_count: number;
   created_at: string;
   updated_at: string;
-  tags?: string[];
 }
 
 export interface BlogPostCreate {
   title: string;
-  slug: string;
-  excerpt: string;
   content: string;
-  cover_image?: string;
-  author?: string;
-  published?: boolean;
-  tags?: string[];
+  excerpt?: string;
+  cover_image_url?: string;
+  meta_description?: string;
+  tags?: string;
+  scheduled_at?: string;
 }
 
-export interface BlogPostUpdate extends Partial<BlogPostCreate> {}
+export interface BlogPostUpdate extends Partial<BlogPostCreate> {
+  status?: PostStatus;
+}
 
 export interface BlogPostsResponse {
   posts: BlogPost[];
-  total: number;
-  page: number;
-  limit: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total_items: number;
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
+  };
+}
+
+// ============== Channel Feature Flags ==============
+export interface ChannelConfig {
+  enabled: boolean;
+  url: string;
+}
+
+export interface ChannelFeatureFlags {
+  telegram: ChannelConfig;
+  whatsapp: ChannelConfig;
+}
+
+// ============== Plans (Admin) ==============
+export interface Plan {
+  id: number;
+  plan_code: string;
+  plan_type: string;
+  country: string;
+  price_ngn: number;
+  quantity: number;
+  duration_days: number;
+  features: Record<string, unknown> | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanCreate {
+  plan_code: string;
+  plan_type: string;
+  country: string;
+  price_ngn: number;
+  quantity: number;
+  duration_days: number;
+  features?: Record<string, unknown>;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface PlanUpdate {
+  price_ngn?: number;
+  quantity?: number;
+  duration_days?: number;
+  features?: Record<string, unknown>;
+  is_active?: boolean;
+  sort_order?: number;
 }

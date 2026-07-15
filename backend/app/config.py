@@ -40,7 +40,12 @@ class Settings(BaseSettings):
     # ── Minimax (required for AI features) ──────────────────────────────────
     minimax_api_key: str = ""
 
-    # ── Sentry ─────────────────────────────────────────────────────────────
+    # ── Resend (required for email) ─────────────────────────────────────────
+    resend_api_key: str = ""
+    from_email: str = "Bunche <noreply@bunche.ng>"
+    admin_email: str = "admin@bunche.ng"
+
+    # ── Sentry ───────────────────────────────────────────────────────────────
     sentry_dsn: str = ""
     sentry_traces_sample_rate: float = 0.1
 
@@ -119,6 +124,10 @@ class Settings(BaseSettings):
         if not self.minimax_api_key:
             env_warnings.append(
                 "MINIMAX_API_KEY not set — AI features are disabled"
+            )
+        if not self.resend_api_key:
+            env_warnings.append(
+                "RESEND_API_KEY not set — email features are disabled"
             )
 
         if env_warnings:

@@ -52,7 +52,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/orders', label: 'Orders', icon: '📦' },
     { href: '/admin/customers', label: 'Customers', icon: '👥' },
     { href: '/admin/credentials', label: 'Credentials', icon: '🔑' },
+    { href: '/admin/plans', label: 'Plans', icon: '💰' },
     { href: '/admin/charon', label: 'Charon', icon: '🧠' },
+    { href: '/admin/blog', label: 'Blog', icon: '📝' },
     // SuperAdmin only
     ...(isSuperAdmin ? [
       { href: '/admin/team', label: 'Team', icon: '👤' },

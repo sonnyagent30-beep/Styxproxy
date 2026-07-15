@@ -14,7 +14,7 @@ function generateJsonLd(post: any, siteUrl: string) {
     '@type': 'BlogPosting',
     headline: post.title,
     description: post.excerpt,
-    image: post.cover_image ? `${siteUrl}${post.cover_image}` : `${siteUrl}/og-image.png`,
+    image: post.cover_image_url ? `${siteUrl}${post.cover_image_url}` : `${siteUrl}/og-image.png`,
     datePublished: post.published_at || post.created_at,
     dateModified: post.updated_at,
     author: {
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = result.data;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://styxproxy.com';
   const postUrl = `${siteUrl}/blog/${post.slug}`;
-  const imageUrl = post.cover_image ? `${siteUrl}${post.cover_image}` : `${siteUrl}/og-image.png`;
+  const imageUrl = post.cover_image_url ? `${siteUrl}${post.cover_image_url}` : `${siteUrl}/og-image.png`;
 
   return {
     title: post.title,

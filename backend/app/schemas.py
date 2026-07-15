@@ -202,6 +202,68 @@ class ProductsResponse(BaseModel):
     products: list[ProductResponse]
 
 
+# ============== Plans Schemas ==============
+
+class PlanCreateRequest(BaseModel):
+    """Request to create a plan."""
+    plan_code: str = Field(..., min_length=1, max_length=50)
+    plan_type: str = Field(..., min_length=1, max_length=20)
+    country: str = Field(..., min_length=2, max_length=10)
+    price_ngn: float = Field(..., ge=0)
+    quantity: int = Field(default=1, ge=1)
+    duration_days: int = Field(default=30, ge=1)
+    features: Optional[dict[str, Any]] = None
+    is_active: bool = True
+    sort_order: int = 0
+
+    @field_validator("plan_type")
+    @classmethod
+    def validate_plan_type(cls, v: str) -> str:
+        valid_types = {"ISP", "DC", "RESIDENTIAL", "MOBILE"}
+        if v.upper() not in valid_types:
+            raise ValueError(f"Plan type must be one of: {', '.join(valid_types)}")
+        return v.upper()
+
+    @field_validator("country")
+    @classmethod
+    def validate_country_code(cls, v: str) -> str:
+        return validate_country(v)
+
+
+class PlanUpdateRequest(BaseModel):
+    """Request to update a plan."""
+    price_ngn: Optional[float] = Field(None, ge=0)
+    quantity: Optional[int] = Field(None, ge=1)
+    duration_days: Optional[int] = Field(None, ge=1)
+    features: Optional[dict[str, Any]] = None
+    is_active: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+class PlanResponse(BaseModel):
+    """Plan response."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    plan_code: str
+    plan_type: str
+    country: str
+    price_ngn: float
+    quantity: int
+    duration_days: int
+    features: Optional[dict[str, Any]]
+    is_active: bool
+    sort_order: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class PlansResponse(BaseModel):
+    """Plans list response."""
+    plans: list[PlanResponse]
+    pagination: dict[str, Any]
+
+
 # ============== Orders Schemas ==============
 
 class BuncheCredentialBrief(BaseModel):
@@ -894,3 +956,23 @@ class PostScheduleResponse(BaseModel):
     post_id: UUID
     status: str
     scheduled_at: datetime
+
+
+# ============== Channel Feature Flags ==============
+
+class ChannelConfig(BaseModel):
+    """Channel configuration for Telegram/WhatsApp."""
+    enabled: bool = False
+    url: str = ""
+
+
+class ChannelFeatureFlagsResponse(BaseModel):
+    """Response for channel feature flags."""
+    telegram: ChannelConfig
+    whatsapp: ChannelConfig
+
+
+class ChannelFeatureFlagsUpdate(BaseModel):
+    """Request to update channel feature flags."""
+    telegram: ChannelConfig
+    whatsapp: ChannelConfig

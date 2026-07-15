@@ -22,6 +22,7 @@ from app.schemas import (
 from app.auth import get_current_account
 from app.services.credential import create_credential
 from app.services.audit import log_audit_event
+from app.services.email import send_new_order_notification, send_order_paid_notification, send_refund_request_notification
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -91,6 +92,24 @@ async def create_order(
     await session.commit()
     await session.refresh(order)
     await log_audit_event(session, event_type="order_created", phone=customer.phone, order_id=order_id, details={"plan_code": request.plan_code, "country": request.country, "amount": total_amount, "status": order.status})
+    
+    # Send admin notification email
+    if order.status == "pending":
+        await send_new_order_notification(
+            order_id=order_id,
+            customer_phone=customer.phone,
+            plan_code=request.plan_code,
+            amount=total_amount,
+            currency="NGN",
+        )
+    elif order.status == "active":
+        await send_order_paid_notification(
+            order_id=order_id,
+            customer_phone=customer.phone,
+            plan_code=request.plan_code,
+            amount=total_amount,
+            currency="NGN",
+        )
     cred_brief = None
     if order.bunche_credential_id:
         cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
@@ -211,6 +230,16 @@ async def cancel_order(order_id: str, request: OrderCancelRequest, session: Asyn
             cred.status = "revoked"
     await session.commit()
     await log_audit_event(session, event_type="order_cancelled", phone=customer.phone, order_id=order_id, details={"reason": request.reason})
+    
+    # Send admin notification for refund request
+    await send_refund_request_notification(
+        order_id=order_id,
+        customer_phone=customer.phone,
+        reason=request.reason,
+        amount=float(order.amount_paid_ngn or 0),
+        currency="NGN",
+    )
+    
     return OrderCancelResponse(order_id=order_id, status="cancelled", refund_processed=True, refund_amount_ngn=order.amount_paid_ngn)
 
 @router.post("/{order_id}/report-dead", response_model=OrderReportDeadResponse)
