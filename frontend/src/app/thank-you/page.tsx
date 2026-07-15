@@ -4,6 +4,8 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
+import { generateReceiptPDF } from '@/lib/pdf-receipt';
+import type { ReceiptOrder } from '@/lib/pdf-receipt';
 
 // Cart item type (matches order page)
 interface CartItem {
@@ -37,7 +39,7 @@ interface OrderData {
 }
 
 // PDF generation function — matches the design template
-async function generateReceiptPDF(order: OrderData, cart: CartItem[], txRef: string) {
+async function generateLocalPDF(order: OrderData, cart: CartItem[], txRef: string) {
   const { jsPDF } = await import('jspdf');
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -443,7 +445,7 @@ function ThankYouContent() {
   // Handle PDF download
   const handleDownloadPDF = async () => {
     if (order && cart.length > 0) {
-      await generateReceiptPDF(order, cart, txRef!);
+      await generateReceiptPDF(order, cart, txRef!, `styxproxy-receipt-${txRef}.pdf`);
     }
   };
 
