@@ -10,9 +10,9 @@ export async function POST(req: Request) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
-    return NextResponse.json(data);
+    if (!res.ok) return NextResponse.json({ error: 'upstream error' }, { status: 502 });
+    return NextResponse.json({ ok: true });
   } catch {
-    return NextResponse.json({ ok: false });
+    return NextResponse.json({ error: 'fetch failed' }, { status: 503 });
   }
 }

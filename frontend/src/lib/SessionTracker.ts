@@ -2,256 +2,146 @@
  * SessionTracker — anonymous, session-level behavior tracking for Charon.
  *
  * All data stays in sessionStorage + memory. No PII, no cookies, no cross-session tracking.
- * Session IDs are random 24-char tokens with zero tie to identity.
+ * Session IDs are random, non-sequential, and expire when the browser tab closes.
  *
- * Tracked:
- *  - pages visited (Set of full paths)
- *  - dwell time per page (accumulated active seconds)
- *  - total active time (seconds, excluding tab-hidden time)
- *  - triggers fired (per-session deduplication)
- *  - cart state (item added/cleared)
- *  - scroll depth (which pages reached bottom)
- *  - product sub-page visits (count)
+ * Pages tracked: pricing, products, order flow, cart.
+ * NOT tracked: payment/checkout pages (customer is in a transaction — no outreach).
  */
 
-export interface SessionState {
-  pagesVisited: string[];
-  pageDwellStart: [string, number][]; // url, timestamp
-  totalActiveTime: number; // seconds
-  triggersFired: string[];
-  lastTriggerFire: number; // ms timestamp
-  cartPresent: boolean;
-  dismissedTriggers: string[]; // per-session dismissals
-  scrollBottomPages: string[];
-  visitedProductCount: number;
-  productPaths: string[];
-}
-
-const STORAGE_KEY = 'charon_session';
-const VISITED_PRODUCT_PATHS = [
-  '/products/isp',
-  '/products/residential',
-  '/products/mobile',
-  '/products/datacenter',
-];
-
-function newState(): SessionState {
-  return {
-    pagesVisited: [],
-    pageDwellStart: [],
-    totalActiveTime: 0,
-    triggersFired: [],
-    lastTriggerFire: 0,
-    cartPresent: false,
-    dismissedTriggers: [],
-    scrollBottomPages: [],
-    visitedProductCount: 0,
-    productPaths: [],
-  };
-}
+const PRICING_PAGES = ['/pricing', '/how-it-works', '/'];
+const PAYMENT_PAGES = ['/order', '/thank-you', '/preview', '/receipt'];
+const PRODUCT_PAGES = ['/products', '/residential', '/mobile', '/isp', '/datacenter'];
 
 export class SessionTracker {
-  private state: SessionState;
-  private active = false;
-  private tabVisible = true;
-  private lastTick = Date.now();
-  private tickInterval: ReturnType<typeof setInterval> | null = null;
-  private persistInterval: ReturnType<typeof setInterval> | null = null;
-  private onDwellChange?: (path: string, dwellSeconds: number) => void;
+  private sessionId: string;
+  private pages: { url: string; visitedAt: number }[] = [];
+  private pricingVisits = 0;
+  private productVisits = 0;
+  private cartActive = false;
+  private firstVisitAt = 0;
+  private lastActiveAt = 0;
+  private scrollBottomFired = false;
+  private orderAndPricingVisited = false; // visited /order AND /pricing in same session
+  private firedTriggers = new Map<string, number>(); // trigger_id → last fired timestamp
 
   constructor() {
-    const saved = sessionStorage.getItem(STORAGE_KEY);
-    this.state = saved ? this.deserialize(saved) : newState();
+    this.sessionId = this.getOrCreateSessionId();
+    this.firstVisitAt = Date.now();
+    this.lastActiveAt = Date.now();
   }
 
-  /** Start tracking. Call once when the app mounts. */
-  start(): void {
-    if (this.active) return;
-    this.active = true;
-    this.lastTick = Date.now();
-
-    // Accumulate active time every second (only when tab is visible)
-    this.tickInterval = setInterval(() => {
-      if (this.tabVisible) {
-        this.state.totalActiveTime += (Date.now() - this.lastTick) / 1000;
-        this.lastTick = Date.now();
-        this.persist();
-      }
-    }, 1000);
-
-    // Tab visibility tracking
-    const onVisibility = () => {
-      this.tabVisible = document.visibilityState === 'visible';
-      if (this.tabVisible) this.lastTick = Date.now();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-
-    // Persist every 5s
-    this.persistInterval = setInterval(() => this.persist(), 5000);
-
-    // Track initial page
-    this.onPageVisit(window.location.pathname);
+  private getOrCreateSessionId(): string {
+    const key = 'charon_session_id';
+    let id = sessionStorage.getItem(key);
+    if (!id) {
+      id = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem(key, id);
+    }
+    return id;
   }
 
-  /** Stop tracking. Call when component unmounts (if needed). */
-  stop(): void {
-    if (this.tickInterval) clearInterval(this.tickInterval);
-    if (this.persistInterval) clearInterval(this.persistInterval);
-    this.active = false;
+  getSessionId(): string {
+    return this.sessionId;
   }
 
-  /** Register a callback for when dwell time on a page changes significantly. */
-  onDwellUpdate(fn: (path: string, dwellSeconds: number) => void): void {
-    this.onDwellChange = fn;
-  }
+  /** Record a page visit. Call on every navigation. */
+  onPageVisit(url: string): void {
+    const now = Date.now();
+    this.lastActiveAt = now;
 
-  /** Call when user navigates to a new page. */
-  onPageVisit(path: string): void {
-    // End dwell tracking for previous page
-    if (this.state.pageDwellStart.length > 0) {
-      const [prevPath, startTime] = this.state.pageDwellStart[this.state.pageDwellStart.length - 1];
-      if (prevPath !== path) {
-        const dwell = (Date.now() - startTime) / 1000;
-        if (this.onDwellChange && dwell > 2) {
-          this.onDwellChange(prevPath, dwell);
-        }
-      }
+    // Always track pages for session_stuck
+    this.pages.push({ url, visitedAt: now });
+
+    const path = url.split('?')[0].split('#')[0];
+
+    if (PRICING_PAGES.includes(path)) {
+      this.pricingVisits++;
     }
 
-    // Don't double-count the same path if visited multiple times
-    // (we want repeat visits to show as separate)
-    this.state.pagesVisited.push(path);
-    this.state.pageDwellStart.push([path, Date.now()]);
-
-    // Count product sub-page visits
-    if (VISITED_PRODUCT_PATHS.includes(path)) {
-      this.state.visitedProductCount += 1;
-      if (!this.state.productPaths.includes(path)) {
-        this.state.productPaths.push(path);
-      }
+    if (PRODUCT_PAGES.includes(path)) {
+      this.productVisits++;
     }
 
-    this.persist();
-  }
+    if (path === '/order') {
+      this.cartActive = true;
+    }
 
-  /** Call when user scrolls to the bottom of the current page. */
-  onScrollBottom(path: string): void {
-    if (!this.state.scrollBottomPages.includes(path)) {
-      this.state.scrollBottomPages.push(path);
-      this.persist();
+    // Detect order+pricing in same session
+    if (path === '/order' && this.pricingVisits > 0) {
+      this.orderAndPricingVisited = true;
+    }
+    if (path === '/pricing' && this.cartActive) {
+      this.orderAndPricingVisited = true;
     }
   }
 
-  /** Call when user adds an item to cart. */
+  /** Record cart add. */
   onCartAdd(): void {
-    this.state.cartPresent = true;
-    this.persist();
+    this.cartActive = true;
+    this.lastActiveAt = Date.now();
   }
 
-  /** Call when user removes item from cart or clears cart. */
+  /** Record cart clear/remove. */
   onCartClear(): void {
-    this.state.cartPresent = false;
-    this.persist();
+    this.cartActive = false;
   }
 
-  /** Mark a trigger as fired (won't fire again this session). */
+  /** Record scroll to bottom of a page. Fires once per page visit. */
+  onScrollBottom(url: string): void {
+    if (!this.scrollBottomFired) {
+      this.scrollBottomFired = true;
+      this.lastActiveAt = Date.now();
+    }
+  }
+
+  resetScrollBottom(): void {
+    this.scrollBottomFired = false;
+  }
+
+  /** Mark that a trigger has fired. Prevents immediate re-fire on same trigger. */
   markTriggerFired(triggerId: string): void {
-    if (!this.state.triggersFired.includes(triggerId)) {
-      this.state.triggersFired.push(triggerId);
-    }
-    this.state.lastTriggerFire = Date.now();
-    this.persist();
+    this.firedTriggers.set(triggerId, Date.now());
   }
 
-  /** Mark a trigger as dismissed by the user (suppressed for session). */
+  /** Check if a trigger can fire (cooldown elapsed). */
+  canFire(triggerId: string, cooldownMs: number): boolean {
+    const lastFired = this.firedTriggers.get(triggerId);
+    if (lastFired === undefined) return true;
+    return Date.now() - lastFired > cooldownMs;
+  }
+
+  /** Dismiss a trigger — marks it as fired so it won't re-fire until cooldown. */
   dismissTrigger(triggerId: string): void {
-    if (!this.state.dismissedTriggers.includes(triggerId)) {
-      this.state.dismissedTriggers.push(triggerId);
-    }
-    // Also mark as fired so it doesn't re-trigger
-    if (!this.state.triggersFired.includes(triggerId)) {
-      this.state.triggersFired.push(triggerId);
-    }
-    this.persist();
+    this.firedTriggers.set(triggerId, Date.now());
   }
 
-  /**
-   * Check if a trigger can fire.
-   * @param triggerId - the trigger ID
-   * @param cooldownMs - minimum ms between fires of ANY trigger (global cooldown)
-   */
-  canFire(triggerId: string, cooldownMs = 60_000): boolean {
-    // Already dismissed this session
-    if (this.state.dismissedTriggers.includes(triggerId)) return false;
-    // Already fired this session
-    if (this.state.triggersFired.includes(triggerId)) return false;
-    // Global cooldown window
-    if (Date.now() - this.state.lastTriggerFire < cooldownMs) return false;
-    return true;
+  /** Total active time in ms since first visit. */
+  getActiveTimeMs(): number {
+    return this.lastActiveAt - this.firstVisitAt;
   }
 
-  /** Get current dwell time on the current page. */
-  currentPageDwell(): number {
-    if (this.state.pageDwellStart.length === 0) return 0;
-    const [, startTime] = this.state.pageDwellStart[this.state.pageDwellStart.length - 1];
-    return (Date.now() - startTime) / 1000;
+  /** Number of unique pages visited this session. */
+  getPageCount(): number {
+    const unique = new Set(this.pages.map((p: { url: string }) => p.url.split('?')[0].split('#')[0]));
+    return unique.size;
   }
 
-  /** Get total active time spent on site this session (seconds). */
-  totalActiveTime(): number {
-    return this.state.totalActiveTime;
+  /** Time in ms since the last page visit. */
+  getTimeSinceLastPage(): number {
+    if (this.pages.length === 0) return 0;
+    return Date.now() - this.pages[this.pages.length - 1].visitedAt;
   }
 
-  /** Get a read-only snapshot of the current state. */
-  getState(): Readonly<SessionState> {
-    return { ...this.state };
+  /** Seconds on current page (based on last visit timestamp). */
+  getDwellTimeSeconds(url: string): number {
+    const last = [...this.pages].reverse().find((p: { url: string }) => p.url.startsWith(url));
+    if (!last) return 0;
+    return Math.floor((Date.now() - last.visitedAt) / 1000);
   }
 
-  /** Check if cart has items. */
-  hasCart(): boolean {
-    return this.state.cartPresent;
-  }
-
-  /** Get how many pages visited. */
-  pageCount(): number {
-    return this.state.pagesVisited.length;
-  }
-
-  /** Check if user visited a specific path (true even on revisit). */
-  visitedPath(path: string): number {
-    return this.state.pagesVisited.filter(p => p === path).length;
-  }
-
-  /** Check if user visited multiple specific paths. */
-  visitedPaths(paths: string[]): boolean {
-    return paths.every(p => this.state.pagesVisited.includes(p));
-  }
-
-  private persist(): void {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, this.serialize());
-    } catch {
-      // sessionStorage full — ignore
-    }
-  }
-
-  private serialize(): string {
-    return JSON.stringify(this.state);
-  }
-
-  private deserialize(raw: string): SessionState {
-    const s = JSON.parse(raw);
-    return {
-      pagesVisited: Array.isArray(s.pagesVisited) ? s.pagesVisited : [],
-      pageDwellStart: Array.isArray(s.pageDwellStart) ? s.pageDwellStart : [],
-      totalActiveTime: typeof s.totalActiveTime === 'number' ? s.totalActiveTime : 0,
-      triggersFired: Array.isArray(s.triggersFired) ? s.triggersFired : [],
-      lastTriggerFire: typeof s.lastTriggerFire === 'number' ? s.lastTriggerFire : 0,
-      cartPresent: Boolean(s.cartPresent),
-      dismissedTriggers: Array.isArray(s.dismissedTriggers) ? s.dismissedTriggers : [],
-      scrollBottomPages: Array.isArray(s.scrollBottomPages) ? s.scrollBottomPages : [],
-      visitedProductCount: typeof s.visitedProductCount === 'number' ? s.visitedProductCount : 0,
-      productPaths: Array.isArray(s.productPaths) ? s.productPaths : [],
-    };
+  isOnPaymentPage(): boolean {
+    if (typeof window === 'undefined') return false;
+    const path = window.location.pathname.split('?')[0].split('#')[0];
+    return PAYMENT_PAGES.includes(path);
   }
 }
