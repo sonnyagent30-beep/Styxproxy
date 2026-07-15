@@ -45,6 +45,20 @@ class Settings(BaseSettings):
     from_email: str = "Bunche <noreply@bunche.ng>"
     admin_email: str = "admin@bunche.ng"
 
+    # ── Proxy Provider ───────────────────────────────────────────────────────
+    # API credentials for the proxy provider (Proxy-Seller / DataImpulse / etc.)
+    proxy_seller_api_key: str = ""
+    proxy_seller_base_url: str = "https://api.proxy-seller.com"
+    proxy_seller_balance_alert_threshold_usd: float = 10.0
+
+    # ── Dante (branding gateway — runs on VPS) ───────────────────────────────
+    dante_api_url: str = "http://localhost:9000"
+    dante_api_key: str = ""
+    dante_default_port: int = 1080
+
+    # ── n8n Webhook (for automation triggers) ────────────────────────────────
+    n8n_webhook_url: str = "https://n8n.bunche.ng/webhook/credentials-delivered"
+
     # ── Sentry ───────────────────────────────────────────────────────────────
     sentry_dsn: str = ""
     sentry_traces_sample_rate: float = 0.1

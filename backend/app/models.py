@@ -175,6 +175,9 @@ class Order(Base):
     payment_reference: Mapped[Optional[str]] = mapped_column(
         String(100), nullable=True
     )
+    tx_ref: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, index=True
+    )
     provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     provider_order_id: Mapped[Optional[str]] = mapped_column(
         String(100), nullable=True
