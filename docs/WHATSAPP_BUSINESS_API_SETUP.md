@@ -32,8 +32,8 @@ WhatsApp Business API is Bunche's primary customer-facing bot channel for Nigeri
 
 1. Go to [business.facebook.com](https://business.facebook.com)
 2. Create Business Account: **Bunche Digital**
-3. Email: `hello@bunche.ng`
-4. Verify business domain ownership (bunche.ng)
+3. Email: `hello@styxproxy.com`
+4. Verify business domain ownership (styxproxy.com)
 
 ### Step 2: Create WhatsApp Business App
 
@@ -59,7 +59,7 @@ WhatsApp Business API is Bunche's primary customer-facing bot channel for Nigeri
 - CAC Registration Certificate
 - Proof of address
 - Business website with matching domain
-- Privacy Policy URL (bunche.ng/privacy)
+- Privacy Policy URL (styxproxy.com/privacy)
 
 **Timeline:** 2–10 business days
 
@@ -76,7 +76,7 @@ WhatsApp Business API is Bunche's primary customer-facing bot channel for Nigeri
 ### Step 2: Configure Webhook in n8n
 
 ```
-URL: https://n8n.bunche.ng/webhook/whatsapp-incoming
+URL: https://n8n.styxproxy.com/webhook/whatsapp-incoming
 Method: POST
 Auth: Verify X-Twilio-Signature header
 ```
@@ -89,7 +89,7 @@ Auth: Verify X-Twilio-Signature header
 
 In Meta Business Console → WhatsApp → Configuration:
 ```
-Callback URL: https://n8n.bunche.ng/webhook/whatsapp-incoming
+Callback URL: https://n8n.styxproxy.com/webhook/whatsapp-incoming
 Verify Token: [random string — must match what n8n expects]
 ```
 
@@ -152,7 +152,7 @@ When the 24-hour window is closed, you can only send **approved template message
 🌐 Protocol: SOCKS5
 📍 Proxy: Bunche.ng:1080
 
-⚡ Setup guide: bunche.ng/setup
+⚡ Setup guide: styxproxy.com/setup
 📅 Expires: {{4}}
 
 Need help? Just reply here!
@@ -258,7 +258,7 @@ wa_id: 2347032981049  (without +)
 ## Setup Checklist
 
 - [ ] Create Meta Business Account (business.facebook.com)
-- [ ] Verify business domain ownership (bunche.ng)
+- [ ] Verify business domain ownership (styxproxy.com)
 - [ ] Create WhatsApp Business App (developers.facebook.com)
 - [ ] Add dedicated phone number (+234...)
 - [ ] Submit for Business Verification (2–10 days) or use Twilio sandbox

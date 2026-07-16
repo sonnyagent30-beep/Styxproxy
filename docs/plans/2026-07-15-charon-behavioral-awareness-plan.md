@@ -968,7 +968,7 @@ Since the frontend proxies to the backend Railway URL for this endpoint:
 // frontend/src/app/api/charon/weights/route.ts
 import { NextResponse } from 'next/server';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://bunche.railway.app';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.styxproxy.com';
 
 export async function GET() {
   try {
@@ -988,7 +988,7 @@ Also create `frontend/src/app/api/charon/trigger-event/route.ts`:
 ```typescript
 import { NextResponse } from 'next/server';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://bunche.railway.app';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.styxproxy.com';
 
 export async function POST(req: Request) {
   try {

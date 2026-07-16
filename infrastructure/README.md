@@ -23,15 +23,15 @@ openssl rand -hex 64      # copy to SENTRY_SECRET_KEY
 # 4. SSL certs (first time only)
 docker compose up -d nginx
 docker compose run --rm certbot certonly --webroot \
-  -w /var/www/certbot -d bunche.ng \
-  -d api.bunche.ng -d n8n.bunche.ng -d sentry.bunche.ng
+  -w /var/www/certbot -d styxproxy.com \
+  -d api.styxproxy.com -d n8n.styxproxy.com -d sentry.styxproxy.com
 
 # 5. Start all services
 docker compose up -d
 
 # 6. Verify
 docker compose ps
-curl https://bunche.ng/health
+curl https://styxproxy.com/health
 ```
 
 ---
@@ -40,11 +40,11 @@ curl https://bunche.ng/health
 
 | Service | URL | Notes |
 |---------|-----|-------|
-| Website | `https://bunche.ng` | Static — display only |
-| API | `https://api.bunche.ng` | FastAPI backend |
-| n8n | `https://n8n.bunche.ng` | Automation |
-| Sentry | `https://sentry.bunche.ng` | Error tracking + APM |
-| Admin | `https://bunche.ng/powerhold?token=...` | Hardened admin |
+| Website | `https://styxproxy.com` | Static — display only |
+| API | `https://api.styxproxy.com` | FastAPI backend |
+| n8n | `https://n8n.styxproxy.com` | Automation |
+| Sentry | `https://sentry.styxproxy.com` | Error tracking + APM |
+| Admin | `https://styxproxy.com/powerhold?token=...` | Hardened admin |
 
 ---
 
@@ -57,7 +57,7 @@ infrastructure/
 │   ├── nginx.conf            # Main config
 │   ├── ssl-params.conf       # TLS hardening
 │   └── conf.d/
-│       └── bunche.conf       # Site routing (+ sentry.bunche.ng)
+│       └── bunche.conf       # Site routing (+ sentry.styxproxy.com)
 ├── postgres/init/
 │   ├── 01-schema.sql        # Tables, indexes, triggers
 │   └── 02-seed.sql          # Products + seed data
@@ -112,7 +112,7 @@ docker compose run --rm sentry createuser
 # Follow prompts: email + password
 
 # 4. Create projects in Sentry UI
-# Visit https://sentry.bunche.ng
+# Visit https://sentry.styxproxy.com
 # Create two projects:
 #   - bunche-api    (FastAPI)
 #   - bunche-n8n   (n8n workflows)
@@ -156,7 +156,7 @@ Sentry self-hosted uses your own storage. Monitor `sentry_data` volume size. Set
 ## Admin Access (Hardened)
 
 ```
-URL:     https://bunche.ng/powerhold?token=<ADMIN_TOKEN>
+URL:     https://styxproxy.com/powerhold?token=<ADMIN_TOKEN>
 Allowed: Team IPs only (firewall + auth_basic)
 ```
 

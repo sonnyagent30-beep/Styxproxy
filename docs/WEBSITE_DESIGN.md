@@ -1,4 +1,4 @@
-# Bunche — Static Website Design (bunche.ng)
+# Bunche — Static Website Design (styxproxy.com)
 
 **Document Type:** Design Specification
 **Date:** July 1, 2026
@@ -61,7 +61,7 @@ ISP • Datacenter • Residential • Mobile 4G
 **Footer:**
 ```
 Bunche Digital © 2026
-Nigeria | hello@bunche.ng | +234 703 298 1049
+Nigeria | hello@styxproxy.com | +234 703 298 1049
 [Terms] [Privacy] [AUP]
 ```
 
@@ -159,7 +159,7 @@ Using `<details>` HTML elements:
    [Open Telegram] → https://t.me/BuncheBot
 
 📧 Email
-   hello@bunche.ng
+   hello@styxproxy.com
    Response: 1-4 hours
 
 🌍 Business Hours
@@ -173,7 +173,7 @@ Using `<details>` HTML elements:
 
 ### New visitor → WhatsApp customer
 ```
-Visitor lands on bunche.ng
+Visitor lands on styxproxy.com
          ↓
 Clicks "Order on WhatsApp" (primary CTA)
          ↓
@@ -187,7 +187,7 @@ Customer selects product → pays → receives credentials
 
 ### Research visitor → Telegram customer
 ```
-Visitor lands on bunche.ng
+Visitor lands on styxproxy.com
          ↓
 Browses Products + Pricing pages
          ↓
@@ -283,7 +283,7 @@ Pays via Flutterwave inline → credentials delivered instantly
 ### File Structure
 
 ```
-bunche.ng/
+styxproxy.com/
 ├── index.html
 ├── products.html
 ├── pricing.html

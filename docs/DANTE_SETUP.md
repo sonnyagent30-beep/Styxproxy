@@ -8,7 +8,7 @@
 ## What Dante Does in Bunche
 
 ```
-Customer connects:  proxy1.bunche.ng:1080
+Customer connects:  proxy1.styxproxy.com:1080
                    username: bun_ayomide7
                    password: SecureP@ss123
                           │
@@ -23,7 +23,7 @@ Customer connects:  proxy1.bunche.ng:1080
                 Customer gets the data through the provider proxy
 ```
 
-Customer thinks they're using `proxy1.bunche.ng`. They're actually using the provider IP underneath. Bunche controls access via Dante's username/password auth.
+Customer thinks they're using `proxy1.styxproxy.com`. They're actually using the provider IP underneath. Bunche controls access via Dante's username/password auth.
 
 ---
 
@@ -288,10 +288,10 @@ cloudflared tunnel login
 cloudflared tunnel create bunche-proxy
 
 # Route subdomain
-cloudflared tunnel route dns bunche-proxy proxy.bunche.ng
+cloudflared tunnel route dns bunche-proxy proxy.styxproxy.com
 
 # Run tunnel
-cloudflared tunnel run --token YOUR_TOKEN proxy.bunche.ng
+cloudflared tunnel run --token YOUR_TOKEN proxy.styxproxy.com
 ```
 
 ---

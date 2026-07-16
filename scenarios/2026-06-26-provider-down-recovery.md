@@ -173,7 +173,7 @@ No problem — your proxy is ready.
 📅 Expires: July 27, 2026
 
 ━━━━━━━━━━━━━━━━━━
-📄 Receipt: https://files.bunche.ng/receipts/ORD-20260627-0947.pdf
+📄 Receipt: https://files.styxproxy.com/receipts/ORD-20260627-0947.pdf
 ━━━━━━━━━━━━━━━━━━
 
 💡 Setup tip: Phone → Settings → VPN → Add → enter the details above.

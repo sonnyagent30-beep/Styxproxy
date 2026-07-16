@@ -40,7 +40,7 @@ These are the real blockers. Nothing can be built or tested without them.
 | 9 | Proxy-Seller account | IP generation | Already have |
 | 10 | DataImpulse account | Backup IP source | [dataimpulse.com](https://dataimpulse.com) |
 | 11 | Cloudflare account | Tunnel for webhooks | [dash.cloudflare.com](https://dash.cloudflare.com) |
-| 12 | Domain: bunche.ng | Website + portal | Register at any registrar |
+| 12 | Domain: styxproxy.com | Website + portal | Register at any registrar |
 | 13 | Resend account (or SendGrid) | Transactional email | [resend.com](https://resend.com) |
 | 14 | Resend API key | Send IP via email | Resend dashboard |
 
@@ -129,13 +129,13 @@ sudo ufw enable
 
 ### DNS
 
-Point `bunche.ng` and `api.bunche.ng` A records to the new VPS IP.
+Point `styxproxy.com` and `api.styxproxy.com` A records to the new VPS IP.
 
 | Hostname | Points to |
 |---|---|
-| bunche.ng | New VPS IP |
-| api.bunche.ng | New VPS IP |
-| www.bunche.ng | New VPS IP |
+| styxproxy.com | New VPS IP |
+| api.styxproxy.com | New VPS IP |
+| www.styxproxy.com | New VPS IP |
 
 ---
 
@@ -149,7 +149,7 @@ Create `/root/bunche-api/.env`:
 # Bunche Backend API
 NODE_ENV=production
 PORT=8080
-DOMAIN=https://bunche.ng
+DOMAIN=https://styxproxy.com
 
 # PostgreSQL
 POSTGRES_HOST=localhost
@@ -171,7 +171,7 @@ DATAIMPULSE_API_URL=https://api.dataimpulse.com
 
 # Email (Resend)
 RESEND_API_KEY=<from Resend dashboard>
-EMAIL_FROM=bunche@bunche.ng
+EMAIL_FROM=bunche@styxproxy.com
 
 # 3proxy Management
 THREEPROXY_CONFIG_PATH=/etc/3proxy/bunche-trial.cfg
@@ -199,7 +199,7 @@ pm2 startup  # enables auto-restart on reboot
 ## Phase 4: SSL Certificate
 
 ```bash
-sudo certbot --nginx -d bunche.ng -d www.bunche.ng -d api.bunche.ng
+sudo certbot --nginx -d styxproxy.com -d www.styxproxy.com -d api.styxproxy.com
 # Follow prompts — choose "Redirect" when asked
 # Cert auto-renews after this
 ```
@@ -235,8 +235,8 @@ cloudflared tunnel --url http://localhost:5678
 # Note the tunnel URL, use it as Telegram webhook URL
 
 # Option B: Self-hosted tunnel with domain
-# Set api.bunche.ng → :5678 in nginx, then:
-curl -F "url=https://api.bunche.ng/telegram/webhook" \
+# Set api.styxproxy.com → :5678 in nginx, then:
+curl -F "url=https://api.styxproxy.com/telegram/webhook" \
      -H "Authorization: Bot <TELEGRAM_BOT_TOKEN>" \
      https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook
 ```
@@ -257,7 +257,7 @@ Copy: Secret Key (starts with FLW...)
 
 ```
 Flutterwave Dashboard → Settings → Webhooks
-Add URL: https://api.bunche.ng/webhook/flutterwave
+Add URL: https://api.styxproxy.com/webhook/flutterwave
 Events to listen for:
   ✓ payment.completed
   ✓ payment.failed
@@ -344,7 +344,7 @@ WhatsApp Business API requires:
 
 # Set up webhook:
 Meta Business Dashboard → WhatsApp → Configuration
-Webhook URL: https://api.bunche.ng/webhook/whatsapp
+Webhook URL: https://api.styxproxy.com/webhook/whatsapp
 Verify Token: <random string you choose>
 ```
 
@@ -362,7 +362,7 @@ Verify Token: <random string you choose>
 1. Create account at theoremreach.com
 2. Get API Key from dashboard
 3. Configure postback URL:
-   https://api.bunche.ng/webhook/theorem-reach
+   https://api.styxproxy.com/webhook/theorem-reach
 
 4. Postback parameters to expect:
    - sid (survey ID)
@@ -382,10 +382,10 @@ These must exist at launch:
 
 | URL | What |
 |---|---|
-| bunche.ng/terms | Terms of Service |
-| bunche.ng/privacy | Privacy Policy |
-| bunche.ng/aup | Acceptable Use Policy |
-| bunche.ng/refund | Refund Policy |
+| styxproxy.com/terms | Terms of Service |
+| styxproxy.com/privacy | Privacy Policy |
+| styxproxy.com/aup | Acceptable Use Policy |
+| styxproxy.com/refund | Refund Policy |
 
 Templates exist in `docs/legal/` — review with a lawyer before publishing.
 
@@ -422,7 +422,7 @@ Before writing any code, you need to buy/register these:
 | 🔴 1 | Flutterwave merchant account | Free |
 | 🔴 2 | Telegram Bot token | Free |
 | 🟡 3 | WhatsApp Business API | Free to set up, usage costs |
-| 🟡 4 | bunche.ng domain | ~₦3,000–5,000/yr |
+| 🟡 4 | styxproxy.com domain | ~₦3,000–5,000/yr |
 | 🟡 5 | Theorem Reach account | Free |
 | 🟡 6 | Resend account | Free tier (100 emails/day) |
 | 🟢 7 | New VPS | ~$10–20/month |

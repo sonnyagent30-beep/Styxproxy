@@ -7,7 +7,7 @@
 
 ## Overview
 
-All admin operations move from Telegram to a dedicated web dashboard at `admin.bunche.ng`.
+All admin operations move from Telegram to a dedicated web dashboard at `admin.styxproxy.com`.
 
 **Telegram is no longer used for admin commands.** Admin staff log in via the web dashboard only.
 
@@ -27,7 +27,7 @@ Admin (browser)
      │
      │ HTTPS
      ▼
-admin.bunche.ng
+admin.styxproxy.com
      │
      │ Calls
      ▼
@@ -52,7 +52,7 @@ Backend API: GET /admin/*, POST /admin/*
 
 ### Login Flow
 
-1. Admin visits `admin.bunche.ng`
+1. Admin visits `admin.styxproxy.com`
 2. Enters email + password
 3. Enters 6-digit TOTP code from authenticator app
 4. Receives JWT access token (15-minute expiry)
@@ -328,8 +328,8 @@ Read-only for Admin. Writable by SuperAdmin.
 | Free trial: hours per survey | 2 | ✅ |
 | Refund window (hours) | 24 | ✅ |
 | Max active proxies per customer | 5 | ✅ |
-| Flutterwave webhook URL | https://api.bunche.ng/webhook/flutterwave | ✅ |
-| Theorem Reach postback URL | https://api.bunche.ng/webhook/theorem-reach | ✅ |
+| Flutterwave webhook URL | https://api.styxproxy.com/webhook/flutterwave | ✅ |
+| Theorem Reach postback URL | https://api.styxproxy.com/webhook/theorem-reach | ✅ |
 | Email receipt: enabled | Yes/No | ✅ |
 
 ### 12. Admins (`/admins`) — SuperAdmin Only

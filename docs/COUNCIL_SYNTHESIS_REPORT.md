@@ -98,7 +98,7 @@ The 3 council reviewers converged on the **right critical issues**. Most overlap
 | 7 | Theorem Reach JSON missing | `.n8n/workflows/theorem-reach-webhook.json` |
 | 8 | Logger schema missing | `docs/BUNCHE_LOGGER_SCHEMA.md` |
 | 13 | Phone_hash blocking missing | `docs/PHONE_HASH_BLOCKING.md` (+ first-step code) |
-| 16 | Legal URL structure missing | Locked: `bunche.ng/terms`, `/privacy`, `/aup` |
+| 16 | Legal URL structure missing | Locked: `styxproxy.com/terms`, `/privacy`, `/aup` |
 | New | HMAC verification code snippet | Added to WORKFLOW_SPECS §1 (placeholder, not hardcoded) |
 | New | TOTP verification code snippet | Added to admin-operations scenario |
 | New | Phone_hash first-step code | Added to PHONE_HASH_BLOCKING.md |
@@ -147,7 +147,7 @@ The 3 council reviewers converged on the **right critical issues**. Most overlap
 | **Static website** | ⚠️ Plan exists, repo + files NOT yet built | Next priority |
 | VPS deployment | ❌ Not done | Step 1-13 of `docs/DEPLOYMENT.md` not yet executed |
 | Provider accounts | ❌ Not created | Proxy-Seller, DataImpulse, Flutterwave, WhatsApp Business, Cloudflare, R2, Theorem Reach — all need setup |
-| Domain registered | ❌ Not done | bunche.ng not yet purchased |
+| Domain registered | ❌ Not done | styxproxy.com not yet purchased |
 
 **Verdict:** Bunche is **planning-complete**. Time to **execute**.
 
@@ -180,7 +180,7 @@ The 3 council reviewers converged on the **right critical issues**. Most overlap
    - Create `bunche-web` repo
    - Write `index.html`, `terms.html`, `privacy.html`, `aup.html`
    - Deploy to Cloudflare Pages
-   - Connect `bunche.ng` domain
+   - Connect `styxproxy.com` domain
 
 2. **Provision VPS** (1 hour)
    - Hetzner CX21 €7/mo

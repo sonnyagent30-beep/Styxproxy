@@ -108,7 +108,7 @@
 - prefilled message should be friendly + set expectations
 
 ### Gap 16: Legal doc URL structure not specified
-- bunche.ng/terms? bunche.ng/legal/terms? bunche.ng/terms-of-service?
+- styxproxy.com/terms? styxproxy.com/legal/terms? styxproxy.com/terms-of-service?
 - Affects how legal notice in first Bunche message reads
 - Need: pick one canonical structure
 
@@ -118,7 +118,7 @@
 
 1. **Host:** Cloudflare Pages (free, fast, integrates with existing Cloudflare setup) vs Vercel (free, fast, but adds another account) vs Netlify (free, but adds another account)
 2. **Stack:** Pure HTML/CSS (lightning fast, no framework) vs Next.js (consistent with DP Generator) vs Astro (good for content sites)
-3. **Domain strategy:** bunche.ng (primary) → subpaths /pricing /how-it-works /terms /privacy /aup /contact /free-trial
+3. **Domain strategy:** styxproxy.com (primary) → subpaths /pricing /how-it-works /terms /privacy /aup /contact /free-trial
 4. **CTA strategy:** Single big "Chat on WhatsApp" button on every page, opens wa.me with prefilled message
 5. **Pricing transparency:** Show all prices on landing page? Or require WhatsApp contact? Trade-off: SEO+transparency vs. price-shopping comparison
 6. **Free trial CTA:** Show "Try Free" button on landing page? Or only mention in WhatsApp after conversation?
