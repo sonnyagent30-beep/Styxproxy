@@ -567,7 +567,7 @@ Reply menu anytime to see all features.
 ```
 ⚠️ Reminder: proxies are for personal use only.
 No commercial resale, fraud, or platform abuse.
-By ordering, you agreed to our AUP: bunche.ng/aup
+By ordering, you agreed to our AUP: styxproxy.com/aup
 
 Happy proxying! ⚡
 ```
@@ -956,7 +956,7 @@ If customer hits 2-regeneration limit:
 You've used all 2 regenerations for this order.
 I've flagged your order for manual review.
 Our team will contact you within 1 hour.
-For immediate help: admin@bunche.ng
+For immediate help: admin@styxproxy.com
 ```
 
 **6. Verify IP before delivery:**

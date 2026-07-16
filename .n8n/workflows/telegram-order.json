@@ -296,7 +296,7 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "🔄 No problem! To renew your proxy, go to:\\n\\n📱 bunche-api-push.vercel.app\\n\\nClick \"Renew\" and use the same phone number or order ID you used before.\\nYour details go show up automatically.\\n\\nNa ₦6,500 for ISP UK or check the website for other plans.",
+        "text": "🔄 No problem! To renew your proxy, go to:\\n\\n📱 styxproxy.com\\n\\nClick \"Renew\" and use the same phone number or order ID you used before.\\nYour details go show up automatically.\\n\\nNa ₦6,500 for ISP UK or check the website for other plans.",
         "additionalFields": {}
       },
       "credentials": {
@@ -315,7 +315,7 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "📋 No worries! Recovery be like this:\\n\\nIf your proxy no work again and you don renew, e go auto-restore.\\nIf you lose your details, go to:\\n\\n📱 bunche-api-push.vercel.app\\n\\nUse \"Recover Details\" with your phone number.\\nI go send your details back to you on this chat.\\n\\nIf e no work, text our support team!",
+        "text": "📋 No worries! Recovery be like this:\\n\\nIf your proxy no work again and you don renew, e go auto-restore.\\nIf you lose your details, go to:\\n\\n📱 styxproxy.com\\n\\nUse \"Recover Details\" with your phone number.\\nI go send your details back to you on this chat.\\n\\nIf e no work, text our support team!",
         "additionalFields": {}
       },
       "credentials": {

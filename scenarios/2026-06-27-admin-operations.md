@@ -320,7 +320,7 @@ Conversion rate: 23% (referral name entered ÷ orders placed)
 
 1. BAN-CLAIM-001: Order ORD-20260627-0917
    Customer: a3f2b9... (Dan hash)
-   Screenshot: https://files.bunche.ng/bans/xxx.jpg
+   Screenshot: https://files.styxproxy.com/bans/xxx.jpg
    Reported: 2 hours ago
 
 2. REFUND-NEEDED-001: Order ORD-20260627-0947

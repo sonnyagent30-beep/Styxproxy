@@ -66,7 +66,7 @@ Headers:
   "tx_ref": "BUN-{order_id}-{timestamp}",
   "amount": 6500,
   "currency": "NGN",
-  "redirect_url": "https://bunche.ng/order/{order_id}/confirm",
+  "redirect_url": "https://styxproxy.com/order/{order_id}/confirm",
   "customer": {
     "email": "customer@example.com",
     "phonenumber": "234703XXXXXXX",
@@ -123,7 +123,7 @@ Once customer completes payment, Flutterwave fires `charge.completed` webhook to
 
 In Flutterwave dashboard → Settings → Webhooks:
 ```
-URL: https://n8n.bunche.ng/webhook/flutterwave
+URL: https://n8n.styxproxy.com/webhook/flutterwave
 ```
 
 Select events:

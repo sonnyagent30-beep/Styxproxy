@@ -13,7 +13,7 @@
 | **Host** | Cloudflare Pages | Free, fast, already using Cloudflare (DNS + DDoS + R2) |
 | **Stack** | Pure HTML + CSS (no framework) | Lightning fast, no build step, no npm deps, easy to host |
 | **Repo** | New repo: `sonnyagent30-beep/bunche-web` | Separate from backend repo (different lifecycle) |
-| **Domain** | `bunche.ng` (already planned) | Primary domain |
+| **Domain** | `styxproxy.com` (already planned) | Primary domain |
 | **CTA** | Single WhatsApp button: `wa.me/234XXXXXXXXXX?text=prefilled` | One-tap to conversation |
 | **Legal hosting** | Static HTML pages at `/terms`, `/privacy`, `/aup` | SEO-friendly, fast, easy to update |
 | **Pricing transparency** | YES — show all prices on landing page | Reduces price-shopping comparison friction |
@@ -26,7 +26,7 @@
 ## Site Map
 
 ```
-bunche.ng/
+styxproxy.com/
 ├── /                    → Landing page (hero + pricing + use-cases + how-it-works + CTA)
 ├── /pricing             → Pricing table (optional, can fold into landing)
 ├── /how-it-works        → Step-by-step explainer (optional)
@@ -164,19 +164,19 @@ The 3 legal docs exist in `/legal/` in the backend repo (TERMS_OF_SERVICE.md, PR
 **Workflow:**
 1. Write doc in markdown (already done)
 2. Convert to HTML via pandoc or simple static site generator (or just paste into HTML template)
-3. Deploy to `bunche.ng/{doc-name}` via Cloudflare Pages
+3. Deploy to `styxproxy.com/{doc-name}` via Cloudflare Pages
 
 **Alternative: just paste the markdown as plain HTML with a CSS stylesheet.** Simplest possible setup.
 
 ### URL Structure (locked)
 
 ```
-bunche.ng/terms       → TERMS_OF_SERVICE.md rendered
-bunche.ng/privacy     → PRIVACY_POLICY.md rendered
-bunche.ng/aup         → ACCEPTABLE_USE_POLICY.md rendered
+styxproxy.com/terms       → TERMS_OF_SERVICE.md rendered
+styxproxy.com/privacy     → PRIVACY_POLICY.md rendered
+styxproxy.com/aup         → ACCEPTABLE_USE_POLICY.md rendered
 ```
 
-**Rationale:** Short URLs are easier to share on WhatsApp (no truncation worries). The legal notice in first Bunche message says "bunche.ng/terms" — this matches.
+**Rationale:** Short URLs are easier to share on WhatsApp (no truncation worries). The legal notice in first Bunche message says "styxproxy.com/terms" — this matches.
 
 ---
 
@@ -235,7 +235,7 @@ git push
 ### Step 3: Add custom domain
 
 1. Cloudflare Pages → bunche-web → Custom domains
-2. Add: `bunche.ng` (and `www.bunche.ng` if you want)
+2. Add: `styxproxy.com` (and `www.styxproxy.com` if you want)
 3. Cloudflare auto-creates DNS records (you'll see them in DNS)
 
 ### Step 4: SSL
@@ -298,7 +298,7 @@ Options:
 | Item | Cost |
 |------|------|
 | Cloudflare Pages hosting | $0 (free tier: unlimited sites, unlimited requests, 500 builds/month) |
-| Custom domain | $0 (uses existing bunche.ng) |
+| Custom domain | $0 (uses existing styxproxy.com) |
 | SSL | $0 (Let's Encrypt via Cloudflare) |
 | Bandwidth | $0 (unlimited on free tier) |
 | **Total** | **$0/mo** |
@@ -362,8 +362,8 @@ Options:
 
 ## Related
 
-- `legal/TERMS_OF_SERVICE.md` — source content for bunche.ng/terms
-- `legal/PRIVACY_POLICY.md` — source content for bunche.ng/privacy
-- `legal/ACCEPTABLE_USE_POLICY.md` — source content for bunche.ng/aup
+- `legal/TERMS_OF_SERVICE.md` — source content for styxproxy.com/terms
+- `legal/PRIVACY_POLICY.md` — source content for styxproxy.com/privacy
+- `legal/ACCEPTABLE_USE_POLICY.md` — source content for styxproxy.com/aup
 - `README.md` — links to legal docs (will be updated when site is live)
 - `workflows/WORKFLOW_SPECS.md` §1 — first-message legal notice references these URLs

@@ -51,7 +51,7 @@
 All customers receive Bunche-branded proxy credentials. The actual proxy IPs are sourced from vetted infrastructure partners but customers interact only with Bunche.
 
 ```
-Customer sees:   proxy1.bunche.ng:1080
+Customer sees:   proxy1.styxproxy.com:1080
                  username: bun_001
                  password: P@ssw0rd!
                         │
@@ -186,7 +186,7 @@ Customer sees:   proxy1.bunche.ng:1080
   
   🌐 Your Proxy Details:
   
-  IP/Host: proxy1.bunche.ng
+  IP/Host: proxy1.styxproxy.com
   Port: 1080
   Username: bun_001
   Password: P@ssw0rd!2024
@@ -491,7 +491,7 @@ Call manage-bunche-credentials.sh add USERNAME PASSWORD
 Dante reloads → new user is valid
         │
         ▼
-Customer connects: proxy1.bunche.ng:1080
+Customer connects: proxy1.styxproxy.com:1080
   - Dante authenticates with bun_USERNAME + bun_PASSWORD
   - Dante routes to upstream provider IP
   - Customer sees Bunche-branded proxy

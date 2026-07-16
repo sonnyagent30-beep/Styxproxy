@@ -276,9 +276,9 @@ Or use UptimeRobot's API to check the log file.
 
 ```bash
 # Set up at:uptimerobot.com
-# Monitor: https://bunche.ng (check HTTP 200)
-# Monitor: https://api.bunche.ng/health (check HTTP 200)
-# Alert: email to admin@bunche.ng
+# Monitor: https://styxproxy.com (check HTTP 200)
+# Monitor: https://api.styxproxy.com/health (check HTTP 200)
+# Alert: email to admin@styxproxy.com
 ```
 
 If the site goes down, UptimeRobot emails you immediately. You decide whether to restore.

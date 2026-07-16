@@ -6,7 +6,7 @@
 
 ## 1. Introduction
 
-Bunche ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our services across any channel — our website (bunche.ng), our Telegram bot, or our WhatsApp bot.
+Bunche ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our services across any channel — our website (styxproxy.com), our Telegram bot, or our WhatsApp bot.
 
 We collect different information depending on how you interact with us. This policy is designed to be honest and clear about what we collect and why.
 
@@ -18,11 +18,11 @@ By using Bunche, you consent to the data practices described in this policy.
 
 We operate three independent channels. Each collects different information.
 
-### 2.1 Website (bunche.ng) — Anonymous Orders
+### 2.1 Website (styxproxy.com) — Anonymous Orders
 
 **We collect almost nothing.**
 
-When you order via bunche.ng, we collect:
+When you order via styxproxy.com, we collect:
 
 | Data | Why we collect it | How long we keep it |
 |------|------------------|---------------------|
@@ -93,7 +93,7 @@ Your phone number is hashed before storage. We do not store your phone number in
 - Your Telegram phone number
 - Your name (unless you voluntarily provide it)
 - Your location (unless you share it with us)
-- Cookies on bunche.ng (we do not use cookies)
+- Cookies on styxproxy.com (we do not use cookies)
 - Any data from third-party websites or services you access using Bunche proxies
 
 ---
@@ -166,7 +166,7 @@ You may request deletion of your personal data at any time. To request deletion:
 
 - **Telegram:** Send "delete my data" to @bunche
 - **WhatsApp:** Send "delete my data" to the Bunche WhatsApp bot
-- **Website orders:** Email hello@bunche.ng with your tx_ref
+- **Website orders:** Email hello@styxproxy.com with your tx_ref
 
 We will delete your personal data within 30 days, except:
 - Financial records required by law (7 years)
@@ -209,17 +209,17 @@ Under Nigeria's NDPR (Nigeria Data Protection Regulation), you have the right to
 To exercise any of these rights, contact us via:
 - Telegram: @bunche
 - WhatsApp: Bunche WhatsApp bot
-- Email: hello@bunche.ng
+- Email: hello@styxproxy.com
 
 ---
 
 ## 9. Cookies and Tracking
 
-### 9.1 bunche.ng
+### 9.1 styxproxy.com
 
-**We do not use cookies on bunche.ng.**
+**We do not use cookies on styxproxy.com.**
 
-When you visit bunche.ng, we do not store any cookies in your browser. We do not use third-party tracking pixels or analytics tools.
+When you visit styxproxy.com, we do not store any cookies in your browser. We do not use third-party tracking pixels or analytics tools.
 
 ### 9.2 Telegram and WhatsApp
 
@@ -256,7 +256,7 @@ We will also notify affected customers via their contact channel (Telegram, What
 We may update this Privacy Policy from time to time. Material changes will be communicated via:
 - Telegram message (for Telegram customers)
 - WhatsApp message (for WhatsApp customers)
-- Notice on bunche.ng
+- Notice on styxproxy.com
 
 The effective date at the top of this policy indicates when it was last updated.
 
@@ -269,9 +269,9 @@ The effective date at the top of this policy indicates when it was last updated.
 For any questions about this Privacy Policy or to exercise your data rights:
 
 - **Telegram:** @bunche
-- **WhatsApp:** Available via bunche.ng
-- **Email:** hello@bunche.ng
-- **Website:** bunche.ng
+- **WhatsApp:** Available via styxproxy.com
+- **Email:** hello@styxproxy.com
+- **Website:** styxproxy.com
 
 We will respond to all enquiries within 30 days.
 

@@ -125,7 +125,7 @@ After completing, reply DONE
 🌐 BUNCHE TRIAL PROXY — 2 HOURS
 ━━━━━━━━━━━━━━━━━━
 
-🔗 IP: bunche.ng
+🔗 IP: styxproxy.com
 🔌 Port: 8001
 👤 User: trial_a7b9c2
 🔑 Pass: Kx9mNp2qR8sT4wY7

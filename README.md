@@ -12,7 +12,7 @@ Three ways to buy: website (instant), Telegram, or WhatsApp. No account needed o
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                  │
 │   ┌──────────────┐   ┌─────────────┐   ┌──────────────────┐   │
-│   │  bunche.ng   │   │  Telegram   │   │    WhatsApp      │   │
+│   │  styxproxy.com   │   │  Telegram   │   │    WhatsApp      │   │
 │   │  (Instant)   │   │    Bot      │   │       Bot        │   │
 │   │              │   │             │   │                  │   │
 │   │ Pay → IP     │   │  Full       │   │  Full            │   │
@@ -20,7 +20,7 @@ Three ways to buy: website (instant), Telegram, or WhatsApp. No account needed o
 │   │ 100% anon    │   │  + support  │   │  + support       │   │
 │   └──────────────┘   └─────────────┘   └──────────────────┘   │
 │                                                                  │
-│   Management Portal: bunche.ng/manage — check, renew, complain  │
+│   Management Portal: styxproxy.com/manage — check, renew, complain  │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -36,7 +36,7 @@ Three ways to buy: website (instant), Telegram, or WhatsApp. No account needed o
 - Full support: check status, renew, ban claims, questions
 
 ### Management Portal
-- `bunche.ng/manage` → enter tx_ref (no login)
+- `styxproxy.com/manage` → enter tx_ref (no login)
 - Check status, renew, report ban → redirects to Telegram or WhatsApp
 
 ---
@@ -60,7 +60,7 @@ Three ways to buy: website (instant), Telegram, or WhatsApp. No account needed o
 ## How Instant Works
 
 ```
-Customer → bunche.ng → Select product → Pay via Flutterwave
+Customer → styxproxy.com → Select product → Pay via Flutterwave
                                         ↓
                     Flutterwave generates tx_ref (= order number)
                                         ↓
@@ -115,7 +115,7 @@ Max 12 surveys = 24 hours
 Customers receive Bunche-branded credentials. Actual proxy IPs are sourced from vetted infrastructure partners but customers interact only with Bunche.
 
 ```
-Customer sees:   proxy1.bunche.ng:1080
+Customer sees:   proxy1.styxproxy.com:1080
 Behind the scenes: actual provider IP → routed through Bunche auth
 ```
 

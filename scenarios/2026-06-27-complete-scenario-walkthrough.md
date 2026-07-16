@@ -69,9 +69,9 @@ Pay in Naira, get your proxy in under 2 minutes.
 ━━━━━━━━━━━━━━━━━━
 ⚖️ BY REPLYING YOU AGREE TO:
 ━━━━━━━━━━━━━━━━━━
-• Terms of Service: bunche.ng/terms
-• Privacy Policy: bunche.ng/privacy
-• Acceptable Use Policy: bunche.ng/aup
+• Terms of Service: styxproxy.com/terms
+• Privacy Policy: styxproxy.com/privacy
+• Acceptable Use Policy: styxproxy.com/aup
 
 ━━━━━━━━━━━━━━━━━━
 🛒 To order, just type:
@@ -255,7 +255,7 @@ No problem — your proxy is ready.
 📅 Expires: July 27, 2026
 
 ━━━━━━━━━━━━━━━━━━
-📄 Receipt: https://files.bunche.ng/receipts/ORD-20260627-0947.pdf
+📄 Receipt: https://files.styxproxy.com/receipts/ORD-20260627-0947.pdf
 ━━━━━━━━━━━━━━━━━━
 
 💡 Setup tip: Phone → Settings → VPN → Add → enter the details above.
@@ -939,7 +939,7 @@ Customer: Done
 🌐 BUNCHE TRIAL PROXY — 2 HOURS
 ━━━━━━━━━━━━━━━━━━
 
-🔗 IP: bunche.ng
+🔗 IP: styxproxy.com
 🔌 Port: 8001
 👤 User: trial_a7b9c2
 🔑 Pass: Kx9mNp2qR8sT4wY7
@@ -1054,7 +1054,7 @@ Customer: My IP got banned, here's the screenshot [image attached]
 - LLM Intent Parser: { intent: ban_claim }
 - Check order: is IP banned? → order status=fulfilled, ban reported_at=NULL
 - Create ban claim record: BAN-CLAIM-001
-- Store screenshot to R2/Cloudflare: files.bunche.ng/bans/BAN-CLAIM-001.jpg
+- Store screenshot to R2/Cloudflare: files.styxproxy.com/bans/BAN-CLAIM-001.jpg
 - Add to `pending` list for admin review
 
 **Bunche reply:**
@@ -1075,7 +1075,7 @@ Anything else while you wait? Reply menu.
   ```
   ⏳ BAN-CLAIM-001: Order ORD-20260627-0917
   Customer: a3f2b9... (Dan hash)
-  Screenshot: https://files.bunche.ng/bans/BAN-CLAIM-001.jpg
+  Screenshot: https://files.styxproxy.com/bans/BAN-CLAIM-001.jpg
   Reported: 2 hours ago
   ```
 

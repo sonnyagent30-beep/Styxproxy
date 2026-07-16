@@ -16,15 +16,15 @@
 
 | Item | Value |
 |------|-------|
-| Admin URL | `bunche.ng/powerhold` |
+| Admin URL | `styxproxy.com/powerhold` |
 | Token | `rsu1JwfywmIZNIPiIWxy8VOu3oRZR0vnI2kfcq/6WlI=` |
 | Token ENV var | `ADMIN_TOKEN` |
 | Allowed IPs | Home + Bunche VPS itself + open for additions |
 
 ```
-bunche.ng/powerhold        ← team bookmark (codename)
+styxproxy.com/powerhold        ← team bookmark (codename)
      ↓ (?token=rsu1JwfywmIZNIPiIWxy8VOu3oRZR0vnI2kfcq/6WlI=)
-bunche.ng/powerhold/admin  ← actual admin panel
+styxproxy.com/powerhold/admin  ← actual admin panel
 ```
 
 **Security Stack:**

@@ -12,7 +12,7 @@ This Acceptable Use Policy ("AUP") defines acceptable use of Bunche proxy servic
 
 ## 2. Three Channels, Same Rules
 
-This policy applies to all Bunche channels — bunche.ng, the Bunche Telegram bot, and the Bunche WhatsApp bot. The same rules apply regardless of how you purchased your proxy.
+This policy applies to all Bunche channels — styxproxy.com, the Bunche Telegram bot, and the Bunche WhatsApp bot. The same rules apply regardless of how you purchased your proxy.
 
 ---
 
@@ -88,7 +88,7 @@ If your proxy IP is blocked by a website or service, you may raise a ban claim.
 ### 5.1 How to Raise a Ban Claim
 
 **Via Website:**
-1. Go to bunche.ng/manage
+1. Go to styxproxy.com/manage
 2. Enter your order number (tx_ref)
 3. Select "Report a Ban"
 4. Upload a screenshot showing the block or ban
@@ -130,14 +130,14 @@ If prohibited use is detected:
 If you become aware that a Bunche customer is using the service for prohibited activity, report it:
 
 **Via Website:**
-Go to bunche.ng/manage and select "Report Abuse"
+Go to styxproxy.com/manage and select "Report Abuse"
 
 **Via Chat:**
 - Telegram: Send a message to @bunche: "Report abuse for order [tx_ref]"
 - WhatsApp: Send a message to the Bunche WhatsApp bot: "Report abuse for order [tx_ref]"
 
 **Via Email:**
-hello@bunche.ng
+hello@styxproxy.com
 
 All abuse reports are investigated. We keep reporter information confidential upon request.
 
@@ -168,7 +168,7 @@ Proxy IPs are sourced from vetted infrastructure partners. Customers do not inte
 We may update this AUP from time to time. Material changes will be communicated via:
 - Telegram message (for Telegram customers)
 - WhatsApp message (forWhatsApp customers)
-- Notice on bunche.ng
+- Notice on styxproxy.com
 
 The effective date at the top of this policy indicates when it was last updated.
 
@@ -179,10 +179,10 @@ The effective date at the top of this policy indicates when it was last updated.
 **Bunche**
 
 - **Telegram:** @bunche
-- **WhatsApp:** Available via bunche.ng
-- **Email:** hello@bunche.ng
-- **Website:** bunche.ng
-- **Management Portal:** bunche.ng/manage
+- **WhatsApp:** Available via styxproxy.com
+- **Email:** hello@styxproxy.com
+- **Website:** styxproxy.com
+- **Management Portal:** styxproxy.com/manage
 
 ---
 

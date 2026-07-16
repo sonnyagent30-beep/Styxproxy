@@ -16,14 +16,14 @@ Your first interaction with Bunche constitutes acceptance of these terms, regard
 
 Bunche operates across three independent channels. All three channels offer the same products and pricing. No channel requires you to use another.
 
-### 2.1 Instant (Website) — bunche.ng
+### 2.1 Instant (Website) — styxproxy.com
 
 The primary order path. No account required. No personal data collected beyond what is necessary to process your order.
 
 - Select product → pay via Flutterwave → receive IP immediately on screen
 - No registration. No phone number. No email required.
 - Order number (Flutterwave transaction reference) is your only order identifier
-- Management portal: bunche.ng/manage — enter your order number to check status, renew, or raise a ban claim
+- Management portal: styxproxy.com/manage — enter your order number to check status, renew, or raise a ban claim
 - Contact support: redirected to Telegram or WhatsApp of your choice from the management portal
 
 ### 2.2 Telegram Bot (@bunche)
@@ -48,7 +48,7 @@ Full ordering and support via the Bunche WhatsApp Business bot.
 
 ## 3. No Account Required (Website)
 
-Customers who order via bunche.ng do not create an account. We do not collect:
+Customers who order via styxproxy.com do not create an account. We do not collect:
 
 - Your name
 - Your email address (unless you voluntarily provide it for a receipt)
@@ -65,7 +65,7 @@ Your order number (Flutterwave transaction reference) is the only identifier for
 ### 4.1 How to Order
 
 **Via Website:**
-1. Select your product on bunche.ng
+1. Select your product on styxproxy.com
 2. Complete payment via Flutterwave (card, bank transfer, USSD, or QR)
 3. Your IP and credentials are displayed immediately on the thank-you page
 4. An email receipt is sent if you provided your email address
@@ -78,7 +78,7 @@ Your order number (Flutterwave transaction reference) is the only identifier for
 
 ### 4.2 Pricing
 
-All prices are in Nigerian Naira (₦) and include applicable taxes. Prices are displayed on bunche.ng. Chat orders receive the same pricing as website orders.
+All prices are in Nigerian Naira (₦) and include applicable taxes. Prices are displayed on styxproxy.com. Chat orders receive the same pricing as website orders.
 
 | Product | Price |
 |---------|-------|
@@ -114,7 +114,7 @@ A Flutterwave transaction reference (tx_ref) is issued for every payment. This t
 
 ### 5.1 Bunche Auth Layer
 
-All proxy credentials delivered to customers are issued under Bunche's branding (e.g., proxy1.bunche.ng, proxy2.bunche.ng). Customers interact with Bunche's proxy infrastructure, not directly with underlying proxy providers.
+All proxy credentials delivered to customers are issued under Bunche's branding (e.g., proxy1.styxproxy.com, proxy2.styxproxy.com). Customers interact with Bunche's proxy infrastructure, not directly with underlying proxy providers.
 
 Bunche controls the authentication layer. This enables:
 - Instant credential revocation on refund, abuse, or expiry
@@ -159,7 +159,7 @@ Violations may result in immediate credential revocation without refund.
 If your proxy IP is blocked or banned by a website or service:
 
 ### Via Website (Management Portal)
-1. Go to bunche.ng/manage
+1. Go to styxproxy.com/manage
 2. Enter your order number (tx_ref)
 3. Select "Report a Ban"
 4. Upload a screenshot showing the ban or block
@@ -182,7 +182,7 @@ You may request a refund within 24 hours of receiving your proxy credentials if:
 
 ### 8.2 How to Request a Refund
 
-Request a refund via the Bunche management portal (bunche.ng/manage) or by contacting support via Telegram or WhatsApp. All refund requests are reviewed manually.
+Request a refund via the Bunche management portal (styxproxy.com/manage) or by contacting support via Telegram or WhatsApp. All refund requests are reviewed manually.
 
 ### 8.3 Refund Processing
 
@@ -219,8 +219,8 @@ Support is available via three channels:
 |---------|--------------|
 | Telegram | @bunche — for orders, support, ban claims |
 | WhatsApp | Bunche WhatsApp Business — for orders, support, ban claims |
-| Management Portal | bunche.ng/manage — check status, renew, raise ban claim |
-| Email | hello@bunche.ng |
+| Management Portal | styxproxy.com/manage — check status, renew, raise ban claim |
+| Email | hello@styxproxy.com |
 
 Response times: within 2 hours during business hours (9am–6pm WAT, Monday–Saturday).
 
@@ -273,7 +273,7 @@ You agree to indemnify and hold Bunche harmless from any claims, damages, or exp
 We may update these terms from time to time. Material changes will be communicated via:
 - Telegram message (for Telegram customers)
 - WhatsApp message (for WhatsApp customers)
-- Notice on bunche.ng
+- Notice on styxproxy.com
 
 Changes to pricing take effect immediately for new orders. Changes to other terms take effect 14 days after notification.
 
@@ -292,10 +292,10 @@ These terms are governed by the laws of the Federal Republic of Nigeria. Any dis
 **Bunche**
 
 - **Telegram:** @bunche
-- **WhatsApp:** Available via bunche.ng/contact
-- **Email:** hello@bunche.ng
-- **Website:** bunche.ng
-- **Management Portal:** bunche.ng/manage
+- **WhatsApp:** Available via styxproxy.com/contact
+- **Email:** hello@styxproxy.com
+- **Website:** styxproxy.com
+- **Management Portal:** styxproxy.com/manage
 
 ---
 

@@ -64,7 +64,7 @@ Reply "order" + product to get started 👇
 
 ```
 ⚖️ By ordering, you agree to our Acceptable Use Policy.
-bunche.ng/aup | Privacy: bunche.ng/privacy
+styxproxy.com/aup | Privacy: styxproxy.com/privacy
 ```
 
 ---

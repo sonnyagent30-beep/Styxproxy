@@ -274,7 +274,7 @@ This is **strong proof** that the receipt belongs to the customer claiming it. N
 
 Customer hash: a3f2b9c1e8d4...
 Claimed name: Dan
-Receipt URL: https://files.bunche.ng/recovery-receipts/a3f2b9c1e8d4/2026-07-11T1430.pdf
+Receipt URL: https://files.styxproxy.com/recovery-receipts/a3f2b9c1e8d4/2026-07-11T1430.pdf
 
 📋 Verification steps:
 1. [ ] Confirm tx_ref in receipt matches an order for customer Dan

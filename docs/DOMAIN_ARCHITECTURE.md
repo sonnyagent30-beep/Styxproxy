@@ -128,7 +128,7 @@ Routes (existing `/admin` becomes gated):
    - This lets us keep `admin/` as a normal route while being invisible from the public app
 
 6. **Update env vars everywhere**:
-   - `NEXT_PUBLIC_API_URL` stays pointing to `bunche.railway.app` (or new prod URL after VPS)
+   - `NEXT_PUBLIC_API_URL` stays pointing to `api.styxproxy.com` (or new prod URL after VPS)
    - `NEXT_PUBLIC_FRONTEND_URL` on backend: `app.styxproxy.com`
    - Marketing repo may not need any backend env vars (pure static)
 

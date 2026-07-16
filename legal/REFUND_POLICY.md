@@ -55,7 +55,7 @@ We do not refund:
 ## 4. How to Request a Refund
 
 ### 4.1 Via Management Portal
-1. Go to bunche.ng/manage
+1. Go to styxproxy.com/manage
 2. Enter your order number (tx_ref)
 3. Select "Request a Refund"
 4. Provide a brief description of why the proxy did not work
@@ -66,7 +66,7 @@ We do not refund:
 - **WhatsApp:** Send "Refund for order [tx_ref]" to the Bunche WhatsApp bot
 
 ### 4.3 Via Email
-Send an email to hello@bunche.ng with:
+Send an email to hello@styxproxy.com with:
 - Your order number (tx_ref)
 - A description of why the proxy did not work
 - Any screenshots or evidence
@@ -118,7 +118,7 @@ If your refund is rejected, we will tell you why. Common reasons for rejection:
 If you believe your situation deserves special consideration outside the standard policy, contact us:
 - Telegram: @bunche
 - WhatsApp: Bunche WhatsApp bot
-- Email: hello@bunche.ng
+- Email: hello@styxproxy.com
 
 We handle these case by case.
 
@@ -126,7 +126,7 @@ We handle these case by case.
 
 ## 8. Changes to This Policy
 
-We may update this Refund Policy from time to time. Changes will be posted on bunche.ng with the effective date.
+We may update this Refund Policy from time to time. Changes will be posted on styxproxy.com with the effective date.
 
 Refunds are governed by the policy in effect at the time of your order.
 
@@ -137,9 +137,9 @@ Refunds are governed by the policy in effect at the time of your order.
 **Bunche**
 
 - **Telegram:** @bunche
-- **WhatsApp:** Available via bunche.ng
-- **Email:** hello@bunche.ng
-- **Management Portal:** bunche.ng/manage
+- **WhatsApp:** Available via styxproxy.com
+- **Email:** hello@styxproxy.com
+- **Management Portal:** styxproxy.com/manage
 
 ---
 

@@ -8,7 +8,7 @@
 
 | Channel | Type | Purpose |
 |---|---|---|
-| **Instant** | Website (bunche.ng) | Primary order path — anonymous, pay → get IP |
+| **Instant** | Website (styxproxy.com) | Primary order path — anonymous, pay → get IP |
 | **Telegram** | Chat bot | Support + ordering + free trial |
 | **WhatsApp** | Chat bot | Support + ordering + free trial |
 
@@ -25,7 +25,7 @@ Customers choose. All three work independently — no linking required for any c
 ### Flow
 
 ```
-Customer → bunche.ng → Select product + country
+Customer → styxproxy.com → Select product + country
     ↓
     Select payment method (Flutterwave Checkout)
     ↓
@@ -58,7 +58,7 @@ Customer → bunche.ng → Select product + country
 
 ### Management Portal
 
-Customer goes to `bunche.ng/manage` or `bunche.ng/order/<tx_ref>`:
+Customer goes to `styxproxy.com/manage` or `styxproxy.com/order/<tx_ref>`:
 
 - **Check status** — enter tx_ref → see order details
 - **Renew** — select new product → new Flutterwave payment → new IP
@@ -162,7 +162,7 @@ Customer → "I want free trial" / "free trial"
 
 ## The Management Portal
 
-URL: `bunche.ng/manage` or `bunche.ng/order/<tx_ref>`
+URL: `styxproxy.com/manage` or `styxproxy.com/order/<tx_ref>`
 
 **Entry:** Order number (tx_ref from Flutterwave)
 
@@ -181,7 +181,7 @@ URL: `bunche.ng/manage` or `bunche.ng/order/<tx_ref>`
 
 ## Admin Dashboard
 
-All admin operations move from Telegram to a dedicated web dashboard at `admin.bunche.ng`.
+All admin operations move from Telegram to a dedicated web dashboard at `admin.styxproxy.com`.
 
 **Telegram is no longer used for admin commands.** All admin staff log in via web only.
 
@@ -303,8 +303,8 @@ Implications for the build:
 
 1. **Backend API** — Flutterwave webhook → IP generation → instant_orders table
 2. **Instant website** — product pages → Flutterwave Checkout → thank-you page with IP
-3. **Management portal** — bunche.ng/manage
-4. **Admin dashboard** — admin.bunche.ng (SuperAdmin + Admin roles)
+3. **Management portal** — styxproxy.com/manage
+4. **Admin dashboard** — admin.styxproxy.com (SuperAdmin + Admin roles)
 5. **Telegram bot** — full ordering + support (via n8n)
 6. **WhatsApp bot** — full ordering + support (via n8n)
 7. **Free trial** — Telegram + WhatsApp (after bots are working)

@@ -11,7 +11,7 @@
 │                          CUSTOMER                                 │
 │                                                                  │
 │   ┌────────────┐   ┌─────────────┐   ┌─────────────────────┐   │
-│   │  bunche.ng │   │  Telegram   │   │     WhatsApp        │   │
+│   │  styxproxy.com │   │  Telegram   │   │     WhatsApp        │   │
 │   │  (Instant) │   │    Bot      │   │       Bot           │   │
 │   └─────┬──────┘   └──────┬──────┘   └──────────┬──────────┘   │
 │         │                  │                     │               │
@@ -37,7 +37,7 @@
 │         ▼                     ▼                       ▼         │
 │   ┌────────────┐       ┌──────────┐           ┌───────────┐     │
 │   │   Website   │       │ Backend  │           │    n8n    │     │
-│   │  (bunche.ng)│       │   API   │           │(workflows)│     │
+│   │  (styxproxy.com)│       │   API   │           │(workflows)│     │
 │   │   Static    │       │ :8080    │           │  :5678    │     │
 │   └────────────┘       └────┬─────┘           └─────┬─────┘     │
 │                              │                       │            │
@@ -68,7 +68,7 @@
 
 ## Components
 
-### 1. Website (bunche.ng — Instant)
+### 1. Website (styxproxy.com — Instant)
 
 **Stack:** Static HTML/CSS/JS or Next.js (to be decided)
 **Host:** New Bunche VPS
@@ -103,7 +103,7 @@
 **Port exposed:** Via nginx reverse proxy on 443
 **Async queue:** Redis + background tasks (FastAPI BackgroundTasks or Celery)
 
-**Base URL:** `https://api.bunche.ng`
+**Base URL:** `https://api.styxproxy.com`
 
 **CRITICAL: n8n is NOT in the Instant (website) path.**
 
@@ -142,7 +142,7 @@ n8n IS involved ONLY in:
 - Telegram webhook: bot token verification
 - WhatsApp webhook: verify token
 - All endpoints: rate limiting (SlowAPI)
-- CORS: restricted to bunche.ng + admin.bunche.ng domains
+- CORS: restricted to styxproxy.com + admin.styxproxy.com domains
 - Pydantic validation on all request bodies
 
 ### 3. PostgreSQL Database
@@ -185,7 +185,7 @@ n8n IS involved ONLY in:
 Dante is the SOCKS5 server that customers connect to. Customer provides their Bunche username + password. Dante verifies against the credentials table, then routes the connection through to the upstream provider IP.
 
 ```
-Customer connects: proxy1.bunche.ng:1080
+Customer connects: proxy1.styxproxy.com:1080
   username: bun_001 / password: XxX
          │
          ▼
@@ -253,7 +253,7 @@ Telegram → cloudflared tunnel → n8n :5678
 
 **WhatsApp webhook flow:**
 ```
-WhatsApp Cloud API → POST https://api.bunche.ng/webhook/whatsapp
+WhatsApp Cloud API → POST https://api.styxproxy.com/webhook/whatsapp
                            ↓
                     nginx reverse proxy
                            ↓
@@ -283,7 +283,7 @@ WhatsApp Cloud API → POST https://api.bunche.ng/webhook/whatsapp
 ### Instant (Website) Order Flow
 
 ```
-1. Customer selects product on bunche.ng
+1. Customer selects product on styxproxy.com
    → POST /invoice/create { product, country }
    (backend API creates record, calls Flutterwave → returns payment link)
 
@@ -430,8 +430,8 @@ Website (browser)                  Backend API (server)
 
 NODE_ENV=production
 PORT=8080
-DOMAIN=https://bunche.ng
-API_BASE=https://api.bunche.ng
+DOMAIN=https://styxproxy.com
+API_BASE=https://api.styxproxy.com
 
 # PostgreSQL
 POSTGRES_HOST=localhost
@@ -456,7 +456,7 @@ DATAIMPULSE_API_URL=https://api.dataimpulse.com
 
 # Email (Resend)
 RESEND_API_KEY=re_xxxx
-EMAIL_FROM=bunche@bunche.ng
+EMAIL_FROM=bunche@styxproxy.com
 
 # 3proxy
 THREEPROXY_CONFIG_PATH=/etc/3proxy/bunche-trial.cfg
@@ -537,7 +537,7 @@ RATE_LIMIT_WINDOW_SECONDS=60
 
 Before going live:
 
-- [ ] SSL certificate active on bunche.ng + api.bunche.ng
+- [ ] SSL certificate active on styxproxy.com + api.styxproxy.com
 - [ ] PostgreSQL schema created + indexes
 - [ ] Backend API running via PM2 + auto-restart enabled
 - [ ] nginx reverse proxy configured
