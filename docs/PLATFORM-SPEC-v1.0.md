@@ -1,5 +1,5 @@
 # Styxproxy Platform — Full Platform Specification
-**Version:** 1.0 | **Date:** 2026-07-21 | **Status:** Active Build
+**Version:** 1.1 | **Date:** 2026-07-21 | **Status:** Active Build
 
 ---
 
@@ -18,12 +18,12 @@
 ## 1. PRIORITIZED GOALS
 
 ### P0 — Must Have (Live Now / Next Sprint)
-| # | Workstream | Why |
+| # | Workstream | Status |
 |---|---|---|
-| P0-1 | **Admin Auth Cleanup** (phone→email, TOTP, nav removal) | Security gate — nothing else is safe until this is done |
-| P0-2 | **Phase 1 Blog** (DB wiring, admin CMS, public feed) | **COMPLETED ✅** |
-| P0-3 | **Resend Email Setup** | Admin invites, password reset, notifications all blocked without this |
-| P0-4 | **Superadmin Dashboard** | End-to-end management without touching DB directly |
+| P0-1 | **Admin Auth Cleanup** (email+TOTP, nav removal, token bug fix) | ✅ COMPLETED — api.ts `/api/admin/*` token fix, 2-step login, setup/login nav removed |
+| P0-2 | **Phase 1 Blog** (DB wiring, admin CMS, public feed) | ✅ COMPLETED |
+| P0-3 | **Resend Email Setup** (admin invites, password reset, customer purchase emails) | ✅ COMPLETED — admin auth emails wired, customer order+credentials in one combined email |
+| P0-4 | **Superadmin Dashboard** | ⬜ Not started |
 
 ### P1 — Should Have (Post-Launch Sprint)
 | # | Workstream | Why |
@@ -724,7 +724,7 @@ Max Uses: 1
 
 **To create your superadmin account:**
 1. Go to `styxproxy.com/admin/setup`
-2. Enter invite code: `nDIvMgm7Uqo-WjZ5gw`
+2. Enter invite code: `gfDiCUN5LycJ1SPH` (expires August 4, 2026)
 3. Set your email + password
 4. Scan QR with your authenticator app (TOTP)
 5. Save your backup codes somewhere safe
