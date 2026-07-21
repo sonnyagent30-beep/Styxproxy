@@ -64,7 +64,13 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = 0.1
 
     # ── CORS ────────────────────────────────────────────────────────────────
-    cors_origins: List[str] = ["http://localhost:3000", "https://bunche.ng"]
+    cors_origins: List[str] = [
+        "http://localhost:3000",
+        "https://bunche.ng",
+        "https://styxproxy.com",
+        "https://www.styxproxy.com",
+        "https://api.styxproxy.com",
+    ]
 
     # ── Rate Limiting ───────────────────────────────────────────────────────
     rate_limit_per_minute: int = 60
