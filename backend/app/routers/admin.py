@@ -25,7 +25,7 @@ from app.auth import admin_only
 from app.services.credential import replace_credential
 from app.services.trial import get_trials_today_count
 from app.services.audit import get_audit_logs
-from app.services.email import send_refund_request_notification, send_refund_approved_notification
+from app.services.email import send_refund_request_notification, send_refund_approved_notification, send_refund_processed_email
 from pathlib import Path
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -207,6 +207,26 @@ async def refund_order(order_id: str, request: AdminRefundRequest, session: Asyn
         amount=float(order.amount_paid_ngn or 0),
         currency="NGN",
     )
+    
+    # Send refund processed email to customer if email available
+    customer = None
+    if order.customer_phone:
+        customer = (await session.execute(select(Customer).where(Customer.phone == order.customer_phone))).scalar_one_or_none()
+    
+    if customer:
+        customer_email = getattr(customer, 'email', None)
+        if customer_email:
+            try:
+                await send_refund_processed_email(
+                    customer_email=customer_email,
+                    customer_name=customer.name if customer.name else "Customer",
+                    order_id=order_id,
+                    amount=float(order.amount_paid_ngn or 0),
+                    currency="NGN",
+                    reason=request.reason or "Refund processed",
+                )
+            except Exception:
+                pass
     
     return {"status": "refunded", "order_id": order_id, "refund_amount": float(order.amount_paid_ngn or 0)}
 
