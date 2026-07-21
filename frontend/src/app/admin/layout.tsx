@@ -18,14 +18,17 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Pages that don't require auth — render empty (no nav shell)
-  const publicAdminPages = ['/admin/login', '/admin/setup'];
+  const publicAdminPages = ['/admin/login', '/admin/setup', '/admin/reset-password'];
 
   useEffect(() => {
     if (publicAdminPages.some((p) => pathname?.startsWith(p))) {
       setLoading(false);
       return;
     }
+    // Set loading true immediately to prevent flash of protected content
+    setLoading(true);
     checkAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   const checkAuth = async () => {

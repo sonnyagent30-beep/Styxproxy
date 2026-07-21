@@ -73,7 +73,8 @@ export default function AdminLoginPage() {
         // If still TOTP error, maybe code expired — stay on step 2
       } else if (result.data) {
         api.setAdminToken(result.data.access_token);
-        router.push('/admin/dashboard');
+        // Use hard navigation to ensure clean state after login
+        window.location.href = '/admin/dashboard';
       }
     } catch {
       setError('Connection error. Please try again.');
