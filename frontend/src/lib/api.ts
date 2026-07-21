@@ -30,6 +30,10 @@ import type {
   Plan,
   PlanCreate,
   PlanUpdate,
+  ContactSubmission,
+  ContactSubmissionsResponse,
+  Escalation,
+  EscalationsResponse,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -412,6 +416,48 @@ class ApiClient {
   async deletePlan(planId: number): Promise<ApiResponse<{ status: string; plan_id: number }>> {
     return this.request(`/api/admin/plans/${planId}`, {
       method: 'DELETE',
+    });
+  }
+
+  // ============== Contact Submissions =============
+
+  async getContactSubmissions(status?: string, page = 1, limit = 20): Promise<ApiResponse<ContactSubmissionsResponse>> {
+    let url = `/api/admin/contact-submissions?page=${page}&limit=${limit}`;
+    if (status) url += `&status=${status}`;
+    return this.request<ContactSubmissionsResponse>(url);
+  }
+
+  async replyContactSubmission(id: string, adminNotes: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.request(`/api/admin/contact-submissions/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_notes: adminNotes }),
+    });
+  }
+
+  async updateContactSubmission(id: string, status: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.request(`/api/admin/contact-submissions/${id}?status=${status}`, {
+      method: 'PATCH',
+    });
+  }
+
+  // ============== Charon Escalations =============
+
+  async getEscalations(status?: string, page = 1, limit = 20): Promise<ApiResponse<EscalationsResponse>> {
+    let url = `/api/admin/escalations?page=${page}&limit=${limit}`;
+    if (status) url += `&status=${status}`;
+    return this.request<EscalationsResponse>(url);
+  }
+
+  async respondEscalation(id: string, adminNotes: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.request(`/api/admin/escalations/${id}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_notes: adminNotes }),
+    });
+  }
+
+  async updateEscalation(id: string, status: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.request(`/api/admin/escalations/${id}?status=${status}`, {
+      method: 'PATCH',
     });
   }
 }

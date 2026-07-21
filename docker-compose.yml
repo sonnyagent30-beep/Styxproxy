@@ -54,8 +54,12 @@ services:
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
       MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
-      CORS_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000"]'
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-noreply@styxproxy.com}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-oyebiyiayomide30@gmail.com}
+      CORS_ORIGINS: '["https://styxproxy.com","https://www.styxproxy.com","https://api.styxproxy.com","http://localhost:3000"]'
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+      FROM_EMAIL: noreply@styxproxy.com
     volumes:
       - ./backend/app:/app/app:ro
       - ./backend/alembic:/app/alembic:ro

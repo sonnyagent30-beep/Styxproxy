@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from app.database import get_session
-from app.models import Customer, Order, BuncheCredential, FreeTrial, CustomerAuditLog, ProcessedWebhook, FeatureFlag, Plan
+from app.models import Customer, Order, BuncheCredential, FreeTrial, CustomerAuditLog, ProcessedWebhook, FeatureFlag, Plan, ContactSubmission, CharonEscalation
 from app.schemas import (
     AdminStatsResponse, AdminCustomerResponse, AdminCustomersResponse, AdminBlockRequest,
     AdminOrderResponse, AdminOrdersResponse, AdminOrderUpdateRequest, AdminRefundRequest,
@@ -18,6 +18,8 @@ from app.schemas import (
     DeleteLearnedFileRequest, DeleteLearnedFileResponse,
     PlanResponse, PlansResponse, PlanCreateRequest, PlanUpdateRequest,
     ChannelFeatureFlagsResponse, ChannelFeatureFlagsUpdate, ChannelConfig,
+    ContactSubmissionResponse, ContactSubmissionsResponse, ContactSubmissionReplyRequest,
+    CharonEscalationResponse, EscalationsResponse, EscalationRespondRequest,
 )
 from app.auth import admin_only
 from app.services.credential import replace_credential
@@ -550,3 +552,135 @@ async def update_channel_feature_flags(
             url=whatsapp_flag.admin_overrides.get("url", "") if whatsapp_flag.admin_overrides else "",
         ),
     )
+
+
+# ============== Contact Submissions ==============
+
+@router.get("/contact-submissions", response_model=ContactSubmissionsResponse, dependencies=[Depends(admin_only)])
+async def list_contact_submissions(
+    status: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    """List all contact submissions with optional status filter."""
+    query = select(ContactSubmission).order_by(ContactSubmission.created_at.desc())
+    if status:
+        query = query.where(ContactSubmission.status == status)
+    
+    # Count
+    count_q = select(func.count()).select_from(query.subquery())
+    total = (await session.execute(count_q)).scalar_one()
+    
+    # Paginate
+    query = query.offset((page-1)*limit).limit(limit)
+    rows = (await session.execute(query)).scalars().all()
+    
+    return ContactSubmissionsResponse(
+        data=[ContactSubmissionResponse.model_validate(r) for r in rows],
+        total=total,
+    )
+
+
+@router.post("/contact-submissions/{submission_id}/reply", dependencies=[Depends(admin_only)])
+async def reply_contact_submission(
+    submission_id: UUID,
+    request: ContactSubmissionReplyRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Reply to a contact submission."""
+    result = await session.execute(
+        select(ContactSubmission).where(ContactSubmission.id == submission_id)
+    )
+    submission = result.scalar_one_or_none()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    
+    submission.status = "replied"
+    submission.admin_notes = request.admin_notes
+    await session.commit()
+    return {"success": True}
+
+
+@router.patch("/contact-submissions/{submission_id}", dependencies=[Depends(admin_only)])
+async def update_contact_submission(
+    submission_id: UUID,
+    status: str = Query(...),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update contact submission status."""
+    result = await session.execute(
+        select(ContactSubmission).where(ContactSubmission.id == submission_id)
+    )
+    submission = result.scalar_one_or_none()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    
+    submission.status = status
+    await session.commit()
+    return {"success": True}
+
+
+# ============== Charon Escalations ==============
+
+@router.get("/escalations", response_model=EscalationsResponse, dependencies=[Depends(admin_only)])
+async def list_escalations(
+    status: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    """List all Charon escalations with optional status filter."""
+    query = select(CharonEscalation).order_by(CharonEscalation.created_at.desc())
+    if status:
+        query = query.where(CharonEscalation.status == status)
+    
+    count_q = select(func.count()).select_from(query.subquery())
+    total = (await session.execute(count_q)).scalar_one()
+    
+    query = query.offset((page-1)*limit).limit(limit)
+    rows = (await session.execute(query)).scalars().all()
+    
+    return EscalationsResponse(
+        data=[CharonEscalationResponse.model_validate(r) for r in rows],
+        total=total,
+    )
+
+
+@router.post("/escalations/{escalation_id}/respond", dependencies=[Depends(admin_only)])
+async def respond_escalation(
+    escalation_id: UUID,
+    request: EscalationRespondRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Respond to a Charon escalation."""
+    result = await session.execute(
+        select(CharonEscalation).where(CharonEscalation.id == escalation_id)
+    )
+    escalation = result.scalar_one_or_none()
+    if not escalation:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    
+    escalation.status = "reviewed"
+    escalation.admin_notes = request.admin_notes
+    await session.commit()
+    return {"success": True}
+
+
+@router.patch("/escalations/{escalation_id}", dependencies=[Depends(admin_only)])
+async def update_escalation(
+    escalation_id: UUID,
+    status: str = Query(...),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update escalation status."""
+    result = await session.execute(
+        select(CharonEscalation).where(CharonEscalation.id == escalation_id)
+    )
+    escalation = result.scalar_one_or_none()
+    if not escalation:
+        raise HTTPException(status_code=404, detail="Escalation not found")
+    
+    escalation.status = status
+    await session.commit()
+    return {"success": True}

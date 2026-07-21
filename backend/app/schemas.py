@@ -592,6 +592,61 @@ class AdminWebhookLogsResponse(BaseModel):
     pagination: dict[str, Any]
 
 
+# ============== Contact Submission Schemas ==============
+class ContactSubmissionResponse(BaseModel):
+    """Contact submission response."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    email: str
+    message: str
+    phone: Optional[str]
+    tx_ref: Optional[str]
+    status: str
+    admin_notes: Optional[str]
+    created_at: datetime
+
+
+class ContactSubmissionsResponse(BaseModel):
+    """Contact submissions list response."""
+    data: list[ContactSubmissionResponse]
+    total: int
+
+
+class ContactSubmissionReplyRequest(BaseModel):
+    """Request to reply to a contact submission."""
+    admin_notes: str = Field(..., min_length=1)
+
+
+# ============== Charon Escalation Schemas ==============
+class CharonEscalationResponse(BaseModel):
+    """Charon escalation response."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    conversation_id: str
+    customer_email: Optional[str]
+    customer_phone: Optional[str]
+    customer_message: str
+    history_summary: Optional[str]
+    status: str
+    admin_notes: Optional[str]
+    resolved_at: Optional[datetime]
+    created_at: datetime
+
+
+class EscalationsResponse(BaseModel):
+    """Escalations list response."""
+    data: list[CharonEscalationResponse]
+    total: int
+
+
+class EscalationRespondRequest(BaseModel):
+    """Request to respond to an escalation."""
+    admin_notes: str = Field(..., min_length=1)
+
+
 class LearnedFileResponse(BaseModel):
     """Learned file response."""
     name: str
