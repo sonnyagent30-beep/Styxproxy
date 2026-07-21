@@ -17,6 +17,7 @@ import type {
   AdminLoginRequest,
   AdminLoginResponse,
   AdminSetupRequest,
+  AdminSetupTOTPResponse,
   AdminSetupResponse,
   AdminMeResponse,
   AdminTeamMember,
