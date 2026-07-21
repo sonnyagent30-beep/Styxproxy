@@ -196,7 +196,7 @@ Submitted at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 """
 
     return EmailContent(
-        subject="[Bunche] New Contact Form Submission",
+        subject="[Styxproxy] New Contact Form Submission",
         html=html,
         text=text,
     )
@@ -269,7 +269,7 @@ Escalated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 """
 
     return EmailContent(
-        subject=f"[Bunche] Charon Escalation - {conversation_id[:8]}",
+        subject=f"[Styxproxy] Charon Escalation - {conversation_id[:8]}",
         html=html,
         text=text,
     )
@@ -328,7 +328,7 @@ Notification sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 """
 
     return EmailContent(
-        subject=f"[Bunche Admin] {title}",
+        subject=f"[Styxproxy Admin] {title}",
         html=html,
         text=text,
     )
@@ -359,7 +359,7 @@ async def send_contact_form_notification(
     # Also send confirmation to the customer
     if result.success:
         confirmation_content = EmailContent(
-            subject="We received your message - Bunche",
+            subject="We received your message - Styxproxy",
             html=f"""
             <!DOCTYPE html>
             <html>
@@ -381,13 +381,13 @@ async def send_contact_form_notification(
                         <p>Hi {name},</p>
                         <p>Thank you for reaching out! We've received your message and will get back to you within 24 hours.</p>
                         <p>If you have any urgent questions, you can reply to this email or WhatsApp us directly.</p>
-                        <p>Best regards,<br>The Bunche Team</p>
+                        <p>Best regards,<br>The Styxproxy Team</p>
                     </div>
                 </div>
             </body>
             </html>
             """,
-            text=f"Hi {name},\n\nThank you for reaching out! We've received your message and will get back to you within 24 hours.\n\nBest regards,\nThe Bunche Team",
+            text=f"Hi {name},\n\nThank you for reaching out! We've received your message and will get back to you within 24 hours.\n\nBest regards,\nThe Styxproxy Team",
         )
         customer_recipient = EmailRecipient(email=email, name=name)
         await _send_via_resend(
@@ -956,11 +956,11 @@ You can now use your proxy.
 
 Having issues? Reply to this email or WhatsApp us immediately. We'll help you sort it out!
 
-- Bunche
+- Styxproxy
 """
 
     return EmailContent(
-        subject=f"[Bunche] Your Proxy is Ready! - {order_id}",
+        subject=f"[Styxproxy] Your Proxy is Ready! - {order_id}",
         html=html,
         text=text,
     )
@@ -1052,11 +1052,11 @@ Please allow 5-10 business days for the refund to appear in your account.
 
 Questions? Reply to this email or WhatsApp us with your order ID.
 
-- Bunche
+- Styxproxy
 """
 
     return EmailContent(
-        subject=f"[Bunche] Refund Processed - {order_id}",
+        subject=f"[Styxproxy] Refund Processed - {order_id}",
         html=html,
         text=text,
     )
@@ -1145,11 +1145,11 @@ Protocol: {protocol.upper()}
 
 ⚠️ IMPORTANT: Your password has been changed. Please update your proxy configuration with the new credentials.
 
-- Bunche
+- Styxproxy
 """
 
     return EmailContent(
-        subject=f"[Bunche] Credentials Rotated - {order_id}",
+        subject=f"[Styxproxy] Credentials Rotated - {order_id}",
         html=html,
         text=text,
     )
