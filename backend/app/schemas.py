@@ -709,15 +709,29 @@ class AdminRole(str, Enum):
 
 
 class AdminSetupRequest(BaseModel):
-    """Request to set up initial admin credentials."""
+    """Step 1: initiate setup — returns TOTP secret for user to scan."""
     invite_code: str = Field(..., min_length=8, max_length=64)
     email: str = Field(..., pattern=r"^[^@]+@[^@]+\.[^@]+$")
     password: str = Field(..., min_length=8, max_length=128)
-    totp_code: Optional[str] = Field(None, min_length=6, max_length=6)
+
+
+class AdminSetupTOTPResponse(BaseModel):
+    """Response after step 1: credentials accepted, TOTP setup required."""
+    temp_token: str  # short-lived token to complete step 2
+    totp_secret: str  # base32 secret (user can manually enter)
+    otpauth_url: str  # otpauth:// URL for QR code
+    backup_codes: list[str]  # 10 one-time backup codes
+    message: str = "Scan the QR code with your authenticator app, then complete setup."
+
+
+class AdminSetupCompleteRequest(BaseModel):
+    """Step 2: complete setup after verifying TOTP code."""
+    temp_token: str
+    totp_code: str = Field(..., min_length=6, max_length=6)
 
 
 class AdminSetupResponse(BaseModel):
-    """Response after setting up admin credentials."""
+    """Final response after setup is complete."""
     email: str
     role: str
     totp_enabled: bool

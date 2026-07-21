@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jose import jwt as jose_jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,16 +71,16 @@ def create_access_token(
         "iat": datetime.now(timezone.utc),
     }
 
-    encoded_jwt = jwt.encode(
+    encoded_jose_jwt = jose_jwt.encode(
         to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm
     )
-    return encoded_jwt
+    return encoded_jose_jwt
 
 
 def decode_access_token(token: str) -> dict:
     """Decode and validate a JWT access token."""
     try:
-        payload = jwt.decode(
+        payload = jose_jwt.decode(
             token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
         )
         return payload
