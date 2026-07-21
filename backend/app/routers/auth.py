@@ -19,6 +19,8 @@ from app.schemas import (
     AdminLoginEmailRequest,
     AdminLoginResponse,
     AdminMeResponse,
+    AdminSetupCheckInviteRequest,
+    AdminSetupCheckInviteResponse,
     AdminSetupRequest,
     AdminSetupTOTPResponse,
     AdminSetupCompleteRequest,
@@ -197,6 +199,39 @@ def decode_setup_temp_token(token: str) -> dict | None:
         return payload
     except Exception:
         return None
+
+
+@router.post("/setup/check", response_model=AdminSetupCheckInviteResponse)
+async def setup_check_invite(
+    request: AdminSetupCheckInviteRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Step 1: Validate an invite code without creating anything."""
+    stmt = select(AdminInvite).where(AdminInvite.invite_code == request.invite_code)
+    result = await session.execute(stmt)
+    invite = result.scalar_one_or_none()
+
+    if not invite:
+        return AdminSetupCheckInviteResponse(valid=False)
+
+    if invite.uses_count >= invite.max_uses:
+        return AdminSetupCheckInviteResponse(valid=False)
+
+    if invite.expires_at and invite.expires_at < datetime.now(timezone.utc):
+        return AdminSetupCheckInviteResponse(valid=False)
+
+    # Check if email already taken
+    if invite.email:
+        stmt2 = select(AdminAuth).where(AdminAuth.email == invite.email)
+        result2 = await session.execute(stmt2)
+        if result2.scalar_one_or_none():
+            return AdminSetupCheckInviteResponse(valid=False)
+
+    return AdminSetupCheckInviteResponse(
+        valid=True,
+        email=invite.email or "",
+        role=invite.role or "admin",
+    )
 
 
 @router.post("/setup", response_model=AdminSetupTOTPResponse)

@@ -246,7 +246,15 @@ class ApiClient {
     return this.request('/api/admin/auth/status');
   }
 
-  // Initial admin setup — step 1: returns TOTP secret + backup codes
+  // Step 1: check if invite code is valid
+  async checkInviteCode(code: string): Promise<ApiResponse<{ valid: boolean; email?: string; role?: string }>> {
+    return this.request('/api/admin/auth/setup/check', {
+      method: 'POST',
+      body: JSON.stringify({ invite_code: code }),
+    });
+  }
+
+  // Initial admin setup — step 2: submit credentials → returns TOTP secret + backup codes
   async setupAdmin(data: AdminSetupRequest): Promise<ApiResponse<AdminSetupTOTPResponse>> {
     return this.request<AdminSetupTOTPResponse>('/api/admin/auth/setup', {
       method: 'POST',

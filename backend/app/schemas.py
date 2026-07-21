@@ -708,8 +708,20 @@ class AdminRole(str, Enum):
     VIEWER = "viewer"
 
 
+class AdminSetupCheckInviteRequest(BaseModel):
+    """Step 1: Validate invite code only."""
+    invite_code: str = Field(..., min_length=8, max_length=64)
+
+
+class AdminSetupCheckInviteResponse(BaseModel):
+    """Step 1 response: invite is valid."""
+    valid: bool
+    email: Optional[str] = None
+    role: Optional[str] = None
+
+
 class AdminSetupRequest(BaseModel):
-    """Step 1: initiate setup — returns TOTP secret for user to scan."""
+    """Step 2: submit credentials — returns TOTP secret for user to scan."""
     invite_code: str = Field(..., min_length=8, max_length=64)
     email: str = Field(..., pattern=r"^[^@]+@[^@]+\.[^@]+$")
     password: str = Field(..., min_length=8, max_length=128)
