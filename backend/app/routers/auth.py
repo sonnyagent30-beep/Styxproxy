@@ -151,6 +151,15 @@ def create_admin_access_token(
 
 # ============== Auth Endpoints ==============
 
+@router.get("/status", response_model=dict)
+async def check_setup_status(session: AsyncSession = Depends(get_session)):
+    """Check if admin setup is required (no auth needed)."""
+    from app.models import AdminAuth
+    stmt = select(AdminAuth).limit(1)
+    result = await session.execute(stmt)
+    admin = result.scalar_one_or_none()
+    return {"setup_required": admin is None}
+
 @router.post("/setup", response_model=AdminSetupResponse)
 async def setup_admin(
     request: AdminSetupRequest,

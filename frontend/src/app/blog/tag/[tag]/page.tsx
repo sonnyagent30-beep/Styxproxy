@@ -1,21 +1,12 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import {
-  DEMO_POSTS,
-  getAllTags,
-  getPostsByTag,
-} from '@/data/blog-posts';
-import PostRow from '@/components/blog/PostRow';
-import TagFilter from '@/components/blog/TagFilter';
-import type { BlogPost } from '@/types';
+import { api } from '@/lib/api';
+import PostCard from '@/components/blog/PostCard';
 
 interface Props {
   params: Promise<{ tag: string }>;
-}
-
-export async function generateStaticParams() {
-  return getAllTags().map((tag) => ({ tag: encodeURIComponent(tag) }));
+  searchParams: Promise<{ tag?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -37,28 +28,26 @@ export default async function TagPage({ params }: Props) {
   const { tag } = await params;
   const decoded = decodeURIComponent(tag);
 
-  const allPosts = [...DEMO_POSTS].sort(
-    (a, b) =>
-      new Date(b.published_at || b.created_at).getTime() -
-      new Date(a.published_at || a.created_at).getTime()
-  );
-  const filtered = getPostsByTag(decoded).sort(
-    (a, b) =>
-      new Date(b.published_at || b.created_at).getTime() -
-      new Date(a.published_at || a.created_at).getTime()
-  );
-  const allTags = getAllTags();
-  // Related tags = tags that co-occur with current tag, sorted by frequency
+  // Fetch posts with tag filter
+  const result = await api.getBlogPosts(1, 50, decoded);
+  const posts = (result.data?.posts || [])
+    .sort(
+      (a, b) =>
+        new Date(b.published_at || b.created_at).getTime() -
+        new Date(a.published_at || a.created_at).getTime()
+    );
+
+  if (!posts.length) notFound();
+
+  // Get related tags from filtered posts
   const relatedTags = Array.from(
     new Set(
-      filtered.flatMap((p) => p.tags || []).filter((t) => t !== decoded)
+      posts.flatMap((p) => p.tags || []).filter((t) => t !== decoded)
     )
   ).slice(0, 8);
 
-  if (!filtered.length) notFound();
-
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-[var(--muted)] mb-6">
         <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
@@ -78,26 +67,15 @@ export default async function TagPage({ params }: Props) {
           <span className="text-white">{decoded}</span>
         </h1>
         <p className="text-base text-[var(--muted)]">
-          {filtered.length} {filtered.length === 1 ? 'post' : 'posts'}
+          {posts.length} {posts.length === 1 ? 'post' : 'posts'}
         </p>
       </header>
 
-      {/* Search + tag filter */}
-      <div className="mb-8">
-        <TagFilter tags={allTags} activeTag={decoded} />
-      </div>
-
-      {/* Posts — alternating */}
-      <div>
-        {filtered.map((post, idx) => (
-          <PostRow
-            key={post.id}
-            post={post}
-            variant={idx === 0 ? 'feature' : 'standard'}
-            imagePosition={idx % 2 === 0 ? 'left' : 'right'}
-          />
+      {/* Posts Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {posts.map((post) => (
+          <PostCard key={post.id} post={post} />
         ))}
-        <div className="border-t border-[var(--border)]" />
       </div>
 
       {/* Related tags — cross-link to other tags */}
@@ -107,13 +85,13 @@ export default async function TagPage({ params }: Props) {
             Related topics
           </p>
           <div className="flex flex-wrap gap-2">
-            {relatedTags.map((tag) => (
+            {relatedTags.map((t) => (
               <Link
-                key={tag}
-                href={`/blog/tag/${encodeURIComponent(tag)}`}
+                key={t}
+                href={`/blog/tag/${encodeURIComponent(t)}`}
                 className="px-3 py-1.5 rounded-full text-xs font-medium bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)] hover:text-white hover:border-[var(--primary)]/60 transition-colors"
               >
-                #{tag}
+                #{t}
               </Link>
             ))}
           </div>

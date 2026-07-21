@@ -26,6 +26,8 @@ import type {
   BlogPostCreate,
   BlogPostUpdate,
   BlogPostsResponse,
+  BlogCategory,
+  BlogCategoriesResponse,
   ChannelFeatureFlags,
   Plan,
   PlanCreate,
@@ -302,9 +304,12 @@ class ApiClient {
 
   // ============== Blog ==============
 
-  // Get all published blog posts (public)
-  async getBlogPosts(page: number = 1, limit: number = 10): Promise<ApiResponse<BlogPostsResponse>> {
-    return this.request<BlogPostsResponse>(`/api/blog/posts?page=${page}&limit=${limit}`);
+  // Get all published blog posts (public) - supports optional tag filter
+  async getBlogPosts(page: number = 1, limit: number = 10, tag?: string, category?: string): Promise<ApiResponse<BlogPostsResponse>> {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (tag) params.set('tag', tag);
+    if (category) params.set('category', category);
+    return this.request<BlogPostsResponse>(`/api/blog/posts?${params.toString()}`);
   }
 
   // Get single blog post by slug (public)
@@ -363,6 +368,46 @@ class ApiClient {
     return this.request<BlogPost>(`/api/admin/blog/posts/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
+    });
+  }
+
+  // ============== Blog Categories ==============
+
+  // Get all categories (public)
+  async getBlogCategories(): Promise<ApiResponse<BlogCategoriesResponse>> {
+    return this.request<BlogCategoriesResponse>('/api/blog/categories');
+  }
+
+  // Get single category (public)
+  async getBlogCategory(slug: string): Promise<ApiResponse<BlogCategory>> {
+    return this.request<BlogCategory>(`/api/blog/categories/${slug}`);
+  }
+
+  // Get all categories for admin
+  async getAdminBlogCategories(): Promise<ApiResponse<BlogCategoriesResponse>> {
+    return this.request<BlogCategoriesResponse>('/api/blog/admin/categories');
+  }
+
+  // Create category (admin)
+  async createBlogCategory(data: { name: string; description?: string; color?: string }): Promise<ApiResponse<BlogCategory>> {
+    return this.request<BlogCategory>('/api/blog/admin/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update category (admin)
+  async updateBlogCategory(id: string, data: { name?: string; description?: string; color?: string }): Promise<ApiResponse<BlogCategory>> {
+    return this.request<BlogCategory>(`/api/blog/admin/categories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Delete category (admin)
+  async deleteBlogCategory(id: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/blog/admin/categories/${id}`, {
+      method: 'DELETE',
     });
   }
 

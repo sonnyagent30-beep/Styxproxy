@@ -664,6 +664,8 @@ class Post(Base):
     # SEO
     meta_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     tags: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Featured flag
+    featured: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Counters
     view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # Timestamps
@@ -672,4 +674,38 @@ class Post(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class Category(Base):
+    """Blog categories for organizing posts."""
+    __tablename__ = "categories"
+    __table_args__ = (
+        Index("idx_categories_slug", "slug", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)  # Hex color
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class PostCategory(Base):
+    """Junction table for posts <-> categories many-to-many relationship."""
+    __tablename__ = "post_categories"
+
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE"), primary_key=True
+    )
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("categories.id", ondelete="CASCADE"), primary_key=True
     )

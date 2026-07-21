@@ -937,6 +937,8 @@ class PostCreateRequest(BaseModel):
     meta_description: Optional[str] = Field(None, max_length=160)
     tags: Optional[list[str]] = None
     scheduled_at: Optional[datetime] = None
+    featured: bool = False
+    category_ids: Optional[list[UUID]] = None
 
 
 class PostUpdateRequest(BaseModel):
@@ -948,6 +950,8 @@ class PostUpdateRequest(BaseModel):
     meta_description: Optional[str] = Field(None, max_length=160)
     tags: Optional[list[str]] = None
     scheduled_at: Optional[datetime] = None
+    featured: Optional[bool] = None
+    category_ids: Optional[list[UUID]] = None
 
 
 class PostResponse(BaseModel):
@@ -970,9 +974,11 @@ class PostResponse(BaseModel):
     published_at: Optional[datetime]
     meta_description: Optional[str]
     tags: Optional[list[str]]
+    featured: bool
     view_count: int
     created_at: datetime
     updated_at: datetime
+    categories: Optional[list[dict]] = []
 
 
 class PostBriefResponse(BaseModel):
@@ -1049,6 +1055,42 @@ class PostScheduleResponse(BaseModel):
     post_id: UUID
     status: str
     scheduled_at: datetime
+
+
+# ============== Category Schemas ==============
+
+class CategoryCreateRequest(BaseModel):
+    """Request to create a category."""
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
+    color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+class CategoryUpdateRequest(BaseModel):
+    """Request to update a category."""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
+    color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+
+
+class CategoryResponse(BaseModel):
+    """Response for a category."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    slug: str
+    description: Optional[str]
+    color: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    post_count: Optional[int] = 0
+
+
+class CategoryListResponse(BaseModel):
+    """List of categories response."""
+    categories: list[CategoryResponse]
+    pagination: dict[str, Any]
 
 
 # ============== Channel Feature Flags ==============

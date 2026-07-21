@@ -1,15 +1,10 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { DEMO_POSTS, getPostsByAuthor } from '@/data/blog-posts';
-import PostRow from '@/components/blog/PostRow';
+import { api } from '@/lib/api';
+import PostCard from '@/components/blog/PostCard';
 
 interface Props {
   params: Promise<{ name: string }>;
-}
-
-export async function generateStaticParams() {
-  const authors = Array.from(new Set(DEMO_POSTS.map((p) => p.author)));
-  return authors.map((name) => ({ name: encodeURIComponent(name) }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -31,14 +26,22 @@ export default async function AuthorPage({ params }: Props) {
   const { name } = await params;
   const decoded = decodeURIComponent(name);
 
-  const posts = [...getPostsByAuthor(decoded)].sort(
-    (a, b) =>
-      new Date(b.published_at || b.created_at).getTime() -
-      new Date(a.published_at || a.created_at).getTime()
-  );
+  // Fetch posts - filter by author on client side since API doesn't have author filter
+  const result = await api.getBlogPosts(1, 50);
+  const allPosts = result.data?.posts || [];
+  
+  // Filter by author
+  const posts = allPosts
+    .filter((post) => post.author === decoded)
+    .sort(
+      (a, b) =>
+        new Date(b.published_at || b.created_at).getTime() -
+        new Date(a.published_at || a.created_at).getTime()
+    );
 
   if (!posts.length) notFound();
 
+  // Get top tags from author's posts
   const tagCounts: Record<string, number> = {};
   posts.forEach((p) => (p.tags || []).forEach((t) => (tagCounts[t] = (tagCounts[t] || 0) + 1)));
   const topTags = Object.entries(tagCounts)
@@ -47,7 +50,7 @@ export default async function AuthorPage({ params }: Props) {
     .map(([t]) => t);
 
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
       {/* Header card */}
       <header className="mb-12 pb-10 border-b border-[var(--border)]">
         <div className="flex items-start gap-5">
@@ -80,17 +83,11 @@ export default async function AuthorPage({ params }: Props) {
         </div>
       </header>
 
-      {/* Posts */}
-      <div>
-        {posts.map((post, idx) => (
-          <PostRow
-            key={post.id}
-            post={post}
-            variant={idx === 0 ? 'feature' : 'standard'}
-            imagePosition={idx % 2 === 0 ? 'left' : 'right'}
-          />
+      {/* Posts Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {posts.map((post) => (
+          <PostCard key={post.id} post={post} />
         ))}
-        <div className="border-t border-[var(--border)]" />
       </div>
     </main>
   );
