@@ -1,0 +1,413 @@
+(node:375809) [DEP0176] DeprecationWarning: fs.F_OK is deprecated, use fs.constants.F_OK instead
+(Use `node --trace-deprecation ...` to show where the warning was created)
+newman
+
+Styxproxy Admin Auth — Full Test Suite
+
+❏ 1. Public Endpoints
+↳ GET /health
+  GET https://styxproxy.com/api-proxy/health  
+  200 OK ★ 408ms time ★ 489B↑ 1.35kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 102B
+  │ {"status":"healthy","version":"1.0.0","database":"conn
+  │ ected","timestamp":"2026-07-20T18:08:19.504641"}
+  └
+  prepare   wait   dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  10ms      18ms   1ms          10ms            19ms            289ms            69ms       12ms      431ms 
+
+  ✓  Status 200
+  ✓  Database connected
+  ✓  Has status field
+
+↳ GET /auth/status
+  GET https://styxproxy.com/api-proxy/api/admin/auth/status  
+  200 OK ★ 282ms time ★ 504B↑ 1.27kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 24B
+  │ {"setup_required":false}
+  └
+  prepare   wait   dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  890µs     1ms    (cache)      (cache)         (cache)         276ms            3ms        1ms       283ms 
+
+  ✓  Status 200
+  ✓  setup_required is boolean
+  ✓  DB is clean (setup_required=true)
+
+↳ GET /auth/totp/provision
+  GET https://styxproxy.com/api-proxy/api/admin/auth/totp/provision  
+  200 OK ★ 316ms time ★ 512B↑ 2.89kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 1.64kB
+  │ {"qr_code_url":"data:image/png;base64,iVBORw0KGgoAAAAN
+  │ SUhEUgAAAeoAAAHqAQAAAADjFjCXAAAEWUlEQVR4nO2dXWq1SBCGnx
+  │ qFc6mQBWQpfXbwLSlryg50KWcBAb0MtLxz0T9qZoaBKCQHqy5CtPuh
+  │ IxTV9dcdEwdk/OsIDY477rjjjjvuuOOOn4tblhaY2zw09osx9ksaMO
+  │ sXg7lMvZ+3uuMXxYMkaQLG109j7MHu+5nhcZPdaSRJ2uMHV3f8Yngx
+  │ bHMP4R2MDoxuaTXebzK4yeg+TBDTVIMmnrO6445XkR432ZsiGrqYzB
+  │ yjtf+c+Qv/eMd/P/4vmgQW3hdjNFB4GIJINnjzqas7fm28kzQAMLfF
+  │ wk2NzF4lYDGgkd0BSfErfnB1xy+Jj2Zm1pN17T7fcrwQHi3pMTxagC
+  │ WFsKeu7vjF8LTDbstiXURj36TfGF8jgk9Lj3T7CtpTf7vjP4WT8iBh
+  │ AqCRBpqkWGnDDVMjDZ2URlXnSZKGp/52x38KZ5t9S9YsoqGTVvctaV
+  │ 2Y8uSkmMG1zvFvS7ZaExRDttq/YtKkiIZkCYu41jl+EDd7lcxeSx74
+  │ DjmQHa3F7nOLvU1LiiHSwImrO341vNq6bMikqdn6cNnhK25ezbC4X+
+  │ f492WTJbagpTW6iEqCLjL2TQSWFrqPVswGYepPWt3xa+K7aKLGsKH4
+  │ dcnWBUW0ytBFt3WOH5GsdV3RphS+Tk1+lwOJvPWWya51jh+SVZHyY7
+  │ Fw2epNkNVsysUwz5w4ftYO22TVC8ol2KRhUtzssGXDlWud4wdkE02I
+  │ uUXMfXkxv8jCew/QyOimdSDqlNUdvya+qcMaXWwZ76Q6rIXh0wTCqi
+  │ aKuYlG92mudY4fkG0dYoI1cl0zd3k3pfh1Na7wHdbx78mmtEoJXzcJ
+  │ kvSjeH15dMIrYo4fkU0yJAetuyaToRYj0rvc7uS2zvEDsu1gDyL10g
+  │ lAzC/p3A5h6rEwJf9PwNIShhNWd/ya+C5LnN6U/rovDl9N6XmW2PGz
+  │ qv+78xAppFj768iPawuA+3WOH8e7iN3nNisc3acx9jl8tTuLwXyrpm
+  │ /xcxOOH5Dk1xmAILaCiMb+g9RfMvZTyeYBjH/SGcWTVnf8mvjGfWOT
+  │ m+tUnLsS0mrT0A6eOXH8iOzqq+Wwf44cSs8TUBtPYHuC4qm/3fGfwm
+  │ vmpImM1sjC4yZgQcx9yaHUKXTKlbNTVnf8mvj+ZM7avLlavWoJS89d
+  │ 6U1xW+f4N6UYre4z3ykBTbTw/qL1JjsxNzFdMcZsbK64e+5vd/xn8X
+  │ TsMMcLi2UlrJnjsa+Zk5JSPnN1x6+GbzInQBM1/vloi04trdJBHZpo
+  │ QQDzS4pkvdPJ8QOS/TrldpNd5qQeu+606TRhk2F56m93/KfwXeZkar
+  │ Z7aKqI1SMT9QIUr8M6frbW5aC1ahhbc1j6O93WOX4qng/7L7aqWY4m
+  │ IN9z9zYtlrfeX/bHO/4c+Fe/bnfjxNpBvN69U/vb3dY5fhCvd3Va6i
+  │ 9hSdf/S48Wxp58f+JQS2Vnru74xXDT/8/5b/H/Xue444477rjjjjv+
+  │ W/C/AVpD0TvdmSGKAAAAAElFTkSuQmCC","secret":"Z32632KWXC
+  │ 4X6N3WNFHVJBM5EVUYECRU"}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  851µs     636µs   (cache)      (cache)         (cache)         310ms            3ms        4ms       320ms 
+
+  ✓  Status 200
+  ✓  Has secret
+  ✓  Has QR code
+  ✓  Secret format correct
+
+❏ 2. Setup Admin
+↳ POST /auth/setup (first admin — bootstrap)
+  1⠄ Error in prerequest-script
+  POST https://styxproxy.com/api-proxy/api/admin/auth/setup  
+  422 Unprocessable Entity ★ 298ms time ★ 703B↑ 1.4kB↓ size ★ 10↑ 22↓ headers ★ 0 cookies
+  ┌ ↑ raw ★ 146B
+  │ {
+  │     "admin_phone": "2347032981049",
+  │     "invite_code": "1BLUnmY7gkUnnrh2rg13Ne7c-RgZjf1l",
+  │     "pin": "1234",
+  │     "totp_code": "{{totp_code}}"
+  │ }
+  └ 
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 161B
+  │ {"detail":[{"type":"string_too_long","loc":["body","to
+  │ tp_code"],"msg":"String should have at most 6 characte
+  │ rs","input":"{{totp_code}}","ctx":{"max_length":6}}]}
+  └
+  prepare   wait   dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  2ms       1ms    (cache)      (cache)         (cache)         293ms            1ms        100µs     299ms 
+
+  ✓  Status 200
+  ✓  Has admin_phone
+  ✓  Role is superadmin
+  ✓  TOTP enabled
+  ✓  Has access_token
+
+❏ 3. Two-Step Login
+↳ POST /auth/login/step1 (wrong PIN → 401)
+  POST https://styxproxy.com/api-proxy/api/admin/auth/login/step1  
+  401 Unauthorized ★ 656ms time ★ 619B↑ 1.26kB↓ size ★ 10↑ 22↓ headers ★ 0 cookies
+  ┌ ↑ raw ★ 57B
+  │ {
+  │     "admin_phone": "2347032981049",
+  │     "pin": "0000"
+  │ }
+  └ 
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 32B
+  │ {"detail":"Invalid credentials"}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  1ms       600µs   (cache)      (cache)         (cache)         653ms            1ms        93µs      657ms 
+
+  ✓  Status 401
+  ✓  Generic error message
+
+↳ POST /auth/login/step1 (correct PIN → step_token)
+  POST https://styxproxy.com/api-proxy/api/admin/auth/login/step1  
+  200 OK ★ 598ms time ★ 619B↑ 1.37kB↓ size ★ 10↑ 23↓ headers ★ 0 cookies
+  ┌ ↑ raw ★ 57B
+  │ {
+  │     "admin_phone": "2347032981049",
+  │     "pin": "1234"
+  │ }
+  └ 
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 128B
+  │ {"step_token":"fEgVY3_llVUE4YS0nUegoheRE8bDssuGl9V1hGC
+  │ 8Jl0","admin_phone":"2347032981049","totp_required":tr
+  │ ue,"expires_in":300}
+  └
+  prepare   wait   dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  3ms       2ms    (cache)      (cache)         (cache)         593ms            2ms        936µs     601ms 
+
+  ✓  Status 200
+  ✓  Has step_token
+  ✓  step_token is string
+  ✓  Has expires_in
+  ✓  TOTP required
+
+↳ POST /auth/login/step2 (wrong TOTP → 401)
+  2⠄ Error in prerequest-script
+  POST https://styxproxy.com/api-proxy/api/admin/auth/login/step2  
+  401 Unauthorized ★ 273ms time ★ 613B↑ 1.29kB↓ size ★ 10↑ 22↓ headers ★ 0 cookies
+  ┌ ↑ raw ★ 51B
+  │ {
+  │     "step_token": "",
+  │     "totp_code": "000000"
+  │ }
+  └ 
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 62B
+  │ {"detail":"Step token expired or invalid. Please start
+  │  over."}
+  └
+  prepare   wait   dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  1ms       1ms    (cache)      (cache)         (cache)         263ms            7ms        75µs      273ms 
+
+  ✓  Status 401
+
+❏ 4. Protected Endpoints (JWT Auth)
+↳ GET /auth/me
+  GET https://styxproxy.com/api-proxy/api/admin/auth/me  
+  200 OK ★ 307ms time ★ 500B↑ 1.48kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 239B
+  │ {"admin_phone":"2347032981049","role":"superadmin","to
+  │ tp_enabled":true,"pin_set_at":"2026-07-20T18:08:15.412
+  │ 717Z","failed_attempts":0,"locked_until":null,"created
+  │ _at":"2026-07-20T18:08:15.100359Z","last_used":"2026-0
+  │ 7-20T18:08:17.267684Z"}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  739µs     589µs   (cache)      (cache)         (cache)         304ms            1ms        5ms       313ms 
+
+  ✓  Status 200
+  ✓  Has admin_phone
+  ✓  Has role
+  ✓  TOTP enabled
+
+↳ GET /admin/stats
+  GET https://styxproxy.com/api-proxy/api/admin/stats  
+  200 OK ★ 346ms time ★ 498B↑ 1.35kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 108B
+  │ {"total_customers":0,"active_orders":0,"total_revenue_
+  │ ngn":0.0,"free_trials_today":0,"active_credentials":0}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  1ms       500µs   (cache)      (cache)         (cache)         340ms            4ms        582µs     347ms 
+
+  ✓  Status 200
+  ✓  Has total_customers
+  ✓  Has active_orders
+
+↳ GET /admin/customers
+  GET https://styxproxy.com/api-proxy/api/admin/customers  
+  200 OK ★ 303ms time ★ 502B↑ 1.36kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 117B
+  │ {"customers":[],"pagination":{"page":1,"limit":20,"tot
+  │ al_items":0,"total_pages":0,"has_next":false,"has_prev
+  │ ":false}}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  980µs     669µs   (cache)      (cache)         (cache)         296ms            5ms        5ms       308ms 
+
+  ✓  Status 200
+  ✓  Has customers array
+  ✓  Has pagination
+
+↳ GET /admin/orders
+  GET https://styxproxy.com/api-proxy/api/admin/orders  
+  200 OK ★ 331ms time ★ 499B↑ 1.36kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 114B
+  │ {"orders":[],"pagination":{"page":1,"limit":20,"total_
+  │ items":0,"total_pages":0,"has_next":false,"has_prev":f
+  │ alse}}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  1ms       652µs   (cache)      (cache)         (cache)         327ms            2ms        1ms       332ms 
+
+  ✓  Status 200
+  ✓  Has orders array
+
+↳ GET /admin/plans
+  GET https://styxproxy.com/api-proxy/api/admin/plans  
+  200 OK ★ 276ms time ★ 498B↑ 1.36kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 113B
+  │ {"plans":[],"pagination":{"page":1,"limit":20,"total_i
+  │ tems":0,"total_pages":0,"has_next":false,"has_prev":fa
+  │ lse}}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  652µs     342µs   (cache)      (cache)         (cache)         274ms            1ms        2ms       279ms 
+
+  ✓  Status 200
+  ✓  Has plans array
+
+↳ GET /admin/credentials
+  GET https://styxproxy.com/api-proxy/api/admin/credentials  
+  200 OK ★ 307ms time ★ 504B↑ 1.36kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 119B
+  │ {"credentials":[],"pagination":{"page":1,"limit":20,"t
+  │ otal_items":0,"total_pages":0,"has_next":false,"has_pr
+  │ ev":false}}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  1ms       472µs   (cache)      (cache)         (cache)         303ms            2ms        541µs     307ms 
+
+  ✓  Status 200
+
+↳ GET /blog/posts
+  GET https://styxproxy.com/api-proxy/api/blog/posts  
+  200 OK ★ 306ms time ★ 497B↑ 1.36kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 113B
+  │ {"posts":[],"pagination":{"page":1,"limit":10,"total_i
+  │ tems":0,"total_pages":0,"has_next":false,"has_prev":fa
+  │ lse}}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  903µs     413µs   (cache)      (cache)         (cache)         303ms            1ms        4ms       311ms 
+
+  ✓  Status 200
+  ✓  Has posts array
+
+↳ GET /admin/audit
+  GET https://styxproxy.com/api-proxy/api/admin/audit  
+  200 OK ★ 334ms time ★ 498B↑ 1.36kB↓ size ★ 8↑ 23↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 112B
+  │ {"logs":[],"pagination":{"page":1,"limit":20,"total_it
+  │ ems":0,"total_pages":0,"has_next":false,"has_prev":fal
+  │ se}}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  1ms       438µs   (cache)      (cache)         (cache)         327ms            5ms        3ms       339ms 
+
+  ✓  Status 200
+  ✓  Has logs array
+  ✓  Has pagination
+  ✓  Logs have action field
+
+❏ 5. Signed Invites
+↳ POST /auth/invites (create signed invite)
+  POST https://styxproxy.com/api-proxy/api/admin/auth/invites  
+  200 OK ★ 309ms time ★ 628B↑ 1.55kB↓ size ★ 10↑ 23↓ headers ★ 0 cookies
+  ┌ ↑ raw ★ 70B
+  │ {
+  │     "role": "admin",
+  │     "expires_in_hours": 24,
+  │     "max_uses": 1
+  │ }
+  └ 
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 308B
+  │ {"invite_code":"hW1ZPgWDf6fNk1Dd","signed_url":"https:
+  │ //styxproxy.com/admin/setup?invite=hW1ZPgWDf6fNk1Dd&si
+  │ g=d010adb050b7849020a323938ad0adf887ea2689fd3cbfc7a631
+  │ f4c3c1f10566&expires=1785175705","email":null,"role":"
+  │ admin","expires_at":"2026-07-21T18:08:25.531250Z","max
+  │ _uses":1,"created_by":"2347032981049"}
+  └
+  prepare   wait   dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  980µs     1ms    (cache)      (cache)         (cache)         288ms            18ms       5ms       315ms 
+
+  ✓  Status 200
+  ✓  Has invite_code
+  ✓  Has signed_url
+  ✓  Signed URL is valid HTTPS
+  ✓  Signed URL has sig param
+  ✓  Role is admin
+  ✓  Has expires_at
+  3⠄ ReferenceError in test-script
+
+❏ 6. Token Revocation
+↳ POST /auth/logout (revoke token)
+  POST https://styxproxy.com/api-proxy/api/admin/auth/logout  
+  200 OK ★ 537ms time ★ 524B↑ 1.38kB↓ size ★ 9↑ 24↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 37B
+  │ {"message":"Logged out successfully"}
+  └
+  prepare   wait   dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  730µs     2ms    (cache)      (cache)         (cache)         519ms            14ms       6ms       543ms 
+
+  ✓  Status 200
+  ✓  Logout message
+
+↳ GET /auth/me (after logout → 401)
+  GET https://styxproxy.com/api-proxy/api/admin/auth/me  
+  401 Unauthorized ★ 250ms time ★ 500B↑ 1.27kB↓ size ★ 8↑ 22↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 35B
+  │ {"detail":"Token has been revoked"}
+  └
+  prepare   wait   dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  1ms       1ms    (cache)      (cache)         (cache)         244ms            3ms        66µs      251ms 
+
+  ✓  Status 401 after logout
+  ✓  Token revoked error
+
+❏ 7. Security Tests
+↳ POST /auth/login/step1 (5 wrong PINs → lockout)
+  POST https://styxproxy.com/api-proxy/api/admin/auth/login/step1  
+  422 Unprocessable Entity ★ 248ms time ★ 623B↑ 1.39kB↓ size ★ 10↑ 22↓ headers ★ 0 cookies
+  ┌ ↑ raw ★ 61B
+  │ {
+  │     "admin_phone": "2347032981049",
+  │     "pin": "wrongpin"
+  │ }
+  └ 
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 150B
+  │ {"detail":[{"type":"string_too_long","loc":["body","pi
+  │ n"],"msg":"String should have at most 6 characters","i
+  │ nput":"wrongpin","ctx":{"max_length":6}}]}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  825µs     469µs   (cache)      (cache)         (cache)         245ms            1ms        68µs      248ms 
+
+  ✓  5 wrong PINs return 401
+
+↳ GET /admin/stats (no token → 401)
+  GET https://styxproxy.com/api-proxy/api/admin/stats  
+  401 Unauthorized ★ 502ms time ★ 498B↑ 1.27kB↓ size ★ 8↑ 22↓ headers ★ 0 cookies
+  ┌ ↓ application/json ★ text ★ json ★ utf8 ★ 35B
+  │ {"detail":"Token has been revoked"}
+  └
+  prepare   wait    dns-lookup   tcp-handshake   ssl-handshake   transfer-start   download   process   total 
+  2ms       454µs   (cache)      (cache)         (cache)         493ms            7ms        65µs      504ms 
+
+  ✓  No token = 401
+  ✓  Clear error message
+
+┌─────────────────────────┬──────────────────────┬─────────────────────┐
+│                         │             executed │              failed │
+├─────────────────────────┼──────────────────────┼─────────────────────┤
+│              iterations │                    1 │                   0 │
+├─────────────────────────┼──────────────────────┼─────────────────────┤
+│                requests │                   20 │                   0 │
+├─────────────────────────┼──────────────────────┼─────────────────────┤
+│            test-scripts │                   20 │                   1 │
+├─────────────────────────┼──────────────────────┼─────────────────────┤
+│      prerequest-scripts │                    2 │                   2 │
+├─────────────────────────┼──────────────────────┼─────────────────────┤
+│              assertions │                   58 │                   0 │
+├─────────────────────────┴──────────────────────┴─────────────────────┤
+│ total run duration: 8.3s                                             │
+├──────────────────────────────────────────────────────────────────────┤
+│ total data received: 3.75kB (approx)                                 │
+├──────────────────────────────────────────────────────────────────────┤
+│ average response time: 359ms [min: 248ms, max: 656ms, s.d.: 115ms]   │
+├──────────────────────────────────────────────────────────────────────┤
+│ average DNS lookup time: 1ms [min: 1ms, max: 1ms, s.d.: 0µs]         │
+├──────────────────────────────────────────────────────────────────────┤
+│ average first byte time: 347ms [min: 244ms, max: 653ms, s.d.: 114ms] │
+└──────────────────────────────────────────────────────────────────────┘
+
+  #  failure         detail                                                                 
+                                                                                            
+ 1.  Error                                                                                  
+                     Cannot find module 'totp-generator'                                    
+                     at prerequest-script                                                   
+                     inside "2. Setup Admin / POST /auth/setup (first admin — bootstrap)"   
+                                                                                            
+ 2.  Error                                                                                  
+                     Cannot find module 'totp-generator'                                    
+                     at prerequest-script                                                   
+                     inside "3. Two-Step Login / POST /auth/login/step2 (wrong TOTP → 401)" 
+                                                                                            
+ 3.  ReferenceError                                                                         
+                     URL is not defined                                                     
+                     at test-script                                                         
+                     inside "5. Signed Invites / POST /auth/invites (create signed invite)" 

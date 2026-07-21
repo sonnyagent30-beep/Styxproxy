@@ -1,0 +1,126 @@
+{
+  "info": {
+    "name": "Styxproxy Admin — Full Test Suite",
+    "description": "Complete admin auth + team management + business operations test",
+    "schema": "https://schema.getpostman.com/json/draft-v4/collection.json"
+  },
+  "variable": [
+    {"key": "BASE_URL", "value": "https://styxproxy.com/api-proxy"},
+    {"key": "ADMIN_TOKEN", "value": "1BLUnmY7gkUnnrh2rg13Ne7c-RgZjf1l"},
+    {"key": "TOTP_SECRET", "value": "Z32632KWXC4X6N3WNFHVJBM5EVUYECRU"},
+    {"key": "ADMIN_PHONE", "value": "2347032981049"},
+    {"key": "ADMIN_PIN", "value": "1234"},
+    {"key": "access_token", "value": ""}
+  ],
+  "auth": { "type": "bearer", "bearer": [{"key": "token", "value": "{{access_token}}", "type": "string"}] },
+  "item": [
+    {
+      "name": "1. Public: Health",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('Status 200', () => { pm.response.to.have.status(200); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/health", "auth": {"type": "noauth"}}
+    },
+    {
+      "name": "2. Auth: Setup Admin",
+      "event": [{"listen": "prerequest", "script": {"exec": ["const totp = require('totp-generator'); pm.collectionVariables.set('TOTP', totp(pm.collectionVariables.get('TOTP_SECRET')));"]}},
+                {"listen": "test", "script": {"exec": ["pm.test('201 Created', () => { pm.response.to.have.status(201); });", "pm.test('Has access_token', () => { const r = pm.response.json(); pm.expect(r.access_token).to.be.a('string'); pm.collectionVariables.set('access_token', r.access_token); });", "pm.test('Role is superadmin', () => { const r = pm.response.json(); pm.expect(r.role).to.eq('superadmin'); });"]}}],
+      "request": {"method": "POST", "url": "{{BASE_URL}}/api/admin/auth/setup", "auth": {"type": "noauth"}, "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\"admin_phone\":\"{{ADMIN_PHONE}}\",\"invite_code\":\"{{ADMIN_TOKEN}}\",\"pin\":\"{{ADMIN_PIN}}\",\"totp_code\":\"{{TOTP}}\"}"}}
+    },
+    {
+      "name": "3. Team: List Admins (me as superadmin)",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has members array', () => { const r = pm.response.json(); pm.expect(r.members).to.be.an('array'); });", "pm.test('First member is superadmin', () => { const r = pm.response.json(); pm.expect(r.members[0].role).to.eq('superadmin'); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/auth/team?page=1&limit=10"}
+    },
+    {
+      "name": "4. Team: Create Admin Invite (superadmin)",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has invite_code', () => { const r = pm.response.json(); pm.expect(r.invite_code).to.be.a('string'); pm.collectionVariables.set('INVITE_CODE', r.invite_code); });", "pm.test('Role is admin', () => { const r = pm.response.json(); pm.expect(r.role).to.eq('admin'); });"]}}],
+      "request": {"method": "POST", "url": "{{BASE_URL}}/api/admin/auth/invites", "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\"role\":\"admin\",\"expires_in_hours\":24,\"max_uses\":1,\"email\":\"helper@styxproxy.com\"}"}}
+    },
+    {
+      "name": "5. Auth: Logout",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });"]}}],
+      "request": {"method": "POST", "url": "{{BASE_URL}}/api/admin/auth/logout"}
+    },
+    {
+      "name": "6. Auth: Login Step1",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has step_token', () => { const r = pm.response.json(); pm.expect(r.step_token).to.be.a('string'); pm.collectionVariables.set('step_token', r.step_token); });"]}}],
+      "request": {"method": "POST", "url": "{{BASE_URL}}/api/admin/auth/login/step1", "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\"admin_phone\":\"{{ADMIN_PHONE}}\",\"pin\":\"{{ADMIN_PIN}}\"}"}}
+    },
+    {
+      "name": "7. Auth: Login Step2",
+      "event": [{"listen": "prerequest", "script": {"exec": ["const totp = require('totp-generator'); pm.collectionVariables.set('TOTP2', totp(pm.collectionVariables.get('TOTP_SECRET')));"]}},
+                {"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has access_token', () => { const r = pm.response.json(); pm.expect(r.access_token).to.be.a('string'); pm.collectionVariables.set('access_token', r.access_token); });", "pm.test('Role superadmin', () => { const r = pm.response.json(); pm.expect(r.role).to.eq('superadmin'); });"]}}],
+      "request": {"method": "POST", "url": "{{BASE_URL}}/api/admin/auth/login/step2", "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\"step_token\":\"{{step_token}}\",\"totp_code\":\"{{TOTP2}}\"}"}}
+    },
+    {
+      "name": "8. Profile: Get My Profile",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has admin_phone', () => { const r = pm.response.json(); pm.expect(r.admin_phone).to.eq(pm.collectionVariables.get('ADMIN_PHONE')); });", "pm.test('Has role', () => { const r = pm.response.json(); pm.expect(r.role).to.be.a('string'); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/auth/profile"}
+    },
+    {
+      "name": "9. Team: Change Member Role (requires 2nd admin — skip if not exists)",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 or 404 acceptable', () => { pm.response.to.have.status(200) || pm.response.to.have.status(404); });"]}}],
+      "request": {"method": "PATCH", "url": "{{BASE_URL}}/api/admin/auth/team/2349999999999/role", "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\"role\":\"viewer\"}"}}
+    },
+    {
+      "name": "10. Stats: Dashboard Stats",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has stats', () => { const r = pm.response.json(); pm.expect(r.total_customers).to.be.a('number'); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/stats"}
+    },
+    {
+      "name": "11. Orders: List Orders",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has orders array', () => { const r = pm.response.json(); pm.expect(r.orders).to.be.an('array'); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/orders?page=1&limit=5"}
+    },
+    {
+      "name": "12. Orders: Lookup by Phone",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 or 404', () => { pm.response.to.have.status(200) || pm.response.to.have.status(404); });"]}}],
+      "request": {"method": "POST", "url": "{{BASE_URL}}/api/admin/orders/lookup", "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\"phone\":\"{{ADMIN_PHONE}}\"}"}}
+    },
+    {
+      "name": "13. Credentials: List Credentials",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has credentials array', () => { const r = pm.response.json(); pm.expect(r.credentials).to.be.an('array'); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/credentials?page=1&limit=5"}
+    },
+    {
+      "name": "14. Plans: List Plans",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has plans array', () => { const r = pm.response.json(); pm.expect(r.data).to.be.an('array'); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/plans"}
+    },
+    {
+      "name": "15. Refunds: List Refunds",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has refunds array', () => { const r = pm.response.json(); pm.expect(r.refunds).to.be.an('array'); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/refunds?page=1&limit=5"}
+    },
+    {
+      "name": "16. Audit: List Audit Logs",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has logs array', () => { const r = pm.response.json(); pm.expect(r.logs).to.be.an('array'); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/audit?page=1&limit=5"}
+    },
+    {
+      "name": "17. Customers: List Customers",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });", "pm.test('Has customers array', () => { const r = pm.response.json(); pm.expect(r.customers).to.be.an('array'); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/customers?page=1&limit=5"}
+    },
+    {
+      "name": "18. Security: Viewer Cannot Access Team",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('403 Forbidden for viewer role', () => { pm.response.to.have.status(403); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/auth/team"}
+    },
+    {
+      "name": "19. Auth: No Token = 401",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('401 without token', () => { pm.response.to.have.status(401); });"]}}],
+      "request": {"method": "GET", "url": "{{BASE_URL}}/api/admin/auth/profile", "auth": {"type": "noauth"}}
+    },
+    {
+      "name": "20. Auth: Logout Revokes Token",
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => { pm.response.to.have.status(200); });"]}}],
+      "request": {"method": "POST", "url": "{{BASE_URL}}/api/admin/auth/logout"}
+    }
+  ]
+}

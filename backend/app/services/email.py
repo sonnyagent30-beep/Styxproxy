@@ -1,9 +1,18 @@
 """Email service using Resend API.
 
-Provides transactional email functionality:
+Provides transactional email functionality with Styxproxy brand design language:
 - Contact form submissions
-- Charon escalation notifications
+- Charon escalation notifications  
 - Admin notifications (orders, refunds, etc.)
+- Order confirmations and credentials delivery
+- Password reset and admin invites
+
+Design language matches the receipt PDF:
+- Dark theme by default (#0f0f0f background)
+- Light theme via prefers-color-scheme
+- Green accent (#0AD25A / #10B981)
+- Card-based layout with dividers
+- Credentials with green border
 """
 import logging
 import base64
@@ -23,304 +32,433 @@ settings = get_settings()
 
 
 # =============================================================================
-# Logo processing for inline embedding
+# Logo processing for inline embedding (dual mode support)
 # =============================================================================
-def _get_logo_b64() -> str:
-    """Process and return the Styxproxy logo as base64 PNG."""
-    logo = Image.open("/app/app/assets/styxproxy_logo.png")
-    scale_y = logo.size[1] / 3264
-    crop_y = int(377 * scale_y)
-    crop_h = int(877 * scale_y)
-    cropped = logo.crop((0, crop_y, logo.size[0], crop_y + crop_h))
-    cropped = cropped.resize((480, 137), Image.LANCZOS)
+def _get_logo_b64_dark() -> str:
+    """Process and return the dark mode Styxproxy logo as base64 PNG."""
+    logo = Image.open("/app/app/assets/styxproxy_logo_dark.png")
+    # The image is already cropped to just the logo (icon + wordmark)
+    # Resize for email header — 480px wide, aspect ratio preserved
+    target_w = 480
+    ratio = target_w / logo.size[0]
+    target_h = int(logo.size[1] * ratio)
+    resized = logo.resize((target_w, target_h), Image.LANCZOS)
     buf = io.BytesIO()
-    cropped.save(buf, format="PNG", optimize=True)
-    buf.seek(0)
-    return base64.b64encode(buf.read()).decode()
+    resized.save(buf, format="PNG", optimize=True)
+    return base64.b64encode(buf.getvalue()).decode()
 
 
-# Cache the logo at module load time
-LOGO_B64 = _get_logo_b64()
+def _get_logo_b64_light() -> str:
+    """Process and return the light mode Styxproxy logo as base64 PNG."""
+    logo = Image.open("/app/app/assets/styxproxy_logo_light.png")
+    # The image is already cropped to just the logo (icon + wordmark)
+    target_w = 480
+    ratio = target_w / logo.size[0]
+    target_h = int(logo.size[1] * ratio)
+    resized = logo.resize((target_w, target_h), Image.LANCZOS)
+    buf = io.BytesIO()
+    resized.save(buf, format="PNG", optimize=True)
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+# Cache logos at module load time
+LOGO_DARK_B64 = _get_logo_b64_dark()
+LOGO_LIGHT_B64 = _get_logo_b64_light()
 
 
 # =============================================================================
-# Base email template components
+# Base email template components - matches receipt PDF design language
 # =============================================================================
 def _get_base_styles() -> str:
-    """Get the base CSS styles for all emails - Styxproxy Dark Theme."""
+    """Get the base CSS styles for all emails - matches receipt PDF design."""
     return """
         /* Reset and base styles */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        /* Styxproxy Brand Colors - Dark Theme */
+        /* Styxproxy Brand Colors - matches receipt PDF */
         :root {
-            --brand-primary: #0AD25A;
-            --brand-primary-dark: #059669;
-            --brand-primary-light: #22FF7A;
+            --brand-primary: #10B981;
+            --brand-primary-brighter: #0AD25A;
             --brand-accent: #f59e0b;
-            --brand-bg: #000000;
-            --brand-surface: #111111;
+            --brand-bg: #0f0f0f;
             --brand-card: #1a1a1a;
-            --brand-card-hover: #252525;
-            --brand-border: #2a2a2a;
             --brand-foreground: #f5f5f5;
-            --brand-muted: #737373;
-            --brand-success: #22c55e;
-            --brand-warning: #f59e0b;
-            --brand-error: #ef4444;
+            --brand-muted: #9ca3af;
+            --brand-border: #2a2a2a;
+            --brand-divider: #262626;
+        }
+        
+        @media (prefers-color-scheme: light) {
+            :root {
+                --brand-bg: #ffffff;
+                --brand-card: #f9fafb;
+                --brand-foreground: #0f0f0f;
+                --brand-muted: #6b7280;
+                --brand-border: #e5e7eb;
+                --brand-divider: #e5e7eb;
+                --brand-primary: #059669;
+            }
         }
         
         /* Dark theme (default) */
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
             line-height: 1.6;
-            color: #f5f5f5;
-            background-color: #000000;
+            color: var(--brand-foreground);
+            background-color: var(--brand-bg);
             margin: 0;
             padding: 0;
+        }
+        
+        .email-wrapper {
+            width: 100%;
+            background-color: var(--brand-bg);
         }
         
         .email-container {
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .header-bar {
-            background: #0AD25A;
             padding: 0;
-            text-align: center;
         }
         
-        .header-bar img {
-            display: block;
-            width: 100%;
-            max-width: 480px;
-            height: auto;
-        }
-        
-        .accent-bar {
+        /* Top accent bar - 4mm thin green bar */
+        .accent-bar-top {
             height: 4px;
-            background: linear-gradient(90deg, #0AD25A 0%, #22FF7A 100%);
+            background: linear-gradient(90deg, #10B981 0%, #0AD25A 50%, #22FF7A 100%);
         }
         
-        .content-card {
-            background: #1a1a1a;
-            border-radius: 16px;
-            padding: 32px 24px;
-            margin-top: 0;
+        /* Bottom accent bar */
+        .accent-bar-bottom {
+            height: 4px;
+            background: linear-gradient(90deg, #22FF7A 0%, #0AD25A 50%, #10B981 100%);
         }
         
-        .content-card.escalation {
-            border-top: 4px solid #ef4444;
+        /* Header section */
+        .header-section {
+            padding: 24px 24px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
-        .content-card.success {
-            border-top: 4px solid #22c55e;
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         
-        .content-card.warning {
-            border-top: 4px solid #f59e0b;
+        .logo-dark { display: block; }
+        .logo-light { display: none; }
+        
+        @media (prefers-color-scheme: light) {
+            .logo-dark { display: none !important; }
+            .logo-light { display: block !important; }
         }
         
-        .content-card.info {
-            border-top: 4px solid #0AD25A;
+        .logo-subtitle {
+            font-size: 10px;
+            color: var(--brand-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
         }
         
-        h1 {
-            font-size: 24px;
+        .header-label {
+            font-size: 11px;
             font-weight: 700;
-            color: #f5f5f5;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--brand-primary-brighter);
+            text-align: right;
+        }
+        
+        .header-sublabel {
+            font-size: 9px;
+            color: var(--brand-muted);
+            margin-top: 2px;
+        }
+        
+        /* Horizontal divider */
+        .divider {
+            height: 1px;
+            background-color: var(--brand-divider);
+            margin: 0 24px;
+        }
+        
+        /* Content section */
+        .content-section {
+            padding: 24px;
+        }
+        
+        /* Section label - small uppercase muted */
+        .section-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--brand-muted);
             margin-bottom: 8px;
         }
         
-        h2 {
-            font-size: 20px;
-            font-weight: 600;
-            color: #f5f5f5;
-            margin-bottom: 16px;
+        /* Main heading - 22pt bold */
+        .main-heading {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--brand-foreground);
+            margin-bottom: 8px;
         }
         
-        p {
-            margin-bottom: 16px;
-            color: #a3a3a3;
+        .subheading {
+            font-size: 14px;
+            color: var(--brand-muted);
+            margin-bottom: 20px;
         }
         
-        .field {
-            margin-bottom: 16px;
+        /* Pill badges */
+        .pill {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 4.5px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
-        .label {
-            font-size: 12px;
+        .pill-green {
+            background-color: #10B981;
+            color: #000000;
+        }
+        
+        .pill-amber {
+            background-color: #f59e0b;
+            color: #000000;
+        }
+        
+        .pill-red {
+            background-color: #ef4444;
+            color: #ffffff;
+        }
+        
+        /* Card - matches receipt PDF: #1a1a1a bg, rounded 3mm corners */
+        .card {
+            background-color: var(--brand-card);
+            border-radius: 3px;
+            padding: 20px;
+            margin: 16px 0;
+        }
+        
+        /* Card row with divider */
+        .card-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--brand-divider);
+        }
+        
+        .card-row:last-child {
+            border-bottom: none;
+        }
+        
+        .card-label {
+            font-size: 10px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: #737373;
-            margin-bottom: 4px;
+            color: var(--brand-muted);
         }
         
-        .value {
+        .card-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--brand-foreground);
+            text-align: right;
+        }
+        
+        .card-value-primary {
+            color: var(--brand-primary-brighter);
+        }
+        
+        .card-value-large {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        /* Items section */
+        .items-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--brand-divider);
+            margin-bottom: 12px;
+        }
+        
+        .items-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--brand-muted);
+        }
+        
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            color: var(--brand-muted);
+            font-size: 13px;
+        }
+        
+        .item-name {
+            color: var(--brand-foreground);
+        }
+        
+        /* Total paid pill */
+        .total-pill {
+            background-color: #10B981;
+            color: #000000;
+            padding: 10px 16px;
+            border-radius: 2px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+        }
+        
+        .total-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .total-amount {
             font-size: 16px;
-            color: #f5f5f5;
+            font-weight: 700;
         }
         
-        .message-box {
-            background: #111111;
-            border-left: 4px solid #0AD25A;
+        /* Credentials section with green border */
+        .credentials-card {
+            background-color: var(--brand-bg);
+            border: 1px solid var(--brand-primary-brighter);
+            border-radius: 3px;
             padding: 16px;
-            border-radius: 0 8px 8px 0;
             margin: 16px 0;
-            color: #f5f5f5;
         }
         
-        .credentials-box {
-            background: #111111;
-            border: 1px solid #2a2a2a;
-            border-left: 4px solid #0AD25A;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        
-        .cred-row {
+        .credentials-header {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--brand-primary-brighter);
             margin-bottom: 16px;
         }
         
+        .cred-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--brand-divider);
+        }
+        
         .cred-row:last-child {
-            margin-bottom: 0;
+            border-bottom: none;
         }
         
         .cred-label {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #737373;
-            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+            color: var(--brand-muted);
         }
         
         .cred-value {
             font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-            font-size: 15px;
-            background: #0a0a0a;
-            border: 1px solid #2a2a2a;
-            padding: 10px 14px;
-            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--brand-primary-brighter);
+            text-align: right;
             word-break: break-all;
-            color: #f5f5f5;
         }
         
-        .details-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
+        /* Support section */
+        .support-card {
+            background-color: var(--brand-card);
+            border-radius: 3px;
+            padding: 16px;
+            margin-top: 20px;
         }
         
-        .details-table tr {
-            border-bottom: 1px solid #2a2a2a;
+        .support-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--brand-foreground);
+            margin-bottom: 12px;
         }
         
-        .details-table td {
-            padding: 12px 0;
+        .support-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 6px;
         }
         
-        .details-table td:first-child {
-            color: #737373;
+        .support-label {
+            color: var(--brand-muted);
+        }
+        
+        .support-link {
+            color: var(--brand-primary-brighter);
+            text-decoration: none;
             font-weight: 500;
         }
         
-        .details-table td:last-child {
-            text-align: right;
-            font-weight: 600;
-            color: #f5f5f5;
-        }
-        
-        .total-amount {
-            font-size: 28px;
-            font-weight: 700;
-            color: #0AD25A;
-            text-align: center;
-            margin: 20px 0;
-        }
-        
-        .order-id {
-            background: #0AD25A;
-            color: #000000;
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-            font-size: 16px;
-            padding: 12px 20px;
-            border-radius: 8px;
-            text-align: center;
-            margin: 20px 0;
-            word-break: break-all;
-            font-weight: 600;
-        }
-        
+        /* CTA Button */
         .cta-button {
             display: inline-block;
-            background: #0AD25A;
+            background: #10B981;
             color: #000000;
             font-weight: 700;
             padding: 14px 28px;
-            border-radius: 8px;
+            border-radius: 4px;
             text-decoration: none;
             margin: 16px 0;
         }
         
         .cta-button:hover {
-            background: #22FF7A;
+            background: #0AD25A;
         }
         
+        /* Warning box */
         .warning-box {
-            background: #1a1a1a;
+            background-color: var(--brand-card);
             border-left: 4px solid #f59e0b;
             padding: 16px;
-            border-radius: 0 8px 8px 0;
-            margin: 20px 0;
-            font-size: 14px;
+            border-radius: 0 3px 3px 0;
+            margin: 16px 0;
+            font-size: 13px;
             color: #f59e0b;
         }
         
-        .help-box {
-            background: #111111;
-            padding: 16px;
-            border-radius: 8px;
-            margin-top: 20px;
-            font-size: 14px;
-            color: #a3a3a3;
-        }
-        
+        /* Footer */
         .footer {
             text-align: center;
-            padding: 24px 20px;
-            color: #737373;
-            font-size: 12px;
+            padding: 20px 24px;
+            color: var(--brand-muted);
+            font-size: 11px;
         }
         
-        .footer a {
-            color: #0AD25A;
-            text-decoration: none;
+        .footer-auto {
+            font-style: italic;
+            margin-bottom: 8px;
         }
         
-        .social-links {
-            margin-top: 12px;
-        }
-        
-        .social-links a {
-            display: inline-block;
-            margin: 0 8px;
-            color: #737373;
-            text-decoration: none;
-        }
-        
-        .muted-text {
-            color: #737373;
-            font-size: 14px;
-        }
-        
-        .link-text {
-            color: #0AD25A;
-            word-break: break-all;
+        .footer-copyright {
+            color: var(--brand-muted);
         }
     """
 
@@ -439,17 +577,82 @@ async def _send_via_resend(
         )
 
 
+def _render_header(right_label: str, right_sublabel: str = "") -> str:
+    """Render the email header with logo and label - matches receipt PDF."""
+    return f"""
+        <div class="accent-bar-top"></div>
+        <div class="header-section">
+            <div class="logo-section">
+                <img class="logo-dark" src="data:image/png;base64,{LOGO_DARK_B64}" alt="Styxproxy" width="200" height="58" style="display:block;width:200px;height:auto;">
+                <img class="logo-light" src="data:image/png;base64,{LOGO_LIGHT_B64}" alt="Styxproxy" width="200" height="58" style="display:none;width:200px;height:auto;">
+                <div class="logo-subtitle">Anonymous Proxy Service</div>
+            </div>
+            <div>
+                <div class="header-label">{right_label}</div>
+                <div class="header-sublabel">{right_sublabel}</div>
+            </div>
+        </div>
+        <div class="divider"></div>
+    """
+
+
+def _render_support_footer() -> str:
+    """Render the support footer section - matches receipt PDF."""
+    return """
+        <div class="support-card">
+            <div class="support-title">NEED HELP?</div>
+            <div class="support-row">
+                <span class="support-label">Chat:</span>
+                <a href="https://styxproxy.com/contact" class="support-link">styxproxy.com/contact</a>
+            </div>
+            <div class="support-row">
+                <span class="support-label">Email:</span>
+                <span style="color: var(--brand-foreground);">oyebiyiayomide30@gmail.com</span>
+            </div>
+            <div class="support-row" style="margin-bottom: 0;">
+                <span class="support-label">Web:</span>
+                <a href="https://styxproxy.com" class="support-link">styxproxy.com</a>
+            </div>
+        </div>
+    """
+
+
+def _render_footer() -> str:
+    """Render the email footer - matches receipt PDF."""
+    return f"""
+        <div class="footer">
+            <div class="footer-auto">This receipt was generated automatically. No signature required.</div>
+            <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
+        </div>
+        <div class="accent-bar-bottom"></div>
+    """
+
+
+# =============================================================================
+# Contact Form Email Templates
+# =============================================================================
+
 def _render_contact_form_email(
     name: str,
     email: str,
     message: str,
     phone: Optional[str] = None,
+    ip_address: Optional[str] = None,
 ) -> EmailContent:
-    """Render contact form submission email (to admin)."""
-    phone_html = f"""<div class="field">
-                        <div class="label">Phone</div>
-                        <div class="value">{phone}</div>
-                    </div>""" if phone else ""
+    """Render contact form submission email (to admin) - matches receipt design."""
+    phone_html = f"""
+        <div class="card-row">
+            <span class="card-label">Phone</span>
+            <span class="card-value">{phone}</span>
+        </div>
+    """ if phone else ""
+    
+    ip_html = f"""
+        <div class="card-row">
+            <span class="card-label">IP Address</span>
+            <span class="card-value">{ip_address}</span>
+        </div>
+    """ if ip_address else ""
 
     base_styles = _get_base_styles()
 
@@ -459,42 +662,49 @@ def _render_contact_form_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>New Contact Form Submission</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-container">
-        <div class="header-bar">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar"></div>
-        
-        <div class="content-card">
-            <h1>📬 New Contact Form Submission</h1>
+    <div class="email-wrapper">
+        <div class="email-container">
+            {_render_header("CONTACT SUBMISSION", "styxproxy.com")}
             
-            <div class="field">
-                <div class="label">Name</div>
-                <div class="value">{name}</div>
+            <div class="content-section">
+                <div class="section-label">NEW MESSAGE</div>
+                <div class="main-heading">New message from {name}</div>
+                
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Name</span>
+                        <span class="card-value">{name}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Email</span>
+                        <span class="card-value card-value-primary">{email}</span>
+                    </div>
+                    {phone_html}
+                    <div class="card-row">
+                        <span class="card-label">Message</span>
+                    </div>
+                    <div style="padding: 12px 0; color: var(--brand-foreground); font-size: 14px; line-height: 1.6;">
+                        {message.replace(chr(10), '<br>')}
+                    </div>
+                    {ip_html}
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="https://styxproxy.com/admin/contacts" class="cta-button">View in Admin Panel →</a>
+                </div>
+                
+                {_render_support_footer()}
             </div>
             
-            <div class="field">
-                <div class="label">Email</div>
-                <div class="value"><a href="mailto:{email}" style="color: #0AD25A;">{email}</a></div>
-            </div>
-            
-            {phone_html}
-            
-            <div class="field">
-                <div class="label">Message</div>
-                <div class="message-box">{message.replace(chr(10), '<br>')}</div>
-            </div>
-        </div>
-        
-        <div class="footer">
-            Submitted at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
-            © 2024 Styxproxy. All rights reserved.
+            {_render_footer()}
         </div>
     </div>
 </body>
@@ -510,6 +720,7 @@ Message:
 {message}
 
 Submitted at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+© 2026 Styxproxy
 """
 
     return EmailContent(
@@ -519,6 +730,63 @@ Submitted at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
     )
 
 
+def _render_customer_confirmation_email(
+    name: str,
+) -> str:
+    """Render customer confirmation email - matches receipt design."""
+    base_styles = _get_base_styles()
+
+    return f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Message Received</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            {_render_header("MESSAGE RECEIVED", "styxproxy.com")}
+            
+            <div class="content-section">
+                <div class="section-label">THANK YOU</div>
+                <div class="main-heading">Thanks for reaching out, {name}.</div>
+                <div class="subheading">We received your message and will respond within 24 hours.</div>
+                
+                <div class="card">
+                    <div style="text-align: center; padding: 20px 0;">
+                        <div style="font-size: 40px; margin-bottom: 16px;">✓</div>
+                        <div style="color: var(--brand-foreground); font-size: 16px;">
+                            Your message has been received. Our team will get back to you as soon as possible.
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="https://styxproxy.com" class="cta-button">Visit styxproxy.com →</a>
+                </div>
+                
+                {_render_support_footer()}
+            </div>
+            
+            {_render_footer()}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+
+# =============================================================================
+# Charon Escalation Email Template
+# =============================================================================
+
 def _render_charon_escalation_email(
     conversation_id: str,
     customer_email: Optional[str],
@@ -526,18 +794,22 @@ def _render_charon_escalation_email(
     message: str,
     history_summary: str,
 ) -> EmailContent:
-    """Render Charon escalation notification email (alert style)."""
+    """Render Charon escalation notification email - alert style with amber/red."""
     contact_info = ""
     if customer_email:
-        contact_info += f"""<div class="field">
-                            <div class="label">Email</div>
-                            <div class="value"><a href='mailto:{customer_email}' style="color: #0AD25A;">{customer_email}</a></div>
-                        </div>"""
+        contact_info += f"""
+            <div class="card-row">
+                <span class="card-label">Email</span>
+                <span class="card-value card-value-primary">{customer_email}</span>
+            </div>
+        """
     if customer_phone:
-        contact_info += f"""<div class="field">
-                            <div class="label">Phone</div>
-                            <div class="value">{customer_phone}</div>
-                        </div>"""
+        contact_info += f"""
+            <div class="card-row">
+                <span class="card-label">Phone</span>
+                <span class="card-value">{customer_phone}</span>
+            </div>
+        """
 
     base_styles = _get_base_styles()
 
@@ -547,42 +819,49 @@ def _render_charon_escalation_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>Charon Escalation</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-container">
-        <div class="header-bar" style="background: #ef4444;">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar" style="background: #ef4444;"></div>
-        
-        <div class="content-card escalation">
-            <h1>⚠️ Charon Escalation</h1>
+    <div class="email-wrapper">
+        <div class="email-container">
+            {_render_header("ESCALATION", "Action Required")}
             
-            <div class="field">
-                <div class="label">Conversation ID</div>
-                <div class="order-id">{conversation_id}</div>
+            <div class="content-section">
+                <div class="section-label">CHARON ESCALATION</div>
+                <div class="main-heading">Charon escalated a conversation</div>
+                <div class="subheading">Immediate attention required</div>
+                
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Conversation ID</span>
+                        <span class="card-value card-value-primary card-value-large">{conversation_id[:16]}...</span>
+                    </div>
+                    {contact_info}
+                    <div class="card-row">
+                        <span class="card-label">Latest Message</span>
+                    </div>
+                    <div style="padding: 12px 0; color: var(--brand-foreground); font-size: 14px; line-height: 1.6;">
+                        {message.replace(chr(10), '<br>')}
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Conversation History</span>
+                    </div>
+                    <div style="padding: 12px 0; color: var(--brand-muted); font-size: 12px; line-height: 1.6; font-family: monospace; white-space: pre-wrap;">
+                        {history_summary}
+                    </div>
+                </div>
+                
+                <div class="warning-box">
+                    ⚠️ <strong>Action Required:</strong> Please respond to this conversation as soon as possible.
+                </div>
             </div>
             
-            {contact_info}
-            
-            <div class="field">
-                <div class="label">Latest Message</div>
-                <div class="message-box">{message.replace(chr(10), '<br>')}</div>
-            </div>
-            
-            <div class="field">
-                <div class="label">Conversation History</div>
-                <div class="message-box" style="white-space: pre-wrap; font-family: monospace; font-size: 13px;">{history_summary}</div>
-            </div>
-        </div>
-        
-        <div class="footer">
-            Escalated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
-            © 2024 Styxproxy. All rights reserved.
+            {_render_footer()}
         </div>
     </div>
 </body>
@@ -611,17 +890,29 @@ Escalated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
     )
 
 
+# =============================================================================
+# Admin Notification Email Template
+# =============================================================================
+
 def _render_admin_notification_email(
-    notification_type: str,
     title: str,
     details: dict,
+    pill_type: str = "green",
 ) -> EmailContent:
-    """Render admin notification email."""
+    """Render admin notification email - dynamic title pill."""
+    pill_class = "pill-green"
+    if pill_type == "amber":
+        pill_class = "pill-amber"
+    elif pill_type == "red":
+        pill_class = "pill-red"
+    
     details_html = "".join(
-        f"""<tr>
-                <td>{k}</td>
-                <td>{v}</td>
-            </tr>"""
+        f"""
+        <div class="card-row">
+            <span class="card-label">{k}</span>
+            <span class="card-value">{v}</span>
+        </div>
+        """
         for k, v in details.items()
     )
 
@@ -633,29 +924,28 @@ def _render_admin_notification_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>{title}</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-container">
-        <div class="header-bar">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar"></div>
-        
-        <div class="content-card">
-            <h1>🔔 {title}</h1>
+    <div class="email-wrapper">
+        <div class="email-container">
+            {_render_header(title.upper(), "Admin Notification")}
             
-            <table class="details-table">
-                {details_html}
-            </table>
-        </div>
-        
-        <div class="footer">
-            Notification sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
-            © 2024 Styxproxy. All rights reserved.
+            <div class="content-section">
+                <div class="section-label">NOTIFICATION</div>
+                <div class="main-heading">{title}</div>
+                
+                <div class="card">
+                    {details_html}
+                </div>
+            </div>
+            
+            {_render_footer()}
         </div>
     </div>
 </body>
@@ -679,18 +969,720 @@ Notification sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 
 
 # =============================================================================
-# Public API
+# Admin Invite Email Template
 # =============================================================================
 
+def _render_admin_invite_email(
+    email: str,
+    role: str,
+    invite_code: str,
+    expires_in_hours: int,
+) -> EmailContent:
+    """Render admin invite email - matches receipt design."""
+    invite_link = f"https://styxproxy.com/admin/setup?code={invite_code}"
+
+    base_styles = _get_base_styles()
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Admin Invite</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            {_render_header("ADMIN INVITE", "styxproxy.com")}
+            
+            <div class="content-section">
+                <div class="section-label">INVITATION</div>
+                <div class="main-heading">You're invited to Styxproxy Admin</div>
+                <div class="subheading">You've been granted access to the admin panel</div>
+                
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Role</span>
+                        <span class="card-value card-value-primary">{role}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Email</span>
+                        <span class="card-value">{email}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Expires</span>
+                        <span class="card-value">{expires_in_hours} hours</span>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{invite_link}" class="cta-button">Set Up Account →</a>
+                </div>
+                
+                <p style="color: var(--brand-muted); font-size: 13px; margin-top: 16px; text-align: center;">
+                    Or copy this link: <span style="color: var(--brand-primary-brighter); word-break: break-all;">{invite_link}</span>
+                </p>
+                
+                <div class="warning-box">
+                    ⚠️ <strong>Important:</strong> This invite expires in {expires_in_hours} hours. If you didn't request this, please ignore this email.
+                </div>
+            </div>
+            
+            {_render_footer()}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    text = f"""Admin Invite - Styxproxy
+
+You've been invited to join the Styxproxy Admin Panel.
+
+Role: {role}
+Email: {email}
+
+Set up your account: {invite_link}
+
+This invite expires in {expires_in_hours} hours.
+
+If you didn't request this, please ignore this email.
+
+- Styxproxy Admin
+"""
+
+    return EmailContent(
+        subject="You're invited to Styxproxy Admin",
+        html=html,
+        text=text,
+    )
+
+
+# =============================================================================
+# Password Reset Email Template
+# =============================================================================
+
+def _render_password_reset_email(
+    email: str,
+    reset_token: str,
+) -> EmailContent:
+    """Render password reset email - matches receipt design."""
+    reset_link = f"https://styxproxy.com/admin/reset-password?token={reset_token}"
+
+    base_styles = _get_base_styles()
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Password Reset</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            {_render_header("PASSWORD RESET", "styxproxy.com")}
+            
+            <div class="content-section">
+                <div class="section-label">SECURITY</div>
+                <div class="main-heading">Reset your admin password</div>
+                <div class="subheading">Create a new password for your account</div>
+                
+                <div class="card">
+                    <div style="text-align: center; padding: 20px 0;">
+                        <div style="font-size: 40px; margin-bottom: 16px;">🔐</div>
+                        <div style="color: var(--brand-foreground); font-size: 14px; margin-bottom: 20px;">
+                            We received a request to reset your Styxproxy Admin password.
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="{reset_link}" class="cta-button">Reset Password →</a>
+                </div>
+                
+                <p style="color: var(--brand-muted); font-size: 13px; margin-top: 16px; text-align: center;">
+                    Or copy this link: <span style="color: var(--brand-primary-brighter); word-break: break-all;">{reset_link}</span>
+                </p>
+                
+                <div class="warning-box">
+                    ⏱️ <strong>Note:</strong> This link expires in <strong>1 hour</strong>.<br><br>
+                    If you didn't request this, please ignore this email. Your password will remain unchanged.
+                </div>
+            </div>
+            
+            {_render_footer()}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    text = f"""Password Reset - Styxproxy Admin
+
+We received a request to reset your Styxproxy Admin password.
+
+Reset Link: {reset_link}
+
+This link expires in 1 hour.
+
+If you didn't request this, please ignore this email. Your password will remain unchanged.
+
+- Styxproxy Admin
+"""
+
+    return EmailContent(
+        subject="Reset your Styxproxy Admin password",
+        html=html,
+        text=text,
+    )
+
+
+# =============================================================================
+# Order Confirmation Email Template (Pending Payment)
+# =============================================================================
+
+def _render_order_confirmation_email(
+    customer_name: str,
+    order_id: str,
+    plan_code: str,
+    amount: float,
+    currency: str,
+    quantity: int,
+) -> EmailContent:
+    """Render order confirmation email (pending payment) - matches receipt design."""
+    base_styles = _get_base_styles()
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Order Placed</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            {_render_header("PAYMENT PENDING", "styxproxy.com")}
+            
+            <div class="content-section">
+                <div class="section-label">ORDER CONFIRMATION</div>
+                <div class="main-heading">Thanks for your order, {customer_name}!</div>
+                <div class="subheading">Complete your payment to activate your proxy</div>
+                
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Order ID</span>
+                        <span class="card-value card-value-primary card-value-large">{order_id[:16]}...</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Plan</span>
+                        <span class="card-value">{plan_code}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Quantity</span>
+                        <span class="card-value">{quantity} {"unit" if quantity == 1 else "units"}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Amount</span>
+                        <span class="card-value card-value-primary card-value-large">{currency} {amount:,.2f}</span>
+                    </div>
+                </div>
+                
+                <div class="warning-box">
+                    <strong>Next step:</strong> Complete your payment. Once confirmed, your proxy credentials will be sent to this email automatically.
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <a href="https://styxproxy.com/pay/{order_id}" class="cta-button">Complete Payment →</a>
+                </div>
+                
+                {_render_support_footer()}
+            </div>
+            
+            {_render_footer()}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    text = f"""Order Placed - {order_id}
+
+Hi {customer_name},
+
+Your order has been received. Complete your payment to activate your proxy.
+
+Order ID: {order_id}
+Plan: {plan_code}
+Quantity: {quantity}
+Amount: {currency} {amount:,.2f}
+
+Next step: Complete your payment. Your proxy credentials will be sent once confirmed.
+
+Need help? Contact us at styxproxy.com
+
+- Styxproxy
+"""
+
+    return EmailContent(
+        subject=f"[Styxproxy] Order Placed - {order_id[:8]}",
+        html=html,
+        text=text,
+    )
+
+
+# =============================================================================
+# Proxy Credentials Email Template
+# =============================================================================
+
+def _render_proxy_credentials_email(
+    customer_name: str,
+    order_id: str,
+    tx_ref: str,
+    plan_code: str,
+    amount: float,
+    currency: str,
+    quantity: int,
+    bun_username: str,
+    bun_password: str,
+    proxy_ip: str,
+    proxy_port: int,
+    protocol: str,
+    expires_at: datetime,
+    payment_method: str = "Card / Bank / USSD / QR",
+) -> EmailContent:
+    """Render proxy credentials email (order paid + active) - matches receipt design."""
+    expires_str = expires_at.strftime('%Y-%m-%d %H:%M UTC') if expires_at else "N/A"
+    full_format = f"http://{bun_username}:{bun_password}@{proxy_ip}:{proxy_port}"
+
+    base_styles = _get_base_styles()
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Your Proxy is Ready</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            {_render_header("FULFILLED", "styxproxy.com")}
+            
+            <div class="content-section">
+                <div class="section-label">ORDER CONFIRMATION</div>
+                <div class="main-heading">Your proxy is ready, {customer_name}!</div>
+                <div class="subheading">Your payment has been confirmed and proxy is active</div>
+                
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Transaction Reference</span>
+                        <span class="card-value card-value-primary">{tx_ref}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Order ID</span>
+                        <span class="card-value">{order_id[:16]}...</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Date</span>
+                        <span class="card-value">{datetime.utcnow().strftime('%Y-%m-%d')}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Method</span>
+                        <span class="card-value">{payment_method}</span>
+                    </div>
+                </div>
+                
+                <div class="items-header">
+                    <span class="items-label">ITEMS</span>
+                    <span class="items-label" style="text-align: right;">AMOUNT</span>
+                </div>
+                <div class="item-row">
+                    <span class="item-name">🇳🇬 {plan_code} × {quantity}</span>
+                    <span>{currency} {amount:,.2f}</span>
+                </div>
+                
+                <div class="total-pill">
+                    <span class="total-label">Total Paid</span>
+                    <span class="total-amount">{currency} {amount:,.2f}</span>
+                </div>
+                
+                <div class="credentials-card">
+                    <div class="credentials-header">YOUR PROXY CREDENTIALS</div>
+                    <div class="cred-row">
+                        <span class="cred-label">Username</span>
+                        <span class="cred-value">{bun_username}</span>
+                    </div>
+                    <div class="cred-row">
+                        <span class="cred-label">Password</span>
+                        <span class="cred-value">{bun_password}</span>
+                    </div>
+                    <div class="cred-row">
+                        <span class="cred-label">Proxy Address</span>
+                        <span class="cred-value">{proxy_ip}:{proxy_port}</span>
+                    </div>
+                    <div class="cred-row">
+                        <span class="cred-label">Protocol</span>
+                        <span class="cred-value">{protocol.upper()}</span>
+                    </div>
+                    <div class="cred-row">
+                        <span class="cred-label">Full Format</span>
+                        <span class="cred-value" style="font-size: 11px;">{full_format[:50]}...</span>
+                    </div>
+                    <div class="cred-row">
+                        <span class="cred-label">Expires</span>
+                        <span class="cred-value">{expires_str}</span>
+                    </div>
+                </div>
+                
+                {_render_support_footer()}
+            </div>
+            
+            {_render_footer()}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    text = f"""Payment Confirmed - Your Proxy is Ready!
+
+Hi {customer_name},
+
+Great news! Your payment has been confirmed and your proxy is now active.
+
+Order ID: {order_id}
+Transaction Ref: {tx_ref}
+Plan: {plan_code}
+Quantity: {quantity}
+Amount Paid: {currency} {amount:,.2f}
+
+=== YOUR PROXY CREDENTIALS ===
+Username: {bun_username}
+Password: {bun_password}
+Proxy: {proxy_ip}:{proxy_port}
+Protocol: {protocol.upper()}
+Full Format: {full_format}
+Expires: {expires_str}
+================================
+
+You can now use your proxy immediately.
+
+Need help? Contact us at styxproxy.com
+
+- Styxproxy
+"""
+
+    return EmailContent(
+        subject=f"[Styxproxy] Payment Confirmed — Your Proxy is Ready! - {order_id[:8]}",
+        html=html,
+        text=text,
+    )
+
+
+# =============================================================================
+# Order Active Email (Combined Payment + Credentials) - The Receipt Email
+# =============================================================================
+
+async def send_order_active_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    tx_ref: str,
+    plan_code: str,
+    amount: float,
+    currency: str,
+    quantity: int,
+    bun_username: str,
+    bun_password: str,
+    proxy_ip: str,
+    proxy_port: int,
+    protocol: str,
+    expires_at: datetime,
+    payment_method: str = "Card / Bank / USSD / QR",
+) -> EmailResult:
+    """Send order confirmation + credentials in ONE email when order is paid and proxy is active.
+    
+    This is the most important email - it looks nearly identical to the receipt PDF.
+    """
+    content = _render_proxy_credentials_email(
+        customer_name=customer_name,
+        order_id=order_id,
+        tx_ref=tx_ref,
+        plan_code=plan_code,
+        amount=amount,
+        currency=currency,
+        quantity=quantity,
+        bun_username=bun_username,
+        bun_password=bun_password,
+        proxy_ip=proxy_ip,
+        proxy_port=proxy_port,
+        protocol=protocol,
+        expires_at=expires_at,
+        payment_method=payment_method,
+    )
+    recipient = EmailRecipient(email=customer_email, name=customer_name)
+
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
+    )
+
+
+# =============================================================================
+# Refund Processed Email Template
+# =============================================================================
+
+def _render_refund_processed_email(
+    customer_name: str,
+    order_id: str,
+    original_amount: float,
+    refund_amount: float,
+    currency: str,
+    reason: str,
+) -> EmailContent:
+    """Render refund processed email - matches receipt design."""
+    base_styles = _get_base_styles()
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Refund Processed</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            {_render_header("REFUND PROCESSED", "styxproxy.com")}
+            
+            <div class="content-section">
+                <div class="section-label">REFUND CONFIRMATION</div>
+                <div class="main-heading">Your refund has been processed, {customer_name}!</div>
+                <div class="subheading">The refund has been initiated to your original payment method</div>
+                
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Order ID</span>
+                        <span class="card-value">{order_id[:16]}...</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Original Amount</span>
+                        <span class="card-value">{currency} {original_amount:,.2f}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Refund Amount</span>
+                        <span class="card-value card-value-primary card-value-large">{currency} {refund_amount:,.2f}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Reason</span>
+                        <span class="card-value">{reason}</span>
+                    </div>
+                </div>
+                
+                <div style="background: var(--brand-card); padding: 16px; border-radius: 3px; margin: 16px 0; border-left: 4px solid #f59e0b;">
+                    <div style="color: #f59e0b; font-size: 13px;">
+                        <strong>Note:</strong> Please allow 5-10 business days for the refund to appear in your account. The exact timing depends on your bank or payment provider.
+                    </div>
+                </div>
+                
+                {_render_support_footer()}
+            </div>
+            
+            {_render_footer()}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    text = f"""Refund Processed - {order_id}
+
+Hi {customer_name},
+
+Your refund has been processed successfully.
+
+Order ID: {order_id}
+Original Amount: {currency} {original_amount:,.2f}
+Refund Amount: {currency} {refund_amount:,.2f}
+Reason: {reason}
+
+Please allow 5-10 business days for the refund to appear in your account.
+
+Questions? Contact us at styxproxy.com
+
+- Styxproxy
+"""
+
+    return EmailContent(
+        subject=f"[Styxproxy] Refund Processed - {order_id[:8]}",
+        html=html,
+        text=text,
+    )
+
+
+# =============================================================================
+# Credentials Rotated Email Template
+# =============================================================================
+
+def _render_credentials_rotated_email(
+    customer_name: str,
+    order_id: str,
+    new_username: str,
+    new_password: str,
+    proxy_ip: str,
+    proxy_port: int,
+    protocol: str,
+) -> EmailContent:
+    """Render credentials rotated email - matches receipt design."""
+    full_format = f"http://{new_username}:{new_password}@{proxy_ip}:{proxy_port}"
+
+    base_styles = _get_base_styles()
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Credentials Rotated</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            {_render_header("CREDENTIALS ROTATED", "styxproxy.com")}
+            
+            <div class="content-section">
+                <div class="section-label">CREDENTIALS UPDATE</div>
+                <div class="main-heading">Your credentials have been updated, {customer_name}.</div>
+                <div class="subheading">Your proxy credentials have been rotated for security</div>
+                
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Order ID</span>
+                        <span class="card-value">{order_id[:16]}...</span>
+                    </div>
+                </div>
+                
+                <div class="credentials-card">
+                    <div class="credentials-header">NEW CREDENTIALS</div>
+                    <div class="cred-row">
+                        <span class="cred-label">Username</span>
+                        <span class="cred-value">{new_username}</span>
+                    </div>
+                    <div class="cred-row">
+                        <span class="cred-label">Password</span>
+                        <span class="cred-value">{new_password}</span>
+                    </div>
+                    <div class="cred-row">
+                        <span class="cred-label">Proxy Address</span>
+                        <span class="cred-value">{proxy_ip}:{proxy_port}</span>
+                    </div>
+                    <div class="cred-row">
+                        <span class="cred-label">Protocol</span>
+                        <span class="cred-value">{protocol.upper()}</span>
+                    </div>
+                    <div class="cred-row">
+                        <span class="cred-label">Full Format</span>
+                        <span class="cred-value" style="font-size: 11px;">{full_format[:50]}...</span>
+                    </div>
+                </div>
+                
+                <div class="warning-box">
+                    ⚠️ <strong>Important:</strong> Your password has been changed. Please update your proxy configuration with the new credentials immediately to avoid service interruption.
+                </div>
+                
+                {_render_support_footer()}
+            </div>
+            
+            {_render_footer()}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    text = f"""Credentials Rotated - {order_id}
+
+Hi {customer_name},
+
+Your proxy credentials have been rotated as requested.
+
+Order ID: {order_id}
+
+=== NEW CREDENTIALS ===
+Username: {new_username}
+Password: {new_password}
+Proxy: {proxy_ip}:{proxy_port}
+Protocol: {protocol.upper()}
+Full Format: {full_format}
+=========================
+
+⚠️ IMPORTANT: Your password has been changed. Please update your proxy configuration with the new credentials immediately.
+
+Need help? Contact us at styxproxy.com
+
+- Styxproxy
+"""
+
+    return EmailContent(
+        subject=f"[Styxproxy] Credentials Rotated - {order_id[:8]}",
+        html=html,
+        text=text,
+    )
+
+
+# =============================================================================
+# Public API - Email Sending Functions
+# =============================================================================
 
 async def send_contact_form_notification(
     name: str,
     email: str,
     message: str,
     phone: Optional[str] = None,
+    ip_address: Optional[str] = None,
 ) -> EmailResult:
     """Send notification to admin about new contact form submission."""
-    content = _render_contact_form_email(name, email, message, phone)
+    content = _render_contact_form_email(name, email, message, phone, ip_address)
     admin_recipient = EmailRecipient(email=settings.admin_email, name="Admin")
 
     result = await _send_via_resend(
@@ -702,44 +1694,7 @@ async def send_contact_form_notification(
 
     # Also send confirmation to the customer
     if result.success:
-        base_styles = _get_base_styles()
-        confirmation_html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Message Received</title>
-    <style>
-        {base_styles}
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header-bar">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar"></div>
-        
-        <div class="content-card success">
-            <h1>✅ Message Received</h1>
-            
-            <p>Hi {name},</p>
-            
-            <p>Thank you for reaching out! We've received your message and will get back to you within 24 hours.</p>
-            
-            <p>If you have any urgent questions, you can reply to this email or WhatsApp us directly.</p>
-            
-            <p>Best regards,<br>The Styxproxy Team</p>
-        </div>
-        
-        <div class="footer">
-            © 2024 Styxproxy. All rights reserved.
-        </div>
-    </div>
-</body>
-</html>
-"""
+        confirmation_html = _render_customer_confirmation_email(name)
         confirmation_text = f"""Hi {name},
 
 Thank you for reaching out! We've received your message and will get back to you within 24 hours.
@@ -789,15 +1744,15 @@ async def send_charon_escalation_email(
 
 
 async def send_admin_notification(
-    notification_type: str,
     title: str,
     details: dict,
+    pill_type: str = "green",
 ) -> EmailResult:
     """Send general admin notification email."""
     content = _render_admin_notification_email(
-        notification_type=notification_type,
         title=title,
         details=details,
+        pill_type=pill_type,
     )
     admin_recipient = EmailRecipient(email=settings.admin_email, name="Admin")
 
@@ -818,7 +1773,6 @@ async def send_new_order_notification(
 ) -> EmailResult:
     """Send notification to admin about new order."""
     return await send_admin_notification(
-        notification_type="new_order",
         title="🛒 New Order",
         details={
             "Order ID": order_id,
@@ -827,6 +1781,7 @@ async def send_new_order_notification(
             "Amount": f"{currency} {amount:,.2f}",
             "Status": "Pending Payment",
         },
+        pill_type="amber",
     )
 
 
@@ -839,7 +1794,6 @@ async def send_order_paid_notification(
 ) -> EmailResult:
     """Send notification to admin when order is paid."""
     return await send_admin_notification(
-        notification_type="order_paid",
         title="✅ Order Paid",
         details={
             "Order ID": order_id,
@@ -848,6 +1802,7 @@ async def send_order_paid_notification(
             "Amount": f"{currency} {amount:,.2f}",
             "Status": "Paid - Processing",
         },
+        pill_type="green",
     )
 
 
@@ -860,7 +1815,6 @@ async def send_refund_request_notification(
 ) -> EmailResult:
     """Send notification to admin about refund request."""
     return await send_admin_notification(
-        notification_type="refund_request",
         title="💰 Refund Request",
         details={
             "Order ID": order_id,
@@ -869,6 +1823,7 @@ async def send_refund_request_notification(
             "Reason": reason,
             "Action Required": "Review and approve/reject",
         },
+        pill_type="amber",
     )
 
 
@@ -880,7 +1835,6 @@ async def send_refund_approved_notification(
 ) -> EmailResult:
     """Send notification to admin when refund is approved."""
     return await send_admin_notification(
-        notification_type="refund_approved",
         title="✅ Refund Approved",
         details={
             "Order ID": order_id,
@@ -888,180 +1842,7 @@ async def send_refund_approved_notification(
             "Amount": f"{currency} {amount:,.2f}",
             "Status": "Refunded",
         },
-    )
-
-
-# =============================================================================
-# Admin Auth Email Templates
-# =============================================================================
-
-
-def _render_admin_invite_email(
-    email: str,
-    role: str,
-    invite_code: str,
-    expires_in_hours: int,
-) -> EmailContent:
-    """Render admin invite email (dark themed)."""
-    invite_link = f"https://styxproxy.com/admin/setup?code={invite_code}"
-
-    base_styles = _get_base_styles()
-
-    html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>You've Been Invited</title>
-    <style>
-        {base_styles}
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header-bar" style="background: #0AD25A;">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar"></div>
-        
-        <div class="content-card">
-            <h1>🚀 You've Been Invited to Styxproxy Admin</h1>
-            
-            <p>Hi,</p>
-            
-            <p>You've been invited to join the <strong style="color: #0AD25A;">Styxproxy Admin Panel</strong> with the role of <strong>{role}</strong>.</p>
-            
-            <div class="credentials-box">
-                <div class="cred-row">
-                    <div class="cred-label">Your Role</div>
-                    <div class="cred-value" style="background: transparent; border: none; padding: 0;">{role}</div>
-                </div>
-            </div>
-            
-            <p style="text-align: center;">
-                <a href="{invite_link}" class="cta-button">Set Up Account</a>
-            </p>
-            
-            <p class="muted-text">
-                Or copy this link: <span class="link-text">{invite_link}</span>
-            </p>
-            
-            <div class="warning-box">
-                ⚠️ <strong>Important:</strong> This invite expires in {expires_in_hours} hours. If you didn't request this, please ignore this email.
-            </div>
-        </div>
-        
-        <div class="footer">
-            Styxproxy Admin Panel · Sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
-            © 2024 Styxproxy. All rights reserved.
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-    text = f"""You've Been Invited to Styxproxy Admin
-
-Hi,
-
-You've been invited to join the Styxproxy Admin Panel with the role of {role}.
-
-Your Invite Link: {invite_link}
-
-This invite expires in {expires_in_hours} hours.
-
-If you didn't request this, please ignore this email.
-
-- Styxproxy Admin
-"""
-
-    return EmailContent(
-        subject="You've been invited to Styxproxy Admin",
-        html=html,
-        text=text,
-    )
-
-
-def _render_password_reset_email(
-    email: str,
-    reset_token: str,
-) -> EmailContent:
-    """Render password reset email (dark themed)."""
-    reset_link = f"https://styxproxy.com/admin/reset-password?token={reset_token}"
-
-    base_styles = _get_base_styles()
-
-    html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Your Password</title>
-    <style>
-        {base_styles}
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header-bar" style="background: #0AD25A;">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar"></div>
-        
-        <div class="content-card">
-            <h1>🔐 Reset Your Styxproxy Admin Password</h1>
-            
-            <p>Hi,</p>
-            
-            <p>We received a request to reset your Styxproxy Admin password. Click the button below to create a new password:</p>
-            
-            <p style="text-align: center;">
-                <a href="{reset_link}" class="cta-button">Reset Password</a>
-            </p>
-            
-            <p class="muted-text">
-                Or copy this link: <span class="link-text">{reset_link}</span>
-            </p>
-            
-            <p class="muted-text">
-                ⏱️ This link expires in <strong>1 hour</strong>.
-            </p>
-            
-            <div class="warning-box">
-                ⚠️ <strong>If you didn't request this</strong>, please ignore this email. Your password will remain unchanged.
-            </div>
-        </div>
-        
-        <div class="footer">
-            Styxproxy Admin Panel · Sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
-            © 2024 Styxproxy. All rights reserved.
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-    text = f"""Reset Your Styxproxy Admin Password
-
-Hi,
-
-We received a request to reset your Styxproxy Admin password.
-
-Reset Link: {reset_link}
-
-This link expires in 1 hour.
-
-If you didn't request this, please ignore this email. Your password will remain unchanged.
-
-- Styxproxy Admin
-"""
-
-    return EmailContent(
-        subject="Reset your Styxproxy Admin password",
-        html=html,
-        text=text,
+        pill_type="green",
     )
 
 
@@ -1107,412 +1888,6 @@ async def send_password_reset_email(
     )
 
 
-# =============================================================================
-# Customer Purchase Emails
-# =============================================================================
-
-
-def _render_order_confirmation_email(
-    customer_name: str,
-    order_id: str,
-    plan_code: str,
-    amount: float,
-    currency: str,
-    quantity: int,
-) -> EmailContent:
-    """Render order confirmation email (pending payment)."""
-    base_styles = _get_base_styles()
-
-    html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Placed</title>
-    <style>
-        {base_styles}
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header-bar">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar"></div>
-        
-        <div class="content-card">
-            <h1>📋 Order Placed — Payment Pending</h1>
-            <p class="muted-text" style="margin-top: -8px; margin-bottom: 24px;">Awaiting your payment</p>
-            
-            <p>Hi {customer_name},</p>
-            
-            <p>Your order has been received. Complete your payment to activate your proxy.</p>
-            
-            <div class="order-id">{order_id}</div>
-            
-            <table class="details-table">
-                <tr>
-                    <td>Plan</td>
-                    <td>{plan_code}</td>
-                </tr>
-                <tr>
-                    <td>Quantity</td>
-                    <td>{quantity}</td>
-                </tr>
-                <tr>
-                    <td>Amount</td>
-                    <td style="font-size: 20px; color: #0AD25A;">{currency} {amount:,.2f}</td>
-                </tr>
-            </table>
-            
-            <div class="warning-box">
-                <strong>Next step:</strong> Complete your payment. Once confirmed, your proxy credentials will be sent to this email automatically.
-            </div>
-            
-            <div class="help-box">
-                <strong>Need help?</strong> Reply to this email or WhatsApp us. We're here to help!
-            </div>
-        </div>
-        
-        <div class="footer">
-            Styxproxy · Order placed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
-            © 2024 Styxproxy. All rights reserved.
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-    text = f"""Order Placed - {order_id}
-
-Hi {customer_name},
-
-Your order has been received. Complete your payment to activate your proxy.
-
-Order ID: {order_id}
-Plan: {plan_code}
-Quantity: {quantity}
-Amount: {currency} {amount:,.2f}
-
-Next step: Complete your payment. Your proxy credentials will be sent to this email once confirmed.
-
-Need help? Reply to this email or WhatsApp us.
-
-- Styxproxy
-"""
-
-    return EmailContent(
-        subject=f"[Styxproxy] Order Placed - {order_id}",
-        html=html,
-        text=text,
-    )
-
-
-def _render_proxy_credentials_email(
-    customer_name: str,
-    order_id: str,
-    plan_code: str,
-    bun_username: str,
-    proxy_ip: str,
-    proxy_port: int,
-    protocol: str,
-    expires_at: datetime,
-) -> EmailContent:
-    """Render proxy credentials email (order paid + active)."""
-    expires_str = expires_at.strftime('%Y-%m-%d %H:%M UTC') if expires_at else "N/A"
-
-    base_styles = _get_base_styles()
-
-    html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Proxy is Ready</title>
-    <style>
-        {base_styles}
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header-bar" style="background: #0AD25A;">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar"></div>
-        
-        <div class="content-card success">
-            <h1>🎉 Your Proxy is Ready!</h1>
-            <p class="muted-text" style="margin-top: -8px; margin-bottom: 24px;">Order {order_id}</p>
-            
-            <p>Hi {customer_name},</p>
-            
-            <p>Great news! Your proxy is now active. Here are your credentials:</p>
-            
-            <div class="order-id">{order_id}</div>
-            
-            <div class="credentials-box">
-                <div class="cred-row">
-                    <div class="cred-label">Username</div>
-                    <div class="cred-value">{bun_username}</div>
-                </div>
-                <div class="cred-row">
-                    <div class="cred-label">Proxy Address</div>
-                    <div class="cred-value">{proxy_ip}:{proxy_port}</div>
-                </div>
-                <div class="cred-row">
-                    <div class="cred-label">Protocol</div>
-                    <div class="cred-value">{protocol.upper()}</div>
-                </div>
-            </div>
-            
-            <table class="details-table">
-                <tr>
-                    <td>Plan</td>
-                    <td>{plan_code}</td>
-                </tr>
-                <tr>
-                    <td>Expires</td>
-                    <td>{expires_str}</td>
-                </tr>
-            </table>
-            
-            <p>You can now use your proxy. Need help getting started?</p>
-            
-            <div class="help-box">
-                <strong>Having issues?</strong> Reply to this email or WhatsApp us immediately. We'll help you sort it out!
-            </div>
-        </div>
-        
-        <div class="footer">
-            Styxproxy · Powered by Styxproxy<br>
-            © 2024 Styxproxy. All rights reserved.
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-    text = f"""Your Proxy is Ready! - {order_id}
-
-Hi {customer_name},
-
-Great news! Your proxy is now active.
-
-Order ID: {order_id}
-Plan: {plan_code}
-Expires: {expires_str}
-
-=== YOUR CREDENTIALS ===
-Username: {bun_username}
-Proxy: {proxy_ip}:{proxy_port}
-Protocol: {protocol.upper()}
-=========================
-
-You can now use your proxy.
-
-Having issues? Reply to this email or WhatsApp us immediately. We'll help you sort it out!
-
-- Styxproxy
-"""
-
-    return EmailContent(
-        subject=f"[Styxproxy] Your Proxy is Ready! - {order_id}",
-        html=html,
-        text=text,
-    )
-
-
-def _render_refund_processed_email(
-    customer_name: str,
-    order_id: str,
-    amount: float,
-    currency: str,
-    reason: str,
-) -> EmailContent:
-    """Render refund processed email to customer."""
-    base_styles = _get_base_styles()
-
-    html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Refund Processed</title>
-    <style>
-        {base_styles}
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header-bar" style="background: #f59e0b;">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar" style="background: #f59e0b;"></div>
-        
-        <div class="content-card warning">
-            <h1>💵 Refund Processed</h1>
-            <p class="muted-text" style="margin-top: -8px; margin-bottom: 24px;">Order {order_id}</p>
-            
-            <p>Hi {customer_name},</p>
-            
-            <p>Your refund has been processed successfully.</p>
-            
-            <div class="order-id">{order_id}</div>
-            
-            <div class="total-amount">{currency} {amount:,.2f}</div>
-            
-            <table class="details-table">
-                <tr>
-                    <td>Original Amount</td>
-                    <td>{currency} {amount:,.2f}</td>
-                </tr>
-                <tr>
-                    <td>Refund Amount</td>
-                    <td>{currency} {amount:,.2f}</td>
-                </tr>
-                <tr>
-                    <td>Reason</td>
-                    <td>{reason}</td>
-                </tr>
-            </table>
-            
-            <p>Please allow 5-10 business days for the refund to appear in your account.</p>
-            
-            <div class="help-box">
-                <strong>Questions about your refund?</strong> Reply to this email or WhatsApp us with your order ID.
-            </div>
-        </div>
-        
-        <div class="footer">
-            Styxproxy · Refund processed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
-            © 2024 Styxproxy. All rights reserved.
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-    text = f"""Refund Processed - {order_id}
-
-Hi {customer_name},
-
-Your refund has been processed successfully.
-
-Order ID: {order_id}
-Refund Amount: {currency} {amount:,.2f}
-Reason: {reason}
-
-Please allow 5-10 business days for the refund to appear in your account.
-
-Questions? Reply to this email or WhatsApp us with your order ID.
-
-- Styxproxy
-"""
-
-    return EmailContent(
-        subject=f"[Styxproxy] Refund Processed - {order_id}",
-        html=html,
-        text=text,
-    )
-
-
-def _render_credentials_rotated_email(
-    customer_name: str,
-    order_id: str,
-    new_username: str,
-    proxy_ip: str,
-    proxy_port: int,
-    protocol: str,
-) -> EmailContent:
-    """Render credentials rotated email to customer."""
-    base_styles = _get_base_styles()
-
-    html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Credentials Rotated</title>
-    <style>
-        {base_styles}
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header-bar" style="background: #0AD25A;">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar"></div>
-        
-        <div class="content-card info">
-            <h1>🔄 Credentials Rotated</h1>
-            <p class="muted-text" style="margin-top: -8px; margin-bottom: 24px;">Order {order_id}</p>
-            
-            <p>Hi {customer_name},</p>
-            
-            <p>Your proxy credentials have been rotated as requested.</p>
-            
-            <div class="order-id">{order_id}</div>
-            
-            <div class="credentials-box">
-                <div class="cred-row">
-                    <div class="cred-label">New Username</div>
-                    <div class="cred-value">{new_username}</div>
-                </div>
-                <div class="cred-row">
-                    <div class="cred-label">Proxy Address</div>
-                    <div class="cred-value">{proxy_ip}:{proxy_port}</div>
-                </div>
-                <div class="cred-row">
-                    <div class="cred-label">Protocol</div>
-                    <div class="cred-value">{protocol.upper()}</div>
-                </div>
-            </div>
-            
-            <div class="warning-box">
-                ⚠️ <strong>Important:</strong> Your password has been changed. Please update your proxy configuration with the new credentials.
-            </div>
-        </div>
-        
-        <div class="footer">
-            Styxproxy · Rotated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
-            © 2024 Styxproxy. All rights reserved.
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-    text = f"""Credentials Rotated - {order_id}
-
-Hi {customer_name},
-
-Your proxy credentials have been rotated as requested.
-
-Order ID: {order_id}
-
-=== NEW CREDENTIALS ===
-Username: {new_username}
-Proxy: {proxy_ip}:{proxy_port}
-Protocol: {protocol.upper()}
-=========================
-
-⚠️ IMPORTANT: Your password has been changed. Please update your proxy configuration with the new credentials.
-
-- Styxproxy
-"""
-
-    return EmailContent(
-        subject=f"[Styxproxy] Credentials Rotated - {order_id}",
-        html=html,
-        text=text,
-    )
-
-
 async def send_order_confirmation_email(
     customer_email: str,
     customer_name: str,
@@ -1522,7 +1897,7 @@ async def send_order_confirmation_email(
     currency: str,
     quantity: int,
 ) -> EmailResult:
-    """Send order confirmation email to customer (pending payment — one email, no credentials yet)."""
+    """Send order confirmation email to customer (pending payment)."""
     content = _render_order_confirmation_email(
         customer_name=customer_name,
         order_id=order_id,
@@ -1541,157 +1916,39 @@ async def send_order_confirmation_email(
     )
 
 
-async def send_order_active_email(
+async def send_proxy_credentials_email(
     customer_email: str,
     customer_name: str,
     order_id: str,
+    tx_ref: str,
     plan_code: str,
     amount: float,
     currency: str,
     quantity: int,
     bun_username: str,
+    bun_password: str,
     proxy_ip: str,
     proxy_port: int,
     protocol: str,
     expires_at: datetime,
+    payment_method: str = "Card / Bank / USSD / QR",
 ) -> EmailResult:
-    """Send order confirmation + credentials in ONE email when order is paid and proxy is active."""
-    expires_str = expires_at.strftime('%Y-%m-%d %H:%M UTC') if expires_at else "N/A"
-
-    base_styles = _get_base_styles()
-
-    # Combined HTML: order details header → credentials block
-    combined_html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Confirmed - Your Proxy is Ready</title>
-    <style>
-        {base_styles}
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header-bar" style="background: #0AD25A;">
-            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
-        </div>
-        <div class="accent-bar"></div>
-        
-        <div class="content-card success">
-            <h1>🎉 Payment Confirmed — Your Proxy is Ready!</h1>
-            <p class="muted-text" style="margin-top: -8px; margin-bottom: 24px;">Order {order_id}</p>
-            
-            <p>Hi {customer_name},</p>
-            
-            <p>Great news! Your payment has been confirmed and your proxy is now active. Here are your full order details and credentials:</p>
-            
-            <div class="order-id">{order_id}</div>
-            
-            <div class="credentials-box">
-                <div class="cred-row">
-                    <div class="cred-label">Username</div>
-                    <div class="cred-value">{bun_username}</div>
-                </div>
-                <div class="cred-row">
-                    <div class="cred-label">Proxy Address</div>
-                    <div class="cred-value">{proxy_ip}:{proxy_port}</div>
-                </div>
-                <div class="cred-row">
-                    <div class="cred-label">Protocol</div>
-                    <div class="cred-value">{protocol.upper()}</div>
-                </div>
-                <div class="cred-row" style="margin-bottom: 0;">
-                    <div class="cred-label">Expires</div>
-                    <div class="cred-value">{expires_str}</div>
-                </div>
-            </div>
-            
-            <table class="details-table">
-                <tr>
-                    <td>Plan</td>
-                    <td>{plan_code}</td>
-                </tr>
-                <tr>
-                    <td>Quantity</td>
-                    <td>{quantity}</td>
-                </tr>
-                <tr>
-                    <td>Amount Paid</td>
-                    <td style="font-size: 20px; color: #0AD25A;">{currency} {amount:,.2f}</td>
-                </tr>
-            </table>
-            
-            <div class="help-box">
-                <strong>Having issues?</strong> Reply to this email or WhatsApp us immediately. We'll help you get started!
-            </div>
-        </div>
-        
-        <div class="footer">
-            Styxproxy · Order confirmed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
-            © 2024 Styxproxy. All rights reserved.
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-    combined_text = f"""[Styxproxy] Payment Confirmed — Your Proxy is Ready! - {order_id}
-
-Hi {customer_name},
-
-Great news! Your payment has been confirmed and your proxy is now active.
-
-Order ID: {order_id}
-Plan: {plan_code}
-Quantity: {quantity}
-Amount Paid: {currency} {amount:,.2f}
-
-=== YOUR PROXY CREDENTIALS ===
-Username: {bun_username}
-Proxy: {proxy_ip}:{proxy_port}
-Protocol: {protocol.upper()}
-Expires: {expires_str}
-================================
-
-You can now use your proxy immediately.
-
-Having issues? Reply to this email or WhatsApp us immediately.
-
-- Styxproxy
-"""
-
-    recipient = EmailRecipient(email=customer_email, name=customer_name)
-    return await _send_via_resend(
-        recipient=recipient,
-        subject=f"[Styxproxy] Payment Confirmed — Your Proxy is Ready! - {order_id}",
-        html=combined_html,
-        text=combined_text,
-    )
-
-
-async def send_proxy_credentials_email(
-    customer_email: str,
-    customer_name: str,
-    order_id: str,
-    plan_code: str,
-    bun_username: str,
-    proxy_ip: str,
-    proxy_port: int,
-    protocol: str,
-    expires_at: datetime,
-) -> EmailResult:
-    """Send proxy credentials email to customer."""
+    """Send proxy credentials email to customer (order paid + active)."""
     content = _render_proxy_credentials_email(
         customer_name=customer_name,
         order_id=order_id,
+        tx_ref=tx_ref,
         plan_code=plan_code,
+        amount=amount,
+        currency=currency,
+        quantity=quantity,
         bun_username=bun_username,
+        bun_password=bun_password,
         proxy_ip=proxy_ip,
         proxy_port=proxy_port,
         protocol=protocol,
         expires_at=expires_at,
+        payment_method=payment_method,
     )
     recipient = EmailRecipient(email=customer_email, name=customer_name)
 
@@ -1707,7 +1964,8 @@ async def send_refund_processed_email(
     customer_email: str,
     customer_name: str,
     order_id: str,
-    amount: float,
+    original_amount: float,
+    refund_amount: float,
     currency: str,
     reason: str,
 ) -> EmailResult:
@@ -1715,7 +1973,8 @@ async def send_refund_processed_email(
     content = _render_refund_processed_email(
         customer_name=customer_name,
         order_id=order_id,
-        amount=amount,
+        original_amount=original_amount,
+        refund_amount=refund_amount,
         currency=currency,
         reason=reason,
     )
@@ -1734,6 +1993,7 @@ async def send_credentials_rotated_email(
     customer_name: str,
     order_id: str,
     new_username: str,
+    new_password: str,
     proxy_ip: str,
     proxy_port: int,
     protocol: str,
@@ -1743,6 +2003,7 @@ async def send_credentials_rotated_email(
         customer_name=customer_name,
         order_id=order_id,
         new_username=new_username,
+        new_password=new_password,
         proxy_ip=proxy_ip,
         proxy_port=proxy_port,
         protocol=protocol,
@@ -1767,12 +2028,11 @@ async def send_rotation_notification_email(
     order_id: str,
 ) -> EmailResult:
     """Send rotation notification email (alias for backward compatibility)."""
-    # This is used in orders.py but we don't have customer_name here
-    # Use a generic greeting since we don't have the name
     content = _render_credentials_rotated_email(
         customer_name="Customer",
         order_id=order_id,
         new_username=bun_username,
+        new_password=bun_password,
         proxy_ip=proxy_ip,
         proxy_port=proxy_port,
         protocol="socks5",
