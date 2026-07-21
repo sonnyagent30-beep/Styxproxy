@@ -710,23 +710,31 @@ class AdminRole(str, Enum):
 
 class AdminSetupRequest(BaseModel):
     """Request to set up initial admin credentials."""
-    invite_code: str = Field(..., min_length=8, max_length=32)
-    pin: str = Field(..., min_length=4, max_length=6)
+    invite_code: str = Field(..., min_length=8, max_length=64)
+    email: str = Field(..., pattern=r"^[^@]+@[^@]+\.[^@]+$")
+    password: str = Field(..., min_length=8, max_length=128)
     totp_code: Optional[str] = Field(None, min_length=6, max_length=6)
 
 
 class AdminSetupResponse(BaseModel):
     """Response after setting up admin credentials."""
-    admin_phone: str
+    email: str
     role: str
     totp_enabled: bool
     message: str
 
 
 class AdminLoginRequest(BaseModel):
-    """Request to log in as admin."""
+    """Legacy: Phone + PIN login (for migration only)."""
     admin_phone: str = Field(..., min_length=10, max_length=20)
     pin: str = Field(..., min_length=4, max_length=6)
+    totp_code: Optional[str] = Field(None, min_length=6, max_length=6)
+
+
+class AdminLoginEmailRequest(BaseModel):
+    """Email + password login (primary auth method)."""
+    email: str = Field(..., pattern=r"^[^@]+@[^@]+\.[^@]+$")
+    password: str = Field(..., min_length=1)
     totp_code: Optional[str] = Field(None, min_length=6, max_length=6)
 
 
@@ -734,7 +742,7 @@ class AdminLoginResponse(BaseModel):
     """Response after admin login."""
     access_token: str
     token_type: str = "bearer"
-    admin_phone: str
+    email: str
     role: str
     totp_enabled: bool
     expires_in: int
@@ -742,10 +750,10 @@ class AdminLoginResponse(BaseModel):
 
 class AdminMeResponse(BaseModel):
     """Response for /api/admin/auth/me endpoint."""
-    admin_phone: str
+    email: str
     role: str
     totp_enabled: bool
-    pin_set_at: Optional[datetime]
+    password_set_at: Optional[datetime]
     failed_attempts: int
     locked_until: Optional[datetime]
     created_at: datetime
@@ -753,9 +761,9 @@ class AdminMeResponse(BaseModel):
 
 
 class AdminChangePasswordRequest(BaseModel):
-    """Request to change admin PIN."""
-    current_pin: str = Field(..., min_length=4, max_length=6)
-    new_pin: str = Field(..., min_length=4, max_length=6)
+    """Request to change admin password."""
+    current_pin: str = Field(..., min_length=8, max_length=128)  # renamed for compat
+    new_pin: str = Field(..., min_length=8, max_length=128)
 
 
 class AdminChangePasswordResponse(BaseModel):
@@ -816,15 +824,15 @@ class AdminInvitesListResponse(BaseModel):
 
 
 class AdminInviteUseRequest(BaseModel):
-    """Request to use an invite code."""
-    invite_code: str = Field(..., min_length=8, max_length=32)
+    """Legacy: Use an invite code with phone (deprecated — use /setup instead)."""
+    invite_code: str = Field(..., min_length=8, max_length=64)
     admin_phone: str = Field(..., min_length=10, max_length=20)
     pin: str = Field(..., min_length=4, max_length=6)
 
 
 class AdminInviteUseResponse(BaseModel):
     """Response after using an invite code."""
-    admin_phone: str
+    email: str
     role: str
     message: str
 
@@ -876,7 +884,7 @@ class FeatureFlagCheckResponse(BaseModel):
 
 class AdminTeamMemberResponse(BaseModel):
     """Response for an admin team member."""
-    admin_phone: str
+    email: str
     role: str
     totp_enabled: bool
     failed_attempts: int
@@ -898,7 +906,7 @@ class AdminUpdateRoleRequest(BaseModel):
 
 class AdminUpdateRoleResponse(BaseModel):
     """Response after updating an admin's role."""
-    admin_phone: str
+    email: str
     role: str
     message: str
 
@@ -909,8 +917,8 @@ class AdminLockRequest(BaseModel):
 
 
 class AdminLockResponse(BaseModel):
-    """Response after locking/unlocking an admin."""
-    admin_phone: str
+    """Response after locking/unlocking an admin account."""
+    email: str
     locked: bool
     locked_until: Optional[datetime]
     message: str
