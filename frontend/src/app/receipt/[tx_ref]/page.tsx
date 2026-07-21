@@ -5,7 +5,7 @@ import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://bunche.railway.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.styxproxy.com';
 
 interface OrderData {
   order_id?: string;

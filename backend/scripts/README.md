@@ -1,4 +1,4 @@
-# Bunche Backend Scripts
+# Styxproxy Backend Scripts
 
 Author: Oyebiyi Ayomide
 

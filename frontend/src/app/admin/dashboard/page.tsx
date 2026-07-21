@@ -47,7 +47,7 @@ export default function AdminDashboardPage() {
         <h1 className="text-3xl lg:text-4xl font-bold mb-2">
           Dashboard <span className="gradient-text">Overview</span>
         </h1>
-        <p className="text-[var(--muted)]">Monitor your Bunche business</p>
+        <p className="text-[var(--muted)]">Monitor your Styxproxy business</p>
       </div>
 
       {error && (

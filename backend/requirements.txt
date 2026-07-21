@@ -1,4 +1,4 @@
-# Bunche Backend Dependencies
+# Styxproxy Backend Dependencies
 # Pinned versions for reproducibility
 
 # Web Framework
