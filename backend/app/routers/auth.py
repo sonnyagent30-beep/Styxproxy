@@ -13,6 +13,7 @@ from app.database import get_session
 from app.models import AdminAuth, AdminInvite, FeatureFlag
 from app.schemas import (
     AdminLoginRequest,
+    AdminLoginEmailRequest,
     AdminLoginResponse,
     AdminMeResponse,
     AdminSetupRequest,
@@ -73,7 +74,7 @@ class RoleChecker:
         token = credentials.credentials
         payload = decode_access_token(token)
 
-        admin_phone = payload.get("admin_phone")
+        admin_email = payload.get("email")
         role = payload.get("role", "viewer")
 
         if role not in self.allowed_roles:
@@ -82,8 +83,8 @@ class RoleChecker:
                 detail=f"Role '{role}' not authorized. Required roles: {self.allowed_roles}",
             )
 
-        # Get admin from database
-        stmt = select(AdminAuth).where(AdminAuth.admin_phone == admin_phone)
+        # Get admin from database by email
+        stmt = select(AdminAuth).where(AdminAuth.email == admin_email)
         result = await session.execute(stmt)
         admin = result.scalar_one_or_none()
 
@@ -93,14 +94,14 @@ class RoleChecker:
                 detail="Admin not found",
             )
 
-        if admin.locked_until and admin.locked_until > datetime.utcnow():
+        if admin.locked_until and admin.locked_until > datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account is locked",
             )
 
         return {
-            "admin_phone": admin_phone,
+            "email": admin_email,
             "role": role,
             "admin": admin,
         }
@@ -121,7 +122,7 @@ def generate_invite_code(length: int = 16) -> str:
 
 
 def create_admin_access_token(
-    admin_phone: str,
+    email: str,
     role: str,
     expires_delta: Optional[timedelta] = None,
 ) -> str:
@@ -134,8 +135,8 @@ def create_admin_access_token(
         )
 
     to_encode = {
-        "sub": admin_phone,
-        "admin_phone": admin_phone,
+        "sub": email,
+        "email": email,
         "role": role,
         "exp": expire,
         "iat": datetime.now(timezone.utc),
@@ -177,50 +178,49 @@ async def setup_admin(
             detail="Invalid invite code",
         )
 
-    if invite.used_at and invite.uses_count >= invite.max_uses:
+    if invite.uses_count >= invite.max_uses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invite code already used",
         )
 
-    if invite.expires_at and invite.expires_at < datetime.utcnow():
+    if invite.expires_at and invite.expires_at < datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invite code expired",
         )
 
-    # Check if admin already exists
-    stmt = select(AdminAuth).where(AdminAuth.admin_phone == request.admin_phone)
+    # Check if admin with this email already exists
+    stmt = select(AdminAuth).where(AdminAuth.email == request.email)
     result = await session.execute(stmt)
     existing_admin = result.scalar_one_or_none()
 
     if existing_admin:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Admin with this phone already exists",
+            detail="Admin with this email already exists",
         )
 
-    # Create admin
-    pin_hash = get_password_hash(request.pin)
+    # Create admin with email + password auth
+    password_hash = get_password_hash(request.password)
     admin = AdminAuth(
-        admin_phone=request.admin_phone,
-        pin_hash=pin_hash,
-        pin_set_at=datetime.utcnow(),
+        email=request.email,
+        password_hash=password_hash,
     )
     session.add(admin)
 
     # Mark invite as used
     invite.uses_count += 1
-    invite.used_at = datetime.utcnow()
-    invite.used_by = request.admin_phone
+    invite.used_at = datetime.now(timezone.utc)
+    invite.used_by = request.email
 
     await session.commit()
 
     return AdminSetupResponse(
-        admin_phone=request.admin_phone,
-        role=invite.role,
+        email=request.email,
+        role=invite.role or "admin",
         totp_enabled=False,
-        message="Admin account created successfully",
+        message="Admin account created successfully. Set up TOTP for extra security.",
     )
 
 
@@ -229,8 +229,8 @@ async def login_admin(
     request: AdminLoginRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    """Log in as admin."""
-    # Get admin
+    """Legacy login: phone + PIN (for backward compat during migration)."""
+    # Get admin by phone
     stmt = select(AdminAuth).where(AdminAuth.admin_phone == request.admin_phone)
     result = await session.execute(stmt)
     admin = result.scalar_one_or_none()
@@ -242,7 +242,7 @@ async def login_admin(
         )
 
     # Check if locked
-    if admin.locked_until and admin.locked_until > datetime.utcnow():
+    if admin.locked_until and admin.locked_until > datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is locked. Try again later.",
@@ -251,42 +251,26 @@ async def login_admin(
     # Verify PIN
     if not admin.pin_hash or not verify_password(request.pin, admin.pin_hash):
         admin.failed_attempts += 1
-
-        # Lock after 5 failed attempts
         if admin.failed_attempts >= 5:
-            admin.locked_until = datetime.utcnow() + timedelta(minutes=15)
-
+            admin.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
         await session.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
         )
 
-    # Verify TOTP if enabled
-    if admin.totp_enabled:
-        if not request.totp_code:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="TOTP code required",
-            )
+    # TOTP check
+    if admin.totp_enabled and not request.totp_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="TOTP code required",
+        )
 
-        # TODO: Implement TOTP verification using pyotp
-        # For now, we'll skip this check if TOTP is enabled
-        # import pyotp
-        # totp = pyotp.TOTP(admin.totp_secret)
-        # if not totp.verify(request.totp_code):
-        #     raise HTTPException(
-        #         status_code=status.HTTP_401_UNAUTHORIZED,
-        #         detail="Invalid TOTP code",
-        #     )
-
-    # Reset failed attempts on successful login
+    # Reset failed attempts
     admin.failed_attempts = 0
-    admin.last_used = datetime.utcnow()
+    admin.last_used = datetime.now(timezone.utc)
     await session.commit()
 
-    # Create token
-    # Get role from invite if admin was just created
     role = "admin"
     stmt = select(AdminInvite).where(AdminInvite.used_by == request.admin_phone)
     result = await session.execute(stmt)
@@ -294,11 +278,82 @@ async def login_admin(
     if invite:
         role = invite.role
 
-    token = create_admin_access_token(request.admin_phone, role)
+    token = create_admin_access_token(admin.email or request.admin_phone, role)
 
     return AdminLoginResponse(
         access_token=token,
-        admin_phone=request.admin_phone,
+        email=admin.email or request.admin_phone,
+        role=role,
+        totp_enabled=admin.totp_enabled,
+        expires_in=settings.jwt_expire_minutes * 60,
+    )
+
+
+@router.post("/login/email", response_model=AdminLoginResponse)
+async def login_admin_email(
+    request: AdminLoginEmailRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Primary login: email + password + optional TOTP."""
+    # Get admin by email
+    stmt = select(AdminAuth).where(AdminAuth.email == request.email)
+    result = await session.execute(stmt)
+    admin = result.scalar_one_or_none()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+
+    # Check if locked
+    if admin.locked_until and admin.locked_until > datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is locked. Try again later.",
+        )
+
+    # Verify password
+    if not admin.password_hash or not verify_password(request.password, admin.password_hash):
+        admin.failed_attempts += 1
+        if admin.failed_attempts >= 5:
+            admin.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+        await session.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+
+    # TOTP check
+    if admin.totp_enabled:
+        if not request.totp_code:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="TOTP code required",
+            )
+        # TODO: Implement TOTP verification using pyotp
+        # import pyotp
+        # totp = pyotp.TOTP(admin.totp_secret)
+        # if not totp.verify(request.totp_code):
+        #     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid TOTP code")
+
+    # Reset failed attempts
+    admin.failed_attempts = 0
+    admin.last_used = datetime.now(timezone.utc)
+    await session.commit()
+
+    role = "admin"
+    stmt = select(AdminInvite).where(AdminInvite.used_by == request.email)
+    result = await session.execute(stmt)
+    invite = result.scalar_one_or_none()
+    if invite:
+        role = invite.role
+
+    token = create_admin_access_token(request.email, role)
+
+    return AdminLoginResponse(
+        access_token=token,
+        email=request.email,
         role=role,
         totp_enabled=admin.totp_enabled,
         expires_in=settings.jwt_expire_minutes * 60,
@@ -314,10 +369,10 @@ async def get_current_admin(
     admin = current_admin["admin"]
 
     return AdminMeResponse(
-        admin_phone=admin.admin_phone,
+        email=admin.email or "",
         role=current_admin["role"],
         totp_enabled=admin.totp_enabled,
-        pin_set_at=admin.pin_set_at,
+        password_set_at=admin.pin_set_at,
         failed_attempts=admin.failed_attempts,
         locked_until=admin.locked_until,
         created_at=admin.created_at,
@@ -331,23 +386,23 @@ async def change_password(
     current_admin: dict = Depends(require_viewer),
     session: AsyncSession = Depends(get_session),
 ):
-    """Change admin PIN."""
+    """Change admin password."""
     admin = current_admin["admin"]
 
-    # Verify current PIN
-    if not verify_password(request.current_pin, admin.pin_hash):
+    # Verify current password
+    if not verify_password(request.current_pin, admin.password_hash or admin.pin_hash or ""):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Current PIN is incorrect",
+            detail="Current password is incorrect",
         )
 
-    # Update PIN
-    admin.pin_hash = get_password_hash(request.new_pin)
-    admin.pin_set_at = datetime.utcnow()
+    # Update password
+    admin.password_hash = get_password_hash(request.new_pin)
+    admin.pin_set_at = datetime.now(timezone.utc)
     await session.commit()
 
     return AdminChangePasswordResponse(
-        message="PIN changed successfully",
+        message="Password changed successfully",
         pin_set_at=admin.pin_set_at,
     )
 
@@ -371,7 +426,7 @@ async def change_totp(
         # TODO: Implement TOTP setup
         # For now, we'll just enable it without verification
         admin.totp_enabled = True
-        admin.totp_set_at = datetime.utcnow()
+        admin.totp_set_at = datetime.now(timezone.utc)
         message = "TOTP enabled successfully"
     else:
         admin.totp_enabled = False
@@ -397,13 +452,13 @@ async def create_invite(
 ):
     """Create an admin invite code."""
     invite_code = generate_invite_code()
-    expires_at = datetime.utcnow() + timedelta(hours=request.expires_in_hours)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=request.expires_in_hours)
 
     invite = AdminInvite(
         invite_code=invite_code,
         email=request.email,
         role=request.role.value,
-        created_by=current_admin["admin_phone"],
+        created_by=current_admin["email"],
         expires_at=expires_at,
         max_uses=request.max_uses,
     )
@@ -416,7 +471,7 @@ async def create_invite(
         role=request.role.value,
         expires_at=expires_at,
         max_uses=request.max_uses,
-        created_by=current_admin["admin_phone"],
+        created_by=current_admin["email"],
     )
 
 
@@ -501,14 +556,14 @@ async def list_team(
     # Get roles from invites
     members = []
     for admin in admins:
-        stmt = select(AdminInvite).where(AdminInvite.used_by == admin.admin_phone)
+        stmt = select(AdminInvite).where(AdminInvite.used_by == (admin.email or admin.admin_phone))
         result = await session.execute(stmt)
         invite = result.scalar_one_or_none()
         role = invite.role if invite else "admin"
 
         members.append(
             AdminTeamMemberResponse(
-                admin_phone=admin.admin_phone,
+                email=admin.email or "",
                 role=role,
                 totp_enabled=admin.totp_enabled,
                 failed_attempts=admin.failed_attempts,
@@ -531,15 +586,15 @@ async def list_team(
     )
 
 
-@router.patch("/team/{admin_phone}/role", response_model=AdminUpdateRoleResponse)
+@router.patch("/team/{admin_email}/role", response_model=AdminUpdateRoleResponse)
 async def update_team_member_role(
-    admin_phone: str,
+    admin_email: str,
     request: AdminUpdateRoleRequest,
     current_admin: dict = Depends(require_superadmin),
     session: AsyncSession = Depends(get_session),
 ):
-    """Update an admin's role."""
-    stmt = select(AdminAuth).where(AdminAuth.admin_phone == admin_phone)
+    """Update an admin's role by email."""
+    stmt = select(AdminAuth).where(AdminAuth.email == admin_email)
     result = await session.execute(stmt)
     admin = result.scalar_one_or_none()
 
@@ -550,7 +605,7 @@ async def update_team_member_role(
         )
 
     # Update role in invite table
-    stmt = select(AdminInvite).where(AdminInvite.used_by == admin_phone)
+    stmt = select(AdminInvite).where(AdminInvite.used_by == admin_email)
     result = await session.execute(stmt)
     invite = result.scalar_one_or_none()
 
@@ -560,21 +615,21 @@ async def update_team_member_role(
     await session.commit()
 
     return AdminUpdateRoleResponse(
-        admin_phone=admin_phone,
+        email=admin_email,
         role=request.role.value,
         message=f"Role updated to {request.role.value}",
     )
 
 
-@router.post("/team/{admin_phone}/lock", response_model=AdminLockResponse)
+@router.post("/team/{admin_email}/lock", response_model=AdminLockResponse)
 async def lock_team_member(
-    admin_phone: str,
+    admin_email: str,
     request: AdminLockRequest,
     current_admin: dict = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    """Lock or unlock an admin account."""
-    stmt = select(AdminAuth).where(AdminAuth.admin_phone == admin_phone)
+    """Lock or unlock an admin account by email."""
+    stmt = select(AdminAuth).where(AdminAuth.email == admin_email)
     result = await session.execute(stmt)
     admin = result.scalar_one_or_none()
 
@@ -582,10 +637,10 @@ async def lock_team_member(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Admin not found",
-    )
+        )
 
     if request.action == "lock":
-        admin.locked_until = datetime.utcnow() + timedelta(days=365)  # Lock for 1 year
+        admin.locked_until = datetime.now(timezone.utc) + timedelta(days=365)
         locked = True
         message = "Admin account locked"
     else:
@@ -597,7 +652,7 @@ async def lock_team_member(
     await session.commit()
 
     return AdminLockResponse(
-        admin_phone=admin_phone,
+        email=admin_email,
         locked=locked,
         locked_until=admin.locked_until,
         message=message,
@@ -741,7 +796,7 @@ async def check_feature_flag(
 
     # Check admin overrides
     enabled = flag.enabled
-    if flag.admin_overrides and current_admin["admin_phone"] in flag.admin_overrides:
+    if flag.admin_overrides and current_admin["email"] in flag.admin_overrides:
         enabled = True
 
     return FeatureFlagCheckResponse(name=flag_name, enabled=enabled)

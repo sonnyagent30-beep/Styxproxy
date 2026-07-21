@@ -424,9 +424,20 @@ class AdminAuth(Base):
     __tablename__ = "admin_auth"
     __table_args__ = (
         Index("idx_admin_auth_locked", "locked_until"),
+        Index("idx_admin_auth_email", "email", unique=True),
     )
 
-    admin_phone: Mapped[str] = mapped_column(String(20), primary_key=True)
+    # UUID primary key
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    # Legacy: phone kept for backward compat during migration
+    admin_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # Primary identity (unique, used for login)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Password auth (replaces pin_hash)
+    password_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Legacy: kept for migration path
     pin_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     pin_set_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
