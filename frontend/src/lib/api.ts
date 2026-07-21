@@ -39,7 +39,9 @@ import type {
   EscalationsResponse,
 } from '@/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Admin API calls go through Next.js middleware (src/middleware.ts)
+// which rewrites /api/admin/* → https://api.styxproxy.com/api/admin/*
+const API_BASE_URL = ''; // relative — browser always talks to same origin
 
 class ApiClient {
   private baseUrl: string;
