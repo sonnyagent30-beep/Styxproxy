@@ -245,7 +245,7 @@ class ApiClient {
     return this.request('/api/admin/auth/status');
   }
 
-  // Initial admin setup (first time)
+  // Initial admin setup (email-based)
   async setupAdmin(data: AdminSetupRequest): Promise<ApiResponse<AdminSetupResponse>> {
     return this.request<AdminSetupResponse>('/api/admin/auth/setup', {
       method: 'POST',
@@ -253,7 +253,7 @@ class ApiClient {
     });
   }
 
-  // Admin login
+  // Admin login (email-based)
   async adminLogin(data: AdminLoginRequest): Promise<ApiResponse<AdminLoginResponse>> {
     return this.request<AdminLoginResponse>('/api/admin/auth/login', {
       method: 'POST',

@@ -17,9 +17,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Pages that don't require auth
+  const publicAdminPages = ['/admin/login', '/admin/setup'];
   useEffect(() => {
+    if (publicAdminPages.some(p => pathname?.startsWith(p))) {
+      setLoading(false);
+      return;
+    }
     checkAuth();
-  }, []);
+  }, [pathname]);
 
   const checkAuth = async () => {
     const token = api.getAdminToken();
@@ -85,7 +91,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="font-bold">Bunche Admin</span>
+          <span className="font-bold">Styxproxy Admin</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-[var(--muted)]">{admin?.role}</span>
@@ -105,7 +111,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b border-[var(--border)]">
           <Link href="/admin/dashboard" className="text-xl font-bold">
-            Bunche <span className="gradient-text">Admin</span>
+            Styxproxy <span className="gradient-text">Admin</span>
           </Link>
         </div>
 
@@ -134,7 +140,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <div className="p-4 border-t border-[var(--border)]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-sm">{admin?.admin_phone}</p>
+              <p className="font-medium text-sm">{admin?.email}</p>
               <p className="text-xs text-[var(--muted)] capitalize">{admin?.role}</p>
             </div>
             <button

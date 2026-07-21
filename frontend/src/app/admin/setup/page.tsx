@@ -6,10 +6,11 @@ import api from '@/lib/api';
 
 export default function AdminSetupPage() {
   const router = useRouter();
-  const [step, setStep] = useState<'invite' | 'pin' | 'totp'>('invite');
+  const [step, setStep] = useState<'invite' | 'credentials' | 'totp'>('invite');
   const [inviteCode, setInviteCode] = useState('');
-  const [pin, setPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -41,22 +42,28 @@ export default function AdminSetupPage() {
     }
 
     // Store invite code temporarily and move to next step
-    setStep('pin');
+    setStep('credentials');
     setLoading(false);
   };
 
-  const handlePinSubmit = async (e: React.FormEvent) => {
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    // Validate PIN
-    if (pin.length < 4 || pin.length > 6) {
-      setError('PIN must be 4-6 digits');
+    // Validate email
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address');
       return;
     }
 
-    if (pin !== confirmPin) {
-      setError('PINs do not match');
+    // Validate password
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
@@ -72,7 +79,8 @@ export default function AdminSetupPage() {
     try {
       const result = await api.setupAdmin({
         invite_code: inviteCode,
-        pin,
+        email,
+        password,
         totp_code: totpCode || undefined,
       });
 
@@ -97,7 +105,7 @@ export default function AdminSetupPage() {
         {/* Logo / Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">
-            Bunche <span className="gradient-text">Admin</span>
+            Styxproxy <span className="gradient-text">Admin</span>
           </h1>
           <p className="text-[var(--muted)]">Set up your admin account</p>
         </div>
@@ -105,7 +113,7 @@ export default function AdminSetupPage() {
         {/* Steps indicator */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className={`w-3 h-3 rounded-full ${step === 'invite' ? 'bg-[var(--primary)]' : 'bg-[var(--primary)]/30'}`} />
-          <div className={`w-3 h-3 rounded-full ${step === 'pin' ? 'bg-[var(--primary)]' : 'bg-[var(--primary)]/30'}`} />
+          <div className={`w-3 h-3 rounded-full ${step === 'credentials' ? 'bg-[var(--primary)]' : 'bg-[var(--primary)]/30'}`} />
           <div className={`w-3 h-3 rounded-full ${step === 'totp' ? 'bg-[var(--primary)]' : 'bg-[var(--primary)]/30'}`} />
         </div>
 
@@ -150,29 +158,41 @@ export default function AdminSetupPage() {
             </form>
           )}
 
-          {step === 'pin' && (
-            <form onSubmit={handlePinSubmit} className="space-y-6">
+          {step === 'credentials' && (
+            <form onSubmit={handleCredentialsSubmit} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium mb-2">Create PIN</label>
+                <label className="block text-sm font-medium mb-2">Email</label>
                 <input
-                  type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="4-6 digit PIN"
-                  maxLength={6}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@example.com"
                   className="w-full px-4 py-3 rounded-xl bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Confirm PIN</label>
+                <label className="block text-sm font-medium mb-2">Password</label>
                 <input
                   type="password"
-                  value={confirmPin}
-                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="Re-enter PIN"
-                  maxLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Minimum 8 characters"
+                  minLength={8}
+                  className="w-full px-4 py-3 rounded-xl bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter password"
+                  minLength={8}
                   className="w-full px-4 py-3 rounded-xl bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
                   required
                 />
@@ -225,7 +245,7 @@ export default function AdminSetupPage() {
 
               <button
                 type="button"
-                onClick={() => setStep('pin')}
+                onClick={() => setStep('credentials')}
                 className="w-full py-2 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
               >
                 ← Back
@@ -237,7 +257,7 @@ export default function AdminSetupPage() {
         {/* Back to site */}
         <div className="mt-6 text-center">
           <a href="/" className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors">
-            ← Back to Bunche
+            ← Back to Styxproxy
           </a>
         </div>
       </div>
