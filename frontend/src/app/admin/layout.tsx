@@ -18,18 +18,46 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Pages that don't require auth — render empty (no nav shell)
-  const publicAdminPages = ['/admin/login', '/admin/setup', '/admin/reset-password'];
+  // `/admin/login` is always public.
+  // `/admin/setup` is only public when the system actually needs setup
+  // (no admin exists yet). Once an admin exists, the setup page itself
+  // redirects to /admin/login via checkSetupStatus().
+  const alwaysPublicAdminPages = ['/admin/login'];
+  const [setupRequired, setSetupRequired] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (publicAdminPages.some((p) => pathname?.startsWith(p))) {
+    const isPublic = (path: string) =>
+      alwaysPublicAdminPages.some((p) => path?.startsWith(p)) ||
+      (path?.startsWith('/admin/setup') && setupRequired === true);
+
+    if (alwaysPublicAdminPages.some((p) => pathname?.startsWith(p))) {
       setLoading(false);
       return;
     }
-    // Set loading true immediately to prevent flash of protected content
+
+    // /admin/setup: check if setup is required (no admin exists yet)
+    if (pathname?.startsWith('/admin/setup')) {
+      checkSetupRequired();
+      return;
+    }
+
+    // Protected pages: full auth check
     setLoading(true);
     checkAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, setupRequired]);
+
+  const checkSetupRequired = async () => {
+    const result = await api.checkAdminSetupStatus();
+    if (result.data?.setup_required === true) {
+      // No admin yet — allow setup page to render
+      setSetupRequired(true);
+      setLoading(false);
+    } else {
+      // Admin exists — redirect to login
+      router.push('/admin/login');
+    }
+  };
 
   const checkAuth = async () => {
     const token = api.getAdminToken();
@@ -77,7 +105,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   ];
 
   // ── Public pages: no nav shell ──────────────────────────────────────────────
-  if (loading && publicAdminPages.every((p) => !pathname?.startsWith(p))) {
+  const isPublicPage =
+    alwaysPublicAdminPages.some((p) => pathname?.startsWith(p)) ||
+    (pathname?.startsWith('/admin/setup') && setupRequired === true);
+
+  if (loading && !isPublicPage) {
     return (
       <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
         <div className="animate-pulse text-[var(--muted)]">Loading...</div>
@@ -95,7 +127,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   // ── Public pages after loading: plain page, no nav ─────────────────────────
-  if (publicAdminPages.some((p) => pathname?.startsWith(p))) {
+  if (isPublicPage) {
     return <>{children}</>;
   }
 
