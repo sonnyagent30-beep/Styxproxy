@@ -495,6 +495,28 @@ async def login_admin_email(
     )
 
 
+@router.post("/unlock/{email}")
+async def unlock_admin_account(
+    email: str,
+    secret: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """Emergency unlock endpoint — requires admin_token as secret."""
+    if secret != settings.admin_token:
+        raise HTTPException(status_code=403, detail="Invalid secret")
+
+    stmt = select(AdminAuth).where(AdminAuth.email == email)
+    result = await session.execute(stmt)
+    admin = result.scalar_one_or_none()
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found")
+
+    admin.failed_attempts = 0
+    admin.locked_until = None
+    await session.commit()
+    return {"message": "Account unlocked", "email": email}
+
+
 @router.get("/me", response_model=AdminMeResponse)
 async def get_current_admin(
     current_admin: dict = Depends(require_viewer),

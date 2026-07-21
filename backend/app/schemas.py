@@ -779,7 +779,7 @@ class AdminMeResponse(BaseModel):
     email: str
     role: str
     totp_enabled: bool
-    password_set_at: Optional[datetime]
+    password_set_at: Optional[datetime] = None
     failed_attempts: int
     locked_until: Optional[datetime]
     created_at: datetime
