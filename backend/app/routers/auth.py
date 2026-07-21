@@ -466,11 +466,16 @@ async def login_admin_email(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="TOTP code required",
             )
-        # TODO: Implement TOTP verification using pyotp
-        # import pyotp
-        # totp = pyotp.TOTP(admin.totp_secret)
-        # if not totp.verify(request.totp_code):
-        #     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid TOTP code")
+        # TOTP verification
+        import pyotp
+        if not admin.totp_secret:
+            raise HTTPException(status_code=500, detail="TOTP secret missing")
+        totp = pyotp.TOTP(admin.totp_secret)
+        if not totp.verify(request.totp_code, valid_window=1):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid TOTP code",
+            )
 
     # Reset failed attempts
     admin.failed_attempts = 0
