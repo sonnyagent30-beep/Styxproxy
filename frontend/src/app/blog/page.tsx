@@ -60,6 +60,8 @@ async function getTags(): Promise<string[]> {
   return getAllTags();
 }
 
+export const dynamic = 'force-dynamic';
+
 export default async function BlogPage() {
   const [postsData, tags] = await Promise.all([getPosts(), getTags()]);
 
