@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     # ── Resend (required for email) ─────────────────────────────────────────
     resend_api_key: str = ""
     from_email: str = "Styxproxy <noreply@styxproxy.com>"
-    admin_email: str = "oyebiyiayomide30@gmail.com"
+    support_email: str = "support@styxproxy.com"
+    admin_email: str = "support@styxproxy.com"
 
     # ── Proxy Provider ───────────────────────────────────────────────────────
     # API credentials for the proxy provider (Proxy-Seller / DataImpulse / etc.)

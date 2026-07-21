@@ -607,7 +607,7 @@ def _render_support_footer() -> str:
             </div>
             <div class="support-row">
                 <span class="support-label">Email:</span>
-                <span style="color: var(--brand-foreground);">oyebiyiayomide30@gmail.com</span>
+                <a href="mailto:support@styxproxy.com" class="support-link">support@styxproxy.com</a>
             </div>
             <div class="support-row" style="margin-bottom: 0;">
                 <span class="support-label">Web:</span>
