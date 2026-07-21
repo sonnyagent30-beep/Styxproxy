@@ -6,17 +6,323 @@ Provides transactional email functionality:
 - Admin notifications (orders, refunds, etc.)
 """
 import logging
+import base64
+import io
 from datetime import datetime
 from enum import Enum
 from typing import Optional
 
 import httpx
+from PIL import Image
 from pydantic import BaseModel, EmailStr
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+# =============================================================================
+# Logo processing for inline embedding
+# =============================================================================
+def _get_logo_b64() -> str:
+    """Process and return the Styxproxy logo as base64 PNG."""
+    logo = Image.open("/app/app/assets/styxproxy_logo.png")
+    scale_y = logo.size[1] / 3264
+    crop_y = int(377 * scale_y)
+    crop_h = int(877 * scale_y)
+    cropped = logo.crop((0, crop_y, logo.size[0], crop_y + crop_h))
+    cropped = cropped.resize((480, 137), Image.LANCZOS)
+    buf = io.BytesIO()
+    cropped.save(buf, format="PNG", optimize=True)
+    buf.seek(0)
+    return base64.b64encode(buf.read()).decode()
+
+
+# Cache the logo at module load time
+LOGO_B64 = _get_logo_b64()
+
+
+# =============================================================================
+# Base email template components
+# =============================================================================
+def _get_base_styles() -> str:
+    """Get the base CSS styles for all emails - Styxproxy Dark Theme."""
+    return """
+        /* Reset and base styles */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* Styxproxy Brand Colors - Dark Theme */
+        :root {
+            --brand-primary: #0AD25A;
+            --brand-primary-dark: #059669;
+            --brand-primary-light: #22FF7A;
+            --brand-accent: #f59e0b;
+            --brand-bg: #000000;
+            --brand-surface: #111111;
+            --brand-card: #1a1a1a;
+            --brand-card-hover: #252525;
+            --brand-border: #2a2a2a;
+            --brand-foreground: #f5f5f5;
+            --brand-muted: #737373;
+            --brand-success: #22c55e;
+            --brand-warning: #f59e0b;
+            --brand-error: #ef4444;
+        }
+        
+        /* Dark theme (default) */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #f5f5f5;
+            background-color: #000000;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header-bar {
+            background: #0AD25A;
+            padding: 0;
+            text-align: center;
+        }
+        
+        .header-bar img {
+            display: block;
+            width: 100%;
+            max-width: 480px;
+            height: auto;
+        }
+        
+        .accent-bar {
+            height: 4px;
+            background: linear-gradient(90deg, #0AD25A 0%, #22FF7A 100%);
+        }
+        
+        .content-card {
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 32px 24px;
+            margin-top: 0;
+        }
+        
+        .content-card.escalation {
+            border-top: 4px solid #ef4444;
+        }
+        
+        .content-card.success {
+            border-top: 4px solid #22c55e;
+        }
+        
+        .content-card.warning {
+            border-top: 4px solid #f59e0b;
+        }
+        
+        .content-card.info {
+            border-top: 4px solid #0AD25A;
+        }
+        
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #f5f5f5;
+            margin-bottom: 8px;
+        }
+        
+        h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #f5f5f5;
+            margin-bottom: 16px;
+        }
+        
+        p {
+            margin-bottom: 16px;
+            color: #a3a3a3;
+        }
+        
+        .field {
+            margin-bottom: 16px;
+        }
+        
+        .label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #737373;
+            margin-bottom: 4px;
+        }
+        
+        .value {
+            font-size: 16px;
+            color: #f5f5f5;
+        }
+        
+        .message-box {
+            background: #111111;
+            border-left: 4px solid #0AD25A;
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 16px 0;
+            color: #f5f5f5;
+        }
+        
+        .credentials-box {
+            background: #111111;
+            border: 1px solid #2a2a2a;
+            border-left: 4px solid #0AD25A;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .cred-row {
+            margin-bottom: 16px;
+        }
+        
+        .cred-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .cred-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #737373;
+            margin-bottom: 6px;
+        }
+        
+        .cred-value {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 15px;
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            padding: 10px 14px;
+            border-radius: 6px;
+            word-break: break-all;
+            color: #f5f5f5;
+        }
+        
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .details-table tr {
+            border-bottom: 1px solid #2a2a2a;
+        }
+        
+        .details-table td {
+            padding: 12px 0;
+        }
+        
+        .details-table td:first-child {
+            color: #737373;
+            font-weight: 500;
+        }
+        
+        .details-table td:last-child {
+            text-align: right;
+            font-weight: 600;
+            color: #f5f5f5;
+        }
+        
+        .total-amount {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0AD25A;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .order-id {
+            background: #0AD25A;
+            color: #000000;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 16px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            word-break: break-all;
+            font-weight: 600;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: #0AD25A;
+            color: #000000;
+            font-weight: 700;
+            padding: 14px 28px;
+            border-radius: 8px;
+            text-decoration: none;
+            margin: 16px 0;
+        }
+        
+        .cta-button:hover {
+            background: #22FF7A;
+        }
+        
+        .warning-box {
+            background: #1a1a1a;
+            border-left: 4px solid #f59e0b;
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #f59e0b;
+        }
+        
+        .help-box {
+            background: #111111;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #a3a3a3;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 24px 20px;
+            color: #737373;
+            font-size: 12px;
+        }
+        
+        .footer a {
+            color: #0AD25A;
+            text-decoration: none;
+        }
+        
+        .social-links {
+            margin-top: 12px;
+        }
+        
+        .social-links a {
+            display: inline-block;
+            margin: 0 8px;
+            color: #737373;
+            text-decoration: none;
+        }
+        
+        .muted-text {
+            color: #737373;
+            font-size: 14px;
+        }
+        
+        .link-text {
+            color: #0AD25A;
+            word-break: break-all;
+        }
+    """
 
 
 class EmailTemplate(str, Enum):
@@ -139,50 +445,61 @@ def _render_contact_form_email(
     message: str,
     phone: Optional[str] = None,
 ) -> EmailContent:
-    """Render contact form submission email."""
-    phone_html = f"<p><strong>Phone:</strong> {phone}</p>" if phone else ""
+    """Render contact form submission email (to admin)."""
+    phone_html = f"""<div class="field">
+                        <div class="label">Phone</div>
+                        <div class="value">{phone}</div>
+                    </div>""" if phone else ""
+
+    base_styles = _get_base_styles()
 
     html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: #1a1a2e; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
-            .content {{ background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }}
-            .field {{ margin-bottom: 15px; }}
-            .label {{ font-weight: bold; color: #555; }}
-            .message {{ background: white; padding: 15px; border-radius: 4px; border-left: 4px solid #1a1a2e; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin:0;">📬 New Contact Form Submission</h2>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Contact Form Submission</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
+        </div>
+        <div class="accent-bar"></div>
+        
+        <div class="content-card">
+            <h1>📬 New Contact Form Submission</h1>
+            
+            <div class="field">
+                <div class="label">Name</div>
+                <div class="value">{name}</div>
             </div>
-            <div class="content">
-                <div class="field">
-                    <span class="label">Name:</span> {name}
-                </div>
-                <div class="field">
-                    <span class="label">Email:</span> <a href="mailto:{email}">{email}</a>
-                </div>
-                {phone_html}
-                <div class="field">
-                    <span class="label">Message:</span>
-                    <div class="message">{message.replace(chr(10), '<br>')}</div>
-                </div>
+            
+            <div class="field">
+                <div class="label">Email</div>
+                <div class="value"><a href="mailto:{email}" style="color: #0AD25A;">{email}</a></div>
             </div>
-            <div class="footer">
-                Submitted at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            
+            {phone_html}
+            
+            <div class="field">
+                <div class="label">Message</div>
+                <div class="message-box">{message.replace(chr(10), '<br>')}</div>
             </div>
         </div>
-    </body>
-    </html>
-    """
+        
+        <div class="footer">
+            Submitted at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     text = f"""New Contact Form Submission
 
@@ -209,49 +526,68 @@ def _render_charon_escalation_email(
     message: str,
     history_summary: str,
 ) -> EmailContent:
-    """Render Charon escalation notification email."""
+    """Render Charon escalation notification email (alert style)."""
     contact_info = ""
     if customer_email:
-        contact_info += f"<p><strong>Email:</strong> <a href='mailto:{customer_email}'>{customer_email}</a></p>"
+        contact_info += f"""<div class="field">
+                            <div class="label">Email</div>
+                            <div class="value"><a href='mailto:{customer_email}' style="color: #0AD25A;">{customer_email}</a></div>
+                        </div>"""
     if customer_phone:
-        contact_info += f"<p><strong>Phone:</strong> {customer_phone}</p>"
+        contact_info += f"""<div class="field">
+                            <div class="label">Phone</div>
+                            <div class="value">{customer_phone}</div>
+                        </div>"""
+
+    base_styles = _get_base_styles()
 
     html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: #e74c3c; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
-            .content {{ background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }}
-            .message {{ background: white; padding: 15px; border-radius: 4px; border-left: 4px solid #e74c3c; }}
-            .conversation-id {{ background: #333; color: #fff; padding: 8px 12px; border-radius: 4px; font-family: monospace; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin:0;">⚠️ Charon Escalation</h2>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charon Escalation</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar" style="background: #ef4444;">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
+        </div>
+        <div class="accent-bar" style="background: #ef4444;"></div>
+        
+        <div class="content-card escalation">
+            <h1>⚠️ Charon Escalation</h1>
+            
+            <div class="field">
+                <div class="label">Conversation ID</div>
+                <div class="order-id">{conversation_id}</div>
             </div>
-            <div class="content">
-                <p><strong>Conversation ID:</strong> <span class="conversation-id">{conversation_id}</span></p>
-                {contact_info}
-                <p><strong>Latest Message:</strong></p>
-                <div class="message">{message.replace(chr(10), '<br>')}</div>
-                
-                <h3>Conversation History:</h3>
-                <pre style="background: white; padding: 15px; border-radius: 4px; white-space: pre-wrap;">{history_summary}</pre>
+            
+            {contact_info}
+            
+            <div class="field">
+                <div class="label">Latest Message</div>
+                <div class="message-box">{message.replace(chr(10), '<br>')}</div>
             </div>
-            <div class="footer">
-                Escalated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            
+            <div class="field">
+                <div class="label">Conversation History</div>
+                <div class="message-box" style="white-space: pre-wrap; font-family: monospace; font-size: 13px;">{history_summary}</div>
             </div>
         </div>
-    </body>
-    </html>
-    """
+        
+        <div class="footer">
+            Escalated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     text = f"""Charon Escalation Alert
 
@@ -282,41 +618,49 @@ def _render_admin_notification_email(
 ) -> EmailContent:
     """Render admin notification email."""
     details_html = "".join(
-        f"<tr><td style='padding: 8px; border-bottom: 1px solid #eee;'><strong>{k}:</strong></td><td style='padding: 8px; border-bottom: 1px solid #eee;'>{v}</td></tr>"
+        f"""<tr>
+                <td>{k}</td>
+                <td>{v}</td>
+            </tr>"""
         for k, v in details.items()
     )
 
+    base_styles = _get_base_styles()
+
     html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: #3498db; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
-            .content {{ background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }}
-            table {{ width: 100%; border-collapse: collapse; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin:0;">🔔 {title}</h2>
-            </div>
-            <div class="content">
-                <table>
-                    {details_html}
-                </table>
-            </div>
-            <div class="footer">
-                Notification sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
-            </div>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
         </div>
-    </body>
-    </html>
-    """
+        <div class="accent-bar"></div>
+        
+        <div class="content-card">
+            <h1>🔔 {title}</h1>
+            
+            <table class="details-table">
+                {details_html}
+            </table>
+        </div>
+        
+        <div class="footer">
+            Notification sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     text_details = "\n".join(f"{k}: {v}" for k, v in details.items())
 
@@ -358,36 +702,55 @@ async def send_contact_form_notification(
 
     # Also send confirmation to the customer
     if result.success:
+        base_styles = _get_base_styles()
+        confirmation_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Received</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
+        </div>
+        <div class="accent-bar"></div>
+        
+        <div class="content-card success">
+            <h1>✅ Message Received</h1>
+            
+            <p>Hi {name},</p>
+            
+            <p>Thank you for reaching out! We've received your message and will get back to you within 24 hours.</p>
+            
+            <p>If you have any urgent questions, you can reply to this email or WhatsApp us directly.</p>
+            
+            <p>Best regards,<br>The Styxproxy Team</p>
+        </div>
+        
+        <div class="footer">
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
+        confirmation_text = f"""Hi {name},
+
+Thank you for reaching out! We've received your message and will get back to you within 24 hours.
+
+Best regards,
+The Styxproxy Team"""
+
         confirmation_content = EmailContent(
             subject="We received your message - Styxproxy",
-            html=f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <style>
-                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                    .header {{ background: #1a1a2e; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }}
-                    .content {{ background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="header">
-                        <h2 style="margin:0;">✅ Message Received</h2>
-                    </div>
-                    <div class="content">
-                        <p>Hi {name},</p>
-                        <p>Thank you for reaching out! We've received your message and will get back to you within 24 hours.</p>
-                        <p>If you have any urgent questions, you can reply to this email or WhatsApp us directly.</p>
-                        <p>Best regards,<br>The Styxproxy Team</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            """,
-            text=f"Hi {name},\n\nThank you for reaching out! We've received your message and will get back to you within 24 hours.\n\nBest regards,\nThe Styxproxy Team",
+            html=confirmation_html,
+            text=confirmation_text,
         )
         customer_recipient = EmailRecipient(email=email, name=name)
         await _send_via_resend(
@@ -539,61 +902,64 @@ def _render_admin_invite_email(
     invite_code: str,
     expires_in_hours: int,
 ) -> EmailContent:
-    """Render admin invite email."""
+    """Render admin invite email (dark themed)."""
     invite_link = f"https://styxproxy.com/admin/setup?code={invite_code}"
 
+    base_styles = _get_base_styles()
+
     html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #e0e0e0; background-color: #0d0d1a; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: #1a1a2e; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
-            .content {{ background: #16162a; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
-            .button {{ display: inline-block; background: #4DA3FF; color: #1a1a2e; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }}
-            .details {{ background: #1a1a2e; padding: 15px; border-radius: 8px; margin: 20px 0; }}
-            .label {{ color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }}
-            .value {{ color: #4DA3FF; font-size: 18px; font-weight: 600; margin-top: 5px; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
-            .warning {{ background: #2d1f1f; border-left: 4px solid #e74c3c; padding: 15px; border-radius: 4px; margin-top: 20px; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin:0;">🚀 You've Been Invited to Styxproxy Admin</h2>
-            </div>
-            <div class="content">
-                <p>Hi,</p>
-                <p>You've been invited to join the <strong>Styxproxy Admin Panel</strong> with the role of <strong style="color: #4DA3FF;">{role}</strong>.</p>
-                
-                <div class="details">
-                    <div class="label">Your Role</div>
-                    <div class="value">{role}</div>
-                </div>
-                
-                <p>Click the button below to set up your account:</p>
-                <p style="text-align: center;">
-                    <a href="{invite_link}" class="button">Set Up Account</a>
-                </p>
-                
-                <p style="color: #888; font-size: 14px;">
-                    Or copy this link: <span style="color: #4DA3FF;">{invite_link}</span>
-                </p>
-                
-                <div class="warning">
-                    ⚠️ <strong>Important:</strong> This invite expires in {expires_in_hours} hours. If you didn't request this, please ignore this email.
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You've Been Invited</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar" style="background: #0AD25A;">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
+        </div>
+        <div class="accent-bar"></div>
+        
+        <div class="content-card">
+            <h1>🚀 You've Been Invited to Styxproxy Admin</h1>
+            
+            <p>Hi,</p>
+            
+            <p>You've been invited to join the <strong style="color: #0AD25A;">Styxproxy Admin Panel</strong> with the role of <strong>{role}</strong>.</p>
+            
+            <div class="credentials-box">
+                <div class="cred-row">
+                    <div class="cred-label">Your Role</div>
+                    <div class="cred-value" style="background: transparent; border: none; padding: 0;">{role}</div>
                 </div>
             </div>
-            <div class="footer">
-                Styxproxy Admin Panel · Sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            
+            <p style="text-align: center;">
+                <a href="{invite_link}" class="cta-button">Set Up Account</a>
+            </p>
+            
+            <p class="muted-text">
+                Or copy this link: <span class="link-text">{invite_link}</span>
+            </p>
+            
+            <div class="warning-box">
+                ⚠️ <strong>Important:</strong> This invite expires in {expires_in_hours} hours. If you didn't request this, please ignore this email.
             </div>
         </div>
-    </body>
-    </html>
-    """
+        
+        <div class="footer">
+            Styxproxy Admin Panel · Sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     text = f"""You've Been Invited to Styxproxy Admin
 
@@ -621,56 +987,61 @@ def _render_password_reset_email(
     email: str,
     reset_token: str,
 ) -> EmailContent:
-    """Render password reset email."""
+    """Render password reset email (dark themed)."""
     reset_link = f"https://styxproxy.com/admin/reset-password?token={reset_token}"
 
+    base_styles = _get_base_styles()
+
     html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #e0e0e0; background-color: #0d0d1a; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: #1a1a2e; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
-            .content {{ background: #16162a; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
-            .button {{ display: inline-block; background: #4DA3FF; color: #1a1a2e; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }}
-            .warning {{ background: #2d1f1f; border-left: 4px solid #e74c3c; padding: 15px; border-radius: 4px; margin-top: 20px; font-size: 14px; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin:0;">🔐 Reset Your Styxproxy Admin Password</h2>
-            </div>
-            <div class="content">
-                <p>Hi,</p>
-                <p>We received a request to reset your Styxproxy Admin password. Click the button below to create a new password:</p>
-                
-                <p style="text-align: center;">
-                    <a href="{reset_link}" class="button">Reset Password</a>
-                </p>
-                
-                <p style="color: #888; font-size: 14px;">
-                    Or copy this link: <span style="color: #4DA3FF;">{reset_link}</span>
-                </p>
-                
-                <p style="color: #888; font-size: 14px; margin-top: 20px;">
-                    ⏱️ This link expires in <strong>1 hour</strong>.
-                </p>
-                
-                <div class="warning">
-                    ⚠️ <strong>If you didn't request this</strong>, please ignore this email. Your password will remain unchanged.
-                </div>
-            </div>
-            <div class="footer">
-                Styxproxy Admin Panel · Sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Your Password</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar" style="background: #0AD25A;">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
+        </div>
+        <div class="accent-bar"></div>
+        
+        <div class="content-card">
+            <h1>🔐 Reset Your Styxproxy Admin Password</h1>
+            
+            <p>Hi,</p>
+            
+            <p>We received a request to reset your Styxproxy Admin password. Click the button below to create a new password:</p>
+            
+            <p style="text-align: center;">
+                <a href="{reset_link}" class="cta-button">Reset Password</a>
+            </p>
+            
+            <p class="muted-text">
+                Or copy this link: <span class="link-text">{reset_link}</span>
+            </p>
+            
+            <p class="muted-text">
+                ⏱️ This link expires in <strong>1 hour</strong>.
+            </p>
+            
+            <div class="warning-box">
+                ⚠️ <strong>If you didn't request this</strong>, please ignore this email. Your password will remain unchanged.
             </div>
         </div>
-    </body>
-    </html>
-    """
+        
+        <div class="footer">
+            Styxproxy Admin Panel · Sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     text = f"""Reset Your Styxproxy Admin Password
 
@@ -750,76 +1121,68 @@ def _render_order_confirmation_email(
     quantity: int,
 ) -> EmailContent:
     """Render order confirmation email (pending payment)."""
+    base_styles = _get_base_styles()
+
     html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: #1a1a2e; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
-            .header-active {{ background: #27ae60; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
-            .content {{ background: #f9f9f9; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
-            .order-id {{ background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
-            .credentials {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #27ae60; }}
-            .cred-row {{ margin-bottom: 15px; }}
-            .cred-label {{ color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }}
-            .cred-value {{ font-family: monospace; font-size: 16px; background: #f5f5f5; padding: 8px 12px; border-radius: 4px; word-break: break-all; }}
-            .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-            .detail-row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }}
-            .detail-row:last-child {{ border-bottom: none; }}
-            .label {{ color: #666; }}
-            .value {{ font-weight: 600; }}
-            .total {{ font-size: 20px; color: #27ae60; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
-            .help {{ background: #e8f4f8; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }}
-            .pending-note {{ background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #ffc107; font-size: 14px; }}
-            .section-title {{ font-size: 14px; font-weight: 700; color: #1a1a2e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin:0;">📋 Order Placed — Payment Pending</h2>
-                <p style="margin:10px 0 0 0; opacity: 0.8;">Awaiting your payment</p>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Placed</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
+        </div>
+        <div class="accent-bar"></div>
+        
+        <div class="content-card">
+            <h1>📋 Order Placed — Payment Pending</h1>
+            <p class="muted-text" style="margin-top: -8px; margin-bottom: 24px;">Awaiting your payment</p>
+            
+            <p>Hi {customer_name},</p>
+            
+            <p>Your order has been received. Complete your payment to activate your proxy.</p>
+            
+            <div class="order-id">{order_id}</div>
+            
+            <table class="details-table">
+                <tr>
+                    <td>Plan</td>
+                    <td>{plan_code}</td>
+                </tr>
+                <tr>
+                    <td>Quantity</td>
+                    <td>{quantity}</td>
+                </tr>
+                <tr>
+                    <td>Amount</td>
+                    <td style="font-size: 20px; color: #0AD25A;">{currency} {amount:,.2f}</td>
+                </tr>
+            </table>
+            
+            <div class="warning-box">
+                <strong>Next step:</strong> Complete your payment. Once confirmed, your proxy credentials will be sent to this email automatically.
             </div>
-            <div class="content">
-                <p>Hi {customer_name},</p>
-                <p>Your order has been received. Complete your payment to activate your proxy.</p>
-
-                <div class="order-id">{order_id}</div>
-
-                <div class="details">
-                    <div class="detail-row">
-                        <span class="label">Plan</span>
-                        <span class="value">{plan_code}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">Quantity</span>
-                        <span class="value">{quantity}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">Amount</span>
-                        <span class="value total">{currency} {amount:,.2f}</span>
-                    </div>
-                </div>
-
-                <div class="pending-note">
-                    <strong>Next step:</strong> Complete your payment. Once confirmed, your proxy credentials will be sent to this email automatically.
-                </div>
-
-                <div class="help">
-                    <strong>Need help?</strong> Reply to this email or WhatsApp us. We're here to help!
-                </div>
-            </div>
-            <div class="footer">
-                Styxproxy · Order placed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            
+            <div class="help-box">
+                <strong>Need help?</strong> Reply to this email or WhatsApp us. We're here to help!
             </div>
         </div>
-    </body>
-    </html>
-    """
+        
+        <div class="footer">
+            Styxproxy · Order placed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     text = f"""Order Placed - {order_id}
 
@@ -858,83 +1221,78 @@ def _render_proxy_credentials_email(
 ) -> EmailContent:
     """Render proxy credentials email (order paid + active)."""
     expires_str = expires_at.strftime('%Y-%m-%d %H:%M UTC') if expires_at else "N/A"
-    
+
+    base_styles = _get_base_styles()
+
     html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: #27ae60; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
-            .content {{ background: #f9f9f9; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
-            .order-id {{ background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
-            .credentials {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #27ae60; }}
-            .cred-row {{ margin-bottom: 15px; }}
-            .cred-label {{ color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }}
-            .cred-value {{ font-family: monospace; font-size: 16px; background: #f5f5f5; padding: 8px 12px; border-radius: 4px; word-break: break-all; }}
-            .cred-value.copy {{ cursor: pointer; }}
-            .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-            .detail-row {{ display: flex; justify-content: space-between; padding: 8px 0; }}
-            .label {{ color: #666; }}
-            .value {{ font-weight: 600; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
-            .help {{ background: #e8f4f8; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }}
-            .cta {{ display: inline-block; background: #4DA3FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 10px 0; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin:0;">🎉 Your Proxy is Ready!</h2>
-                <p style="margin:10px 0 0 0; opacity: 0.9;">Order {order_id}</p>
-            </div>
-            <div class="content">
-                <p>Hi {customer_name},</p>
-                <p>Great news! Your proxy is now active. Here are your credentials:</p>
-                
-                <div class="order-id">{order_id}</div>
-                
-                <div class="credentials">
-                    <div class="cred-row">
-                        <div class="cred-label">Username</div>
-                        <div class="cred-value">{bun_username}</div>
-                    </div>
-                    <div class="cred-row">
-                        <div class="cred-label">Proxy Address</div>
-                        <div class="cred-value">{proxy_ip}:{proxy_port}</div>
-                    </div>
-                    <div class="cred-row">
-                        <div class="cred-label">Protocol</div>
-                        <div class="cred-value">{protocol.upper()}</div>
-                    </div>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Proxy is Ready</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar" style="background: #0AD25A;">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
+        </div>
+        <div class="accent-bar"></div>
+        
+        <div class="content-card success">
+            <h1>🎉 Your Proxy is Ready!</h1>
+            <p class="muted-text" style="margin-top: -8px; margin-bottom: 24px;">Order {order_id}</p>
+            
+            <p>Hi {customer_name},</p>
+            
+            <p>Great news! Your proxy is now active. Here are your credentials:</p>
+            
+            <div class="order-id">{order_id}</div>
+            
+            <div class="credentials-box">
+                <div class="cred-row">
+                    <div class="cred-label">Username</div>
+                    <div class="cred-value">{bun_username}</div>
                 </div>
-                
-                <div class="details">
-                    <div class="detail-row">
-                        <span class="label">Plan</span>
-                        <span class="value">{plan_code}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">Expires</span>
-                        <span class="value">{expires_str}</span>
-                    </div>
+                <div class="cred-row">
+                    <div class="cred-label">Proxy Address</div>
+                    <div class="cred-value">{proxy_ip}:{proxy_port}</div>
                 </div>
-                
-                <p>You can now use your proxy. Need help getting started?</p>
-                
-                <div class="help">
-                    <strong>Having issues?</strong> Reply to this email or WhatsApp us immediately. We'll help you sort it out!
+                <div class="cred-row">
+                    <div class="cred-label">Protocol</div>
+                    <div class="cred-value">{protocol.upper()}</div>
                 </div>
             </div>
-            <div class="footer">
-                Bunche · Powered by Styxproxy
+            
+            <table class="details-table">
+                <tr>
+                    <td>Plan</td>
+                    <td>{plan_code}</td>
+                </tr>
+                <tr>
+                    <td>Expires</td>
+                    <td>{expires_str}</td>
+                </tr>
+            </table>
+            
+            <p>You can now use your proxy. Need help getting started?</p>
+            
+            <div class="help-box">
+                <strong>Having issues?</strong> Reply to this email or WhatsApp us immediately. We'll help you sort it out!
             </div>
         </div>
-    </body>
-    </html>
-    """
+        
+        <div class="footer">
+            Styxproxy · Powered by Styxproxy<br>
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     text = f"""Your Proxy is Ready! - {order_id}
 
@@ -974,69 +1332,68 @@ def _render_refund_processed_email(
     reason: str,
 ) -> EmailContent:
     """Render refund processed email to customer."""
+    base_styles = _get_base_styles()
+
     html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: #e67e22; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
-            .content {{ background: #f9f9f9; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
-            .order-id {{ background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
-            .refund-amount {{ font-size: 32px; color: #27ae60; font-weight: bold; text-align: center; margin: 20px 0; }}
-            .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-            .detail-row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }}
-            .detail-row:last-child {{ border-bottom: none; }}
-            .label {{ color: #666; }}
-            .value {{ font-weight: 600; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
-            .help {{ background: #e8f4f8; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin:0;">💵 Refund Processed</h2>
-                <p style="margin:10px 0 0 0; opacity: 0.9;">Order {order_id}</p>
-            </div>
-            <div class="content">
-                <p>Hi {customer_name},</p>
-                <p>Your refund has been processed successfully.</p>
-                
-                <div class="order-id">{order_id}</div>
-                
-                <div class="refund-amount">{currency} {amount:,.2f}</div>
-                
-                <div class="details">
-                    <div class="detail-row">
-                        <span class="label">Original Amount</span>
-                        <span class="value">{currency} {amount:,.2f}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">Refund Amount</span>
-                        <span class="value">{currency} {amount:,.2f}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">Reason</span>
-                        <span class="value">{reason}</span>
-                    </div>
-                </div>
-                
-                <p>Please allow 5-10 business days for the refund to appear in your account.</p>
-                
-                <div class="help">
-                    <strong>Questions about your refund?</strong> Reply to this email or WhatsApp us with your order ID.
-                </div>
-            </div>
-            <div class="footer">
-                Bunche · Refund processed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refund Processed</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar" style="background: #f59e0b;">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
+        </div>
+        <div class="accent-bar" style="background: #f59e0b;"></div>
+        
+        <div class="content-card warning">
+            <h1>💵 Refund Processed</h1>
+            <p class="muted-text" style="margin-top: -8px; margin-bottom: 24px;">Order {order_id}</p>
+            
+            <p>Hi {customer_name},</p>
+            
+            <p>Your refund has been processed successfully.</p>
+            
+            <div class="order-id">{order_id}</div>
+            
+            <div class="total-amount">{currency} {amount:,.2f}</div>
+            
+            <table class="details-table">
+                <tr>
+                    <td>Original Amount</td>
+                    <td>{currency} {amount:,.2f}</td>
+                </tr>
+                <tr>
+                    <td>Refund Amount</td>
+                    <td>{currency} {amount:,.2f}</td>
+                </tr>
+                <tr>
+                    <td>Reason</td>
+                    <td>{reason}</td>
+                </tr>
+            </table>
+            
+            <p>Please allow 5-10 business days for the refund to appear in your account.</p>
+            
+            <div class="help-box">
+                <strong>Questions about your refund?</strong> Reply to this email or WhatsApp us with your order ID.
             </div>
         </div>
-    </body>
-    </html>
-    """
+        
+        <div class="footer">
+            Styxproxy · Refund processed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     text = f"""Refund Processed - {order_id}
 
@@ -1071,63 +1428,64 @@ def _render_credentials_rotated_email(
     protocol: str,
 ) -> EmailContent:
     """Render credentials rotated email to customer."""
+    base_styles = _get_base_styles()
+
     html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: #3498db; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
-            .content {{ background: #f9f9f9; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
-            .order-id {{ background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
-            .credentials {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3498db; }}
-            .cred-row {{ margin-bottom: 15px; }}
-            .cred-label {{ color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }}
-            .cred-value {{ font-family: monospace; font-size: 16px; background: #f5f5f5; padding: 8px 12px; border-radius: 4px; word-break: break-all; }}
-            .warning {{ background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px; margin-top: 20px; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin:0;">🔄 Credentials Rotated</h2>
-                <p style="margin:10px 0 0 0; opacity: 0.9;">Order {order_id}</p>
-            </div>
-            <div class="content">
-                <p>Hi {customer_name},</p>
-                <p>Your proxy credentials have been rotated as requested.</p>
-                
-                <div class="order-id">{order_id}</div>
-                
-                <div class="credentials">
-                    <div class="cred-row">
-                        <div class="cred-label">New Username</div>
-                        <div class="cred-value">{new_username}</div>
-                    </div>
-                    <div class="cred-row">
-                        <div class="cred-label">Proxy Address</div>
-                        <div class="cred-value">{proxy_ip}:{proxy_port}</div>
-                    </div>
-                    <div class="cred-row">
-                        <div class="cred-label">Protocol</div>
-                        <div class="cred-value">{protocol.upper()}</div>
-                    </div>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credentials Rotated</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar" style="background: #0AD25A;">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
+        </div>
+        <div class="accent-bar"></div>
+        
+        <div class="content-card info">
+            <h1>🔄 Credentials Rotated</h1>
+            <p class="muted-text" style="margin-top: -8px; margin-bottom: 24px;">Order {order_id}</p>
+            
+            <p>Hi {customer_name},</p>
+            
+            <p>Your proxy credentials have been rotated as requested.</p>
+            
+            <div class="order-id">{order_id}</div>
+            
+            <div class="credentials-box">
+                <div class="cred-row">
+                    <div class="cred-label">New Username</div>
+                    <div class="cred-value">{new_username}</div>
                 </div>
-                
-                <div class="warning">
-                    <strong>⚠️ Important:</strong> Your password has been changed. Please update your proxy configuration with the new credentials.
+                <div class="cred-row">
+                    <div class="cred-label">Proxy Address</div>
+                    <div class="cred-value">{proxy_ip}:{proxy_port}</div>
+                </div>
+                <div class="cred-row">
+                    <div class="cred-label">Protocol</div>
+                    <div class="cred-value">{protocol.upper()}</div>
                 </div>
             </div>
-            <div class="footer">
-                Bunche · Rotated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            
+            <div class="warning-box">
+                ⚠️ <strong>Important:</strong> Your password has been changed. Please update your proxy configuration with the new credentials.
             </div>
         </div>
-    </body>
-    </html>
-    """
+        
+        <div class="footer">
+            Styxproxy · Rotated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     text = f"""Credentials Rotated - {order_id}
 
@@ -1198,115 +1556,86 @@ async def send_order_active_email(
     expires_at: datetime,
 ) -> EmailResult:
     """Send order confirmation + credentials in ONE email when order is paid and proxy is active."""
-    # Order confirmation section (pending removal once we consolidate templates)
-    order_content = _render_order_confirmation_email(
-        customer_name=customer_name,
-        order_id=order_id,
-        plan_code=plan_code,
-        amount=amount,
-        currency=currency,
-        quantity=quantity,
-    )
-    # Credentials section
-    cred_content = _render_proxy_credentials_email(
-        customer_name=customer_name,
-        order_id=order_id,
-        plan_code=plan_code,
-        bun_username=bun_username,
-        proxy_ip=proxy_ip,
-        proxy_port=proxy_port,
-        protocol=protocol,
-        expires_at=expires_at,
-    )
-
     expires_str = expires_at.strftime('%Y-%m-%d %H:%M UTC') if expires_at else "N/A"
+
+    base_styles = _get_base_styles()
 
     # Combined HTML: order details header → credentials block
     combined_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
-            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-            .header {{ background: #27ae60; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
-            .content {{ background: #f9f9f9; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
-            .order-id {{ background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
-            .section {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
-            .section-title {{ font-size: 12px; font-weight: 700; color: #4DA3FF; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }}
-            .detail-row {{ display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }}
-            .detail-row:last-child {{ border-bottom: none; }}
-            .label {{ color: #666; }}
-            .value {{ font-weight: 600; }}
-            .total {{ font-size: 20px; color: #27ae60; }}
-            .cred-value {{ font-family: monospace; font-size: 16px; background: #f5f5f5; padding: 8px 12px; border-radius: 4px; word-break: break-all; }}
-            .credentials-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #27ae60; }}
-            .cred-row {{ margin-bottom: 15px; }}
-            .cred-label {{ color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }}
-            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
-            .help {{ background: #e8f4f8; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin:0;">🎉 Payment Confirmed — Your Proxy is Ready!</h2>
-                <p style="margin:10px 0 0 0; opacity: 0.9;">Order {order_id}</p>
-            </div>
-            <div class="content">
-                <p>Hi {customer_name},</p>
-                <p>Great news! Your payment has been confirmed and your proxy is now active. Here are your full order details and credentials:</p>
-
-                <div class="order-id">{order_id}</div>
-
-                <div class="section">
-                    <div class="section-title">Order Details</div>
-                    <div class="detail-row">
-                        <span class="label">Plan</span>
-                        <span class="value">{plan_code}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">Quantity</span>
-                        <span class="value">{quantity}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">Amount Paid</span>
-                        <span class="value total">{currency} {amount:,.2f}</span>
-                    </div>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Confirmed - Your Proxy is Ready</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header-bar" style="background: #0AD25A;">
+            <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy">
+        </div>
+        <div class="accent-bar"></div>
+        
+        <div class="content-card success">
+            <h1>🎉 Payment Confirmed — Your Proxy is Ready!</h1>
+            <p class="muted-text" style="margin-top: -8px; margin-bottom: 24px;">Order {order_id}</p>
+            
+            <p>Hi {customer_name},</p>
+            
+            <p>Great news! Your payment has been confirmed and your proxy is now active. Here are your full order details and credentials:</p>
+            
+            <div class="order-id">{order_id}</div>
+            
+            <div class="credentials-box">
+                <div class="cred-row">
+                    <div class="cred-label">Username</div>
+                    <div class="cred-value">{bun_username}</div>
                 </div>
-
-                <div class="section">
-                    <div class="section-title">Your Proxy Credentials</div>
-                    <div class="cred-row">
-                        <div class="cred-label">Username</div>
-                        <div class="cred-value">{bun_username}</div>
-                    </div>
-                    <div class="cred-row">
-                        <div class="cred-label">Proxy Address</div>
-                        <div class="cred-value">{proxy_ip}:{proxy_port}</div>
-                    </div>
-                    <div class="cred-row">
-                        <div class="cred-label">Protocol</div>
-                        <div class="cred-value">{protocol.upper()}</div>
-                    </div>
-                    <div class="cred-row" style="margin-bottom:0;">
-                        <div class="cred-label">Expires</div>
-                        <div class="cred-value">{expires_str}</div>
-                    </div>
+                <div class="cred-row">
+                    <div class="cred-label">Proxy Address</div>
+                    <div class="cred-value">{proxy_ip}:{proxy_port}</div>
                 </div>
-
-                <div class="help">
-                    <strong>Having issues?</strong> Reply to this email or WhatsApp us immediately. We'll help you get started!
+                <div class="cred-row">
+                    <div class="cred-label">Protocol</div>
+                    <div class="cred-value">{protocol.upper()}</div>
+                </div>
+                <div class="cred-row" style="margin-bottom: 0;">
+                    <div class="cred-label">Expires</div>
+                    <div class="cred-value">{expires_str}</div>
                 </div>
             </div>
-            <div class="footer">
-                Styxproxy · Order confirmed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            
+            <table class="details-table">
+                <tr>
+                    <td>Plan</td>
+                    <td>{plan_code}</td>
+                </tr>
+                <tr>
+                    <td>Quantity</td>
+                    <td>{quantity}</td>
+                </tr>
+                <tr>
+                    <td>Amount Paid</td>
+                    <td style="font-size: 20px; color: #0AD25A;">{currency} {amount:,.2f}</td>
+                </tr>
+            </table>
+            
+            <div class="help-box">
+                <strong>Having issues?</strong> Reply to this email or WhatsApp us immediately. We'll help you get started!
             </div>
         </div>
-    </body>
-    </html>
-    """
+        
+        <div class="footer">
+            Styxproxy · Order confirmed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC<br>
+            © 2024 Styxproxy. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
 
     combined_text = f"""[Styxproxy] Payment Confirmed — Your Proxy is Ready! - {order_id}
 
