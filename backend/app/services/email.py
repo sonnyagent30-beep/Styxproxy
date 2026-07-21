@@ -26,12 +26,16 @@ class EmailTemplate(str, Enum):
     CHARON_ESCALATION = "charon_escalation"
     NEW_ORDER = "new_order"
     ORDER_PAID = "order_paid"
+    ORDER_CONFIRMATION = "order_confirmation"
+    PROXY_CREDENTIALS = "proxy_credentials"
     REFUND_REQUEST = "refund_request"
     REFUND_APPROVED = "refund_approved"
+    REFUND_PROCESSED = "refund_processed"
     REFUND_REJECTED = "refund_rejected"
     TRIAL_CLAIMED = "trial_claimed"
     ADMIN_INVITE = "admin_invite"
     PASSWORD_RESET = "password_reset"
+    CREDENTIALS_ROTATED = "credentials_rotated"
 
 
 class EmailRecipient(BaseModel):
@@ -723,6 +727,728 @@ async def send_password_reset_email(
         reset_token=reset_token,
     )
     recipient = EmailRecipient(email=email)
+
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
+    )
+
+
+# =============================================================================
+# Customer Purchase Emails
+# =============================================================================
+
+
+def _render_order_confirmation_email(
+    customer_name: str,
+    order_id: str,
+    plan_code: str,
+    amount: float,
+    currency: str,
+    quantity: int,
+) -> EmailContent:
+    """Render order confirmation email (pending payment)."""
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: #1a1a2e; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
+            .header-active {{ background: #27ae60; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
+            .content {{ background: #f9f9f9; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
+            .order-id {{ background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
+            .credentials {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #27ae60; }}
+            .cred-row {{ margin-bottom: 15px; }}
+            .cred-label {{ color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }}
+            .cred-value {{ font-family: monospace; font-size: 16px; background: #f5f5f5; padding: 8px 12px; border-radius: 4px; word-break: break-all; }}
+            .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+            .detail-row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }}
+            .detail-row:last-child {{ border-bottom: none; }}
+            .label {{ color: #666; }}
+            .value {{ font-weight: 600; }}
+            .total {{ font-size: 20px; color: #27ae60; }}
+            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
+            .help {{ background: #e8f4f8; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }}
+            .pending-note {{ background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #ffc107; font-size: 14px; }}
+            .section-title {{ font-size: 14px; font-weight: 700; color: #1a1a2e; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2 style="margin:0;">📋 Order Placed — Payment Pending</h2>
+                <p style="margin:10px 0 0 0; opacity: 0.8;">Awaiting your payment</p>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+                <p>Your order has been received. Complete your payment to activate your proxy.</p>
+
+                <div class="order-id">{order_id}</div>
+
+                <div class="details">
+                    <div class="detail-row">
+                        <span class="label">Plan</span>
+                        <span class="value">{plan_code}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Quantity</span>
+                        <span class="value">{quantity}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Amount</span>
+                        <span class="value total">{currency} {amount:,.2f}</span>
+                    </div>
+                </div>
+
+                <div class="pending-note">
+                    <strong>Next step:</strong> Complete your payment. Once confirmed, your proxy credentials will be sent to this email automatically.
+                </div>
+
+                <div class="help">
+                    <strong>Need help?</strong> Reply to this email or WhatsApp us. We're here to help!
+                </div>
+            </div>
+            <div class="footer">
+                Styxproxy · Order placed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text = f"""Order Placed - {order_id}
+
+Hi {customer_name},
+
+Your order has been received. Complete your payment to activate your proxy.
+
+Order ID: {order_id}
+Plan: {plan_code}
+Quantity: {quantity}
+Amount: {currency} {amount:,.2f}
+
+Next step: Complete your payment. Your proxy credentials will be sent to this email once confirmed.
+
+Need help? Reply to this email or WhatsApp us.
+
+- Styxproxy
+"""
+
+    return EmailContent(
+        subject=f"[Styxproxy] Order Placed - {order_id}",
+        html=html,
+        text=text,
+    )
+
+
+def _render_proxy_credentials_email(
+    customer_name: str,
+    order_id: str,
+    plan_code: str,
+    bun_username: str,
+    proxy_ip: str,
+    proxy_port: int,
+    protocol: str,
+    expires_at: datetime,
+) -> EmailContent:
+    """Render proxy credentials email (order paid + active)."""
+    expires_str = expires_at.strftime('%Y-%m-%d %H:%M UTC') if expires_at else "N/A"
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: #27ae60; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
+            .content {{ background: #f9f9f9; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
+            .order-id {{ background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
+            .credentials {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #27ae60; }}
+            .cred-row {{ margin-bottom: 15px; }}
+            .cred-label {{ color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }}
+            .cred-value {{ font-family: monospace; font-size: 16px; background: #f5f5f5; padding: 8px 12px; border-radius: 4px; word-break: break-all; }}
+            .cred-value.copy {{ cursor: pointer; }}
+            .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+            .detail-row {{ display: flex; justify-content: space-between; padding: 8px 0; }}
+            .label {{ color: #666; }}
+            .value {{ font-weight: 600; }}
+            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
+            .help {{ background: #e8f4f8; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }}
+            .cta {{ display: inline-block; background: #4DA3FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 10px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2 style="margin:0;">🎉 Your Proxy is Ready!</h2>
+                <p style="margin:10px 0 0 0; opacity: 0.9;">Order {order_id}</p>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+                <p>Great news! Your proxy is now active. Here are your credentials:</p>
+                
+                <div class="order-id">{order_id}</div>
+                
+                <div class="credentials">
+                    <div class="cred-row">
+                        <div class="cred-label">Username</div>
+                        <div class="cred-value">{bun_username}</div>
+                    </div>
+                    <div class="cred-row">
+                        <div class="cred-label">Proxy Address</div>
+                        <div class="cred-value">{proxy_ip}:{proxy_port}</div>
+                    </div>
+                    <div class="cred-row">
+                        <div class="cred-label">Protocol</div>
+                        <div class="cred-value">{protocol.upper()}</div>
+                    </div>
+                </div>
+                
+                <div class="details">
+                    <div class="detail-row">
+                        <span class="label">Plan</span>
+                        <span class="value">{plan_code}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Expires</span>
+                        <span class="value">{expires_str}</span>
+                    </div>
+                </div>
+                
+                <p>You can now use your proxy. Need help getting started?</p>
+                
+                <div class="help">
+                    <strong>Having issues?</strong> Reply to this email or WhatsApp us immediately. We'll help you sort it out!
+                </div>
+            </div>
+            <div class="footer">
+                Bunche · Powered by Styxproxy
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text = f"""Your Proxy is Ready! - {order_id}
+
+Hi {customer_name},
+
+Great news! Your proxy is now active.
+
+Order ID: {order_id}
+Plan: {plan_code}
+Expires: {expires_str}
+
+=== YOUR CREDENTIALS ===
+Username: {bun_username}
+Proxy: {proxy_ip}:{proxy_port}
+Protocol: {protocol.upper()}
+=========================
+
+You can now use your proxy.
+
+Having issues? Reply to this email or WhatsApp us immediately. We'll help you sort it out!
+
+- Bunche
+"""
+
+    return EmailContent(
+        subject=f"[Bunche] Your Proxy is Ready! - {order_id}",
+        html=html,
+        text=text,
+    )
+
+
+def _render_refund_processed_email(
+    customer_name: str,
+    order_id: str,
+    amount: float,
+    currency: str,
+    reason: str,
+) -> EmailContent:
+    """Render refund processed email to customer."""
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: #e67e22; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
+            .content {{ background: #f9f9f9; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
+            .order-id {{ background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
+            .refund-amount {{ font-size: 32px; color: #27ae60; font-weight: bold; text-align: center; margin: 20px 0; }}
+            .details {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+            .detail-row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }}
+            .detail-row:last-child {{ border-bottom: none; }}
+            .label {{ color: #666; }}
+            .value {{ font-weight: 600; }}
+            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
+            .help {{ background: #e8f4f8; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2 style="margin:0;">💵 Refund Processed</h2>
+                <p style="margin:10px 0 0 0; opacity: 0.9;">Order {order_id}</p>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+                <p>Your refund has been processed successfully.</p>
+                
+                <div class="order-id">{order_id}</div>
+                
+                <div class="refund-amount">{currency} {amount:,.2f}</div>
+                
+                <div class="details">
+                    <div class="detail-row">
+                        <span class="label">Original Amount</span>
+                        <span class="value">{currency} {amount:,.2f}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Refund Amount</span>
+                        <span class="value">{currency} {amount:,.2f}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Reason</span>
+                        <span class="value">{reason}</span>
+                    </div>
+                </div>
+                
+                <p>Please allow 5-10 business days for the refund to appear in your account.</p>
+                
+                <div class="help">
+                    <strong>Questions about your refund?</strong> Reply to this email or WhatsApp us with your order ID.
+                </div>
+            </div>
+            <div class="footer">
+                Bunche · Refund processed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text = f"""Refund Processed - {order_id}
+
+Hi {customer_name},
+
+Your refund has been processed successfully.
+
+Order ID: {order_id}
+Refund Amount: {currency} {amount:,.2f}
+Reason: {reason}
+
+Please allow 5-10 business days for the refund to appear in your account.
+
+Questions? Reply to this email or WhatsApp us with your order ID.
+
+- Bunche
+"""
+
+    return EmailContent(
+        subject=f"[Bunche] Refund Processed - {order_id}",
+        html=html,
+        text=text,
+    )
+
+
+def _render_credentials_rotated_email(
+    customer_name: str,
+    order_id: str,
+    new_username: str,
+    proxy_ip: str,
+    proxy_port: int,
+    protocol: str,
+) -> EmailContent:
+    """Render credentials rotated email to customer."""
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: #3498db; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
+            .content {{ background: #f9f9f9; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
+            .order-id {{ background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
+            .credentials {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3498db; }}
+            .cred-row {{ margin-bottom: 15px; }}
+            .cred-label {{ color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }}
+            .cred-value {{ font-family: monospace; font-size: 16px; background: #f5f5f5; padding: 8px 12px; border-radius: 4px; word-break: break-all; }}
+            .warning {{ background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 4px; margin-top: 20px; }}
+            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2 style="margin:0;">🔄 Credentials Rotated</h2>
+                <p style="margin:10px 0 0 0; opacity: 0.9;">Order {order_id}</p>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+                <p>Your proxy credentials have been rotated as requested.</p>
+                
+                <div class="order-id">{order_id}</div>
+                
+                <div class="credentials">
+                    <div class="cred-row">
+                        <div class="cred-label">New Username</div>
+                        <div class="cred-value">{new_username}</div>
+                    </div>
+                    <div class="cred-row">
+                        <div class="cred-label">Proxy Address</div>
+                        <div class="cred-value">{proxy_ip}:{proxy_port}</div>
+                    </div>
+                    <div class="cred-row">
+                        <div class="cred-label">Protocol</div>
+                        <div class="cred-value">{protocol.upper()}</div>
+                    </div>
+                </div>
+                
+                <div class="warning">
+                    <strong>⚠️ Important:</strong> Your password has been changed. Please update your proxy configuration with the new credentials.
+                </div>
+            </div>
+            <div class="footer">
+                Bunche · Rotated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text = f"""Credentials Rotated - {order_id}
+
+Hi {customer_name},
+
+Your proxy credentials have been rotated as requested.
+
+Order ID: {order_id}
+
+=== NEW CREDENTIALS ===
+Username: {new_username}
+Proxy: {proxy_ip}:{proxy_port}
+Protocol: {protocol.upper()}
+=========================
+
+⚠️ IMPORTANT: Your password has been changed. Please update your proxy configuration with the new credentials.
+
+- Bunche
+"""
+
+    return EmailContent(
+        subject=f"[Bunche] Credentials Rotated - {order_id}",
+        html=html,
+        text=text,
+    )
+
+
+async def send_order_confirmation_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    plan_code: str,
+    amount: float,
+    currency: str,
+    quantity: int,
+) -> EmailResult:
+    """Send order confirmation email to customer (pending payment — one email, no credentials yet)."""
+    content = _render_order_confirmation_email(
+        customer_name=customer_name,
+        order_id=order_id,
+        plan_code=plan_code,
+        amount=amount,
+        currency=currency,
+        quantity=quantity,
+    )
+    recipient = EmailRecipient(email=customer_email, name=customer_name)
+
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
+    )
+
+
+async def send_order_active_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    plan_code: str,
+    amount: float,
+    currency: str,
+    quantity: int,
+    bun_username: str,
+    proxy_ip: str,
+    proxy_port: int,
+    protocol: str,
+    expires_at: datetime,
+) -> EmailResult:
+    """Send order confirmation + credentials in ONE email when order is paid and proxy is active."""
+    # Order confirmation section (pending removal once we consolidate templates)
+    order_content = _render_order_confirmation_email(
+        customer_name=customer_name,
+        order_id=order_id,
+        plan_code=plan_code,
+        amount=amount,
+        currency=currency,
+        quantity=quantity,
+    )
+    # Credentials section
+    cred_content = _render_proxy_credentials_email(
+        customer_name=customer_name,
+        order_id=order_id,
+        plan_code=plan_code,
+        bun_username=bun_username,
+        proxy_ip=proxy_ip,
+        proxy_port=proxy_port,
+        protocol=protocol,
+        expires_at=expires_at,
+    )
+
+    expires_str = expires_at.strftime('%Y-%m-%d %H:%M UTC') if expires_at else "N/A"
+
+    # Combined HTML: order details header → credentials block
+    combined_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: #27ae60; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
+            .content {{ background: #f9f9f9; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
+            .order-id {{ background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; text-align: center; margin: 20px 0; }}
+            .section {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+            .section-title {{ font-size: 12px; font-weight: 700; color: #4DA3FF; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }}
+            .detail-row {{ display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }}
+            .detail-row:last-child {{ border-bottom: none; }}
+            .label {{ color: #666; }}
+            .value {{ font-weight: 600; }}
+            .total {{ font-size: 20px; color: #27ae60; }}
+            .cred-value {{ font-family: monospace; font-size: 16px; background: #f5f5f5; padding: 8px 12px; border-radius: 4px; word-break: break-all; }}
+            .credentials-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #27ae60; }}
+            .cred-row {{ margin-bottom: 15px; }}
+            .cred-label {{ color: #666; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }}
+            .footer {{ text-align: center; margin-top: 20px; color: #888; font-size: 12px; }}
+            .help {{ background: #e8f4f8; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2 style="margin:0;">🎉 Payment Confirmed — Your Proxy is Ready!</h2>
+                <p style="margin:10px 0 0 0; opacity: 0.9;">Order {order_id}</p>
+            </div>
+            <div class="content">
+                <p>Hi {customer_name},</p>
+                <p>Great news! Your payment has been confirmed and your proxy is now active. Here are your full order details and credentials:</p>
+
+                <div class="order-id">{order_id}</div>
+
+                <div class="section">
+                    <div class="section-title">Order Details</div>
+                    <div class="detail-row">
+                        <span class="label">Plan</span>
+                        <span class="value">{plan_code}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Quantity</span>
+                        <span class="value">{quantity}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">Amount Paid</span>
+                        <span class="value total">{currency} {amount:,.2f}</span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Your Proxy Credentials</div>
+                    <div class="cred-row">
+                        <div class="cred-label">Username</div>
+                        <div class="cred-value">{bun_username}</div>
+                    </div>
+                    <div class="cred-row">
+                        <div class="cred-label">Proxy Address</div>
+                        <div class="cred-value">{proxy_ip}:{proxy_port}</div>
+                    </div>
+                    <div class="cred-row">
+                        <div class="cred-label">Protocol</div>
+                        <div class="cred-value">{protocol.upper()}</div>
+                    </div>
+                    <div class="cred-row" style="margin-bottom:0;">
+                        <div class="cred-label">Expires</div>
+                        <div class="cred-value">{expires_str}</div>
+                    </div>
+                </div>
+
+                <div class="help">
+                    <strong>Having issues?</strong> Reply to this email or WhatsApp us immediately. We'll help you get started!
+                </div>
+            </div>
+            <div class="footer">
+                Styxproxy · Order confirmed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    combined_text = f"""[Styxproxy] Payment Confirmed — Your Proxy is Ready! - {order_id}
+
+Hi {customer_name},
+
+Great news! Your payment has been confirmed and your proxy is now active.
+
+Order ID: {order_id}
+Plan: {plan_code}
+Quantity: {quantity}
+Amount Paid: {currency} {amount:,.2f}
+
+=== YOUR PROXY CREDENTIALS ===
+Username: {bun_username}
+Proxy: {proxy_ip}:{proxy_port}
+Protocol: {protocol.upper()}
+Expires: {expires_str}
+================================
+
+You can now use your proxy immediately.
+
+Having issues? Reply to this email or WhatsApp us immediately.
+
+- Styxproxy
+"""
+
+    recipient = EmailRecipient(email=customer_email, name=customer_name)
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=f"[Styxproxy] Payment Confirmed — Your Proxy is Ready! - {order_id}",
+        html=combined_html,
+        text=combined_text,
+    )
+
+
+async def send_proxy_credentials_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    plan_code: str,
+    bun_username: str,
+    proxy_ip: str,
+    proxy_port: int,
+    protocol: str,
+    expires_at: datetime,
+) -> EmailResult:
+    """Send proxy credentials email to customer."""
+    content = _render_proxy_credentials_email(
+        customer_name=customer_name,
+        order_id=order_id,
+        plan_code=plan_code,
+        bun_username=bun_username,
+        proxy_ip=proxy_ip,
+        proxy_port=proxy_port,
+        protocol=protocol,
+        expires_at=expires_at,
+    )
+    recipient = EmailRecipient(email=customer_email, name=customer_name)
+
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
+    )
+
+
+async def send_refund_processed_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    amount: float,
+    currency: str,
+    reason: str,
+) -> EmailResult:
+    """Send refund processed email to customer."""
+    content = _render_refund_processed_email(
+        customer_name=customer_name,
+        order_id=order_id,
+        amount=amount,
+        currency=currency,
+        reason=reason,
+    )
+    recipient = EmailRecipient(email=customer_email, name=customer_name)
+
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
+    )
+
+
+async def send_credentials_rotated_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    new_username: str,
+    proxy_ip: str,
+    proxy_port: int,
+    protocol: str,
+) -> EmailResult:
+    """Send credentials rotated email to customer."""
+    content = _render_credentials_rotated_email(
+        customer_name=customer_name,
+        order_id=order_id,
+        new_username=new_username,
+        proxy_ip=proxy_ip,
+        proxy_port=proxy_port,
+        protocol=protocol,
+    )
+    recipient = EmailRecipient(email=customer_email, name=customer_name)
+
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
+    )
+
+
+# Alias for backward compatibility with orders.py
+async def send_rotation_notification_email(
+    customer_email: str,
+    bun_username: str,
+    bun_password: str,
+    proxy_ip: str,
+    proxy_port: int,
+    order_id: str,
+) -> EmailResult:
+    """Send rotation notification email (alias for backward compatibility)."""
+    # This is used in orders.py but we don't have customer_name here
+    # Use a generic greeting since we don't have the name
+    content = _render_credentials_rotated_email(
+        customer_name="Customer",
+        order_id=order_id,
+        new_username=bun_username,
+        proxy_ip=proxy_ip,
+        proxy_port=proxy_port,
+        protocol="socks5",
+    )
+    recipient = EmailRecipient(email=customer_email, name="Customer")
 
     return await _send_via_resend(
         recipient=recipient,

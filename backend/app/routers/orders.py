@@ -25,7 +25,16 @@ from app.schemas import (
 from app.auth import get_current_account
 from app.services.credential import create_credential
 from app.services.audit import log_audit_event
-from app.services.email import send_new_order_notification, send_order_paid_notification, send_refund_request_notification
+from app.services.email import (
+    send_new_order_notification,
+    send_order_paid_notification,
+    send_refund_request_notification,
+    send_order_confirmation_email,
+    send_order_active_email,
+    send_proxy_credentials_email,
+    send_refund_processed_email,
+    send_credentials_rotated_email,
+)
 from app.services.provider import check_availability
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -143,6 +152,10 @@ async def create_order(
     await session.refresh(order)
     await log_audit_event(session, event_type="order_created", phone=customer.phone, order_id=order_id, details={"plan_code": request.plan_code, "country": request.country, "amount": total_amount, "status": order.status})
     
+    # Get customer name and email for customer emails
+    customer_name = customer.name if customer else "Customer"
+    customer_email = getattr(customer, 'email', None)  # Use customer email if available
+    
     # Send admin notification email
     if order.status == "pending":
         await send_new_order_notification(
@@ -152,14 +165,46 @@ async def create_order(
             amount=total_amount,
             currency="NGN",
         )
+        # Send order confirmation to customer if email available
+        if customer_email:
+            try:
+                await send_order_confirmation_email(
+                    customer_email=customer_email,
+                    customer_name=customer_name,
+                    order_id=order_id,
+                    plan_code=request.plan_code,
+                    amount=total_amount,
+                    currency="NGN",
+                    quantity=request.quantity,
+                )
+            except Exception:
+                pass
     elif order.status == "active":
-        await send_order_paid_notification(
-            order_id=order_id,
-            customer_phone=customer.phone,
-            plan_code=request.plan_code,
-            amount=total_amount,
-            currency="NGN",
-        )
+        # Send ONE combined email: order details + credentials together
+        if customer_email:
+            cred = None
+            if order.bunche_credential_id:
+                cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+                cred_result = await session.execute(cred_stmt)
+                cred = cred_result.scalar_one_or_none()
+            if cred:
+                try:
+                    await send_order_active_email(
+                        customer_email=customer_email,
+                        customer_name=customer_name,
+                        order_id=order_id,
+                        plan_code=request.plan_code,
+                        amount=total_amount,
+                        currency="NGN",
+                        quantity=request.quantity,
+                        bun_username=cred.bun_username,
+                        proxy_ip=cred.upstream_proxy_ip or "",
+                        proxy_port=cred.upstream_proxy_port or 1080,
+                        protocol=cred.protocol or "socks5",
+                        expires_at=cred.expires_at or datetime.utcnow(),
+                    )
+                except Exception:
+                    pass
     cred_brief = None
     if order.bunche_credential_id:
         cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
@@ -379,16 +424,24 @@ async def rotate_proxy(order_id: str, session: AsyncSession = Depends(get_sessio
     )
 
     # Send new credentials to customer via email
-    from app.services.email import send_rotation_notification_email
+    # Get customer name and email for customer emails
+    customer_name = customer.name if customer else "Customer"
+    customer_email = getattr(customer, 'email', None)
+    
     try:
-        await send_rotation_notification_email(
-            customer_email=order.customer_email,
-            bun_username=new_dante.new_bun_username,
-            bun_password=new_dante.new_bun_password,
-            proxy_ip=cred.upstream_proxy_ip or "",
-            proxy_port=cred.upstream_proxy_port or 1080,
-            order_id=order_id,
-        )
+        if customer_email:
+            await send_credentials_rotated_email(
+                customer_email=customer_email,
+                customer_name=customer_name,
+                order_id=order_id,
+                new_username=new_dante.new_bun_username,
+                proxy_ip=cred.upstream_proxy_ip or "",
+                proxy_port=cred.upstream_proxy_port or 1080,
+                protocol=cred.protocol or "socks5",
+            )
+        else:
+            # Fallback: no customer email available, skip email
+            pass
     except Exception:
         pass
 
