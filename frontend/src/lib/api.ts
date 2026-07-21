@@ -274,7 +274,7 @@ class ApiClient {
 
   // Admin login (email-based)
   async adminLogin(data: AdminLoginRequest): Promise<ApiResponse<AdminLoginResponse>> {
-    return this.request<AdminLoginResponse>('/api/admin/auth/login', {
+    return this.request<AdminLoginResponse>('/api/admin/auth/login/email', {
       method: 'POST',
       body: JSON.stringify(data),
     });
