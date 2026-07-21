@@ -243,6 +243,15 @@ export interface AdminInviteCreateResponse {
 // ============== Blog Types ==============
 export type PostStatus = 'draft' | 'pending' | 'approved' | 'published' | 'scheduled' | 'archived';
 
+export interface BlogCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  color?: string;
+  post_count?: number;
+}
+
 export interface BlogPost {
   id: string; // UUID
   slug: string;
@@ -260,9 +269,11 @@ export interface BlogPost {
   published_at?: string;
   meta_description?: string;
   tags?: string[];
+  featured?: boolean;
   view_count: number;
   created_at: string;
   updated_at: string;
+  categories?: BlogCategory[];
 }
 
 export interface BlogPostCreate {
@@ -273,6 +284,8 @@ export interface BlogPostCreate {
   meta_description?: string;
   tags?: string;
   scheduled_at?: string;
+  featured?: boolean;
+  category_ids?: string[];
 }
 
 export interface BlogPostUpdate extends Partial<BlogPostCreate> {
@@ -281,6 +294,18 @@ export interface BlogPostUpdate extends Partial<BlogPostCreate> {
 
 export interface BlogPostsResponse {
   posts: BlogPost[];
+  pagination: {
+    page: number;
+    limit: number;
+    total_items: number;
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
+  };
+}
+
+export interface BlogCategoriesResponse {
+  categories: BlogCategory[];
   pagination: {
     page: number;
     limit: number;

@@ -7,10 +7,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, delete, insert
 
 from app.database import get_session
-from app.models import Post
+from app.models import Post, Category, PostCategory
 from app.schemas import (
     PostCreateRequest,
     PostUpdateRequest,
@@ -26,6 +26,10 @@ from app.schemas import (
     PostPublishResponse,
     PostScheduleRequest,
     PostScheduleResponse,
+    CategoryCreateRequest,
+    CategoryUpdateRequest,
+    CategoryResponse,
+    CategoryListResponse,
 )
 from app.auth import admin_only, verify_admin_token
 
@@ -73,6 +77,49 @@ async def generate_unique_slug(session: AsyncSession, title: str) -> str:
     return slug
 
 
+def generate_category_slug(name: str) -> str:
+    """Generate a URL-safe slug from a category name."""
+    slug = unicodedata.normalize("NFKD", name)
+    slug = slug.lower()
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"[\s]+", "-", slug)
+    slug = re.sub(r"-+", "-", slug)
+    slug = slug.strip("-")
+    return slug
+
+
+async def get_post_categories(session: AsyncSession, post_id: UUID) -> list[dict]:
+    """Get categories for a post."""
+    stmt = (
+        select(Category)
+        .join(PostCategory, Category.id == PostCategory.category_id)
+        .where(PostCategory.post_id == post_id)
+    )
+    result = await session.execute(stmt)
+    categories = result.scalars().all()
+    return [
+        {"id": str(c.id), "name": c.name, "slug": c.slug, "color": c.color}
+        for c in categories
+    ]
+
+
+async def update_post_categories(
+    session: AsyncSession, post_id: UUID, category_ids: list[UUID]
+) -> None:
+    """Update categories for a post."""
+    # Delete existing categories
+    stmt = PostCategory.__table__.delete().where(PostCategory.post_id == post_id)
+    await session.execute(stmt)
+    
+    # Add new categories
+    for category_id in category_ids:
+        await session.execute(
+            PostCategory.__table__.insert().values(
+                post_id=post_id, category_id=category_id
+            )
+        )
+
+
 # ============== Public Endpoints ==============
 
 @router.get("/posts", response_model=PostListResponse)
@@ -80,6 +127,8 @@ async def list_published_posts(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=50),
     tag: Optional[str] = None,
+    category: Optional[str] = None,
+    featured: Optional[bool] = None,
     session: AsyncSession = Depends(get_session),
 ):
     """List all published blog posts (public)."""
@@ -87,6 +136,23 @@ async def list_published_posts(
     
     if tag:
         conditions.append(Post.tags.contains([tag]))
+    
+    if category:
+        # Join with post_categories to filter by category slug
+        stmt = select(Category.id).where(Category.slug == category)
+        cat_result = await session.execute(stmt)
+        cat = cat_result.scalar_one_or_none()
+        if cat:
+            conditions.append(
+                Post.id.in_(
+                    select(PostCategory.post_id).where(
+                        PostCategory.category_id == cat
+                    )
+                )
+            )
+    
+    if featured is not None:
+        conditions.append(Post.featured == featured)
     
     count_stmt = select(func.count()).select_from(Post).where(and_(*conditions))
     total = (await session.execute(count_stmt)).scalar() or 0
@@ -177,6 +243,326 @@ async def rss_feed(session: AsyncSession = Depends(get_session)):
     return Response(content=rss, media_type="application/rss+xml")
 
 
+@router.get("/posts/featured", response_model=PostListResponse)
+async def list_featured_posts(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=50),
+    session: AsyncSession = Depends(get_session),
+):
+    """List featured blog posts (public)."""
+    conditions = [Post.status == "published", Post.featured == True]
+    
+    count_stmt = select(func.count()).select_from(Post).where(and_(*conditions))
+    total = (await session.execute(count_stmt)).scalar() or 0
+    
+    offset = (page - 1) * limit
+    stmt = (
+        select(Post)
+        .where(and_(*conditions))
+        .order_by(Post.published_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    posts = (await session.execute(stmt)).scalars().all()
+    
+    return PostListResponse(
+        posts=[PostBriefResponse.model_validate(p) for p in posts],
+        pagination={
+            "page": page,
+            "limit": limit,
+            "total_items": total,
+            "total_pages": (total + limit - 1) // limit,
+            "has_next": page * limit < total,
+            "has_prev": page > 1,
+        },
+    )
+
+
+# ============== Category Endpoints ==============
+
+@router.get("/categories", response_model=CategoryListResponse)
+async def list_categories(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    """List all categories (public)."""
+    count_stmt = select(func.count()).select_from(Category)
+    total = (await session.execute(count_stmt)).scalar() or 0
+    
+    offset = (page - 1) * limit
+    stmt = (
+        select(Category)
+        .order_by(Category.name.asc())
+        .offset(offset)
+        .limit(limit)
+    )
+    categories = (await session.execute(stmt)).scalars().all()
+    
+    # Get post counts for each category
+    result_categories = []
+    for cat in categories:
+        count_stmt = select(func.count()).select_from(PostCategory).where(
+            PostCategory.category_id == cat.id
+        )
+        post_count = (await session.execute(count_stmt)).scalar() or 0
+        result_categories.append(
+            CategoryResponse(
+                id=cat.id,
+                name=cat.name,
+                slug=cat.slug,
+                description=cat.description,
+                color=cat.color,
+                created_at=cat.created_at,
+                updated_at=cat.updated_at,
+                post_count=post_count,
+            )
+        )
+    
+    return CategoryListResponse(
+        categories=result_categories,
+        pagination={
+            "page": page,
+            "limit": limit,
+            "total_items": total,
+            "total_pages": (total + limit - 1) // limit,
+            "has_next": page * limit < total,
+            "has_prev": page > 1,
+        },
+    )
+
+
+@router.get("/categories/{slug}", response_model=CategoryResponse)
+async def get_category(slug: str, session: AsyncSession = Depends(get_session)):
+    """Get a category by slug (public)."""
+    stmt = select(Category).where(Category.slug == slug)
+    result = await session.execute(stmt)
+    category = result.scalar_one_or_none()
+    
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found",
+        )
+    
+    # Get post count
+    count_stmt = select(func.count()).select_from(PostCategory).where(
+        PostCategory.category_id == category.id
+    )
+    post_count = (await session.execute(count_stmt)).scalar() or 0
+    
+    return CategoryResponse(
+        id=category.id,
+        name=category.name,
+        slug=category.slug,
+        description=category.description,
+        color=category.color,
+        created_at=category.created_at,
+        updated_at=category.updated_at,
+        post_count=post_count,
+    )
+
+
+# ============== Admin Category Endpoints ==============
+
+@router.post("/admin/categories", response_model=CategoryResponse, dependencies=[Depends(admin_only)])
+async def create_category(
+    request: CategoryCreateRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Create a new category (admin only)."""
+    slug = generate_category_slug(request.name)
+    
+    # Check for existing slug
+    stmt = select(Category).where(Category.slug == slug)
+    result = await session.execute(stmt)
+    existing = result.scalar_one_or_none()
+    if existing:
+        # Append counter
+        counter = 1
+        while existing:
+            slug = f"{generate_category_slug(request.name)}-{counter}"
+            stmt = select(Category).where(Category.slug == slug)
+            result = await session.execute(stmt)
+            existing = result.scalar_one_or_none()
+            counter += 1
+    
+    category = Category(
+        name=request.name,
+        slug=slug,
+        description=request.description,
+        color=request.color,
+    )
+    
+    session.add(category)
+    await session.commit()
+    await session.refresh(category)
+    
+    return CategoryResponse(
+        id=category.id,
+        name=category.name,
+        slug=category.slug,
+        description=category.description,
+        color=category.color,
+        created_at=category.created_at,
+        updated_at=category.updated_at,
+        post_count=0,
+    )
+
+
+@router.get("/admin/categories", response_model=CategoryListResponse, dependencies=[Depends(admin_only)])
+async def list_all_categories(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    """List all categories with post counts (admin only)."""
+    count_stmt = select(func.count()).select_from(Category)
+    total = (await session.execute(count_stmt)).scalar() or 0
+    
+    offset = (page - 1) * limit
+    stmt = (
+        select(Category)
+        .order_by(Category.name.asc())
+        .offset(offset)
+        .limit(limit)
+    )
+    categories = (await session.execute(stmt)).scalars().all()
+    
+    result_categories = []
+    for cat in categories:
+        count_stmt = select(func.count()).select_from(PostCategory).where(
+            PostCategory.category_id == cat.id
+        )
+        post_count = (await session.execute(count_stmt)).scalar() or 0
+        result_categories.append(
+            CategoryResponse(
+                id=cat.id,
+                name=cat.name,
+                slug=cat.slug,
+                description=cat.description,
+                color=cat.color,
+                created_at=cat.created_at,
+                updated_at=cat.updated_at,
+                post_count=post_count,
+            )
+        )
+    
+    return CategoryListResponse(
+        categories=result_categories,
+        pagination={
+            "page": page,
+            "limit": limit,
+            "total_items": total,
+            "total_pages": (total + limit - 1) // limit,
+            "has_next": page * limit < total,
+            "has_prev": page > 1,
+        },
+    )
+
+
+@router.get("/admin/categories/{category_id}", response_model=CategoryResponse, dependencies=[Depends(admin_only)])
+async def get_category_admin(
+    category_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Get a category by ID (admin only)."""
+    stmt = select(Category).where(Category.id == category_id)
+    result = await session.execute(stmt)
+    category = result.scalar_one_or_none()
+    
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found",
+        )
+    
+    count_stmt = select(func.count()).select_from(PostCategory).where(
+        PostCategory.category_id == category.id
+    )
+    post_count = (await session.execute(count_stmt)).scalar() or 0
+    
+    return CategoryResponse(
+        id=category.id,
+        name=category.name,
+        slug=category.slug,
+        description=category.description,
+        color=category.color,
+        created_at=category.created_at,
+        updated_at=category.updated_at,
+        post_count=post_count,
+    )
+
+
+@router.patch("/admin/categories/{category_id}", response_model=CategoryResponse, dependencies=[Depends(admin_only)])
+async def update_category(
+    category_id: UUID,
+    request: CategoryUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Update a category (admin only)."""
+    stmt = select(Category).where(Category.id == category_id)
+    result = await session.execute(stmt)
+    category = result.scalar_one_or_none()
+    
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found",
+        )
+    
+    if request.name is not None:
+        category.name = request.name
+        category.slug = generate_category_slug(request.name)
+    
+    if request.description is not None:
+        category.description = request.description
+    
+    if request.color is not None:
+        category.color = request.color
+    
+    await session.commit()
+    await session.refresh(category)
+    
+    count_stmt = select(func.count()).select_from(PostCategory).where(
+        PostCategory.category_id == category.id
+    )
+    post_count = (await session.execute(count_stmt)).scalar() or 0
+    
+    return CategoryResponse(
+        id=category.id,
+        name=category.name,
+        slug=category.slug,
+        description=category.description,
+        color=category.color,
+        created_at=category.created_at,
+        updated_at=category.updated_at,
+        post_count=post_count,
+    )
+
+
+@router.delete("/admin/categories/{category_id}", dependencies=[Depends(admin_only)])
+async def delete_category(
+    category_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Delete a category (admin only)."""
+    stmt = select(Category).where(Category.id == category_id)
+    result = await session.execute(stmt)
+    category = result.scalar_one_or_none()
+    
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found",
+        )
+    
+    await session.delete(category)
+    await session.commit()
+    
+    return {"status": "deleted", "category_id": str(category_id)}
+
+
 # ============== Admin Endpoints ==============
 
 @router.post("/posts", response_model=PostResponse, dependencies=[Depends(admin_only)])
@@ -202,13 +588,23 @@ async def create_post(
         meta_description=request.meta_description,
         tags=request.tags,
         scheduled_at=request.scheduled_at,
+        featured=request.featured,
     )
     
     session.add(post)
     await session.commit()
     await session.refresh(post)
     
-    return PostResponse.model_validate(post)
+    # Update categories if provided
+    if request.category_ids:
+        await update_post_categories(session, post.id, request.category_ids)
+    
+    # Get categories for response
+    categories = await get_post_categories(session, post.id)
+    
+    response_data = PostResponse.model_validate(post)
+    response_data.categories = categories
+    return response_data
 
 
 @router.get("/admin/posts", response_model=PostListResponse, dependencies=[Depends(admin_only)])
@@ -322,10 +718,22 @@ async def update_post(
     if request.scheduled_at is not None:
         post.scheduled_at = request.scheduled_at
     
+    if request.featured is not None:
+        post.featured = request.featured
+    
     await session.commit()
     await session.refresh(post)
     
-    return PostResponse.model_validate(post)
+    # Update categories if provided
+    if request.category_ids is not None:
+        await update_post_categories(session, post.id, request.category_ids)
+    
+    # Get categories for response
+    categories = await get_post_categories(session, post.id)
+    
+    response_data = PostResponse.model_validate(post)
+    response_data.categories = categories
+    return response_data
 
 
 @router.delete("/admin/posts/{post_id}", dependencies=[Depends(admin_only)])

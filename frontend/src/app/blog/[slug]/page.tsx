@@ -3,17 +3,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { api } from '@/lib/api';
-import {
-  DEMO_POSTS,
-  getDemoPostBySlug,
-  getRelatedPosts,
-  getPostsByAuthor,
-} from '@/data/blog-posts';
 import type { BlogPost } from '@/types';
 import TagPill from '@/components/blog/TagPill';
 import EngagementRow from '@/components/blog/EngagementRow';
-import PostNav from '@/components/blog/PostNav';
-import RelatedPosts from '@/components/blog/RelatedPosts';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -52,7 +44,7 @@ async function resolvePost(slug: string): Promise<BlogPost | null> {
     const result = await api.getBlogPost(slug);
     if (result.data) return result.data;
   } catch (_) {}
-  return getDemoPostBySlug(slug) || null;
+  return null;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -92,7 +84,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export async function generateStaticParams() {
-  return DEMO_POSTS.map((post) => ({ slug: post.slug }));
+  return [];
 }
 
 export default async function BlogPostPage({ params }: Props) {
@@ -103,20 +95,6 @@ export default async function BlogPostPage({ params }: Props) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://styxproxy.com';
   const jsonLd = generateJsonLd(post, siteUrl);
   const readTime = estimateReadTime(post.content || post.excerpt || '');
-
-  // Find prev/next (chronological: previous is older, next is newer)
-  const sorted = [...DEMO_POSTS].sort(
-    (a, b) =>
-      new Date(b.published_at || b.created_at).getTime() -
-      new Date(a.published_at || a.created_at).getTime()
-  );
-  const idx = sorted.findIndex((p) => p.slug === slug);
-  const prev = idx < sorted.length - 1 ? sorted[idx + 1] : null;
-  const next = idx > 0 ? sorted[idx - 1] : null;
-
-  // Related by tag overlap
-  const related = getRelatedPosts(slug, 6);
-  const authorPosts = getPostsByAuthor(post.author, slug);
 
   return (
     <>
@@ -221,28 +199,6 @@ export default async function BlogPostPage({ params }: Props) {
               ))}
             </div>
           </div>
-        )}
-
-        {/* Prev / next */}
-        <PostNav prev={prev} next={next} />
-
-        {/* Related by tag */}
-        {related.length > 0 && (
-          <RelatedPosts
-            posts={related}
-            excludeSlug={slug}
-            title="Related by topic"
-            emptyMessage="More posts coming soon."
-          />
-        )}
-
-        {/* More from author */}
-        {authorPosts.length > 0 && (
-          <RelatedPosts
-            posts={authorPosts}
-            excludeSlug={slug}
-            title={`More from ${post.author}`}
-          />
         )}
       </main>
     </>
