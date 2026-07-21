@@ -83,7 +83,9 @@ class ApiClient {
       };
       
       const adminToken = this.getAdminToken();
-      if (adminToken && endpoint.startsWith('/admin')) {
+      // Attach Bearer token to ALL admin API endpoints
+      // (some start with '/admin/...' and others with '/api/admin/...')
+      if (adminToken && (endpoint.startsWith('/admin') || endpoint.startsWith('/api/admin'))) {
         headers['Authorization'] = `Bearer ${adminToken}`;
       }
 
