@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
-import type { AdminMeResponse, AdminRole } from '@/types';
+import type { AdminMeResponse } from '@/types';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -17,10 +17,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Pages that don't require auth
+  // Pages that don't require auth — render empty (no nav shell)
   const publicAdminPages = ['/admin/login', '/admin/setup'];
+
   useEffect(() => {
-    if (publicAdminPages.some(p => pathname?.startsWith(p))) {
+    if (publicAdminPages.some((p) => pathname?.startsWith(p))) {
       setLoading(false);
       return;
     }
@@ -64,12 +65,24 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/charon', label: 'Charon', icon: '🧠' },
     { href: '/admin/blog', label: 'Blog', icon: '📝' },
     // SuperAdmin only
-    ...(isSuperAdmin ? [
-      { href: '/admin/team', label: 'Team', icon: '👤' },
-      { href: '/admin/features', label: 'Features', icon: '⚙️' },
-    ] : []),
+    ...(isSuperAdmin
+      ? [
+          { href: '/admin/team', label: 'Team', icon: '👤' },
+          { href: '/admin/features', label: 'Features', icon: '⚙️' },
+        ]
+      : []),
   ];
 
+  // ── Public pages: no nav shell ──────────────────────────────────────────────
+  if (loading && publicAdminPages.every((p) => !pathname?.startsWith(p))) {
+    return (
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
+        <div className="animate-pulse text-[var(--muted)]">Loading...</div>
+      </div>
+    );
+  }
+
+  // Still loading auth check on protected pages — show spinner only
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
@@ -78,6 +91,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
+  // ── Public pages after loading: plain page, no nav ─────────────────────────
+  if (publicAdminPages.some((p) => pathname?.startsWith(p))) {
+    return <>{children}</>;
+  }
+
+  // ── Protected pages: full nav shell ────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[var(--background)]">
       {/* Mobile Header */}
@@ -106,16 +125,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       </header>
 
-      {/* Sidebar - Desktop */}
+      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-64 bg-[var(--card)] border-r border-[var(--border)] z-40">
-        {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b border-[var(--border)]">
           <Link href="/admin/dashboard" className="text-xl font-bold">
             Styxproxy <span className="gradient-text">Admin</span>
           </Link>
         </div>
-
-        {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -135,8 +151,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             );
           })}
         </nav>
-
-        {/* User section */}
         <div className="p-4 border-t border-[var(--border)]">
           <div className="flex items-center justify-between">
             <div>
@@ -165,9 +179,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       )}
 
       {/* Mobile Sidebar */}
-      <aside className={`lg:hidden fixed left-0 top-16 bottom-0 w-64 bg-[var(--card)] border-r border-[var(--border)] z-50 transform transition-transform ${
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
+      <aside
+        className={`lg:hidden fixed left-0 top-16 bottom-0 w-64 bg-[var(--card)] border-r border-[var(--border)] z-50 transform transition-transform ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <nav className="p-4 space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -192,9 +208,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Main Content */}
       <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">
-        <div className="p-4 lg:p-8">
-          {children}
-        </div>
+        <div className="p-4 lg:p-8">{children}</div>
       </main>
     </div>
   );

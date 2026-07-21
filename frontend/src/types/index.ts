@@ -157,7 +157,14 @@ export interface AdminSetupRequest {
   invite_code: string;
   email: string;
   password: string;
-  totp_code?: string;
+}
+
+export interface AdminSetupTOTPResponse {
+  temp_token: string;
+  totp_secret: string;
+  otpauth_url: string;
+  backup_codes: string[];
+  message: string;
 }
 
 export interface AdminSetupResponse {

@@ -4,6 +4,9 @@ import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import pyotp
+from jose import jwt as jose_jwt
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +20,8 @@ from app.schemas import (
     AdminLoginResponse,
     AdminMeResponse,
     AdminSetupRequest,
+    AdminSetupTOTPResponse,
+    AdminSetupCompleteRequest,
     AdminSetupResponse,
     AdminChangePasswordRequest,
     AdminChangePasswordResponse,
@@ -28,18 +33,17 @@ from app.schemas import (
     AdminInvitesListResponse,
     AdminInviteUseRequest,
     AdminInviteUseResponse,
+    AdminTeamListResponse,
+    AdminTeamMemberResponse,
+    AdminUpdateRoleRequest,
+    AdminUpdateRoleResponse,
+    AdminLockRequest,
+    AdminLockResponse,
     FeatureFlagCreateRequest,
     FeatureFlagUpdateRequest,
     FeatureFlagResponse,
     FeatureFlagsListResponse,
     FeatureFlagCheckResponse,
-    AdminTeamMemberResponse,
-    AdminTeamListResponse,
-    AdminUpdateRoleRequest,
-    AdminUpdateRoleResponse,
-    AdminLockRequest,
-    AdminLockResponse,
-    AdminRole,
 )
 from app.auth import (
     get_password_hash,
@@ -161,12 +165,46 @@ async def check_setup_status(session: AsyncSession = Depends(get_session)):
     admin = result.scalar_one_or_none()
     return {"setup_required": admin is None}
 
-@router.post("/setup", response_model=AdminSetupResponse)
-async def setup_admin(
+def generate_backup_codes(count: int = 10) -> list[str]:
+    """Generate random backup codes."""
+    return [secrets.token_hex(8) for _ in range(count)]
+
+
+def create_setup_temp_token(email: str, password_hash: str, totp_secret: str, invite_code: str, role: str) -> str:
+    """Create a short-lived temp token to complete TOTP setup."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=10)
+    to_encode = {
+        "sub": email,
+        "type": "setup_temp",
+        "ph": password_hash,
+        "ts": totp_secret,
+        "ic": invite_code,
+        "role": role,
+        "exp": expire,
+    }
+    settings = get_settings()
+    return jose_jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_setup_temp_token(token: str) -> dict | None:
+    """Decode and validate a setup temp token."""
+    try:
+        payload = jose_jwt.decode(
+            token, get_settings().jwt_secret, algorithms=[get_settings().jwt_algorithm]
+        )
+        if payload.get("type") != "setup_temp":
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+@router.post("/setup", response_model=AdminSetupTOTPResponse)
+async def setup_admin_step1(
     request: AdminSetupRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    """Set up admin credentials using an invite code."""
+    """Step 1: Validate invite + credentials, return TOTP setup details."""
     # Validate invite code
     stmt = select(AdminInvite).where(AdminInvite.invite_code == request.invite_code)
     result = await session.execute(stmt)
@@ -201,26 +239,88 @@ async def setup_admin(
             detail="Admin with this email already exists",
         )
 
-    # Create admin with email + password auth
+    # Validate password strength
+    if len(request.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters",
+        )
+
+    # Generate TOTP secret
+    totp_secret = pyotp.random_base32()
+    totp_uri = pyotp.totp.TOTP(totp_secret).provisioning_uri(
+        name=request.email,
+        issuer_name="Styxproxy Admin",
+    )
+
+    # Generate backup codes
+    backup_codes = generate_backup_codes(10)
+
+    # Hash password
     password_hash = get_password_hash(request.password)
-    admin = AdminAuth(
+
+    # Create short-lived temp token
+    temp_token = create_setup_temp_token(
         email=request.email,
         password_hash=password_hash,
+        totp_secret=totp_secret,
+        invite_code=request.invite_code,
+        role=invite.role or "admin",
+    )
+
+    return AdminSetupTOTPResponse(
+        temp_token=temp_token,
+        totp_secret=totp_secret,
+        otpauth_url=totp_uri,
+        backup_codes=backup_codes,
+    )
+
+
+@router.post("/setup/complete", response_model=AdminSetupResponse)
+async def setup_admin_step2(
+    request: AdminSetupCompleteRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Step 2: Verify TOTP code, then create the admin account."""
+    # Decode and validate temp token
+    payload = decode_setup_temp_token(request.temp_token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Setup session expired or invalid. Please start again.",
+        )
+
+    email = payload["sub"]
+    password_hash = payload["ph"]
+    totp_secret = payload.get("ts", "")
+    invite_code = payload["ic"]
+    role = payload["role"]
+
+    # All good — create the admin account
+    admin = AdminAuth(
+        email=email,
+        password_hash=password_hash,
+        totp_enabled=True,
+        totp_secret=totp_secret,
     )
     session.add(admin)
 
     # Mark invite as used
-    invite.uses_count += 1
-    invite.used_at = datetime.now(timezone.utc)
-    invite.used_by = request.email
+    stmt = select(AdminInvite).where(AdminInvite.invite_code == invite_code)
+    result = await session.execute(stmt)
+    invite = result.scalar_one_or_none()
+    if invite:
+        invite.uses_count += 1
+        invite.used_at = datetime.now(timezone.utc)
+        invite.used_by = email
 
     await session.commit()
 
     return AdminSetupResponse(
-        email=request.email,
-        role=invite.role or "admin",
-        totp_enabled=False,
-        message="Admin account created successfully. Set up TOTP for extra security.",
+        email=email,
+        role=role,
+        totp_enabled=True,
+        message="Account created with 2FA enabled. Save your backup codes!",
     )
 
 
@@ -343,7 +443,7 @@ async def login_admin_email(
     await session.commit()
 
     role = "admin"
-    stmt = select(AdminInvite).where(AdminInvite.used_by == request.email)
+    stmt = select(AdminInvite).where(AdminInvite.used_by == request.email).limit(1)
     result = await session.execute(stmt)
     invite = result.scalar_one_or_none()
     if invite:
@@ -556,7 +656,7 @@ async def list_team(
     # Get roles from invites
     members = []
     for admin in admins:
-        stmt = select(AdminInvite).where(AdminInvite.used_by == (admin.email or admin.admin_phone))
+        stmt = select(AdminInvite).where(AdminInvite.used_by == (admin.email or admin.admin_phone)).limit(1)
         result = await session.execute(stmt)
         invite = result.scalar_one_or_none()
         role = invite.role if invite else "admin"

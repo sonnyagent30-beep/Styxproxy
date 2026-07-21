@@ -245,9 +245,17 @@ class ApiClient {
     return this.request('/api/admin/auth/status');
   }
 
-  // Initial admin setup (email-based)
-  async setupAdmin(data: AdminSetupRequest): Promise<ApiResponse<AdminSetupResponse>> {
-    return this.request<AdminSetupResponse>('/api/admin/auth/setup', {
+  // Initial admin setup — step 1: returns TOTP secret + backup codes
+  async setupAdmin(data: AdminSetupRequest): Promise<ApiResponse<AdminSetupTOTPResponse>> {
+    return this.request<AdminSetupTOTPResponse>('/api/admin/auth/setup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Complete admin setup — step 2: verify TOTP code
+  async setupAdminComplete(data: { temp_token: string; totp_code: string }): Promise<ApiResponse<AdminSetupResponse>> {
+    return this.request<AdminSetupResponse>('/api/admin/auth/setup/complete', {
       method: 'POST',
       body: JSON.stringify(data),
     });
