@@ -569,6 +569,59 @@ class FeatureFlag(Base):
     admin_overrides: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
 
+class ContactSubmission(Base):
+    """Contact form submissions table."""
+    __tablename__ = "contact_submissions"
+    __table_args__ = (
+        Index("idx_contact_submissions_created", "created_at"),
+        Index("idx_contact_submissions_email", "email"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    tx_ref: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    admin_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class CharonEscalation(Base):
+    """Charon AI sales agent escalation table."""
+    __tablename__ = "charon_escalations"
+    __table_args__ = (
+        Index("idx_charon_escalations_conversation", "conversation_id"),
+        Index("idx_charon_escalations_created", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    conversation_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    customer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    customer_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    customer_message: Mapped[str] = mapped_column(Text, nullable=False)
+    history_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    admin_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class Post(Base):
     """Blog posts table - CMS for blog articles with approval workflow."""
     __tablename__ = "posts"

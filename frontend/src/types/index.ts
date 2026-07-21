@@ -338,3 +338,40 @@ export interface PlanUpdate {
   is_active?: boolean;
   sort_order?: number;
 }
+
+// ============== Contact Submissions ==============
+export interface ContactSubmission {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  phone?: string;
+  tx_ref?: string;
+  status: 'pending' | 'replied' | 'closed';
+  admin_notes?: string;
+  created_at: string;
+}
+
+export interface ContactSubmissionsResponse {
+  data: ContactSubmission[];
+  total: number;
+}
+
+// ============== Charon Escalations ==============
+export interface Escalation {
+  id: string;
+  conversation_id: string;
+  customer_email?: string;
+  customer_phone?: string;
+  customer_message: string;
+  history_summary?: string;
+  status: 'pending' | 'reviewed' | 'closed';
+  admin_notes?: string;
+  resolved_at?: string;
+  created_at: string;
+}
+
+export interface EscalationsResponse {
+  data: Escalation[];
+  total: number;
+}
