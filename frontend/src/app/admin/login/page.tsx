@@ -6,8 +6,8 @@ import api from '@/lib/api';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState('');
-  const [pin, setPin] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,8 +28,8 @@ export default function AdminLoginPage() {
 
     try {
       const result = await api.adminLogin({
-        admin_phone: phone,
-        pin,
+        email,
+        password,
         totp_code: requiresTOTP ? totpCode : undefined,
       });
 
@@ -56,7 +56,7 @@ export default function AdminLoginPage() {
         {/* Logo / Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">
-            Bunche <span className="gradient-text">Admin</span>
+            Styxproxy <span className="gradient-text">Admin</span>
           </h1>
           <p className="text-[var(--muted)]">Sign in to your account</p>
         </div>
@@ -71,25 +71,24 @@ export default function AdminLoginPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium mb-2">Phone Number</label>
+              <label className="block text-sm font-medium mb-2">Email</label>
               <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+2348012345678"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@example.com"
                 className="w-full px-4 py-3 rounded-xl bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">PIN</label>
+              <label className="block text-sm font-medium mb-2">Password</label>
               <input
                 type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="Enter your PIN"
-                maxLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
                 className="w-full px-4 py-3 rounded-xl bg-[var(--card-hover)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
                 required
               />
@@ -132,7 +131,7 @@ export default function AdminLoginPage() {
         {/* Back to site */}
         <div className="mt-6 text-center">
           <a href="/" className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors">
-            ← Back to Bunche
+            ← Back to Styxproxy
           </a>
         </div>
       </div>

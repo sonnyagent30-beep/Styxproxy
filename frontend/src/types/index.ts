@@ -155,37 +155,38 @@ export type AdminRole = 'admin' | 'superadmin' | 'viewer';
 
 export interface AdminSetupRequest {
   invite_code: string;
-  pin: string;
+  email: string;
+  password: string;
   totp_code?: string;
 }
 
 export interface AdminSetupResponse {
-  admin_phone: string;
+  email: string;
   role: string;
   totp_enabled: boolean;
   message: string;
 }
 
 export interface AdminLoginRequest {
-  admin_phone: string;
-  pin: string;
+  email: string;
+  password: string;
   totp_code?: string;
 }
 
 export interface AdminLoginResponse {
   access_token: string;
   token_type: string;
-  admin_phone: string;
+  email: string;
   role: string;
   totp_enabled: boolean;
   expires_in: number;
 }
 
 export interface AdminMeResponse {
-  admin_phone: string;
+  email: string;
   role: string;
   totp_enabled: boolean;
-  pin_set_at?: string;
+  password_set_at?: string;
   failed_attempts: number;
   locked_until?: string;
   created_at: string;
