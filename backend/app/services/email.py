@@ -101,9 +101,9 @@ async def _send_via_resend(
             if response.status_code >= 400:
                 error_body = response.text
                 logger.error(
-                    "Resend API error",
-                    status=response.status_code,
-                    error=error_body,
+                    "Resend API error: status=%s, error=%s",
+                    response.status_code,
+                    error_body,
                 )
                 return EmailResult(
                     success=False,
@@ -118,14 +118,14 @@ async def _send_via_resend(
             )
 
     except httpx.HTTPError as e:
-        logger.error("Failed to send email", error=str(e))
+        logger.error("Failed to send email: %s", e)
         return EmailResult(
             success=False,
             status="http_error",
             error=f"HTTP error: {str(e)}",
         )
     except Exception as e:
-        logger.error("Unexpected error sending email", error=str(e))
+        logger.error("Unexpected error sending email: %s", e)
         return EmailResult(
             success=False,
             status="unexpected_error",
