@@ -72,8 +72,8 @@ export default function RefundPolicyPage() {
             </p>
             <ul className="space-y-3">
               {[
-                ["Chat Widget (Charon)", "bunche-api-push.vercel.app — open the chat widget and say 'I want a refund for [your tx_ref]'"],
-                ["Management Portal", "bunche-api-push.vercel.app/manage — enter your order number and submit a refund request"],
+                ["Chat Widget (Charon)", "styxproxy.com — open the chat widget and say 'I want a refund for [your tx_ref]'"],
+                ["Management Portal", "styxproxy.com/manage — enter your order number and submit a refund request"],
                 ["Telegram", "@styxproxy — send 'Refund request for [your tx_ref]'"],
                 ["Email", "support@styxproxy.com — include your tx_ref and a brief description"],
               ].map(([method, desc]) => (
