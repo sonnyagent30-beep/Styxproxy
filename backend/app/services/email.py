@@ -30,6 +30,8 @@ class EmailTemplate(str, Enum):
     REFUND_APPROVED = "refund_approved"
     REFUND_REJECTED = "refund_rejected"
     TRIAL_CLAIMED = "trial_claimed"
+    ADMIN_INVITE = "admin_invite"
+    PASSWORD_RESET = "password_reset"
 
 
 class EmailRecipient(BaseModel):
@@ -519,4 +521,212 @@ async def send_refund_approved_notification(
             "Amount": f"{currency} {amount:,.2f}",
             "Status": "Refunded",
         },
+    )
+
+
+# =============================================================================
+# Admin Auth Email Templates
+# =============================================================================
+
+
+def _render_admin_invite_email(
+    email: str,
+    role: str,
+    invite_code: str,
+    expires_in_hours: int,
+) -> EmailContent:
+    """Render admin invite email."""
+    invite_link = f"https://styxproxy.com/admin/setup?code={invite_code}"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #e0e0e0; background-color: #0d0d1a; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: #1a1a2e; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
+            .content {{ background: #16162a; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
+            .button {{ display: inline-block; background: #4DA3FF; color: #1a1a2e; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }}
+            .details {{ background: #1a1a2e; padding: 15px; border-radius: 8px; margin: 20px 0; }}
+            .label {{ color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }}
+            .value {{ color: #4DA3FF; font-size: 18px; font-weight: 600; margin-top: 5px; }}
+            .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
+            .warning {{ background: #2d1f1f; border-left: 4px solid #e74c3c; padding: 15px; border-radius: 4px; margin-top: 20px; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2 style="margin:0;">🚀 You've Been Invited to Styxproxy Admin</h2>
+            </div>
+            <div class="content">
+                <p>Hi,</p>
+                <p>You've been invited to join the <strong>Styxproxy Admin Panel</strong> with the role of <strong style="color: #4DA3FF;">{role}</strong>.</p>
+                
+                <div class="details">
+                    <div class="label">Your Role</div>
+                    <div class="value">{role}</div>
+                </div>
+                
+                <p>Click the button below to set up your account:</p>
+                <p style="text-align: center;">
+                    <a href="{invite_link}" class="button">Set Up Account</a>
+                </p>
+                
+                <p style="color: #888; font-size: 14px;">
+                    Or copy this link: <span style="color: #4DA3FF;">{invite_link}</span>
+                </p>
+                
+                <div class="warning">
+                    ⚠️ <strong>Important:</strong> This invite expires in {expires_in_hours} hours. If you didn't request this, please ignore this email.
+                </div>
+            </div>
+            <div class="footer">
+                Styxproxy Admin Panel · Sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text = f"""You've Been Invited to Styxproxy Admin
+
+Hi,
+
+You've been invited to join the Styxproxy Admin Panel with the role of {role}.
+
+Your Invite Link: {invite_link}
+
+This invite expires in {expires_in_hours} hours.
+
+If you didn't request this, please ignore this email.
+
+- Styxproxy Admin
+"""
+
+    return EmailContent(
+        subject="You've been invited to Styxproxy Admin",
+        html=html,
+        text=text,
+    )
+
+
+def _render_password_reset_email(
+    email: str,
+    reset_token: str,
+) -> EmailContent:
+    """Render password reset email."""
+    reset_link = f"https://styxproxy.com/admin/reset-password?token={reset_token}"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #e0e0e0; background-color: #0d0d1a; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: #1a1a2e; color: white; padding: 30px 20px; text-align: center; border-radius: 12px 12px 0 0; }}
+            .content {{ background: #16162a; padding: 30px 20px; border-radius: 0 0 12px 12px; }}
+            .button {{ display: inline-block; background: #4DA3FF; color: #1a1a2e; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }}
+            .warning {{ background: #2d1f1f; border-left: 4px solid #e74c3c; padding: 15px; border-radius: 4px; margin-top: 20px; font-size: 14px; }}
+            .footer {{ text-align: center; margin-top: 20px; color: #666; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h2 style="margin:0;">🔐 Reset Your Styxproxy Admin Password</h2>
+            </div>
+            <div class="content">
+                <p>Hi,</p>
+                <p>We received a request to reset your Styxproxy Admin password. Click the button below to create a new password:</p>
+                
+                <p style="text-align: center;">
+                    <a href="{reset_link}" class="button">Reset Password</a>
+                </p>
+                
+                <p style="color: #888; font-size: 14px;">
+                    Or copy this link: <span style="color: #4DA3FF;">{reset_link}</span>
+                </p>
+                
+                <p style="color: #888; font-size: 14px; margin-top: 20px;">
+                    ⏱️ This link expires in <strong>1 hour</strong>.
+                </p>
+                
+                <div class="warning">
+                    ⚠️ <strong>If you didn't request this</strong>, please ignore this email. Your password will remain unchanged.
+                </div>
+            </div>
+            <div class="footer">
+                Styxproxy Admin Panel · Sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    text = f"""Reset Your Styxproxy Admin Password
+
+Hi,
+
+We received a request to reset your Styxproxy Admin password.
+
+Reset Link: {reset_link}
+
+This link expires in 1 hour.
+
+If you didn't request this, please ignore this email. Your password will remain unchanged.
+
+- Styxproxy Admin
+"""
+
+    return EmailContent(
+        subject="Reset your Styxproxy Admin password",
+        html=html,
+        text=text,
+    )
+
+
+async def send_admin_invite_email(
+    email: str,
+    role: str,
+    invite_code: str,
+    expires_in_hours: int = 24,
+) -> EmailResult:
+    """Send admin invite email to a new user."""
+    content = _render_admin_invite_email(
+        email=email,
+        role=role,
+        invite_code=invite_code,
+        expires_in_hours=expires_in_hours,
+    )
+    recipient = EmailRecipient(email=email)
+
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
+    )
+
+
+async def send_password_reset_email(
+    email: str,
+    reset_token: str,
+) -> EmailResult:
+    """Send password reset email to admin."""
+    content = _render_password_reset_email(
+        email=email,
+        reset_token=reset_token,
+    )
+    recipient = EmailRecipient(email=email)
+
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
     )

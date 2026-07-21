@@ -950,6 +950,30 @@ class AdminLockResponse(BaseModel):
     message: str
 
 
+# ============== Password Reset Schemas ==============
+
+
+class PasswordForgotRequest(BaseModel):
+    """Request to request a password reset."""
+    email: str = Field(..., description="Admin email address")
+
+
+class PasswordForgotResponse(BaseModel):
+    """Response after requesting a password reset."""
+    message: str
+
+
+class PasswordResetRequest(BaseModel):
+    """Request to reset password with token."""
+    reset_token: str = Field(..., description="Password reset token")
+    new_password: str = Field(..., min_length=8, max_length=100, description="New password")
+
+
+class PasswordResetResponse(BaseModel):
+    """Response after resetting password."""
+    message: str
+
+
 # ============== Blog/Post Schemas ==============
 
 class PostStatusEnum(str, Enum):
