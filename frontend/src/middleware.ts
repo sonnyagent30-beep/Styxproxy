@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next';
+import type { NextRequest } from 'next/server';
 
 // Proxy /api/admin calls to the backend — eliminates CORS issues for admin API calls
 // since the browser always talks to the same origin (styxproxy.com)
@@ -10,10 +10,6 @@ export function middleware(request: NextRequest) {
     url.protocol = 'https:';
 
     const response = NextResponse.rewrite(url);
-
-    // Pass through essential headers
-    response.headers.set('Content-Type', request.headers.get('Content-Type') || 'application/json');
-
     return response;
   }
 
