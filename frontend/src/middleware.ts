@@ -1,25 +1,25 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import type { NextRequest } from 'next';
 
-// Generate a short correlation ID (8 hex chars)
-function generateCorrelationId(): string {
-  return Math.random().toString(16).slice(2, 10).padStart(8, '0');
-}
-
+// Proxy /api/admin calls to the backend — eliminates CORS issues for admin API calls
+// since the browser always talks to the same origin (styxproxy.com)
 export function middleware(request: NextRequest) {
-  const requestId = request.headers.get('x-request-id') || generateCorrelationId();
-  const response = NextResponse.next();
+  if (request.nextUrl.pathname.startsWith('/api/admin/')) {
+    const url = request.nextUrl.clone();
+    url.host = 'api.styxproxy.com';
+    url.protocol = 'https:';
 
-  // Attach correlation ID to response headers for client + server tracing
-  response.headers.set('x-request-id', requestId);
-  response.headers.set('x-correlation-id', requestId);
+    const response = NextResponse.rewrite(url);
 
-  return response;
+    // Pass through essential headers
+    response.headers.set('Content-Type', request.headers.get('Content-Type') || 'application/json');
+
+    return response;
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  // Apply to all routes except static files and Next.js internals
-  matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|otf)).*)',
-  ],
+  matcher: ['/api/admin/:path*'],
 };

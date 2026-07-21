@@ -1,6 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    // Proxy /api/admin calls to the backend — browser never talks to api.styxproxy.com directly
+    // This eliminates CORS issues entirely for admin API calls
+    return [
+      {
+        source: '/api/admin/:path*',
+        destination: 'https://api.styxproxy.com/api/admin/:path*',
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
@@ -22,7 +33,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data:",
-              "connect-src 'self' https://bunche.railway.app https://bunche-api-push.vercel.app",
+              `connect-src 'self' https://api.styxproxy.com https://api.qrserver.com`,
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
