@@ -46,6 +46,10 @@ from app.schemas import (
     FeatureFlagResponse,
     FeatureFlagsListResponse,
     FeatureFlagCheckResponse,
+    PasswordForgotRequest,
+    PasswordForgotResponse,
+    PasswordResetRequest,
+    PasswordResetResponse,
 )
 from app.auth import (
     get_password_hash,
@@ -55,6 +59,10 @@ from app.auth import (
     JWTBearer,
     pwd_context,
 )
+from app.services.email import send_admin_invite_email, send_password_reset_email
+from app.limiter import limiter
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 settings = get_settings()
 
@@ -627,6 +635,15 @@ async def create_invite(
     session.add(invite)
     await session.commit()
 
+    # Send invite email
+    if request.email:
+        await send_admin_invite_email(
+            email=request.email,
+            role=request.role.value,
+            invite_code=invite_code,
+            expires_in_hours=request.expires_in_hours,
+        )
+
     return AdminInviteCreateResponse(
         invite_code=invite_code,
         email=request.email,
@@ -696,6 +713,88 @@ async def delete_invite(
     await session.commit()
 
     return {"message": "Invite deleted successfully"}
+
+
+# ============== Password Reset ==============
+
+
+@router.post("/password/forgot", response_model=PasswordForgotResponse)
+@limiter.limit("1/minute", key_func=get_remote_address)
+async def forgot_password(
+    request: PasswordForgotRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Request a password reset for an admin account."""
+    # Find admin by email
+    stmt = select(AdminAuth).where(AdminAuth.email == request.email.lower())
+    result = await session.execute(stmt)
+    admin = result.scalar_one_or_none()
+
+    # Always return success to prevent email enumeration
+    # But actually generate and store token if admin exists
+    if admin:
+        # Generate a secure reset token (32 chars)
+        reset_token = secrets.token_urlsafe(24)  # 32 chars
+        reset_token_hash = pwd_context.hash(reset_token)
+        reset_token_expires = datetime.now(timezone.utc) + timedelta(hours=1)
+
+        # Store hashed token in DB
+        admin.reset_token_hash = reset_token_hash
+        admin.reset_token_expires = reset_token_expires
+        await session.commit()
+
+        # Send reset email
+        await send_password_reset_email(
+            email=request.email,
+            reset_token=reset_token,
+        )
+
+    # Return generic message regardless of whether email exists
+    return PasswordForgotResponse(
+        message="If an account with that email exists, a password reset link has been sent."
+    )
+
+
+@router.post("/password/reset", response_model=PasswordResetResponse)
+async def reset_password(
+    request: PasswordResetRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Reset password using a valid reset token."""
+    # Find admin with valid reset token
+    stmt = select(AdminAuth).where(
+        and_(
+            AdminAuth.reset_token_hash.isnot(None),
+            AdminAuth.reset_token_expires > datetime.now(timezone.utc),
+        )
+    )
+    result = await session.execute(stmt)
+    admins = result.scalars().all()
+
+    # Check each admin's reset token
+    admin = None
+    for a in admins:
+        if pwd_context.verify(request.reset_token, a.reset_token_hash or ""):
+            admin = a
+            break
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+
+    # Update password and clear reset token
+    admin.password_hash = get_password_hash(request.new_password)
+    admin.reset_token_hash = None
+    admin.reset_token_expires = None
+    # Note: JWT tokens are stateless, so we can't invalidate them without a token blacklist
+    # For better security, consider implementing a token blacklist or using short-lived tokens
+    await session.commit()
+
+    return PasswordResetResponse(
+        message="Password reset successfully. Please log in with your new password."
+    )
 
 
 # ============== Team Management ==============
