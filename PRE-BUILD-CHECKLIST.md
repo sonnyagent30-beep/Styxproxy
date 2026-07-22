@@ -106,7 +106,7 @@ sudo systemctl enable nginx
 
 **Python project setup:**
 ```bash
-cd /root/bunche-api
+cd /root/styxproxy-api
 python3.11 -m venv venv
 source venv/bin/activate
 pip install fastapi uvicorn[standard] pydantic python-dotenv
@@ -143,7 +143,7 @@ Point `styxproxy.com` and `api.styxproxy.com` A records to the new VPS IP.
 
 ### Environment Variables
 
-Create `/root/bunche-api/.env`:
+Create `/root/styxproxy-api/.env`:
 
 ```bash
 # Bunche Backend API
@@ -187,7 +187,7 @@ THEOREM_REACH_WEBHOOK_SECRET=<random 32-char string>
 ### Start Backend
 
 ```bash
-cd /root/bunche-api
+cd /root/styxproxy-api
 npm install
 pm2 start ecosystem.config.js
 pm2 save

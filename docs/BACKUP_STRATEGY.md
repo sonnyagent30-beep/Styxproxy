@@ -316,7 +316,7 @@ export RESTIC_PASSWORD="<your-password>"
 restic -r b2:bunche-backups init
 
 # 6. Create config
-sudo cp /root/bunche/scripts/backup.conf.example /etc/bunche/backup.conf
+sudo cp /root/styxproxy/scripts/backup.conf.example /etc/bunche/backup.conf
 sudo chmod 600 /etc/bunche/backup.conf
 # Edit: set POSTGRES_USER, POSTGRES_DB, RESTIC_PASSWORD
 
@@ -326,9 +326,9 @@ sudo chown root:root /etc/bunche/backup.conf
 sudo chmod 600 /etc/bunche/backup.conf
 
 # 8. Copy scripts
-sudo cp /root/bunche/scripts/backup-hourly.sh /usr/local/bin/
-sudo cp /root/bunche/scripts/backup-daily.sh /usr/local/bin/
-sudo cp /root/bunche/scripts/restore.sh /usr/local/bin/
+sudo cp /root/styxproxy/scripts/backup-hourly.sh /usr/local/bin/
+sudo cp /root/styxproxy/scripts/backup-daily.sh /usr/local/bin/
+sudo cp /root/styxproxy/scripts/restore.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/backup-hourly.sh
 sudo chmod +x /usr/local/bin/backup-daily.sh
 sudo chmod +x /usr/local/bin/restore.sh

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Styxproxy Newman Test Runner — Updated
 set -e
-COLLECTION="/root/bunche/postman/styxproxy-auth-tests.postman_collection.json"
-REPORT_DIR="/root/bunche/postman/reports"
+COLLECTION="/root/styxproxy/postman/styxproxy-auth-tests.postman_collection.json"
+REPORT_DIR="/root/styxproxy/postman/reports"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 mkdir -p "$REPORT_DIR"
 
