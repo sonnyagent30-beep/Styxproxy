@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     # the LLM stack is reachable. Both vars are read from the container env
     # at startup; defaults match the local-dev setup.
     litellm_base_url: str = "http://127.0.0.1:4000"
-    litellm_api_key: str = "sk-styxproxy-local-dev-only"
+    litellm_api_key: str = "dev-placeholder-not-a-real-key"
 
     # ── Logging ─────────────────────────────────────────────────────────────
     log_level: str = "INFO"
