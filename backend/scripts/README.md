@@ -8,7 +8,7 @@ Nightly cron job that recalculates trigger weights from the last 7 days of engag
 
 **Run manually:**
 ```bash
-cd /root/bunche/backend && python3 scripts/update_trigger_weights.py
+cd /root/styxproxy/backend && python3 scripts/update_trigger_weights.py
 ```
 
 **Railway cron:** Set up a scheduled job with command `python3 scripts/update_trigger_weights.py` and schedule `0 3 * * *` (3 AM UTC daily).

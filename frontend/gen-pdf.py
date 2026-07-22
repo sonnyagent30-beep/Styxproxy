@@ -5,7 +5,7 @@ from reportlab.lib.colors import HexColor
 from PIL import Image
 
 W, H = A4  # 595 x 842
-pub = '/root/bunche/frontend/public'
+pub = '/root/styxproxy/frontend/public'
 
 # Load full lockup
 src_dark = Image.open('/root/sytxproxy_logo_pack/Logo for dark mode.png').convert('RGBA')

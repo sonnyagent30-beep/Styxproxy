@@ -98,7 +98,7 @@ curl https://rclone.org/install.sh | sudo bash
 
 ```bash
 # Generate keypair
-age-keygen -o /root/bunche-backup-private.key
+age-keygen -o /root/styxproxy-backup-private.key
 
 # This creates a file like:
 #   # created: 2026-06-26T22:30:00Z
@@ -106,13 +106,13 @@ age-keygen -o /root/bunche-backup-private.key
 #   # AGE-SECRET-KEY-1xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # EXTRACT public key (copy this to backup.conf later):
-grep "public key" /root/bunche-backup-private.key
+grep "public key" /root/styxproxy-backup-private.key
 
 # SAVE PRIVATE KEY to 1Password AND to a paper copy in a fireproof safe
 # Then DELETE from VPS — it should never live here permanently
 # (You re-upload to VPS only during a restore operation)
-cat /root/bunche-backup-private.key  # Copy to 1Password NOW
-shred -u /root/bunche-backup-private.key
+cat /root/styxproxy-backup-private.key  # Copy to 1Password NOW
+shred -u /root/styxproxy-backup-private.key
 ```
 
 ### 1.8 Configure rclone for R2
