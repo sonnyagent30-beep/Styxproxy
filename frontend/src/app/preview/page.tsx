@@ -13,9 +13,9 @@ const MOCK_ORDER = {
   country: 'United Kingdom',
   amount_paid_ngn: 6500,
   tx_ref: 'TXF-DANNION-PREVIEW',
-  bunche_credential: {
-    bun_username: 'demo_user_4821',
-    bun_password: 'proxyPass_4821!',
+  styxproxy_credential: {
+    styxproxy_username: 'demo_user_4821',
+    styxproxy_password: 'proxyPass_4821!',
     upstream_proxy_ip: '185.199.228.105',
     upstream_proxy_port: 8080,
     expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -92,23 +92,23 @@ function ThankYouPreview() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <span className="text-xs text-[var(--muted)]">Username</span>
-                <p className="font-mono text-sm font-medium mt-0.5">{order.bunche_credential.bun_username}</p>
+                <p className="font-mono text-sm font-medium mt-0.5">{order.styxproxy_credential.styxproxy_username}</p>
               </div>
               <div>
                 <span className="text-xs text-[var(--muted)]">Password</span>
-                <p className="font-mono text-sm font-medium mt-0.5">{order.bunche_credential.bun_password}</p>
+                <p className="font-mono text-sm font-medium mt-0.5">{order.styxproxy_credential.styxproxy_password}</p>
               </div>
             </div>
             <div className="bg-[var(--background)] rounded-xl p-4">
               <span className="text-xs text-[var(--muted)]">Full Format</span>
               <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
-                http://{order.bunche_credential.bun_username}:{order.bunche_credential.bun_password}@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
               </p>
             </div>
             <div className="bg-[var(--background)] rounded-xl p-4">
               <span className="text-xs text-[var(--muted)]">Expires</span>
               <p className="font-medium text-sm">
-                {new Date(order.bunche_credential.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}
+                {new Date(order.styxproxy_credential.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
           </div>
@@ -198,11 +198,11 @@ function ManagePreview() {
             <span className="text-xs text-[var(--muted)]">{rotationsLeft} rotation{rotationsLeft !== 1 ? 's' : ''} left</span>
           </div>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3"><div><span className="text-xs text-[var(--muted)]">Username</span><p className="font-mono text-sm font-medium mt-0.5">{MOCK_ORDER.bunche_credential.bun_username}</p></div><div><span className="text-xs text-[var(--muted)]">Password</span><p className="font-mono text-sm font-medium mt-0.5">{MOCK_ORDER.bunche_credential.bun_password}</p></div></div>
+            <div className="grid grid-cols-2 gap-3"><div><span className="text-xs text-[var(--muted)]">Username</span><p className="font-mono text-sm font-medium mt-0.5">{MOCK_ORDER.styxproxy_credential.styxproxy_username}</p></div><div><span className="text-xs text-[var(--muted)]">Password</span><p className="font-mono text-sm font-medium mt-0.5">{MOCK_ORDER.styxproxy_credential.styxproxy_password}</p></div></div>
             <div className="bg-[var(--background)] rounded-xl p-4">
               <span className="text-xs text-[var(--muted)]">Full Format</span>
               <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
-                http://{order.bunche_credential.bun_username}:{order.bunche_credential.bun_password}@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
               </p>
             </div>
 

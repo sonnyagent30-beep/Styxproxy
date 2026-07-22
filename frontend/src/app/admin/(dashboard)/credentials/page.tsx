@@ -44,7 +44,7 @@ export default function AdminCredentialsPage() {
       const creds = credsResult.data?.data || [];
       setCredentials(searchQuery 
         ? creds.filter(c => 
-            c.bun_username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            c.styxproxy_username.toLowerCase().includes(searchQuery.toLowerCase()) ||
             c.customer_phone?.includes(searchQuery)
           )
         : creds
@@ -253,7 +253,7 @@ export default function AdminCredentialsPage() {
                     onClick={() => setSelectedCredential(cred)}
                   >
                     <td className="p-4">
-                      <span className="font-mono text-sm">{cred.bun_username}</span>
+                      <span className="font-mono text-sm">{cred.styxproxy_username}</span>
                     </td>
                     <td className="p-4 hidden md:table-cell">
                       <span className="text-sm">{cred.provider_name || 'N/A'}</span>
@@ -339,7 +339,7 @@ export default function AdminCredentialsPage() {
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
               <h2 className="text-xl font-bold">Rotate Credential</h2>
-              <p className="text-sm text-[var(--muted)]">Username: {rotateCredential.bun_username}</p>
+              <p className="text-sm text-[var(--muted)]">Username: {rotateCredential.styxproxy_username}</p>
             </div>
             <div className="p-6 space-y-4">
               <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20">
@@ -431,7 +431,7 @@ function CredentialDetailModal({
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">Bun Username</span>
-                <span className="font-mono">{credential.bun_username}</span>
+                <span className="font-mono">{credential.styxproxy_username}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">Provider</span>

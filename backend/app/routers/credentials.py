@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_session
-from app.models import BuncheCredential
+from app.models import StyxproxyCredential
 from app.schemas import CredentialsListResponse, CredentialResponse
 from app.auth import get_current_account
 from app.services.credential import get_active_credentials_by_phone
@@ -33,9 +33,9 @@ async def get_credential_by_order(
     customer = current_user["customer"]
     if not customer:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
-    stmt = select(BuncheCredential).where(
-        BuncheCredential.order_id == order_id,
-        BuncheCredential.customer_phone == customer.phone,
+    stmt = select(StyxproxyCredential).where(
+        StyxproxyCredential.order_id == order_id,
+        StyxproxyCredential.customer_phone == customer.phone,
     )
     result = await session.execute(stmt)
     credential = result.scalar_one_or_none()

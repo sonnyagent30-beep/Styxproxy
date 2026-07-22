@@ -266,7 +266,7 @@ class PlansResponse(BaseModel):
 
 # ============== Orders Schemas ==============
 
-class BuncheCredentialBrief(BaseModel):
+class StyxproxyCredentialBrief(BaseModel):
     """Brief credential information for order response."""
     model_config = ConfigDict(from_attributes=True)
 
@@ -301,7 +301,7 @@ class OrderResponse(BaseModel):
     plan_type: Optional[str]
     country: Optional[str]
     amount_paid_ngn: Optional[float]
-    bunche_credential: Optional[BuncheCredentialBrief]
+    styxproxy_credential: Optional[StyxproxyCredentialBrief]
     created_at: datetime
     expires_at: Optional[datetime]
     customer_name: Optional[str] = None  # Only populated if customer set a name (WhatsApp/Telegram)
@@ -372,7 +372,7 @@ class ReceiptOrderResponse(BaseModel):
     customer_name: Optional[str] = None
     created_at: datetime
     expires_at: Optional[datetime] = None
-    bunche_credential: Optional[BuncheCredentialBrief] = None
+    styxproxy_credential: Optional[StyxproxyCredentialBrief] = None
 
 
 # ============== Payments Schemas ==============
@@ -447,7 +447,7 @@ class TrialClaimResponse(BaseModel):
     """Response after claiming trial."""
     trial_id: int
     status: str
-    bunche_credential: TrialCredentialResponse
+    styxproxy_credential: TrialCredentialResponse
 
 
 class TrialSurveyRequest(BaseModel):

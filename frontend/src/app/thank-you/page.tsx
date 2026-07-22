@@ -27,9 +27,9 @@ interface OrderData {
   is_renewable?: boolean;
   rotation_count?: number;
   max_rotations?: number;
-  bunche_credential?: {
+  styxproxy_credential?: {
     bun_username?: string;
-    bun_password?: string;
+    styxproxy_password?: string;
     upstream_proxy_ip?: string;
     upstream_proxy_port?: number;
     expires_at?: string;
@@ -218,8 +218,8 @@ async function generateLocalPDF(order: OrderData, cart: CartItem[], txRef: strin
   doc.text(`N${subtotal.toLocaleString('en-NG')}`, W - 19, y + 7.5, { align: 'right' });
 
   // ── Credentials card (if available) ─────────────────────
-  if (order?.bunche_credential) {
-    const cred = order.bunche_credential;
+  if (order?.styxproxy_credential) {
+    const cred = order.styxproxy_credential;
     y += 18;
 
     // Section header (above card)
@@ -253,8 +253,8 @@ async function generateLocalPDF(order: OrderData, cart: CartItem[], txRef: strin
     doc.setTextColor(...PRIMARY);
     doc.setFontSize(9.5);
     doc.setFont('helvetica', 'bold');
-    doc.text(cred.bun_username || 'N/A', 20, innerY + 5);
-    doc.text(cred.bun_password || 'N/A', W / 2 + 5, innerY + 5);
+    doc.text(cred.styxproxy_username || 'N/A', 20, innerY + 5);
+    doc.text(cred.styxproxy_password || 'N/A', W / 2 + 5, innerY + 5);
 
     doc.setDrawColor(...BORDER);
     doc.line(20, innerY + 8, W - 20, innerY + 8);
@@ -286,7 +286,7 @@ async function generateLocalPDF(order: OrderData, cart: CartItem[], txRef: strin
     doc.setTextColor(...LIGHT);
     doc.setFontSize(7.5);
     doc.setFont('courier', 'normal');
-    const fullStr = `http://${cred.bun_username || 'user'}:${cred.bun_password || 'pass'}@${cred.upstream_proxy_ip || '0.0.0.0'}:${cred.upstream_proxy_port || 8080}`;
+    const fullStr = `http://${cred.styxproxy_username || 'user'}:${cred.styxproxy_password || 'pass'}@${cred.upstream_proxy_ip || '0.0.0.0'}:${cred.upstream_proxy_port || 8080}`;
     const lines = doc.splitTextToSize(fullStr, W - 40);
     doc.text(lines, 20, innerY + 5);
 
@@ -450,13 +450,13 @@ function ThankYouContent() {
   };
 
   // Handle copy credentials to clipboard
-  const handleCopyCredentials = async (cred?: OrderData['bunche_credential']) => {
+  const handleCopyCredentials = async (cred?: OrderData['styxproxy_credential']) => {
     if (!cred) return;
     const text = [
-      `Username: ${cred.bun_username || ''}`,
-      `Password: ${cred.bun_password || ''}`,
+      `Username: ${cred.styxproxy_username || ''}`,
+      `Password: ${cred.styxproxy_password || ''}`,
       `Proxy: ${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
-      `Full: http://${cred.bun_username || ''}:${cred.bun_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
+      `Full: http://${cred.styxproxy_username || ''}:${cred.styxproxy_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
     ].join('\n');
     try {
       await navigator.clipboard.writeText(text);
@@ -529,9 +529,9 @@ function ThankYouContent() {
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Proxy Credentials</h2>
-                {order?.bunche_credential && (
+                {order?.styxproxy_credential && (
                   <button
-                    onClick={() => handleCopyCredentials(order?.bunche_credential)}
+                    onClick={() => handleCopyCredentials(order?.styxproxy_credential)}
                     className="text-xs px-3 py-1.5 bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 text-[var(--primary)] border border-[var(--primary)]/30 rounded-lg transition-colors flex items-center gap-1.5"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -543,11 +543,11 @@ function ThankYouContent() {
               </div>
 
               {/* If we have credential from API, show it */}
-              {order?.bunche_credential ? (
+              {order?.styxproxy_credential ? (
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm text-[var(--muted)]">Username</label>
-                    <p className="font-mono text-lg">{order.bunche_credential.bun_username}</p>
+                    <p className="font-mono text-lg">{order.styxproxy_credential.styxproxy_username}</p>
                   </div>
                   <div>
                     <label className="text-sm text-[var(--muted)]">Protocol</label>
@@ -556,24 +556,24 @@ function ThankYouContent() {
                   <div>
                     <label className="text-sm text-[var(--muted)]">Proxy Address</label>
                     <p className="font-mono text-lg">
-                      {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                      {order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm text-[var(--muted)]">Password</label>
-                    <p className="font-mono text-sm">{order.bunche_credential.bun_password || 'N/A'}</p>
+                    <p className="font-mono text-sm">{order.styxproxy_credential.styxproxy_password || 'N/A'}</p>
                   </div>
                   <div className="col-span-2">
                     <label className="text-sm text-[var(--muted)]">Full Format</label>
                     <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
-                      http://{order.bunche_credential.bun_username}:{order.bunche_credential.bun_password || 'YOUR_PASSWORD'}@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                      http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password || 'YOUR_PASSWORD'}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
                     </p>
                   </div>
                   <div>
                     <label className="text-sm text-[var(--muted)]">Expires</label>
                     <p className="font-medium">
-                      {order.bunche_credential.expires_at
-                        ? new Date(order.bunche_credential.expires_at).toLocaleDateString('en-NG', {
+                      {order.styxproxy_credential.expires_at
+                        ? new Date(order.styxproxy_credential.expires_at).toLocaleDateString('en-NG', {
                             year: 'numeric', month: 'long', day: 'numeric',
                           })
                         : 'N/A'}

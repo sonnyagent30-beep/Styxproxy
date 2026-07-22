@@ -522,8 +522,8 @@ function OrderDetailModal({
     navigator.clipboard.writeText(text);
   };
 
-  const proxyString = order.bunche_credential 
-    ? `${order.bunche_credential.protocol}://${order.bunche_credential.provider_username || order.bunche_credential.bun_username}:${order.bunche_credential.provider_password || 'password'}@${order.bunche_credential.upstream_proxy_ip}:${order.bunche_credential.upstream_proxy_port}`
+  const proxyString = order.styxproxy_credential 
+    ? `${order.styxproxy_credential.protocol}://${order.styxproxy_credential.provider_username || order.styxproxy_credential.styxproxy_username}:${order.styxproxy_credential.provider_password || 'password'}@${order.styxproxy_credential.upstream_proxy_ip}:${order.styxproxy_credential.upstream_proxy_port}`
     : null;
 
   return (
@@ -619,39 +619,39 @@ function OrderDetailModal({
           )}
 
           {/* Credential Details */}
-          {order.bunche_credential && (
+          {order.styxproxy_credential && (
             <div>
               <h3 className="text-sm font-medium text-[var(--muted)] mb-3">Proxy Credential</h3>
               <div className="p-4 rounded-xl bg-[var(--card-hover)] border border-[var(--border)] space-y-3">
                 <div className="flex justify-between">
                   <span className="text-[var(--muted)]">Username</span>
-                  <span className="font-mono">{order.bunche_credential.bun_username}</span>
+                  <span className="font-mono">{order.styxproxy_credential.styxproxy_username}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted)]">Proxy IP</span>
-                  <span className="font-mono">{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}</span>
+                  <span className="font-mono">{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted)]">Protocol</span>
-                  <span className="font-mono uppercase">{order.bunche_credential.protocol}</span>
+                  <span className="font-mono uppercase">{order.styxproxy_credential.protocol}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted)]">Status</span>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    order.bunche_credential.status === 'active' 
+                    order.styxproxy_credential.status === 'active' 
                       ? 'bg-green-500/20 text-green-400' 
                       : 'bg-gray-500/20 text-gray-400'
                   }`}>
-                    {order.bunche_credential.status}
+                    {order.styxproxy_credential.status}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted)]">Data Used</span>
-                  <span>{order.bunche_credential.gb_used.toFixed(2)} GB</span>
+                  <span>{order.styxproxy_credential.gb_used.toFixed(2)} GB</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted)]">Rotations</span>
-                  <span>{order.bunche_credential.rotation_count}</span>
+                  <span>{order.styxproxy_credential.rotation_count}</span>
                 </div>
                 
                 {/* Proxy Credentials Display */}
@@ -669,11 +669,11 @@ function OrderDetailModal({
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-[var(--muted)]">Provider User</span>
-                        <span className="font-mono">{order.bunche_credential.provider_username || 'N/A'}</span>
+                        <span className="font-mono">{order.styxproxy_credential.provider_username || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-[var(--muted)]">Provider Pass</span>
-                        <span className="font-mono">{order.bunche_credential.provider_password || 'N/A'}</span>
+                        <span className="font-mono">{order.styxproxy_credential.provider_password || 'N/A'}</span>
                       </div>
                       {proxyString && (
                         <div className="mt-2">

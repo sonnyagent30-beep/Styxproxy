@@ -3,7 +3,7 @@ import pytest
 import hashlib, hmac
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.services.flutterwave import verify_flutterwave_signature
-from app.services.credential import generate_bun_username, generate_temp_password, get_available_proxy
+from app.services.credential import generate_styxproxy_username, generate_temp_password, get_available_proxy
 from app.services.trial import check_trial_limit
 from app.services.audit import log_audit_event
 from datetime import datetime, timedelta
@@ -30,20 +30,20 @@ class TestVerifyFlutterwaveSignature:
 
 
 # ─── Credential ──────────────────────────────────────────────────
-class TestGenerateBunUsername:
+class TestGenerateStyxproxyUsername:
     def test_format(self):
-        username = generate_bun_username("+2348012345678", "ORD-123456")
-        assert username.startswith("bun_")
-        assert len(username) >= 10  # bun_ + 4 phone digits + 6 random = 11+ chars
+        username = generate_styxproxy_username("+234****5678", "ORD-123456")
+        assert username.startswith("sty_")
+        assert len(username) >= 10  # sty_ + 4 phone digits + 6 random = 11+ chars
 
     def test_phone_suffix(self):
         # Random suffix is inserted between phone suffix and random chars
-        username = generate_bun_username("+2348012345678", "ORD-ABCDEF")
+        username = generate_styxproxy_username("+2348012345678", "ORD-ABCDEF")
         assert "5678" in username  # last 4 digits of phone appear in username
 
     def test_randomness(self):
-        u1 = generate_bun_username("+2348012345678", "ORD-111111")
-        u2 = generate_bun_username("+2348012345678", "ORD-222222")
+        u1 = generate_styxproxy_username("+2348012345678", "ORD-111111")
+        u2 = generate_styxproxy_username("+2348012345678", "ORD-222222")
         assert u1 != u2  # different order IDs give different suffixes
 
 

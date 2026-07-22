@@ -178,7 +178,7 @@ class ApiClient {
   }
 
   // Trials
-  async claimTrial(disclaimerAccepted: boolean): Promise<ApiResponse<{ trial_id: number; status: string; styxproxy_credential: { bun_username: string; upstream_proxy_ip: string; upstream_proxy_port: number; expires_at: string } }>> {
+  async claimTrial(disclaimerAccepted: boolean): Promise<ApiResponse<{ trial_id: number; status: string; styxproxy_credential: { styxproxy_username: string; upstream_proxy_ip: string; upstream_proxy_port: number; expires_at: string } }>> {
     return this.request('/trials/claim', {
       method: 'POST',
       body: JSON.stringify({ disclaimer_accepted: disclaimerAccepted }),

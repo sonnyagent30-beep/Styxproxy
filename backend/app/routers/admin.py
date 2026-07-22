@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from app.database import get_session
-from app.models import Customer, Order, BuncheCredential, FreeTrial, CustomerAuditLog, ProcessedWebhook, FeatureFlag, Plan, ContactSubmission, CharonEscalation
+from app.models import Customer, Order, StyxproxyCredential, FreeTrial, CustomerAuditLog, ProcessedWebhook, FeatureFlag, Plan, ContactSubmission, CharonEscalation
 from app.schemas import (
     AdminStatsResponse, AdminCustomerResponse, AdminCustomersResponse, AdminBlockRequest,
     AdminOrderResponse, AdminOrdersResponse, AdminOrderUpdateRequest, AdminRefundRequest,
@@ -43,7 +43,7 @@ async def get_stats(session: AsyncSession = Depends(get_session)):
     active_orders = (await session.execute(select(func.count()).select_from(Order).where(Order.status == "active"))).scalar() or 0
     total_revenue = (await session.execute(select(func.sum(Order.amount_paid_ngn)).where(Order.status.in_(["active", "fulfilled"])))).scalar() or 0
     free_trials_today = await get_trials_today_count(session)
-    active_credentials = (await session.execute(select(func.count()).select_from(BuncheCredential).where(BuncheCredential.status == "active"))).scalar() or 0
+    active_credentials = (await session.execute(select(func.count()).select_from(StyxproxyCredential).where(StyxproxyCredential.status == "active"))).scalar() or 0
     return AdminStatsResponse(
         total_customers=total_customers,
         active_orders=active_orders,
@@ -222,8 +222,8 @@ async def refund_order(
     order.status = "refunded"
     order.refund_requested = True
     order.refund_reason = body.reason
-    if order.bunche_credential_id:
-        cred = (await session.execute(select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id))).scalar_one_or_none()
+    if order.styxproxy_credential_id:
+        cred = (await session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id))).scalar_one_or_none()
         if cred:
             cred.status = "revoked"
     await session.commit()
@@ -288,17 +288,17 @@ async def list_credentials(
 ):
     conditions = []
     if status_filter:
-        conditions.append(BuncheCredential.status == status_filter)
+        conditions.append(StyxproxyCredential.status == status_filter)
     if pool_type:
-        conditions.append(BuncheCredential.pool_type == pool_type)
+        conditions.append(StyxproxyCredential.pool_type == pool_type)
     if customer_phone:
-        conditions.append(BuncheCredential.customer_phone == customer_phone)
-    count_stmt = select(func.count()).select_from(BuncheCredential)
+        conditions.append(StyxproxyCredential.customer_phone == customer_phone)
+    count_stmt = select(func.count()).select_from(StyxproxyCredential)
     if conditions:
         count_stmt = count_stmt.where(and_(*conditions))
     total = (await session.execute(count_stmt)).scalar() or 0
     offset = (page - 1) * limit
-    stmt = select(BuncheCredential).order_by(BuncheCredential.created_at.desc()).offset(offset).limit(limit)
+    stmt = select(StyxproxyCredential).order_by(StyxproxyCredential.created_at.desc()).offset(offset).limit(limit)
     if conditions:
         stmt = stmt.where(and_(*conditions))
     credentials = (await session.execute(stmt)).scalars().all()

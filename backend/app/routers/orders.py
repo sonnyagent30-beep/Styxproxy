@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.database import get_session
-from app.models import Order, Customer, BuncheCredential
+from app.models import Order, Customer, StyxproxyCredential
 from app.schemas import (
     OrderCreateRequest,
     OrderResponse,
@@ -17,7 +17,7 @@ from app.schemas import (
     OrderCancelResponse,
     OrderReportDeadRequest,
     OrderReportDeadResponse,
-    BuncheCredentialBrief,
+    StyxproxyCredentialBrief,
     PrecheckRequest,
     PrecheckResponse,
     ReceiptOrderResponse,
@@ -146,7 +146,7 @@ async def create_order(
     if request.payment_reference:
         order.status = "paid"
         credential = await create_credential(session, customer_phone=customer.phone, order_id=order_id, pool_type="paid", duration_days=30, country=request.country)
-        order.bunche_credential_id = credential.id
+        order.styxproxy_credential_id = credential.id
         order.status = "active"
     await session.commit()
     await session.refresh(order)
@@ -183,8 +183,8 @@ async def create_order(
         # Send ONE combined email: order details + credentials together
         if customer_email:
             cred = None
-            if order.bunche_credential_id:
-                cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+            if order.styxproxy_credential_id:
+                cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
                 cred_result = await session.execute(cred_stmt)
                 cred = cred_result.scalar_one_or_none()
             if cred:
@@ -206,13 +206,13 @@ async def create_order(
                 except Exception:
                     pass
     cred_brief = None
-    if order.bunche_credential_id:
-        cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
         if cred:
-            cred_brief = BuncheCredentialBrief(id=cred.id, bun_username=cred.bun_username, protocol=cred.protocol or 'socks5', upstream_proxy_ip=cred.upstream_proxy_ip, upstream_proxy_port=cred.upstream_proxy_port, status=cred.status)
-    return OrderResponse(order_id=order.order_id, status=order.status, plan_type=order.plan_type, country=order.country, amount_paid_ngn=order.amount_paid_ngn, bunche_credential=cred_brief, created_at=order.created_at, expires_at=order.expires_at)
+            cred_brief = StyxproxyCredentialBrief(id=cred.id, bun_username=cred.bun_username, protocol=cred.protocol or 'socks5', upstream_proxy_ip=cred.upstream_proxy_ip, upstream_proxy_port=cred.upstream_proxy_port, status=cred.status)
+    return OrderResponse(order_id=order.order_id, status=order.status, plan_type=order.plan_type, country=order.country, amount_paid_ngn=order.amount_paid_ngn, styxproxy_credential=cred_brief, created_at=order.created_at, expires_at=order.expires_at)
 
 
 @router.get("/by-device", response_model=list[OrderResponse])
@@ -238,11 +238,11 @@ async def list_orders_by_device(
     results = []
     for order in orders:
         cred_brief = None
-        if order.bunche_credential_id:
-            cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+        if order.styxproxy_credential_id:
+            cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
             cred = (await session.execute(cred_stmt)).scalar_one_or_none()
             if cred:
-                cred_brief = BuncheCredentialBrief(
+                cred_brief = StyxproxyCredentialBrief(
                     id=cred.id,
                     bun_username=cred.bun_username,
                     protocol=cred.protocol or 'socks5',
@@ -257,7 +257,7 @@ async def list_orders_by_device(
             plan_type=order.plan_type,
             country=order.country,
             amount_paid_ngn=order.amount_paid_ngn,
-            bunche_credential=cred_brief,
+            styxproxy_credential=cred_brief,
             created_at=order.created_at,
             expires_at=order.expires_at,
             customer_name=customer.name if customer and customer.name else None,
@@ -278,14 +278,14 @@ async def get_order(order_id: str, session: AsyncSession = Depends(get_session),
     cred_brief = None
     rotation_count = 0
     max_rotations = 3
-    if order.bunche_credential_id:
-        cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
         if cred:
             rotation_count = getattr(cred, 'rotation_count', 0) or 0
             max_rotations = getattr(cred, 'max_rotations', 3) or 3
-            cred_brief = BuncheCredentialBrief(id=cred.id, bun_username=cred.bun_username, protocol=cred.protocol or 'socks5', upstream_proxy_ip=cred.upstream_proxy_ip, upstream_proxy_port=cred.upstream_proxy_port, status=cred.status)
+            cred_brief = StyxproxyCredentialBrief(id=cred.id, bun_username=cred.bun_username, protocol=cred.protocol or 'socks5', upstream_proxy_ip=cred.upstream_proxy_ip, upstream_proxy_port=cred.upstream_proxy_port, status=cred.status)
     is_renewable = order.status == 'active' and order.expires_at is not None
     return OrderResponse(
         order_id=order.order_id,
@@ -293,7 +293,7 @@ async def get_order(order_id: str, session: AsyncSession = Depends(get_session),
         plan_type=order.plan_type,
         country=order.country,
         amount_paid_ngn=order.amount_paid_ngn,
-        bunche_credential=cred_brief,
+        styxproxy_credential=cred_brief,
         created_at=order.created_at,
         expires_at=order.expires_at,
         customer_name=customer.name if customer and customer.name else None,
@@ -317,8 +317,8 @@ async def cancel_order(order_id: str, request: OrderCancelRequest, session: Asyn
     order.status = "cancelled"
     order.refund_requested = True
     order.refund_reason = request.reason
-    if order.bunche_credential_id:
-        cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
         if cred:
@@ -360,7 +360,7 @@ async def report_dead_ip(order_id: str, request: OrderReportDeadRequest, session
 
 class RotateResponse(BaseModel):
     order_id: str
-    bunche_credential: BuncheCredentialBrief
+    styxproxy_credential: StyxproxyCredentialBrief
     rotation_count: int
     max_rotations: int
 
@@ -383,9 +383,9 @@ async def rotate_proxy(order_id: str, session: AsyncSession = Depends(get_sessio
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-    if not order.bunche_credential_id:
+    if not order.styxproxy_credential_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No credential to rotate")
-    cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+    cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
     cred_result = await session.execute(cred_stmt)
     cred = cred_result.scalar_one_or_none()
     if not cred:
@@ -465,7 +465,7 @@ async def rotate_proxy(order_id: str, session: AsyncSession = Depends(get_sessio
 
     return RotateResponse(
         order_id=order_id,
-        bunche_credential=BuncheCredentialBrief(
+        styxproxy_credential=StyxproxyCredentialBrief(
             id=cred.id,
             bun_username=cred.bun_username,
             protocol=cred.protocol or "socks5",
@@ -511,11 +511,11 @@ async def deliver_credentials(
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     
-    if not order.bunche_credential_id:
+    if not order.styxproxy_credential_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No credential found for this order")
     
     # Get credential
-    cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+    cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
     cred_result = await session.execute(cred_stmt)
     credential = cred_result.scalar_one_or_none()
     if not credential:
@@ -603,8 +603,8 @@ def _build_receipt_data(session: AsyncSession, tx_ref: str) -> Optional[dict]:
     
     # Get credential if exists
     cred = None
-    if order.bunche_credential_id:
-        cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         cred_result = asyncio.get_event_loop().run_until_complete(session.execute(cred_stmt))
         cred = cred_result.scalar_one_or_none()
     
@@ -643,12 +643,12 @@ async def get_receipt(
     
     # Get credential if exists
     cred_brief = None
-    if order.bunche_credential_id:
-        cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         cred_result = asyncio.get_event_loop().run_until_complete(session.execute(cred_stmt))
         cred = cred_result.scalar_one_or_none()
         if cred:
-            cred_brief = BuncheCredentialBrief(
+            cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
                 bun_username=cred.bun_username,
                 protocol=cred.protocol or 'socks5',
@@ -671,7 +671,7 @@ async def get_receipt(
         customer_name=customer_name,
         created_at=order.created_at,
         expires_at=order.expires_at,
-        bunche_credential=cred_brief,
+        styxproxy_credential=cred_brief,
     )
 
 
@@ -685,7 +685,7 @@ async def get_receipt_pdf(
 
     # Query by tx_ref or payment_reference
     from sqlalchemy import select
-    from app.models import Order, Customer, BuncheCredential
+    from app.models import Order, Customer, StyxproxyCredential
 
     stmt = select(Order, Customer).outerjoin(
         Customer, Order.customer_phone == Customer.phone
@@ -706,8 +706,8 @@ async def get_receipt_pdf(
 
     # Get credential if exists
     cred = None
-    if order.bunche_credential_id:
-        cred_stmt = select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id)
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
 
