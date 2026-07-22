@@ -725,3 +725,65 @@ class PostCategory(Base):
     category_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("categories.id", ondelete="CASCADE"), primary_key=True
     )
+
+
+class SupportThread(Base):
+    """Support threads table - tracks customer support conversations."""
+    __tablename__ = "support_threads"
+    __table_args__ = (
+        Index("idx_support_threads_customer_email", "customer_email"),
+        Index("idx_support_threads_status", "status"),
+        Index("idx_support_threads_last_message", "last_message_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    customer_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    customer_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    subject: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), default="open", nullable=False
+    )  # open, replied, closed
+    order_id: Mapped[Optional[str]] = mapped_column(
+        String(20), ForeignKey("orders.order_id"), nullable=True
+    )
+    resend_last_message_id: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True
+    )
+    last_message_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class SupportMessage(Base):
+    """Support messages table - individual messages in support threads."""
+    __tablename__ = "support_messages"
+    __table_args__ = (
+        Index("idx_support_messages_thread", "thread_id"),
+        Index("idx_support_messages_created", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    thread_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("support_threads.id", ondelete="CASCADE"), nullable=False
+    )
+    direction: Mapped[str] = mapped_column(
+        String(20), nullable=False
+    )  # inbound, outbound
+    from_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    to_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    subject: Mapped[str] = mapped_column(String(500), nullable=False)
+    body_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    body_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    resend_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    in_reply_to: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    references: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

@@ -16,12 +16,14 @@ from app.models import Base
 from app.limiter import limiter
 from app.routers import (
     admin,
+    admin_support,
     auth,
     blog,
     charon,
     contact,
     credentials,
     health,
+    inbound,
     orders,
     payments,
     platform,
@@ -217,8 +219,10 @@ app.include_router(webhooks.router)
 app.include_router(credentials.router)
 app.include_router(trials.router)
 app.include_router(admin.router)
+app.include_router(admin_support.router)
 app.include_router(session.router)
 app.include_router(charon.router)
 app.include_router(contact.router)
 app.include_router(auth.router)
 app.include_router(blog.router)
+app.include_router(inbound.router)
