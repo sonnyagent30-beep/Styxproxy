@@ -94,6 +94,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/contact-submissions', label: 'Contact', icon: '📨' },
     { href: '/admin/escalations', label: 'Escalations', icon: '⚡' },
     { href: '/admin/charon', label: 'Charon', icon: '🧠' },
+    { href: '/admin/support', label: 'Support', icon: '✉️' },
     { href: '/admin/blog', label: 'Blog', icon: '📝' },
     // SuperAdmin only
     ...(isSuperAdmin
