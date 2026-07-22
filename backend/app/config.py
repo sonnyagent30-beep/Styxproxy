@@ -79,6 +79,18 @@ class Settings(BaseSettings):
     # ── Redis ───────────────────────────────────────────────────────────────
     redis_url: str = "redis://localhost:6379/0"
 
+        # ── MiniMax-M2 cloud (Charon primary) ─────────────────────────────────
+    # P0-5 (Jul 22 2026): M2 is the Charon primary. Endpoint is api.minimax.io.
+    # Set MINIMAX_API_KEY in .env to enable.
+    minimax_base_url: str = 'https://api.minimax.io/v1'
+
+    # ── LiteLLM (Charon LLM proxy sidecar) ──────────────────────────────────
+    # P0-5 (Jul 22 2026): required for the deep health endpoint to verify
+    # the LLM stack is reachable. Both vars are read from the container env
+    # at startup; defaults match the local-dev setup.
+    litellm_base_url: str = "http://127.0.0.1:4000"
+    litellm_api_key: str = "sk-styxproxy-local-dev-only"
+
     # ── Logging ─────────────────────────────────────────────────────────────
     log_level: str = "INFO"
 

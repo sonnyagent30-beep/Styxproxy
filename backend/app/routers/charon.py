@@ -256,21 +256,23 @@ async def health():
     import os
     from app.services.charon import scenarios
 
-    provider = os.getenv("CHARON_LLM_PROVIDER", "local").strip().lower()
-    if provider == "cloud":
-        api_key_set = bool(os.getenv("MINIMAX_API_KEY"))
-    else:
-        # Local provider — "configured" means the LiteLLM proxy is
-        # reachable AND has finished its init. Probing LiteLLM's
-        # /health/liveliness confirms both the proxy is up and the
-        # master_key challenge works.
-        api_key_set = True
-        try:
-            base = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000").rstrip("/")
-            probe = httpx.get(f"{base}/health/liveliness", timeout=2.0)
-            api_key_set = probe.status_code == 200
-        except Exception:
-            api_key_set = False
+    # P0-5 (Jul 22 2026): Provider priority is M2 cloud primary,
+    # MiniCPM5 local fallback. Probe BOTH and report each so the
+    # admin dashboard can see whether the fallback path is also up.
+    cloud_key_set = bool(os.getenv("MINIMAX_API_KEY"))
+
+    # Probe LiteLLM (local fallback reachability).
+    local_reachable = False
+    try:
+        base = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000").rstrip("/")
+        probe = httpx.get(f"{base}/health/liveliness", timeout=2.0)
+        local_reachable = probe.status_code == 200
+    except Exception:
+        local_reachable = False
+
+    # Configuration gate: primary is M2 cloud, so this is what the
+    # primary path needs. Local is bonus.
+    api_key_set = cloud_key_set
     CharonMetrics.llm_configured(api_key_set)
 
     s = CharonMetrics.get()
@@ -296,6 +298,15 @@ async def health():
         "scenarios_loaded": sum(1 for _ in scenarios.all_scenarios()),
         "llm_configured": api_key_set,
         "llm_status": llm_status,
+        "llm_provider": "m2-primary,local-fallback",
+        "primary": {
+            "name": "m2-cloud",
+            "configured": cloud_key_set,
+        },
+        "fallback": {
+            "name": "local-minicpm5",
+            "reachable": local_reachable,
+        },
         "last_success_age_s": int(success_age) if success_age is not None else None,
         "last_error_age_s": int(error_age) if error_age is not None else None,
         "total_requests": s.total_requests,
