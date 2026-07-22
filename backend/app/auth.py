@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt as jose_jwt
+from jose.exceptions import JWTError
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -105,6 +106,14 @@ def verify_admin_token(authorization: Optional[str]) -> bool:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authorization header format",
+        )
+
+    # If we got a "Bearer" with no token (or any single-token header), it's
+    # malformed — return 401 (request needs proper credentials).
+    if parts is not None and len(parts) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization token missing",
         )
 
     token = parts[1] if parts and len(parts) == 2 else (authorization.credentials if hasattr(authorization, 'credentials') else authorization)
