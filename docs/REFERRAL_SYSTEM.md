@@ -1,4 +1,4 @@
-# Bunche — Referral System
+# Styxproxy — Referral System
 
 **Last Updated:** 2026-06-26
 **SHA:** referral-v1
@@ -12,7 +12,7 @@
 | **Referral code** | Customer's own name/nickname (unique) |
 | **Reward** | Referrer earns **5%** of referred person's first order value |
 | **Credit form** | Discount on referrer's next IP purchase |
-| **Who can refer** | Any customer with a name saved in Bunche |
+| **Who can refer** | Any customer with a name saved in Styxproxy |
 | **Applies to** | First-time referral purchases only |
 | **Credit expiry** | Never — stays until used |
 | **Self-referral** | Blocked — can't use your own name |
@@ -26,7 +26,7 @@
 During first purchase, after payment:
 
 ```
-Bunche: "✅ Payment confirmed!
+Styxproxy: "✅ Payment confirmed!
 What should we call you? 👇"
 
 Customer: "Chidi"
@@ -57,7 +57,7 @@ Customer: "Chidi"
 ```
 Customer: "Order ISP UK 1"
   ↓
-Bunche: "Got it! UK's finest ISP proxy.
+Styxproxy: "Got it! UK's finest ISP proxy.
 
 Price: ₦6,500
 
@@ -83,7 +83,7 @@ Customer: "Chidi"
 ```
 Customer: "Chidi" (their own name)
   ↓
-Bunche: "That's your own name!
+Styxproxy: "That's your own name!
 No self-referrals. Let's continue with your order."
 ```
 
@@ -136,7 +136,7 @@ purchase = more credit for you! 🔗
 ```
 Customer (Chidi): "Order ISP UK 1"
   ↓
-Bunche checks: referral_credit_ngn > 0?
+Styxproxy checks: referral_credit_ngn > 0?
   ↓
 [IF credit = ₦325]
   → "📢 You have ₦325 referral credit!
@@ -288,7 +288,7 @@ ADD COLUMN referral_credit_used_ngn DECIMAL(12,2) DEFAULT 0;
 ```
 Admin: "Referral stats"
   ↓
-Bunche: "📊 Referral Stats
+Styxproxy: "📊 Referral Stats
 
 Top Referrers:
 1. Chidi — 12 referrals — ₦15,000 credit earned
@@ -334,7 +334,7 @@ Top referral: ISP UK (most referred product)"
 ```
 [New customer — first message after payment confirmed]
         ↓
-Bunche: "✅ Payment confirmed!
+Styxproxy: "✅ Payment confirmed!
 What should we call you? 👇"
         ↓
 [Customer enters name]

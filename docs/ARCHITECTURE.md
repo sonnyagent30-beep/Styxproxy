@@ -1,4 +1,4 @@
-# Bunche — Technical Architecture
+# Styxproxy — Technical Architecture
 
 **Last Updated:** 2026-07-01
 
@@ -28,7 +28,7 @@
                                │
                                ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                     NEW BUNCHE VPS                               │
+│                     NEW STYXPROXY VPS                               │
 │                                                                  │
 │   Port 80/443 (nginx reverse proxy)                              │
 │                               │                                   │
@@ -71,7 +71,7 @@
 ### 1. Website (styxproxy.com — Instant)
 
 **Stack:** Static HTML/CSS/JS or Next.js (to be decided)
-**Host:** New Bunche VPS
+**Host:** New Styxproxy VPS
 **SSL:** Let's Encrypt via certbot
 
 **Pages:**
@@ -98,7 +98,7 @@
 ### 2. Backend API
 
 **Stack:** Python 3.11+ + FastAPI + Uvicorn + Pydantic + asyncpg
-**Host:** New Bunche VPS (port 8080)
+**Host:** New Styxproxy VPS (port 8080)
 **Process manager:** Uvicorn (via PM2 or supervisor)
 **Port exposed:** Via nginx reverse proxy on 443
 **Async queue:** Redis + background tasks (FastAPI BackgroundTasks or Celery)
@@ -147,7 +147,7 @@ n8n IS involved ONLY in:
 
 ### 3. PostgreSQL Database
 
-**Host:** New Bunche VPS
+**Host:** New Styxproxy VPS
 **Port:** 5432
 **Connection:** localhost only (no external access)
 
@@ -159,7 +159,7 @@ n8n IS involved ONLY in:
 | `platform_accounts` | Telegram + WhatsApp customer accounts |
 | `customers` | Unified customer profile (after merge) |
 | `orders` | Chat-based orders |
-| `bunche_credentials` | Bunche username → provider IP mapping |
+| `bunche_credentials` | Styxproxy username → provider IP mapping |
 | `free_trials` | Free trial sessions |
 | `pending_trial_surveys` | Theorem Reach postbacks |
 | `merge_requests` | Channel linking requests |
@@ -178,11 +178,11 @@ n8n IS involved ONLY in:
 
 ### 4. Dante (Paid Proxy Auth Layer)
 
-**Host:** New Bunche VPS
+**Host:** New Styxproxy VPS
 **Port:** 1080 (SOCKS5)
 **Purpose:** Authenticate paid customers and route to upstream provider IPs
 
-Dante is the SOCKS5 server that customers connect to. Customer provides their Bunche username + password. Dante verifies against the credentials table, then routes the connection through to the upstream provider IP.
+Dante is the SOCKS5 server that customers connect to. Customer provides their Styxproxy username + password. Dante verifies against the credentials table, then routes the connection through to the upstream provider IP.
 
 ```
 Customer connects: proxy1.styxproxy.com:1080
@@ -208,7 +208,7 @@ Customer connects: proxy1.styxproxy.com:1080
 
 ### 5. 3proxy (Free Trial Proxies)
 
-**Host:** New Bunche VPS
+**Host:** New Styxproxy VPS
 **Ports:** 8001–8100 (100 concurrent trial proxies)
 **Config:** `/etc/3proxy/bunche-trial.cfg`
 **PID:** `/var/run/3proxy-bunche.pid`
@@ -243,7 +243,7 @@ manage-3proxy-trial.sh count
 
 **Host:** Current VPS (84.247.132.12)
 **Port:** 5678 (behind nginx, accessible via cloudflared tunnel)
-**Database:** SQLite (n8n's own data) + PostgreSQL (Bunche data)
+**Database:** SQLite (n8n's own data) + PostgreSQL (Styxproxy data)
 
 **Telegram webhook flow:**
 ```
@@ -475,7 +475,7 @@ RATE_LIMIT_WINDOW_SECONDS=60
 
 ---
 
-## Directory Structure (New Bunche VPS)
+## Directory Structure (New Styxproxy VPS)
 
 ```
 /root/

@@ -1,4 +1,4 @@
-# Bunche — Security Plan
+# Styxproxy — Security Plan
 
 **Last Updated:** 2026-06-26
 **Status:** Planning Complete — Ready for Implementation
@@ -7,7 +7,7 @@
 
 ## Overview
 
-Security for Bunche is implemented in 7 layers. No single layer is sufficient — together they provide defense in depth.
+Security for Styxproxy is implemented in 7 layers. No single layer is sufficient — together they provide defense in depth.
 
 | Layer | Name | Purpose |
 |-------|------|---------|

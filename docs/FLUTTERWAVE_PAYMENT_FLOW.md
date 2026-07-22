@@ -1,4 +1,4 @@
-# Bunche — Flutterwave Payment Flow
+# Styxproxy — Flutterwave Payment Flow
 
 **Document Type:** Technical Integration Guide
 **Date:** July 1, 2026
@@ -8,7 +8,7 @@
 
 ## Overview
 
-Flutterwave is Bunche's primary payment processor for Nigerian Naira (NGN). This document covers the complete payment lifecycle — from order initiation to proxy credential delivery — with emphasis on webhook idempotency, error handling, and the differences across the 3 channels.
+Flutterwave is Styxproxy's primary payment processor for Nigerian Naira (NGN). This document covers the complete payment lifecycle — from order initiation to proxy credential delivery — with emphasis on webhook idempotency, error handling, and the differences across the 3 channels.
 
 **Currency:** NGN. All amounts in NGN (integers) for Flutterwave v3 API.
 
@@ -73,7 +73,7 @@ Headers:
     "name": "Customer Name"
   },
   "customizations": {
-    "title": "Bunche Proxy Order",
+    "title": "Styxproxy Proxy Order",
     "description": "ISP UK Clean - 30 days"
   },
   "meta": {
@@ -193,7 +193,7 @@ Flutterwave Webhook (charge.completed)
          ↓
     [In stock?] → NO → Create pending fulfillment ticket
                   ↓ YES
-    Generate Bunche credentials (Dante username + password)
+    Generate Styxproxy credentials (Dante username + password)
          ↓
     INSERT bunche_credentials row
          ↓

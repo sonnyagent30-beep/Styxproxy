@@ -1,4 +1,4 @@
-# Bunche — Static Website Design (styxproxy.com)
+# Styxproxy — Static Website Design (styxproxy.com)
 
 **Document Type:** Design Specification
 **Date:** July 1, 2026
@@ -9,7 +9,7 @@
 
 ## Overview
 
-Bunche is a display-only static site. No business logic, no database, no payment processing. Its single job: convert visitors into WhatsApp/Telegram customers.
+Styxproxy is a display-only static site. No business logic, no database, no payment processing. Its single job: convert visitors into WhatsApp/Telegram customers.
 
 **Stack rule:** Static HTML/CSS/JS served by Nginx. CDN-ready. No React, no Next.js, no backend.
 
@@ -24,7 +24,7 @@ Bunche is a display-only static site. No business logic, no database, no payment
 | Pricing | `/pricing.html` | NGN prices, plan comparison |
 | How It Works | `/how-it-works.html` | 3-step process |
 | FAQ | `/faq.html` | Common questions |
-| Contact | `/contact.html` | Reach Bunche |
+| Contact | `/contact.html` | Reach Styxproxy |
 | Terms | `/terms.html` | Legal |
 | Privacy | `/privacy.html` | Legal |
 | AUP | `/acceptable-use.html` | Legal |
@@ -35,7 +35,7 @@ Bunche is a display-only static site. No business logic, no database, no payment
 
 **Above the fold (mobile):**
 ```
-[Logo] Bunche Digital
+[Logo] Styxproxy Digital
 
 🌍 Nigeria's Most Trusted Proxy Reseller
 
@@ -60,7 +60,7 @@ ISP • Datacenter • Residential • Mobile 4G
 
 **Footer:**
 ```
-Bunche Digital © 2026
+Styxproxy Digital © 2026
 Nigeria | hello@styxproxy.com | +234 703 298 1049
 [Terms] [Privacy] [AUP]
 ```
@@ -207,7 +207,7 @@ Pays via Flutterwave inline → credentials delivered instantly
 ### Meta tags (every page)
 
 ```html
-<title>Bunche Digital — Nigeria's Most Trusted Proxy Reseller | ISP, DC, Residential, Mobile 4G</title>
+<title>Styxproxy Digital — Nigeria's Most Trusted Proxy Reseller | ISP, DC, Residential, Mobile 4G</title>
 <meta name="description" content="Buy ISP, Datacenter, Residential & Mobile 4G proxies in Nigeria. Instant delivery on WhatsApp. NGN payments. Starting ₦1,500.">
 <meta name="keywords" content="Nigeria proxy, ISP proxy Nigeria, datacenter proxy Nigeria, residential proxy Nigeria, mobile 4G proxy, proxy reseller Nigeria, buy proxy NGN">
 ```

@@ -8,7 +8,7 @@
 
 ## Context
 
-Bunche needs a referral system. The question: what is the referral identifier that customers share with friends?
+Styxproxy needs a referral system. The question: what is the referral identifier that customers share with friends?
 
 Options: a random code (BUNCHE7K), a separate referral code field, or the customer's name.
 
@@ -91,7 +91,7 @@ if (existing.length === 0) {
 ## Full Referral Flow
 
 1. Customer completes first payment
-2. Bunche asks: "What should we call you?"
+2. Styxproxy asks: "What should we call you?"
 3. Customer enters name → system checks uniqueness → saves
 4. Customer shares name with friend
 5. Friend says friend's name during checkout

@@ -1,4 +1,4 @@
-# Bunche — Operational Security Runbook
+# Styxproxy — Operational Security Runbook
 
 **Last Updated:** 2026-06-26
 **Status:** Phase 1 (Launch) policies
@@ -284,7 +284,7 @@ Add to n8n cron workflows:
 
 ## 4. NDPR Compliance Checklist
 
-Nigeria Data Protection Regulation — applies to Bunche because we process Nigerian customer data.
+Nigeria Data Protection Regulation — applies to Styxproxy because we process Nigerian customer data.
 
 | Requirement | How we comply |
 |-------------|---------------|

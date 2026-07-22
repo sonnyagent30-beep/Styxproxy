@@ -1,4 +1,4 @@
-# Bunche — Database Schema (PostgreSQL)
+# Styxproxy — Database Schema (PostgreSQL)
 
 **Last Updated:** 2026-07-01
 **Status:** Planning Complete — Ready for Implementation
@@ -7,7 +7,7 @@
 
 ## Overview
 
-Replaces Google Sheets with self-hosted PostgreSQL for scalability and reliability. Includes the `bunche_credentials` table for mapping Bunche usernames to provider IPs via the Dante auth layer.
+Replaces Google Sheets with self-hosted PostgreSQL for scalability and reliability. Includes the `bunche_credentials` table for mapping Styxproxy usernames to provider IPs via the Dante auth layer.
 
 **Key design principle:** Not every Nigerian number has WhatsApp. Phone number cannot be the common identifier between channels. Instead, each platform (Telegram, WhatsApp) has its own account record. Customers can optionally merge them when they choose.
 
@@ -162,7 +162,7 @@ CREATE TABLE orders (
     provider VARCHAR(50),  -- 'Proxy-Seller', 'DataImpulse', 'Rayobyte'
     provider_order_id VARCHAR(100),
 
-    -- Bunche credential issued for this order
+    -- Styxproxy credential issued for this order
     bunche_credential_id INT REFERENCES bunche_credentials(id),
 
     status VARCHAR(50) DEFAULT 'pending',  -- 'pending_payment', 'paid', 'fulfilled', 'active', 'expired', 'cancelled', 'refunded'
@@ -200,15 +200,15 @@ CREATE INDEX idx_orders_created ON orders(created_at DESC);
 
 ### bunche_credentials
 
-Maps Bunche-branded usernames to provider proxy IPs. This is the core of the auth layer.
+Maps Styxproxy-branded usernames to provider proxy IPs. This is the core of the auth layer.
 
 ```sql
 CREATE TABLE bunche_credentials (
     id SERIAL PRIMARY KEY,
 
-    -- Bunche username issued to customer
+    -- Styxproxy username issued to customer
     bun_username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,  -- bcrypt hash of the Bunche password
+    password_hash TEXT NOT NULL,  -- bcrypt hash of the Styxproxy password
 
     -- Customer linkage (via platform_account, not directly to customer)
     platform_account_id UUID REFERENCES platform_accounts(id),
@@ -578,10 +578,10 @@ System:
   2. If found:
      a. Generate 6-digit OTP
      b. Store merge_request with status='otp_sent'
-     c. Send OTP to customer's WhatsApp via Bunche WhatsApp number
+     c. Send OTP to customer's WhatsApp via Styxproxy WhatsApp number
      d. Ask Telegram customer to enter OTP
   3. If NOT found:
-     a. Tell customer: "No Bunche account found for that WhatsApp number. 
+     a. Tell customer: "No Styxproxy account found for that WhatsApp number. 
         Start an order on WhatsApp first, then come back to link."
 ```
 

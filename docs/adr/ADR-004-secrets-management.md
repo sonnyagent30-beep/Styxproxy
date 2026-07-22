@@ -1,4 +1,4 @@
-# ADR-004: Secrets Management for Bunche
+# ADR-004: Secrets Management for Styxproxy
 
 **Status:** Accepted
 **Date:** 2026-06-26
@@ -8,7 +8,7 @@
 
 ## Context
 
-Bunche handles:
+Styxproxy handles:
 - Money (Flutterwave secret key, webhook verification hash)
 - Customer PII (PostgreSQL credentials, Redis sessions)
 - Provider APIs (Proxy-Seller, DataImpulse — proxy generation + balance reads)
@@ -18,9 +18,9 @@ Bunche handles:
 
 A leaked key = loss of money, customer trust, or full account takeover.
 
-**Constraint:** Bunche runs on a single Hetzner CX21 VPS (~$7/mo). Budget for infra tooling is minimal. We need a secrets strategy that:
+**Constraint:** Styxproxy runs on a single Hetzner CX21 VPS (~$7/mo). Budget for infra tooling is minimal. We need a secrets strategy that:
 1. Doesn't blow the budget
-2. Doesn't leak via frontend code (N/A — Bunche is WhatsApp-only, no frontend)
+2. Doesn't leak via frontend code (N/A — Styxproxy is WhatsApp-only, no frontend)
 3. Doesn't leak via logs or backups
 4. Survives operator error (rotating a key doesn't break prod)
 5. Scales gracefully when we add a secrets manager later
@@ -45,7 +45,7 @@ Use `.env` file on VPS with strict operational discipline:
 
 ### Phase 2 (After 1,000 customers — ~Month 3)
 
-Move to **Doppler** (free tier supports 1 project, 3 users — fits Bunche):
+Move to **Doppler** (free tier supports 1 project, 3 users — fits Styxproxy):
 
 | Benefit | Cost |
 |---------|------|
@@ -82,12 +82,12 @@ Move to **HashiCorp Vault** or **AWS Secrets Manager** with workload identity:
 
 ### Option C: AWS Secrets Manager / GCP Secret Manager
 
-**Rejected.** Bunche runs on Hetzner, not AWS/GCP. Cross-cloud secret fetch adds latency + a permanent cloud bill. We don't need it yet.
+**Rejected.** Styxproxy runs on Hetzner, not AWS/GCP. Cross-cloud secret fetch adds latency + a permanent cloud bill. We don't need it yet.
 
 ### Option D: Doppler from Day 1
 
 **Considered.** Doppler free tier is genuinely useful. Decided to defer because:
-1. Bunche is single-VPS, single-operator (Dannion). Doppler shines for multi-env + multi-operator.
+1. Styxproxy is single-VPS, single-operator (Dannion). Doppler shines for multi-env + multi-operator.
 2. Adds one more account/credential to manage.
 3. Phase 1 discipline + Phase 2 migration is a clean path.
 
@@ -100,7 +100,7 @@ Move to **HashiCorp Vault** or **AWS Secrets Manager** with workload identity:
 - **Zero cost** in Phase 1
 - **Operator-friendly** — `.env` is industry standard, every dev knows it
 - **Easy to migrate** — Doppler/Vault swap is a config change, not a rewrite
-- **No frontend exposure** — Bunche has no frontend. There is no client-side key risk.
+- **No frontend exposure** — Styxproxy has no frontend. There is no client-side key risk.
 
 ### Negative
 

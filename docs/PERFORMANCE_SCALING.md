@@ -1,4 +1,4 @@
-# Bunche — Performance & Scaling Guide
+# Styxproxy — Performance & Scaling Guide
 
 **Last Updated:** 2026-06-26
 **Status:** Defer to Phase 2 (after 1,000 customers)
@@ -7,7 +7,7 @@
 
 ## When to Scale
 
-Bunche is sized for **up to ~1,000 customers** on a single Hetzner CX21 VPS. Beyond that, observe and act on these signals:
+Styxproxy is sized for **up to ~1,000 customers** on a single Hetzner CX21 VPS. Beyond that, observe and act on these signals:
 
 | Signal | Trigger | Action |
 |--------|---------|--------|
@@ -121,7 +121,7 @@ $0 — Redis is already running. Extra memory is cheap (Hetzner CX21 has 4GB RAM
 
 ## Phase 3 (10,000+ Customers): Vertical + Horizontal Scaling
 
-When Bunche hits 10K customers, single-VPS becomes the bottleneck.
+When Styxproxy hits 10K customers, single-VPS becomes the bottleneck.
 
 ### Vertical (cheaper, do first)
 

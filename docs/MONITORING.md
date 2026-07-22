@@ -1,4 +1,4 @@
-# Bunche — Monitoring Runbook
+# Styxproxy — Monitoring Runbook
 
 **Last Updated:** 2026-06-26
 **Status:** Ready to configure
@@ -7,7 +7,7 @@
 
 ## Health Endpoints
 
-Bunche has 3 health checks, all hit-able from public internet:
+Styxproxy has 3 health checks, all hit-able from public internet:
 
 | Endpoint | URL | What it checks | Returns |
 |----------|-----|----------------|---------|
@@ -34,7 +34,7 @@ Bunche has 3 health checks, all hit-able from public internet:
 
 1. Click **+ Add New Monitor**
 2. Monitor Type: **HTTP(s)**
-3. Friendly Name: `Bunche — n8n health`
+3. Friendly Name: `Styxproxy — n8n health`
 4. URL: `https://n8n.yourdomain.com/healthz`
 5. Monitoring Interval: **5 minutes** (free tier)
 6. Monitor Timeout: **30 seconds**
@@ -45,7 +45,7 @@ Bunche has 3 health checks, all hit-able from public internet:
 1. Go to **My Settings** → **Alert Contacts**
 2. Click **+ Add Alert Contact**
 3. Type: **Webhook**
-4. Friendly Name: `Bunche n8n Error Workflow`
+4. Friendly Name: `Styxproxy n8n Error Workflow`
 5. URL to notify:
 
    Create a NEW n8n workflow:
@@ -53,7 +53,7 @@ Bunche has 3 health checks, all hit-able from public internet:
    - Trigger: Webhook (POST)
    - Path: `uptimerobot-alert`
    - Action 1: Switch on `monitorFriendlyName`
-     - If `Bunche — n8n health` → Send WhatsApp via WhatsApp Business API
+     - If `Styxproxy — n8n health` → Send WhatsApp via WhatsApp Business API
    - Action 2: Log to `provider_log` table in PostgreSQL
    - Action 3: Return 200
 
@@ -71,9 +71,9 @@ For each monitor:
 
 1. Temporarily break n8n: `docker-compose stop n8n`
 2. Wait 10 minutes (2 checks × 5 min)
-3. Check WhatsApp — should receive "Bunche — n8n health is DOWN"
+3. Check WhatsApp — should receive "Styxproxy — n8n health is DOWN"
 4. Restart n8n: `docker-compose start n8n`
-5. Wait 5 minutes — should receive "Bunche — n8n health is UP"
+5. Wait 5 minutes — should receive "Styxproxy — n8n health is UP"
 
 ---
 

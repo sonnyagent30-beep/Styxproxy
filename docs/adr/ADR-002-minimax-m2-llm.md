@@ -8,7 +8,7 @@
 
 ## Context
 
-Bunche uses an LLM to parse customer WhatsApp messages and extract intent. We need to decide which LLM to use — this is a foundational choice that affects cost, latency, reliability, and code.
+Styxproxy uses an LLM to parse customer WhatsApp messages and extract intent. We need to decide which LLM to use — this is a foundational choice that affects cost, latency, reliability, and code.
 
 Initial approach was Ollama (local, free). Ollama works but has problems at scale: requires a GPU or heavy CPU, needs model downloads and updates, and adds operational complexity.
 

@@ -1,4 +1,4 @@
-# Bunche — WhatsApp Business API Setup & Bot Flow
+# Styxproxy — WhatsApp Business API Setup & Bot Flow
 
 **Document Type:** Technical Setup Guide
 **Date:** July 1, 2026
@@ -8,7 +8,7 @@
 
 ## Overview
 
-WhatsApp Business API is Bunche's primary customer-facing bot channel for Nigeria.
+WhatsApp Business API is Styxproxy's primary customer-facing bot channel for Nigeria.
 
 **Stack:** WhatsApp Business API → n8n → PostgreSQL + Redis
 
@@ -20,7 +20,7 @@ WhatsApp Business API is Bunche's primary customer-facing bot channel for Nigeri
 |--|--|--|
 | **Setup time** | 1–4 weeks approval | 1–3 days |
 | **Cost** | ~$0.05/message outbound | ~$0.05/message outbound |
-| **Recommended for Bunche** | ✅ Yes (production) | Good for staging/testing |
+| **Recommended for Styxproxy** | ✅ Yes (production) | Good for staging/testing |
 
 **Recommendation:** Start with Twilio WhatsApp for testing. Migrate to direct WhatsApp Business API for production.
 
@@ -31,7 +31,7 @@ WhatsApp Business API is Bunche's primary customer-facing bot channel for Nigeri
 ### Step 1: Meta Business Account Setup
 
 1. Go to [business.facebook.com](https://business.facebook.com)
-2. Create Business Account: **Bunche Digital**
+2. Create Business Account: **Styxproxy Digital**
 3. Email: `hello@styxproxy.com`
 4. Verify business domain ownership (styxproxy.com)
 
@@ -42,7 +42,7 @@ WhatsApp Business API is Bunche's primary customer-facing bot channel for Nigeri
 3. Add **WhatsApp** product to the app
 4. In WhatsApp settings:
    - **Phone Number**: +234 XXX XXXX (dedicated, not personal)
-   - **Business Name**: Bunche Digital
+   - **Business Name**: Styxproxy Digital
    - **Timezone**: Africa/Lagos
 
 ### Step 3: Get API Credentials
@@ -107,7 +107,7 @@ Verify Token: [random string — must match what n8n expects]
 
 After a customer messages you first, you have a **24-hour session** to reply freely.
 
-**Starting a session:** Customer sends any message to your WhatsApp Business number → Meta starts 24-hour conversation window → Bunche can send replies freely.
+**Starting a session:** Customer sends any message to your WhatsApp Business number → Meta starts 24-hour conversation window → Styxproxy can send replies freely.
 
 ### Template Messages (outside 24-hour window)
 
@@ -144,13 +144,13 @@ When the 24-hour window is closed, you can only send **approved template message
 
 **Template example — `credentials_delivered`:**
 ```
-🛡️ Your Bunche proxies are ready!
+🛡️ Your Styxproxy proxies are ready!
 
 📋 Order ID: {{1}}
 👤 Username: {{2}}
 🔐 Password: {{3}}
 🌐 Protocol: SOCKS5
-📍 Proxy: Bunche.ng:1080
+📍 Proxy: Styxproxy.ng:1080
 
 ⚡ Setup guide: styxproxy.com/setup
 📅 Expires: {{4}}
@@ -165,13 +165,13 @@ Need help? Just reply here!
 ### Flow 1: New Customer Discovery
 
 ```
-Customer finds Bunche on WhatsApp (number shared on website/social)
+Customer finds Styxproxy on WhatsApp (number shared on website/social)
          ↓
 Customer sends: "Hi" or "Hello"
          ↓
 [24h session window OPEN]
          ↓
-Bot: "👋 Welcome to Bunche Digital!
+Bot: "👋 Welcome to Styxproxy Digital!
 We're Nigeria's most trusted proxy provider.
 
 🌍 ISP, Datacenter, Residential & Mobile 4G proxies
@@ -208,7 +208,7 @@ Bot sends (within 24h session):
 🛡️ Your proxies:
 👤 Username: bun_ayomide7
 🔐 Password: [generated]
-🌐 Proxy: Bunche.ng:1080
+🌐 Proxy: Styxproxy.ng:1080
 📅 Expires: July 31, 2026
 ```
 

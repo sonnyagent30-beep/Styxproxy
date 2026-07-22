@@ -1,4 +1,4 @@
-# Bunche — Admin Web Dashboard Spec
+# Styxproxy — Admin Web Dashboard Spec
 
 **Last Updated:** 2026-07-01
 **Purpose:** Define the admin web dashboard — roles, permissions, pages, and behavior.
@@ -130,7 +130,7 @@ Overview metrics.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Bunche Admin                              [Admin ▼]│
+│  Styxproxy Admin                              [Admin ▼]│
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │  Today's Orders        Today's Revenue              │
@@ -191,8 +191,8 @@ Full order information.
 │  Expires: Aug 1, 2026 14:23 WAT                   │
 │                                                     │
 │  ── Credentials ────────────────────────────────    │
-│  Bunche Username: bun_uk_abc123                    │
-│  Bunche Password: XxXxXxXxXx                       │
+│  Styxproxy Username: bun_uk_abc123                    │
+│  Styxproxy Password: XxXxXxXxXx                       │
 │  Proxy IP: 185.199.228.45                         │
 │  Provider: Proxy-Seller                            │
 │  Port: 1080                                       │
@@ -257,7 +257,7 @@ All refunds with status.
 
 ### 7. Credentials (`/credentials`)
 
-All active Bunche credentials.
+All active Styxproxy credentials.
 
 **Table columns:**
 | Username | Product | Order tx_ref | Issued | Expires | Provider | Status | Actions |

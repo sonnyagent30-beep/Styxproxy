@@ -8,9 +8,9 @@
 
 ## Context
 
-Bunche started with Google Sheets as the database. At the MVP stage, Sheets works — it's free, zero setup, and easy to share. But Sheets doesn't scale: no real-time triggers, limited API access, concurrent write conflicts, and no structured relationships.
+Styxproxy started with Google Sheets as the database. At the MVP stage, Sheets works — it's free, zero setup, and easy to share. But Sheets doesn't scale: no real-time triggers, limited API access, concurrent write conflicts, and no structured relationships.
 
-As Bunche moves toward a real business with real orders, we need a real database.
+As Styxproxy moves toward a real business with real orders, we need a real database.
 
 ---
 

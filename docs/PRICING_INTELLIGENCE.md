@@ -1,4 +1,4 @@
-# Bunche — Pricing Intelligence (UPDATED)
+# Styxproxy — Pricing Intelligence (UPDATED)
 
 **Last Updated:** 2026-06-27
 **Effective Date:** Upon rollout
@@ -18,7 +18,7 @@
 
 ---
 
-## Buy Price (What Bunche Pays Providers)
+## Buy Price (What Styxproxy Pays Providers)
 
 ### Proxy-Seller (ISP & Datacenter)
 

@@ -1,4 +1,4 @@
-# Bunche — Database Schema Review & Reconciliation
+# Styxproxy — Database Schema Review & Reconciliation
 
 **Document Type:** Technical Review
 **Date:** July 1, 2026
@@ -107,7 +107,7 @@ LIMIT 10;
 
 ### `proxy_credentials` Doesn't Track Dante Mapping
 
-The `proxy_credentials` table is just an IP/port tracker. It doesn't track the **Dante SOCKS5 username** that Bunche issues to customers.
+The `proxy_credentials` table is just an IP/port tracker. It doesn't track the **Dante SOCKS5 username** that Styxproxy issues to customers.
 
 **Fix:** Use `bunche_credentials` from `DATABASE_SCHEMA.md`:
 - `bun_username` — what customer uses to auth to Dante

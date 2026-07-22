@@ -1,13 +1,13 @@
-# Bunche — Database Backup Strategy (Free)
+# Styxproxy — Database Backup Strategy (Free)
 
 **Last Updated:** 2026-07-01
-**Purpose:** Complete free backup strategy for Bunche PostgreSQL — what to back up, how often, where to, how to restore.
+**Purpose:** Complete free backup strategy for Styxproxy PostgreSQL — what to back up, how often, where to, how to restore.
 
 ---
 
 ## Overview
 
-Fully free. No Hetzner. No paid storage. Upgrade to paid services when Bunche starts earning.
+Fully free. No Hetzner. No paid storage. Upgrade to paid services when Styxproxy starts earning.
 
 ```
 Local disk (6 hours):
@@ -157,7 +157,7 @@ sudo /usr/local/bin/restore.sh --restore abc12345
 ```
 
 **What happens:**
-1. Bunche API is stopped
+1. Styxproxy API is stopped
 2. Current database is dropped
 3. Backup is restored
 4. API is restarted
@@ -239,7 +239,7 @@ openssl rand -base64 32
 
 | Location | Format | Who has access |
 |---|---|---|
-| 1Password (Bunche vault) | Password entry | CTO + 1 trusted person |
+| 1Password (Styxproxy vault) | Password entry | CTO + 1 trusted person |
 | Paper copy | Printed or handwritten | Fireproof safe |
 | Trusted person | Verbal/SMS | 1 other person |
 
@@ -362,9 +362,9 @@ sudo nano /etc/logrotate.d/bunche-backup
 
 ---
 
-## Upgrade Path (When Bunche Earns)
+## Upgrade Path (When Styxproxy Earns)
 
-When Bunche starts generating revenue, upgrade from free tier to paid:
+When Styxproxy starts generating revenue, upgrade from free tier to paid:
 
 | Upgrade | Why | Cost |
 |---|---|---|

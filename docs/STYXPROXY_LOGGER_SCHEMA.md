@@ -1,4 +1,4 @@
-# Bunche Logger — JSON Schema
+# Styxproxy Logger — JSON Schema
 
 **Date:** 2026-06-27
 **Status:** LOCKED
@@ -8,7 +8,7 @@
 
 ## Purpose
 
-Bunche's central logger writes structured events to PostgreSQL `customer_audit_log` table. Every workflow execution logs at least one event. The schema below defines what fields are written.
+Styxproxy's central logger writes structured events to PostgreSQL `customer_audit_log` table. Every workflow execution logs at least one event. The schema below defines what fields are written.
 
 ---
 
@@ -383,7 +383,7 @@ Daily cron handles the tier transitions.
 
 ## Related
 
-- `workflows/WORKFLOW_SPECS.md` §11 — Bunche Logger workflow spec
+- `workflows/WORKFLOW_SPECS.md` §11 — Styxproxy Logger workflow spec
 - `docs/SECURITY_RUNBOOK.md` §2 — Audit query patterns
 - `docs/DEAD_IP_REPLACEMENT_POLICY.md` — Retry logging spec
 - `docs/PHONE_HASH_BLOCKING.md` — phone_hash_blocked event
