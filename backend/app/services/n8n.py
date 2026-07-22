@@ -26,7 +26,7 @@ async def trigger_credentials_delivered_webhook(
     """
     Fire-and-forget webhook to n8n with credential delivery info.
     
-    Sends a POST to n8n.bunche.ng/webhook/credentials-delivered with:
+    Sends a POST to n8n.styxproxy.com/webhook/credentials-delivered with:
     {
         "order_id": "ORD-XXXXXX",
         "tx_ref": "TXF-XXXXXX",

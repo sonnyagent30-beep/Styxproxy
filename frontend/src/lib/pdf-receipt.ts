@@ -12,7 +12,7 @@ interface CartItem {
 }
 
 interface Credential {
-  bun_username?: string;
+  styxproxy_username?: string;
   styxproxy_password?: string;
   upstream_proxy_ip?: string;
   upstream_proxy_port?: number;
