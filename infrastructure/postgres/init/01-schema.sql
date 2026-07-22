@@ -193,8 +193,8 @@ CREATE TABLE styxproxy_credentials (
     id                          SERIAL PRIMARY KEY,
 
     -- Styxproxy username issued to customer (used to auth to Dante)
-    bun_username                 VARCHAR(50) UNIQUE NOT NULL,
-    -- Format: bun_<random> e.g. bun_ayomide7
+    styxproxy_username           VARCHAR(50) UNIQUE NOT NULL,
+    -- Format: sty_<random> e.g. sty_ayomide7
 
     -- bcrypt hash of the Styxproxy password (NOT the provider password)
     password_hash               TEXT NOT NULL,
@@ -229,7 +229,7 @@ CREATE TABLE styxproxy_credentials (
     gb_used                     DECIMAL(10,2) DEFAULT 0
 );
 
-CREATE INDEX idx_styxproxy_cred_username         ON styxproxy_credentials(bun_username);
+CREATE INDEX idx_styxproxy_cred_username         ON styxproxy_credentials(styxproxy_username);
 CREATE INDEX idx_styxproxy_cred_platform_account ON styxproxy_credentials(platform_account_id);
 CREATE INDEX idx_styxproxy_cred_status          ON styxproxy_credentials(status);
 CREATE INDEX idx_styxproxy_cred_pool            ON styxproxy_credentials(pool_type, status);
