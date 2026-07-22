@@ -158,7 +158,7 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
         <div className="p-4 border-t border-[var(--border)]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-sm">{admin?.admin_phone}</p>
+              <p className="font-medium text-sm truncate" title={admin?.email}>{admin?.email}</p>
               <p className="text-xs text-[var(--muted)] capitalize">{admin?.role}</p>
             </div>
             <button onClick={handleLogout} className="p-2 text-[var(--muted)] hover:text-red-400 transition-colors" title="Logout">

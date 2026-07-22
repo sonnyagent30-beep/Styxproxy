@@ -683,6 +683,40 @@ class ApiClient {
     return this.request('/api/admin/metrics/overview');
   }
 
+  // ============== Charon Stats (superadmin ops) ==============
+
+  async getCharonStats(): Promise<ApiResponse<{
+    total_conversations: number;
+    total_messages: number;
+    by_model: Record<string, number>;
+    cloud_up: boolean;
+    local_up: boolean;
+    last_error?: string | null;
+  }>> {
+    return this.request('/api/admin/charon/stats');
+  }
+
+  async resetCharon(): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/charon/reset', { method: 'POST' });
+  }
+
+  // ============== System Health (deep) ==============
+
+  async getSystemHealth(): Promise<ApiResponse<{
+    status: string;
+    services: {
+      database: string;
+      redis: string;
+      litellm: { status: string; latency_ms?: number; error?: string | null };
+      ollama: { status: string; models?: string[]; minicpm5_loaded?: boolean };
+      m2_cloud: { status: string; latency_ms?: number; error?: string | null };
+    };
+    charon_routing: { primary: string; fallback: string };
+    charon_available: boolean;
+  }>> {
+    return this.request('/api/v1/health');
+  }
+
   // ============== Admin Invites (for team page) ==============
 
   async getAdminInvites(): Promise<ApiResponse<{ invites: Array<{ id: number; email?: string; role: string; invite_code: string; expires_at: string; max_uses: number; uses: number; created_by: string }> }>> {
