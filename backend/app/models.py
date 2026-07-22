@@ -182,8 +182,8 @@ class Order(Base):
     provider_order_id: Mapped[Optional[str]] = mapped_column(
         String(100), nullable=True
     )
-    bunche_credential_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("bunche_credentials.id"), nullable=True
+    styxproxy_credential_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("styxproxy_credentials.id"), nullable=True
     )
     status: Mapped[str] = mapped_column(
         String(50), default="pending", nullable=False
@@ -227,26 +227,26 @@ class Order(Base):
     platform_account: Mapped[Optional[PlatformAccount]] = relationship(
         "PlatformAccount", back_populates="orders"
     )
-    bunche_credential: Mapped[Optional["BuncheCredential"]] = relationship(
-        "BuncheCredential",
-        foreign_keys="[Order.bunche_credential_id]",
+    styxproxy_credential: Mapped[Optional["StyxproxyCredential"]] = relationship(
+        "StyxproxyCredential",
+        foreign_keys="[Order.styxproxy_credential_id]",
     )
 
 
-class BuncheCredential(Base):
+class StyxproxyCredential(Base):
     """Styxproxy credentials table — Styxproxy usernames to provider IPs."""
-    __tablename__ = "bunche_credentials"
+    __tablename__ = "styxproxy_credentials"
     __table_args__ = (
-        Index("idx_bunche_cred_username", "bun_username"),
-        Index("idx_bunche_cred_customer", "customer_phone"),
-        Index("idx_bunche_cred_status", "status"),
-        Index("idx_bunche_cred_pool", "pool_type"),
-        Index("idx_bunche_cred_expires", "expires_at"),
-        Index("idx_bunche_cred_protocol", "protocol"),
+        Index("idx_styxproxy_cred_username", "styxproxy_username"),
+        Index("idx_styxproxy_cred_customer", "customer_phone"),
+        Index("idx_styxproxy_cred_status", "status"),
+        Index("idx_styxproxy_cred_pool", "pool_type"),
+        Index("idx_styxproxy_cred_expires", "expires_at"),
+        Index("idx_styxproxy_cred_protocol", "protocol"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    bun_username: Mapped[str] = mapped_column(
+    styxproxy_username: Mapped[str] = mapped_column(
         String(50), unique=True, nullable=False
     )
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
@@ -303,10 +303,10 @@ class BuncheCredential(Base):
     # Relationships
     order: Mapped[Optional[Order]] = relationship(
         "Order",
-        foreign_keys="[BuncheCredential.order_id]",
+        foreign_keys="[StyxproxyCredential.order_id]",
     )
-    # NOTE: BuncheCredential has no back-reference to FreeTrial
-    # FreeTrial → BuncheCredential via FreeTrial.bunche_credential_id FK
+    # NOTE: StyxproxyCredential has no back-reference to FreeTrial
+    # FreeTrial → StyxproxyCredential via FreeTrial.styxproxy_credential_id FK
 
 
 class FreeTrial(Base):
@@ -328,8 +328,8 @@ class FreeTrial(Base):
     reward_usd: Mapped[Optional[float]] = mapped_column(
         Numeric(10, 4), nullable=True
     )
-    bunche_credential_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("bunche_credentials.id"), nullable=True
+    styxproxy_credential_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("styxproxy_credentials.id"), nullable=True
     )
     status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     disclaimer_accepted: Mapped[bool] = mapped_column(
@@ -340,9 +340,9 @@ class FreeTrial(Base):
     )
 
     # Relationships
-    bunche_credential: Mapped[Optional[BuncheCredential]] = relationship(
-        "BuncheCredential",
-        foreign_keys="[FreeTrial.bunche_credential_id]",
+    styxproxy_credential: Mapped[Optional[StyxproxyCredential]] = relationship(
+        "StyxproxyCredential",
+        foreign_keys="[FreeTrial.styxproxy_credential_id]",
     )
 
 

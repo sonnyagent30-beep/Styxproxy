@@ -19,9 +19,9 @@ interface OrderData {
   customer_name?: string | null;
   created_at?: string;
   expires_at?: string;
-  bunche_credential?: {
+  styxproxy_credential?: {
     bun_username?: string;
-    bun_password?: string;
+    styxproxy_password?: string;
     upstream_proxy_ip?: string;
     upstream_proxy_port?: number;
     protocol?: string;
@@ -102,13 +102,13 @@ function ReceiptContent() {
 
   // Handle copy credentials
   const handleCopyCredentials = async () => {
-    if (!order?.bunche_credential) return;
-    const cred = order.bunche_credential;
+    if (!order?.styxproxy_credential) return;
+    const cred = order.styxproxy_credential;
     const text = [
-      `Username: ${cred.bun_username || ''}`,
-      `Password: ${cred.bun_password || ''}`,
+      `Username: ${cred.styxproxy_username || ''}`,
+      `Password: ${cred.styxproxy_password || ''}`,
       `Proxy: ${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
-      `Full: http://${cred.bun_username || ''}:${cred.bun_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
+      `Full: http://${cred.styxproxy_username || ''}:${cred.styxproxy_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
     ].join('\n');
     try {
       await navigator.clipboard.writeText(text);
@@ -214,7 +214,7 @@ function ReceiptContent() {
         </div>
 
         {/* Credentials Card - Show if available */}
-        {order?.bunche_credential && (
+        {order?.styxproxy_credential && (
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Proxy Credentials</h2>
@@ -232,7 +232,7 @@ function ReceiptContent() {
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-[var(--muted)]">Username</label>
-                <p className="font-mono text-lg">{order.bunche_credential.bun_username}</p>
+                <p className="font-mono text-lg">{order.styxproxy_credential.styxproxy_username}</p>
               </div>
               <div>
                 <label className="text-sm text-[var(--muted)]">Protocol</label>
@@ -241,24 +241,24 @@ function ReceiptContent() {
               <div>
                 <label className="text-sm text-[var(--muted)]">Proxy Address</label>
                 <p className="font-mono text-lg">
-                  {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                  {order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
                 </p>
               </div>
               <div>
                 <label className="text-sm text-[var(--muted)]">Password</label>
-                <p className="font-mono text-sm">{order.bunche_credential.bun_password || 'N/A'}</p>
+                <p className="font-mono text-sm">{order.styxproxy_credential.styxproxy_password || 'N/A'}</p>
               </div>
               <div>
                 <label className="text-sm text-[var(--muted)]">Full Format</label>
                 <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
-                  http://{order.bunche_credential.bun_username}:{order.bunche_credential.bun_password || 'YOUR_PASSWORD'}@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                  http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password || 'YOUR_PASSWORD'}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
                 </p>
               </div>
               <div>
                 <label className="text-sm text-[var(--muted)]">Expires</label>
                 <p className="font-medium">
-                  {order.bunche_credential.expires_at
-                    ? new Date(order.bunche_credential.expires_at).toLocaleDateString('en-NG', {
+                  {order.styxproxy_credential.expires_at
+                    ? new Date(order.styxproxy_credential.expires_at).toLocaleDateString('en-NG', {
                         year: 'numeric', month: 'long', day: 'numeric',
                       })
                     : 'N/A'}

@@ -248,7 +248,7 @@
     {
       "parameters": {
         "operation": "update",
-        "table": "bunche_credentials",
+        "table": "styxproxy_credentials",
         "values": "username = '{{$json.new_username}}', password = '{{$json.new_password}}', status = 'active'"
       },
       "id": "wa-db-update",

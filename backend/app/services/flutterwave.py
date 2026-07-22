@@ -63,7 +63,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                 
                 # Full pipeline: provider → test → Dante → DB → n8n notification
                 try:
-                    # create_credential returns (BuncheCredential, plaintext_password)
+                    # create_credential returns (StyxproxyCredential, plaintext_password)
                     credential, plaintext_password = await create_credential(
                         db_session=db_session,
                         order_id=order.order_id,
@@ -77,7 +77,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                         pool_type="paid",
                     )
 
-                    order.bunche_credential_id = credential.id
+                    order.styxproxy_credential_id = credential.id
                     order.status = "fulfilled"
                     await db_session.commit()
 
@@ -88,7 +88,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                             tx_ref=tx_ref,
                             phone=order.customer_phone or "",
                             channel=order.channel or "web",
-                            bun_username=credential.bun_username,
+                            bun_username=credential.styxproxy_username,
                             bun_password=plaintext_password,
                             proxy_ip=credential.upstream_proxy_ip or "",
                             proxy_port=credential.upstream_proxy_port or 1080,

@@ -5,12 +5,12 @@ This module has two layers:
 
 1. Low-level (provider + dante services):
    - get_provider_proxy(): calls provider API, tests, retries up to 5x
-   - register_on_dante(): calls Dante API to get branded bun_username/bun_password
+   - register_on_dante(): calls Dante API to get branded styxproxy_username/styxproxy_password
    These are used directly by the fulfillment flow.
 
 2. High-level (this module):
    - create_credential(): full pipeline — provider → Dante → DB
-   - Returns (BuncheCredential, plaintext_password) tuple so the
+   - Returns (StyxproxyCredential, plaintext_password) tuple so the
      fulfillment caller can send the password to the customer via n8n/email.
 
 When Dante and the provider are deployed on the VPS, only the underlying
@@ -18,13 +18,13 @@ service stubs (app/services/dante.py, app/services/provider.py) need updating.
 """
 import random
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.models import BuncheCredential, Order
+from app.models import StyxproxyCredential, Order
 from app.auth import get_password_hash
 
 
@@ -41,22 +41,22 @@ STUB_PROXY_POOL = {
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
-def generate_bun_username(phone: Optional[str] = None, order_id: Optional[str] = None) -> str:
+def generate_styxproxy_username(phone: Optional[str] = None, order_id: Optional[str] = None) -> str:
     """Generate a Styxproxy proxy username.
 
-    With phone+order_id: ``bun_{last4phone}{order_suffix}{rand8}`` (used
-    historically and by tests). With no args: ``bun_{rand8}``.
+    With phone+order_id: ``sty_{last4phone}{order_suffix}{rand8}`` (used
+    historically and by tests). With no args: ``sty_{rand8}``.
     """
     if phone and order_id:
         phone_suffix = phone.replace("+", "").replace(" ", "")[-4:]
         order_suffix = "".join(c for c in order_id if c.isalnum())[-4:]
         rand = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        return f"bun_{phone_suffix}{order_suffix}{rand}"
+        return f"sty_{phone_suffix}{order_suffix}{rand}"
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    return f"bun_{suffix}"
+    return f"sty_{suffix}"
 
 
-def generate_bun_password() -> str:
+def generate_styxproxy_password() -> str:
     return "".join(random.choices(string.ascii_letters + string.digits, k=16))
 
 
@@ -156,13 +156,13 @@ async def register_on_dante(
     """
     Register branded credentials on Dante.
 
-    Returns a dict with keys: {bun_username, bun_password, dante_port}
+    Returns a dict with keys: {styxproxy_username, styxproxy_password, dante_port}
     The plaintext password is returned so it can be sent to the customer.
     """
     from app.services import dante as dante_svc
 
-    bun_username = generate_bun_username()
-    bun_password = generate_bun_password()
+    styxproxy_username = generate_styxproxy_username()
+    styxproxy_password = generate_styxproxy_password()
 
     try:
         dante_cred = await dante_svc.register_credential(
@@ -171,16 +171,16 @@ async def register_on_dante(
             expires_at=expires_at,
         )
         # Use Dante's returned credentials if available
-        bun_username = dante_cred.bun_username
-        bun_password = dante_cred.bun_password
+        styxproxy_username = dante_cred.styxproxy_username
+        styxproxy_password = dante_cred.styxproxy_password
         dante_port = dante_cred.dante_port
     except Exception:
         # Dante not yet deployed — use local generation
         dante_port = random.randint(9000, 9999)
 
     return {
-        "bun_username": bun_username,
-        "bun_password": bun_password,
+        "styxproxy_username": styxproxy_username,
+        "styxproxy_password": styxproxy_password,
         "dante_port": dante_port,
     }
 
@@ -198,11 +198,11 @@ async def create_credential(
     duration_days: int = 30,
     protocol: str = "socks5",
     pool_type: str = "paid",
-) -> tuple[BuncheCredential, str]:
+) -> tuple[StyxproxyCredential, str]:
     """
     Full credential pipeline: provider → test → Dante branding → DB.
 
-    Returns (BuncheCredential, plaintext_password).
+    Returns (StyxproxyCredential, plaintext_password).
 
     The plaintext password is NOT stored in the DB — only the hash is.
     The caller is responsible for delivering the plaintext password
@@ -227,10 +227,10 @@ async def create_credential(
     plaintext_password = dante["bun_password"]
     password_hash = get_password_hash(plaintext_password)
 
-    expires_at = proxy.get("expires_at") or (datetime.utcnow() + timedelta(days=duration_days))
+    expires_at = proxy.get("expires_at") or (datetime.now(timezone.utc) + timedelta(days=duration_days))
 
-    credential = BuncheCredential(
-        bun_username=dante["bun_username"],
+    credential = StyxproxyCredential(
+        styxproxy_username=dante["bun_username"],
         password_hash=password_hash,
         customer_phone=customer_phone,
         order_id=order_id,
@@ -259,10 +259,10 @@ async def create_credential(
 async def get_credential_by_order(
     db_session: AsyncSession,
     order_id: str,
-) -> Optional[BuncheCredential]:
+) -> Optional[StyxproxyCredential]:
     return (
         await db_session.execute(
-            select(BuncheCredential).where(BuncheCredential.order_id == order_id)
+            select(StyxproxyCredential).where(StyxproxyCredential.order_id == order_id)
         )
     ).scalar_one_or_none()
 
@@ -270,10 +270,10 @@ async def get_credential_by_order(
 async def get_credential_by_id(
     db_session: AsyncSession,
     credential_id: int,
-) -> Optional[BuncheCredential]:
+) -> Optional[StyxproxyCredential]:
     return (
         await db_session.execute(
-            select(BuncheCredential).where(BuncheCredential.id == credential_id)
+            select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id)
         )
     ).scalar_one_or_none()
 
@@ -281,11 +281,11 @@ async def get_credential_by_id(
 async def get_active_credentials_by_phone(
     db_session: AsyncSession,
     phone: str,
-) -> list[BuncheCredential]:
+) -> list[StyxproxyCredential]:
     result = await db_session.execute(
-        select(BuncheCredential).where(
-            BuncheCredential.customer_phone == phone,
-            BuncheCredential.status == "active",
+        select(StyxproxyCredential).where(
+            StyxproxyCredential.customer_phone == phone,
+            StyxproxyCredential.status == "active",
         )
     )
     return list(result.scalars().all())
@@ -295,11 +295,11 @@ async def revoke_credential(
     db_session: AsyncSession,
     credential_id: int,
     reason: str = "manual",
-) -> Optional[BuncheCredential]:
+) -> Optional[StyxproxyCredential]:
     credential = await get_credential_by_id(db_session, credential_id)
     if credential:
         credential.status = "revoked"
-        credential.revoked_at = datetime.utcnow()
+        credential.revoked_at = datetime.now(timezone.utc)
         credential.revoke_reason = reason
         await db_session.commit()
     return credential
@@ -309,10 +309,10 @@ async def replace_credential(
     db_session: AsyncSession,
     old_credential_id: int,
     reason: str = "ban_reported",
-) -> Optional[BuncheCredential]:
+) -> Optional[StyxproxyCredential]:
     """
     Revoke old credential and create a new one.
-    For Dante-rotation (bun_username/bun_password change, same upstream IP).
+    For Dante-rotation (styxproxy_username/styxproxy_password change, same upstream IP).
     """
     old = await get_credential_by_id(db_session, old_credential_id)
     if not old:
@@ -340,7 +340,7 @@ async def replace_credential(
         pool_type=old.pool_type or "paid",
     )
 
-    order.bunche_credential_id = new_cred.id
+    order.styxproxy_credential_id = new_cred.id
     order.replacement_count += 1
     await db_session.commit()
 

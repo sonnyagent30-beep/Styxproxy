@@ -30,7 +30,7 @@ export interface Order {
 
 export interface StyxproxyCredential {
   id: number;
-  bun_username: string;
+  styxproxy_username: string;
   upstream_proxy_ip?: string;
   upstream_proxy_port: number;
   dante_port?: number;

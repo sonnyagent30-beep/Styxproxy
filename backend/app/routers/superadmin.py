@@ -14,7 +14,7 @@ from app.models import (
     AdminInvite,
     AdminAuditLog,
     Order,
-    BuncheCredential,
+    StyxproxyCredential,
     Customer,
     SupportThread,
     ContactSubmission,
@@ -708,7 +708,7 @@ async def get_metrics_overview(
     # Active proxies (credentials)
     active_proxies = (
         await session.execute(
-            select(func.count()).select_from(BuncheCredential).where(BuncheCredential.status == "active")
+            select(func.count()).select_from(StyxproxyCredential).where(StyxproxyCredential.status == "active")
         )
     ).scalar() or 0
 

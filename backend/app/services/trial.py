@@ -16,13 +16,13 @@ async def check_trial_limit(db_session: AsyncSession, phone: str) -> bool:
 async def create_trial(db_session: AsyncSession, phone: str, disclaimer_accepted: bool = False) -> FreeTrial:
     if not await check_trial_limit(db_session, phone):
         raise ValueError("Daily trial limit reached")
-    from app.models import BuncheCredential
+    from app.models import StyxproxyCredential
     from app.auth import get_password_hash
     expires_at = datetime.utcnow() + timedelta(hours=TRIAL_DURATION_HOURS)
-    credential = BuncheCredential(bun_username=f"trial_{''.join(random.choices(string.ascii_lowercase, k=8))}", password_hash=get_password_hash("".join(random.choices(string.ascii_letters + string.digits, k=16))), customer_phone=phone, pool_type="free_trial", upstream_proxy_ip="192.168.1.1", upstream_proxy_port=1080, dante_port=random.randint(9000, 9999), status="active", expires_at=expires_at)
+    credential = StyxproxyCredential(bun_username=f"trial_{''.join(random.choices(string.ascii_lowercase, k=8))}", password_hash=get_password_hash("".join(random.choices(string.ascii_letters + string.digits, k=16))), customer_phone=phone, pool_type="free_trial", upstream_proxy_ip="192.168.1.1", upstream_proxy_port=1080, dante_port=random.randint(9000, 9999), status="active", expires_at=expires_at)
     db_session.add(credential)
     await db_session.flush()
-    trial = FreeTrial(phone=phone, bunche_credential_id=credential.id, status="active", disclaimer_accepted=disclaimer_accepted)
+    trial = FreeTrial(phone=phone, styxproxy_credential_id=credential.id, status="active", disclaimer_accepted=disclaimer_accepted)
     db_session.add(trial)
     await db_session.commit()
     await db_session.refresh(trial)
@@ -33,8 +33,8 @@ async def complete_trial(db_session: AsyncSession, trial_id: int, status: str = 
     trial = await get_trial_by_id(db_session, trial_id)
     if trial:
         trial.status = status
-        if trial.bunche_credential_id:
-            cred = (await db_session.execute(select(BuncheCredential).where(BuncheCredential.id == trial.bunche_credential_id))).scalar_one_or_none()
+        if trial.styxproxy_credential_id:
+            cred = (await db_session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == trial.styxproxy_credential_id))).scalar_one_or_none()
             if cred:
                 cred.status = "expired"
         await db_session.commit()

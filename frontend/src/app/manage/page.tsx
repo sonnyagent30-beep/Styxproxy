@@ -14,9 +14,9 @@ interface OrderData {
   country?: string;
   amount_paid_ngn?: number;
   tx_ref?: string;
-  bunche_credential?: {
+  styxproxy_credential?: {
     bun_username?: string;
-    bun_password?: string;
+    styxproxy_password?: string;
     upstream_proxy_ip?: string;
     upstream_proxy_port?: number;
     expires_at?: string;
@@ -71,8 +71,8 @@ export default function ManagePage() {
     try {
       const res = await fetch(`/api/orders/${order.order_id}/rotate`, { method: 'POST' });
       const data = await res.json();
-      if (res.ok && data.bunche_credential) {
-        setOrder(prev => prev ? { ...prev, bunche_credential: data.bunche_credential, rotation_count: (prev.rotation_count ?? 0) + 1 } : null);
+      if (res.ok && data.styxproxy_credential) {
+        setOrder(prev => prev ? { ...prev, styxproxy_credential: data.styxproxy_credential, rotation_count: (prev.rotation_count ?? 0) + 1 } : null);
         toast({ type: 'success', title: 'Proxy rotated!', message: 'Your new credentials are ready.' });
       } else {
         toast({ type: 'error', title: 'Rotation failed', message: data.error || 'Please try again.' });
@@ -309,7 +309,7 @@ export default function ManagePage() {
               </div>
 
               {/* Credentials Card */}
-              {isActive && order.bunche_credential && (
+              {isActive && order.styxproxy_credential && (
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide">Your Proxy Credentials</h2>
@@ -321,16 +321,16 @@ export default function ManagePage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-[var(--background)] rounded-xl p-4">
                         <span className="text-xs text-[var(--muted)]">Username</span>
-                        <p className="font-mono text-sm font-medium break-all">{order.bunche_credential.bun_username}</p>
+                        <p className="font-mono text-sm font-medium break-all">{order.styxproxy_credential.styxproxy_username}</p>
                       </div>
                       <div className="bg-[var(--background)] rounded-xl p-4">
                         <span className="text-xs text-[var(--muted)]">Password</span>
-                        <p className="font-mono text-sm font-medium">{order.bunche_credential.bun_password || 'N/A'}</p>
+                        <p className="font-mono text-sm font-medium">{order.styxproxy_credential.styxproxy_password || 'N/A'}</p>
                       </div>
                       <div className="bg-[var(--background)] rounded-xl p-4">
                         <span className="text-xs text-[var(--muted)]">Proxy Address</span>
                         <p className="font-mono text-sm font-medium">
-                          {order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                          {order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
                         </p>
                       </div>
                       <div className="bg-[var(--background)] rounded-xl p-4">
@@ -341,7 +341,7 @@ export default function ManagePage() {
                     <div className="bg-[var(--background)] rounded-xl p-4">
                       <span className="text-xs text-[var(--muted)]">Full Format</span>
                       <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
-                        http://{order.bunche_credential.bun_username}:{order.bunche_credential.bun_password || 'N/A'}@{order.bunche_credential.upstream_proxy_ip}:{order.bunche_credential.upstream_proxy_port}
+                        http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password || 'N/A'}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
                       </p>
                     </div>
 

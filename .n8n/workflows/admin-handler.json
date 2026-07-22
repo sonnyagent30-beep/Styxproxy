@@ -262,7 +262,7 @@
     {
       "parameters": {
         "operation": "select",
-        "table": "bunche_credentials",
+        "table": "styxproxy_credentials",
         "columns": "credential_id, ip, port, product, status, expires_at",
         "conditions": "customer_name = '{{$json.customerName}}' AND status = 'active'"
       },
@@ -468,7 +468,7 @@
     {
       "parameters": {
         "operation": "select",
-        "table": "bunche_credentials",
+        "table": "styxproxy_credentials",
         "columns": "credential_id, ip, port, product",
         "conditions": "customer_name = '{{$json.customerName}}' AND status = 'active'"
       },
@@ -491,7 +491,7 @@
     {
       "parameters": {
         "operation": "update",
-        "table": "bunche_credentials",
+        "table": "styxproxy_credentials",
         "values": "status = 'rotating'",
         "conditions": "credential_id = '{{$json.cred.credential_id}}'"
       },

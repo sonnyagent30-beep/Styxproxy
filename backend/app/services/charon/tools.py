@@ -103,7 +103,7 @@ async def _lookup_order_tx_ref(tx_ref: str) -> ToolResult:
     try:
         from sqlalchemy import select
         from app.database import async_session
-        from app.models import Order, BuncheCredential
+        from app.models import Order, StyxproxyCredential
 
         async with async_session() as session:
             stmt = select(Order).where(Order.tx_ref == tx_ref)
@@ -123,11 +123,11 @@ async def _lookup_order_tx_ref(tx_ref: str) -> ToolResult:
             # Get credentials if fulfilled
             creds = None
             if (
-                order.bunche_credential_id
+                order.styxproxy_credential_id
                 and order.status in ("fulfilled", "active", "fulfilling")
             ):
-                cred_stmt = select(BuncheCredential).where(
-                    BuncheCredential.id == order.bunche_credential_id
+                cred_stmt = select(StyxproxyCredential).where(
+                    StyxproxyCredential.id == order.styxproxy_credential_id
                 )
                 cred_result = await session.execute(cred_stmt)
                 cred = cred_result.scalar_one_or_none()
@@ -135,7 +135,7 @@ async def _lookup_order_tx_ref(tx_ref: str) -> ToolResult:
                     pwd = cred.provider_password or ""
                     redacted_password = f"***{pwd[-4:]}" if len(pwd) >= 4 else "****"
                     creds = {
-                        "username": cred.bun_username,
+                        "username": cred.styxproxy_username,
                         "password_preview": redacted_password,
                         "proxy_address": str(cred.upstream_proxy_ip) if cred.upstream_proxy_ip else None,
                         "port": cred.upstream_proxy_port,

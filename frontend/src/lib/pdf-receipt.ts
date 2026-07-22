@@ -13,7 +13,7 @@ interface CartItem {
 
 interface Credential {
   bun_username?: string;
-  bun_password?: string;
+  styxproxy_password?: string;
   upstream_proxy_ip?: string;
   upstream_proxy_port?: number;
   expires_at?: string;
@@ -23,7 +23,7 @@ export interface ReceiptOrder {
   order_id?: string;
   status?: string;
   customer_name?: string | null;
-  bunche_credential?: Credential;
+  styxproxy_credential?: Credential;
 }
 
 // Brand colors
@@ -238,8 +238,8 @@ export async function generateReceiptPDF(
   doc.text(`N${subtotal.toLocaleString('en-NG')}`, W - 19, totalY + 7.5, { align: 'right' });
 
   // ── Credentials card (if available) ─────────────────────
-  if (order?.bunche_credential) {
-    const cred = order.bunche_credential;
+  if (order?.styxproxy_credential) {
+    const cred = order.styxproxy_credential;
     const credSectionY = totalY + 16; // = totalY + 16mm gap
 
     // Section label
@@ -273,8 +273,8 @@ export async function generateReceiptPDF(
     doc.setTextColor(...PRIMARY);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text(cred.bun_username || 'N/A', 20, rowTop + 10);
-    doc.text(cred.bun_password || 'N/A', W / 2 + 5, rowTop + 10);
+    doc.text(cred.styxproxy_username || 'N/A', 20, rowTop + 10);
+    doc.text(cred.styxproxy_password || 'N/A', W / 2 + 5, rowTop + 10);
     doc.setDrawColor(...BORDER);
     doc.line(20, rowTop + 13, W - 20, rowTop + 13);
     rowTop += rowH;
@@ -302,7 +302,7 @@ export async function generateReceiptPDF(
     doc.setTextColor(...LIGHT);
     doc.setFontSize(7.5);
     doc.setFont('courier', 'normal');
-    const fullStr = `http://${cred.bun_username || 'user'}:${cred.bun_password || 'pass'}@${cred.upstream_proxy_ip || '0.0.0.0'}:${cred.upstream_proxy_port || 8080}`;
+    const fullStr = `http://${cred.styxproxy_username || 'user'}:${cred.styxproxy_password || 'pass'}@${cred.upstream_proxy_ip || '0.0.0.0'}:${cred.upstream_proxy_port || 8080}`;
     const lines = doc.splitTextToSize(fullStr, W - 40);
     doc.text(lines, 20, rowTop + 10);
     doc.setDrawColor(...BORDER);
