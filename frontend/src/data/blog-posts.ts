@@ -50,7 +50,7 @@ export const DEMO_POSTS: BlogPost[] = [
 </ul>
 
 <h2>Browser Configuration</h2>
-<p>For Chrome or Edge, use an extension like Proxy SwitchyOmega. Add a new profile with Protocol: SOCKS5, your server IP and port, plus your bun_username and styxproxy_password.</p>
+<p>For Chrome or Edge, use an extension like Proxy SwitchyOmega. Add a new profile with Protocol: SOCKS5, your server IP and port, plus your styxproxy_username and styxproxy_password.</p>
 
 <h2>Python (Requests Library)</h2>
 <pre><code>proxies = {
@@ -66,7 +66,7 @@ response = requests.get(url, proxies=proxies)</code></pre>
 <pre><code>browser = await chromium.launch({
     proxy: {
         server: "socks5://proxy_ip:port",
-        username: "bun_username",
+        username: "styxproxy_username",
         password: "styxproxy_password"
     }
 })</code></pre>
@@ -203,7 +203,7 @@ response = requests.get(url, proxies=proxies)</code></pre>
 <h3>Cons:</h3>
 <ul><li>Credentials must be kept secure</li></ul>
 
-<p>All Sytxproxy proxies support username/password (SOCKS5) authentication. Your bun_username and styxproxy_password are generated when your order is fulfilled.</p>`,
+<p>All Sytxproxy proxies support username/password (SOCKS5) authentication. Your styxproxy_username and styxproxy_password are generated when your order is fulfilled.</p>`,
     cover_image_url: '/blog/cover-6.png',
     author: 'Oyebiyi Ayomide',
     status: 'published',

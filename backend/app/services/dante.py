@@ -2,7 +2,7 @@
 Dante service — branding gateway on the VPS.
 
 Dante acts as the auth layer between the customer and the upstream provider proxy.
-- Customer authenticates to Dante with their bun_username / bun_password
+- Customer authenticates to Dante with their styxproxy_username / styxproxy_password
 - Dante routes the authenticated request to the upstream proxy (hidden from customer)
 - We can rotate the customer's bun credentials without changing the upstream IP
 
@@ -40,8 +40,8 @@ ALPHANUM = string.ascii_lowercase + string.digits
 @dataclass
 class DanteCredential:
     """A branded credential registered on Dante."""
-    bun_username: str
-    bun_password: str
+    styxproxy_username: str
+    styxproxy_password: str
     upstream_ip: str
     upstream_port: int
     dante_port: int
@@ -52,8 +52,8 @@ class DanteCredential:
 @dataclass
 class DanteRotateResult:
     """Result of rotating Dante credentials."""
-    new_bun_username: str
-    new_bun_password: str
+    new_styxproxy_username: str
+    new_styxproxy_password: str
     upstream_ip: str
     upstream_port: int
     dante_port: int
@@ -123,18 +123,18 @@ async def register_credential(
     """
     Register a new branded credential on Dante.
 
-    - Generates bun_username + bun_password
+    - Generates styxproxy_username + styxproxy_password
     - Registers them on Dante, pointing to the upstream proxy
     - Dante listens on a port and routes authenticated requests to upstream_ip:port
 
     Returns DanteCredential with the branded details.
     """
-    bun_username = _random_username()
-    bun_password = _random_password()
+    styxproxy_username = _random_username()
+    styxproxy_password = _random_password()
 
     payload = {
-        "username": bun_username,
-        "password": bun_password,
+        "username": styxproxy_username,
+        "password": styxproxy_password,
         "upstream_host": upstream_ip,
         "upstream_port": upstream_port,
         "expires_at": expires_at.isoformat(),
