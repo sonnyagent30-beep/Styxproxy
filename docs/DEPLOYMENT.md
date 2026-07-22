@@ -1,4 +1,4 @@
-# Bunche — Deployment Guide
+# Styxproxy — Deployment Guide
 
 **Last Updated:** 2026-06-27
 **Status:** Ready for Deployment
@@ -21,7 +21,7 @@ Before starting, you need:
 | age (encryption tool) | `apt install age` or github.com/FiloSottile/age | Free |
 | rclone (R2 upload) | rclone.org/install | Free |
 | UptimeRobot account | uptimerobot.com | Free tier (50 monitors) |
-| **Theorem Reach account** | theoremreach.com | Free signup; **Bunche earns $1–4/trial** |
+| **Theorem Reach account** | theoremreach.com | Free signup; **Styxproxy earns $1–4/trial** |
 | **3proxy** (for free trial) | github.com/3proxy/3proxy | Free |
 
 **Total setup cost: ~$65 in provider credits + ~$15–20/mo VPS + free monitoring**
@@ -287,7 +287,7 @@ nano /etc/nginx/sites-available/n8n
 
 ```nginx
 # ============================================
-# Bunche — Nginx Config
+# Styxproxy — Nginx Config
 # ============================================
 # Features:
 # - SSL termination (Let's Encrypt)
@@ -638,14 +638,14 @@ make -f Makefile.Linux install
 3proxy --version
 ```
 
-### 12.2 Generate Bunche Trial Config
+### 12.2 Generate Styxproxy Trial Config
 
 ```bash
 mkdir -p /etc/3proxy /var/log/3proxy
 cat > /etc/3proxy/bunche-trial.cfg << 'EOF'
 #!/usr/local/3proxy/bin/3proxy
 
-# Bunche Free Trial Proxy Configuration
+# Styxproxy Free Trial Proxy Configuration
 # Managed dynamically by n8n workflow — see scripts/manage-3proxy-trial.sh
 
 daemon
@@ -699,7 +699,7 @@ curl -x http://trial_test:test@localhost:8001 https://api.ipify.org
 This script is called by n8n workflow to add/remove trial users:
 
 ```bash
-# Download from Bunche repo (when script is added)
+# Download from Styxproxy repo (when script is added)
 curl -o /usr/local/bin/manage-3proxy-trial.sh \
   https://raw.githubusercontent.com/sonnyagent30-beep/bunche/main/scripts/manage-3proxy-trial.sh
 chmod +x /usr/local/bin/manage-3proxy-trial.sh
@@ -720,7 +720,7 @@ chmod +x /usr/local/bin/manage-3proxy-trial.sh
 ### 12.5 Schedule Cleanup Cron (Every 5 Min)
 
 ```bash
-# Download from Bunche repo (when script is added)
+# Download from Styxproxy repo (when script is added)
 curl -o /usr/local/bin/cleanup-3proxy-trials.sh \
   https://raw.githubusercontent.com/sonnyagent30-beep/bunche/main/scripts/cleanup-3proxy-trials.sh
 chmod +x /usr/local/bin/cleanup-3proxy-trials.sh

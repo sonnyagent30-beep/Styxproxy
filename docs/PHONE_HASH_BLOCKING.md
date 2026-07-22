@@ -1,4 +1,4 @@
-# Bunche — Phone Hash Blocking Mechanism
+# Styxproxy — Phone Hash Blocking Mechanism
 
 **Date:** 2026-06-27
 **Status:** LOCKED (council-validated)
@@ -201,7 +201,7 @@ const customer = await db.query(
 
 if (customer.length > 0) {
   await sendWhatsApp(customer[0].phone,
-    "✅ Your Bunche account access has been restored.\n\n" +
+    "✅ Your Styxproxy account access has been restored.\n\n" +
     "You can now order proxies and request free trials again."
   );
 }

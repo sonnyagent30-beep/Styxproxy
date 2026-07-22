@@ -1,6 +1,6 @@
-# Bunche Telegram Bot — UX Design Document
+# Styxproxy Telegram Bot — UX Design Document
 
-> **Project:** Bunche Proxy Reseller Bot  
+> **Project:** Styxproxy Proxy Reseller Bot  
 > **Version:** 1.0  
 > **Date:** July 2026  
 > **Author:** UX Design for Conversational AI
@@ -24,7 +24,7 @@
 
 ### 1.1 Bot Purpose
 
-**Bunche** is a proxy reseller Telegram bot that enables customers to:
+**Styxproxy** is a proxy reseller Telegram bot that enables customers to:
 - Browse and purchase proxy services (ISP, DC, Residential, Mobile 4G)
 - Check account balance and order history
 - Report dead/rotated IPs for replacement
@@ -45,7 +45,7 @@
 | Role | Description | Access Level |
 |------|-------------|--------------|
 | **Customer** | End user purchasing proxies | All customer commands |
-| **Admin** | Bunche staff managing orders | All customer commands + admin commands |
+| **Admin** | Styxproxy staff managing orders | All customer commands + admin commands |
 | **New User** | First-time visitor | Limited to /start, /help, /trial |
 
 ---
@@ -111,7 +111,7 @@ User                              Bot
   │    ┌──────────────────────────────────────────┐
   │    │ 🛡️.proxy                                  │
   │    │                                          │
-  │    │ Welcome to Bunche! 👋                    │
+  │    │ Welcome to Styxproxy! 👋                    │
   │    │                                          │
   │    │ Your premium proxy reseller.            │
   │    │                                          │
@@ -783,7 +783,7 @@ Bot: "Something went wrong. Returning to main menu."
 
 ```
 ┌─────────────────────────────────────────┐
-│  🛡️.proxy — BUNCHE                        │
+│  🛡️.proxy — STYXPROXY                        │
 │                                         │
 │  Welcome! 👋                            │
 │                                         │

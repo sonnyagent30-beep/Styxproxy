@@ -1,4 +1,4 @@
-# Bunche — Security Hardening Checklist
+# Styxproxy — Security Hardening Checklist
 
 **Last Updated:** 2026-07-01
 **Purpose:** Security controls that must be implemented in code — not optional, not "later."
@@ -146,7 +146,7 @@ class CreateInvoiceRequest(BaseModel):
 ```python
 @router.get("/order/{tx_ref}")
 async def get_order(tx_ref: str):
-    # Strict format: Bunche tx_ref starts with "TXF-"
+    # Strict format: Styxproxy tx_ref starts with "TXF-"
     if not tx_ref.startswith("TXF-"):
         raise HTTPException(status_code=400, detail="Invalid order reference")
 

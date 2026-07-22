@@ -1,18 +1,18 @@
-# Bunche — Agents
+# Styxproxy — Agents
 
 **Last Updated:** 2026-06-26
 
-This file documents the agent system for Bunche — what each agent touches, what it must not change, failure modes, and what needs human approval.
+This file documents the agent system for Styxproxy — what each agent touches, what it must not change, failure modes, and what needs human approval.
 
 ---
 
 ## System Overview
 
-Bunche is an n8n-based WhatsApp proxy reseller. There are no separate deployed agents — n8n workflows handle all automation. This file exists for the case where sub-agents (via Hermes) are used to build or modify Bunche.
+Styxproxy is an n8n-based WhatsApp proxy reseller. There are no separate deployed agents — n8n workflows handle all automation. This file exists for the case where sub-agents (via Hermes) are used to build or modify Styxproxy.
 
 ---
 
-## Agents That Touch Bunche
+## Agents That Touch Styxproxy
 
 ### Sonny (this agent)
 - **What it touches:** Everything — docs, workflows, GitHub, deploy scripts, configs
@@ -85,7 +85,7 @@ The actual n8n JSON workflow files live here. These are the build artifacts — 
 
 ## Build Order
 
-When building Bunche from scratch:
+When building Styxproxy from scratch:
 
 1. Set up VPS + Docker + PostgreSQL + Redis
 2. Set up domain + SSL + Nginx

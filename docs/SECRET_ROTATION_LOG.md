@@ -1,4 +1,4 @@
-# Bunche — Secrets Rotation Log
+# Styxproxy — Secrets Rotation Log
 
 Track every rotation here. One line per event.
 

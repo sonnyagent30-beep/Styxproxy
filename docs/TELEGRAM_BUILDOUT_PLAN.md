@@ -1,4 +1,4 @@
-# Bunche — Telegram Customer Flow Buildout Plan
+# Styxproxy — Telegram Customer Flow Buildout Plan
 
 **Status: PLANNING — not yet built**
 **Last updated: 2026-07-01**
@@ -7,7 +7,7 @@
 
 ## 1. What We're Building
 
-A **dual-channel customer messaging system** so customers can message Bunche on WhatsApp OR Telegram and get the same experience — order, pay, receive credentials, track, get help.
+A **dual-channel customer messaging system** so customers can message Styxproxy on WhatsApp OR Telegram and get the same experience — order, pay, receive credentials, track, get help.
 
 **Why:** WhatsApp Business API is pending Meta approval. Telegram works today. We want to run the business on Telegram while WhatsApp is pending, and have a failover if either channel goes down.
 
@@ -139,7 +139,7 @@ IF found:
     → IF OTP wrong (3 attempts):
         → Expire request, tell customer to try again
 IF NOT found:
-    → Tell customer: "No Bunche account on that WhatsApp. 
+    → Tell customer: "No Styxproxy account on that WhatsApp. 
        Start an order on WhatsApp first, then come back to link."
 ```
 

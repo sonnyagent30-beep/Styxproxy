@@ -1,14 +1,14 @@
-# Bunche — Provider Dead-IP Replacement Policy
+# Styxproxy — Provider Dead-IP Replacement Policy
 
 **Date captured:** 2026-06-26
 **Source:** Provider public docs + Trustpilot/GitHub reviews + Dannion's customer-experience rule
-**Status:** Active policy for Bunche fulfillment
+**Status:** Active policy for Styxproxy fulfillment
 
 ---
 
 ## Why This Doc Exists
 
-When Bunche generates a proxy via the provider API, the IP **might be dead on arrival** — already banned, region-wrong, or unreachable. This costs us:
+When Styxproxy generates a proxy via the provider API, the IP **might be dead on arrival** — already banned, region-wrong, or unreachable. This costs us:
 - Customer trust (they paid, got junk)
 - Refund fees (Flutterwave takes 1.5% even on refunds)
 - Support time (customer complains, we troubleshoot)
@@ -17,7 +17,7 @@ When Bunche generates a proxy via the provider API, the IP **might be dead on ar
 
 ---
 
-## Bunche's Dead-IP Handling Flow (Locked)
+## Styxproxy's Dead-IP Handling Flow (Locked)
 
 ```
 [Payment confirmed]
@@ -92,7 +92,7 @@ Sorry for the inconvenience 🙏"
 | **How to claim** | Open support ticket → verification → replacement or refund |
 | **Source** | proxy-seller.com/return/, Trustpilot reviews |
 
-**Implication for Bunche:** If we get a dead IP, we can hit their support OR use their replacement API. Our 3-retry + auto-refund is well within their 72h window — we don't need to escalate unless the API fails to give us a working IP after 3 calls.
+**Implication for Styxproxy:** If we get a dead IP, we can hit their support OR use their replacement API. Our 3-retry + auto-refund is well within their 72h window — we don't need to escalate unless the API fails to give us a working IP after 3 calls.
 
 ### DataImpulse
 
@@ -210,6 +210,6 @@ If retries > 5% of daily orders → alert: "Provider quality degrading, check st
 ## Related
 
 - `workflows/WORKFLOW_SPECS.md` §2 — Payment Confirmation flow
-- `workflows/WORKFLOW_SPECS.md` §11 — Bunche Logger
+- `workflows/WORKFLOW_SPECS.md` §11 — Styxproxy Logger
 - `scenarios/2026-06-26-first-time-order.md` — happy path scenario
 - `docs/SECURITY_RUNBOOK.md` §2 — API monitoring queries

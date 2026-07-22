@@ -1,4 +1,4 @@
-# Bunche — Architecture Plan
+# Styxproxy — Architecture Plan
 
 **Last Updated:** 2026-06-26  
 **Status:** Planning Complete — Ready for Implementation
@@ -7,7 +7,7 @@
 
 ## Overview
 
-Bunche is a WhatsApp-first proxy reseller for the Nigerian market. Zero-inventory, on-demand delivery. No account creation required.
+Styxproxy is a WhatsApp-first proxy reseller for the Nigerian market. Zero-inventory, on-demand delivery. No account creation required.
 
 ---
 

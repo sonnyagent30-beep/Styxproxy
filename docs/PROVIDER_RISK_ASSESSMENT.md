@@ -1,8 +1,8 @@
-# Bunche Proxy Provider Risk Assessment
+# Styxproxy Proxy Provider Risk Assessment
 ## Risk Manager Deliverable — 3-Model Council Review
 
 **Date:** June 29, 2026  
-**Context:** Bunche is an automated WhatsApp proxy retail platform selling ISP, Residential, Mobile, and Datacenter proxies to Nigerian customers via n8n automation.
+**Context:** Styxproxy is an automated WhatsApp proxy retail platform selling ISP, Residential, Mobile, and Datacenter proxies to Nigerian customers via n8n automation.
 
 ---
 
@@ -97,7 +97,7 @@
 
 ---
 
-## Next Steps for Bunche Operations
+## Next Steps for Styxproxy Operations
 
 1. **Immediate:** Verify DataImpulse Reddit allegation via direct contact or wait 30 days
 2. **Pre-launch:** Create test accounts with IPRoyal + FloppyData

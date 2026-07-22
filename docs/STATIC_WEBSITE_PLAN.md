@@ -1,4 +1,4 @@
-# Bunche — Static Website Plan
+# Styxproxy — Static Website Plan
 
 **Date:** 2026-06-27
 **Source:** Sonny's recommendation + Dannion's request for landing page + legal docs before WhatsApp redirect + product council feedback
@@ -47,7 +47,7 @@ styxproxy.com/
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🇳🇬 Bunche — Your Plug for Proxies in Nigeria
+🇳🇬 Styxproxy — Your Plug for Proxies in Nigeria
 
 Buy ISP, Datacenter, Residential & Mobile proxies
 on WhatsApp. Pay in Naira. Get your proxy in 2 minutes.
@@ -56,7 +56,7 @@ on WhatsApp. Pay in Naira. Get your proxy in 2 minutes.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### Section 2: Why Bunche (3 bullets)
+### Section 2: Why Styxproxy (3 bullets)
 
 ```
 ✅ No inventory, no upfront — pay only when you buy
@@ -123,7 +123,7 @@ Below the pricing table, add a "Which proxy do I need?" section that matches use
 ### Section 4: How It Works (3 steps)
 
 ```
-1️⃣  Open WhatsApp, tap "Chat on Bunche"
+1️⃣  Open WhatsApp, tap "Chat on Styxproxy"
 2️⃣  Tell us what you want (e.g. "Order ISP UK 1")
 3️⃣  Pay via Flutterwave → proxy in your chat in 2 min
 ```
@@ -144,12 +144,12 @@ The CTA button uses `wa.me/234XXXXXXXXXX?text=URL_ENCODED_MESSAGE`.
 **Default prefilled message:**
 
 ```
-Hi Bunche! I'd like to try your proxies.
+Hi Styxproxy! I'd like to try your proxies.
 ```
 
 **Why this works:**
 - Friendly, not pushy
-- Tells Bunche customer wants trial (triggers free trial flow)
+- Tells Styxproxy customer wants trial (triggers free trial flow)
 - Customer can edit before sending
 - Short enough to fit WhatsApp preview
 
@@ -176,7 +176,7 @@ styxproxy.com/privacy     → PRIVACY_POLICY.md rendered
 styxproxy.com/aup         → ACCEPTABLE_USE_POLICY.md rendered
 ```
 
-**Rationale:** Short URLs are easier to share on WhatsApp (no truncation worries). The legal notice in first Bunche message says "styxproxy.com/terms" — this matches.
+**Rationale:** Short URLs are easier to share on WhatsApp (no truncation worries). The legal notice in first Styxproxy message says "styxproxy.com/terms" — this matches.
 
 ---
 
@@ -206,7 +206,7 @@ sonnyagent30-beep/bunche-web/
 
 ```bash
 # Create new repo on GitHub
-gh repo create bunche-web --public --description "Bunche landing page"
+gh repo create bunche-web --public --description "Styxproxy landing page"
 
 # Clone locally
 git clone git@github.com:sonnyagent30-beep/bunche-web.git
@@ -214,7 +214,7 @@ cd bunche-web
 
 # Create initial files
 mkdir -p css
-echo "/* Bunche styles */" > css/style.css
+echo "/* Styxproxy styles */" > css/style.css
 git add .
 git commit -m "Initial commit"
 git push
@@ -256,7 +256,7 @@ Cloudflare Pages auto-provisions SSL via Let's Encrypt. No action needed.
 ```
 
 **Styling:**
-- Background: #0070F4 (matches Bunche brand blue from DP Generator)
+- Background: #0070F4 (matches Styxproxy brand blue from DP Generator)
 - Color: white
 - Padding: 16px 32px
 - Border-radius: 8px
@@ -267,7 +267,7 @@ Cloudflare Pages auto-provisions SSL via Let's Encrypt. No action needed.
 
 ## Phone Number Strategy
 
-**Open question for Dannion:** What WhatsApp number does Bunche use?
+**Open question for Dannion:** What WhatsApp number does Styxproxy use?
 
 Options:
 - Personal WhatsApp number (simplest, no Meta Business setup)
@@ -283,7 +283,7 @@ Options:
 | Feature | Why not | When to add |
 |---------|---------|-------------|
 | Blog | Time investment, no SEO benefit at start | After 1,000 customers |
-| FAQ page | Customer can just message Bunche | After 100 FAQ messages pile up |
+| FAQ page | Customer can just message Styxproxy | After 100 FAQ messages pile up |
 | Pricing transparency calculator | Just show prices in table | If customers ask |
 | Live chat | WhatsApp IS the live chat | Never |
 | Testimonials | Need real customers first | After 50+ customers |

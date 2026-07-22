@@ -1,4 +1,4 @@
-# Bunche 🤝
+# Styxproxy 🤝
 
 **Anonymous proxy purchasing for the Nigerian market. Fully automated.**
 
@@ -82,7 +82,7 @@ Customer → styxproxy.com → Select product → Pay via Flutterwave
 ```
 Customer → Telegram/WhatsApp → "I want ISP UK"
         ↓
-Bunche sends Flutterwave payment link
+Styxproxy sends Flutterwave payment link
         ↓
 Customer pays
         ↓
@@ -96,7 +96,7 @@ Webhook fires → IP generated → credentials delivered in chat
 ```
 Customer → "free trial"
         ↓
-Bunche explains: complete Theorem Reach surveys → earn time
+Styxproxy explains: complete Theorem Reach surveys → earn time
         ↓
 Customer does surveys → postbacks recorded
         ↓
@@ -110,13 +110,13 @@ Max 12 surveys = 24 hours
 
 ---
 
-## Bunche Auth Layer
+## Styxproxy Auth Layer
 
-Customers receive Bunche-branded credentials. Actual proxy IPs are sourced from vetted infrastructure partners but customers interact only with Bunche.
+Customers receive Styxproxy-branded credentials. Actual proxy IPs are sourced from vetted infrastructure partners but customers interact only with Styxproxy.
 
 ```
 Customer sees:   proxy1.styxproxy.com:1080
-Behind the scenes: actual provider IP → routed through Bunche auth
+Behind the scenes: actual provider IP → routed through Styxproxy auth
 ```
 
 This enables instant revoke on refund and free trial recycling.

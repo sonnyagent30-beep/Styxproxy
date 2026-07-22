@@ -1,4 +1,4 @@
-# Bunche — Flutterwave & WhatsApp Setup Guide
+# Styxproxy — Flutterwave & WhatsApp Setup Guide
 *Step-by-step for the two integrations that make this work*
 
 ---

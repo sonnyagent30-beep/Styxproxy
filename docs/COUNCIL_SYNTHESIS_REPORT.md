@@ -1,4 +1,4 @@
-# Bunche — Simulation + Council Synthesis Report (FINAL)
+# Styxproxy — Simulation + Council Synthesis Report (FINAL)
 
 **Date:** 2026-06-27
 **Status:** Council feedback RECEIVED + APPLIED
@@ -8,7 +8,7 @@
 
 ## TL;DR
 
-Bunche is **planning-complete and launch-ready after 2-3 more weeks of focused execution work**.
+Styxproxy is **planning-complete and launch-ready after 2-3 more weeks of focused execution work**.
 
 **What council agreed on:**
 - 3proxy helper scripts needed (✅ fixed this session)
@@ -96,7 +96,7 @@ The 3 council reviewers converged on the **right critical issues**. Most overlap
 | 5 | No static website plan | `docs/STATIC_WEBSITE_PLAN.md` (+ use-case section + payment decision) |
 | 6 | 3proxy scripts missing | `scripts/manage-3proxy-trial.sh` + `cleanup-3proxy-trials.sh` |
 | 7 | Theorem Reach JSON missing | `.n8n/workflows/theorem-reach-webhook.json` |
-| 8 | Logger schema missing | `docs/BUNCHE_LOGGER_SCHEMA.md` |
+| 8 | Logger schema missing | `docs/STYXPROXY_LOGGER_SCHEMA.md` |
 | 13 | Phone_hash blocking missing | `docs/PHONE_HASH_BLOCKING.md` (+ first-step code) |
 | 16 | Legal URL structure missing | Locked: `styxproxy.com/terms`, `/privacy`, `/aup` |
 | New | HMAC verification code snippet | Added to WORKFLOW_SPECS §1 (placeholder, not hardcoded) |
@@ -149,7 +149,7 @@ The 3 council reviewers converged on the **right critical issues**. Most overlap
 | Provider accounts | ❌ Not created | Proxy-Seller, DataImpulse, Flutterwave, WhatsApp Business, Cloudflare, R2, Theorem Reach — all need setup |
 | Domain registered | ❌ Not done | styxproxy.com not yet purchased |
 
-**Verdict:** Bunche is **planning-complete**. Time to **execute**.
+**Verdict:** Styxproxy is **planning-complete**. Time to **execute**.
 
 ---
 
@@ -161,7 +161,7 @@ The 3 council reviewers converged on the **right critical issues**. Most overlap
 | `docs/STATIC_WEBSITE_PLAN.md` | Updated | Landing page + use-case section + payment decision |
 | `scenarios/2026-06-27-admin-operations.md` | Updated | All 18 admin commands + TOTP code |
 | `docs/PHONE_HASH_BLOCKING.md` | Updated | Phone_hash mechanism + first-step code |
-| `docs/BUNCHE_LOGGER_SCHEMA.md` | New | Logger schema with all event types |
+| `docs/STYXPROXY_LOGGER_SCHEMA.md` | New | Logger schema with all event types |
 | `scripts/manage-3proxy-trial.sh` | New | 3proxy trial user manager |
 | `scripts/cleanup-3proxy-trials.sh` | New | Cron cleanup for expired trials |
 | `.n8n/workflows/theorem-reach-webhook.json` | New | Theorem Reach webhook handler |
@@ -217,7 +217,7 @@ The 3 council reviewers converged on the **right critical issues**. Most overlap
 
 ## Open Decisions for Dannion (Updated)
 
-1. **WhatsApp number:** personal or dedicated Bunche number?
+1. **WhatsApp number:** personal or dedicated Styxproxy number?
 2. **CTO confirmation:** OK with 4 deferred scenarios (capture after launch)?
 3. **Free trial economics:** Comfortable with Theorem Reach variability, or want fallback ready?
 4. **Static website build:** Start now or move to deployment prep?
@@ -242,7 +242,7 @@ The 3 council reviewers converged on the **right critical issues**. Most overlap
 - `scenarios/2026-06-27-full-simulation-phase1.md` — Original gap analysis
 - `docs/STATIC_WEBSITE_PLAN.md` — Static website blueprint
 - `docs/PHONE_HASH_BLOCKING.md` — Blocking mechanism
-- `docs/BUNCHE_LOGGER_SCHEMA.md` — Logger schema
+- `docs/STYXPROXY_LOGGER_SCHEMA.md` — Logger schema
 - `workflows/WORKFLOW_SPECS.md` — All 15 workflows
 - `docs/DEPLOYMENT.md` — 13-step deployment guide with rate limit
 - `legal/ACCEPTABLE_USE_POLICY.md` — Free trial terms

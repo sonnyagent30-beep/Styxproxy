@@ -1,4 +1,4 @@
-# ADR-005: Backup Strategy for Bunche
+# ADR-005: Backup Strategy for Styxproxy
 
 **Status:** Accepted
 **Date:** 2026-06-26
@@ -8,7 +8,7 @@
 
 ## Context
 
-Bunche's database holds:
+Styxproxy's database holds:
 - Customer records (phone, name, referral credits)
 - Order records (₦ paid, proxy delivered, fulfillment status)
 - Free trial records (anti-abuse tracking)
@@ -49,7 +49,7 @@ Bunche's database holds:
         ↓
 [Save to /backup/bunche/bunche_${DATE}.dump]
         ↓
-[Encrypt with age + Bunche backup public key]
+[Encrypt with age + Styxproxy backup public key]
         ↓
 [rclone copy → r2:bunche-backups/daily/${DATE}/]
         ↓
@@ -63,7 +63,7 @@ Bunche's database holds:
 - Compresses better (~3x smaller)
 - Supports parallel restore with `pg_restore -j`
 - Restore is reliable — no quoting issues with weird data
-- Standard PostgreSQL tooling — no Bunche-specific format
+- Standard PostgreSQL tooling — no Styxproxy-specific format
 
 ### Why encryption (age, not gpg)
 
@@ -127,7 +127,7 @@ pg_restore --dbname=bunche --create /tmp/restore/bunche_20260626.dump
 Worst case = VPS + R2 + Dannion's laptop all compromised simultaneously. Probability: astronomically low.
 
 Mitigation: print a paper copy of:
-- Bunche backup public key
+- Styxproxy backup public key
 - Recovery runbook (this doc, abbreviated)
 - Last known good backup date + R2 path
 
@@ -149,7 +149,7 @@ Stored in a fireproof safe. Updated quarterly.
 
 **Monthly archive** (first backup of each month) is kept for 1 year as a longer-term safety net.
 
-**Access control:** R2 bucket is **private**. Only the VPS service account has read/write. Restoration requires Bunche backup private key (operator-held).
+**Access control:** R2 bucket is **private**. Only the VPS service account has read/write. Restoration requires Styxproxy backup private key (operator-held).
 
 ---
 

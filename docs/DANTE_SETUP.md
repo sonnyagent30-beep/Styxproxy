@@ -1,11 +1,11 @@
-# Dante SOCKS5 Server Setup for Bunche
+# Dante SOCKS5 Server Setup for Styxproxy
 
 **Last Updated:** 2026-07-01
-**Purpose:** Configure Dante as Bunche's proxy auth layer.
+**Purpose:** Configure Dante as Styxproxy's proxy auth layer.
 
 ---
 
-## What Dante Does in Bunche
+## What Dante Does in Styxproxy
 
 ```
 Customer connects:  proxy1.styxproxy.com:1080
@@ -23,7 +23,7 @@ Customer connects:  proxy1.styxproxy.com:1080
                 Customer gets the data through the provider proxy
 ```
 
-Customer thinks they're using `proxy1.styxproxy.com`. They're actually using the provider IP underneath. Bunche controls access via Dante's username/password auth.
+Customer thinks they're using `proxy1.styxproxy.com`. They're actually using the provider IP underneath. Styxproxy controls access via Dante's username/password auth.
 
 ---
 
@@ -135,7 +135,7 @@ Dante reads `/etc/danted.users` and computes the hash of the password the client
 
 - Dante username: alphanumeric + underscore, 3-32 chars, starts with `bun_`
 - Dante password: 8-64 chars, must match what Dante verifies via MD5
-- Dante has no built-in policy enforcement — enforce password rules in the Bunche app before creating the credential
+- Dante has no built-in policy enforcement — enforce password rules in the Styxproxy app before creating the credential
 
 ---
 
