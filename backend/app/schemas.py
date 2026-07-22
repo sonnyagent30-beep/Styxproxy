@@ -744,6 +744,9 @@ class AdminSetupCompleteRequest(BaseModel):
 
 class AdminSetupResponse(BaseModel):
     """Final response after setup is complete."""
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
     email: str
     role: str
     totp_enabled: bool

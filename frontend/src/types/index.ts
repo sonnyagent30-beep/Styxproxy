@@ -168,6 +168,9 @@ export interface AdminSetupTOTPResponse {
 }
 
 export interface AdminSetupResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
   email: string;
   role: string;
   totp_enabled: boolean;

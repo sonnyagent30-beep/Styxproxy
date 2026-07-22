@@ -286,6 +286,22 @@ class ApiClient {
     });
   }
 
+  // Admin setup step 1: invite + credentials → TOTP secret
+  async adminSetupStep1(data: AdminSetupRequest): Promise<ApiResponse<AdminSetupTOTPResponse>> {
+    return this.request<AdminSetupTOTPResponse>('/api/admin/auth/setup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Admin setup step 2: TOTP code → access token
+  async adminSetupStep2(data: { temp_token: string; totp_code: string }): Promise<ApiResponse<AdminSetupResponse>> {
+    return this.request<AdminSetupResponse>('/api/admin/auth/setup/complete', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Get current admin info
   async getAdminMe(): Promise<ApiResponse<AdminMeResponse>> {
     return this.request<AdminMeResponse>('/api/admin/auth/me');

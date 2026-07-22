@@ -359,10 +359,22 @@ async def setup_admin_step2(
 
     await session.commit()
 
+    # Auto-issue admin access token so the user is logged in immediately
+    from app.auth import create_access_token
+    access_token = create_access_token(
+        sub=email,
+        platform="admin",
+        phone=email,  # legacy field; admin uses email
+        expires_delta=timedelta(hours=24),
+    )
+
     return AdminSetupResponse(
+        access_token=access_token,
+        token_type="bearer",
         email=email,
         role=role,
         totp_enabled=True,
+        expires_in=86400,
         message="Account created with 2FA enabled. Save your backup codes!",
     )
 
