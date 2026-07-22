@@ -1,21 +1,30 @@
-"""Charon's LLM client.
+"""Charon's LLM client — M2 primary, MiniCPM5 fallback (P0-5 Jul 22 2026).
 
-Calls the local MiniCPM5 1B model via the LiteLLM proxy sidecar
-(OpenAI-compatible chat endpoint at /v1/chat/completions). Cloud
-MiniMax-M2 fallback is available by setting CHARON_LLM_PROVIDER=cloud.
+Architecture:
+  Primary:   M2 cloud (fast, smart, costs money) — `MINIMAX_API_KEY`
+  Fallback:  MiniCPM5 1B local via LiteLLM proxy (free, slow, often degraded)
+  Order:     try M2 first; on failure (timeout, 5xx, transport), try MiniCPM5 once
+
+Per-request fallback reasons:
+- M2 is paid, so we want it serving traffic.
+- When M2 is down (network, billing, rate-limit), MiniCPM5 keeps Charon
+  answering gracefully instead of a hard 500.
+- MiniCPM5 is the LAST resort, not a silent fallback — we attach the
+  serving provider name to the LLMResponse.model so admin can see which
+  one answered.
 
 Environment variables:
   - LITELLM_BASE_URL: where the LiteLLM proxy listens (default
-    http://127.0.0.1:4000 — same network as the api container)
-  - LITELLM_API_KEY: master key the proxy expects
-  - MINICPM_MODEL: model name to send for local calls (default "minicpm5")
-  - MINIMAX_MODEL: model name to send for cloud calls (default "cloud-minimax-m2")
-  - CHARON_LLM_PROVIDER: "local" (default) or "cloud"
-
-The interface here is stable; swapping model providers is a config
-change (edit compose env), not a code change. MiniCPM5 1B is on the VPS
-(84.247.132.12, Ollama on host port 11434). LiteLLM sits in front of it
-for unified logging and routing.
+    http://127.0.0.1:4000)
+  - LITELLM_API_KEY: master key for the local proxy
+  - MINICPM_MODEL: local model name (default "minicpm5")
+  - MINIMAX_API_KEY: cloud M2 key (REQUIRED for primary path)
+  - MINIMAX_MODEL: cloud model name (default "MiniMax-M2")
+  - MINIMAX_BASE_URL: cloud endpoint (default https://api.minimax.io/v1)
+  - CHARON_FALLBACK_TO_LOCAL: "true" (default) | "false"
+      When false, M2 failures return error immediately without trying
+      MiniCPM5. Useful for cost control when you want to see M2 outages
+      instead of masking them.
 """
 from __future__ import annotations
 
@@ -80,30 +89,73 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
     is treated as a system message internally; if the caller already
     provided a system message at index 0, we honor it instead.
 
-    Routes to:
-      - Local MiniCPM5 via Ollama when CHARON_LLM_PROVIDER is unset / "local"
-      - Cloud MiniMax-M2 when CHARON_LLM_PROVIDER=cloud
+    Order: M2 (cloud) → MiniCPM5 (local). On M2 failure, MiniCPM5 is
+    tried once. On any failure, returns LLMResponse with `error` set;
+    never raises. Use `ok` to check before reading content.
 
-    On any failure, returns LLMResponse with `error` set; never raises.
-    Use `ok` to check before reading content.
+    Set CHARON_FALLBACK_TO_LOCAL=false to disable the fallback and
+    surface M2 outages directly.
+
+    P0-5 Jul 22 2026: inverted from "local primary, cloud fallback" to
+    "M2 primary, local fallback" per Dannion's directive. The watchdog
+    cron no longer needs to flip CHARON_LLM_PROVIDER — the client
+    handles failover per-request.
     """
-    provider = os.getenv("CHARON_LLM_PROVIDER", "local").strip().lower()
+    fallback_disabled = os.getenv("CHARON_FALLBACK_TO_LOCAL", "true").strip().lower() in (
+        "0", "false", "no", "off",
+    )
 
-    if provider == "cloud":
-        return _call_cloud(messages, max_tokens)
-    return _call_local(messages, max_tokens)
+    # Try M2 cloud first
+    primary = _call_cloud(messages, max_tokens)
+    if primary.ok:
+        return primary
+
+    # M2 failed. Log it, then either bail or try local.
+    logger.warning(
+        "Charon primary (M2 cloud) failed: %s. Fallback to local: %s",
+        primary.error,
+        "disabled" if fallback_disabled else "enabled",
+    )
+
+    if fallback_disabled:
+        # Tag the response so caller knows local was not tried
+        primary.model = f"{primary.model} (local fallback disabled)"
+        return primary
+
+    fallback = _call_local(messages, max_tokens)
+    if fallback.ok:
+        # Record both outcomes on the fallback response so stats/audit
+        # can see we failed-over. Use a `_raw` channel via the model
+        # field: "local-fallback" prefix.
+        fallback.model = f"local-fallback-after-M2-failure ({fallback.model})"
+        sentry_sdk.capture_message(
+            "Charon failed over to local MiniCPM5",
+            level="info",
+            extras={
+                "primary_error": primary.error,
+                "fallback_model": fallback.model,
+                "tokens_used": fallback.tokens_used,
+            },
+        )
+        return fallback
+
+    # Both failed — return primary error so the caller knows the original
+    # outage (cloud) is the root cause.
+    logger.error(
+        "Charon: both M2 and MiniCPM5 failed. M2: %s. MiniCPM5: %s",
+        primary.error, fallback.error,
+    )
+    return LLMResponse(
+        content="",
+        model="unavailable",
+        error=f"Chat unavailable. M2: {primary.error}. MiniCPM5: {fallback.error}.",
+    )
 
 
 def _call_local(messages: list[dict], max_tokens: int) -> LLMResponse:
-    """Call MiniCPM5 via the LiteLLM proxy (sidecar).
-
-    All provider abstraction lives in the proxy; this client only knows
-    how to speak OpenAI-compatible chat-completions. The LiteLLM proxy
-    itself decides whether to route to local Ollama, cloud MiniMax-M2, or
-    another provider based on the requested `model` name.
-    """
+    """Call MiniCPM5 via the LiteLLM proxy (sidecar)."""
     base_url = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000").rstrip("/")
-    api_key = os.getenv("LITELLM_API_KEY", "sk-styxproxy-local-dev-only")
+    api_key = os.getenv("LITELLM_API_KEY", "«redacted:sk-…»")
     model = os.getenv("MINICPM_MODEL", "minicpm5")
 
     headers = {
@@ -137,13 +189,13 @@ def _call_local(messages: list[dict], max_tokens: int) -> LLMResponse:
 
 
 def _call_cloud(messages: list[dict], max_tokens: int) -> LLMResponse:
-    """Call MiniMax-M2 via OpenRouter-compatible endpoint."""
+    """Call MiniMax-M2 via OpenAI-compatible endpoint."""
     api_key = os.getenv("MINIMAX_API_KEY")
     if not api_key:
-        return LLMResponse(content="", model="", error="MINIMAX_API_KEY not set (cloud provider)")
+        return LLMResponse(content="", model="", error="MINIMAX_API_KEY not set")
 
-    base_url = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1").rstrip("/")
-    model = os.getenv("MINIMAX_MODEL", "minimax/MiniMax-M2")
+    base_url = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1").rstrip("/")
+    model = os.getenv("MINIMAX_MODEL", "MiniMax-M2")
 
     headers = {
         "Authorization": f"Bearer {api_key}",

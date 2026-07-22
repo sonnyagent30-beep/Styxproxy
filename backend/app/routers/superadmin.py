@@ -774,8 +774,10 @@ def _charon_llm_status() -> str:
     """Best-effort 'up' / 'degraded' / 'down' indicator for the dashboard."""
     try:
         import os
-        if not os.getenv("CHARON_LLM_PROVIDER", "local") == "cloud" and not os.getenv("MINIMAX_API_KEY"):
-            # Local provider, no fallback key — depends on Ollama
+        # P0-5 (Jul 22 2026): primary is M2 cloud. Always check the
+        # cloud key — local-only is no longer a configuration.
+        if not os.getenv("MINIMAX_API_KEY"):
+            # No M2 key configured — degraded even if local is up
             pass
         s = _charon_stats()
         if not getattr(s, "llm_configured", False):

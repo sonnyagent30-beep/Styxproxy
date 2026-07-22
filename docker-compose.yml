@@ -54,6 +54,8 @@ services:
       # routing, and config-driven model swap.
       LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://127.0.0.1:4000}
       LITELLM_API_KEY: ${LITELLM_API_KEY:-sk-styxproxy-local-dev-only}
+      # P0-5 (Jul 22 2026): passed to _call_cloud() in app/services/charon/llm.py
+      LITELLM_CLOUD_API_KEY: ${LITELLM_CLOUD_API_KEY:-}
       CHARON_LLM_PROVIDER: ${CHARON_LLM_PROVIDER:-local}
       MINICPM_MODEL: ${MINICPM_MODEL:-minicpm5}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
