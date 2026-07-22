@@ -127,7 +127,16 @@ app.state.limiter = limiter
 # Rate limit exception handler
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    """Handle rate limit exceeded errors."""
+    """Handle rate limit exceeded errors.
+
+    If the rate-limited path is Charon's public /reply (the only
+    high-cost customer endpoint), bump the in-process CharonMetrics
+    counter so the superadmin dashboard reflects the live flood state.
+    Other endpoints (auth, etc.) keep their existing behavior.
+    """
+    if request.url.path.startswith("/api/v1/charon/"):
+        from app.services.charon.stats import CharonMetrics
+        CharonMetrics.mark_rate_limited()
     return JSONResponse(
         status_code=429,
         content={
@@ -136,6 +145,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
                 "message": f"Rate limit exceeded: {exc.detail}",
             }
         },
+        headers={"Retry-After": "60"},
     )
 
 

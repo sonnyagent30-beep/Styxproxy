@@ -33,6 +33,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from app.auth import decode_access_token, verify_admin_token
+from app.limiter import limiter
 from app.services.charon import agent, stats as charon_stats
 from app.services.charon.agent import Message
 from app.services.charon.knowledge import invalidate_cache
@@ -162,8 +163,10 @@ class CharonLogEntry(BaseModel):
     tool_calls: Optional[list[dict]] = None
 
 @router.post("/reply", response_model=ChatReplyResponse)
+@limiter.limit("30/minute")
 async def post_reply(
     payload: ChatReplyRequest,
+    request: Request,
     _public: None = Depends(public_only),
 ):
     """Synchronous chat reply.
