@@ -1,1 +1,1 @@
-"""Bunche Backend Application Package."""
+"""Styxproxy Backend Application Package."""

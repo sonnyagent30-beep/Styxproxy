@@ -36,8 +36,8 @@ from app.auth import admin_only, verify_admin_token
 router = APIRouter(prefix="/api/blog", tags=["blog"])
 
 # Settings
-BLOG_TITLE = "Bunche Blog"
-BLOG_DESCRIPTION = "Latest news and updates from Bunche"
+BLOG_TITLE = "Styxproxy Blog"
+BLOG_DESCRIPTION = "Latest news and updates from Styxproxy"
 BLOG_URL = "https://bunche.ng"
 
 

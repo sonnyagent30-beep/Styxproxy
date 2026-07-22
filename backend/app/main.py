@@ -1,4 +1,4 @@
-"""Bunche Backend FastAPI Application."""
+"""Styxproxy Backend FastAPI Application."""
 import logging
 import sys
 from contextlib import asynccontextmanager
@@ -57,7 +57,7 @@ logger = structlog.get_logger()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan context manager."""
     # Startup
-    logger.info("Starting Bunche Backend", version="1.0.0")
+    logger.info("Starting Styxproxy Backend", version="1.0.0")
 
     # Create database tables
     async with engine.begin() as conn:
@@ -107,14 +107,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     # Shutdown
-    logger.info("Shutting down Bunche Backend")
+    logger.info("Shutting down Styxproxy Backend")
     await engine.dispose()
 
 
 # Create FastAPI app
 app = FastAPI(
-    title="Bunche Backend API",
-    description="Backend API for Bunche WhatsApp proxy reseller platform",
+    title="Styxproxy Backend API",
+    description="Backend API for Styxproxy proxy reseller platform",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",

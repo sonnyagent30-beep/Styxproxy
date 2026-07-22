@@ -234,7 +234,7 @@ class Order(Base):
 
 
 class BuncheCredential(Base):
-    """Bunche credentials table - Bunche usernames to provider IPs."""
+    """Styxproxy credentials table — Styxproxy usernames to provider IPs."""
     __tablename__ = "bunche_credentials"
     __table_args__ = (
         Index("idx_bunche_cred_username", "bun_username"),
