@@ -80,6 +80,16 @@ async function reportOutcome(triggerId: string, outcome: string) {
 }
 
 export default function ChatWidget() {
+  // Spec: public-only. Suppress on any admin/superadmin/manage route.
+  // The widget never even opens if the user shouldn't see it.
+  const pathname = usePathname();
+  // P0 spec: Charon must NEVER render on admin / superadmin / manage / operator
+  // surfaces. Block-list is centralised here so the public-only rule is
+  // enforced in one place.
+  const isBlocked = ["admin", "superadmin", "manage", "login", "admin-setup"].some(
+    (p) => pathname === "/" + p || (pathname != null && (pathname.startsWith("/" + p + "/") || pathname.startsWith("/" + p)))
+  );
+  if (isBlocked) return null;
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -95,7 +105,7 @@ export default function ChatWidget() {
   const [activeTrigger, setActiveTrigger] = useState<Trigger | null>(null);
   const [showBubble, setShowBubble] = useState(false);
   const ignoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pathname = usePathname();
+  // pathname already declared at top of component for public-only gating
 
   // ── Public-only gating (P1-1 Jul 22 2026) ─────────────────────────
   // Charon must NEVER appear on auth/admin/internal pages. Mounting the
@@ -487,16 +497,15 @@ export default function ChatWidget() {
             </button>
           )}
 
-          {/* FAB */}
+          {/* FAB — uses the Charon avatar (chatbot-logo.png) so the floating
+              button matches the avatar inside the chat panel header. */}
           <button
             onClick={openChat}
-            className="fixed z-[9998] charon-fab w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
+            className="fixed z-[9998] charon-fab w-14 h-14 rounded-full bg-[var(--primary)] overflow-hidden flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
             style={fabStyle}
             aria-label="Open chat with Charon"
           >
-            <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
+            <Image src="/chatbot-logo.png" alt="Charon" width={56} height={56} className="w-full h-full object-cover" />
           </button>
         </>
       )}
