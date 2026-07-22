@@ -1,5 +1,5 @@
 """
-Credential service for Bunche Dante credentials.
+Credential service for Styxproxy Dante credentials.
 
 This module has two layers:
 
@@ -42,7 +42,7 @@ STUB_PROXY_POOL = {
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
 def generate_bun_username(phone: Optional[str] = None, order_id: Optional[str] = None) -> str:
-    """Generate a Bunche proxy username.
+    """Generate a Styxproxy proxy username.
 
     With phone+order_id: ``bun_{last4phone}{order_suffix}{rand8}`` (used
     historically and by tests). With no args: ``bun_{rand8}``.

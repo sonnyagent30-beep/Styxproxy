@@ -26,7 +26,7 @@ async def create_flutterwave_invoice(amount: float, customer_email: str, custome
     async with httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=10.0)) as client:
         try:
             response = await client.post("https://api.flutterwave.com/v3/payments",
-                json={"tx_ref": tx_ref, "amount": amount, "currency": currency, "customer": {"email": customer_email, "phone_number": customer_phone}, "customizations": {"title": "Bunche Proxy Service", "description": description or "Proxy service payment"}, "callback_url": callback_url},
+                json={"tx_ref": tx_ref, "amount": amount, "currency": currency, "customer": {"email": customer_email, "phone_number": customer_phone}, "customizations": {"title": "Styxproxy Proxy Service", "description": description or "Proxy service payment"}, "callback_url": callback_url},
                 headers={"Authorization": f"Bearer {settings.flutterwave_secret_key}", "Content-Type": "application/json"})
             response.raise_for_status()
             data = response.json()
