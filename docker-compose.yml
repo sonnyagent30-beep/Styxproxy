@@ -5,15 +5,15 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-bunche}
-      POSTGRES_USER: ${POSTGRES_USER:-bunche}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bunche}
+      POSTGRES_DB: ${POSTGRES_DB:-styxproxy}
+      POSTGRES_USER: ${POSTGRES_USER:-styxproxy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-styxproxy}
     ports:
       - "5432:5432"
     volumes:
       - postgres_local_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bunche} -d ${POSTGRES_DB:-bunche}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-styxproxy} -d ${POSTGRES_DB:-styxproxy}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -47,7 +47,7 @@ services:
       # When network_mode=host (default), the api talks to host services
       # directly on 127.0.0.1. When CHARON_LLM_HOST_NETWORK=0, the api stays
       # in the styxproxy_local_net bridge and uses hostnames like 'postgres'.
-      DATABASE_URL: ${DATABASE_URL_HOST:-postgresql+asyncpg://${POSTGRES_USER:-bunche}:${POSTGRES_PASSWORD:-bunche}@127.0.0.1:5432/${POSTGRES_DB:-bunche}}
+      DATABASE_URL: ${DATABASE_URL_HOST:-postgresql+asyncpg://${POSTGRES_USER:-styxproxy}:${POSTGRES_PASSWORD:-styxproxy}@127.0.0.1:5432/${POSTGRES_DB:-styxproxy}}
       REDIS_URL: ${REDIS_URL_HOST:-redis://127.0.0.1:6379/0}
       # LiteLLM proxy (sidecar) wraps Ollama + cloud fallback. The api
       # always calls LiteLLM, never raw Ollama, for unified logging,
@@ -74,11 +74,11 @@ services:
       - ./backend/app:/app/app:ro
       - ./backend/alembic:/app/alembic:ro
       - ./backend/tests:/app/tests:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    # NOTE: no depends_on here — api runs with network_mode: host and talks
+    # to the host's postgres/redis directly. The postgres + redis services
+    # below are still defined for charon + litellm isolation, but api doesn't
+    # wait for them. Use `docker compose up -d api litellm` (skip postgres/redis
+    # services) when host services are running.
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -114,7 +114,7 @@ services:
     command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
     # healthcheck disabled — investigated in P1-1; the spawn-from-compose
     # pattern triggers exit-code-1 from the python -c probe; uvicorn
-    # worker still comes up. Monitor with `docker logs bunche-local-litellm-1`
+    # worker still comes up. Monitor with `docker logs styxproxy-local-litellm-1`
     # and confirm "Uvicorn running on" banner.
 
 networks:
