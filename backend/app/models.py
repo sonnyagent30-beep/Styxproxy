@@ -513,7 +513,7 @@ class AdminAuditLog(Base):
     __tablename__ = "admin_audit_log"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    admin_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    admin_phone: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
     action: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

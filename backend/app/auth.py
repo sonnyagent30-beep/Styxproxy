@@ -175,3 +175,12 @@ async def admin_only(
     """Dependency for admin-only endpoints."""
     verify_admin_token(authorization.credentials)
     return True
+
+
+async def admin_only_with_email(
+    authorization: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+) -> str:
+    """Like admin_only, but returns the admin's email from the JWT payload."""
+    token = authorization.credentials
+    payload = decode_access_token(token)
+    return payload.get("email") or payload.get("sub") or "unknown"
