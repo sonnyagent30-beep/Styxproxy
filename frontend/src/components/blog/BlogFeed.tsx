@@ -95,11 +95,14 @@ export default function BlogFeed({
         />
       </div>
 
-      {/* Masonry Grid */}
+      {/* Masonry — CSS columns for Instagram-style variable-height cards.
+          break-inside-avoid prevents items from splitting across columns. */}
       {posts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 [column-fill:_balance]">
           {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
+            <div key={post.id} className="mb-6 break-inside-avoid inline-block w-full">
+              <PostCard post={post} />
+            </div>
           ))}
         </div>
       ) : (

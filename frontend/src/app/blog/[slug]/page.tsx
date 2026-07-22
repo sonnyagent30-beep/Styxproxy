@@ -30,6 +30,24 @@ function generateJsonLd(post: BlogPost, siteUrl: string) {
   };
 }
 
+// P0-6: BreadcrumbList JSON-LD for SEO. Read by Google for
+// rich-result breadcrumb display in search.
+function generateBreadcrumbJsonLd(post: BlogPost, siteUrl: string) {
+  const cat = (post.categories && post.categories[0]) || (post.tags && post.tags[0]) || null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `${siteUrl}` },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: `${siteUrl}/blog` },
+      ...(cat
+        ? [{ '@type': 'ListItem', position: 3, name: cat, item: `${siteUrl}/blog/tag/${encodeURIComponent(cat)}` }]
+        : []),
+      { '@type': 'ListItem', position: cat ? 4 : 3, name: post.title, item: `${siteUrl}/blog/${post.slug}` },
+    ],
+  };
+}
+
 function estimateReadTime(content: string): number {
   const words = content.replace(/<[^>]+>/g, '').split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.ceil(words / 200));
@@ -95,12 +113,17 @@ export default async function BlogPostPage({ params }: Props) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://styxproxy.com';
   const jsonLd = generateJsonLd(post, siteUrl);
   const readTime = estimateReadTime(post.content || post.excerpt || '');
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd(post, siteUrl);
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-16">

@@ -1,7 +1,6 @@
 import { Metadata } from 'next';
 import { api } from '@/lib/api';
 import PostCard from '@/components/blog/PostCard';
-import { DEMO_POSTS } from '@/data/blog-posts';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -40,13 +39,9 @@ export default async function CategoryPage({ params }: Props) {
     posts = [];
   }
 
-  // Fallback: filter demo posts by tag matching slug
-  if (posts.length === 0) {
-    const filtered = [...DEMO_POSTS].filter((p) =>
-      p.tags?.some((t) => t.toLowerCase().replace(/\s+/g, '-') === slug)
-    );
-    if (filtered.length > 0) posts = filtered;
-  }
+  // P0-6: no DEMO_POSTS fallback. If api returns no posts for this
+  // category, we render the empty state rather than silently showing
+  // fake content.
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
@@ -64,9 +59,12 @@ export default async function CategoryPage({ params }: Props) {
 
       {posts.length > 0 ? (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+          <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 mb-12 [column-fill:_balance]">
+
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
+              <div key={post.id} className="mb-6 break-inside-avoid inline-block w-full">
+                <PostCard post={post} />
+              </div>
             ))}
           </div>
           {hasMore && (
