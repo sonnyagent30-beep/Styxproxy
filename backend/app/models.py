@@ -461,6 +461,10 @@ class AdminAuth(Base):
     last_used: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Role column - source of truth for admin role
+    role: Mapped[str] = mapped_column(
+        String(20), default="admin", nullable=False, index=True
+    )  # admin, superadmin, viewer
     # Password reset tokens
     reset_token_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     reset_token_expires: Mapped[Optional[datetime]] = mapped_column(
@@ -496,6 +500,24 @@ class AdminInvite(Base):
     used_by: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     max_uses: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     uses_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class AdminAuditLog(Base):
+    """Admin audit log table - Immutable audit trail for admin actions.
+
+    Matches existing schema in production Postgres (integer PK + admin_phone).
+    """
+    __tablename__ = "admin_audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    admin_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

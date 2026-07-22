@@ -1172,3 +1172,149 @@ class ChannelFeatureFlagsUpdate(BaseModel):
     """Request to update channel feature flags."""
     telegram: ChannelConfig
     whatsapp: ChannelConfig
+
+
+# ============== Superadmin Schemas ==============
+
+class AdminAuditLogEntryResponse(BaseModel):
+    """Response for a single admin audit log entry.
+
+    Mirrors the live admin_audit_log schema (id, admin_phone, action,
+    ip_address, user_agent, details-as-text, created_at). For convenience
+    admin_phone is surfaced as admin_email when it contains an '@'.
+    """
+    id: int
+    admin_email: Optional[str] = None  # parsed from admin_phone column
+    admin_phone: Optional[str] = None
+    action: str
+    resource_type: Optional[str] = None  # parsed from details JSON
+    resource_id: Optional[str] = None
+    details: Optional[Any] = None  # parsed from details JSON
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    created_at: datetime
+
+
+class AdminAuditLogListResponse(BaseModel):
+    """Response for listing admin audit logs."""
+    logs: list[AdminAuditLogEntryResponse]
+    pagination: dict
+
+
+class SuperadminAdminResponse(BaseModel):
+    """Response for a superadmin admin entry."""
+    email: str
+    role: str
+    totp_enabled: bool
+    failed_attempts: int
+    locked_until: Optional[datetime]
+    created_at: datetime
+    last_used: Optional[datetime]
+
+
+class SuperadminAdminsListResponse(BaseModel):
+    """Response for listing admins with stats."""
+    admins: list[SuperadminAdminResponse]
+    stats: dict
+    pagination: dict
+
+
+class SuperadminCreateAdminRequest(BaseModel):
+    """Request to create a new admin."""
+    email: str = Field(..., description="Admin email address")
+    password: str = Field(..., min_length=8, description="Initial password")
+    role: str = Field(default="admin", pattern="^(admin|superadmin|viewer)$")
+
+
+class SuperadminCreateAdminResponse(BaseModel):
+    """Response after creating an admin."""
+    email: str
+    role: str
+    message: str
+
+
+class SuperadminUpdateRoleRequest(BaseModel):
+    """Request to update an admin's role."""
+    role: str = Field(..., pattern="^(admin|superadmin|viewer)$")
+
+
+class ProviderCostResponse(BaseModel):
+    """Response for provider cost data."""
+    name: str
+    total_orders: int
+    total_cost_usd: float
+
+
+class ProviderCostsResponse(BaseModel):
+    """Response for listing provider costs."""
+    providers: list[ProviderCostResponse]
+    note: Optional[str] = None
+
+
+class SystemSettingResponse(BaseModel):
+    """Response for a system setting."""
+    key: str
+    value: Any
+    description: Optional[str] = None
+
+
+class SystemSettingsListResponse(BaseModel):
+    """Response for listing system settings."""
+    settings: list[SystemSettingResponse]
+    note: Optional[str] = None
+
+
+class SystemSettingUpdateRequest(BaseModel):
+    """Request to update a system setting."""
+    value: Any
+
+
+class GlobalSearchCustomerResult(BaseModel):
+    """Customer search result."""
+    id: str
+    phone: str
+    name: str
+
+
+class GlobalSearchOrderResult(BaseModel):
+    """Order search result."""
+    order_id: str
+    customer_phone: Optional[str]
+    status: str
+    amount_paid_ngn: Optional[float]
+
+
+class GlobalSearchTicketResult(BaseModel):
+    """Support thread search result."""
+    id: str
+    subject: str
+    customer_email: str
+    status: str
+
+
+class GlobalSearchContactResult(BaseModel):
+    """Contact submission search result."""
+    id: str
+    from_email: str
+    subject: str
+    status: str
+
+
+class GlobalSearchResponse(BaseModel):
+    """Response for global search."""
+    results: dict
+    total: int
+
+
+class MetricsOverviewResponse(BaseModel):
+    """Response for system metrics overview."""
+    orders_today: int
+    orders_this_week: int
+    revenue_today_ngn: float
+    revenue_this_week_ngn: float
+    revenue_this_month_ngn: float
+    active_proxies: int
+    churned_today: int
+    escalations_open: int
+    support_threads_open: int
+    contact_submissions_open: int

@@ -29,6 +29,7 @@ from app.routers import (
     platform,
     products,
     session,
+    superadmin,
     trials,
     webhooks,
 )
@@ -226,3 +227,4 @@ app.include_router(contact.router)
 app.include_router(auth.router)
 app.include_router(blog.router)
 app.include_router(inbound.router)
+app.include_router(superadmin.router)
