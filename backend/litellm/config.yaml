@@ -1,0 +1,49 @@
+# LiteLLM proxy config for Styxproxy / Charon.
+#
+# This proxy sits between the FastAPI api container and the upstream
+# LLM providers. Two routes are exposed:
+#
+#   minicpm5            -> local Ollama (MiniCPM5 1B GGUF)
+#   cloud-minimax-m2    -> cloud MiniMax-M2 (OpenRouter-compatible)
+#
+# The api calls /v1/chat/completions with model="minicpm5" by default
+# (set by CHARON_LLM_PROVIDER=local). To switch to cloud, change the
+# api env vars — no code change needed.
+#
+# Reference: https://docs.litellm.ai/docs/proxy/configs
+
+model_list:
+  # Local MiniCPM5 1B via Ollama. Ollama runs on the VPS host.
+  # host.docker.internal is a Docker Desktop DNS magic name; for plain
+  # Linux + Docker engine use the host gateway IP instead.
+  - model_name: minicpm5
+    litellm_params:
+      model: ollama/openbmb/minicpm5:latest
+      api_base: http://172.20.0.1:11434
+      timeout: 120
+      num_retries: 1
+
+  # Cloud fallback - only enabled when LITELLM_CLOUD_API_KEY env is
+  # provided. Used as a primary when CHARON_LLM_PROVIDER=cloud.
+  - model_name: cloud-minimax-m2
+    litellm_params:
+      model: openai/MiniMax-M2
+      api_key: os.environ/LITELLM_CLOUD_API_KEY
+      api_base: https://api.minimax.chat/v1
+      timeout: 30
+
+# Drop LiteLLM's verbose stdout logging; we rely on api container's
+# own JSON logs.
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  telemetry: false
+  request_timeout: 120
+
+# Auth: don't require a master key (DEV sidecar — api → litellm is
+# trust-loopback). Enable master_key + database_url when you want
+# virtual keys or spend tracking.
+general_settings:
+  # Master key. The api container sends LITELLM_API_KEY in the
+  # Authorization header; the proxy checks it against this master_key.
+  master_key: os.environ/LITELLM_API_KEY

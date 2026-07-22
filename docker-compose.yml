@@ -44,8 +44,17 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bunche}:${POSTGRES_PASSWORD:-bunche}@postgres:5432/${POSTGRES_DB:-bunche}
-      REDIS_URL: redis://redis:6379/0
+      # When network_mode=host (default), the api talks to host services
+      # directly on 127.0.0.1. When CHARON_LLM_HOST_NETWORK=0, the api stays
+      # in the bunche_local_net bridge and uses hostnames like 'postgres'.
+      DATABASE_URL: ${DATABASE_URL_HOST:-postgresql+asyncpg://${POSTGRES_USER:-bunche}:${POSTGRES_PASSWORD:-bunche}@127.0.0.1:5432/${POSTGRES_DB:-bunche}}
+      REDIS_URL: ${REDIS_URL_HOST:-redis://127.0.0.1:6379/0}
+      # Local provider is default — calls Ollama directly on the host.
+      # LiteLLM sidecar exists in compose but is currently disabled (see
+      # P1-1 note Jul 22 2026).
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://127.0.0.1:11434}
+      CHARON_LLM_PROVIDER: ${CHARON_LLM_PROVIDER:-local}
+      MINICPM_MODEL: ${MINICPM_MODEL:-openbmb/minicpm5:latest}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
       FLUTTERWAVE_SECRET_KEY: ${FLUTTERWAVE_SECRET_KEY:-}
@@ -74,8 +83,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - bunche_local_net
+    # Reconfigure DB / Redis URLs to use 127.0.0.1 when running with
+    # network_mode: host (the api reaches host services directly).
+    # If CHARON_LLM_HOST_NETWORK=0 (off), the api still runs in the
+    # bunche_local_net bridge and uses the original hostnames.
+    network_mode: "${CHARON_LLM_HOST_NETWORK:-host}"
+
+# LiteLLM sidecar intentionally not in this compose right now.
+# Config + container image preserved at backend/litellm/ and image
+# tag ghcr.io/berriai/litellm:main-stable. Re-enable by uncommenting
+# when the upstream-stuck-on-startup bug is diagnosed (P1-1 Jul 22).
+#  litellm:
+#    image: ghcr.io/berriai/litellm:main-stable
+#    restart: unless-stopped
+#    ports:
+#      - "4000:4000"
+#    environment:
+#      LITELLM_API_KEY: ${LITELLM_API_KEY:-sk-styxproxy-local-dev-only}
+#      DATABASE_URL: ${LITELLM_DATABASE_URL:-}
+#    volumes:
+#      - ./backend/litellm/config.yaml:/app/config.yaml:ro
+#    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
 
 networks:
   bunche_local_net:

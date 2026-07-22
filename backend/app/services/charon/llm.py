@@ -1,18 +1,24 @@
 """Charon's LLM client.
 
-Calls MiniMax-M2 chat completions (OpenAI-compatible endpoint).
-The interface here is stable; if/when we wire this through n8n, the
-function signature stays the same and only the body changes.
+Calls the local MiniCPM5 1B model served by Ollama via its
+OpenAI-compatible chat endpoint at /v1/chat/completions. Cloud
+MiniMax-M2 fallback via OpenRouter-compatible endpoint is available
+by setting CHARON_LLM_PROVIDER=cloud.
+
+NOTE (P1-1 Jul 22 2026): Calls Ollama (or MiniMax) DIRECTLY, not via
+LiteLLM. LiteLLM sidecar exists in docker-compose but the api path
+to it is broken — configuration debug tracked separately.
 
 Environment variables:
-  - MINIMAX_API_KEY: required (raises on missing)
-  - MINIMAX_BASE_URL: optional override; defaults to OpenRouter-compatible
-    MiniMax endpoint
-  - MINIMAX_MODEL: optional model name; defaults to "minimax/minimax-m2"
+  - OLLAMA_BASE_URL: optional override; defaults to http://127.0.0.1:11434
+  - MINICPM_MODEL: optional model name; defaults to "openbmb/minicpm5:latest"
+  - CHARON_LLM_PROVIDER: "local" (default, uses Ollama) or "cloud" (uses MiniMax)
+  - MINIMAX_API_KEY: required only when CHARON_LLM_PROVIDER=cloud
+  - MINIMAX_BASE_URL / MINIMAX_MODEL: cloud provider overrides
 
-These are intentionally generically-named; the model provider can be
-swapped without code changes (set the env vars to point at any
-OpenAI-compatible endpoint).
+The interface here is stable; swapping model providers is a config change,
+not a code change. MiniCPM5 is on the VPS (84.247.132.12, Ollama on
+host port 11434).
 """
 from __future__ import annotations
 
@@ -77,21 +83,67 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
     is treated as a system message internally; if the caller already
     provided a system message at index 0, we honor it instead.
 
+    Routes to:
+      - Local MiniCPM5 via Ollama when CHARON_LLM_PROVIDER is unset / "local"
+      - Cloud MiniMax-M2 when CHARON_LLM_PROVIDER=cloud
+
     On any failure, returns LLMResponse with `error` set; never raises.
     Use `ok` to check before reading content.
     """
+    provider = os.getenv("CHARON_LLM_PROVIDER", "local").strip().lower()
+
+    if provider == "cloud":
+        return _call_cloud(messages, max_tokens)
+    return _call_local(messages, max_tokens)
+
+
+def _call_local(messages: list[dict], max_tokens: int) -> LLMResponse:
+    """Call MiniCPM5 via Ollama's OpenAI-compatible /v1/chat/completions."""
+    base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+    model = os.getenv("MINICPM_MODEL", "openbmb/minicpm5:latest")
+
+    headers = {
+        "Content-Type": "application/json",
+    }
+    payload: dict = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "temperature": 0.2,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            *messages,
+        ],
+        "stream": False,
+    }
+
+    try:
+        # Local CPU inference is slow; 120s read is generous.
+        resp = httpx.post(
+            f"{base_url}/v1/chat/completions",
+            json=payload,
+            headers=headers,
+            timeout=httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0),
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("LLM (local) transport error: %s", exc)
+        return LLMResponse(content="", model=model, error=f"transport error: {exc}")
+
+    return _parse_openai_compatible_response(resp, model)
+
+
+def _call_cloud(messages: list[dict], max_tokens: int) -> LLMResponse:
+    """Call MiniMax-M2 via OpenRouter-compatible endpoint."""
     api_key = os.getenv("MINIMAX_API_KEY")
     if not api_key:
-        return LLMResponse(content="", model="", error="MINIMAX_API_KEY not set in environment")
+        return LLMResponse(content="", model="", error="MINIMAX_API_KEY not set (cloud provider)")
 
-    base_url = os.getenv("MINIMAX_BASE_URL", "https://api.MiniMax.chat/v1")
+    base_url = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1").rstrip("/")
     model = os.getenv("MINIMAX_MODEL", "minimax/MiniMax-M2")
 
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-
     payload: dict = {
         "model": model,
         "max_tokens": max_tokens,
@@ -101,21 +153,25 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
             *messages,
         ],
     }
-
     try:
         resp = httpx.post(
             f"{base_url}/chat/completions",
             json=payload,
             headers=headers,
-            timeout=30.0,
+            timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0),
         )
     except httpx.HTTPError as exc:
-        logger.warning("LLM request transport error: %s", exc)
+        logger.warning("LLM (cloud) transport error: %s", exc)
         return LLMResponse(content="", model=model, error=f"transport error: {exc}")
+    return _parse_openai_compatible_response(resp, model)
 
+
+def _parse_openai_compatible_response(resp, model: str) -> LLMResponse:
+    """Parse a standard OpenAI-style chat.completion response, with
+    error handling and Sentry capture. Vendor-agnostic.
+    """
     if resp.status_code >= 400:
         logger.warning("LLM API error %d: %s", resp.status_code, resp.text[:300])
-        # Capture 5xx (server-side LLM provider errors) in Sentry
         if resp.status_code >= 500:
             sentry_sdk.capture_message(
                 f"Charon LLM 5xx error: {resp.status_code}",
@@ -124,7 +180,7 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
                     "status_code": resp.status_code,
                     "model": model,
                     "response_preview": resp.text[:200],
-                }
+                },
             )
         return LLMResponse(
             content="", model=model,

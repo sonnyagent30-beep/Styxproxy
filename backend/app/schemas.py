@@ -1318,3 +1318,9 @@ class MetricsOverviewResponse(BaseModel):
     escalations_open: int
     support_threads_open: int
     contact_submissions_open: int
+    # Charon observability (best-effort in-process counters)
+    charon_llm_status: str = "unknown"
+    charon_total_requests: int = 0
+    charon_escalated_replies: int = 0
+    charon_llm_errors: int = 0
+    charon_tokens_used_total: int = 0

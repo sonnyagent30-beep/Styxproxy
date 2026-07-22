@@ -751,7 +751,80 @@ async def get_metrics_overview(
         escalations_open=escalations_open,
         support_threads_open=support_threads_open,
         contact_submissions_open=contact_submissions_open,
+        charon_llm_status=_charon_llm_status(),
+        charon_total_requests=_charon_stats().total_requests,
+        charon_escalated_replies=_charon_stats().escalated_replies,
+        charon_llm_errors=_charon_stats().llm_errors,
+        charon_tokens_used_total=_charon_stats().tokens_used_total,
     )
+
+
+def _charon_stats():
+    """Lazy import so a missing Charon module doesn't break metrics."""
+    try:
+        from app.services.charon.stats import CharonMetrics
+        return CharonMetrics.get()
+    except Exception:
+        # Return a zero-shaped stub so the response model always validates.
+        from app.services.charon.stats import CharonStats
+        return CharonStats()
+
+
+def _charon_llm_status() -> str:
+    """Best-effort 'up' / 'degraded' / 'down' indicator for the dashboard."""
+    try:
+        import os
+        if not os.getenv("CHARON_LLM_PROVIDER", "local") == "cloud" and not os.getenv("MINIMAX_API_KEY"):
+            # Local provider, no fallback key — depends on Ollama
+            pass
+        s = _charon_stats()
+        if not getattr(s, "llm_configured", False):
+            # Probe by checking Ollama reachability? Keep simple: report based on counters.
+            return "unknown"
+        if s.llm_errors > 0 and (s.llm_last_error_at and (s.llm_last_success_at is None or s.llm_last_error_at > s.llm_last_success_at)):
+            return "degraded"
+        if s.llm_last_success_at is None and s.total_requests > 0:
+            return "degraded"
+        return "up"
+    except Exception:
+        return "unknown"
+
+
+# ============== Charon Stats ==============
+
+@router.get("/charon/stats")
+async def get_charon_stats(
+    current_admin: dict = Depends(require_superadmin),
+):
+    """Detailed Charon runtime stats (superadmin only).
+
+    Returns counters + recent errors + latency aggregates. Backed by the
+    in-process stats singleton in services/charon/stats.py. Useful for
+    diagnosing "is Charon actually responding?" issues.
+    """
+    # Imported lazily so a missing / non-functional charon module
+    # doesn't break superadmin startup.
+    try:
+        from app.services.charon.stats import CharonMetrics
+        return CharonMetrics.get().to_dict()
+    except Exception as e:
+        return {
+            "error": f"stats module unavailable: {e}",
+            "uptime_seconds": 0,
+        }
+
+
+@router.post("/charon/reset")
+async def reset_charon_stats(
+    current_admin: dict = Depends(require_superadmin),
+):
+    """Reset Charon counters to zero. Useful after deploying a config fix."""
+    try:
+        from app.services.charon.stats import CharonMetrics
+        CharonMetrics.reset()
+        return {"ok": True, "reset_at": "now"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 

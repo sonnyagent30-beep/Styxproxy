@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import re
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,11 +29,13 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+import httpx
 from pydantic import BaseModel, Field
 
-from app.services.charon import agent
+from app.services.charon import agent, stats as charon_stats
 from app.services.charon.agent import Message
 from app.services.charon.knowledge import invalidate_cache
+from app.services.charon.stats import CharonMetrics
 from app.services.email import send_charon_escalation_email
 
 logger = logging.getLogger(__name__)
@@ -92,7 +95,6 @@ class CharonLogEntry(BaseModel):
     error: Optional[str] = None
     tool_calls: Optional[list[dict]] = None
 
-
 @router.post("/reply", response_model=ChatReplyResponse)
 async def post_reply(payload: ChatReplyRequest):
     """Synchronous chat reply.
@@ -101,11 +103,15 @@ async def post_reply(payload: ChatReplyRequest):
     entrypoint — one request, one response, simple to instrument.
     Streaming is available below for low-latency interactive use.
     """
+    import time
+
     if not payload.user_message.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="user_message cannot be empty",
         )
+
+    CharonMetrics.mark_request(payload.channel)
 
     history = [
         Message(role=m.role, content=m.content)
@@ -113,12 +119,25 @@ async def post_reply(payload: ChatReplyRequest):
         if m.role in ("system", "user", "assistant")
     ]
 
+    started = time.perf_counter()
     result = await agent.reply(
         channel=payload.channel,
         conversation_id=payload.conversation_id or "",
         user_message=payload.user_message,
         history=history,
     )
+    elapsed_ms = (time.perf_counter() - started) * 1000.0
+
+    # Observability
+    CharonMetrics.record_latency(elapsed_ms)
+    if result.escalated:
+        CharonMetrics.mark_escalated(reason=result.error or "scenario_escalate")
+    if result.error:
+        CharonMetrics.mark_llm_error(result.error)
+    elif result.tokens_used:
+        CharonMetrics.mark_success(result.tokens_used, elapsed_ms)
+    if result.scenario_id and not result.error:
+        CharonMetrics.mark_scenario_hit(result.scenario_id)
 
     # Send escalation email if the conversation was escalated
     if result.escalated and (payload.customer_email or payload.customer_phone):
@@ -154,13 +173,72 @@ async def post_reply(payload: ChatReplyRequest):
 
 @router.get("/health")
 async def health():
-    """Liveness check. Always returns ok unless the route is fully down."""
+    """Liveness check. Always returns ok unless the route is fully down.
+
+    Distinguishes:
+      - configured: whether the LLM API key is set
+      - last_success: when the LLM last replied with content
+      - last_error: when an LLM error was last seen
+      - llm_status: "up" / "degraded" / "down"
+    """
+    import os
     from app.services.charon import scenarios
+
+    provider = os.getenv("CHARON_LLM_PROVIDER", "local").strip().lower()
+    if provider == "cloud":
+        api_key_set = bool(os.getenv("MINIMAX_API_KEY"))
+    else:
+        # Local provider — "configured" means reachable Ollama endpoint.
+        # Cheap probe; full reachability is confirmed when a /reply
+        # actually returns 2xx.
+        api_key_set = True
+        try:
+            base = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+            probe = httpx.get(f"{base}/api/tags", timeout=2.0)
+            api_key_set = probe.status_code == 200
+        except Exception:
+            api_key_set = False
+    CharonMetrics.llm_configured(api_key_set)
+
+    s = CharonMetrics.get()
+    error_age = (
+        time.time() - s.llm_last_error_at if s.llm_last_error_at else None
+    )
+    success_age = (
+        time.time() - s.llm_last_success_at if s.llm_last_success_at else None
+    )
+
+    if not api_key_set:
+        llm_status = "down"
+    elif s.llm_errors > 0 and (error_age is not None and (success_age is None or error_age < success_age)):
+        llm_status = "degraded"
+    elif s.llm_last_success_at is None and s.total_requests > 0:
+        llm_status = "degraded"
+    else:
+        llm_status = "up"
+
     return {
         "ok": True,
-        "scenarios_loaded": sum(1 for _ in scenarios.all_scenarios()),
         "module": "charon",
+        "scenarios_loaded": sum(1 for _ in scenarios.all_scenarios()),
+        "llm_configured": api_key_set,
+        "llm_status": llm_status,
+        "last_success_age_s": int(success_age) if success_age is not None else None,
+        "last_error_age_s": int(error_age) if error_age is not None else None,
+        "total_requests": s.total_requests,
+        "escalated_replies": s.escalated_replies,
+        "llm_errors": s.llm_errors,
     }
+
+
+@router.get("/_internal/stats")
+async def _internal_stats():
+    """Detailed Charon stats. Unauthenticated but obscure URL.
+
+    The superadmin dashboard reads this via a wrapper at
+    /api/admin/charon/stats which enforces JWT auth.
+    """
+    return CharonMetrics.get().to_dict()
 
 
 def _read_logs(limit: int = 1000) -> list[dict]:
