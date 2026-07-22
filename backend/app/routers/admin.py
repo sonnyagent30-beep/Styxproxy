@@ -1,10 +1,10 @@
 """Admin router."""
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from app.database import get_session
@@ -21,7 +21,8 @@ from app.schemas import (
     ContactSubmissionResponse, ContactSubmissionsResponse, ContactSubmissionReplyRequest,
     CharonEscalationResponse, EscalationsResponse, EscalationRespondRequest,
 )
-from app.auth import admin_only
+from app.auth import admin_only, admin_only_with_email
+from app.services.audit import write_audit_log
 from app.services.credential import replace_credential
 from app.services.trial import get_trials_today_count
 from app.services.audit import get_audit_logs
@@ -167,25 +168,52 @@ async def get_order(order_id: str, session: AsyncSession = Depends(get_session))
     return AdminOrderResponse.model_validate(order)
 
 
-@router.patch("/orders/{order_id}", dependencies=[Depends(admin_only)])
-async def update_order(order_id: str, request: AdminOrderUpdateRequest, session: AsyncSession = Depends(get_session)):
+@router.patch("/orders/{order_id}")
+async def update_order(
+    order_id: str,
+    body: AdminOrderUpdateRequest,
+    http_request: Request,
+    admin_email: str = Depends(admin_only_with_email),
+    session: AsyncSession = Depends(get_session),
+):
     order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-    if request.status:
-        order.status = request.status
-        if request.status == "fulfilled":
-            order.fulfilled_at = datetime.utcnow()
-    if request.notes is not None:
-        order.notes = request.notes
-    if request.ban_verified:
-        order.ban_verified = request.ban_verified
+    changes: dict = {}
+    if body.status:
+        changes["status"] = {"old": order.status, "new": body.status}
+        order.status = body.status
+        if body.status == "fulfilled":
+            order.fulfilled_at = datetime.now(timezone.utc)
+    if body.notes is not None:
+        changes["notes_set"] = True
+        order.notes = body.notes
+    if body.ban_verified:
+        changes["ban_verified"] = body.ban_verified
+        order.ban_verified = body.ban_verified
     await session.commit()
+
+    await write_audit_log(
+        session,
+        admin_email=admin_email,
+        action="update_order",
+        resource_type="order",
+        resource_id=order_id,
+        details={"changes": changes},
+        request=http_request,
+    )
+
     return {"status": "updated", "order_id": order_id}
 
 
-@router.post("/orders/{order_id}/refund", dependencies=[Depends(admin_only)])
-async def refund_order(order_id: str, request: AdminRefundRequest, session: AsyncSession = Depends(get_session)):
+@router.post("/orders/{order_id}/refund")
+async def refund_order(
+    order_id: str,
+    body: AdminRefundRequest,
+    http_request: Request,
+    admin_email: str = Depends(admin_only_with_email),
+    session: AsyncSession = Depends(get_session),
+):
     order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
@@ -193,13 +221,23 @@ async def refund_order(order_id: str, request: AdminRefundRequest, session: Asyn
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order already refunded or cancelled")
     order.status = "refunded"
     order.refund_requested = True
-    order.refund_reason = request.reason
+    order.refund_reason = body.reason
     if order.bunche_credential_id:
         cred = (await session.execute(select(BuncheCredential).where(BuncheCredential.id == order.bunche_credential_id))).scalar_one_or_none()
         if cred:
             cred.status = "revoked"
     await session.commit()
-    
+
+    await write_audit_log(
+        session,
+        admin_email=admin_email,
+        action="refund_order",
+        resource_type="order",
+        resource_id=order_id,
+        details={"reason": body.reason, "full_refund": body.full_refund},
+        request=http_request,
+    )
+
     # Send admin notification
     await send_refund_approved_notification(
         order_id=order_id,

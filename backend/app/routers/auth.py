@@ -7,7 +7,7 @@ from typing import Optional
 import pyotp
 from jose import jwt as jose_jwt
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,6 +59,7 @@ from app.auth import (
     JWTBearer,
     pwd_context,
 )
+from app.services.audit import write_audit_log
 from app.services.email import send_admin_invite_email, send_password_reset_email
 from app.limiter import limiter
 from slowapi import Limiter
@@ -628,40 +629,52 @@ async def change_totp(
 
 @router.post("/invites", response_model=AdminInviteCreateResponse)
 async def create_invite(
-    request: AdminInviteCreateRequest,
+    request: Request,
+    body: AdminInviteCreateRequest,
     current_admin: dict = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     """Create an admin invite code."""
     invite_code = generate_invite_code()
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=request.expires_in_hours)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=body.expires_in_hours)
 
     invite = AdminInvite(
         invite_code=invite_code,
-        email=request.email,
-        role=request.role.value,
+        email=body.email,
+        role=body.role.value,
         created_by=current_admin["email"],
         expires_at=expires_at,
-        max_uses=request.max_uses,
+        max_uses=body.max_uses,
     )
     session.add(invite)
     await session.commit()
 
     # Send invite email
-    if request.email:
+    if body.email:
         await send_admin_invite_email(
-            email=request.email,
-            role=request.role.value,
+            email=body.email,
+            role=body.role.value,
             invite_code=invite_code,
-            expires_in_hours=request.expires_in_hours,
+            expires_in_hours=body.expires_in_hours,
         )
+
+    # Audit log
+    await write_audit_log(
+        session,
+        admin_email=current_admin["email"],
+        action="create_invite",
+        resource_type="admin_invite",
+        resource_id=str(invite.id),
+        details={"role": body.role.value, "expires_in_hours": body.expires_in_hours, "max_uses": body.max_uses},
+        request=request,
+    )
 
     return AdminInviteCreateResponse(
         invite_code=invite_code,
-        email=request.email,
-        role=request.role.value,
+        email=body.email,
+        role=body.role.value,
         expires_at=expires_at,
-        max_uses=request.max_uses,
+        max_uses=body.max_uses,
         created_by=current_admin["email"],
     )
 
@@ -697,6 +710,7 @@ async def list_invites(
 @router.delete("/invites/{invite_id}")
 async def delete_invite(
     invite_id: str,
+    http_request: Request,
     current_admin: dict = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -721,8 +735,20 @@ async def delete_invite(
             detail="Invite not found",
         )
 
+    invite_email = invite.email
+    invite_role = invite.role
     await session.delete(invite)
     await session.commit()
+
+    await write_audit_log(
+        session,
+        admin_email=current_admin["email"],
+        action="delete_invite",
+        resource_type="admin_invite",
+        resource_id=invite_id,
+        details={"deleted_email": invite_email, "deleted_role": invite_role},
+        request=http_request,
+    )
 
     return {"message": "Invite deleted successfully"}
 
@@ -862,7 +888,8 @@ async def list_team(
 @router.patch("/team/{admin_email}/role", response_model=AdminUpdateRoleResponse)
 async def update_team_member_role(
     admin_email: str,
-    request: AdminUpdateRoleRequest,
+    body: AdminUpdateRoleRequest,
+    http_request: Request,
     current_admin: dict = Depends(require_superadmin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -883,21 +910,32 @@ async def update_team_member_role(
     invite = result.scalar_one_or_none()
 
     if invite:
-        invite.role = request.role.value
+        invite.role = body.role.value
 
     await session.commit()
 
+    await write_audit_log(
+        session,
+        admin_email=current_admin["email"],
+        action="update_role",
+        resource_type="admin",
+        resource_id=admin_email,
+        details={"new_role": body.role.value},
+        request=http_request,
+    )
+
     return AdminUpdateRoleResponse(
         email=admin_email,
-        role=request.role.value,
-        message=f"Role updated to {request.role.value}",
+        role=body.role.value,
+        message=f"Role updated to {body.role.value}",
     )
 
 
 @router.post("/team/{admin_email}/lock", response_model=AdminLockResponse)
 async def lock_team_member(
     admin_email: str,
-    request: AdminLockRequest,
+    body: AdminLockRequest,
+    http_request: Request,
     current_admin: dict = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -912,7 +950,7 @@ async def lock_team_member(
             detail="Admin not found",
         )
 
-    if request.action == "lock":
+    if body.action == "lock":
         admin.locked_until = datetime.now(timezone.utc) + timedelta(days=365)
         locked = True
         message = "Admin account locked"
@@ -923,6 +961,15 @@ async def lock_team_member(
         message = "Admin account unlocked"
 
     await session.commit()
+
+    await write_audit_log(
+        session,
+        admin_email=current_admin["email"],
+        action="lock_admin" if locked else "unlock_admin",
+        resource_type="admin",
+        resource_id=admin_email,
+        request=http_request,
+    )
 
     return AdminLockResponse(
         email=admin_email,
@@ -936,13 +983,14 @@ async def lock_team_member(
 
 @router.post("/flags", response_model=FeatureFlagResponse)
 async def create_feature_flag(
-    request: FeatureFlagCreateRequest,
+    body: FeatureFlagCreateRequest,
+    http_request: Request,
     current_admin: dict = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     """Create a feature flag."""
     # Check if flag already exists
-    stmt = select(FeatureFlag).where(FeatureFlag.name == request.name)
+    stmt = select(FeatureFlag).where(FeatureFlag.name == body.name)
     result = await session.execute(stmt)
     existing = result.scalar_one_or_none()
 
@@ -953,13 +1001,23 @@ async def create_feature_flag(
         )
 
     flag = FeatureFlag(
-        name=request.name,
-        description=request.description,
-        enabled=request.enabled,
-        enabled_for=request.enabled_for,
+        name=body.name,
+        description=body.description,
+        enabled=body.enabled,
+        enabled_for=body.enabled_for,
     )
     session.add(flag)
     await session.commit()
+
+    await write_audit_log(
+        session,
+        admin_email=current_admin["email"],
+        action="create_feature_flag",
+        resource_type="feature_flag",
+        resource_id=body.name,
+        details={"enabled": body.enabled, "enabled_for": body.enabled_for},
+        request=http_request,
+    )
 
     return FeatureFlagResponse.model_validate(flag)
 
@@ -1001,7 +1059,8 @@ async def get_feature_flag(
 @router.patch("/flags/{flag_name}", response_model=FeatureFlagResponse)
 async def update_feature_flag(
     flag_name: str,
-    request: FeatureFlagUpdateRequest,
+    body: FeatureFlagUpdateRequest,
+    http_request: Request,
     current_admin: dict = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -1016,16 +1075,31 @@ async def update_feature_flag(
             detail="Feature flag not found",
         )
 
-    if request.description is not None:
-        flag.description = request.description
-    if request.enabled is not None:
-        flag.enabled = request.enabled
-    if request.enabled_for is not None:
-        flag.enabled_for = request.enabled_for
-    if request.admin_overrides is not None:
-        flag.admin_overrides = request.admin_overrides  # type: ignore
+    changes: dict = {}
+    if body.description is not None:
+        changes["description"] = bool(body.description)
+        flag.description = body.description
+    if body.enabled is not None:
+        changes["enabled"] = body.enabled
+        flag.enabled = body.enabled
+    if body.enabled_for is not None:
+        changes["enabled_for"] = body.enabled_for
+        flag.enabled_for = body.enabled_for
+    if body.admin_overrides is not None:
+        changes["admin_overrides"] = body.admin_overrides
+        flag.admin_overrides = body.admin_overrides  # type: ignore
 
     await session.commit()
+
+    await write_audit_log(
+        session,
+        admin_email=current_admin["email"],
+        action="update_feature_flag",
+        resource_type="feature_flag",
+        resource_id=flag_name,
+        details={"changes": changes},
+        request=http_request,
+    )
 
     return FeatureFlagResponse.model_validate(flag)
 
@@ -1033,6 +1107,7 @@ async def update_feature_flag(
 @router.delete("/flags/{flag_name}")
 async def delete_feature_flag(
     flag_name: str,
+    http_request: Request,
     current_admin: dict = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -1049,6 +1124,15 @@ async def delete_feature_flag(
 
     await session.delete(flag)
     await session.commit()
+
+    await write_audit_log(
+        session,
+        admin_email=current_admin["email"],
+        action="delete_feature_flag",
+        resource_type="feature_flag",
+        resource_id=flag_name,
+        request=http_request,
+    )
 
     return {"message": "Feature flag deleted successfully"}
 
