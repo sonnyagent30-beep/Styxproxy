@@ -36,6 +36,17 @@ export default function AdminDashboardPage() {
   const [health, setHealth] = useState<HealthState>(FALLBACK_HEALTH);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [charonStats, setCharonStats] = useState<{
+    total_conversations: number;
+    total_messages: number;
+    by_model: Record<string, number>;
+    cloud_up: boolean;
+    local_up: boolean;
+    last_error?: string | null;
+  } | null>(null);
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     loadAll();
@@ -44,10 +55,11 @@ export default function AdminDashboardPage() {
   const loadAll = async () => {
     setLoading(true);
     setError('');
-    const [statsRes, metricsRes, healthRes] = await Promise.all([
+    const [statsRes, metricsRes, healthRes, charonRes] = await Promise.all([
       api.getAdminStats(),
       api.getMetricsOverview(),
       api.getSystemHealth(),
+      api.getCharonStats().catch(() => ({ data: null, error: 'unavailable' })),
     ]);
     if (statsRes.error) setError(statsRes.error);
     else setStats(statsRes.data || null);
@@ -68,7 +80,25 @@ export default function AdminDashboardPage() {
         charon_fallback: h.charon_routing.fallback,
       });
     }
+
+    if (charonRes.data) setCharonStats(charonRes.data);
     setLoading(false);
+  };
+
+  const handleResetCharon = async () => {
+    setResetting(true);
+    setResetMessage(null);
+    const result = await api.resetCharon();
+    if (result.error) {
+      setResetMessage({ type: 'error', text: result.error });
+    } else {
+      setResetMessage({ type: 'success', text: result.data?.message || 'Charon reset' });
+      setResetConfirm(false);
+      // Refresh stats after reset
+      const charonRes = await api.getCharonStats();
+      if (charonRes.data) setCharonStats(charonRes.data);
+    }
+    setResetting(false);
   };
 
   const formatNGN = (amount: number) => {
@@ -229,6 +259,110 @@ export default function AdminDashboardPage() {
             ok={health.charon_available}
           />
         </div>
+      </div>
+
+      {/* Charon Ops Panel */}
+      <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Charon Ops</h2>
+          {!resetConfirm ? (
+            <button
+              onClick={() => {
+                setResetConfirm(true);
+                setResetMessage(null);
+              }}
+              className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors text-sm font-medium"
+              title="Reset Charon runtime state (in-memory caches, conversation locks)"
+            >
+              Reset Charon
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-amber-400">Confirm reset?</span>
+              <button
+                onClick={handleResetCharon}
+                disabled={resetting}
+                className="px-4 py-2 rounded-xl bg-red-500 text-black font-medium hover:opacity-90 transition-opacity disabled:opacity-50 text-sm"
+              >
+                {resetting ? 'Resetting...' : 'Yes, reset'}
+              </button>
+              <button
+                onClick={() => setResetConfirm(false)}
+                disabled={resetting}
+                className="px-4 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:bg-[var(--card-hover)] transition-colors text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+
+        {resetMessage && (
+          <div
+            className={`mb-4 p-3 rounded-xl text-sm ${
+              resetMessage.type === 'success'
+                ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+                : 'bg-red-500/10 border border-red-500/20 text-red-400'
+            }`}
+          >
+            {resetMessage.text}
+          </div>
+        )}
+
+        {charonStats ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+              <p className="text-[var(--muted)] text-xs mb-1">Conversations</p>
+              <p className="text-2xl font-bold">{charonStats.total_conversations.toLocaleString()}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+              <p className="text-[var(--muted)] text-xs mb-1">Messages</p>
+              <p className="text-2xl font-bold">{charonStats.total_messages.toLocaleString()}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+              <p className="text-[var(--muted)] text-xs mb-1">M2 Cloud</p>
+              <div className="flex items-center gap-2">
+                <span className={`inline-block w-2 h-2 rounded-full ${charonStats.cloud_up ? 'bg-green-400' : 'bg-red-400'}`} />
+                <p className={`text-sm font-medium ${charonStats.cloud_up ? 'text-green-400' : 'text-red-400'}`}>
+                  {charonStats.cloud_up ? 'up' : 'down'}
+                </p>
+              </div>
+            </div>
+            <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+              <p className="text-[var(--muted)] text-xs mb-1">MiniCPM5</p>
+              <div className="flex items-center gap-2">
+                <span className={`inline-block w-2 h-2 rounded-full ${charonStats.local_up ? 'bg-green-400' : 'bg-red-400'}`} />
+                <p className={`text-sm font-medium ${charonStats.local_up ? 'text-green-400' : 'text-red-400'}`}>
+                  {charonStats.local_up ? 'up' : 'down'}
+                </p>
+              </div>
+            </div>
+            {Object.keys(charonStats.by_model).length > 0 && (
+              <div className="sm:col-span-2 lg:col-span-4 p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+                <p className="text-[var(--muted)] text-xs mb-2">Messages by model</p>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(charonStats.by_model).map(([model, count]) => (
+                    <span
+                      key={model}
+                      className="px-3 py-1 rounded-full text-xs bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20"
+                    >
+                      {model}: {count.toLocaleString()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {charonStats.last_error && (
+              <div className="sm:col-span-2 lg:col-span-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                <span className="font-medium">Last error:</span> {charonStats.last_error}
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--muted)]">
+            Charon stats unavailable — endpoint may be guarded by superadmin role.
+          </p>
+        )}
       </div>
 
       {/* Quick Actions */}
