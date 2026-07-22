@@ -9,7 +9,7 @@
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/sonnyagent30-beep/bunche.git
+git clone https://github.com/sonnyagent30-beep/styxproxy.git
 cd bunche/infrastructure
 
 # 2. Set up env

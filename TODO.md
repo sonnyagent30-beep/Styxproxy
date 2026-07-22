@@ -1,7 +1,7 @@
 # Bunche Scenario Review — TODO Tracker
 
 **Last Updated:** 2026-06-29
-**Repo:** sonnyagent30-beep/bunche
+**Repo:** sonnyagent30-beep/styxproxy
 **Status:** ✅ ALL 90 SCENARIOS COMPLETE ✅
 
 ---

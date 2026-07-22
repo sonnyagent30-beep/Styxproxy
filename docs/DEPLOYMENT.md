@@ -547,9 +547,9 @@ mkdir -p /backup/bunche
 
 # Copy scripts from repo
 curl -o /usr/local/bin/backup-bunche.sh \
-  https://raw.githubusercontent.com/sonnyagent30-beep/bunche/main/scripts/backup-bunche.sh
+  https://raw.githubusercontent.com/sonnyagent30-beep/styxproxy/main/scripts/backup-bunche.sh
 curl -o /usr/local/bin/backup-monthly-archive.sh \
-  https://raw.githubusercontent.com/sonnyagent30-beep/bunche/main/scripts/backup-monthly-archive.sh
+  https://raw.githubusercontent.com/sonnyagent30-beep/styxproxy/main/scripts/backup-monthly-archive.sh
 
 chmod +x /usr/local/bin/backup-bunche.sh
 chmod +x /usr/local/bin/backup-monthly-archive.sh
@@ -701,7 +701,7 @@ This script is called by n8n workflow to add/remove trial users:
 ```bash
 # Download from Styxproxy repo (when script is added)
 curl -o /usr/local/bin/manage-3proxy-trial.sh \
-  https://raw.githubusercontent.com/sonnyagent30-beep/bunche/main/scripts/manage-3proxy-trial.sh
+  https://raw.githubusercontent.com/sonnyagent30-beep/styxproxy/main/scripts/manage-3proxy-trial.sh
 chmod +x /usr/local/bin/manage-3proxy-trial.sh
 ```
 
@@ -722,7 +722,7 @@ chmod +x /usr/local/bin/manage-3proxy-trial.sh
 ```bash
 # Download from Styxproxy repo (when script is added)
 curl -o /usr/local/bin/cleanup-3proxy-trials.sh \
-  https://raw.githubusercontent.com/sonnyagent30-beep/bunche/main/scripts/cleanup-3proxy-trials.sh
+  https://raw.githubusercontent.com/sonnyagent30-beep/styxproxy/main/scripts/cleanup-3proxy-trials.sh
 chmod +x /usr/local/bin/cleanup-3proxy-trials.sh
 
 # Add to crontab
