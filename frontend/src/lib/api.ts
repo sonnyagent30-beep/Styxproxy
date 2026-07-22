@@ -37,6 +37,10 @@ import type {
   ContactSubmissionsResponse,
   Escalation,
   EscalationsResponse,
+  SupportThread,
+  SupportThreadDetail,
+  SupportThreadsResponse,
+  SupportThreadStatus,
 } from '@/types';
 
 // Admin API calls go through Next.js middleware (src/middleware.ts)
@@ -483,6 +487,33 @@ class ApiClient {
     return this.request(`/api/admin/plans/${planId}`, {
       method: 'DELETE',
     });
+  }
+
+  // ============== Support Threads =============
+
+  async getSupportThreads(status?: string, page = 1, limit = 20): Promise<ApiResponse<SupportThreadsResponse>> {
+    let url = `/api/admin/support/threads?page=${page}&limit=${limit}`;
+    if (status && status !== 'all') url += `&status=${status}`;
+    return this.request<SupportThreadsResponse>(url);
+  }
+
+  async getSupportThread(threadId: string): Promise<ApiResponse<SupportThreadDetail>> {
+    return this.request<SupportThreadDetail>(`/api/admin/support/threads/${threadId}`);
+  }
+
+  async replySupportThread(threadId: string, replyHtml: string, adminName = 'Dannion'): Promise<ApiResponse<{ status: string; message_id: string; thread_id: string }>> {
+    return this.request(`/api/admin/support/threads/${threadId}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ reply_html: replyHtml, admin_name: adminName }),
+    });
+  }
+
+  async closeSupportThread(threadId: string): Promise<ApiResponse<{ status: string }>> {
+    return this.request(`/api/admin/support/threads/${threadId}/close`, { method: 'POST' });
+  }
+
+  async reopenSupportThread(threadId: string): Promise<ApiResponse<{ status: string }>> {
+    return this.request(`/api/admin/support/threads/${threadId}/reopen`, { method: 'POST' });
   }
 
   // ============== Contact Submissions =============

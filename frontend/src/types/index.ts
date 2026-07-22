@@ -390,8 +390,56 @@ export interface ContactSubmissionsResponse {
   total: number;
 }
 
+// ============== Support Threads ==============
+export type SupportThreadStatus = 'open' | 'closed';
+
+export interface SupportMessage {
+  id: string;
+  thread_id: string;
+  direction: 'inbound' | 'outbound';
+  from_email: string;
+  to_email: string;
+  subject: string;
+  body_text?: string;
+  body_html?: string;
+  resend_id?: string;
+  in_reply_to?: string;
+  references?: string;
+  created_at: string;
+}
+
+export interface SupportThread {
+  id: string;
+  customer_email: string;
+  customer_name?: string | null;
+  subject: string;
+  status: SupportThreadStatus;
+  order_id?: string | null;
+  resend_last_message_id?: string | null;
+  last_message_at: string;
+  created_at: string;
+  messages?: SupportMessage[];
+}
+
+export interface SupportThreadDetail extends SupportThread {
+  messages: SupportMessage[];
+}
+
+export interface SupportThreadsResponse {
+  threads: SupportThread[];
+  pagination: {
+    page: number;
+    limit: number;
+    total_items?: number;
+    total?: number;
+    total_pages?: number;
+    has_next: boolean;
+    has_prev: boolean;
+  };
+}
+
 // ============== Charon Escalations ==============
-export interface Escalation {
+export interface escalation {
   id: string;
   conversation_id: string;
   customer_email?: string;
