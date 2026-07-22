@@ -27,11 +27,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 import httpx
 from pydantic import BaseModel, Field
 
+from app.auth import decode_access_token, verify_admin_token
 from app.services.charon import agent, stats as charon_stats
 from app.services.charon.agent import Message
 from app.services.charon.knowledge import invalidate_cache
@@ -40,6 +41,71 @@ from app.services.email import send_charon_escalation_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/charon", tags=["charon"])
+
+
+async def public_only(request: Request) -> None:
+    """Reject any request that carries a valid admin Bearer token.
+
+    Charon is a public customer-support surface. Admin sessions must NOT
+    trigger the chat agent — they have their own dashboard endpoints at
+    /api/admin/charon/stats. If we let admin tokens through, every
+    admin browser navigation would consume LLM tokens and pollute the
+    anonymous metrics with non-customer traffic.
+
+    Styxproxy has TWO auth systems for staff:
+      1. JWT access tokens (issued by /api/auth/login) — what the React
+         dashboard uses; validated via decode_access_token().
+      2. ADMIN_TOKEN static secret (settings.admin_token) — for
+         health-checks, scripts, and a few legacy callers; validated
+         via verify_admin_token().
+
+    Both count as "admin traffic" for the purposes of this gate.
+
+    Behavior:
+      - No Authorization header                 → pass through
+      - Malformed Bearer (no token after "Bearer") → pass through
+      - Any unknown or expired token            → pass through
+      - Valid JWT (admin or superadmin role)    → 404
+      - Valid static ADMIN_TOKEN                → 404
+    """
+    auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
+    if not auth_header:
+        return
+
+    parts = auth_header.split()
+    if len(parts) < 2:
+        return
+    if parts[0].lower() != "bearer":
+        return
+    token = parts[1]
+    if not token:
+        return
+
+    is_admin = False
+    # Path 1: JWT (dashboard auth).
+    try:
+        payload = decode_access_token(token)
+        # JWTs issued by /api/auth/login have "email" + "platform" set.
+        # Anything decodeable is considered an admin token here.
+        if payload.get("email") or payload.get("sub"):
+            is_admin = True
+    except HTTPException:
+        pass
+
+    # Path 2: static ADMIN_TOKEN (legacy / scripts).
+    if not is_admin:
+        try:
+            if verify_admin_token(auth_header):
+                is_admin = True
+        except HTTPException:
+            pass
+
+    if is_admin:
+        # Use 404, not 403, so endpoint existence stays private.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Not Found",
+        )
 
 # Log file path
 CHARON_LOG_DIR = os.getenv("CHARON_LOG_DIR", "/tmp")
@@ -96,7 +162,10 @@ class CharonLogEntry(BaseModel):
     tool_calls: Optional[list[dict]] = None
 
 @router.post("/reply", response_model=ChatReplyResponse)
-async def post_reply(payload: ChatReplyRequest):
+async def post_reply(
+    payload: ChatReplyRequest,
+    _public: None = Depends(public_only),
+):
     """Synchronous chat reply.
 
     For the bulk of customer support questions this is the right
@@ -294,6 +363,7 @@ def _get_conversations() -> list[ConversationSummary]:
 async def list_conversations(
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
+    _public: None = Depends(public_only),
 ):
     """List all Charon conversations with summary info."""
     all_conversations = _get_conversations()
@@ -314,6 +384,7 @@ async def list_logs(
     offset: int = Query(0, ge=0),
     conversation_id: Optional[str] = Query(None),
     channel: Optional[str] = Query(None),
+    _public: None = Depends(public_only),
     escalated: Optional[bool] = Query(None),
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
@@ -457,7 +528,10 @@ def _sanitize_filename(name: str) -> str:
 
 
 @router.post("/learn", response_model=LearnResponse)
-async def post_learn(payload: LearnRequest):
+async def post_learn(
+    payload: LearnRequest,
+    _public: None = Depends(public_only),
+):
     """Write learned content to the RAG knowledge base.
     
     Content is saved as a markdown file in data/charon/learned/ and

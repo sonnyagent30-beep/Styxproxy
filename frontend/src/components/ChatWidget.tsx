@@ -97,6 +97,21 @@ export default function ChatWidget() {
   const ignoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
 
+  // ── Public-only gating (P1-1 Jul 22 2026) ─────────────────────────
+  // Charon must NEVER appear on auth/admin/internal pages. Mounting the
+  // widget there would (a) leak the AI to admins who don't need it,
+  // (b) make admin sessions pollute Charon's anonymous metrics with
+  // non-customer traffic, and (c) expose the LLM proxy to admin
+  // sessions that should go through the superadmin-only endpoints.
+  if (
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/setup') ||
+    pathname.startsWith('/superadmin')
+  ) {
+    return null;
+  }
+
   // Refs to avoid stale closures in intervals
   const isOpenRef = useRef(false);
   const activeTriggerRef = useRef<Trigger | null>(null);
