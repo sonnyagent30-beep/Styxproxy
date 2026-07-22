@@ -3,7 +3,10 @@ import hashlib
 from datetime import datetime
 from typing import Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import CustomerAuditLog
+from starlette.requests import Request
+
+from app.models import CustomerAuditLog, AdminAuditLog
+
 
 async def log_audit_event(db_session: Optional[AsyncSession], event_type: str, customer_hash: Optional[str] = None, phone: Optional[str] = None, order_id: Optional[str] = None, workflow: Optional[str] = None, status: Optional[str] = None, details: Optional[dict[str, Any]] = None, request_id: Optional[str] = None) -> None:
     if db_session is None:
@@ -36,3 +39,65 @@ async def get_audit_logs(db_session: AsyncSession, customer_hash: Optional[str] 
     result = await db_session.execute(stmt)
     logs = result.scalars().all()
     return list(logs), total
+
+
+async def write_audit_log(
+    db_session: AsyncSession,
+    *,
+    admin_email: str,
+    action: str,
+    resource_type: Optional[str] = None,
+    resource_id: Optional[str] = None,
+    details: Optional[Any] = None,
+    request: Optional[Request] = None,
+) -> AdminAuditLog:
+    """Write an admin audit log entry.
+
+    Mirrors the live AdminAuditLog schema (id, admin_phone, action,
+    ip_address, user_agent, details-as-text, created_at). The admin_email
+    and resource_type/resource_id values are folded into the details blob so
+    nothing is lost, then everything is JSON-serialized.
+
+    Args:
+        db_session: The database session
+        admin_email: The admin's email who performed the action
+        action: The action performed (e.g., "create_admin", "update_role")
+        resource_type: Optional resource type (folded into details)
+        resource_id: Optional resource id (folded into details)
+        details: Optional additional details about the action (dict or scalar)
+        request: Optional FastAPI Request object to extract IP address from
+    """
+    import json
+
+    # Extract IP address from request headers
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    if request:
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            ip_address = forwarded_for.split(",")[0].strip()
+        elif request.client:
+            ip_address = request.client.host
+        user_agent = request.headers.get("user-agent")
+
+    merged_details: dict[str, Any] = {"resource_type": resource_type}
+    if isinstance(details, dict):
+        merged_details.update(details)
+    elif details is not None:
+        merged_details["extra"] = details
+    merged_details["resource_id"] = resource_id
+    merged_details["admin_email"] = admin_email
+
+    details_text = json.dumps(merged_details, default=str)
+
+    audit_entry = AdminAuditLog(
+        admin_phone=admin_email,  # column reused for email identity
+        action=action,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        details=details_text,
+    )
+    db_session.add(audit_entry)
+    await db_session.commit()
+    await db_session.refresh(audit_entry)
+    return audit_entry

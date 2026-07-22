@@ -442,7 +442,7 @@ export interface SupportThreadsResponse {
 }
 
 // ============== Charon Escalations ==============
-export interface escalation {
+export interface Escalation {
   id: string;
   conversation_id: string;
   customer_email?: string;
@@ -458,4 +458,96 @@ export interface escalation {
 export interface EscalationsResponse {
   data: Escalation[];
   total: number;
+}
+
+// ============== Admin Audit Log ==============
+export interface AdminAuditLog {
+  id: string;
+  admin_email: string;
+  action: string;
+  resource: string;
+  ip_address: string;
+  created_at: string;
+}
+
+export interface AdminAuditLogResponse {
+  data: AdminAuditLog[];
+  pagination: {
+    page: number;
+    limit: number;
+    total_items: number;
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
+  };
+}
+
+// ============== Admin (Superadmin view) ==============
+export interface Admin {
+  id: string;
+  email: string;
+  phone: string;
+  role: AdminRole;
+  totp_enabled: boolean;
+  locked: boolean;
+  created_at: string;
+  last_used?: string;
+}
+
+export interface AdminCreateRequest {
+  email: string;
+  phone: string;
+  password: string;
+  role: AdminRole;
+}
+
+export interface AdminRoleUpdateRequest {
+  email: string;
+  role: AdminRole;
+}
+
+// ============== Provider Costs ==============
+export interface ProviderCost {
+  provider_name: string;
+  total_orders: number;
+  total_cost_usd: number;
+  margin_estimate_percent: number;
+}
+
+export interface ProviderCostsResponse {
+  providers: ProviderCost[];
+  note?: string;
+}
+
+// ============== System Settings ==============
+export interface SystemSetting {
+  key: string;
+  value: string;
+  updated_at: string;
+}
+
+export interface SystemSettingsResponse {
+  settings: SystemSetting[];
+}
+
+// ============== Global Search ==============
+export interface GlobalSearchResult {
+  id: string;
+  type: 'customer' | 'order' | 'ticket' | 'contact_submission';
+  title: string;
+  subtitle: string;
+  url?: string;
+}
+
+export interface GlobalSearchResponse {
+  results: GlobalSearchResult[];
+  total: number;
+}
+
+// ============== Metrics Overview ==============
+export interface MetricsOverview {
+  total_customers: number;
+  total_orders: number;
+  total_revenue_usd: number;
+  active_credentials: number;
 }

@@ -41,6 +41,19 @@ import type {
   SupportThreadDetail,
   SupportThreadsResponse,
   SupportThreadStatus,
+  Admin,
+  AdminCreateRequest,
+  AdminRoleUpdateRequest,
+  AdminAuditLog,
+  AdminAuditLogResponse,
+  ProviderCost,
+  ProviderCostsResponse,
+  SystemSetting,
+  SystemSettingsResponse,
+  GlobalSearchResult,
+  GlobalSearchResponse,
+  MetricsOverview,
+  AdminRole,
 } from '@/types';
 
 // Admin API calls go through Next.js middleware (src/middleware.ts)
@@ -571,6 +584,128 @@ class ApiClient {
   async updateEscalation(id: string, status: string): Promise<ApiResponse<{ success: boolean }>> {
     return this.request(`/api/admin/escalations/${id}?status=${status}`, {
       method: 'PATCH',
+    });
+  }
+
+  // ============== Admin Team Management (Full CRUD) ==============
+
+  async getAdmins(page: number = 1, limit: number = 20): Promise<ApiResponse<{ admins: Admin[]; pagination: { page: number; limit: number; total_items: number; total_pages: number; has_next: boolean; has_prev: boolean } }>> {
+    return this.request(`/api/admin/admins?page=${page}&limit=${limit}`);
+  }
+
+  async createAdmin(data: AdminCreateRequest): Promise<ApiResponse<{ admin: Admin; message: string }>> {
+    return this.request('/api/admin/admins', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAdminRole(email: string, role: AdminRole): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/admins/role', {
+      method: 'PATCH',
+      body: JSON.stringify({ email, role }),
+    });
+  }
+
+  async lockAdmin(email: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/admins/${encodeURIComponent(email)}/lock`, {
+      method: 'POST',
+    });
+  }
+
+  async unlockAdmin(email: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/admins/${encodeURIComponent(email)}/unlock`, {
+      method: 'POST',
+    });
+  }
+
+  async deactivateAdmin(email: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/admins/${encodeURIComponent(email)}/deactivate`, {
+      method: 'POST',
+    });
+  }
+
+  // ============== Audit Log ==============
+
+  async getAuditLogs(params?: {
+    action?: string;
+    admin_email?: string;
+    date_from?: string;
+    date_to?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<AdminAuditLogResponse>> {
+    const searchParams = new URLSearchParams();
+    if (params?.action) searchParams.append('action', params.action);
+    if (params?.admin_email) searchParams.append('admin_email', params.admin_email);
+    if (params?.date_from) searchParams.append('date_from', params.date_from);
+    if (params?.date_to) searchParams.append('date_to', params.date_to);
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
+    return this.request(`/api/admin/audit-log?${searchParams.toString()}`);
+  }
+
+  // ============== Provider Costs ==============
+
+  async getProviderCosts(): Promise<ApiResponse<ProviderCostsResponse>> {
+    return this.request('/api/admin/providers/costs');
+  }
+
+  // ============== System Settings ==============
+
+  async getSettings(): Promise<ApiResponse<SystemSettingsResponse>> {
+    return this.request('/api/admin/settings');
+  }
+
+  async updateSetting(key: string, value: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ key, value }),
+    });
+  }
+
+  async createSetting(key: string, value: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/settings', {
+      method: 'POST',
+      body: JSON.stringify({ key, value }),
+    });
+  }
+
+  // ============== Global Search ==============
+
+  async globalSearch(q: string): Promise<ApiResponse<GlobalSearchResponse>> {
+    return this.request(`/api/admin/search?q=${encodeURIComponent(q)}`);
+  }
+
+  // ============== Metrics Overview ==============
+
+  async getMetricsOverview(): Promise<ApiResponse<MetricsOverview>> {
+    return this.request('/api/admin/metrics/overview');
+  }
+
+  // ============== Admin Invites (for team page) ==============
+
+  async getAdminInvites(): Promise<ApiResponse<{ invites: Array<{ id: number; email?: string; role: string; invite_code: string; expires_at: string; max_uses: number; uses: number; created_by: string }> }>> {
+    return this.request('/api/admin/auth/invites');
+  }
+
+  async deleteAdminInvite(inviteId: number): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/auth/invites/${inviteId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateTeamMemberRole(phone: string, role: AdminRole): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/auth/team/role', {
+      method: 'PATCH',
+      body: JSON.stringify({ phone, role }),
+    });
+  }
+
+  async lockTeamMember(phone: string, action: 'lock' | 'unlock'): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/auth/team/${action}`, {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
     });
   }
 }
