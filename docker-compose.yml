@@ -1,4 +1,4 @@
-name: bunche-local
+name: styxproxy-local
 
 services:
   postgres:
@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - bunche_local_net
+      - styxproxy_local_net
 
   redis:
     image: redis:7-alpine
@@ -34,7 +34,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - bunche_local_net
+      - styxproxy_local_net
 
   api:
     build:
@@ -46,7 +46,7 @@ services:
     environment:
       # When network_mode=host (default), the api talks to host services
       # directly on 127.0.0.1. When CHARON_LLM_HOST_NETWORK=0, the api stays
-      # in the bunche_local_net bridge and uses hostnames like 'postgres'.
+      # in the styxproxy_local_net bridge and uses hostnames like 'postgres'.
       DATABASE_URL: ${DATABASE_URL_HOST:-postgresql+asyncpg://${POSTGRES_USER:-bunche}:${POSTGRES_PASSWORD:-bunche}@127.0.0.1:5432/${POSTGRES_DB:-bunche}}
       REDIS_URL: ${REDIS_URL_HOST:-redis://127.0.0.1:6379/0}
       # LiteLLM proxy (sidecar) wraps Ollama + cloud fallback. The api
@@ -87,7 +87,7 @@ services:
     # Reconfigure DB / Redis URLs to use 127.0.0.1 when running with
     # network_mode: host (the api reaches host services directly).
     # If CHARON_LLM_HOST_NETWORK=0 (off), the api still runs in the
-    # bunche_local_net bridge and uses the original hostnames.
+    # styxproxy_local_net bridge and uses the original hostnames.
     network_mode: "${CHARON_LLM_HOST_NETWORK:-host}"
 
 # LiteLLM sidecar — re-enabled 2026-07-22 after diagnosing the prior
@@ -118,7 +118,7 @@ services:
     # and confirm "Uvicorn running on" banner.
 
 networks:
-  bunche_local_net:
+  styxproxy_local_net:
     driver: bridge
 
 volumes:
