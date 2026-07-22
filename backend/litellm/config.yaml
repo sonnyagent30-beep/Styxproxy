@@ -19,7 +19,12 @@ model_list:
   - model_name: minicpm5
     litellm_params:
       model: ollama/openbmb/minicpm5:latest
-      api_base: http://172.20.0.1:11434
+      # In host network mode, 127.0.0.1 is the VPS host. If you ever
+      # switch back to bridge network, override by setting
+      # OLLAMA_BASE_URL in the litellm container's env (compose has
+      # the env, but LiteLLM does not expand ${VAR:-default} syntax —
+      # edit this file directly or set the env on the litellm container).
+      api_base: http://127.0.0.1:11434
       timeout: 120
       num_retries: 1
 

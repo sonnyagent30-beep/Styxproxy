@@ -188,13 +188,14 @@ async def health():
     if provider == "cloud":
         api_key_set = bool(os.getenv("MINIMAX_API_KEY"))
     else:
-        # Local provider — "configured" means reachable Ollama endpoint.
-        # Cheap probe; full reachability is confirmed when a /reply
-        # actually returns 2xx.
+        # Local provider — "configured" means the LiteLLM proxy is
+        # reachable AND has finished its init. Probing LiteLLM's
+        # /health/liveliness confirms both the proxy is up and the
+        # master_key challenge works.
         api_key_set = True
         try:
-            base = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
-            probe = httpx.get(f"{base}/api/tags", timeout=2.0)
+            base = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000").rstrip("/")
+            probe = httpx.get(f"{base}/health/liveliness", timeout=2.0)
             api_key_set = probe.status_code == 200
         except Exception:
             api_key_set = False

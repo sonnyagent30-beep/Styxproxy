@@ -1,24 +1,21 @@
 """Charon's LLM client.
 
-Calls the local MiniCPM5 1B model served by Ollama via its
-OpenAI-compatible chat endpoint at /v1/chat/completions. Cloud
-MiniMax-M2 fallback via OpenRouter-compatible endpoint is available
-by setting CHARON_LLM_PROVIDER=cloud.
-
-NOTE (P1-1 Jul 22 2026): Calls Ollama (or MiniMax) DIRECTLY, not via
-LiteLLM. LiteLLM sidecar exists in docker-compose but the api path
-to it is broken — configuration debug tracked separately.
+Calls the local MiniCPM5 1B model via the LiteLLM proxy sidecar
+(OpenAI-compatible chat endpoint at /v1/chat/completions). Cloud
+MiniMax-M2 fallback is available by setting CHARON_LLM_PROVIDER=cloud.
 
 Environment variables:
-  - OLLAMA_BASE_URL: optional override; defaults to http://127.0.0.1:11434
-  - MINICPM_MODEL: optional model name; defaults to "openbmb/minicpm5:latest"
-  - CHARON_LLM_PROVIDER: "local" (default, uses Ollama) or "cloud" (uses MiniMax)
-  - MINIMAX_API_KEY: required only when CHARON_LLM_PROVIDER=cloud
-  - MINIMAX_BASE_URL / MINIMAX_MODEL: cloud provider overrides
+  - LITELLM_BASE_URL: where the LiteLLM proxy listens (default
+    http://127.0.0.1:4000 — same network as the api container)
+  - LITELLM_API_KEY: master key the proxy expects
+  - MINICPM_MODEL: model name to send for local calls (default "minicpm5")
+  - MINIMAX_MODEL: model name to send for cloud calls (default "cloud-minimax-m2")
+  - CHARON_LLM_PROVIDER: "local" (default) or "cloud"
 
-The interface here is stable; swapping model providers is a config change,
-not a code change. MiniCPM5 is on the VPS (84.247.132.12, Ollama on
-host port 11434).
+The interface here is stable; swapping model providers is a config
+change (edit compose env), not a code change. MiniCPM5 1B is on the VPS
+(84.247.132.12, Ollama on host port 11434). LiteLLM sits in front of it
+for unified logging and routing.
 """
 from __future__ import annotations
 
@@ -98,11 +95,19 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
 
 
 def _call_local(messages: list[dict], max_tokens: int) -> LLMResponse:
-    """Call MiniCPM5 via Ollama's OpenAI-compatible /v1/chat/completions."""
-    base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
-    model = os.getenv("MINICPM_MODEL", "openbmb/minicpm5:latest")
+    """Call MiniCPM5 via the LiteLLM proxy (sidecar).
+
+    All provider abstraction lives in the proxy; this client only knows
+    how to speak OpenAI-compatible chat-completions. The LiteLLM proxy
+    itself decides whether to route to local Ollama, cloud MiniMax-M2, or
+    another provider based on the requested `model` name.
+    """
+    base_url = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000").rstrip("/")
+    api_key = os.getenv("LITELLM_API_KEY", "sk-styxproxy-local-dev-only")
+    model = os.getenv("MINICPM_MODEL", "minicpm5")
 
     headers = {
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     payload: dict = {
@@ -125,7 +130,7 @@ def _call_local(messages: list[dict], max_tokens: int) -> LLMResponse:
             timeout=httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0),
         )
     except httpx.HTTPError as exc:
-        logger.warning("LLM (local) transport error: %s", exc)
+        logger.warning("LLM (local via LiteLLM) transport error: %s", exc)
         return LLMResponse(content="", model=model, error=f"transport error: {exc}")
 
     return _parse_openai_compatible_response(resp, model)
