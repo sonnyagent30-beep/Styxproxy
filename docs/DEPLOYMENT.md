@@ -168,17 +168,17 @@ systemctl start postgresql
 ```bash
 sudo -u postgres psql
 
-CREATE USER bunche WITH PASSWORD 'YOUR_STRONG_PASSWORD';
-CREATE DATABASE bunche OWNER bunche;
-GRANT ALL PRIVILEGES ON DATABASE bunche TO bunche;
+CREATE USER styxproxy WITH PASSWORD 'YOUR_STRONG_PASSWORD';
+CREATE DATABASE styxproxy OWNER styxproxy;
+GRANT ALL PRIVILEGES ON DATABASE styxproxy TO styxproxy;
 \q
 ```
 
 ### 3.3 Run Schema
 
 ```bash
-# Connect as bunche user
-sudo -u postgres psql -U bunche -d bunche -h localhost
+# Connect as styxproxy user
+sudo -u postgres psql -U styxproxy -d styxproxy -h localhost
 
 # Paste contents of docs/DATABASE_SCHEMA.md here
 # (all CREATE TABLE statements)
@@ -189,7 +189,7 @@ sudo -u postgres psql -U bunche -d bunche -h localhost
 ```bash
 # /root/.pgpass — root can connect without password prompt
 cat > /root/.pgpass << EOF
-localhost:5432:bunche:bunche:YOUR_BUNCHE_DB_PASSWORD
+localhost:5432:styxproxy:styxproxy:YOUR_STYXPROXY_DB_PASSWORD
 EOF
 chmod 600 /root/.pgpass
 chown root:root /root/.pgpass
@@ -225,8 +225,8 @@ systemctl start pgbouncer
 ### 4.1 Create n8n Docker Compose File
 
 ```bash
-mkdir -p /opt/bunche
-cd /opt/bunche
+mkdir -p /opt/styxproxy
+cd /opt/styxproxy
 nano docker-compose.yml
 ```
 
@@ -246,13 +246,13 @@ services:
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=localhost
       - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_DATABASE=bunche
-      - DB_POSTGRESDB_USER=bunche
+      - DB_POSTGRESDB_DATABASE=styxproxy
+      - DB_POSTGRESDB_USER=styxproxy
       - DB_POSTGRESDB_PASSWORD=YOUR_B...RD
       - EXECUTIONS_DATA_PRUNE=true
       - EXECUTIONS_DATA_MAX_AGE=168
     volumes:
-      - /opt/bunche/data:/home/node/.n8n
+      - /opt/styxproxy/data:/home/node/.n8n
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
       interval: 30s
@@ -263,7 +263,7 @@ services:
 ### 4.2 Start n8n
 
 ```bash
-cd /opt/bunche
+cd /opt/styxproxy
 docker-compose up -d
 
 # Check status
@@ -499,7 +499,7 @@ for i in {1..40}; do curl -s -o /dev/null -w "%{http_code}\n" https://n8n.yourdo
 
 ```bash
 # On VPS — create .env for n8n
-nano /opt/bunche/.env
+nano /opt/styxproxy/.env
 
 # Copy all values from .env.example
 # See: .env.example for full list
@@ -514,7 +514,7 @@ nano /opt/bunche/.env
 
 ```bash
 # Reload n8n after .env changes
-cd /opt/bunche
+cd /opt/styxproxy
 docker-compose down
 docker-compose up -d
 ```
@@ -526,32 +526,32 @@ docker-compose up -d
 ### 9.1 Create Backup Config
 
 ```bash
-mkdir -p /etc/bunche
-cp scripts/backup.conf.example /etc/bunche/backup.conf
-nano /etc/bunche/backup.conf
+mkdir -p /etc/styxproxy
+cp scripts/backup.conf.example /etc/styxproxy/backup.conf
+nano /etc/styxproxy/backup.conf
 # Fill in:
 #   BACKUP_PUBLIC_KEY (from Step 1.7)
-#   POSTGRES_USER, POSTGRES_DB (usually 'bunche')
-#   BACKUP_DIR (recommend /backup/bunche)
-#   RCLONE_REMOTE (r2:bunche-backups/daily)
+#   POSTGRES_USER, POSTGRES_DB (usually 'styxproxy')
+#   BACKUP_DIR (recommend /backup/styxproxy)
+#   RCLONE_REMOTE (r2:styxproxy-backups/daily)
 #   ALERT_WEBHOOK_URL (your backup-alert webhook)
 #   RETENTION_DAYS_LOCAL (7)
 
-chmod 600 /etc/bunche/backup.conf
+chmod 600 /etc/styxproxy/backup.conf
 ```
 
 ### 9.2 Create Backup Directory + Scripts
 
 ```bash
-mkdir -p /backup/bunche
+mkdir -p /backup/styxproxy
 
 # Copy scripts from repo
-curl -o /usr/local/bin/backup-bunche.sh \
-  https://raw.githubusercontent.com/sonnyagent30-beep/styxproxy/main/scripts/backup-bunche.sh
+curl -o /usr/local/bin/backup-styxproxy.sh \
+  https://raw.githubusercontent.com/sonnyagent30-beep/styxproxy/main/scripts/backup-styxproxy.sh
 curl -o /usr/local/bin/backup-monthly-archive.sh \
   https://raw.githubusercontent.com/sonnyagent30-beep/styxproxy/main/scripts/backup-monthly-archive.sh
 
-chmod +x /usr/local/bin/backup-bunche.sh
+chmod +x /usr/local/bin/backup-styxproxy.sh
 chmod +x /usr/local/bin/backup-monthly-archive.sh
 ```
 
@@ -560,8 +560,8 @@ chmod +x /usr/local/bin/backup-monthly-archive.sh
 ```bash
 crontab -e
 # Add these lines:
-0 2 * * * /usr/local/bin/backup-bunche.sh >> /var/log/bunche-backup.log 2>&1
-5 2 1 * * /usr/local/bin/backup-monthly-archive.sh >> /var/log/bunche-backup.log 2>&1
+0 2 * * * /usr/local/bin/backup-styxproxy.sh >> /var/log/styxproxy-backup.log 2>&1
+5 2 1 * * /usr/local/bin/backup-monthly-archive.sh >> /var/log/styxproxy-backup.log 2>&1
 ```
 
 ### 9.4 Schedule Monthly Verification (1st of month, 02:30)
@@ -569,7 +569,7 @@ crontab -e
 ```bash
 crontab -e
 # Add this line:
-30 2 1 * * /usr/local/bin/backup-bunche.sh --verify >> /var/log/bunche-backup.log 2>&1
+30 2 1 * * /usr/local/bin/backup-styxproxy.sh --verify >> /var/log/styxproxy-backup.log 2>&1
 ```
 
 ### 9.5 Schedule Backup Freshness Check (03:00 daily)
@@ -577,7 +577,7 @@ crontab -e
 ```bash
 cat > /usr/local/bin/check-backup-freshness.sh << 'EOF'
 #!/bin/bash
-LATEST=$(find /backup/bunche -name "bunche_*.dump.age" -mtime -1 | head -1)
+LATEST=$(find /backup/styxproxy -name "styxproxy_*.dump.age" -mtime -1 | head -1)
 if [ -z "$LATEST" ]; then
   curl -sS -X POST "https://n8n.yourdomain.com/webhook/backup-alert" \
     -H "Content-Type: application/json" \
@@ -587,7 +587,7 @@ EOF
 chmod +x /usr/local/bin/check-backup-freshness.sh
 
 crontab -e
-# Add: 0 3 * * * /usr/local/bin/check-backup-freshness.sh >> /var/log/bunche-backup.log 2>&1
+# Add: 0 3 * * * /usr/local/bin/check-backup-freshness.sh >> /var/log/styxproxy-backup.log 2>&1
 ```
 
 ---
@@ -642,14 +642,14 @@ make -f Makefile.Linux install
 
 ```bash
 mkdir -p /etc/3proxy /var/log/3proxy
-cat > /etc/3proxy/bunche-trial.cfg << 'EOF'
+cat > /etc/3proxy/styxproxy-trial.cfg << 'EOF'
 #!/usr/local/3proxy/bin/3proxy
 
 # Styxproxy Free Trial Proxy Configuration
 # Managed dynamically by n8n workflow — see scripts/manage-3proxy-trial.sh
 
 daemon
-pidfile /var/run/3proxy-bunche.pid
+pidfile /var/run/3proxy-styxproxy.pid
 nscache 65536
 nserver 8.8.8.8
 
@@ -672,21 +672,21 @@ internal 0.0.0.0
 proxy -p8001-8100
 
 # Logging (optional — for debugging)
-log /var/log/3proxy/bunche-trial.log D
+log /var/log/3proxy/styxproxy-trial.log D
 logformat "- +_L%t.%. %N.%p %E %U %C:%c %R:%r %O %I %h %T"
 EOF
 
 # Replace YOUR_VPS_PUBLIC_IP with actual value
-sed -i "s/YOUR_VPS_PUBLIC_IP/$(curl -s ifconfig.me)/" /etc/3proxy/bunche-trial.cfg
+sed -i "s/YOUR_VPS_PUBLIC_IP/$(curl -s ifconfig.me)/" /etc/3proxy/styxproxy-trial.cfg
 ```
 
 ### 12.3 Start 3proxy
 
 ```bash
-3proxy /etc/3proxy/bunche-trial.cfg
+3proxy /etc/3proxy/styxproxy-trial.cfg
 
 # Verify running
-cat /var/run/3proxy-bunche.pid
+cat /var/run/3proxy-styxproxy.pid
 ps aux | grep 3proxy
 
 # Test it works (will reject without auth)
@@ -728,7 +728,7 @@ chmod +x /usr/local/bin/cleanup-3proxy-trials.sh
 # Add to crontab
 crontab -e
 # Add this line (runs every 5 min, removes expired trials):
-*/5 * * * * /usr/local/bin/cleanup-3proxy-trials.sh >> /var/log/bunche-trial-cleanup.log 2>&1
+*/5 * * * * /usr/local/bin/cleanup-3proxy-trials.sh >> /var/log/styxproxy-trial-cleanup.log 2>&1
 ```
 
 ### 12.6 Test 3proxy Trial Flow
@@ -822,10 +822,10 @@ sudo -u postgres psql -c "SELECT 1"
 redis-cli -a YOUR_REDIS_PASSWORD PING
 
 # Backup freshness
-ls -la /backup/bunche/ | tail -5
+ls -la /backup/styxproxy/ | tail -5
 
 # R2 bucket
-rclone ls r2:bunche-backups/daily/ | tail -5
+rclone ls r2:styxproxy-backups/daily/ | tail -5
 
 # 3proxy running
 ps aux | grep 3proxy | grep -v grep
@@ -865,7 +865,7 @@ If something breaks after a deploy:
 
 ```bash
 # SSH to VPS
-cd /opt/bunche
+cd /opt/styxproxy
 
 # Check git log for last known good commit
 git log --oneline
@@ -883,33 +883,33 @@ docker-compose up -d
 ```bash
 # Restore from backup (see ADR-005 §"Restore Procedure")
 # 1. Stop n8n
-cd /opt/bunche && docker-compose down
+cd /opt/styxproxy && docker-compose down
 
 # 2. Decrypt backup
-age --decrypt /backup/bunche/bunche_2026-06-26.dump.age > /tmp/restore.dump
+age --decrypt /backup/styxproxy/styxproxy_2026-06-26.dump.age > /tmp/restore.dump
 
 # 3. Drop + recreate DB
-sudo -u postgres dropdb bunche
-sudo -u postgres createdb bunche -O bunche
+sudo -u postgres dropdb styxproxy
+sudo -u postgres createdb styxproxy -O styxproxy
 
 # 4. Restore
 pg_restore --dbname=postgres --create /tmp/restore.dump
 
 # 5. Restart n8n
-cd /opt/bunche && docker-compose up -d
+cd /opt/styxproxy && docker-compose up -d
 ```
 
 ### 3proxy Rollback
 
 ```bash
 # Stop 3proxy
-kill $(cat /var/run/3proxy-bunche.pid)
+kill $(cat /var/run/3proxy-styxproxy.pid)
 
 # Restore config from backup
-cp /etc/3proxy/bunche-trial.cfg.bak /etc/3proxy/bunche-trial.cfg
+cp /etc/3proxy/styxproxy-trial.cfg.bak /etc/3proxy/styxproxy-trial.cfg
 
 # Restart
-3proxy /etc/3proxy/bunche-trial.cfg
+3proxy /etc/3proxy/styxproxy-trial.cfg
 
 # Verify
 ps aux | grep 3proxy
@@ -919,11 +919,11 @@ ps aux | grep 3proxy
 
 ```bash
 # Stop n8n
-cd /opt/bunche
+cd /opt/styxproxy
 docker-compose down
 
 # Stop 3proxy
-kill $(cat /var/run/3proxy-bunche.pid)
+kill $(cat /var/run/3proxy-styxproxy.pid)
 
 # All webhooks + trial proxy will return 503
 ```
@@ -999,16 +999,16 @@ See `docs/OPERATIONAL_RUNBOOK.md` for full operations guide.
 
 | Command | What it does |
 |---------|---------------|
-| `cd /opt/bunche && docker-compose restart` | Restart n8n |
-| `cd /opt/bunche && docker-compose logs -f` | View n8n logs |
+| `cd /opt/styxproxy && docker-compose restart` | Restart n8n |
+| `cd /opt/styxproxy && docker-compose logs -f` | View n8n logs |
 | `systemctl restart nginx` | Reload Nginx (rate limit config too) |
-| `sudo -u postgres psql -U bunche -d bunche` | Open DB console |
-| `/usr/local/bin/backup-bunche.sh` | Manual backup |
-| `/usr/local/bin/backup-bunche.sh --verify` | Test restore |
+| `sudo -u postgres psql -U styxproxy -d styxproxy` | Open DB console |
+| `/usr/local/bin/backup-styxproxy.sh` | Manual backup |
+| `/usr/local/bin/backup-styxproxy.sh --verify` | Test restore |
 | `/usr/local/bin/manage-3proxy-trial.sh list` | List active trial users |
 | `/usr/local/bin/manage-3proxy-trial.sh add USER PASS PORT` | Manually add trial user |
 | `/usr/local/bin/manage-3proxy-trial.sh remove USER` | Manually remove trial user |
-| `tail -f /var/log/bunche-trial-cleanup.log` | View cleanup cron output |
+| `tail -f /var/log/styxproxy-trial-cleanup.log` | View cleanup cron output |
 | `nginx -t && systemctl reload nginx` | Test + reload nginx rate limit config |
 
 ---
@@ -1038,19 +1038,19 @@ docker-compose logs n8n
 systemctl status postgresql
 
 # Test connection
-sudo -u postgres psql -U bunche -d bunche -h localhost -c "SELECT 1"
+sudo -u postgres psql -U styxproxy -d styxproxy -h localhost -c "SELECT 1"
 ```
 
 ### Backup failures
 ```bash
 # Check backup log
-tail -50 /var/log/bunche-backup.log
+tail -50 /var/log/styxproxy-backup.log
 
 # Test rclone
 rclone lsd r2:
 
 # Test age decryption (you need the private key uploaded temporarily)
-age --decrypt /backup/bunche/bunche_2026-06-26.dump.age > /tmp/test.dump
+age --decrypt /backup/styxproxy/styxproxy_2026-06-26.dump.age > /tmp/test.dump
 pg_restore --list /tmp/test.dump | head -20
 rm /tmp/test.dump
 # IMPORTANT: re-shred the private key after test
@@ -1104,7 +1104,7 @@ ufw status | grep 8001
 ### Free trial customer can't authenticate
 1. Check active trial list: `manage-3proxy-trial.sh list | grep USERNAME`
 2. Verify expiry: `SELECT expires_at FROM free_trials WHERE user_id = 'USERNAME';`
-3. Check 3proxy config has the user line: `grep USERNAME /etc/3proxy/bunche-trial.cfg`
+3. Check 3proxy config has the user line: `grep USERNAME /etc/3proxy/styxproxy-trial.cfg`
 4. Try from VPS directly: `curl -x http://USER:PASS@localhost:PORT https://api.ipify.org`
 
 ### 3proxy port exhausted (all 100 in use)

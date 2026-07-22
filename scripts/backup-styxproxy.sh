@@ -1,30 +1,30 @@
 #!/bin/bash
 # ============================================================
-# Bunche — Daily PostgreSQL Backup
+# Styxproxy — Daily PostgreSQL Backup
 # ============================================================
-# Usage: backup-bunche.sh [--verify]
+# Usage: backup-styxproxy.sh [--verify]
 #
 # What it does:
-#   1. pg_dump the bunche database (compressed custom format)
-#   2. Encrypt with age using the Bunche backup public key
+#   1. pg_dump the styxproxy database (compressed custom format)
+#   2. Encrypt with age using the Styxproxy backup public key
 #   3. Upload to Cloudflare R2 via rclone
 #   4. Delete local backups older than 7 days
 #   5. Alert admin via n8n webhook if backup size changed >50%
 #      from 7-day average (suggests something wrong)
 #
-# Cron: 0 2 * * * /usr/local/bin/backup-bunche.sh >> /var/log/bunche-backup.log 2>&1
+# Cron: 0 2 * * * /usr/local/bin/backup-styxproxy.sh >> /var/log/styxproxy-backup.log 2>&1
 #
-# Config: /etc/bunche/backup.conf
+# Config: /etc/styxproxy/backup.conf
 #   POSTGRES_USER, POSTGRES_DB, POSTGRES_HOST
 #   BACKUP_DIR, BACKUP_PUBLIC_KEY
-#   RCLONE_REMOTE (e.g. "r2:bunche-backups/daily")
+#   RCLONE_REMOTE (e.g. "r2:styxproxy-backups/daily")
 #   ALERT_WEBHOOK_URL
 #   RETENTION_DAYS_LOCAL
 # ============================================================
 
 set -euo pipefail
 
-CONFIG_FILE="/etc/bunche/backup.conf"
+CONFIG_FILE="/etc/styxproxy/backup.conf"
 if [ ! -f "$CONFIG_FILE" ]; then
   echo "FATAL: $CONFIG_FILE not found" >&2
   exit 1
@@ -34,7 +34,7 @@ source "$CONFIG_FILE"
 
 DATE=$(date +%Y-%m-%d)
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="${BACKUP_DIR}/bunche_${DATE}.dump"
+BACKUP_FILE="${BACKUP_DIR}/styxproxy_${DATE}.dump"
 BACKUP_FILE_ENC="${BACKUP_FILE}.age"
 
 # Ensure backup dir exists
@@ -75,36 +75,36 @@ rclone copy "$BACKUP_FILE_ENC" "${RCLONE_REMOTE}/${DATE}/" \
 
 # 4. Delete local backups older than retention
 echo "[$(date)] Cleaning local backups older than ${RETENTION_DAYS_LOCAL} days"
-find "$BACKUP_DIR" -name "bunche_*.dump.age" -mtime +"$RETENTION_DAYS_LOCAL" -delete
+find "$BACKUP_DIR" -name "styxproxy_*.dump.age" -mtime +"$RETENTION_DAYS_LOCAL" -delete
 
 # 5. Verify mode — restore to a temp file and check it's valid PostgreSQL
 if [ "${1:-}" = "--verify" ]; then
   echo "[$(date)] VERIFY MODE — restoring to temp"
-  TEMP_DUMP="/tmp/bunche_verify_$$.dump"
+  TEMP_DUMP="/tmp/styxproxy_verify_$$.dump"
   age --decrypt --output="$TEMP_DUMP" "$BACKUP_FILE_ENC"
 
   # Spin up a throwaway Postgres container, restore, sanity check
-  docker run --rm -d --name bunche-verify \
+  docker run --rm -d --name styxproxy-verify \
     -e POSTGRES_PASSWORD=verify \
-    -e POSTGRES_DB=bunche \
+    -e POSTGRES_DB=styxproxy \
     postgres:16 >/dev/null
 
   sleep 10  # Wait for postgres to be ready
 
-  docker exec bunche-verify pg_restore \
+  docker exec styxproxy-verify pg_restore \
     --username=postgres \
-    --dbname=bunche \
+    --dbname=styxproxy \
     --no-owner \
     --no-privileges \
     < "$TEMP_DUMP" 2>/dev/null || true
 
-  CUSTOMER_COUNT=$(docker exec bunche-verify psql -U postgres -d bunche -tA \
+  CUSTOMER_COUNT=$(docker exec styxproxy-verify psql -U postgres -d styxproxy -tA \
     -c "SELECT COUNT(*) FROM customers" 2>/dev/null || echo "0")
 
-  ORDER_COUNT=$(docker exec bunche-verify psql -U postgres -d bunche -tA \
+  ORDER_COUNT=$(docker exec styxproxy-verify psql -U postgres -d styxproxy -tA \
     -c "SELECT COUNT(*) FROM orders" 2>/dev/null || echo "0")
 
-  docker stop bunche-verify >/dev/null 2>&1 || true
+  docker stop styxproxy-verify >/dev/null 2>&1 || true
   rm -f "$TEMP_DUMP"
 
   echo "[$(date)] VERIFY: customers=$CUSTOMER_COUNT orders=$ORDER_COUNT"
@@ -116,7 +116,7 @@ fi
 
 # 6. Size sanity check (compare to 7-day average)
 echo "[$(date)] Checking backup size vs 7-day average"
-AVG_SIZE=$(find "$BACKUP_DIR" -name "bunche_*.dump.age" -mtime -7 \
+AVG_SIZE=$(find "$BACKUP_DIR" -name "styxproxy_*.dump.age" -mtime -7 \
   -exec stat -c%s {} \; | awk '{sum+=$1; count++} END {if(count>0) print int(sum/count); else print 0}')
 
 if [ "$AVG_SIZE" -gt 0 ]; then

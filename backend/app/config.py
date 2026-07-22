@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     # ── Required for startup ─────────────────────────────────────────────────
-    database_url: str = "postgresql+asyncpg://user:password@localhost:5432/bunche"
+    database_url: str = "postgresql+asyncpg://user:password@localhost:5432/styxproxy"
 
     # ── JWT (required for auth to work) ─────────────────────────────────────
     jwt_secret: str = "your-jwt-secret-key-change-in-production"
@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     dante_default_port: int = 1080
 
     # ── n8n Webhook (for automation triggers) ────────────────────────────────
-    n8n_webhook_url: str = "https://n8n.bunche.ng/webhook/credentials-delivered"
+    n8n_webhook_url: str = "https://n8n.styxproxy.com/webhook/credentials-delivered"
 
     # ── Sentry ───────────────────────────────────────────────────────────────
     sentry_dsn: str = ""
@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     # ── CORS ────────────────────────────────────────────────────────────────
     cors_origins: List[str] = [
         "http://localhost:3000",
-        "https://bunche.ng",
+        "https://styxproxy.com",
         "https://styxproxy.com",
         "https://www.styxproxy.com",
         "https://api.styxproxy.com",
@@ -125,7 +125,7 @@ class Settings(BaseSettings):
             raise ValueError("\n".join(failures))
 
         # WARN — database URL uses placeholder default; will use localhost
-        if not self.database_url or self.database_url == "postgresql+asyncpg://user:password@localhost:5432/bunche":
+        if not self.database_url or self.database_url == "postgresql+asyncpg://user:password@localhost:5432/styxproxy":
             logger.warning(
                 "DATABASE_URL is using the default placeholder value. "
                 "Set DATABASE_URL to your PostgreSQL connection string."

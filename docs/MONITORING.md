@@ -85,7 +85,7 @@ UptimeRobot can't watch backup freshness directly. We use a custom cron check:
 # /usr/local/bin/check-backup-freshness.sh
 # Runs every day at 03:00 — runs 1 hour after backup script
 
-LATEST=$(find /backup/bunche -name "bunche_*.dump.age" -mtime -1 | head -1)
+LATEST=$(find /backup/styxproxy -name "styxproxy_*.dump.age" -mtime -1 | head -1)
 
 if [ -z "$LATEST" ]; then
   # No backup in last 24h — alert admin

@@ -15,7 +15,7 @@ env:
   COMPOSE_FILE: infrastructure/docker-compose.yml
   DEPLOY_USER: deploy
   DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-  DEPLOY_PATH: /opt/bunche
+  DEPLOY_PATH: /opt/styxproxy
 
 jobs:
 
@@ -39,7 +39,7 @@ jobs:
       - name: Run backup
         run: |
           chmod +x infrastructure/scripts/backup.sh
-          mkdir -p /tmp/bunche-backup-pre-deploy
+          mkdir -p /tmp/styxproxy-backup-pre-deploy
           echo "[INFO] Configure VPS SSH access in repo secrets to enable automated backup"
 
   deploy:
@@ -83,6 +83,6 @@ jobs:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           message: |
-            ⚠️ Bunche Deploy Failed
+            ⚠️ Styxproxy Deploy Failed
             Branch: main · Run: ${{ github.run_id }}
             Link: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

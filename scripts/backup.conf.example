@@ -1,13 +1,13 @@
 # ============================================
-# Bunche Backup Configuration
+# Styxproxy Backup Configuration
 # ============================================
-# Copy to /etc/bunche/backup.conf on VPS
+# Copy to /etc/styxproxy/backup.conf on VPS
 # chmod 600 — root only
 # ============================================
 
 # PostgreSQL connection
-POSTGRES_USER=bunche
-POSTGRES_DB=bunche
+POSTGRES_USER=styxproxy
+POSTGRES_DB=styxproxy
 # Password is read from ~/.pgpass
 # Format: hostname:port:database:username:password
 
@@ -15,10 +15,10 @@ POSTGRES_DB=bunche
 # Backblaze B2 (Free Tier)
 # ============================================
 # 1. Sign up at backblaze.com/b2 (free, no credit card)
-# 2. Create a bucket named: bunche-backups
+# 2. Create a bucket named: styxproxy-backups
 # 3. Create an application key (keyID + applicationKey)
 # 4. Run: rclone config (see below)
-# 5. Initialize repo: restic -r b2:bunche-backups init
+# 5. Initialize repo: restic -r b2:styxproxy-backups init
 #
 # rclone config:
 #   Name: b2

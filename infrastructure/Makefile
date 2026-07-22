@@ -66,7 +66,7 @@ cert-renew:
 	docker compose -f $(COMPOSE_FILE) exec nginx nginx -s reload
 
 db:
-	docker compose -f $(COMPOSE_FILE) exec postgres psql -U bunche -d bunche
+	docker compose -f $(COMPOSE_FILE) exec postgres psql -U styxproxy -d styxproxy
 
 redis-cli:
 	docker compose -f $(COMPOSE_FILE) exec redis redis-cli -a "$$REDIS_PASSWORD"

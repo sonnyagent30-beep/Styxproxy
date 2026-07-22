@@ -33,10 +33,10 @@ admin.styxproxy.com
      ▼
 Backend API: GET /admin/*, POST /admin/*
      │
-     ├── PostgreSQL (bunche database)
+     ├── PostgreSQL (styxproxy database)
      │     ├── instant_orders
      │     ├── platform_accounts
-     │     ├── bunche_credentials
+     │     ├── styxproxy_credentials
      │     ├── admin_auth
      │     └── admin_commands_log
      │

@@ -1,4 +1,4 @@
-# Bunche — Infrastructure
+# Styxproxy — Infrastructure
 
 **Status:** Ready to deploy
 **Stack:** Docker Compose · PostgreSQL 16 · Redis 7 · FastAPI · n8n · PgBouncer · Sentry · Nginx
@@ -10,7 +10,7 @@
 ```bash
 # 1. Clone the repo
 git clone https://github.com/sonnyagent30-beep/styxproxy.git
-cd bunche/infrastructure
+cd styxproxy/infrastructure
 
 # 2. Set up env
 cp .env.production.example .env
@@ -57,7 +57,7 @@ infrastructure/
 │   ├── nginx.conf            # Main config
 │   ├── ssl-params.conf       # TLS hardening
 │   └── conf.d/
-│       └── bunche.conf       # Site routing (+ sentry.styxproxy.com)
+│       └── styxproxy.conf       # Site routing (+ sentry.styxproxy.com)
 ├── postgres/init/
 │   ├── 01-schema.sql        # Tables, indexes, triggers
 │   └── 02-seed.sql          # Products + seed data
@@ -114,8 +114,8 @@ docker compose run --rm sentry createuser
 # 4. Create projects in Sentry UI
 # Visit https://sentry.styxproxy.com
 # Create two projects:
-#   - bunche-api    (FastAPI)
-#   - bunche-n8n   (n8n workflows)
+#   - styxproxy-api    (FastAPI)
+#   - styxproxy-n8n   (n8n workflows)
 # Copy the DSN for each project into your .env
 
 # 5. Restart to pick up DSN
@@ -127,7 +127,7 @@ docker compose restart api n8n
 ```bash
 SENTRY_SECRET_KEY=<openssl rand -hex 64>
 SENTRY_DSN=https://<key>@o123456.ingest.sentry.io/<project_id>
-SENTRY_ORG=Bunche
+SENTRY_ORG=Styxproxy
 SENTRY_ENVIRONMENT=production
 SENTRY_TRACES_SAMPLE_RATE=0.1    # 10% of transactions traced
 ```
@@ -144,8 +144,8 @@ SENTRY_TRACES_SAMPLE_RATE=0.1    # 10% of transactions traced
 
 ### Sentry Projects
 
-- **`bunche-api`** — FastAPI backend: HTTP errors, unhandled exceptions, slow API calls
-- **`bunche-n8n`** — n8n workflows: workflow execution errors, node failures
+- **`styxproxy-api`** — FastAPI backend: HTTP errors, unhandled exceptions, slow API calls
+- **`styxproxy-n8n`** — n8n workflows: workflow execution errors, node failures
 
 ### Rate Limits
 
@@ -160,7 +160,7 @@ URL:     https://styxproxy.com/powerhold?token=<ADMIN_TOKEN>
 Allowed: Team IPs only (firewall + auth_basic)
 ```
 
-See `BUNCHE_OPERATIONAL_WORKFLOW.md` for full admin security details.
+See `STYXPROXY_OPERATIONAL_WORKFLOW.md` for full admin security details.
 
 ---
 
@@ -209,7 +209,7 @@ make cert-renew
 ## Adding New Team IPs
 
 ```bash
-# Edit nginx/conf.d/bunche.conf
+# Edit nginx/conf.d/styxproxy.conf
 # Add to the allow list:
 allow <NEW_IP>;
 # Reload nginx:
@@ -229,14 +229,14 @@ docker compose logs -f sentry
 docker compose logs -f postgres
 
 # Check database connectivity
-docker compose exec postgres psql -U bunche -d bunche
+docker compose exec postgres psql -U styxproxy -d styxproxy
 
 # Check Redis
 docker compose exec redis redis-cli -a $REDIS_PASSWORD ping
 
 # Check PgBouncer
 docker compose exec pgbouncer pgbouncer -V
-echo "SELECT 1;" | docker compose exec -T pgbouncer psql -U bunche -d bunche
+echo "SELECT 1;" | docker compose exec -T pgbouncer psql -U styxproxy -d styxproxy
 
 # Check Sentry
 docker compose exec sentry sentry --version

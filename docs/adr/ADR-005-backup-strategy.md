@@ -47,11 +47,11 @@ Styxproxy's database holds:
         ↓
 [pg_dump --format=custom --compress=9]
         ↓
-[Save to /backup/bunche/bunche_${DATE}.dump]
+[Save to /backup/styxproxy/styxproxy_${DATE}.dump]
         ↓
 [Encrypt with age + Styxproxy backup public key]
         ↓
-[rclone copy → r2:bunche-backups/daily/${DATE}/]
+[rclone copy → r2:styxproxy-backups/daily/${DATE}/]
         ↓
 [Delete local backups >7 days old]
         ↓
@@ -87,20 +87,20 @@ Styxproxy's database holds:
 ssh root@vps
 
 # 2. Stop n8n (don't accept new orders during restore)
-cd /opt/bunche
+cd /opt/styxproxy
 docker-compose down
 
 # 3. List available backups
-ls -la /backup/bunche/
+ls -la /backup/styxproxy/
 
 # 4. Restore just the affected table
-pg_restore --table=customers --dbname=bunche /backup/bunche/bunche_20260626.dump
+pg_restore --table=customers --dbname=styxproxy /backup/styxproxy/styxproxy_20260626.dump
 
 # 5. Verify
-sudo -u postgres psql -U bunche -d bunche -c "SELECT COUNT(*) FROM customers;"
+sudo -u postgres psql -U styxproxy -d styxproxy -c "SELECT COUNT(*) FROM customers;"
 
 # 6. Restart n8n
-cd /opt/bunche
+cd /opt/styxproxy
 docker-compose up -d
 ```
 
@@ -110,11 +110,11 @@ docker-compose up -d
 # 1. Spin up new Hetzner VPS
 # 2. Install PostgreSQL (see DEPLOYMENT.md §3)
 # 3. Pull latest backup from R2
-rclone copy r2:bunche-backups/daily/2026-06-26/ /tmp/restore/
-age --decrypt /tmp/restore/bunche_20260626.dump.age > /tmp/restore/bunche_20260626.dump
+rclone copy r2:styxproxy-backups/daily/2026-06-26/ /tmp/restore/
+age --decrypt /tmp/restore/styxproxy_20260626.dump.age > /tmp/restore/styxproxy_20260626.dump
 
 # 4. Restore
-pg_restore --dbname=bunche --create /tmp/restore/bunche_20260626.dump
+pg_restore --dbname=styxproxy --create /tmp/restore/styxproxy_20260626.dump
 
 # 5. Re-run schema migrations since backup date
 # 6. Verify orders table against Flutterwave transaction log
@@ -137,7 +137,7 @@ Stored in a fireproof safe. Updated quarterly.
 
 ## R2 Bucket Configuration
 
-**Bucket name:** `bunche-backups`
+**Bucket name:** `styxproxy-backups`
 
 **Lifecycle rules:**
 

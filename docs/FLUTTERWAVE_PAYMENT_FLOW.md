@@ -195,7 +195,7 @@ Flutterwave Webhook (charge.completed)
                   ↓ YES
     Generate Styxproxy credentials (Dante username + password)
          ↓
-    INSERT bunche_credentials row
+    INSERT styxproxy_credentials row
          ↓
     Update orders: status = 'fulfilled', fulfilled_at = NOW()
          ↓

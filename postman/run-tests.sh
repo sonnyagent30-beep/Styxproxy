@@ -33,7 +33,7 @@ cat > "$REPORT_DIR/env.json" << ENVEOF
 ENVEOF
 
 # Step 2: Clean DB and setup
-docker exec bunche-local-postgres-1 psql -U bunche -d bunche -c "DELETE FROM admin_invites; DELETE FROM admin_auth; DELETE FROM admin_audit_log;" 2>/dev/null || true
+docker exec styxproxy-local-postgres-1 psql -U styxproxy -d styxproxy -c "DELETE FROM admin_invites; DELETE FROM admin_auth; DELETE FROM admin_audit_log;" 2>/dev/null || true
 
 TOTP=$(python3 -c "import pyotp; print(pyotp.TOTP('$TOTP_SECRET').now())")
 SETUP=$(curl -s -X POST "https://styxproxy.com/api-proxy/api/admin/auth/setup" \
@@ -103,6 +103,6 @@ PYEOF
 fi
 
 # Clean DB
-docker exec bunche-local-postgres-1 psql -U bunche -d bunche -c "DELETE FROM admin_invites; DELETE FROM admin_auth;" 2>/dev/null
+docker exec styxproxy-local-postgres-1 psql -U styxproxy -d styxproxy -c "DELETE FROM admin_invites; DELETE FROM admin_auth;" 2>/dev/null
 
 exit $EXIT_CODE

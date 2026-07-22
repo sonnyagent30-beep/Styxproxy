@@ -205,8 +205,8 @@ IF Both are down:
 ## 7. Website CTAs (What customers see)
 
 **Always show both buttons:**
-- 🟢 WhatsApp button: `https://wa.me/2347032981049?text=Hi%20Bunche!%20I%27d%20like%20to%20order%20proxies.`
-- 🔵 Telegram button: `https://t.me/buncheng?text=Hi%20Bunche!%20I%27d%20like%20to%20order%20proxies.`
+- 🟢 WhatsApp button: `https://wa.me/2347032981049?text=Hi%20Styxproxy!%20I%27d%20like%20to%20order%20proxies.`
+- 🔵 Telegram button: `https://t.me/styxproxyng?text=Hi%20Styxproxy!%20I%27d%20like%20to%20order%20proxies.`
 
 **During failover:**
 - If WhatsApp is down: WhatsApp button replaced with "WhatsApp temporarily unavailable" text + stronger Telegram button
@@ -253,7 +253,7 @@ IF Both are down:
 1. Set up Telegram webhook bridge (telegram-webhook-bridge.js)
 2. Import telegram-order.json into n8n, activate
 3. Import telegram-free-trial.json into n8n, activate
-4. Test: message @BuncheHQ → get order reply ✅
+4. Test: message @StyxproxyHQ → get order reply ✅
 5. Test: free trial flow end-to-end ✅
 
 ### Phase 2: Failover
@@ -297,7 +297,7 @@ IF Both are down:
 - [x] Flutterwave for all payments (not Paystack)
 - [x] "Pay via Local Payment" label on website
 - [x] Failover automatic, no manual switching
-- [x] Admin alerts via Telegram (existing @BuncheHQ bot)
+- [x] Admin alerts via Telegram (existing @StyxproxyHQ bot)
 - [x] Platform accounts table as the identity layer (not phone-based)
 - [x] customers table created at first merge, not at first message
 - [x] Free trial: 1 survey = 2 hours, up to 12 surveys = 24 hours max

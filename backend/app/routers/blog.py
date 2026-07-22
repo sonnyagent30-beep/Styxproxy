@@ -38,7 +38,7 @@ router = APIRouter(prefix="/api/blog", tags=["blog"])
 # Settings
 BLOG_TITLE = "Styxproxy Blog"
 BLOG_DESCRIPTION = "Latest news and updates from Styxproxy"
-BLOG_URL = "https://bunche.ng"
+BLOG_URL = "https://styxproxy.com"
 
 
 def generate_slug(title: str) -> str:

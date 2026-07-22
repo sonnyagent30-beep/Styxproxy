@@ -1,17 +1,17 @@
 #!/bin/bash
 # ============================================================
-# Bunche — Daily Backup Script
+# Styxproxy — Daily Backup Script
 # ============================================================
 # Runs: 0 3 * * * (every day at 3am)
 #
 # What it does:
-#   1. pg_dump the bunche database (custom format, compressed)
+#   1. pg_dump the styxproxy database (custom format, compressed)
 #   2. Restic backup with 'daily' tag to B2
 #   3. Prune B2 snapshots: keep last 30 daily snapshots (30 days)
 #
-# Cron: 0 3 * * * /usr/local/bin/backup-daily.sh >> /var/log/bunche-backup.log 2>&1
+# Cron: 0 3 * * * /usr/local/bin/backup-daily.sh >> /var/log/styxproxy-backup.log 2>&1
 #
-# Config: /etc/bunche/backup.conf
+# Config: /etc/styxproxy/backup.conf
 #   POSTGRES_USER, POSTGRES_DB
 #   RESTIC_PASSWORD
 #
@@ -22,7 +22,7 @@
 
 set -euo pipefail
 
-CONFIG_FILE="/etc/bunche/backup.conf"
+CONFIG_FILE="/etc/styxproxy/backup.conf"
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "[$(date)] FATAL: $CONFIG_FILE not found" >&2
     exit 1
@@ -30,11 +30,11 @@ fi
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
 
-BACKUP_DIR="/backup/bunche/dumps"
+BACKUP_DIR="/backup/styxproxy/dumps"
 mkdir -p "$BACKUP_DIR"
 
 DATE=$(date +%Y%m%d)
-DUMP_FILE="${BACKUP_DIR}/bunche_daily_${DATE}.dump"
+DUMP_FILE="${BACKUP_DIR}/styxproxy_daily_${DATE}.dump"
 
 echo "[$(date)] Starting daily backup..."
 
@@ -57,7 +57,7 @@ echo "[$(date)] Restic backup (daily) → B2..."
 export RESTIC_PASSWORD="${RESTIC_PASSWORD}"
 restic backup \
     "$DUMP_FILE" \
-    --repo "b2:bunche-backups" \
+    --repo "b2:styxproxy-backups" \
     --tag daily \
     --tag "date=${DATE}"
 
@@ -66,11 +66,11 @@ echo "[$(date)] Restic daily backup complete ✓"
 # 3. Prune old daily snapshots (keep last 30 days)
 echo "[$(date)] Pruning B2 daily snapshots (keep last 30)..."
 restic forget \
-    --repo "b2:bunche-backups" \
+    --repo "b2:styxproxy-backups" \
     --keep-daily 30 \
     --prune
 
-DAILY_COUNT=$(restic snapshots --repo "b2:bunche-backups" --tag daily 2>/dev/null | grep -c "daily" || echo "0")
+DAILY_COUNT=$(restic snapshots --repo "b2:styxproxy-backups" --tag daily 2>/dev/null | grep -c "daily" || echo "0")
 echo "[$(date)] Current daily snapshots in B2: $DAILY_COUNT"
 
 echo "[$(date)] Daily backup complete ✓"

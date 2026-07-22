@@ -108,7 +108,7 @@ if (blocked.length > 0) {
   // Generic response — don't reveal we're using phone_hash block
   await sendWhatsApp(senderPhone,
     "🛡️ Your account is currently restricted.\n\n" +
-    "If you believe this is a mistake, contact abuse@bunche.com"
+    "If you believe this is a mistake, contact abuse@styxproxy.com"
   );
   
   // Log the blocked attempt
@@ -269,7 +269,7 @@ Every block + unblock + blocked attempt writes to `customer_audit_log`:
 
 - We store hash, not number → no PII storage of blocked list
 - Customer is told they're "restricted" but not "blocked by phone_hash"
-- Customer can appeal via email (abuse@bunche.com)
+- Customer can appeal via email (abuse@styxproxy.com)
 - Block expires automatically (unless permanent + admin-set)
 - Manual review available if customer disputes
 

@@ -9,7 +9,7 @@
 | Domain | Purpose | Stack | Owner |
 |--------|---------|-------|-------|
 | `styxproxy.com` (apex) | Marketing landing — hero, products, pricing, FAQ, blog, SEO pages | **Separate Next.js project** (static export, no /api) OR pure Astro/HTML | Marketing team |
-| `app.styxproxy.com` | The transactional app — order, checkout, manage, thank-you, account | **Current Next.js project** (Vercel `bunche-api-push`) | Engineering |
+| `app.styxproxy.com` | The transactional app — order, checkout, manage, thank-you, account | **Current Next.js project** (Vercel `styxproxy-api-push`) | Engineering |
 | `admin.styxproxy.com` | Admin login + dashboard — no marketing, no public links | Route group inside app project, **gated by JWT + TOTP + IP allowlist** | Engineering (internal only) |
 
 ---

@@ -35,11 +35,11 @@ Use `.env` file on VPS with strict operational discipline:
 
 | Practice | Why |
 |----------|-----|
-| `.env` lives at `/opt/bunche/.env`, chmod 600, owned by `root` | Only root can read it |
+| `.env` lives at `/opt/styxproxy/.env`, chmod 600, owned by `root` | Only root can read it |
 | `.env.example` is in git, `.env` is in `.gitignore` | Operators copy example, fill in real values |
 | Docker Compose reads env via `env_file:` directive | Never inline secrets in compose YAML |
 | Never log env values (n8n expression: `JSON.stringify($env)` is forbidden) | Logs go to R2 / log aggregator — secrets must never reach them |
-| Backup script strips env from any dumps (pg_dump doesn't include it — n8n config does; we exclude `/opt/bunche/.env` from backups) | Backups in R2 should never contain live secrets |
+| Backup script strips env from any dumps (pg_dump doesn't include it — n8n config does; we exclude `/opt/styxproxy/.env` from backups) | Backups in R2 should never contain live secrets |
 | All keys are scoped per provider (no global admin tokens) | Minimum blast radius per key |
 | Webhook secrets (Flutterwave `verif-hash`, WhatsApp `app secret`) are HMAC-verify-only — no API capability | Compromise lets attacker forge webhooks, not steal funds |
 

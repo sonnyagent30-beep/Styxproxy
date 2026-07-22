@@ -44,7 +44,7 @@
 │                              │  PostgreSQL :5432      │            │
 │                              │  ┌─────────────────┐   │            │
 │                              └──│  PostgreSQL     │───┘            │
-│                                 │  bunche         │                 │
+│                                 │  styxproxy         │                 │
 │                                 │  (all data)     │                 │
 │                                 └─────────────────┘                 │
 │                              │                                    │
@@ -159,7 +159,7 @@ n8n IS involved ONLY in:
 | `platform_accounts` | Telegram + WhatsApp customer accounts |
 | `customers` | Unified customer profile (after merge) |
 | `orders` | Chat-based orders |
-| `bunche_credentials` | Styxproxy username → provider IP mapping |
+| `styxproxy_credentials` | Styxproxy username → provider IP mapping |
 | `free_trials` | Free trial sessions |
 | `pending_trial_surveys` | Theorem Reach postbacks |
 | `merge_requests` | Channel linking requests |
@@ -199,8 +199,8 @@ Customer connects: proxy1.styxproxy.com:1080
 ```
 
 **Scripts:**
-- `manage-bunche-credentials.sh add <username> <password>` → add to Dante userfile + SIGHUP
-- `manage-bunche-credentials.sh revoke <username>` → remove from Dante userfile + SIGHUP
+- `manage-styxproxy-credentials.sh add <username> <password>` → add to Dante userfile + SIGHUP
+- `manage-styxproxy-credentials.sh revoke <username>` → remove from Dante userfile + SIGHUP
 
 **Dante credential format:** `username:$apr1$<hash>` (apache2-utils htpasswd format)
 
@@ -210,8 +210,8 @@ Customer connects: proxy1.styxproxy.com:1080
 
 **Host:** New Styxproxy VPS
 **Ports:** 8001–8100 (100 concurrent trial proxies)
-**Config:** `/etc/3proxy/bunche-trial.cfg`
-**PID:** `/var/run/3proxy-bunche.pid`
+**Config:** `/etc/3proxy/styxproxy-trial.cfg`
+**PID:** `/var/run/3proxy-styxproxy.pid`
 
 3proxy handles free trial proxies separately from Dante. Each trial customer gets a port in the 8001–8100 range with their own username/password.
 
@@ -436,8 +436,8 @@ API_BASE=https://api.styxproxy.com
 # PostgreSQL
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DB=bunche
-POSTGRES_USER=bunche
+POSTGRES_DB=styxproxy
+POSTGRES_USER=styxproxy
 POSTGRES_PASSWORD=<strong-password>
 
 # Redis (async queue)
@@ -456,11 +456,11 @@ DATAIMPULSE_API_URL=https://api.dataimpulse.com
 
 # Email (Resend)
 RESEND_API_KEY=re_xxxx
-EMAIL_FROM=bunche@styxproxy.com
+EMAIL_FROM=styxproxy@styxproxy.com
 
 # 3proxy
-THREEPROXY_CONFIG_PATH=/etc/3proxy/bunche-trial.cfg
-THREEPROXY_PID_PATH=/var/run/3proxy-bunche.pid
+THREEPROXY_CONFIG_PATH=/etc/3proxy/styxproxy-trial.cfg
+THREEPROXY_PID_PATH=/var/run/3proxy-styxproxy.pid
 TRIAL_PORT_START=8001
 TRIAL_PORT_END=8100
 
@@ -479,7 +479,7 @@ RATE_LIMIT_WINDOW_SECONDS=60
 
 ```
 /root/
-├── bunche-api/               # Backend API (Python + FastAPI)
+├── styxproxy-api/               # Backend API (Python + FastAPI)
 │   ├── app/
 │   │   ├── __init__.py
 │   │   ├── main.py            # FastAPI app entry point
@@ -508,7 +508,7 @@ RATE_LIMIT_WINDOW_SECONDS=60
 │   ├── requirements.txt
 │   └── ecosystem.config.js     # PM2 config (uvicorn)
 │
-├── bunche-website/           # Static website (HTML/CSS/JS)
+├── styxproxy-website/           # Static website (HTML/CSS/JS)
 │   ├── index.html
 │   ├── thankyou.html
 │   ├── manage.html
@@ -517,18 +517,18 @@ RATE_LIMIT_WINDOW_SECONDS=60
 │   └── assets/
 │
 ├── scripts/
-│   ├── manage-bunche-credentials.sh  # Dante (paid proxy) credentials
+│   ├── manage-styxproxy-credentials.sh  # Dante (paid proxy) credentials
 │   ├── manage-3proxy-trial.sh        # 3proxy (free trial) credentials
 │   └── cleanup-3proxy-trials.sh      # Expire old trial proxies
 │
 ├── /etc/3proxy/
-│   └── bunche-trial.cfg      # 3proxy config
+│   └── styxproxy-trial.cfg      # 3proxy config
 │
 ├── /var/run/
-│   └── 3proxy-bunche.pid
+│   └── 3proxy-styxproxy.pid
 │
 └── /var/log/
-    └── bunche-trial-cleanup.log
+    └── styxproxy-trial-cleanup.log
 ```
 
 ---

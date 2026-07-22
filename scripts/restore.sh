@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# Bunche — Restore from Backup Script
+# Styxproxy — Restore from Backup Script
 # ============================================================
 # Usage:
 #   restore-latest.sh              — restore most recent backup
@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-CONFIG_FILE="/etc/bunche/backup.conf"
+CONFIG_FILE="/etc/styxproxy/backup.conf"
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "[$(date)] FATAL: $CONFIG_FILE not found" >&2
     exit 1
@@ -29,7 +29,7 @@ source "$CONFIG_FILE"
 
 export RESTIC_PASSWORD="${RESTIC_PASSWORD}"
 
-BACKUP_DIR="/backup/bunche/dumps"
+BACKUP_DIR="/backup/styxproxy/dumps"
 mkdir -p "$BACKUP_DIR"
 
 # -----------------------------------------------
@@ -55,13 +55,13 @@ check_prereqs() {
 list_snapshots() {
     echo "[$(date)] Available snapshots in B2:"
     echo "---"
-    restic snapshots --repo "b2:bunche-backups" --json 2>/dev/null | \
+    restic snapshots --repo "b2:styxproxy-backups" --json 2>/dev/null | \
         python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 for s in sorted(data, key=lambda x: x['time'], reverse=True):
     print(f\"  {s['id'][:8]} | {s['time'][:19]} | tags: {', '.join(s.get('tags',[]))} | {s['files_summary']['total_files']} files\")
-" 2>/dev/null || restic snapshots --repo "b2:bunche-backups"
+" 2>/dev/null || restic snapshots --repo "b2:styxproxy-backups"
 }
 
 # -----------------------------------------------
@@ -70,14 +70,14 @@ for s in sorted(data, key=lambda x: x['time'], reverse=True):
 verify_backup() {
     SNAPSHOT_ID="${1:-latest}"
 
-    echo "[$(date)] VERIFY MODE: restoring to /tmp/bunche-verify/ (no DB overwrite)"
+    echo "[$(date)] VERIFY MODE: restoring to /tmp/styxproxy-verify/ (no DB overwrite)"
 
-    RESTORE_DIR="/tmp/bunche-verify"
+    RESTORE_DIR="/tmp/styxproxy-verify"
     rm -rf "$RESTORE_DIR"
     mkdir -p "$RESTORE_DIR"
 
     echo "[$(date)] Downloading snapshot ${SNAPSHOT_ID}..."
-    restic restore "$SNAPSHOT_ID" --repo "b2:bunche-backups" --target "$RESTORE_DIR"
+    restic restore "$SNAPSHOT_ID" --repo "b2:styxproxy-backups" --target "$RESTORE_DIR"
 
     # Find the dump file
     DUMP_FILE=$(find "$RESTORE_DIR" -name "*.dump" | head -1)
@@ -89,7 +89,7 @@ verify_backup() {
     echo "[$(date)] Found dump file: $DUMP_FILE"
 
     # Create a temp database and restore into it
-    TEMP_DB="bunche_verify_$(date +%s)"
+    TEMP_DB="styxproxy_verify_$(date +%s)"
     echo "[$(date)] Creating temp DB: $TEMP_DB"
     sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${TEMP_DB};"
     sudo -u postgres psql -c "CREATE DATABASE ${TEMP_DB};"
@@ -106,12 +106,12 @@ verify_backup() {
     # Sanity checks
     echo "[$(date)] Running sanity checks..."
     ORDER_COUNT=$(sudo -u postgres psql -d "$TEMP_DB" -tA -c "SELECT COUNT(*) FROM instant_orders;" 2>/dev/null || echo "ERR")
-    CRED_COUNT=$(sudo -u postgres psql -d "$TEMP_DB" -tA -c "SELECT COUNT(*) FROM bunche_credentials;" 2>/dev/null || echo "ERR")
+    CRED_COUNT=$(sudo -u postgres psql -d "$TEMP_DB" -tA -c "SELECT COUNT(*) FROM styxproxy_credentials;" 2>/dev/null || echo "ERR")
     ADMIN_COUNT=$(sudo -u postgres psql -d "$TEMP_DB" -tA -c "SELECT COUNT(*) FROM admin_auth;" 2>/dev/null || echo "ERR")
 
     echo "[$(date)] Sanity check results:"
     echo "  instant_orders:     $ORDER_COUNT rows"
-    echo "  bunche_credentials: $CRED_COUNT rows"
+    echo "  styxproxy_credentials: $CRED_COUNT rows"
     echo "  admin_auth:        $ADMIN_COUNT rows"
 
     # Cleanup
@@ -137,12 +137,12 @@ full_restore() {
     echo "[$(date)] Snapshot: $SNAPSHOT_ID"
     echo "---"
 
-    RESTORE_DIR="/tmp/bunche-restore"
+    RESTORE_DIR="/tmp/styxproxy-restore"
     rm -rf "$RESTORE_DIR"
     mkdir -p "$RESTORE_DIR"
 
     echo "[$(date)] Downloading snapshot..."
-    restic restore "$SNAPSHOT_ID" --repo "b2:bunche-backups" --target "$RESTORE_DIR"
+    restic restore "$SNAPSHOT_ID" --repo "b2:styxproxy-backups" --target "$RESTORE_DIR"
 
     DUMP_FILE=$(find "$RESTORE_DIR" -name "*.dump" | head -1)
     if [ -z "$DUMP_FILE" ]; then
@@ -150,8 +150,8 @@ full_restore() {
         exit 1
     fi
 
-    echo "[$(date)] Stopping bunche-api..."
-    sudo systemctl stop bunche-api 2>/dev/null || true
+    echo "[$(date)] Stopping styxproxy-api..."
+    sudo systemctl stop styxproxy-api 2>/dev/null || true
 
     echo "[$(date)] Dropping and recreating database..."
     sudo -u postgres psql -c "DROP DATABASE IF EXISTS ${POSTGRES_DB};"
@@ -166,8 +166,8 @@ full_restore() {
         --jobs=4 \
         "$DUMP_FILE" 2>&1 | tail -3
 
-    echo "[$(date)] Restarting bunche-api..."
-    sudo systemctl start bunche-api
+    echo "[$(date)] Restarting styxproxy-api..."
+    sudo systemctl start styxproxy-api
 
     # Verify
     FINAL_COUNT=$(sudo -u postgres psql -d "${POSTGRES_DB}" -tA -c "SELECT COUNT(*) FROM instant_orders;" 2>/dev/null || echo "ERR")

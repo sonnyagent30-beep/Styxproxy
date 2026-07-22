@@ -14,9 +14,9 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: bunche
-          POSTGRES_PASSWORD: bunche
-          POSTGRES_DB: bunche_test
+          POSTGRES_USER: styxproxy
+          POSTGRES_PASSWORD: styxproxy
+          POSTGRES_DB: styxproxy_test
         ports:
           - 5432:5432
         options: >-
@@ -41,7 +41,7 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: postgresql+asyncpg://bunche:bunche@localhost:5432/bunche_test
+          DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
           JWT_SECRET: test-jwt-secret-not-real
           ADMIN_TOKEN: test-admin-token-not-real
         run: |

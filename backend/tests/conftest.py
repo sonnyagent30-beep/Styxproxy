@@ -9,7 +9,7 @@ os.environ["TESTING"] = "1"
 # Set test environment variables
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-not-real-32chars-long")
 os.environ.setdefault("ADMIN_TOKEN", "test-admin-token-not-real")
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://bunche:bunche@localhost:5432/bunche_test")
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("LOG_LEVEL", "DEBUG")
 os.environ.setdefault("FLUTTERWAVE_SECRET_KEY", "test-flw-key")

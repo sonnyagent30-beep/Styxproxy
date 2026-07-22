@@ -24,7 +24,7 @@ async def initiate_payment(request: PaymentInitiateRequest, session: AsyncSessio
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
     total_amount = price * request.quantity
     try:
-        result = await create_flutterwave_invoice(amount=total_amount, customer_email=f"{customer.phone}@bunche.ng", customer_phone=customer.phone, currency="NGN", callback_url=request.callback_url, description=f"Payment for {request.plan_code}")
+        result = await create_flutterwave_invoice(amount=total_amount, customer_email=f"{customer.phone}@styxproxy.com", customer_phone=customer.phone, currency="NGN", callback_url=request.callback_url, description=f"Payment for {request.plan_code}")
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to initiate payment: {str(e)}")
     payment_id = str(uuid.uuid4())

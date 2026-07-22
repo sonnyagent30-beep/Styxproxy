@@ -166,19 +166,19 @@ sudo grep -v '^bun_ayomide7:' /etc/danted.users | \
 sudo killall -HUP danted
 ```
 
-### Credential Script (scripts/manage-bunche-credentials.sh)
+### Credential Script (scripts/manage-styxproxy-credentials.sh)
 
 The script handles Dante userlist management:
 
 ```bash
 # Add
-./manage-bunche-credentials.sh add bun_ayomide7 'SecureP@ss123'
+./manage-styxproxy-credentials.sh add bun_ayomide7 'SecureP@ss123'
 
 # Revoke
-./manage-bunche-credentials.sh revoke bun_ayomide7
+./manage-styxproxy-credentials.sh revoke bun_ayomide7
 
 # List active
-./manage-bunche-credentials.sh list
+./manage-styxproxy-credentials.sh list
 ```
 
 ---
@@ -285,10 +285,10 @@ chmod +x /usr/local/bin/cloudflared
 cloudflared tunnel login
 
 # Create tunnel
-cloudflared tunnel create bunche-proxy
+cloudflared tunnel create styxproxy-proxy
 
 # Route subdomain
-cloudflared tunnel route dns bunche-proxy proxy.styxproxy.com
+cloudflared tunnel route dns styxproxy-proxy proxy.styxproxy.com
 
 # Run tunnel
 cloudflared tunnel run --token YOUR_TOKEN proxy.styxproxy.com
@@ -312,13 +312,13 @@ curl --socks5 username:password@localhost:1080 http://checkip.amazonaws.com
 
 ```bash
 # Add test user
-sudo bash scripts/manage-bunche-credentials.sh add testuser 'TestPass123'
+sudo bash scripts/manage-styxproxy-credentials.sh add testuser 'TestPass123'
 
 # Test it works
 curl --socks5 testuser:TestPass123@localhost:1080 http://checkip.amazonaws.com
 
 # Revoke test user
-sudo bash scripts/manage-bunche-credentials.sh revoke testuser
+sudo bash scripts/manage-styxproxy-credentials.sh revoke testuser
 ```
 
 ---
@@ -337,6 +337,6 @@ sudo bash scripts/manage-bunche-credentials.sh revoke testuser
 
 ## See Also
 
-- `scripts/manage-bunche-credentials.sh` — credential management
-- `docs/DATABASE_SCHEMA.md` — `bunche_credentials` table tracks Dante username → provider IP mapping
+- `scripts/manage-styxproxy-credentials.sh` — credential management
+- `docs/DATABASE_SCHEMA.md` — `styxproxy_credentials` table tracks Dante username → provider IP mapping
 - `workflows/WORKFLOW_SPECS.md` — how n8n creates credentials

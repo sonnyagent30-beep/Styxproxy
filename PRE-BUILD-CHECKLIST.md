@@ -1,4 +1,4 @@
-# Bunche — Pre-Build Checklist
+# Styxproxy — Pre-Build Checklist
 
 **Purpose:** Everything that must be in place before writing the first line of code.
 **Updated:** 2026-07-01
@@ -46,7 +46,7 @@ These are the real blockers. Nothing can be built or tested without them.
 
 ---
 
-## Phase 2: VPS Setup (New Bunche VPS)
+## Phase 2: VPS Setup (New Styxproxy VPS)
 
 Buy VPS → install → configure. Do this before writing any backend code.
 
@@ -146,7 +146,7 @@ Point `styxproxy.com` and `api.styxproxy.com` A records to the new VPS IP.
 Create `/root/styxproxy-api/.env`:
 
 ```bash
-# Bunche Backend API
+# Styxproxy Backend API
 NODE_ENV=production
 PORT=8080
 DOMAIN=https://styxproxy.com
@@ -154,8 +154,8 @@ DOMAIN=https://styxproxy.com
 # PostgreSQL
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DB=bunche
-POSTGRES_USER=bunche
+POSTGRES_DB=styxproxy
+POSTGRES_USER=styxproxy
 POSTGRES_PASSWORD=<generate strong password>
 
 # Flutterwave
@@ -171,11 +171,11 @@ DATAIMPULSE_API_URL=https://api.dataimpulse.com
 
 # Email (Resend)
 RESEND_API_KEY=<from Resend dashboard>
-EMAIL_FROM=bunche@styxproxy.com
+EMAIL_FROM=styxproxy@styxproxy.com
 
 # 3proxy Management
-THREEPROXY_CONFIG_PATH=/etc/3proxy/bunche-trial.cfg
-THREEPROXY_PID_PATH=/var/run/3proxy-bunche.pid
+THREEPROXY_CONFIG_PATH=/etc/3proxy/styxproxy-trial.cfg
+THREEPROXY_PID_PATH=/var/run/3proxy-styxproxy.pid
 TRIAL_PORT_START=8001
 TRIAL_PORT_END=8100
 
@@ -208,7 +208,7 @@ sudo certbot --nginx -d styxproxy.com -d www.styxproxy.com -d api.styxproxy.com
 
 ## Phase 5: n8n Setup (on Current VPS or New VPS?)
 
-**Decision needed:** Should n8n live on the current VPS (84.247.132.12) or move to the new Bunche VPS?
+**Decision needed:** Should n8n live on the current VPS (84.247.132.12) or move to the new Styxproxy VPS?
 
 | Option | Pros | Cons |
 |---|---|---|
@@ -221,7 +221,7 @@ sudo certbot --nginx -d styxproxy.com -d www.styxproxy.com -d api.styxproxy.com
 
 | Credential | Where to get |
 |---|---|
-| PostgreSQL | Connect n8n to Bunche PostgreSQL on new VPS |
+| PostgreSQL | Connect n8n to Styxproxy PostgreSQL on new VPS |
 | Telegram Bot API | Use bot token from @BotFather |
 | WhatsApp Business API | Use credentials from Meta |
 | Theorem Reach | API key from Theorem Reach dashboard |
@@ -294,8 +294,8 @@ Follow prompts → copy bot token
 ### 2. Configure Bot
 
 ```
-BotFather → /setname → Bunche Support
-BotFather → /setdescription → Your Bunche proxy assistant
+BotFather → /setname → Styxproxy Support
+BotFather → /setdescription → Your Styxproxy proxy assistant
 BotFather → /setabouttext → Get ISP, datacenter, residential & mobile proxies
 BotFather → /setcommands → Add: start, order, trial, help, manage
 ```
@@ -352,7 +352,7 @@ Verify Token: <random string you choose>
 - **Cloud API** (Meta's hosted) — easier setup, subscription-based pricing
 - **On-Premises API** — self-hosted, more control, requires VPS
 
-**Recommendation for Bunche:** WhatsApp Cloud API (simpler, no VPS needed for WhatsApp).
+**Recommendation for Styxproxy:** WhatsApp Cloud API (simpler, no VPS needed for WhatsApp).
 
 ---
 

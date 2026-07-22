@@ -12,7 +12,7 @@
 |------|--------|-----------|
 | **Host** | Cloudflare Pages | Free, fast, already using Cloudflare (DNS + DDoS + R2) |
 | **Stack** | Pure HTML + CSS (no framework) | Lightning fast, no build step, no npm deps, easy to host |
-| **Repo** | New repo: `sonnyagent30-beep/bunche-web` | Separate from backend repo (different lifecycle) |
+| **Repo** | New repo: `sonnyagent30-beep/styxproxy-web` | Separate from backend repo (different lifecycle) |
 | **Domain** | `styxproxy.com` (already planned) | Primary domain |
 | **CTA** | Single WhatsApp button: `wa.me/234XXXXXXXXXX?text=prefilled` | One-tap to conversation |
 | **Legal hosting** | Static HTML pages at `/terms`, `/privacy`, `/aup` | SEO-friendly, fast, easy to update |
@@ -34,7 +34,7 @@ styxproxy.com/
 ├── /terms               → Terms of Service (static HTML)
 ├── /privacy             → Privacy Policy (static HTML)
 ├── /aup                 → Acceptable Use Policy (static HTML)
-└── /contact             → WhatsApp CTA + abuse@bunche.com email
+└── /contact             → WhatsApp CTA + abuse@styxproxy.com email
 ```
 
 **For Phase 1: only `/`, `/terms`, `/privacy`, `/aup` are required.**
@@ -132,7 +132,7 @@ Below the pricing table, add a "Which proxy do I need?" section that matches use
 
 ```
 🇳🇬 Made in Lagos · WhatsApp-first · [Terms] · [Privacy] · [AUP]
-Abuse: abuse@bunche.com
+Abuse: abuse@styxproxy.com
 ```
 
 ---
@@ -180,10 +180,10 @@ styxproxy.com/aup         → ACCEPTABLE_USE_POLICY.md rendered
 
 ---
 
-## Repo Structure: `bunche-web`
+## Repo Structure: `styxproxy-web`
 
 ```
-sonnyagent30-beep/bunche-web/
+sonnyagent30-beep/styxproxy-web/
 ├── index.html              → Landing page
 ├── terms.html              → Terms of Service
 ├── privacy.html            → Privacy Policy
@@ -206,11 +206,11 @@ sonnyagent30-beep/bunche-web/
 
 ```bash
 # Create new repo on GitHub
-gh repo create bunche-web --public --description "Styxproxy landing page"
+gh repo create styxproxy-web --public --description "Styxproxy landing page"
 
 # Clone locally
-git clone git@github.com:sonnyagent30-beep/bunche-web.git
-cd bunche-web
+git clone git@github.com:sonnyagent30-beep/styxproxy-web.git
+cd styxproxy-web
 
 # Create initial files
 mkdir -p css
@@ -224,17 +224,17 @@ git push
 
 1. Go to: dash.cloudflare.com → Pages
 2. Click **Create application** → **Pages** → **Connect to Git**
-3. Select `sonnyagent30-beep/bunche-web` repo
+3. Select `sonnyagent30-beep/styxproxy-web` repo
 4. Build settings:
    - **Build command:** (leave empty — no build needed)
    - **Build output directory:** `/` (or `.`)
    - **Root directory:** (leave empty)
 5. Click **Save and Deploy**
-6. Cloudflare gives a `*.bunche-web.pages.dev` URL
+6. Cloudflare gives a `*.styxproxy-web.pages.dev` URL
 
 ### Step 3: Add custom domain
 
-1. Cloudflare Pages → bunche-web → Custom domains
+1. Cloudflare Pages → styxproxy-web → Custom domains
 2. Add: `styxproxy.com` (and `www.styxproxy.com` if you want)
 3. Cloudflare auto-creates DNS records (you'll see them in DNS)
 
@@ -247,7 +247,7 @@ Cloudflare Pages auto-provisions SSL via Let's Encrypt. No action needed.
 ## CTA Button — Exact HTML
 
 ```html
-<a href="https://wa.me/234XXXXXXXXXX?text=Hi%20Bunche!%20I%27d%20like%20to%20try%20your%20proxies."
+<a href="https://wa.me/234XXXXXXXXXX?text=Hi%20Styxproxy!%20I%27d%20like%20to%20try%20your%20proxies."
    class="cta-button"
    target="_blank"
    rel="noopener">
@@ -309,14 +309,14 @@ Options:
 
 | File | Purpose | Status |
 |------|---------|--------|
-| `bunche-web/index.html` | Landing page (hero + pricing + use-cases + CTA) | TODO |
-| `bunche-web/terms.html` | ToS rendered | TODO |
-| `bunche-web/privacy.html` | Privacy rendered | TODO |
-| `bunche-web/aup.html` | AUP rendered | TODO |
-| `bunche-web/contact.html` | Contact info | TODO |
-| `bunche-web/css/style.css` | Stylesheet | TODO |
-| `bunche-web/README.md` | Repo docs | TODO |
-| `bunche-web/.gitignore` | Standard | TODO |
+| `styxproxy-web/index.html` | Landing page (hero + pricing + use-cases + CTA) | TODO |
+| `styxproxy-web/terms.html` | ToS rendered | TODO |
+| `styxproxy-web/privacy.html` | Privacy rendered | TODO |
+| `styxproxy-web/aup.html` | AUP rendered | TODO |
+| `styxproxy-web/contact.html` | Contact info | TODO |
+| `styxproxy-web/css/style.css` | Stylesheet | TODO |
+| `styxproxy-web/README.md` | Repo docs | TODO |
+| `styxproxy-web/.gitignore` | Standard | TODO |
 
 **This doc (STATIC_WEBSITE_PLAN.md) is the design blueprint. Implementation comes next.**
 
@@ -325,7 +325,7 @@ Options:
 ## Open Decisions for Dannion
 
 1. **WhatsApp number:** personal or dedicated?
-2. **Site name:** `bunche-web` repo OK or different?
+2. **Site name:** `styxproxy-web` repo OK or different?
 3. **CTA wording:** "Chat on WhatsApp" vs "Try Free Now" vs other?
 4. **Default language:** English only or add pidgin/yoruba/igbo later?
 5. **Phase 1 pages:** just `/`, `/terms`, `/privacy`, `/aup` or also `/pricing`, `/how-it-works`, `/faq`?

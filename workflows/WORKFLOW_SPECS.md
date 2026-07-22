@@ -1,7 +1,7 @@
-# Bunche — Workflow Specifications
+# Styxproxy — Workflow Specifications
 
 **Last Updated:** 2026-07-15
-**SHA:** Bunche-Fulfillment-v1
+**SHA:** Styxproxy-Fulfillment-v1
 **Status:** Fulfillment pipeline built (Railway backend); n8n for delivery only
 
 ---
@@ -9,7 +9,7 @@
 ## Table of Contents
 
 1. [Products & Data Model](#products--data-model)
-2. [Bunche Auth Layer](#bunche-auth-layer)
+2. [Styxproxy Auth Layer](#styxproxy-auth-layer)
 3. [Workflows](#workflows)
 4. [Data Alert System](#data-alert-system)
 5. [Referral System](#referral-system)
@@ -29,7 +29,7 @@
 | **Proxy-Seller** | ISP, Datacenter | Primary |
 | **DataImpulse** | Residential, Mobile | Secondary |
 | **Rayobyte** | DC Rotating | Future |
-| **Self-hosted Dante** | ALL products (auth layer) | Bunche-branded auth |
+| **Self-hosted Dante** | ALL products (auth layer) | Styxproxy-branded auth |
 
 ### Products & Tracking
 
@@ -44,11 +44,11 @@
 
 ---
 
-## Bunche Auth Layer
+## Styxproxy Auth Layer
 
 ### How It Works
 
-All customers receive Bunche-branded proxy credentials. The actual proxy IPs are sourced from vetted infrastructure partners but customers interact only with Bunche.
+All customers receive Styxproxy-branded proxy credentials. The actual proxy IPs are sourced from vetted infrastructure partners but customers interact only with Styxproxy.
 
 ```
 Customer sees:   proxy1.styxproxy.com:1080
@@ -56,9 +56,9 @@ Customer sees:   proxy1.styxproxy.com:1080
                  password: P@ssw0rd!
                         │
                         ▼
-              Bunche Dante SOCKS5 Server (Hetzner)
+              Styxproxy Dante SOCKS5 Server (Hetzner)
                         │
-              Maps Bunche username → Provider IP
+              Maps Styxproxy username → Provider IP
                         │
                         ▼
             Vetted infrastructure partners
@@ -71,8 +71,8 @@ Customer sees:   proxy1.styxproxy.com:1080
 1. Customer pays → Flutterwave webhook to Railway
 2. Railway calls provider API → gets raw provider IP + credentials
 3. Railway tests proxy (up to 5 retries) — alive + fast enough
-4. Railway registers on Dante → generates Bunche username/password → routes to upstream IP
-5. Railway saves `BuncheCredential` to DB (branded creds stored, raw hidden)
+4. Railway registers on Dante → generates Styxproxy username/password → routes to upstream IP
+5. Railway saves `StyxproxyCredential` to DB (branded creds stored, raw hidden)
 6. Railway updates order: paid → fulfilled
 7. Railway triggers n8n webhook: `POST /webhook/credentials-delivered`
 8. Railway sends email with credentials + PDF receipt link
@@ -96,7 +96,7 @@ Customer sees:   proxy1.styxproxy.com:1080
 **Refund Flow:**
 1. Admin approves refund on Flutterwave dashboard
 2. Flutterwave processes refund → webhook to Railway
-3. Railway revokes BuncheCredential in DB
+3. Railway revokes StyxproxyCredential in DB
 4. Railway calls Dante → revoke credential
 5. Railway calls n8n webhook: credential revoked
 6. n8n sends WhatsApp/Telegram: "Your order has been refunded"
@@ -112,8 +112,8 @@ Customer sees:   proxy1.styxproxy.com:1080
 
 | Scenario | Action |
 |---------|--------|
-| New paying customer | Add Bunche credential → deliver → track in DB |
-| Refund approved | Revoke Bunche credential → recycle IP to free_trial pool |
+| New paying customer | Add Styxproxy credential → deliver → track in DB |
+| Refund approved | Revoke Styxproxy credential → recycle IP to free_trial pool |
 | Free trial starts | Assign from free_trial pool → send with 2hr TTL |
 | Free trial expires | Revoke credential → IP stays in free_trial pool |
 | Paid order expires | Revoke credential → no recycle (customer must renew) |
@@ -171,17 +171,17 @@ Customer sees:   proxy1.styxproxy.com:1080
         │        └── All fail → trigger refund automatically
         └── PASS → Continue
         ↓
-[Generate Bunche credentials]
+[Generate Styxproxy credentials]
   bun_username = bun_{CUSTOMER_ID}
   bun_password = random 16-char
         ↓
-[Call manage-bunche-credentials.sh add bun_USERNAME bun_PASSWORD]
+[Call manage-styxproxy-credentials.sh add bun_USERNAME bun_PASSWORD]
         ↓
-[INSERT into bunche_credentials table]
+[INSERT into styxproxy_credentials table]
         ↓
 [INSERT into orders table]
         ↓
-[Send WhatsApp: Bunche-branded credentials]
+[Send WhatsApp: Styxproxy-branded credentials]
   "✅ Payment confirmed!
   
   🌐 Your Proxy Details:
@@ -221,20 +221,20 @@ Customer sees:   proxy1.styxproxy.com:1080
 ### Workflow 6: Refund Handler
 
 **Trigger:** Admin approves refund OR Flutterwave refund webhook
-**Purpose:** Revoke Bunche credentials and recycle IP
+**Purpose:** Revoke Styxproxy credentials and recycle IP
 
 ```
 [Refund Approved: flutterwave OR admin command]
         ↓
 [Look up order in orders table]
         ↓
-[Look up bunche_credentials record]
+[Look up styxproxy_credentials record]
         ↓
 [If not found → log error, skip credential revoke step]
         ↓
-[Call manage-bunche-credentials.sh revoke bun_USERNAME]
+[Call manage-styxproxy-credentials.sh revoke bun_USERNAME]
         ↓
-[Update bunche_credentials: status='revoked', revoke_reason='refund']
+[Update styxproxy_credentials: status='revoked', revoke_reason='refund']
         ↓
 [IF provider IP can be recycled (monthly IP, not GB-based)]
   → Insert new temp credential in free_trial pool
@@ -242,7 +242,7 @@ Customer sees:   proxy1.styxproxy.com:1080
   → bun_password = random
   → pool_type = 'refunded_recycled'
   → expires_at = NOW() + 2 hours
-  → Bunche sends WhatsApp: "IP recycled to free trial pool"
+  → Styxproxy sends WhatsApp: "IP recycled to free trial pool"
         ↓
 [Update orders: status='refunded']
         ↓
@@ -262,7 +262,7 @@ Customer sees:   proxy1.styxproxy.com:1080
 ### Workflow 8: Free Trial (Self-Hosted Dante + Survey)
 
 **Trigger:** Customer says "free trial" / "free plan" / "trial"
-**Purpose:** Grant 2-hour trial via Survey + dynamic Bunche credentials
+**Purpose:** Grant 2-hour trial via Survey + dynamic Styxproxy credentials
 
 #### Part A: Customer-Facing Flow
 
@@ -295,7 +295,7 @@ Customer sees:   proxy1.styxproxy.com:1080
 
 ```
 [Check free_trial_pool for available IP]
-  → SELECT * FROM bunche_credentials 
+  → SELECT * FROM styxproxy_credentials 
     WHERE pool_type = 'free_trial' 
     AND status = 'available'
     LIMIT 1
@@ -304,9 +304,9 @@ Customer sees:   proxy1.styxproxy.com:1080
         ↓
 [Generate session password: Sess@2hr! + random]
         ↓
-[Call manage-bunche-credentials.sh add trial_XXXX sess_PASS]
+[Call manage-styxproxy-credentials.sh add trial_XXXX sess_PASS]
         ↓
-[UPDATE bunche_credentials SET:
+[UPDATE styxproxy_credentials SET:
   customer_phone = phone,
   status = 'active',
   expires_at = NOW() + INTERVAL '2 hours',
@@ -324,14 +324,14 @@ Customer sees:   proxy1.styxproxy.com:1080
 ```
 [Cron: every 5 minutes]
         ↓
-[SELECT FROM bunche_credentials
+[SELECT FROM styxproxy_credentials
   WHERE pool_type IN ('free_trial', 'refunded_recycled')
   AND status = 'active'
   AND expires_at < NOW()]
         ↓
 [For each expired credential:]
-  [Call manage-bunche-credentials.sh revoke TRIAL_USER]
-  [UPDATE bunche_credentials SET:
+  [Call manage-styxproxy-credentials.sh revoke TRIAL_USER]
+  [UPDATE styxproxy_credentials SET:
     status = 'available',
     customer_phone = NULL,
     expires_at = NULL]
@@ -355,7 +355,7 @@ Customer sees:   proxy1.styxproxy.com:1080
 
 ---
 
-### Workflow 11: Bunche Logger
+### Workflow 11: Styxproxy Logger
 
 (Same as before — unchanged)
 
@@ -455,18 +455,18 @@ Customer WhatsApp
         ↓
 [Redis — caching + sessions + rate limits]
         ↓
-[PostgreSQL — customers, orders, audit logs, bunche_credentials]
+[PostgreSQL — customers, orders, audit logs, styxproxy_credentials]
         ↓
 [MiniMax M2 API — LLM]
         ↓
 [Provider APIs — Proxy-Seller, DataImpulse]
         ↓
-[Dante SOCKS5 — Bunche credential auth]
+[Dante SOCKS5 — Styxproxy credential auth]
         ↓
 [WhatsApp reply]
 ```
 
-### Bunche Credential Flow
+### Styxproxy Credential Flow
 
 ```
 n8n order workflow
@@ -476,16 +476,16 @@ Proxy-Seller / DataImpulse API
   ← returns: IP, Port, Provider Username, Provider Password
         │
         ▼
-Generate Bunche credentials
+Generate Styxproxy credentials
   bun_username = bun_{customer_id}
   bun_password = random 16-char
         │
         ▼
-Write to PostgreSQL: bunche_credentials table
+Write to PostgreSQL: styxproxy_credentials table
   ← stores: bun_username, password_hash, provider details, status
         │
         ▼
-Call manage-bunche-credentials.sh add USERNAME PASSWORD
+Call manage-styxproxy-credentials.sh add USERNAME PASSWORD
         │
         ▼
 Dante reloads → new user is valid
@@ -494,7 +494,7 @@ Dante reloads → new user is valid
 Customer connects: proxy1.styxproxy.com:1080
   - Dante authenticates with bun_USERNAME + bun_PASSWORD
   - Dante routes to upstream provider IP
-  - Customer sees Bunche-branded proxy
+  - Customer sees Styxproxy-branded proxy
 ```
 
 ---
@@ -517,7 +517,7 @@ Customer connects: proxy1.styxproxy.com:1080
 |----------|-------------|----------------|------------|
 | Proxy-Seller | GET /balance | POST /api/v1/order/create | N/A (time-based) |
 | DataImpulse | GET /account | POST /reseller/order/create | GET /reseller/order/{id} |
-| **Dante** | `pgrep danted` | `manage-bunche-credentials.sh` | `bunche_credentials.expires_at` |
+| **Dante** | `pgrep danted` | `manage-styxproxy-credentials.sh` | `styxproxy_credentials.expires_at` |
 
 ---
 
@@ -528,7 +528,7 @@ Customer connects: proxy1.styxproxy.com:1080
 | Trial stats | Low | Show today's trial count, active trials, slots used |
 | Revoke trial USER | Medium | Force-remove a trial user (admin override) |
 | List active trials | Low | Show all active trial user_ids + expiry times |
-| Revoke credential USER | Medium | Revoke paying customer's Bunche credential |
+| Revoke credential USER | Medium | Revoke paying customer's Styxproxy credential |
 | Check credential USER | Low | Show credential status in DB |
 
 ---
@@ -547,7 +547,7 @@ Customer connects: proxy1.styxproxy.com:1080
 | 8 | **Free Trial (Dante + Survey)** | **Ready — updated for Dante auth** |
 | 9 | Free Trial Follow-Up | Ready |
 | 10 | Trial Reset | Ready |
-| 11 | Bunche Logger | Ready |
+| 11 | Styxproxy Logger | Ready |
 | 12 | Provider Health Logger | Ready |
 | 13 | Daily Summary | Ready |
 | 14 | Data Alert Escalation | Ready |
@@ -559,9 +559,9 @@ Customer connects: proxy1.styxproxy.com:1080
 
 - `docs/REFERRAL_SYSTEM.md` — Full referral system specification
 - `docs/DEAD_IP_REPLACEMENT_POLICY.md` — Dead IP retry flow
-- `docs/DATABASE_SCHEMA.md` — PostgreSQL schema including `bunche_credentials`
+- `docs/DATABASE_SCHEMA.md` — PostgreSQL schema including `styxproxy_credentials`
 - `docs/DANTE_SETUP.md` — Dante SOCKS5 installation and configuration
-- `scripts/manage-bunche-credentials.sh` — Dante credential management script
+- `scripts/manage-styxproxy-credentials.sh` — Dante credential management script
 - `scenarios/2026-06-26-free-trial.md` — Free trial scenario
 - `scenarios/2026-06-26-first-time-order.md` — Paid first-time flow
 - `scenarios/2026-06-26-refund-flow.md` — Refund scenario
