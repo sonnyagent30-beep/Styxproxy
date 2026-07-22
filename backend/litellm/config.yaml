@@ -45,10 +45,11 @@ litellm_settings:
   telemetry: false
   request_timeout: 120
 
-# Auth: don't require a master key (DEV sidecar — api → litellm is
-# trust-loopback). Enable master_key + database_url when you want
-# virtual keys or spend tracking.
-general_settings:
-  # Master key. The api container sends LITELLM_API_KEY in the
-  # Authorization header; the proxy checks it against this master_key.
-  master_key: os.environ/LITELLM_API_KEY
+# Auth: loopback trust only — the api container talks to LiteLLM via
+# 127.0.0.1, so no master_key is needed. LiteLLM's master_key auth
+# requires a Postgres database (it stores virtual keys + spend logs in
+# Prisma, and SQLite is not supported by LiteLLM's Prisma layer). For
+# a dev sidecar, loopback trust is enough. Re-enable master_key +
+# database_url when you want virtual keys, spend tracking, or
+# team-level access control.
+general_settings: {}
