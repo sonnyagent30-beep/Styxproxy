@@ -4,10 +4,10 @@
 
 LABEL="${1:-manual}"
 TS=$(date +%Y-%m-%d_%H%M%S)
-ARCHIVE="/root/bunche/_archive/snapshots/${TS}_${LABEL}"
+ARCHIVE="/root/styxproxy/_archive/snapshots/${TS}_${LABEL}"
 mkdir -p "$ARCHIVE"
 
-cd /root/bunche
+cd /root/styxproxy
 
 # Files that aren't tracked by git but might be in the working tree
 git ls-files --others --exclude-standard | tar -cf "$ARCHIVE/untracked.tar" -T -

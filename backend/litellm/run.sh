@@ -32,7 +32,7 @@ fi
 
 # Ensure the prior compose-managed container is gone (port 4000 only one
 # owner at a time).
-docker rm -f bunche-local-litellm-1 2>/dev/null || true
+docker rm -f styxproxy-local-litellm-1 2>/dev/null || true
 
 DOCKER_RUN_ARGS=(
     --rm

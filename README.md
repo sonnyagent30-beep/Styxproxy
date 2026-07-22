@@ -126,7 +126,7 @@ This enables instant revoke on refund and free trial recycling.
 ## Repository Structure
 
 ```
-bunche/
+styxproxy/
 ├── SPEC.md                    ← Source of truth (product decisions)
 ├── PRE-BUILD-CHECKLIST.md     ← What to set up before coding
 ├── docs/

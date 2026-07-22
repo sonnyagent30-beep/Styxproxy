@@ -1,4 +1,4 @@
-# Bunche — Product SPEC
+# Styxproxy — Product SPEC
 **Last Updated:** 2026-07-01
 **Status:** Planning — Ready for Build
 
@@ -42,14 +42,14 @@ Customer → styxproxy.com → Select product + country
     Email receipt sent (optional, just IP + order number)
 ```
 
-**What Bunche stores:**
+**What Styxproxy stores:**
 - `tx_ref` (Flutterwave's transaction reference = order number)
 - Product purchased
 - Amount paid
 - IP generated
 - Timestamp
 
-**What Bunche does NOT store:**
+**What Styxproxy does NOT store:**
 - Customer name
 - Customer email (unless they enter it for receipt)
 - Customer phone
@@ -108,11 +108,11 @@ Complain flow:
 ```
 Customer → "I want free trial" / "free trial"
     ↓
-    Bunche explains: complete surveys → earn time
+    Styxproxy explains: complete surveys → earn time
     ↓
     Customer does surveys on Theorem Reach
     ↓
-    Theorem Reach postback → Bunche webhook (records survey)
+    Theorem Reach postback → Styxproxy webhook (records survey)
     ↓
     Survey count × 2hr = total trial time (max 24hr)
     ↓
@@ -136,12 +136,12 @@ Customer → "I want free trial" / "free trial"
 - Customer identified by chat_id
 - No phone number required
 - Customer can use @username or anonymous
-- Bunche stores: chat_id, username (if set), name (if shared)
+- Styxproxy stores: chat_id, username (if set), name (if shared)
 
 **WhatsApp:**
 - Customer identified by phone number hash
 - Phone number required to have WhatsApp account
-- Bunche stores: phone hash (not actual number), display name (if shared)
+- Styxproxy stores: phone hash (not actual number), display name (if shared)
 
 **No linking required** — Telegram and WhatsApp operate independently.
 - Customer can use both without linking
@@ -271,7 +271,7 @@ CREATE INDEX idx_instant_status ON instant_orders(status);
 - Receive Flutterwave webhooks → generate IP → store in instant_orders
 - Receive Theorem Reach webhooks → record in pending_trial_surveys
 - Expose management portal endpoints (check status, renew, complain redirect)
-- All Bunche workflows run via n8n calling this backend
+- All Styxproxy workflows run via n8n calling this backend
 
 ---
 
@@ -317,7 +317,7 @@ Implications for the build:
 | Layer | Technology | Why |
 |---|---|---|
 | Backend API | **Python 3.11+ + FastAPI** | Async by default, Pydantic validation, scale to 10k |
-| Database | **PostgreSQL** | All Bunche data |
+| Database | **PostgreSQL** | All Styxproxy data |
 | Async queue | **Redis** | Background job processing for webhooks |
 | Process manager | **Uvicorn** | ASGI server for FastAPI |
 | Paid proxy auth | **Dante SOCKS5** | Customer connects to Dante → routed to upstream provider IP |

@@ -1,4 +1,4 @@
-# BUNCHE OPERATIONAL WORKFLOW
+# STYXPROXY OPERATIONAL WORKFLOW
 ## Monthly Single-Unit Proxy Reseller Operations
 
 ---
@@ -19,7 +19,7 @@
 | Admin URL | `styxproxy.com/powerhold` |
 | Token | `rsu1JwfywmIZNIPiIWxy8VOu3oRZR0vnI2kfcq/6WlI=` |
 | Token ENV var | `ADMIN_TOKEN` |
-| Allowed IPs | Home + Bunche VPS itself + open for additions |
+| Allowed IPs | Home + Styxproxy VPS itself + open for additions |
 
 ```
 styxproxy.com/powerhold        ← team bookmark (codename)
@@ -43,7 +43,7 @@ sudo ufw allow from <NEW_IP> to any port 443
 ```bash
 # Generate new token
 openssl rand -base64 32
-# Update ~/.bunche_secrets.env
+# Update ~/.styxproxy_secrets.env
 # Update all team bookmarks
 ```
 

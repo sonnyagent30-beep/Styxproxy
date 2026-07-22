@@ -1,5 +1,5 @@
 -- ─────────────────────────────────────────────────────────
--- Bunche — Seed Data
+-- Styxproxy — Seed Data
 -- Run AFTER 01-schema.sql
 -- ─────────────────────────────────────────────────────────
 
@@ -30,7 +30,7 @@ INSERT INTO products (sku, name, category, description, buy_cost_usd, sell_price
 
 -- ── Admin customer ─────────────────────────────────────────
 INSERT INTO customers (id, phone, email, name, is_active) VALUES
-  ('00000000-0000-0000-0000-000000000001', '+2347032981049', 'admin@bunche.ng', 'Bunche Admin', TRUE)
+  ('00000000-0000-0000-0000-000000000001', '+2347032981049', 'admin@styxproxy.com', 'Styxproxy Admin', TRUE)
 ON CONFLICT (phone) DO NOTHING;
 
 -- ── System event ─────────────────────────────────────────

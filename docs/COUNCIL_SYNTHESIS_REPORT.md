@@ -177,7 +177,7 @@ The 3 council reviewers converged on the **right critical issues**. Most overlap
 ### Priority 1 (must do before launch)
 
 1. **Build static website** (1-2 days)
-   - Create `bunche-web` repo
+   - Create `styxproxy-web` repo
    - Write `index.html`, `terms.html`, `privacy.html`, `aup.html`
    - Deploy to Cloudflare Pages
    - Connect `styxproxy.com` domain

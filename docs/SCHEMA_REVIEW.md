@@ -15,7 +15,7 @@
 | **Design approach** | Simplified, phone-centric | Multi-account with platform_accounts + merge |
 | **Authentication** | Phone-based (`phone PK`) | Platform-based (`platform_user_id` per channel) |
 | **Account merging** | ❌ Not supported | ✅ Explicit merge flow |
-| **Credentials table** | `proxy_credentials` (simple) | `bunche_credentials` (with Dante mapping) |
+| **Credentials table** | `proxy_credentials` (simple) | `styxproxy_credentials` (with Dante mapping) |
 | **Free trials** | ❌ Not in schema | ✅ `free_trials` + `pending_trial_surveys` |
 | **Webhook idempotency** | ✅ `flutterwave_ref UNIQUE` | ✅ `processed_webhooks` table |
 | **Admin auth** | ❌ Not in schema | ✅ `admin_auth` + `admin_commands_log` |
@@ -47,7 +47,7 @@ The `DATABASE_SCHEMA.md` uses `platform_accounts` as the core identity layer:
 |-------------|---------|----------|
 | `platform_accounts` | Per-channel identity (Telegram/WhatsApp) | 🔴 Critical |
 | `merge_requests` | OTP-based account merging | 🔴 Critical |
-| `bunche_credentials` | Dante SOCKS5 username ↔ provider IP mapping | 🔴 Critical |
+| `styxproxy_credentials` | Dante SOCKS5 username ↔ provider IP mapping | 🔴 Critical |
 | `free_trials` | Free trial tracking (surveys → proxy) | 🟡 Medium |
 | `pending_trial_surveys` | Theorem Reach postback records | 🟡 Medium |
 | `customer_audit_log` | Immutable per-platform-account audit trail | 🟡 Medium |
@@ -68,7 +68,7 @@ At 10K concurrent, PostgreSQL default `max_connections=100` exhausts immediately
 
 ```python
 # FastAPI database config
-DATABASE_URL = "postgresql+asyncpg://bunche:password@postgres:5432/bunche"
+DATABASE_URL = "postgresql+asyncpg://styxproxy:password@postgres:5432/styxproxy"
 
 # SQLAlchemy async engine
 engine = create_async_engine(
@@ -109,7 +109,7 @@ LIMIT 10;
 
 The `proxy_credentials` table is just an IP/port tracker. It doesn't track the **Dante SOCKS5 username** that Styxproxy issues to customers.
 
-**Fix:** Use `bunche_credentials` from `DATABASE_SCHEMA.md`:
+**Fix:** Use `styxproxy_credentials` from `DATABASE_SCHEMA.md`:
 - `bun_username` — what customer uses to auth to Dante
 - `password_hash` — bcrypt
 - `dante_port` — which Dante port this credential maps to

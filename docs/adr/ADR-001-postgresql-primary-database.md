@@ -63,7 +63,7 @@ As Styxproxy moves toward a real business with real orders, we need a real datab
 
 ## Implementation
 
-PostgreSQL runs on the same VPS as n8n. Connection via `postgresql://bunche:password@localhost:5432/bunche`. pgBouncer sits in front for connection pooling.
+PostgreSQL runs on the same VPS as n8n. Connection via `postgresql://styxproxy:password@localhost:5432/styxproxy`. pgBouncer sits in front for connection pooling.
 
 Schema defined in `docs/DATABASE_SCHEMA.md`.
 

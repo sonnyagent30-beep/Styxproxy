@@ -1,5 +1,5 @@
 # PgBouncer userlist — maps PostgreSQL users to PgBouncer
 # Format: "username" "password_hash"
-# For MD5 auth: generate with: echo -n "passwordusername" | md5sum | cut -d' ' -f1 | awk '{print "\"bunche\" \"md5"$1"\""}'
+# For MD5 auth: generate with: echo -n "passwordusername" | md5sum | cut -d' ' -f1 | awk '{print "\"styxproxy\" \"md5"$1"\""}'
 # Simple approach: use the same credentials as PostgreSQL
-"bunche" "bunche"
+"styxproxy" "styxproxy"

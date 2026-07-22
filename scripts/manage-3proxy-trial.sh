@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# Bunche — 3proxy Free Trial User Manager
+# Styxproxy — 3proxy Free Trial User Manager
 # ============================================================
 # Manages dynamic trial user credentials in 3proxy config.
 # Called by n8n workflow on Theorem Reach postback (add)
@@ -13,15 +13,15 @@
 #   manage-3proxy-trial.sh count
 #
 # Config (env vars, with defaults):
-#   THREEPROXY_CONFIG_PATH=/etc/3proxy/bunche-trial.cfg
-#   THREEPROXY_PID_PATH=/var/run/3proxy-bunche.pid
+#   THREEPROXY_CONFIG_PATH=/etc/3proxy/styxproxy-trial.cfg
+#   THREEPROXY_PID_PATH=/var/run/3proxy-styxproxy.pid
 #   THREEPROXY_USER_PREFIX=trial_
 # ============================================================
 
 set -euo pipefail
 
-CONFIG_PATH="${THREEPROXY_CONFIG_PATH:-/etc/3proxy/bunche-trial.cfg}"
-PID_PATH="${THREEPROXY_PID_PATH:-/var/run/3proxy-bunche.pid}"
+CONFIG_PATH="${THREEPROXY_CONFIG_PATH:-/etc/3proxy/styxproxy-trial.cfg}"
+PID_PATH="${THREEPROXY_PID_PATH:-/var/run/3proxy-styxproxy.pid}"
 USER_PREFIX="${THREEPROXY_USER_PREFIX:-trial_}"
 
 LOG_PREFIX="[manage-3proxy]"

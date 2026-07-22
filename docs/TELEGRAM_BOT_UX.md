@@ -660,7 +660,7 @@ User                              Bot
   │    │                                          │
   │    │ Reference: BUN-2026-0701-008            │
   │    │                                          │
-  │    │ ℹ️ Send proof to @bunche_admin          │
+  │    │ ℹ️ Send proof to @styxproxy_admin          │
   │    │                                          │
   │    │ [🔄 Check Payment]  [❌ Cancel Order]   │
   │    └──────────────────────────────────────────┘
@@ -832,7 +832,7 @@ Bot: "Something went wrong. Returning to main menu."
 │                                         │
 │  IP: 103.45.67.89                      │
 │  Port: 8080                            │
-│  User: bunche_user_xyz                 │
+│  User: styxproxy_user_xyz                 │
 │  Pass: ••••••••                       │
 │                                         │
 │  [📋 Copy Credentials]                  │

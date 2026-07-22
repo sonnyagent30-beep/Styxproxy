@@ -1,17 +1,17 @@
 #!/bin/bash
 #===============================================================================
-# manage-bunche-credentials.sh
-# Manages Bunche Dante SOCKS5 credentials.
+# manage-styxproxy-credentials.sh
+# Manages Styxproxy Dante SOCKS5 credentials.
 # Adds, revokes, rotates, and lists credentials in /etc/danted.users.
 #
 # Usage:
-#   ./manage-bunche-credentials.sh add    <username> <password>
-#   ./manage-bunche-credentials.sh revoke <username>
-#   ./manage-bunche-credentials.sh rotate <username> <new_password>
-#   ./manage-bunche-credentials.sh list
-#   ./manage-bunche-credentials.sh free_trial <username> <password>
+#   ./manage-styxproxy-credentials.sh add    <username> <password>
+#   ./manage-styxproxy-credentials.sh revoke <username>
+#   ./manage-styxproxy-credentials.sh rotate <username> <new_password>
+#   ./manage-styxproxy-credentials.sh list
+#   ./manage-styxproxy-credentials.sh free_trial <username> <password>
 #
-# Author: Bunche
+# Author: Styxproxy
 # Last Updated: 2026-06-27
 #===============================================================================
 
@@ -19,7 +19,7 @@ set -e
 
 DANTED_USERS_FILE="/etc/danted.users"
 DANTED_PID_FILE="/var/run/danted.pid"
-LOG_FILE="/var/log/bunche-credentials.log"
+LOG_FILE="/var/log/styxproxy-credentials.log"
 
 #-------------------------------------------------------------------------------
 # Logging
@@ -168,7 +168,7 @@ rotate_credential() {
 # List all credentials (without showing full hashes)
 #-------------------------------------------------------------------------------
 list_credentials() {
-    echo "=== Bunche Dante Credentials ==="
+    echo "=== Styxproxy Dante Credentials ==="
     echo "File: $DANTED_USERS_FILE"
     echo ""
     
@@ -238,7 +238,7 @@ case "$1" in
         add_free_trial "$2" "$3"
         ;;
     *)
-        echo "Bunche Credential Manager"
+        echo "Styxproxy Credential Manager"
         echo "=========================="
         echo ""
         echo "Usage:"

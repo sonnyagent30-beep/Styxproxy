@@ -7,7 +7,7 @@
 
 ## Overview
 
-Replaces Google Sheets with self-hosted PostgreSQL for scalability and reliability. Includes the `bunche_credentials` table for mapping Styxproxy usernames to provider IPs via the Dante auth layer.
+Replaces Google Sheets with self-hosted PostgreSQL for scalability and reliability. Includes the `styxproxy_credentials` table for mapping Styxproxy usernames to provider IPs via the Dante auth layer.
 
 **Key design principle:** Not every Nigerian number has WhatsApp. Phone number cannot be the common identifier between channels. Instead, each platform (Telegram, WhatsApp) has its own account record. Customers can optionally merge them when they choose.
 
@@ -163,7 +163,7 @@ CREATE TABLE orders (
     provider_order_id VARCHAR(100),
 
     -- Styxproxy credential issued for this order
-    bunche_credential_id INT REFERENCES bunche_credentials(id),
+    styxproxy_credential_id INT REFERENCES styxproxy_credentials(id),
 
     status VARCHAR(50) DEFAULT 'pending',  -- 'pending_payment', 'paid', 'fulfilled', 'active', 'expired', 'cancelled', 'refunded'
     ip_tested BOOLEAN DEFAULT FALSE,
@@ -198,12 +198,12 @@ CREATE INDEX idx_orders_created ON orders(created_at DESC);
 
 ---
 
-### bunche_credentials
+### styxproxy_credentials
 
 Maps Styxproxy-branded usernames to provider proxy IPs. This is the core of the auth layer.
 
 ```sql
-CREATE TABLE bunche_credentials (
+CREATE TABLE styxproxy_credentials (
     id SERIAL PRIMARY KEY,
 
     -- Styxproxy username issued to customer
@@ -239,11 +239,11 @@ CREATE TABLE bunche_credentials (
     gb_used DECIMAL(10,2) DEFAULT 0
 );
 
-CREATE INDEX idx_bunche_cred_username ON bunche_credentials(bun_username);
-CREATE INDEX idx_bunche_cred_platform_account ON bunche_credentials(platform_account_id);
-CREATE INDEX idx_bunche_cred_status ON bunche_credentials(status);
-CREATE INDEX idx_bunche_cred_pool ON bunche_credentials(pool_type, status);
-CREATE INDEX idx_bunche_cred_expires ON bunche_credentials(expires_at)
+CREATE INDEX idx_styxproxy_cred_username ON styxproxy_credentials(bun_username);
+CREATE INDEX idx_styxproxy_cred_platform_account ON styxproxy_credentials(platform_account_id);
+CREATE INDEX idx_styxproxy_cred_status ON styxproxy_credentials(status);
+CREATE INDEX idx_styxproxy_cred_pool ON styxproxy_credentials(pool_type, status);
+CREATE INDEX idx_styxproxy_cred_expires ON styxproxy_credentials(expires_at)
     WHERE expires_at IS NOT NULL AND status = 'active';
 ```
 
@@ -268,7 +268,7 @@ CREATE TABLE free_trials (
     total_hours INT DEFAULT 0,  -- surveys_completed × 2
 
     -- Credential details (set once, when customer says "done")
-    bunche_credential_id INT REFERENCES bunche_credentials(id),
+    styxproxy_credential_id INT REFERENCES styxproxy_credentials(id),
 
     status VARCHAR(20) DEFAULT 'pending',  -- 'pending' (doing surveys), 'active' (creds sent), 'expired', 'dead'
     disclaimer_accepted BOOLEAN DEFAULT FALSE,
@@ -548,7 +548,7 @@ CREATE INDEX idx_webhook_log_failures ON webhook_security_log(verified, timestam
 |-------|-----------|
 | customer_audit_log | 7 years (compliance) |
 | orders | 7 years (financial records) |
-| bunche_credentials | 7 years (credential audit trail) |
+| styxproxy_credentials | 7 years (credential audit trail) |
 | error_log | 1 year |
 | admin_commands_log | 1 year |
 | admin_sessions_log | 1 year |
@@ -645,13 +645,13 @@ sudo apt install postgresql postgresql-contrib
 # Create database and user
 sudo -u postgres psql
 
-CREATE USER bunche WITH PASSWORD 'YOUR_STRONG_PASSWORD';
-CREATE DATABASE bunche OWNER bunche;
-GRANT ALL PRIVILEGES ON DATABASE bunche TO bunche;
+CREATE USER styxproxy WITH PASSWORD 'YOUR_STRONG_PASSWORD';
+CREATE DATABASE styxproxy OWNER styxproxy;
+GRANT ALL PRIVILEGES ON DATABASE styxproxy TO styxproxy;
 \q
 
-# Connect as bunche user
-psql -U bunche -d bunche -h localhost
+# Connect as styxproxy user
+psql -U styxproxy -d styxproxy -h localhost
 
 # Run schema (paste contents of this file)
 \i schema.sql

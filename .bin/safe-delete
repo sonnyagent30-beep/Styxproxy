@@ -5,7 +5,7 @@
 
 set -e
 
-ARCHIVE="/root/bunche/_archive/snapshots/$(date +%Y-%m-%d_%H%M%S)_$$"
+ARCHIVE="/root/styxproxy/_archive/snapshots/$(date +%Y-%m-%d_%H%M%S)_$$"
 mkdir -p "$ARCHIVE"
 
 if [ $# -eq 0 ]; then
@@ -20,7 +20,7 @@ for path in "$@"; do
     continue
   fi
 
-  # Flatten the path: /root/bunche/foo/bar.ts → root_bunche_foo_bar.ts
+  # Flatten the path: /root/styxproxy/foo/bar.ts → root_styxproxy_foo_bar.ts
   safe_name="$(echo "$path" | sed 's|/|_|g; s|^_*||')"
 
   if [ -d "$path" ]; then
@@ -45,5 +45,5 @@ for path in "$@"; do
 done
 
 echo ""
-echo "To restore from git: git -C /root/bunche checkout <commit> -- <path>"
+echo "To restore from git: git -C /root/styxproxy checkout <commit> -- <path>"
 echo "To restore from archive: cp -r $ARCHIVE/<safe-name>{,.dir} <path>"

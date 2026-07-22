@@ -1,11 +1,11 @@
-# Bunche — Docker Compose
+# Styxproxy — Docker Compose
 # ─────────────────────────────────────────────────────────────
 # Services: api, n8n, postgres, redis, pgbouncer, sentry, nginx
 # Usage:   docker compose up -d
 # Env:     cp .env.production.example .env && edit .env
 # ─────────────────────────────────────────────────────────────
 
-name: bunche
+name: styxproxy
 
 services:
 
@@ -14,19 +14,19 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: bunche
+      POSTGRES_DB: styxproxy
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d bunche"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d styxproxy"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - bunche_net
+      - styxproxy_net
 
   # ── Cache / Queue ─────────────────────────────────────────
   redis:
@@ -41,7 +41,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - bunche_net
+      - styxproxy_net
 
   # ── PgBouncer — n8n connection pooling ───────────────────
   # n8n uses this for persistent connections.
@@ -50,7 +50,7 @@ services:
     image: pgbouncer/pgbouncer:latest
     restart: unless-stopped
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bunche"
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/styxproxy"
       POOL_MODE: transaction
       MAX_CLIENT_CONN: 500
       DEFAULT_POOL_SIZE: 20
@@ -73,7 +73,7 @@ services:
       timeout: 5s
       retries: 3
     networks:
-      - bunche_net
+      - styxproxy_net
 
   # ── API Backend ────────────────────────────────────────────
   api:
@@ -83,7 +83,7 @@ services:
     restart: unless-stopped
     environment:
       # FastAPI uses asyncpg — driver prefix is postgres+asyncpg://
-      DATABASE_URL: postgres+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/bunche
+      DATABASE_URL: postgres+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/styxproxy
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
 
       # Payment
@@ -118,7 +118,7 @@ services:
       timeout: 10s
       retries: 3
     networks:
-      - bunche_net
+      - styxproxy_net
 
   # ── n8n Workflow Automation ────────────────────────────────
   # n8n connects to PostgreSQL via PgBouncer (transaction pooling)
@@ -130,10 +130,10 @@ services:
       # n8n → PgBouncer → PostgreSQL
       DB_POSTGRESDB_HOSTNAME: pgbouncer
       DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: bunche
+      DB_POSTGRESDB_DATABASE: styxproxy
       DB_POSTGRESDB_USER: ${POSTGRES_USER}
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
-      N8N_POSTGRES_DB: bunche
+      N8N_POSTGRES_DB: styxproxy
       EXECUTIONS_MODE: ${EXECUTIONS_MODE:-regular}
       EXECUTIONS_TIMEOUT: ${EXECUTIONS_TIMEOUT:-300}
       GENERIC_TIMEZONE: Africa/Lagos
@@ -158,7 +158,7 @@ services:
       timeout: 10s
       retries: 3
     networks:
-      - bunche_net
+      - styxproxy_net
 
   # ── Sentry — Error Tracking + APM ────────────────────────
   # Self-hosted Sentry on-premise
@@ -166,9 +166,9 @@ services:
     image: sentry:${SENTRY_VERSION:-latest}
     restart: unless-stopped
     environment:
-      SENTRY_ORG: ${SENTRY_ORG:-Bunche}
-      SENTRY_PROJECT: ${SENTRY_PROJECT:-bunche-api}
-      SENTRY_PROJECT_N8N: ${SENTRY_PROJECT_N8N:-bunche-n8n}
+      SENTRY_ORG: ${SENTRY_ORG:-Styxproxy}
+      SENTRY_PROJECT: ${SENTRY_PROJECT:-styxproxy-api}
+      SENTRY_PROJECT_N8N: ${SENTRY_PROJECT_N8N:-styxproxy-n8n}
       SENTRY_URL: ${SENTRY_URL:-http://sentry:9000}
       SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:?SENTRY_SECRET_KEY is required}
       SENTRY_EMAIL_HOST: ${SENTRY_EMAIL_HOST:-smtp}
@@ -190,7 +190,7 @@ services:
     volumes:
       - sentry_data:/var/lib/sentry/data
     networks:
-      - bunche_net
+      - styxproxy_net
 
   # ── Reverse Proxy + SSL ───────────────────────────────────
   nginx:
@@ -215,7 +215,7 @@ services:
       timeout: 5s
       retries: 3
     networks:
-      - bunche_net
+      - styxproxy_net
 
   # ── Certbot (run manually for SSL) ───────────────────────
   certbot:
@@ -226,7 +226,7 @@ services:
       - certbot_www:/var/www/certbot
 
 networks:
-  bunche_net:
+  styxproxy_net:
     driver: bridge
 
 volumes:

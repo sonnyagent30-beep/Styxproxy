@@ -52,7 +52,7 @@
 
 ### WORKSTREAM 6: Scenarios → RAG → Charon Knowledge Base
 
-**Context:** 12 scenario files exist at `/root/workspace/bunche/scenarios/`. Each captures canonical customer/admin flows as turn-by-turn replays with system behavior + replies.
+**Context:** 12 scenario files exist at `/root/workspace/styxproxy/scenarios/`. Each captures canonical customer/admin flows as turn-by-turn replays with system behavior + replies.
 
 **Sample scenarios covered:**
 - First-time order (greeting → menu → order → payment → delivery)
@@ -471,9 +471,9 @@ API:     api.styxproxy.com (FastAPI on VPS Docker)
          └── /api/platform/* → public product/pricing API
 
 VPS:     84.247.132.12 (Docker stack)
-         ├── bunche-local-api-1      (FastAPI, port 8000)
-         ├── bunche-local-postgres-1 (PostgreSQL, port 5432)
-         ├── bunche-local-redis-1    (Redis, port 6379)
+         ├── styxproxy-local-api-1      (FastAPI, port 8000)
+         ├── styxproxy-local-postgres-1 (PostgreSQL, port 5432)
+         ├── styxproxy-local-redis-1    (Redis, port 6379)
          └── ollama (MiniCPM5 1B, port 11434)
 ```
 

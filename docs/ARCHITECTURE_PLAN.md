@@ -153,7 +153,7 @@ Handles thousands of concurrent connections from n8n without overwhelming Postgr
 ```bash
 # /etc/pgbouncer/pgbouncer.ini
 [databases]
-bunche = host=localhost port=5432 dbname=bunche
+styxproxy = host=localhost port=5432 dbname=styxproxy
 
 [pgbouncer]
 pool_mode = transaction
@@ -231,10 +231,10 @@ def get_llm_intent(message):
 
 ```bash
 # Daily backup at 2 AM
-pg_dump bunche | gzip > /backup/bunche_$(date +%Y%m%d).sql.gz
+pg_dump styxproxy | gzip > /backup/styxproxy_$(date +%Y%m%d).sql.gz
 
 # Upload to R2 (Cloudflare R2 — $0/month for 10GB)
-rclone copy /backup/bunche_*.gz r2:bunche-backups/
+rclone copy /backup/styxproxy_*.gz r2:styxproxy-backups/
 
 # Retention: 30 days locally, 90 days on R2
 ```
@@ -261,8 +261,8 @@ rclone copy /backup/bunche_*.gz r2:bunche-backups/
 # PostgreSQL
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DB=bunche
-POSTGRES_USER=bunche
+POSTGRES_DB=styxproxy
+POSTGRES_USER=styxproxy
 POSTGRES_PASSWORD=YOUR_STRONG_PASSWORD
 
 # Redis

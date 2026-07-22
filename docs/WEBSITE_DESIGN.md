@@ -156,7 +156,7 @@ Using `<details>` HTML elements:
 
 🤖 Telegram Bot
    Automated ordering 24/7.
-   [Open Telegram] → https://t.me/BuncheBot
+   [Open Telegram] → https://t.me/StyxproxyBot
 
 📧 Email
    hello@styxproxy.com
@@ -193,7 +193,7 @@ Browses Products + Pricing pages
          ↓
 Clicks "Try Telegram Bot"
          ↓
-Telegram opens to @BuncheBot
+Telegram opens to @StyxproxyBot
          ↓
 Clicks /start → /order flow
          ↓

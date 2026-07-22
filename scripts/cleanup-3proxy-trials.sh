@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================================
-# Bunche — 3proxy Free Trial Cleanup Cron
+# Styxproxy — 3proxy Free Trial Cleanup Cron
 # ============================================================
 # Removes expired trial users from 3proxy config + marks
 # them as 'expired' in PostgreSQL.
@@ -18,7 +18,7 @@ set -euo pipefail
 
 LOG_PREFIX="[cleanup-3proxy]"
 MANAGE_SCRIPT="${MANAGE_SCRIPT:-/usr/local/bin/manage-3proxy-trial.sh}"
-LOG_FILE="${LOG_FILE:-/var/log/bunche-trial-cleanup.log}"
+LOG_FILE="${LOG_FILE:-/var/log/styxproxy-trial-cleanup.log}"
 
 log() {
   echo "$LOG_PREFIX $(date -Iseconds) $*" | tee -a "$LOG_FILE"
@@ -35,8 +35,8 @@ log "Starting cleanup cycle"
 # Query PostgreSQL for expired trials
 EXPIRED=$(PGPASSWORD="$PGPASSWORD" psql \
   --host="${POSTGRES_HOST:-localhost}" \
-  --username="${POSTGRES_USER:-bunche}" \
-  --dbname="${POSTGRES_DB:-bunche}" \
+  --username="${POSTGRES_USER:-styxproxy}" \
+  --dbname="${POSTGRES_DB:-styxproxy}" \
   --tuples-only \
   --no-align \
   --command="SELECT user_id FROM free_trials WHERE status = 'active' AND expires_at < NOW();" 2>/dev/null || echo "")
@@ -58,8 +58,8 @@ while IFS= read -r username; do
     # Mark as expired in DB
     PGPASSWORD="$PGPASSWORD" psql \
       --host="${POSTGRES_HOST:-localhost}" \
-      --username="${POSTGRES_USER:-bunche}" \
-      --dbname="${POSTGRES_DB:-bunche}" \
+      --username="${POSTGRES_USER:-styxproxy}" \
+      --dbname="${POSTGRES_DB:-styxproxy}" \
       --command="UPDATE free_trials SET status = 'expired' WHERE user_id = '$username' AND status = 'active';" \
       2>&1 | tee -a "$LOG_FILE"
 
@@ -74,8 +74,8 @@ log "Cleanup complete: $count expired trials processed"
 # Optional: log active trial count for monitoring
 ACTIVE=$(PGPASSWORD="$PGPASSWORD" psql \
   --host="${POSTGRES_HOST:-localhost}" \
-  --username="${POSTGRES_USER:-bunche}" \
-  --dbname="${POSTGRES_DB:-bunche}" \
+  --username="${POSTGRES_USER:-styxproxy}" \
+  --dbname="${POSTGRES_DB:-styxproxy}" \
   --tuples-only \
   --no-align \
   --command="SELECT COUNT(*) FROM free_trials WHERE status = 'active';" 2>/dev/null || echo "?")

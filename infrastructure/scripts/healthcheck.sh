@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────
-# Bunche — Health Check
+# Styxproxy — Health Check
 # Run: ./scripts/healthcheck.sh
 # Exit 0 = all healthy, Exit 1 = something is down
 # ─────────────────────────────────────────────────────────
 
 set -euo pipefail
 
-COMPOSE_FILE="${COMPOSE_FILE:-/opt/bunche/infrastructure/docker-compose.yml}"
+COMPOSE_FILE="${COMPOSE_FILE:-/opt/styxproxy/infrastructure/docker-compose.yml}"
 FAILED=0
 
-echo "=== Bunche Health Check — $(date) ==="
+echo "=== Styxproxy Health Check — $(date) ==="
 echo ""
 
 # ── Docker Services ───────────────────────────────────────
@@ -23,7 +23,7 @@ echo ""
 echo "--- Database ---"
 CONTAINER=$(docker compose -f "$COMPOSE_FILE" ps -q postgres 2>/dev/null || true)
 if [[ -n "$CONTAINER" ]]; then
-  if docker exec "$CONTAINER" pg_isready -U bunche -d bunche &>/dev/null; then
+  if docker exec "$CONTAINER" pg_isready -U styxproxy -d styxproxy &>/dev/null; then
     echo "[OK] PostgreSQL — accepting connections"
   else
     echo "[FAIL] PostgreSQL — not ready"

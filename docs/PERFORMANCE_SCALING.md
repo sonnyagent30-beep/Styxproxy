@@ -39,7 +39,7 @@ pgBouncer is installed in DEPLOYMENT.md §3.6 but configured with default pool m
 # /etc/pgbouncer/pgbouncer.ini
 
 [databases]
-bunche = host=localhost port=5432 dbname=bunche
+styxproxy = host=localhost port=5432 dbname=styxproxy
 
 [pgbouncer]
 listen_addr = 127.0.0.1

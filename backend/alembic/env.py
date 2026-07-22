@@ -1,4 +1,4 @@
-"""Alembic async migration environment for Bunche backend."""
+"""Alembic async migration environment for Styxproxy backend."""
 import asyncio
 from logging.config import fileConfig
 

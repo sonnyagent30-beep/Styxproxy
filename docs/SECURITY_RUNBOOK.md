@@ -44,14 +44,14 @@ NEW_PASS=$(openssl rand -base64 32)
 echo "New password: $NEW_PASS"
 
 # 3. Update in PostgreSQL
-sudo -u postgres psql -c "ALTER USER bunche WITH PASSWORD '$NEW_PASS';"
+sudo -u postgres psql -c "ALTER USER styxproxy WITH PASSWORD '$NEW_PASS';"
 
 # 4. Update .env
-nano /opt/bunche/.env
+nano /opt/styxproxy/.env
 # Update POSTGRES_PASSWORD line
 
 # 5. Restart n8n
-cd /opt/bunche
+cd /opt/styxproxy
 docker-compose restart n8n
 
 # 6. Verify health
@@ -69,11 +69,11 @@ curl https://n8n.yourdomain.com/healthz
 ```bash
 # 1. Generate new hash in Flutterwave dashboard
 # 2. Update in .env
-nano /opt/bunche/.env
+nano /opt/styxproxy/.env
 # Update FLUTTERWAVE_WEBHOOK_VERIF_HASH line
 
 # 3. Restart n8n (reads new env)
-cd /opt/bunche
+cd /opt/styxproxy
 docker-compose restart n8n
 
 # 4. Trigger a test webhook from Flutterwave dashboard
@@ -95,7 +95,7 @@ Use `docs/SECRET_ROTATION_LOG.md` (one-line entry per rotation):
 
 **Do all of these within 1 hour:**
 
-1. **Stop n8n** to prevent further damage: `cd /opt/bunche && docker-compose down`
+1. **Stop n8n** to prevent further damage: `cd /opt/styxproxy && docker-compose down`
 2. **Rotate** every secret the compromised component had access to
 3. **Audit logs** — `SELECT * FROM customer_audit_log WHERE created_at > [compromise time]`
 4. **Check Flutterwave dashboard** for unauthorized transactions
@@ -262,7 +262,7 @@ Add to n8n cron workflows:
   "timestamp": new Date().toISOString(),
   "platform": "javascript",
   "level": "error",
-  "logger": "bunche",
+  "logger": "styxproxy",
   "transaction": workflowName,
   "tags": {
     "customer_hash": sha256(phone).substring(0, 20),

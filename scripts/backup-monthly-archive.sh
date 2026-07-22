@@ -1,23 +1,23 @@
 #!/bin/bash
 # ============================================================
-# Bunche — Monthly Archive (First Backup of Month)
+# Styxproxy — Monthly Archive (First Backup of Month)
 # ============================================================
 # Duplicates the first daily backup of each month to
-# r2:bunche-backups/monthly/ for long-term (1 year) retention.
+# r2:styxproxy-backups/monthly/ for long-term (1 year) retention.
 #
-# Cron: 5 2 1 * * /usr/local/bin/backup-monthly-archive.sh >> /var/log/bunche-backup.log 2>&1
+# Cron: 5 2 1 * * /usr/local/bin/backup-monthly-archive.sh >> /var/log/styxproxy-backup.log 2>&1
 # (Runs at 02:05 on the 1st of each month — 5 min after daily backup completes)
 # ============================================================
 
 set -euo pipefail
-CONFIG_FILE="/etc/bunche/backup.conf"
+CONFIG_FILE="/etc/styxproxy/backup.conf"
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
 
 YEAR_MONTH=$(date +%Y-%m)
 TODAY=$(date +%Y-%m-%d)
 
-DAILY_FILE="${BACKUP_DIR}/bunche_${TODAY}.dump.age"
+DAILY_FILE="${BACKUP_DIR}/styxproxy_${TODAY}.dump.age"
 
 if [ ! -f "$DAILY_FILE" ]; then
   echo "[$(date)] FATAL: no daily backup found at $DAILY_FILE"

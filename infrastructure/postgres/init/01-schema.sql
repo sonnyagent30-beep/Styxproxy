@@ -1,4 +1,4 @@
--- Bunche — PostgreSQL Schema v2.0
+-- Styxproxy — PostgreSQL Schema v2.0
 -- Source: docs/DATABASE_SCHEMA.md (Option A — full multi-channel)
 -- Version: 2.0
 -- Date: 2026-07-01
@@ -147,8 +147,8 @@ CREATE TABLE orders (
     provider                     VARCHAR(50),  -- 'Proxy-Seller', 'DataImpulse', 'Rayobyte'
     provider_order_id            VARCHAR(100),
 
-    -- Bunche credential issued for this order
-    bunche_credential_id         INT REFERENCES bunche_credentials(id),
+    -- Styxproxy credential issued for this order
+    styxproxy_credential_id         INT REFERENCES styxproxy_credentials(id),
 
     status                      order_status DEFAULT 'pending_payment',
     -- 'pending_payment', 'paid', 'processing', 'fulfilled',
@@ -185,18 +185,18 @@ CREATE INDEX idx_orders_expires          ON orders(expires_at)
     WHERE expires_at IS NOT NULL;
 CREATE INDEX idx_orders_created          ON orders(created_at DESC);
 
--- ── bunche_credentials ─────────────────────────────────────
--- Maps Bunche-branded usernames to upstream provider proxy IPs.
+-- ── styxproxy_credentials ─────────────────────────────────────
+-- Maps Styxproxy-branded usernames to upstream provider proxy IPs.
 -- This is the core Dante auth table. Dante uses bun_username to
 -- route traffic to the correct upstream proxy.
-CREATE TABLE bunche_credentials (
+CREATE TABLE styxproxy_credentials (
     id                          SERIAL PRIMARY KEY,
 
-    -- Bunche username issued to customer (used to auth to Dante)
+    -- Styxproxy username issued to customer (used to auth to Dante)
     bun_username                 VARCHAR(50) UNIQUE NOT NULL,
     -- Format: bun_<random> e.g. bun_ayomide7
 
-    -- bcrypt hash of the Bunche password (NOT the provider password)
+    -- bcrypt hash of the Styxproxy password (NOT the provider password)
     password_hash               TEXT NOT NULL,
 
     -- Customer linkage (via platform_account, not directly to customer)
@@ -229,11 +229,11 @@ CREATE TABLE bunche_credentials (
     gb_used                     DECIMAL(10,2) DEFAULT 0
 );
 
-CREATE INDEX idx_bunche_cred_username         ON bunche_credentials(bun_username);
-CREATE INDEX idx_bunche_cred_platform_account ON bunche_credentials(platform_account_id);
-CREATE INDEX idx_bunche_cred_status          ON bunche_credentials(status);
-CREATE INDEX idx_bunche_cred_pool            ON bunche_credentials(pool_type, status);
-CREATE INDEX idx_bunche_cred_expires         ON bunche_credentials(expires_at)
+CREATE INDEX idx_styxproxy_cred_username         ON styxproxy_credentials(bun_username);
+CREATE INDEX idx_styxproxy_cred_platform_account ON styxproxy_credentials(platform_account_id);
+CREATE INDEX idx_styxproxy_cred_status          ON styxproxy_credentials(status);
+CREATE INDEX idx_styxproxy_cred_pool            ON styxproxy_credentials(pool_type, status);
+CREATE INDEX idx_styxproxy_cred_expires         ON styxproxy_credentials(expires_at)
     WHERE expires_at IS NOT NULL AND status = 'active';
 
 -- ── free_trials ────────────────────────────────────────────
@@ -252,7 +252,7 @@ CREATE TABLE free_trials (
     total_hours                 INT DEFAULT 0,  -- surveys_completed × 2hr
 
     -- Set when customer says "done" and credentials are sent
-    bunche_credential_id         INT REFERENCES bunche_credentials(id),
+    styxproxy_credential_id         INT REFERENCES styxproxy_credentials(id),
 
     status                      trial_status DEFAULT 'pending',
     -- 'pending' (doing surveys), 'active' (creds sent), 'expired', 'dead'

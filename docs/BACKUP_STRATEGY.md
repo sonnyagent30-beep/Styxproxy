@@ -11,10 +11,10 @@ Fully free. No Hetzner. No paid storage. Upgrade to paid services when Styxproxy
 
 ```
 Local disk (6 hours):
-  /backup/bunche/dumps/bunche_20260701_1400.dump
+  /backup/styxproxy/dumps/styxproxy_20260701_1400.dump
 
 Backblaze B2 (free tier — 5GB):
-  r2:bunche-backups/ ← Restic deduplication (only changed blocks uploaded)
+  r2:styxproxy-backups/ ← Restic deduplication (only changed blocks uploaded)
   Hourly snapshots: last 72 (3 days)
   Daily snapshots: last 30 (30 days)
 ```
@@ -33,7 +33,7 @@ Backblaze B2 (free tier — 5GB):
 |---|---|---|
 | `instant_orders` | Anonymous orders, tx_ref, IP, status | Core business data |
 | `platform_accounts` | Telegram/WhatsApp chat IDs, hashed phone | Customer records |
-| `bunche_credentials` | Username → provider IP mapping | Access control |
+| `styxproxy_credentials` | Username → provider IP mapping | Access control |
 | `orders` | Chat-based orders | Core business data |
 | `free_trials` | Trial sessions | Customer acquisition |
 | `pending_trial_surveys` | Theorem Reach postbacks | Revenue tracking |
@@ -55,7 +55,7 @@ Backblaze B2 (free tier — 5GB):
 |---|---|---|---|
 | Every hour (:00) | pg_dump → Restic backup | `backup-hourly.sh` | B2 (72 hourly snapshots) |
 | 3am daily | pg_dump → Restic backup | `backup-daily.sh` | B2 (30 daily snapshots) |
-| Every hour | Local pg_dump | `backup-hourly.sh` | `/backup/bunche/dumps/` (6 files max) |
+| Every hour | Local pg_dump | `backup-hourly.sh` | `/backup/styxproxy/dumps/` (6 files max) |
 
 **Local cleanup:** Every hour, local dumps older than 6 hours are deleted.
 **B2 cleanup:** Restic automatically deletes snapshots older than retention policy.
@@ -68,10 +68,10 @@ Backblaze B2 (free tier — 5GB):
 # /etc/crontab
 
 # Hourly backup — every hour at :00
-0 * * * * root /usr/local/bin/backup-hourly.sh >> /var/log/bunche-backup.log 2>&1
+0 * * * * root /usr/local/bin/backup-hourly.sh >> /var/log/styxproxy-backup.log 2>&1
 
 # Daily backup — 3am every day
-0 3 * * * root /usr/local/bin/backup-daily.sh >> /var/log/bunche-backup.log 2>&1
+0 3 * * * root /usr/local/bin/backup-daily.sh >> /var/log/styxproxy-backup.log 2>&1
 ```
 
 ---
@@ -175,13 +175,13 @@ sudo /usr/local/bin/restore.sh --restore abc12345
 ```bash
 # 1. Fix/reprovision the server
 # 2. Install PostgreSQL
-# 3. Copy /etc/bunche/backup.conf
+# 3. Copy /etc/styxproxy/backup.conf
 # 4. Install restic: sudo apt install restic
 # 5. Configure rclone: rclone config (add B2 credentials)
 # 6. Restore latest backup:
 sudo /usr/local/bin/restore.sh --restore
 # 7. Verify:
-psql -U bunche -d bunche -c "SELECT COUNT(*) FROM instant_orders;"
+psql -U styxproxy -d styxproxy -c "SELECT COUNT(*) FROM instant_orders;"
 # 8. Restart API
 ```
 
@@ -206,12 +206,12 @@ psql -U bunche -d bunche -c "SELECT COUNT(*) FROM instant_orders;"
 **Fix:**
 ```bash
 # Option A: Delete old snapshots to free space
-restic -r b2:bunche-backups forget --keep-hourly 24 --prune
+restic -r b2:styxproxy-backups forget --keep-hourly 24 --prune
 
 # Option B: Migrate to Hetzner Storage Box
 #   1. Create Hetzner Storage Box account
 #   2. rclone config → hetzner
-#   3. Copy all snapshots: rclone copy b2:bunche-backups hetzner:bunche-backups
+#   3. Copy all snapshots: rclone copy b2:styxproxy-backups hetzner:styxproxy-backups
 #   4. Update restore.sh to use hetzner remote
 ```
 
@@ -247,7 +247,7 @@ openssl rand -base64 32
 
 Rotate every 12 months:
 1. Generate new password
-2. Update `RESTIC_PASSWORD` in `/etc/bunche/backup.conf`
+2. Update `RESTIC_PASSWORD` in `/etc/styxproxy/backup.conf`
 3. Restart cron (the next backup will re-encrypt everything)
 4. Old backups remain accessible with old key (keep both accessible for 30 days)
 5. Update key in 1Password + paper copy
@@ -258,11 +258,11 @@ Rotate every 12 months:
 
 ### Backup Success Monitoring
 
-The scripts log to `/var/log/bunche-backup.log`. Set up a simple check:
+The scripts log to `/var/log/styxproxy-backup.log`. Set up a simple check:
 
 ```bash
 # Add to crontab (runs at 6am daily)
-0 6 * * * grep -q "complete ✓" /var/log/bunche-backup.log || \
+0 6 * * * grep -q "complete ✓" /var/log/styxproxy-backup.log || \
   curl -s -X POST https://api.pagerduty.com/v2/enqueue \
     -H "Content-Type: application/json" \
     -d '{"routing_key":"YOUR_KEY","event_action":"trigger","payload":{"summary":"Backup failed"}}'
@@ -292,7 +292,7 @@ If the site goes down, UptimeRobot emails you immediately. You decide whether to
 ```bash
 # 1. Create Backblaze B2 account
 #    → backblaze.com/b2 → sign up (free, no credit card)
-#    → Create bucket: "bunche-backups" (public: no)
+#    → Create bucket: "styxproxy-backups" (public: no)
 #    → Create application key: note the keyID and applicationKey
 
 # 2. Install restic
@@ -313,17 +313,17 @@ openssl rand -base64 32
 
 # 5. Initialize Restic repo
 export RESTIC_PASSWORD="<your-password>"
-restic -r b2:bunche-backups init
+restic -r b2:styxproxy-backups init
 
 # 6. Create config
-sudo cp /root/styxproxy/scripts/backup.conf.example /etc/bunche/backup.conf
-sudo chmod 600 /etc/bunche/backup.conf
+sudo cp /root/styxproxy/scripts/backup.conf.example /etc/styxproxy/backup.conf
+sudo chmod 600 /etc/styxproxy/backup.conf
 # Edit: set POSTGRES_USER, POSTGRES_DB, RESTIC_PASSWORD
 
 # 7. Create directories
-sudo mkdir -p /backup/bunche/dumps
-sudo chown root:root /etc/bunche/backup.conf
-sudo chmod 600 /etc/bunche/backup.conf
+sudo mkdir -p /backup/styxproxy/dumps
+sudo chown root:root /etc/styxproxy/backup.conf
+sudo chmod 600 /etc/styxproxy/backup.conf
 
 # 8. Copy scripts
 sudo cp /root/styxproxy/scripts/backup-hourly.sh /usr/local/bin/
@@ -336,22 +336,22 @@ sudo chmod +x /usr/local/bin/restore.sh
 # 9. Add cron jobs
 sudo crontab -e
 # Add:
-#   0 * * * * /usr/local/bin/backup-hourly.sh >> /var/log/bunche-backup.log 2>&1
-#   0 3 * * * /usr/local/bin/backup-daily.sh >> /var/log/bunche-backup.log 2>&1
+#   0 * * * * /usr/local/bin/backup-hourly.sh >> /var/log/styxproxy-backup.log 2>&1
+#   0 3 * * * /usr/local/bin/backup-daily.sh >> /var/log/styxproxy-backup.log 2>&1
 
 # 10. Test: run first backup
 sudo /usr/local/bin/backup-hourly.sh
 
 # 11. Verify backup is in B2
-restic -r b2:bunche-backups snapshots
+restic -r b2:styxproxy-backups snapshots
 
 # 12. Test restore to temp DB
 sudo /usr/local/bin/restore.sh --verify
 
 # 13. Set up log rotation
-sudo nano /etc/logrotate.d/bunche-backup
+sudo nano /etc/logrotate.d/styxproxy-backup
 # Contents:
-#   /var/log/bunche-backup.log {
+#   /var/log/styxproxy-backup.log {
 #     weekly
 #     rotate 4
 #     compress
@@ -379,18 +379,18 @@ Total upgrade cost when ready: **~€4.50/month**
 ## Pre-Launch Checklist
 
 - [ ] Backblaze B2 account created (free)
-- [ ] B2 bucket created: `bunche-backups`
+- [ ] B2 bucket created: `styxproxy-backups`
 - [ ] B2 application key created (keyID + applicationKey noted)
 - [ ] rclone configured with B2
 - [ ] Restic repo initialized in B2
 - [ ] Restic password generated and stored in 3 places
-- [ ] `/etc/bunche/backup.conf` created with all credentials
-- [ ] `chmod 600 /etc/bunche/backup.conf`
+- [ ] `/etc/styxproxy/backup.conf` created with all credentials
+- [ ] `chmod 600 /etc/styxproxy/backup.conf`
 - [ ] Scripts installed to `/usr/local/bin/`
 - [ ] Cron jobs added to `/etc/crontab`
-- [ ] `/var/log/bunche-backup.log` rotation configured
+- [ ] `/var/log/styxproxy-backup.log` rotation configured
 - [ ] Test backup run: `sudo /usr/local/bin/backup-hourly.sh`
-- [ ] Verify B2: `restic -r b2:bunche-backups snapshots`
+- [ ] Verify B2: `restic -r b2:styxproxy-backups snapshots`
 - [ ] Test restore: `sudo /usr/local/bin/restore.sh --verify`
 - [ ] UptimeRobot monitors set up (site + API health endpoint)
 - [ ] First backup confirmed in B2 dashboard
@@ -404,7 +404,7 @@ Total upgrade cost when ready: **~€4.50/month**
 | `backup-hourly.sh` | pg_dump → Restic → B2, keep last 72 hourly snapshots |
 | `backup-daily.sh` | pg_dump → Restic → B2, keep last 30 daily snapshots |
 | `restore.sh` | List/verify/restore from B2 snapshots |
-| `backup.conf.example` | Template for `/etc/bunche/backup.conf` |
+| `backup.conf.example` | Template for `/etc/styxproxy/backup.conf` |
 
 ---
 

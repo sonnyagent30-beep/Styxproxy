@@ -1,4 +1,4 @@
-# Bunche — Development Dockerfile (hot reload)
+# Styxproxy — Development Dockerfile (hot reload)
 FROM python:3.11-slim
 
 WORKDIR /app

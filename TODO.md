@@ -1,4 +1,4 @@
-# Bunche Scenario Review — TODO Tracker
+# Styxproxy Scenario Review — TODO Tracker
 
 **Last Updated:** 2026-06-29
 **Repo:** sonnyagent30-beep/styxproxy
@@ -21,11 +21,11 @@
 ## 📋 NEXT: BUILD + DEPLOY
 
 All 90 scenarios documented. Ready for:
-1. Build static website (bunche-web repo)
+1. Build static website (styxproxy-web repo)
 2. Provision VPS (Hetzner CX21)
 3. Execute DEPLOYMENT.md Steps 1-13
 4. Soft launch: 10 friends/family test
-5. Register dedicated Bunche WhatsApp number
+5. Register dedicated Styxproxy WhatsApp number
 
 ---
 

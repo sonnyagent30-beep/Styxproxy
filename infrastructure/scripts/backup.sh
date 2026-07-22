@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────
-# Bunche — Daily Encrypted Backup
+# Styxproxy — Daily Encrypted Backup
 # Schedule via cron:
-#   0 2 * * * /opt/bunche/infrastructure/scripts/backup.sh >> /var/log/bunche-backup.log 2>&1
+#   0 2 * * * /opt/styxproxy/infrastructure/scripts/backup.sh >> /var/log/styxproxy-backup.log 2>&1
 # ─────────────────────────────────────────────────────────
 
 set -euo pipefail
 
-COMPOSE_FILE="${COMPOSE_FILE:-/opt/bunche/infrastructure/docker-compose.yml}"
-BACKUP_DIR="${BACKUP_DIR:-/opt/bunche/backups}"
+COMPOSE_FILE="${COMPOSE_FILE:-/opt/styxproxy/infrastructure/docker-compose.yml}"
+BACKUP_DIR="${BACKUP_DIR:-/opt/styxproxy/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
 ENCRYPTION_KEY="${BACKUP_ENCRYPTION_KEY:-}"
 DESTINATION="${DESTINATION:-}"
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_NAME="bunche_backup_${TIMESTAMP}"
+BACKUP_NAME="styxproxy_backup_${TIMESTAMP}"
 BACKUP_PATH="${BACKUP_DIR}/${BACKUP_NAME}"
 
 # ── Pre-flight checks ─────────────────────────────────────
@@ -39,7 +39,7 @@ if [[ -z "$CONTAINER" ]]; then
 fi
 
 PG_DUMP_PATH="${BACKUP_PATH}_pg.sql"
-docker exec "$CONTAINER" pg_dump -U bunche -d bunche --no-owner --no-acl \
+docker exec "$CONTAINER" pg_dump -U styxproxy -d styxproxy --no-owner --no-acl \
   > "$PG_DUMP_PATH"
 
 echo "[OK] PostgreSQL dump: $(wc -c < "$PG_DUMP_PATH") bytes"
@@ -85,7 +85,7 @@ if [[ -n "$DESTINATION" ]] && command -v rclone &>/dev/null; then
 fi
 
 # ── Step 6: Cleanup old backups ──────────────────────────
-find "$BACKUP_DIR" -name "bunche_backup_*" -type f -mtime "+${RETENTION_DAYS}" -delete
+find "$BACKUP_DIR" -name "styxproxy_backup_*" -type f -mtime "+${RETENTION_DAYS}" -delete
 echo "[OK] Retention applied: keeping last $RETENTION_DAYS days"
 
 # ── Step 7: Cleanup temp files ────────────────────────────
