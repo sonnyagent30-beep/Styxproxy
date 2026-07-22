@@ -100,14 +100,16 @@ def verify_admin_token(authorization: Optional[str]) -> bool:
             detail="Authorization header missing",
         )
 
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
+    parts = authorization.split() if isinstance(authorization, str) else None
+    if parts is not None and len(parts) > 1 and parts[0].lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authorization header format",
         )
 
-    token = parts[1]
+    token = parts[1] if parts and len(parts) == 2 else (authorization.credentials if hasattr(authorization, 'credentials') else authorization)
+    if isinstance(token, str) and token.startswith('Bearer '):
+        token = token[7:]
     if token != settings.admin_token:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
