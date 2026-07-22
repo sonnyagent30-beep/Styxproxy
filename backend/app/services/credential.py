@@ -41,13 +41,42 @@ STUB_PROXY_POOL = {
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
-def generate_bun_username() -> str:
+def generate_bun_username(phone: Optional[str] = None, order_id: Optional[str] = None) -> str:
+    """Generate a Bunche proxy username.
+
+    With phone+order_id: ``bun_{last4phone}{order_suffix}{rand8}`` (used
+    historically and by tests). With no args: ``bun_{rand8}``.
+    """
+    if phone and order_id:
+        phone_suffix = phone.replace("+", "").replace(" ", "")[-4:]
+        order_suffix = "".join(c for c in order_id if c.isalnum())[-4:]
+        rand = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        return f"bun_{phone_suffix}{order_suffix}{rand}"
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     return f"bun_{suffix}"
 
 
 def generate_bun_password() -> str:
     return "".join(random.choices(string.ascii_letters + string.digits, k=16))
+
+
+def generate_temp_password(length: int = 16) -> str:
+    """Generate a temporary alphanumeric password of the given length.
+
+    Used for share-by-link / short-lived credentials. Letters + digits only,
+    no symbols to keep copy/paste safe across all clients.
+    """
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
+def get_available_proxy(country: str) -> dict:
+    """Return a stub proxy for the given country, falling back to DEFAULT.
+
+    Format: {ip, port, username, password}. Wraps the internal pool so
+    tests (and any future code that needs a quick proxy reference) can use
+    the same data shape.
+    """
+    return _stub_proxy(country)
 
 
 def _stub_proxy(country: str):

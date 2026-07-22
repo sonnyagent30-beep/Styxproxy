@@ -1,5 +1,7 @@
 """Test configuration — must be imported before anything else."""
 import os
+import asyncio
+import pytest_asyncio
 
 # Set test mode FIRST — disables config validator's fail-fast on placeholder values
 os.environ["TESTING"] = "1"
@@ -20,3 +22,20 @@ os.environ.setdefault("MINIMAX_API_KEY", "test-minimax-key")
 # Now clear the settings cache so new env values are picked up
 from app.config import get_settings
 get_settings.cache_clear()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _dispose_engine_after_test():
+    """Dispose the SQLAlchemy async engine after each test.
+
+    pytest-asyncio creates a fresh event loop per test, but the global async
+    engine's pool holds connections bound to the previous loop. Without this
+    fixture, the second test that touches the DB sees
+    RuntimeError("Event loop is closed").
+    """
+    yield
+    try:
+        from app.database import engine
+        await engine.dispose()
+    except Exception:
+        pass
