@@ -577,6 +577,108 @@ async def _send_via_resend(
         )
 
 
+async def send_email(
+    to: str,
+    subject: str,
+    html: str,
+    text: Optional[str] = None,
+    from_email: Optional[str] = None,
+    reply_to: Optional[str] = None,
+    in_reply_to: Optional[str] = None,
+    references: Optional[str] = None,
+) -> EmailResult:
+    """
+    Generic send email function with optional threading headers.
+    
+    Args:
+        to: Recipient email address
+        subject: Email subject
+        html: HTML body
+        text: Plain text body (optional)
+        from_email: Custom from address (defaults to settings.from_email)
+        reply_to: Reply-To header
+        in_reply_to: In-Reply-To header for threading
+        references: References header for threading
+    """
+    if not settings.resend_api_key:
+        logger.warning("RESEND_API_KEY not configured, skipping email send")
+        return EmailResult(
+            success=False,
+            error="Email service not configured (RESEND_API_KEY missing)",
+        )
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=15.0)) as client:
+            # Build the payload
+            payload = {
+                "from": from_email or settings.from_email,
+                "to": [to],
+                "subject": subject,
+                "html": html,
+                "text": text,
+            }
+            
+            # Add optional headers
+            headers = {
+                "Authorization": f"Bearer {settings.resend_api_key}",
+                "Content-Type": "application/json",
+            }
+            
+            # Add reply_to if provided
+            if reply_to:
+                payload["reply_to"] = reply_to
+            
+            # Resend supports custom headers for threading
+            custom_headers = {}
+            if in_reply_to:
+                custom_headers["In-Reply-To"] = in_reply_to
+            if references:
+                custom_headers["References"] = references
+            
+            if custom_headers:
+                payload["headers"] = custom_headers
+
+            response = await client.post(
+                "https://api.resend.com/emails",
+                json=payload,
+                headers=headers,
+            )
+
+            if response.status_code >= 400:
+                error_body = response.text
+                logger.error(
+                    "Resend API error: status=%s, error=%s",
+                    response.status_code,
+                    error_body,
+                )
+                return EmailResult(
+                    success=False,
+                    status="api_error",
+                    error=f"Resend API error: {response.status_code} - {error_body}",
+                )
+
+            data = response.json()
+            return EmailResult(
+                success=True,
+                message_id=data.get("id"),
+            )
+
+    except httpx.HTTPError as e:
+        logger.error("Failed to send email: %s", e)
+        return EmailResult(
+            success=False,
+            status="http_error",
+            error=f"HTTP error: {str(e)}",
+        )
+    except Exception as e:
+        logger.error("Unexpected error sending email: %s", e)
+        return EmailResult(
+            success=False,
+            status="unexpected_error",
+            error=f"Unexpected error: {str(e)}",
+        )
+
+
 def _render_header(right_label: str, right_sublabel: str = "") -> str:
     """Render the email header with logo and label - matches receipt PDF."""
     return f"""
@@ -626,6 +728,115 @@ def _render_footer() -> str:
         </div>
         <div class="accent-bar-bottom"></div>
     """
+
+
+# =============================================================================
+# Support Reply Email Template
+# =============================================================================
+
+def _render_support_reply_email(
+    customer_name: str,
+    original_subject: str,
+    reply_body_html: str,
+    admin_name: str = "Dannion",
+) -> EmailContent:
+    """Render support reply email - branded wrapper around admin reply.
+    
+    This template wraps a support reply in the Styxproxy brand design:
+    - Top green accent bar
+    - Logo header with "Styxproxy Support" subtitle
+    - "REPLY" pill (green)
+    - "Hi [customer_name]," heading
+    - Original subject context: "Re: [original subject]"
+    - Reply body in card
+    - NEED HELP? footer
+    - Bottom green accent bar
+    """
+    base_styles = _get_base_styles()
+    
+    # Build the greeting
+    greeting = f"Hi {customer_name}," if customer_name else "Hi there,"
+    
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Re: {original_subject}</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="accent-bar-top"></div>
+            <div class="header-section">
+                <div class="logo-section">
+                    <img class="logo-dark" src="data:image/png;base64,{LOGO_DARK_B64}" alt="Styxproxy" width="200" height="58" style="display:block;width:200px;height:auto;">
+                    <img class="logo-light" src="data:image/png;base64,{LOGO_LIGHT_B64}" alt="Styxproxy" width="200" height="58" style="display:none;width:200px;height:auto;">
+                    <div class="logo-subtitle">Styxproxy Support</div>
+                </div>
+                <div>
+                    <div class="header-label">REPLY</div>
+                </div>
+            </div>
+            <div class="divider"></div>
+            
+            <div class="content-section">
+                <div class="section-label">SUPPORT REPLY</div>
+                <div class="main-heading">{greeting}</div>
+                
+                <div style="color: var(--brand-muted); font-size: 13px; margin-bottom: 16px;">
+                    Re: {original_subject}
+                </div>
+                
+                <div class="card">
+                    {reply_body_html}
+                </div>
+                
+                <p style="color: var(--brand-muted); font-size: 12px; margin-top: 20px;">
+                    This reply was sent by {admin_name} from Styxproxy Support.
+                </p>
+                
+                {_render_support_footer()}
+            </div>
+            
+            <div class="footer">
+                <div class="footer-auto">Automated support response</div>
+                <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
+            </div>
+            <div class="accent-bar-bottom"></div>
+        </div>
+    </div>
+</body>
+</html>
+"""
+    
+    # Simple text version - extract the HTML to text conversion
+    text_reply = reply_body_html.replace('<br>', '\n').replace('<p>', '').replace('</p>', '\n')
+    text = f"""Re: {original_subject}
+
+{greeting}
+
+{text_reply}
+
+---
+This reply was sent by {admin_name} from Styxproxy Support.
+
+Need help? Contact us at support@styxproxy.com or visit styxproxy.com
+
+© 2026 Styxproxy
+"""
+    
+    return EmailContent(
+        subject=f"Re: {original_subject}",
+        html=html,
+        text=text,
+    )
 
 
 # =============================================================================
@@ -2018,7 +2229,40 @@ async def send_credentials_rotated_email(
     )
 
 
-# Alias for backward compatibility with orders.py
+async def send_support_reply_email(
+    customer_email: str,
+    customer_name: str,
+    original_subject: str,
+    reply_body_html: str,
+    admin_name: str = "Dannion",
+    in_reply_to: Optional[str] = None,
+    references: Optional[str] = None,
+) -> EmailResult:
+    """
+    Send a support reply email to a customer.
+    
+    This wraps the reply in the branded support template and sends from support@styxproxy.com
+    with proper threading headers for Gmail/Outlook.
+    """
+    content = _render_support_reply_email(
+        customer_name=customer_name,
+        original_subject=original_subject,
+        reply_body_html=reply_body_html,
+        admin_name=admin_name,
+    )
+    
+    return await send_email(
+        to=customer_email,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
+        from_email="Styxproxy Support <support@styxproxy.com>",
+        reply_to="support@styxproxy.com",
+        in_reply_to=in_reply_to,
+        references=references,
+    )
+
+
 async def send_rotation_notification_email(
     customer_email: str,
     bun_username: str,
