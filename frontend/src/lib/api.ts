@@ -333,6 +333,14 @@ class ApiClient {
     });
   }
 
+  // Admin setup step 0: validate invite code before showing credentials step
+  async adminSetupCheckInvite(data: { invite_code: string }): Promise<ApiResponse<AdminSetupCheckInviteResponse>> {
+    return this.request<AdminSetupCheckInviteResponse>('/api/admin/auth/setup/check', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Admin setup step 1: invite + credentials → TOTP secret
   async adminSetupStep1(data: AdminSetupRequest): Promise<ApiResponse<AdminSetupTOTPResponse>> {
     return this.request<AdminSetupTOTPResponse>('/api/admin/auth/setup', {

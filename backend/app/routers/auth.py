@@ -469,8 +469,18 @@ async def login_admin_email(
             detail="Account is locked. Try again later.",
         )
 
-    # Verify password
-    if not admin.password_hash or not verify_password(request.password, admin.password_hash):
+    # Verify password (also accept legacy `pin_hash` so older admin accounts
+    # created before the email flow can still authenticate during migration).
+    password_ok = False
+    if admin.password_hash and verify_password(request.password, admin.password_hash):
+        password_ok = True
+    elif admin.pin_hash and verify_password(request.password, admin.pin_hash):
+        password_ok = True
+        # Migrate: copy the legacy PIN hash to password_hash so future logins
+        # don't keep falling into the pin_hash branch.
+        if not admin.password_hash:
+            admin.password_hash = admin.pin_hash
+    if not password_ok:
         admin.failed_attempts += 1
         if admin.failed_attempts >= 5:
             admin.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
