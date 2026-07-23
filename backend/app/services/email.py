@@ -17,8 +17,11 @@ Design language matches the receipt PDF:
 import logging
 import base64
 import io
-from datetime import datetime
+import json
+import os
+from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -28,6 +31,34 @@ from pydantic import BaseModel, EmailStr
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# Persistent delivery log — JSON lines, capped at 500 entries.
+# Lives outside the container at /root/styxproxy/backend/data/email_delivery.log.jsonl
+_DELIVERY_LOG_PATH = Path("/root/styxproxy/backend/data/email_delivery.log.jsonl")
+_DELIVERY_LOG_MAX_ENTRIES = 500
+
+
+def _append_delivery_log(entry: dict) -> None:
+    """Append a delivery result (success or failure) to the JSON-lines log.
+
+    Trims the file to the last N entries so it doesn't grow forever.
+    No-op if the log path's parent directory doesn't exist (e.g. local dev).
+    """
+    try:
+        _DELIVERY_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _DELIVERY_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, default=str) + "\n")
+        # Trim if needed
+        if _DELIVERY_LOG_PATH.exists():
+            lines = _DELIVERY_LOG_PATH.read_text(encoding="utf-8").splitlines()
+            if len(lines) > _DELIVERY_LOG_MAX_ENTRIES:
+                _DELIVERY_LOG_PATH.write_text(
+                    "\n".join(lines[-_DELIVERY_LOG_MAX_ENTRIES:]) + "\n",
+                    encoding="utf-8",
+                )
+    except Exception as exc:
+        # Never let logging break the actual send path
+        logger.warning("Could not write email delivery log: %s", exc)
 settings = get_settings()
 
 
@@ -515,6 +546,13 @@ async def _send_via_resend(
     """Send email via Resend API."""
     if not settings.resend_api_key:
         logger.warning("RESEND_API_KEY not configured, skipping email send")
+        _append_delivery_log({
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "to": recipient.email,
+            "subject": subject,
+            "status": "skipped_no_key",
+            "error": "RESEND_API_KEY missing",
+        })
         return EmailResult(
             success=False,
             error="Email service not configured (RESEND_API_KEY missing)",
@@ -549,6 +587,13 @@ async def _send_via_resend(
                     response.status_code,
                     error_body,
                 )
+                _append_delivery_log({
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "to": recipient.email,
+                    "subject": subject,
+                    "status": "api_error",
+                    "error": f"{response.status_code}: {error_body[:200]}",
+                })
                 return EmailResult(
                     success=False,
                     status="api_error",
@@ -556,6 +601,13 @@ async def _send_via_resend(
                 )
 
             data = response.json()
+            _append_delivery_log({
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "to": recipient.email,
+                "subject": subject,
+                "status": "queued",
+                "message_id": data.get("id"),
+            })
             return EmailResult(
                 success=True,
                 message_id=data.get("id"),
@@ -563,6 +615,13 @@ async def _send_via_resend(
 
     except httpx.HTTPError as e:
         logger.error("Failed to send email: %s", e)
+        _append_delivery_log({
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "to": recipient.email,
+            "subject": subject,
+            "status": "http_error",
+            "error": str(e),
+        })
         return EmailResult(
             success=False,
             status="http_error",
@@ -570,6 +629,13 @@ async def _send_via_resend(
         )
     except Exception as e:
         logger.error("Unexpected error sending email: %s", e)
+        _append_delivery_log({
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "to": recipient.email,
+            "subject": subject,
+            "status": "unexpected_error",
+            "error": str(e),
+        })
         return EmailResult(
             success=False,
             status="unexpected_error",

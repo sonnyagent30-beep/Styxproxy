@@ -1,4 +1,5 @@
 """Admin router."""
+import json
 import re
 from datetime import datetime, timezone
 from typing import Optional
@@ -313,6 +314,43 @@ async def list_credentials(
             "has_prev": page > 1,
         },
     )
+
+
+@router.get("/email-delivery-log", dependencies=[Depends(admin_only)])
+async def get_email_delivery_log(
+    limit: int = Query(100, ge=1, le=500),
+    status_filter: Optional[str] = Query(None, description="Filter by status: queued, api_error, http_error, unexpected_error, skipped_no_key"),
+):
+    """Return recent email delivery events from the persistent JSON-lines log.
+
+    Useful for diagnosing delivery failures without grepping docker logs.
+    """
+    from app.services.email import _DELIVERY_LOG_PATH  # noqa: PLC0415
+
+    log_path = Path(_DELIVERY_LOG_PATH)
+    if not log_path.exists():
+        return {"total": 0, "entries": [], "log_path": str(log_path)}
+
+    lines = log_path.read_text(encoding="utf-8").splitlines()
+    entries: list[dict] = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entries.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    if status_filter:
+        entries = [e for e in entries if e.get("status") == status_filter]
+    entries.reverse()  # newest first
+    entries = entries[:limit]
+
+    return {
+        "total": len(entries),
+        "entries": entries,
+        "log_path": str(log_path),
+    }
 
 
 @router.get("/audit", response_model=AdminAuditLogsResponse, dependencies=[Depends(admin_only)])
