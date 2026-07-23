@@ -19,22 +19,47 @@ export interface Product {
 
 export interface Order {
   order_id: string;
-  status: OrderStatus;
-  plan_type?: PlanType;
+  tx_ref?: string;
+  status: OrderStatus | string;
+  plan_type?: PlanType | string;
+  plan_code?: string;
   country?: string;
+  quantity?: number;
   amount_paid_ngn?: number;
+  currency?: string;
+  customer_phone?: string;
+  customer_name?: string;
+  customer_email?: string;
   styxproxy_credential?: StyxproxyCredential;
-  created_at: string;
+  created_at?: string;
+  fulfilled_at?: string;
   expires_at?: string;
+  is_renewable?: boolean;
+  rotation_count?: number;
+  max_rotations?: number;
+  notes?: string;
+  refund_requested?: boolean;
+  refund_reason?: string;
+  refunded_at?: string;
+  inflight?: boolean;
 }
 
 export interface StyxproxyCredential {
-  id: number;
-  styxproxy_username: string;
+  id: string;
+  bun_username?: string;
+  styxproxy_username?: string;
+  provider_username?: string;
+  provider_password?: string;
+  provider_name?: string;
+  pool_type?: string;
+  customer_phone?: string;
+  order_id?: string | number;
+  protocol?: string;
   upstream_proxy_ip?: string;
   upstream_proxy_port: number;
+  styxproxy_password?: string;
   dante_port?: number;
-  status: CredentialStatus;
+  status: CredentialStatus | string;
   expires_at?: string;
 }
 
@@ -236,11 +261,17 @@ export interface AdminSetupTOTPResponse {
 export interface AdminSetupResponse {
   access_token: string;
   token_type: string;
-  expires_in: number;
   email: string;
   role: string;
   totp_enabled: boolean;
-  message: string;
+  expires_in: number;
+  message?: string;
+}
+
+export interface AdminSetupCheckInviteResponse {
+  valid: boolean;
+  email?: string | null;
+  role?: string | null;
 }
 
 export interface AdminLoginRequest {
@@ -259,7 +290,8 @@ export interface AdminLoginResponse {
 }
 
 export interface AdminMeResponse {
-  email: string;
+  email?: string;
+  admin_phone?: string;
   role: string;
   totp_enabled: boolean;
   password_set_at?: string;
@@ -292,7 +324,9 @@ export interface AdminChangeTOTPResponse {
 // Admin Team Member
 export interface AdminTeamMember {
   id: string;
-  phone: string;
+  admin_phone?: string;
+  email?: string;
+  phone?: string;
   role: AdminRole;
   totp_enabled: boolean;
   created_at: string;
@@ -315,6 +349,62 @@ export interface AdminInviteCreateResponse {
   expires_at?: string;
   max_uses: number;
   created_by: string;
+}
+
+export interface AdminInvite {
+  invite_code: string;
+  email: string | null;
+  role: string;
+  max_uses: number;
+  uses_count: number;
+  expires_at: string | null;
+  used_at: string | null;
+  used_by: string | null;
+  created_at: string;
+}
+
+export interface AdminInvitesListResponse {
+  invites: AdminInvite[];
+  total: number;
+}
+
+export interface OrderHistoryEntry {
+  ts: string;
+  event: string;
+  details?: Record<string, unknown>;
+}
+
+export interface OrderDetail extends Order {
+  customer?: Customer;
+  credentials?: StyxproxyCredential[];
+  history?: OrderHistoryEntry[];
+}
+
+export interface CredentialDetail extends StyxproxyCredential {
+  rotation_count?: number;
+  max_rotations?: number;
+  last_rotated_at?: string | null;
+  last_used_at?: string | null;
+  usage_log?: Array<{ ts: string; ip?: string; bytes_in?: number; bytes_out?: number }>;
+  customer_phone?: string;
+  provider_username?: string;
+  provider_password?: string;
+  provider_name?: string;
+  pool_type?: string;
+  protocol?: string;
+  order_id?: string | number;
+}
+
+export interface CharonEscalation {
+  id: string;
+  scenario_id?: string | null;
+  tx_ref?: string | null;
+  summary: string;
+  reason?: string | null;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  created_at: string;
+  updated_at?: string | null;
+  assignee?: string | null;
 }
 
 // ============== Blog Types ==============
@@ -448,15 +538,20 @@ export interface ContactSubmission {
   email: string;
   message: string;
   phone?: string;
+  admin_phone?: string;
   tx_ref?: string;
-  status: 'pending' | 'replied' | 'closed';
+  subject?: string;
+  status: 'pending' | 'replied' | 'closed' | 'in_progress' | 'resolved';
   admin_notes?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface ContactSubmissionsResponse {
   data: ContactSubmission[];
   total: number;
+  submissions?: ContactSubmission[];
+  pagination?: { page: number; limit: number; total: number; has_next: boolean };
 }
 
 // ============== Support Threads ==============
@@ -510,19 +605,22 @@ export interface SupportThreadsResponse {
 // ============== Charon Escalations ==============
 export interface Escalation {
   id: string;
-  conversation_id: string;
+  conversation_id?: string;
   customer_email?: string;
   customer_phone?: string;
   customer_message: string;
   history_summary?: string;
-  status: 'pending' | 'reviewed' | 'closed';
+  status: 'pending' | 'reviewed' | 'closed' | 'resolved';
   admin_notes?: string;
   resolved_at?: string;
   created_at: string;
+  tx_ref?: string;
+  summary?: string;
 }
 
 export interface EscalationsResponse {
   data: Escalation[];
+  escalations?: Escalation[];
   total: number;
 }
 
