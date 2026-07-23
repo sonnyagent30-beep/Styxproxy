@@ -1,0 +1,13 @@
+-- 2026-07-23  Rollback the RLS additions from earlier today.
+--
+-- Per user decision: rollback RLS. We're not pursuing RLS in this
+-- session — revisiting DB hardening will be a separate, planned
+-- conversation with proper threat modelling first.
+--
+-- What this undoes:
+--   - DROPS the three permissive policies created in the abandoned
+--     2026_07_23_rls_admin_and_orders.sql (which was deleted).
+--   - DISABLES RLS on admin_auth, admin_invites, orders.
+--   - DROPS the styxproxy_app role.
+--
+-- The styxproxy superuser role is left untouched (api still uses it).
