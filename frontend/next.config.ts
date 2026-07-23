@@ -18,6 +18,16 @@ const nextConfig: NextConfig = {
 
   async headers() {
     return [
+      // Robots/Sitemap must be no-cache so Cloudflare edge doesn't serve a
+      // stale Content-Signals robots.txt over our dynamic one.
+      {
+        source: '/robots.txt',
+        headers: [{ key: 'Cache-Control', value: 'no-store, must-revalidate' }],
+      },
+      {
+        source: '/sitemap.xml',
+        headers: [{ key: 'Cache-Control', value: 'no-store, must-revalidate' }],
+      },
       {
         source: '/(.*)',
         headers: [
