@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import type { BlogPost, BlogPostsResponse } from '@/types';
+import type { BlogPost } from '@/types';
 import PostCard from './PostCard';
 import TagFilter from './TagFilter';
 
@@ -95,14 +95,13 @@ export default function BlogFeed({
         />
       </div>
 
-      {/* Masonry — CSS columns for Instagram-style variable-height cards.
-          break-inside-avoid prevents items from splitting across columns. */}
+      {/* Instagram-style vertical feed: 1 column on mobile, 2 columns on
+          desktop. No 3-column masonry — true Instagram feed is single-track
+          for narrative flow. */}
       {posts.length > 0 ? (
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 [column-fill:_balance]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
           {posts.map((post) => (
-            <div key={post.id} className="mb-6 break-inside-avoid inline-block w-full">
-              <PostCard post={post} />
-            </div>
+            <PostCard key={post.id} post={post} />
           ))}
         </div>
       ) : (
@@ -146,7 +145,7 @@ export default function BlogFeed({
       {/* No more posts indicator */}
       {!hasMore && posts.length > 0 && (
         <p className="text-center text-[var(--muted)] text-sm mt-12">
-          You've reached the end
+          You&apos;ve reached the end
         </p>
       )}
     </main>
