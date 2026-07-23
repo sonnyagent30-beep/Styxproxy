@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, delete, insert
+from sqlalchemy.orm import selectinload
 
 from app.database import get_session
 from app.models import Post, Category, PostCategory
@@ -201,17 +202,30 @@ async def get_post_by_slug(slug: str, session: AsyncSession = Depends(get_sessio
     )
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
-    
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    
+
+    # Load categories via the post_categories junction table
+    # (Post model has no `categories` relationship; query directly)
+    cat_stmt = (
+        select(Category)
+        .join(PostCategory, PostCategory.category_id == Category.id)
+        .where(PostCategory.post_id == post.id)
+    )
+    cats_result = await session.execute(cat_stmt)
+    categories = [
+        {"id": str(c.id), "name": c.name, "slug": c.slug} for c in cats_result.scalars().all()
+    ]
+    post.categories = categories  # type: ignore[attr-defined]
+
     # Increment view count
     post.view_count += 1
     await session.commit()
-    
+
     return PostResponse.model_validate(post)
 
 

@@ -33,8 +33,13 @@ async def flutterwave_webhook(
     settings = get_settings()
     payload_bytes = await request.body()
 
-    # Verify Flutterwave signature
-    if verif_hash and not verify_flutterwave_signature(
+    # Verify Flutterwave signature — REQUIRED, never accept unsigned webhooks
+    if not verif_hash:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Verif-Hash header",
+        )
+    if not verify_flutterwave_signature(
         payload_bytes, verif_hash, settings.flutterwave_webhook_secret
     ):
         raise HTTPException(
