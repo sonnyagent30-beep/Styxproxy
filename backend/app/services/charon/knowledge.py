@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 KNOWLEDGE_DIR = Path(__file__).parents[3] / "data" / "charon" / "knowledge"
 LEARNED_DIR = Path(__file__).parents[3] / "data" / "charon" / "learned"
+# Canonical Scenarios corpus lives in the repo root (90+ markdown files).
+# Loading these into RAG keeps Charon grounded in our agreed customer journeys.
+SCENARIOS_DIR = Path("/root/styxproxy/scenarios")
 
 STOPWORDS = {
     "the", "a", "an", "is", "are", "do", "you", "i", "me", "my", "we",
@@ -85,11 +88,18 @@ def _chunks_for_file(path: Path, source_label: str) -> list[Chunk]:
 
 def _all_chunks() -> list[Chunk]:
     chunks: list[Chunk] = []
+    # Static knowledge + admin-edited learned files take priority.
     for d in (KNOWLEDGE_DIR, LEARNED_DIR):
         if not d.exists():
             continue
         for path in sorted(d.rglob("*.md")):
             label = str(path.relative_to(d.parent))
+            chunks.extend(_chunks_for_file(path, label))
+    # Add the canonical Scenarios corpus so the RAG is grounded in our
+    # agreed customer journeys (first-time order, refund, recovery, etc.).
+    if SCENARIOS_DIR.exists():
+        for path in sorted(SCENARIOS_DIR.rglob("*.md")):
+            label = f"scenarios/{path.name}"
             chunks.extend(_chunks_for_file(path, label))
     return chunks
 

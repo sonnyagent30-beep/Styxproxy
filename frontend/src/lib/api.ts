@@ -248,6 +248,40 @@ class ApiClient {
     });
   }
 
+  // ============== Charon Knowledge (all files: knowledge + learned) ==============
+
+  async getAllKnowledgeFiles(): Promise<ApiResponse<AllKnowledgeFilesResponse>> {
+    return this.request<AllKnowledgeFilesResponse>('/api/admin/charon/knowledge');
+  }
+
+  async getKnowledgeFile(filename: string): Promise<ApiResponse<LearnContentResponse>> {
+    return this.request<LearnContentResponse>(`/api/admin/charon/knowledge/${encodeURIComponent(filename)}`);
+  }
+
+  async updateKnowledgeFile(filename: string, data: UpdateKnowledgeRequest): Promise<ApiResponse<UpdateKnowledgeResponse>> {
+    return this.request<UpdateKnowledgeResponse>(`/api/admin/charon/knowledge/${encodeURIComponent(filename)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createKnowledgeFile(filename: string, data: UpdateKnowledgeRequest): Promise<ApiResponse<UpdateKnowledgeResponse>> {
+    return this.request<UpdateKnowledgeResponse>(`/api/admin/charon/knowledge/${encodeURIComponent(filename)}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ============== Charon Q/A Evaluation ==============
+
+  async getEvalSet(): Promise<ApiResponse<EvalSetResponse>> {
+    return this.request<EvalSetResponse>('/api/admin/charon/eval');
+  }
+
+  async runEval(): Promise<ApiResponse<EvalRunResponse>> {
+    return this.request<EvalRunResponse>('/api/admin/charon/eval/run', { method: 'POST' });
+  }
+
   async learnContent(data: LearnRequest): Promise<ApiResponse<LearnResponse>> {
     return this.request<LearnResponse>('/charon/learn', {
       method: 'POST',
