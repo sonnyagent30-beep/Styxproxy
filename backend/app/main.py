@@ -198,26 +198,32 @@ async def log_requests(request: Request, call_next):
 
 
 # Maintenance mode middleware — when enabled, blocks public routes with 503
-# but lets admin/superadmin/health/public-maintenance-status through.
+# but lets admin/superadmin/health/webhooks/payment-processing routes through
+# so the platform can keep processing payments, credentials, and admin
+# operations even during a public-facing outage window.
 MAINTENANCE_EXEMPT_PREFIXES = (
+    # Admin / superadmin (and the maintenance state endpoint itself)
     "/api/admin",
-    "/api/public/maintenance",
+    # Health + docs
     "/api/health",
-    "/api/webhooks",
-    "/api/payments",
-    "/api/orders",
-    "/api/credentials",
-    "/api/products",
-    "/api/platform",
-    "/api/inbound",
-    "/api/charon",
-    "/api/blog",
-    "/api/contact",
-    "/api/session",
-    "/api/trials",
+    "/health",
     "/docs",
     "/redoc",
     "/openapi.json",
+    # Webhook receivers (Flutterwave, WhatsApp) — must keep accepting
+    "/api/webhooks",
+    # Payment + credential processing — keep in-flight orders alive
+    "/api/payments",
+    "/api/credentials",
+    "/api/orders",
+    # Support chat inbox / inbound messages
+    "/api/inbound",
+    # Charon runtime + public maintenance state (so admin UI can check)
+    "/api/charon",
+    "/api/public",
+    # Session + trials (auth flows)
+    "/api/session",
+    "/api/trials",
 )
 
 
