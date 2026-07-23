@@ -1,0 +1,125 @@
+{
+  "info": {
+    "name": "Styxproxy Public + Customer Flows",
+    "description": "Smoke tests for every customer-facing endpoint. Maps 1:1 to scenarios/*.md and docs/ACCEPTANCE-CHECKLIST.md. Run via: bash postman/run-regression.sh public",
+    "schema": "https://schema.getpostman.com/json/draft-v4/collection.json"
+  },
+  "variable": [
+    {"key": "BASE_URL", "value": "https://api.styxproxy.com"},
+    {"key": "TEST_PHONE", "value": "2347032981049"},
+    {"key": "TEST_EMAIL", "value": "dannion+test@styxproxy.com"},
+    {"key": "test_post_slug", "value": ""}
+  ],
+  "item": [
+    {
+      "name": "0. Health & Maintenance",
+      "item": [
+        {
+          "name": "0.1 Backend health",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('Has status field', () => { const r = pm.response.json(); pm.expect(r.status).to.be.a('string'); });"]}}],
+          "request": {"method": "GET", "url": "{{BASE_URL}}/health"}
+        },
+        {
+          "name": "0.2 Maintenance mode state (public)",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('Has enabled boolean', () => { const r = pm.response.json(); pm.expect(r).to.have.property('enabled'); pm.expect(r.enabled).to.be.a('boolean'); });"]}}],
+          "request": {"method": "GET", "url": "{{BASE_URL}}/api/public/maintenance"}
+        }
+      ]
+    },
+    {
+      "name": "1. Public — Products",
+      "item": [
+        {
+          "name": "1.1 List products (public)",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('Returns object with products array', () => { const r = pm.response.json(); pm.expect(r).to.have.property('products'); pm.expect(r.products).to.be.an('array'); });"]}}],
+          "request": {"method": "GET", "url": "{{BASE_URL}}/api/products"}
+        }
+      ]
+    },
+    {
+      "name": "2. Blog (Public read)",
+      "item": [
+        {
+          "name": "2.1 List published blog posts",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('Returns object with posts array', () => { const r = pm.response.json(); pm.expect(r).to.have.property('posts'); pm.expect(r.posts).to.be.an('array'); });", "pm.test('Caches first post slug for next step', () => { const r = pm.response.json(); if (r.posts && r.posts.length > 0) { pm.collectionVariables.set('test_post_slug', r.posts[0].slug); } });"]}}],
+          "request": {"method": "GET", "url": "{{BASE_URL}}/api/blog/posts?page=1&limit=5"}
+        },
+        {
+          "name": "2.2 Read single post by slug",
+          "event": [{"listen": "test", "script": {"exec": ["const slug = pm.collectionVariables.get('test_post_slug'); if (!slug) { pm.skip('No slug from prior step'); return; }", "pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('Has title', () => { const r = pm.response.json(); pm.expect(r.title).to.be.a('string'); });"]}}],
+          "request": {"method": "GET", "url": "{{BASE_URL}}/api/blog/posts/{{test_post_slug}}"}
+        }
+      ]
+    },
+    {
+      "name": "3. Charon (Public AI assistant)",
+      "item": [
+        {
+          "name": "3.1 Charon health",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('LLM status up', () => { const r = pm.response.json(); pm.expect(r.llm_status).to.eq('up'); });"]}}],
+          "request": {"method": "GET", "url": "{{BASE_URL}}/api/v1/charon/health"}
+        },
+        {
+          "name": "3.2 Charon reply (greeting)",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('Returns non-empty text', () => { const r = pm.response.json(); pm.expect(r.text).to.be.a('string'); pm.expect(r.text.length).to.be.greaterThan(0); });"]}}],
+          "request": {"method": "POST", "url": "{{BASE_URL}}/api/v1/charon/reply", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"user_message\":\"hello\",\"channel\":\"web\"}"}}
+        },
+        {
+          "name": "3.3 Charon reply (refund question)",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('Returns text', () => { const r = pm.response.json(); pm.expect(r.text).to.be.a('string'); });"]}}],
+          "request": {"method": "POST", "url": "{{BASE_URL}}/api/v1/charon/reply", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"user_message\":\"I want a refund please\",\"channel\":\"web\"}"}}
+        }
+      ]
+    },
+    {
+      "name": "4. Contact Form",
+      "item": [
+        {
+          "name": "4.1 Submit contact form",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('201 Created', () => pm.response.to.have.status(201));", "pm.test('Success true', () => { const r = pm.response.json(); pm.expect(r.success).to.eq(true); });"]}}],
+          "request": {"method": "POST", "url": "{{BASE_URL}}/api/v1/contact/submit", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"name\":\"Postman Test\",\"email\":\"{{TEST_EMAIL}}\",\"subject\":\"Smoke test contact\",\"message\":\"This is an automated smoke test from Postman.\",\"channel\":\"email\"}"}}
+        }
+      ]
+    },
+    {
+      "name": "5. Webhooks (Flutterwave signature required)",
+      "item": [
+        {
+          "name": "5.1 Flutterwave webhook — rejects missing signature header",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('401 Unauthorized', () => pm.response.to.have.status(401));", "pm.test('Mentions signature', () => { const r = pm.response.json(); pm.expect(JSON.stringify(r).toLowerCase()).to.match(/signature|verif/); });"]}}],
+          "request": {"method": "POST", "url": "{{BASE_URL}}/api/webhooks/flutterwave", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"event\":\"charge.completed\",\"data\":{}}"}}
+        }
+      ]
+    },
+    {
+      "name": "6. SEO & Public pages",
+      "item": [
+        {
+          "name": "6.1 Sitemap reachable",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('XML or text content', () => { const ct = pm.response.headers.get('content-type') || ''; pm.expect(ct.toLowerCase()).to.match(/xml|text/); });"]}}],
+          "request": {"method": "GET", "url": "https://styxproxy.com/sitemap.xml"}
+        },
+        {
+          "name": "6.2 Robots reachable",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+          "request": {"method": "GET", "url": "https://styxproxy.com/robots.txt"}
+        },
+        {
+          "name": "6.3 Home page 200",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('Has Styxproxy in HTML', () => pm.expect(pm.response.text()).to.match(/Styxproxy/i));"]}}],
+          "request": {"method": "GET", "url": "https://styxproxy.com/"}
+        },
+        {
+          "name": "6.4 Blog page 200",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+          "request": {"method": "GET", "url": "https://styxproxy.com/blog"}
+        },
+        {
+          "name": "6.5 Products page 200",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));"]}}],
+          "request": {"method": "GET", "url": "https://styxproxy.com/products"}
+        }
+      ]
+    }
+  ]
+}
