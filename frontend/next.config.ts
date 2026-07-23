@@ -32,6 +32,15 @@ const nextConfig: NextConfig = {
         source: '/sitemap.xml',
         headers: [{ key: 'Cache-Control', value: 'no-store, must-revalidate' }],
       },
+      // Public pages: bypass Vercel CDN cache so the edge middleware can
+      // check maintenance state and rewrite to /maintenance when needed.
+      // Trade-off: slightly slower public page loads during normal operation
+      // (always hits origin) — but enables fast maintenance toggles without
+      // waiting for cache TTLs.
+      {
+        source: '/((?!admin|api|_next|maintenance|favicon|.*\\..*).*)',
+        headers: [{ key: 'Cache-Control', value: 'private, no-cache' }],
+      },
       {
         source: '/(.*)',
         headers: [

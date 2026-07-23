@@ -54,15 +54,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // 3. Maintenance mode — only for public pages
+  // 3. Maintenance mode — only for public pages.
+  // Note: Vercel serves static prerendered pages directly from edge cache,
+  // skipping middleware. We use a Cache-Control header to opt pages out of
+  // CDN cache (configured in next.config headers), so the middleware runs
+  // on every request and can rewrite when maintenance is on.
   if (request.method === 'GET' && !ALWAYS_AVAILABLE_PREFIXES.some((p) => path.startsWith(p))) {
     try {
-      // Check the public maintenance endpoint directly via the backend.
-      // (Going through /api/public/maintenance would cause a self-rewrite
-      // loop or stack-overflow — the edge can talk to the backend directly.)
       const apiHost = request.headers.get('host')?.includes('styxproxy.com')
         ? 'https://api.styxproxy.com'
-        : '';  // localhost / preview — call same origin (works in dev)
+        : '';
       const url = apiHost
         ? `${apiHost}/api/public/maintenance`
         : new URL('/api/public/maintenance', request.url).toString();
@@ -73,7 +74,6 @@ export async function middleware(request: NextRequest) {
       if (res.ok) {
         const data = (await res.json()) as { enabled: boolean };
         if (data.enabled) {
-          // Rewrite to /maintenance so the page renders
           const rewriteUrl = request.nextUrl.clone();
           rewriteUrl.pathname = '/maintenance';
           return NextResponse.rewrite(rewriteUrl);
