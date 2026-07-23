@@ -225,6 +225,8 @@ async def get_post_by_slug(slug: str, session: AsyncSession = Depends(get_sessio
     # Increment view count
     post.view_count += 1
     await session.commit()
+    # Re-fetch fresh — avoids MissingGreenlet on async-loaded attrs after commit
+    await session.refresh(post)
 
     return PostResponse.model_validate(post)
 
