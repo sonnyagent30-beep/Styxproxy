@@ -23,12 +23,13 @@ interface OrderData {
   country?: string;
   amount_paid_ngn?: number;
   tx_ref?: string;
-  customer_name?: string | null;  // Only set for orders created via WhatsApp/Telegram
+  customer_name?: string | null;
   is_renewable?: boolean;
   rotation_count?: number;
   max_rotations?: number;
   styxproxy_credential?: {
     bun_username?: string;
+    styxproxy_username?: string;
     styxproxy_password?: string;
     upstream_proxy_ip?: string;
     upstream_proxy_port?: number;

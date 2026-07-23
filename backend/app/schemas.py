@@ -268,10 +268,10 @@ class PlansResponse(BaseModel):
 
 class StyxproxyCredentialBrief(BaseModel):
     """Brief credential information for order response."""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
-    bun_username: str
+    bun_username: str = Field(..., alias="styxproxy_username", serialization_alias="styxproxy_username")
     protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int

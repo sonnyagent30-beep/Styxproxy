@@ -16,6 +16,7 @@ interface OrderData {
   tx_ref?: string;
   styxproxy_credential?: {
     bun_username?: string;
+    styxproxy_username?: string;
     styxproxy_password?: string;
     upstream_proxy_ip?: string;
     upstream_proxy_port?: number;
