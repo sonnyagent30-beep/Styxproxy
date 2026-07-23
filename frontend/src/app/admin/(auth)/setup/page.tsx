@@ -13,9 +13,9 @@ export default function AdminSetupPage() {
   const [step, setStep] = useState<Step>('invite');
   const [inviteCode, setInviteCode] = useState('');
   const [inviteValid, setInviteValid] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState(''); // server-stored email from invite
+  const [inviteEmail, setInviteEmail] = useState(''); // server-stored email (revealed after invite validated)
 
-  // Step 2: email (must match invite), password, confirm password.
+  // Step 2: user types email (must match invite). Never pre-filled.
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -26,6 +26,7 @@ export default function AdminSetupPage() {
   const [otpauthUrl, setOtpauthUrl] = useState('');
   const [tempToken, setTempToken] = useState('');
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [qrSvg, setQrSvg] = useState<string>('');
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +48,8 @@ export default function AdminSetupPage() {
     }
     setInviteValid(true);
     setInviteEmail((result.data.email || '').toLowerCase());
-    setEmail((result.data.email || '').toLowerCase()); // pre-fill (locked after)
+    // DO NOT pre-fill the email field — the user must type it themselves.
+    // The server enforces that what they type matches the invite-scoped email.
     setStep('credentials');
   };
 
@@ -89,6 +91,20 @@ export default function AdminSetupPage() {
     setTempToken(result.data.temp_token);
     setBackupCodes(result.data.backup_codes || []);
     setStep('totp');
+
+    // Render a QR code SVG from the otpauth URL so the user can scan it.
+    try {
+      const QR = (await import('qrcode')).default;
+      const svg = await QR.toString(result.data.otpauth_url, {
+        type: 'svg',
+        margin: 1,
+        color: { dark: '#000', light: '#fff' },
+        errorCorrectionLevel: 'M',
+      });
+      setQrSvg(svg);
+    } catch {
+      setQrSvg('');
+    }
   };
 
   const handleTotp = async (e: React.FormEvent) => {
@@ -245,15 +261,27 @@ export default function AdminSetupPage() {
 
           {step === 'totp' && (
             <form onSubmit={handleTotp} className="space-y-4">
-              <div>
+              <div className="text-center">
                 <p className="text-sm text-[var(--muted)] mb-3">
-                  Scan this URL in your authenticator app, then enter the 6-digit
-                  code:
+                  Scan this QR code with Google Authenticator, 1Password,
+                  Authy, or any TOTP app. Then enter the 6-digit code below.
                 </p>
-                <div className="p-3 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs font-mono break-all text-[var(--muted)]">
-                  {otpauthUrl}
-                </div>
-                <details className="mt-2">
+                {qrSvg ? (
+                  <div
+                    className="mx-auto inline-block p-3 bg-white rounded-xl border border-[var(--border)]"
+                    // The SVG is generated client-side from the otpauth URL.
+                    // We render it via dangerouslySetInnerHTML so the user can
+                    // tap-and-hold to save it. The src string is fixed format
+                    // produced by the 'qrcode' npm package; no user input is
+                    // interpolated, so this is safe.
+                    dangerouslySetInnerHTML={{ __html: qrSvg }}
+                  />
+                ) : (
+                  <div className="p-3 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs font-mono break-all text-[var(--muted)]">
+                    {otpauthUrl}
+                  </div>
+                )}
+                <details className="mt-3 text-left">
                   <summary className="text-xs text-[var(--muted)] cursor-pointer">
                     Or enter secret manually
                   </summary>
