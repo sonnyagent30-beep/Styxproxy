@@ -57,8 +57,16 @@ export async function middleware(request: NextRequest) {
   // 3. Maintenance mode — only for public pages
   if (request.method === 'GET' && !ALWAYS_AVAILABLE_PREFIXES.some((p) => path.startsWith(p))) {
     try {
-      // Cache the maintenance check for 30s using Next's built-in fetch cache.
-      const res = await fetch(new URL('/api/public/maintenance', request.url), {
+      // Check the public maintenance endpoint directly via the backend.
+      // (Going through /api/public/maintenance would cause a self-rewrite
+      // loop or stack-overflow — the edge can talk to the backend directly.)
+      const apiHost = request.headers.get('host')?.includes('styxproxy.com')
+        ? 'https://api.styxproxy.com'
+        : '';  // localhost / preview — call same origin (works in dev)
+      const url = apiHost
+        ? `${apiHost}/api/public/maintenance`
+        : new URL('/api/public/maintenance', request.url).toString();
+      const res = await fetch(url, {
         cache: 'no-store',
         signal: AbortSignal.timeout(800),
       });
@@ -66,9 +74,9 @@ export async function middleware(request: NextRequest) {
         const data = (await res.json()) as { enabled: boolean };
         if (data.enabled) {
           // Rewrite to /maintenance so the page renders
-          const url = request.nextUrl.clone();
-          url.pathname = '/maintenance';
-          return NextResponse.rewrite(url);
+          const rewriteUrl = request.nextUrl.clone();
+          rewriteUrl.pathname = '/maintenance';
+          return NextResponse.rewrite(rewriteUrl);
         }
       }
     } catch {
