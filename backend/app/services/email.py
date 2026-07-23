@@ -1258,7 +1258,7 @@ def _render_admin_invite_email(
     expires_in_hours: int,
 ) -> EmailContent:
     """Render admin invite email - matches receipt design."""
-    invite_link = f"https://styxproxy.com/admin/setup?code={invite_code}"
+    setup_link = "https://styxproxy.com/admin/setup"
 
     base_styles = _get_base_styles()
 
@@ -1301,12 +1301,21 @@ def _render_admin_invite_email(
                 </div>
                 
                 <div style="text-align: center; margin-top: 20px;">
-                    <a href="{invite_link}" class="cta-button">Set Up Account →</a>
+                    <a href="{setup_link}" class="cta-button">Open Setup Page →</a>
                 </div>
-                
-                <p style="color: var(--brand-muted); font-size: 13px; margin-top: 16px; text-align: center;">
-                    Or copy this link: <span style="color: var(--brand-primary-brighter); word-break: break-all;">{invite_link}</span>
-                </p>
+
+                <div style="margin-top: 20px; padding: 16px; background: var(--brand-bg-elevated); border: 1px dashed var(--brand-border); border-radius: 8px;">
+                    <p style="margin: 0 0 8px; color: var(--brand-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        Your Invite Code
+                    </p>
+                    <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 20px; font-weight: bold; color: var(--brand-primary-brighter); text-align: center; word-break: break-all;">
+                        {invite_code}
+                    </p>
+                    <p style="margin: 8px 0 0; color: var(--brand-muted); font-size: 12px; text-align: center;">
+                        Type this code in on the setup page. It is also bound to your email
+                        ({email}); the server will reject any other email at the credentials step.
+                    </p>
+                </div>
                 
                 <div class="warning-box">
                     ⚠️ <strong>Important:</strong> This invite expires in {expires_in_hours} hours. If you didn't request this, please ignore this email.
@@ -1327,7 +1336,14 @@ You've been invited to join the Styxproxy Admin Panel.
 Role: {role}
 Email: {email}
 
-Set up your account: {invite_link}
+Set up your account: {setup_link}
+
+Your invite code (type it in on the setup page):
+
+    {invite_code}
+
+This code is bound to {email}. If you sign in with any other email,
+the server will reject it.
 
 This invite expires in {expires_in_hours} hours.
 
