@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import type { BlogPost } from '@/types';
 import PostCard from './PostCard';
 import TagFilter from './TagFilter';
+import { PostCardSkeletonGrid } from '@/components/Skeletons';
 
 interface BlogFeedProps {
   initialPosts: BlogPost[];
@@ -104,6 +105,8 @@ export default function BlogFeed({
             <PostCard key={post.id} post={post} />
           ))}
         </div>
+      ) : loading ? (
+        <PostCardSkeletonGrid count={6} />
       ) : (
         <div className="text-center py-20">
           <p className="text-[var(--muted)] text-lg">No posts found.</p>

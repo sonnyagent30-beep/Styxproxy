@@ -3,6 +3,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatWidget from "@/components/ChatWidget";
+import SentryBoundary from "@/components/SentryBoundary";
 import { ChannelFeatureFlagsProvider } from "@/lib/feature-flags";
 
 /**
@@ -17,10 +18,12 @@ import { ChannelFeatureFlagsProvider } from "@/lib/feature-flags";
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <ChannelFeatureFlagsProvider>
-      <Header />
-      <main>{children}</main>
-      <Footer />
-      <ChatWidget />
+      <SentryBoundary>
+        <Header />
+        <main>{children}</main>
+        <Footer />
+        <ChatWidget />
+      </SentryBoundary>
     </ChannelFeatureFlagsProvider>
   );
 }

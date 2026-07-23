@@ -131,12 +131,21 @@ async def list_published_posts(
     featured: Optional[bool] = None,
     session: AsyncSession = Depends(get_session),
 ):
+    """List all published blog posts (public). Cached for 60s."""
+    from app.services.observability import cache_get, cache_set
+
+    # Cache key covers all filter dimensions
+    cache_key = f"blog:list:p={page}:l={limit}:t={tag or ''}:c={category or ''}:f={featured}"
+    cached = await cache_get(cache_key)
+    if cached is not None:
+        return PostListResponse.model_validate(cached)
+
     """List all published blog posts (public)."""
     conditions = [Post.status == "published"]
-    
+
     if tag:
         conditions.append(Post.tags.contains([tag]))
-    
+
     if category:
         # Join with post_categories to filter by category slug
         stmt = select(Category.id).where(Category.slug == category)
@@ -150,13 +159,13 @@ async def list_published_posts(
                     )
                 )
             )
-    
+
     if featured is not None:
         conditions.append(Post.featured == featured)
-    
+
     count_stmt = select(func.count()).select_from(Post).where(and_(*conditions))
     total = (await session.execute(count_stmt)).scalar() or 0
-    
+
     offset = (page - 1) * limit
     stmt = (
         select(Post)
@@ -166,8 +175,8 @@ async def list_published_posts(
         .limit(limit)
     )
     posts = (await session.execute(stmt)).scalars().all()
-    
-    return PostListResponse(
+
+    response = PostListResponse(
         posts=[PostBriefResponse.model_validate(p) for p in posts],
         pagination={
             "page": page,
@@ -178,6 +187,10 @@ async def list_published_posts(
             "has_prev": page > 1,
         },
     )
+
+    # Cache the JSON-serializable form
+    await cache_set(cache_key, response.model_dump(mode="json"), ttl_seconds=60)
+    return response
 
 
 @router.get("/posts/{slug}", response_model=PostResponse)
@@ -604,6 +617,11 @@ async def create_post(
     
     response_data = PostResponse.model_validate(post)
     response_data.categories = categories
+
+    # Invalidate the public list cache so the new post shows up immediately
+    from app.services.observability import cache_delete_prefix
+    await cache_delete_prefix("blog:list:")
+
     return response_data
 
 
@@ -733,6 +751,11 @@ async def update_post(
     
     response_data = PostResponse.model_validate(post)
     response_data.categories = categories
+
+    # Invalidate the public list cache so the new post shows up immediately
+    from app.services.observability import cache_delete_prefix
+    await cache_delete_prefix("blog:list:")
+
     return response_data
 
 
