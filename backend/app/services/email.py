@@ -33,8 +33,10 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 # Persistent delivery log — JSON lines, capped at 500 entries.
-# Lives outside the container at /root/styxproxy/backend/data/email_delivery.log.jsonl
-_DELIVERY_LOG_PATH = Path("/root/styxproxy/backend/data/email_delivery.log.jsonl")
+# Path is configurable so the container can write to a mounted volume.
+# Default to /app/data/email_delivery.log.jsonl inside the container, which is
+# mapped to ./backend/data on the host via docker-compose volume mount.
+_DELIVERY_LOG_PATH = Path(os.environ.get("EMAIL_DELIVERY_LOG_PATH", "/app/data/email_delivery.log.jsonl"))
 _DELIVERY_LOG_MAX_ENTRIES = 500
 
 
