@@ -488,16 +488,18 @@ class AdminInvite(Base):
     role: Mapped[str] = mapped_column(
         String(20), default="admin", nullable=False
     )  # admin, superadmin, viewer
-    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("admin_auth.id"), nullable=True
-    )
+    created_by: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True
+    )  # email or phone of admin who issued the invite
     expires_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     used_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    used_by: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
+    used_by: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True
+    )  # email or phone of admin who consumed the invite
     max_uses: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     uses_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
