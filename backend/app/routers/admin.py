@@ -14,8 +14,10 @@ from app.schemas import (
     AdminOrderResponse, AdminOrdersResponse, AdminOrderUpdateRequest, AdminRefundRequest,
     AdminCredentialResponse, AdminCredentialsResponse, AdminAuditLogsResponse, AdminAuditLogResponse,
     AdminWebhookLogsResponse, AdminWebhookLogResponse,
-    LearnedFilesResponse, LearnedFileResponse, LearnContentResponse, 
+    LearnedFilesResponse, LearnedFileResponse, LearnContentResponse,
     DeleteLearnedFileRequest, DeleteLearnedFileResponse,
+    KnowledgeFileResponse, AllKnowledgeFilesResponse, UpdateKnowledgeRequest, UpdateKnowledgeResponse,
+    EvalSetResponse, EvalRunResponse,
     PlanResponse, PlansResponse, PlanCreateRequest, PlanUpdateRequest,
     ChannelFeatureFlagsResponse, ChannelFeatureFlagsUpdate, ChannelConfig,
     ContactSubmissionResponse, ContactSubmissionsResponse, ContactSubmissionReplyRequest,
@@ -421,15 +423,136 @@ async def delete_learned_file(request: DeleteLearnedFileRequest):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a file")
     
     filepath.unlink()
-    
+
     # Invalidate cache after deletion
     from app.services.charon.knowledge import invalidate_cache
     invalidate_cache()
-    
+
     return DeleteLearnedFileResponse(
         ok=True,
         message=f"Deleted {filename}",
     )
+
+
+# ============== Charon Knowledge (admin can read/edit ALL knowledge files) ==============
+
+KNOWLEDGE_DIR = Path("/root/styxproxy/backend/data/charon/knowledge")
+
+
+def _list_md_files(directory: Path, source_label: str, editable: bool) -> list:
+    """List .md files in a directory as KnowledgeFileResponse."""
+    if not directory.exists():
+        return []
+    items = []
+    for path in sorted(directory.rglob("*.md")):
+        stat = path.stat()
+        items.append(
+            KnowledgeFileResponse(
+                name=path.name,
+                path=str(path.relative_to(directory.parent.parent)),
+                size=stat.st_size,
+                modified_at=datetime.fromtimestamp(stat.st_mtime),
+                editable=editable,
+            )
+        )
+    return items
+
+
+@router.get("/charon/knowledge", response_model=AllKnowledgeFilesResponse, dependencies=[Depends(admin_only)])
+async def list_all_knowledge_files():
+    """List both knowledge/ (read-only seeded) and learned/ (admin-editable) files."""
+    return AllKnowledgeFilesResponse(
+        knowledge=_list_md_files(KNOWLEDGE_DIR, "knowledge", editable=False),
+        learned=_list_md_files(LEARNED_DIR, "learned", editable=True),
+    )
+
+
+@router.get("/charon/knowledge/{filename}", response_model=LearnContentResponse, dependencies=[Depends(admin_only)])
+async def get_knowledge_file_content(filename: str):
+    """Read the content of a knowledge/ file (read-only seeded knowledge)."""
+    # Security: prevent path traversal
+    filename = filename.replace("..", "").replace("/", "")
+    filepath = KNOWLEDGE_DIR / filename
+    if not filepath.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+    if not filepath.is_file():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a file")
+    content = filepath.read_text(encoding="utf-8")
+    return LearnContentResponse(
+        name=filepath.name,
+        path=str(filepath.relative_to(filepath.parent.parent.parent)),
+        content=content,
+    )
+
+
+@router.put("/charon/knowledge/{filename}", response_model=UpdateKnowledgeResponse, dependencies=[Depends(admin_only)])
+async def update_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
+    """Update an existing knowledge/ file (replaces content with title + body as markdown)."""
+    filename = filename.replace("..", "").replace("/", "")
+    if not filename.endswith(".md"):
+        filename = f"{filename}.md"
+    filepath = KNOWLEDGE_DIR / filename
+    if not filepath.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    full_content = f"# {payload.title.strip()}\n\n{payload.content.strip()}\n"
+    filepath.write_text(full_content, encoding="utf-8")
+    stat = filepath.stat()
+
+    # Invalidate RAG cache so the new content is picked up immediately
+    from app.services.charon.knowledge import invalidate_cache
+    invalidate_cache()
+
+    return UpdateKnowledgeResponse(
+        ok=True,
+        message=f"Updated {filename}",
+        name=filename,
+        path=str(filepath.relative_to(filepath.parent.parent.parent)),
+        size=stat.st_size,
+    )
+
+
+@router.post("/charon/knowledge/{filename}", response_model=UpdateKnowledgeResponse, dependencies=[Depends(admin_only)])
+async def create_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
+    """Create a new file in knowledge/."""
+    filename = filename.replace("..", "").replace("/", "")
+    if not filename.endswith(".md"):
+        filename = f"{filename}.md"
+    filepath = KNOWLEDGE_DIR / filename
+    if filepath.exists():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="File already exists")
+
+    full_content = f"# {payload.title.strip()}\n\n{payload.content.strip()}\n"
+    filepath.write_text(full_content, encoding="utf-8")
+    stat = filepath.stat()
+
+    from app.services.charon.knowledge import invalidate_cache
+    invalidate_cache()
+
+    return UpdateKnowledgeResponse(
+        ok=True,
+        message=f"Created {filename}",
+        name=filename,
+        path=str(filepath.relative_to(filepath.parent.parent.parent)),
+        size=stat.st_size,
+    )
+
+
+# ============== Charon Q/A Evaluation ==============
+
+from app.services.charon.eval import get_eval_set, run_eval_set  # noqa: E402
+
+
+@router.get("/charon/eval", response_model=EvalSetResponse, dependencies=[Depends(admin_only)])
+async def get_eval_questions():
+    """Return the Q/A eval set derived from Scenarios."""
+    return get_eval_set()
+
+
+@router.post("/charon/eval/run", response_model=EvalRunResponse, dependencies=[Depends(admin_only)])
+async def run_eval_questions():
+    """Run the eval set against the live Charon pipeline and report pass/fail per question."""
+    return await run_eval_set()
 
 
 # ============== Plans CRUD ==============

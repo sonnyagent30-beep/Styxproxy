@@ -73,6 +73,8 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
     { href: '/admin/credentials', label: 'Credentials', icon: '🔑' },
     { href: '/admin/plans', label: 'Plans', icon: '💰' },
     { href: '/admin/charon', label: 'Charon', icon: '🧠' },
+    { href: '/admin/charon/eval', label: 'Charon Eval', icon: '✅' },
+    { href: '/admin/escalations', label: 'Escalations', icon: '🚨' },
     { href: '/admin/support', label: 'Support', icon: '✉️' },
     { href: '/admin/blog', label: 'Blog', icon: '📝' },
     ...(isSuperAdmin ? [

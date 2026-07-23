@@ -678,6 +678,87 @@ class DeleteLearnedFileResponse(BaseModel):
     message: str
 
 
+# ============== Charon Knowledge (read/write all knowledge files) ==============
+
+
+class KnowledgeFileResponse(BaseModel):
+    """A file from the knowledge/ directory (read-only seeded knowledge)."""
+    name: str
+    path: str
+    size: int
+    modified_at: datetime
+    editable: bool = False  # True for learned/, False for knowledge/
+
+
+class AllKnowledgeFilesResponse(BaseModel):
+    """Both knowledge/ (read-only) and learned/ (admin-editable) files."""
+    knowledge: list[KnowledgeFileResponse]
+    learned: list[KnowledgeFileResponse]
+
+
+class UpdateKnowledgeRequest(BaseModel):
+    """Request body to update or create a knowledge file."""
+    title: str = Field(..., min_length=1, max_length=200, description="Document title (becomes the H1 heading)")
+    content: str = Field(..., min_length=1, description="Markdown body content")
+
+
+class UpdateKnowledgeResponse(BaseModel):
+    """Response after updating a knowledge file."""
+    ok: bool
+    message: str
+    name: str
+    path: str
+    size: int
+
+
+# ============== Charon Q/A Evaluation ==============
+
+
+class EvalQuestion(BaseModel):
+    """A single test question with the expected answer."""
+    id: str
+    question: str
+    expected_keywords: list[str] = Field(
+        default_factory=list,
+        description="Substrings that must appear in Charon's answer for the test to pass",
+    )
+    expected_scenario: Optional[str] = Field(
+        default=None,
+        description="If set, the matching scenario id must match this value",
+    )
+    source: str = Field(default="", description="Which Scenarios file this was derived from")
+
+
+class EvalSetResponse(BaseModel):
+    """The Q/A evaluation set derived from Scenarios."""
+    name: str
+    description: str
+    questions: list[EvalQuestion]
+
+
+class EvalResult(BaseModel):
+    """Result of running a single test question."""
+    id: str
+    question: str
+    answer: str
+    passed: bool
+    matched_keywords: list[str]
+    missing_keywords: list[str]
+    expected_scenario: Optional[str]
+    matched_scenario: Optional[str]
+    latency_ms: int
+
+
+class EvalRunResponse(BaseModel):
+    """Result of running the entire Q/A eval set."""
+    total: int
+    passed: int
+    failed: int
+    pass_rate: float
+    results: list[EvalResult]
+    ran_at: datetime
+
+
 # ============== Error Schemas ==============
 
 class ErrorDetail(BaseModel):

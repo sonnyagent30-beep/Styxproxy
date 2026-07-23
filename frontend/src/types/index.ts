@@ -126,6 +126,7 @@ export interface LearnedFile {
   path: string;
   size: number;
   modified_at: string;
+  editable?: boolean;
 }
 
 export interface LearnedFilesResponse {
@@ -146,8 +147,73 @@ export interface LearnRequest {
 
 export interface LearnResponse {
   ok: boolean;
-  filepath: string;
+  filepath?: string;
   message: string;
+}
+
+// ============ Charon Knowledge (admin reads + writes knowledge files) ============
+
+export interface KnowledgeFile {
+  name: string;
+  path: string;
+  size: number;
+  modified_at: string;
+  editable: boolean;
+}
+
+export interface AllKnowledgeFilesResponse {
+  knowledge: KnowledgeFile[];
+  learned: KnowledgeFile[];
+}
+
+export interface UpdateKnowledgeRequest {
+  title: string;
+  content: string;
+}
+
+export interface UpdateKnowledgeResponse {
+  ok: boolean;
+  message: string;
+  name: string;
+  path: string;
+  size: number;
+}
+
+// ============ Charon Q/A Evaluation ============
+
+export interface EvalQuestion {
+  id: string;
+  question: string;
+  expected_keywords: string[];
+  expected_scenario: string | null;
+  source: string;
+}
+
+export interface EvalSetResponse {
+  name: string;
+  description: string;
+  questions: EvalQuestion[];
+}
+
+export interface EvalResult {
+  id: string;
+  question: string;
+  answer: string;
+  passed: boolean;
+  matched_keywords: string[];
+  missing_keywords: string[];
+  expected_scenario: string | null;
+  matched_scenario: string | null;
+  latency_ms: number;
+}
+
+export interface EvalRunResponse {
+  total: number;
+  passed: number;
+  failed: number;
+  pass_rate: number;
+  results: EvalResult[];
+  ran_at: string;
 }
 
 // ============== Admin Auth Types ==============
