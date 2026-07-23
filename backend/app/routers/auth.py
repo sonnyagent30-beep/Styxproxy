@@ -356,11 +356,13 @@ async def setup_admin_step2(
     role = payload["role"]
 
     # All good — create the admin account
+    # role is sourced from the invite (sole authority for authorization grants).
     admin = AdminAuth(
         email=email,
         password_hash=password_hash,
         totp_enabled=True,
         totp_secret=totp_secret,
+        role=role,
     )
     session.add(admin)
 
