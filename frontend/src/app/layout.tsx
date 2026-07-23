@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import ChatWidget from "@/components/ChatWidget";
-import ConsentGate from "@/components/ConsentGate";
 import { ToastProvider } from "@/components/Toast";
-import { ChannelFeatureFlagsProvider } from "@/lib/feature-flags";
+import ConsentGate from "@/components/ConsentGate";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://styxproxy.com'),
@@ -77,12 +73,7 @@ export default function RootLayout({
       <body className="antialiased" style={{ fontFamily: "'Poppins', sans-serif" }}>
         <ToastProvider>
           <ConsentGate />
-          <ChannelFeatureFlagsProvider>
-            <Header />
-            <main>{children}</main>
-            <Footer />
-            <ChatWidget />
-          </ChannelFeatureFlagsProvider>
+          {children}
         </ToastProvider>
 
         {/* Organization JSON-LD — Google Knowledge Graph source for brand */}
