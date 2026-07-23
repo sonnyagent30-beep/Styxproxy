@@ -677,6 +677,31 @@ class ApiClient {
     return this.request(`/api/admin/search?q=${encodeURIComponent(q)}`);
   }
 
+  // ============== Maintenance Mode ==============
+
+  async getMaintenanceStatus(): Promise<ApiResponse<{
+    enabled: boolean;
+    ready_at: string | null;
+    message: string | null;
+  }>> {
+    return this.request('/api/admin/maintenance');
+  }
+
+  async toggleMaintenance(payload: {
+    enabled?: boolean;
+    ready_at?: string | null;
+    message?: string | null;
+  }): Promise<ApiResponse<{
+    enabled: boolean;
+    ready_at: string | null;
+    message: string | null;
+  }>> {
+    return this.request('/api/admin/maintenance/toggle', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   // ============== Metrics Overview ==============
 
   async getMetricsOverview(): Promise<ApiResponse<MetricsOverview>> {

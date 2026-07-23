@@ -24,6 +24,7 @@ from app.routers import (
     credentials,
     health,
     inbound,
+    maintenance,
     orders,
     payments,
     platform,
@@ -196,6 +197,94 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+# Maintenance mode middleware — when enabled, blocks public routes with 503
+# but lets admin/superadmin/health/public-maintenance-status through.
+MAINTENANCE_EXEMPT_PREFIXES = (
+    "/api/admin",
+    "/api/public/maintenance",
+    "/api/health",
+    "/api/webhooks",
+    "/api/payments",
+    "/api/orders",
+    "/api/credentials",
+    "/api/products",
+    "/api/platform",
+    "/api/inbound",
+    "/api/charon",
+    "/api/blog",
+    "/api/contact",
+    "/api/session",
+    "/api/trials",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+)
+
+
+@app.middleware("http")
+async def maintenance_block(request: Request, call_next):
+    """If maintenance mode is on, return 503 for public routes only.
+
+    Admin/Superadmin routes and webhook/ingest endpoints are exempt so
+    the platform can keep processing payments, credentials, and admin
+    operations even during a public-facing outage window.
+    """
+    path = request.url.path
+
+    # Static and the admin frontend itself are always available
+    if any(path.startswith(p) for p in MAINTENANCE_EXEMPT_PREFIXES):
+        return await call_next(request)
+
+    # Only check on GET requests (POST/PUT/DELETE on public routes are
+    # handled by the public read paths too — but the frontend is React,
+    # not the API, so this is the right boundary)
+    if request.method != "GET":
+        return await call_next(request)
+
+    # Check maintenance state
+    try:
+        from app.database import async_session
+        from app.models import FeatureFlag
+        from sqlalchemy import select
+
+        async with async_session() as session:
+            flag = (
+                await session.execute(
+                    select(FeatureFlag).where(FeatureFlag.name == "maintenance_mode")
+                )
+            ).scalar_one_or_none()
+
+            if flag and flag.enabled:
+                # Read optional message + ready_at
+                from app.models import FeatureFlag as FF
+
+                ra = (
+                    await session.execute(
+                        select(FF).where(FF.name == "maintenance_ready_at")
+                    )
+                ).scalar_one_or_none()
+                msg = (
+                    await session.execute(
+                        select(FF).where(FF.name == "maintenance_message")
+                    )
+                ).scalar_one_or_none()
+
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "maintenance": True,
+                        "ready_at": ra.description if ra else None,
+                        "message": msg.description if msg else None,
+                    },
+                    headers={"Retry-After": "300"},
+                )
+    except Exception:
+        # If the DB check itself fails, don't block traffic
+        pass
+
+    return await call_next(request)
+
+
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -238,3 +327,4 @@ app.include_router(auth.router)
 app.include_router(blog.router)
 app.include_router(inbound.router)
 app.include_router(superadmin.router)
+app.include_router(maintenance.router)

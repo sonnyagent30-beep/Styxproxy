@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
         source: '/api/admin/:path*',
         destination: 'https://api.styxproxy.com/api/admin/:path*',
       },
+      {
+        source: '/api/public/maintenance',
+        destination: 'https://api.styxproxy.com/api/public/maintenance',
+      },
     ];
   },
 
