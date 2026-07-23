@@ -122,6 +122,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Initialize Sentry (no-op when SENTRY_DSN is not set)
+from app.services.observability import init_sentry
+init_sentry()
+
 # Add rate limiter to app state
 app.state.limiter = limiter
 

@@ -34,3 +34,7 @@ sentry-sdk==2.64.0
 # Utilities
 python-multipart==0.0.27
 python-dotenv==1.2.2
+
+# Observability + Caching
+sentry-sdk[fastapi]==2.64.0
+redis==8.0.1
