@@ -54,6 +54,7 @@ def create_access_token(
     sub: str,
     platform: str,
     phone: str,
+    role: Optional[str] = None,
     expires_delta: Optional[timedelta] = None,
 ) -> str:
     """Create a JWT access token."""
@@ -71,6 +72,8 @@ def create_access_token(
         "exp": expire,
         "iat": datetime.now(timezone.utc),
     }
+    if role:
+        to_encode["role"] = role
 
     encoded_jose_jwt = jose_jwt.encode(
         to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm
@@ -181,8 +184,19 @@ async def get_current_account(
 async def admin_only(
     authorization: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
 ) -> bool:
-    """Dependency for admin-only endpoints."""
-    verify_admin_token(authorization.credentials)
+    """Dependency for admin-only endpoints.
+
+    Validates the JWT and verifies the bearer has an admin role
+    (admin, superadmin, or viewer). Returns True on success.
+    """
+    token = authorization.credentials
+    payload = decode_access_token(token)
+    role = payload.get("role") or ""
+    if role not in {"admin", "superadmin", "viewer"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{role}' not authorized. Required: admin role.",
+        )
     return True
 
 

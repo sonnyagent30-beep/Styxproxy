@@ -89,7 +89,7 @@ class RoleChecker:
         token = credentials.credentials
         payload = decode_access_token(token)
 
-        admin_email = payload.get("email")
+        admin_email = payload.get("email") or payload.get("sub")
         role = payload.get("role", "viewer")
 
         if role not in self.allowed_roles:
@@ -381,6 +381,7 @@ async def setup_admin_step2(
         sub=email,
         platform="admin",
         phone=email,  # legacy field; admin uses email
+        role=role,
         expires_delta=timedelta(hours=24),
     )
 
