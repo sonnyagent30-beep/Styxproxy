@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 
@@ -26,7 +26,7 @@ export default function AdminSetupPage() {
   const [otpauthUrl, setOtpauthUrl] = useState('');
   const [tempToken, setTempToken] = useState('');
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
-  const [qrSvg, setQrSvg] = useState<string>('');
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -92,19 +92,27 @@ export default function AdminSetupPage() {
     setBackupCodes(result.data.backup_codes || []);
     setStep('totp');
 
-    // Render a QR code SVG from the otpauth URL so the user can scan it.
-    try {
-      const QR = (await import('qrcode')).default;
-      const svg = await QR.toString(result.data.otpauth_url, {
-        type: 'svg',
-        margin: 1,
-        color: { dark: '#000', light: '#fff' },
-        errorCorrectionLevel: 'M',
-      });
-      setQrSvg(svg);
-    } catch {
-      setQrSvg('');
-    }
+    // Render a QR code into a sized <canvas> element.
+    // Why canvas (not SVG / data-URL <img>): both previous approaches were
+    // observed to collapse to a tiny dot in some flex layouts. A <canvas>
+    // with explicit width/height in BOTH attributes and CSS is bulletproof —
+    // the browser cannot shrink the rasterised pixels inside the element.
+    const otpauth = result.data.otpauth_url;
+    const drawQr = async () => {
+      try {
+        const QR = (await import('qrcode')).default;
+        await QR.toCanvas(canvasRef.current!, otpauth, {
+          width: 240,
+          margin: 1,
+          color: { dark: '#000000', light: '#ffffff' },
+          errorCorrectionLevel: 'M',
+        });
+      } catch (err) {
+        console.warn('[admin/setup] client QR generation failed', err);
+      }
+    };
+    // Defer until the canvas ref is mounted.
+    requestAnimationFrame(drawQr);
   };
 
   const handleTotp = async (e: React.FormEvent) => {
@@ -266,21 +274,20 @@ export default function AdminSetupPage() {
                   Scan this QR code with Google Authenticator, 1Password,
                   Authy, or any TOTP app. Then enter the 6-digit code below.
                 </p>
-                {qrSvg ? (
-                  <div
-                    className="mx-auto inline-block p-3 bg-white rounded-xl border border-[var(--border)]"
-                    // The SVG is generated client-side from the otpauth URL.
-                    // We render it via dangerouslySetInnerHTML so the user can
-                    // tap-and-hold to save it. The src string is fixed format
-                    // produced by the 'qrcode' npm package; no user input is
-                    // interpolated, so this is safe.
-                    dangerouslySetInnerHTML={{ __html: qrSvg }}
-                  />
-                ) : (
-                  <div className="p-3 rounded-xl bg-[var(--background)] border border-[var(--border)] text-xs font-mono break-all text-[var(--muted)]">
-                    {otpauthUrl}
+                {step === 'totp' && otpauthUrl ? (
+                  // Bulletproof: explicit width AND height attributes, plus matching CSS,
+                  // plus a min-width on the parent so no ancestor can squeeze it.
+                  <div className="inline-block" style={{ minWidth: 256, minHeight: 256 }}>
+                    <canvas
+                      ref={canvasRef}
+                      width={240}
+                      height={240}
+                      aria-label="TOTP QR code — scan with your authenticator app"
+                      className="bg-white rounded-xl border border-[var(--border)] p-2"
+                      style={{ width: 240, height: 240, display: 'block' }}
+                    />
                   </div>
-                )}
+                ) : null}
                 <details className="mt-3 text-left">
                   <summary className="text-xs text-[var(--muted)] cursor-pointer">
                     Or enter secret manually
