@@ -76,6 +76,7 @@ services:
       - ./backend/app:/app/app:ro
       - ./backend/alembic:/app/alembic:ro
       - ./backend/tests:/app/tests:ro
+      - ./backend/data:/app/data
     # NOTE: no depends_on here — api runs with network_mode: host and talks
     # to the host's postgres/redis directly. The postgres + redis services
     # below are still defined for charon + litellm isolation, but api doesn't
