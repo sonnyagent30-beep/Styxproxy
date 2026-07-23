@@ -248,7 +248,12 @@ async def setup_admin_step1(
     request: AdminSetupRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    """Step 1: Validate invite + credentials, return TOTP setup details."""
+    """Step 1: Validate invite + credentials, return TOTP setup details.
+
+    The submitted email MUST match the email the invite was issued for
+    (when the invite has a non-empty email field). If the invite was
+    created without a specific email, any email is accepted.
+    """
     # Validate invite code
     stmt = select(AdminInvite).where(AdminInvite.invite_code == request.invite_code)
     result = await session.execute(stmt)
@@ -270,6 +275,16 @@ async def setup_admin_step1(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invite code expired",
+        )
+
+    # Enforce email match when the invite was scoped to a specific address.
+    if invite.email and request.email.lower() != invite.email.lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"This invite was issued for {invite.email}. "
+                "Use that email or request a new invite."
+            ),
         )
 
     # Check if admin with this email already exists
