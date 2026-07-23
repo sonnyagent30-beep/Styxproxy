@@ -59,6 +59,79 @@ _TX_REF_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Thinking-trace guard: strip any internal monologue the model leaks.
+_THINK_BLOCKS = [
+    re.compile(r"<(?:think|thinking|reasoning|scratchpad)>.*?</(?:think|thinking|reasoning|scratchpad)>", re.DOTALL | re.IGNORECASE),
+    re.compile(r"\[(?:think|thinking|reasoning|scratchpad)\].*?\[/(?:think|thinking|reasoning|scratchpad)\]", re.DOTALL | re.IGNORECASE),
+]
+# Fenced code blocks the model sometimes emits when it wasn't asked for code.
+_FENCED_CODE = re.compile(r"```[a-zA-Z0-9_+\-]*\n.*?\n```", re.DOTALL)
+# Markdown table syntax -> flatten into prose so chat surfaces stay readable.
+_TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$", re.MULTILINE)
+_TABLE_SEPARATOR = re.compile(r"^\s*\|?[\s:\-|]+\|?\s*$", re.MULTILINE)
+# Runaway blank lines.
+_BLANK_RUN = re.compile(r"\n{3,}")
+
+
+def _clean_reply(text: str) -> str:
+    """Sanitize an LLM reply before sending it to a customer channel.
+
+    Removes leaked thinking traces, raw code fences, and raw markdown table
+    pipes; collapses random blank lines. Keeps prose, bullets, and pricing
+    numbers tidy. Never raises — returns the original text if cleaning fails.
+    """
+    if not text:
+        return text
+    out = text
+
+    # 1. Drop thinking blocks the model accidentally leaked.
+    for pat in _THINK_BLOCKS:
+        out = pat.sub("", out)
+
+    # 2. Drop fenced code blocks — chat surface doesn't render them.
+    out = _FENCED_CODE.sub("", out)
+
+    # 3. Convert pipe-table rows to a single tidy line per row.
+    lines = out.splitlines()
+    cleaned: list[str] = []
+    table_buf: list[str] = []
+    def flush_table() -> None:
+        if not table_buf:
+            return
+        # Strip leading/trailing pipes, drop separator row (---:|---|---).
+        rows: list[list[str]] = []
+        for row in table_buf:
+            if _TABLE_SEPARATOR.match(row):
+                continue
+            cells = [c.strip() for c in row.strip().strip("|").split("|")]
+            rows.append(cells)
+        if not rows:
+            table_buf.clear()
+            return
+        # Header row -> "Header: a, b, c" then each data row as "• a: b, c".
+        if len(rows) >= 2:
+            header = " / ".join(rows[0])
+            cleaned.append(f"{header}:")
+            for r in rows[1:]:
+                pairs = [f"{a} {b}".strip() for a, b in zip(rows[0], r) if a and b]
+                cleaned.append("  • " + "; ".join(pairs))
+        elif len(rows) == 1:
+            cleaned.append("  • " + " | ".join(rows[0]))
+        table_buf.clear()
+
+    for line in lines:
+        if _TABLE_ROW.match(line):
+            table_buf.append(line)
+        else:
+            flush_table()
+            cleaned.append(line)
+    flush_table()
+
+    out = "\n".join(cleaned)
+    # 4. Tidy whitespace.
+    out = _BLANK_RUN.sub("\n\n", out).strip()
+    return out
+
 
 def _extract_tx_ref(messages: Iterable[Message]) -> str | None:
     for msg in reversed(list(messages)[-3:]):
@@ -151,11 +224,12 @@ async def reply(
     llm_resp: LLMResponse = call_llm(plain_messages, max_tokens=500)
 
     if llm_resp.ok:
-        log_ctx["response"] = llm_resp.content
+        cleaned = _clean_reply(llm_resp.content)
+        log_ctx["response"] = cleaned
         log_ctx["tokens"] = llm_resp.tokens_used
         _persist_log(log_ctx)
         return Reply(
-            text=llm_resp.content,
+            text=cleaned,
             tokens_used=llm_resp.tokens_used,
             raw=llm_resp.raw,
         )
@@ -286,7 +360,7 @@ async def _try_tool_call(
                 if follow_up.ok:
                     log_ctx["tokens"] = log_ctx.get("tokens", 0) + follow_up.tokens_used
                     return Reply(
-                        text=follow_up.content,
+                        text=_clean_reply(follow_up.content),
                         tool_calls=[{"tool": tool_name, "params": tool_params, "result": result.to_dict()}],
                         tokens_used=log_ctx.get("tokens", 0),
                     )
@@ -315,7 +389,7 @@ async def _try_tool_call(
             return None
 
     if "answer" in parsed:
-        return Reply(text=str(parsed["answer"]))
+        return Reply(text=_clean_reply(str(parsed["answer"])))
 
     return None
 
