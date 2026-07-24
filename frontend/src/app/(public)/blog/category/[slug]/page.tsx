@@ -44,7 +44,8 @@ export default async function CategoryPage({ params }: Props) {
   // fake content.
 
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+    // Use <section> not <main>: surrounding PublicLayout already renders a <main>.
+    <section className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
       <header className="mb-10">
         <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-2">
           Category
@@ -81,6 +82,6 @@ export default async function CategoryPage({ params }: Props) {
           </a>
         </div>
       )}
-    </main>
+    </section>
   );
 }

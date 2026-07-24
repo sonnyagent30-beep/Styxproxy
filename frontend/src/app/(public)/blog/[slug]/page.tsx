@@ -126,7 +126,9 @@ export default async function BlogPostPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-16">
+      {/* Use <article> not <main>: surrounding PublicLayout already renders a <main>.
+          pt-0 because the layout's pt-20 already gives clearance from the fixed header. */}
+      <article className="max-w-4xl mx-auto px-4 sm:px-6 pt-0 pb-16">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-sm text-[var(--muted)] mb-8">
           <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
@@ -223,7 +225,7 @@ export default async function BlogPostPage({ params }: Props) {
             </div>
           </div>
         )}
-      </main>
+      </article>
     </>
   );
 }

@@ -74,7 +74,9 @@ export default function BlogFeed({
   };
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+    // Use <section> not <main>: the surrounding PublicLayout already
+    // renders a <main>, and nesting two <main> elements is invalid HTML.
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
       {/* Header */}
       <header className="mb-10">
         <h1
@@ -151,6 +153,6 @@ export default function BlogFeed({
           You&apos;ve reached the end
         </p>
       )}
-    </main>
+    </section>
   );
 }

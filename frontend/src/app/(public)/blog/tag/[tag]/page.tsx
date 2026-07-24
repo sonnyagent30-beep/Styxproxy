@@ -47,7 +47,8 @@ export default async function TagPage({ params }: Props) {
   ).slice(0, 8);
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+    // Use <section> not <main>: surrounding PublicLayout already renders a <main>.
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-[var(--muted)] mb-6">
         <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
@@ -97,6 +98,6 @@ export default async function TagPage({ params }: Props) {
           </div>
         </section>
       )}
-    </main>
+    </section>
   );
 }

@@ -113,9 +113,15 @@ class ApiClient {
       };
       
       const adminToken = this.getAdminToken();
-      // Attach Bearer token to ALL admin API endpoints
-      // (some start with '/admin/...' and others with '/api/admin/...')
-      if (adminToken && (endpoint.startsWith('/admin') || endpoint.startsWith('/api/admin'))) {
+      // Attach Bearer token to admin API endpoints.
+      // Matches: /admin/..., /api/admin/..., /api/blog/admin/... (the blog
+      // router mounts admin endpoints under /api/blog/admin/* even though
+      // it doesn't start with /admin — see backend/app/routers/blog.py).
+      const isAdminEndpoint =
+        endpoint.startsWith('/admin') ||
+        endpoint.startsWith('/api/admin') ||
+        endpoint.startsWith('/api/blog/admin');
+      if (adminToken && isAdminEndpoint) {
         headers['Authorization'] = `Bearer ${adminToken}`;
       }
 
@@ -389,7 +395,7 @@ class ApiClient {
 
   // Create admin invite (SuperAdmin only)
   async createAdminInvite(data: AdminInviteCreateRequest): Promise<ApiResponse<AdminInviteCreateResponse>> {
-    return this.request<AdminInviteCreateResponse>('/api/admin/auth/invite', {
+    return this.request<AdminInviteCreateResponse>('/api/admin/auth/invites', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -428,12 +434,12 @@ class ApiClient {
 
   // Get all blog posts for admin (includes unpublished)
   async getAdminBlogPosts(page: number = 1, limit: number = 20): Promise<ApiResponse<BlogPostsResponse>> {
-    return this.request<BlogPostsResponse>(`/api/admin/blog/posts?page=${page}&limit=${limit}`);
+    return this.request<BlogPostsResponse>(`/api/blog/admin/posts?page=${page}&limit=${limit}`);
   }
 
   // Create blog post (admin)
   async createBlogPost(data: BlogPostCreate): Promise<ApiResponse<BlogPost>> {
-    return this.request<BlogPost>('/api/admin/blog/posts', {
+    return this.request<BlogPost>('/api/blog/admin/posts', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -441,7 +447,7 @@ class ApiClient {
 
   // Update blog post (admin)
   async updateBlogPost(id: string, data: BlogPostUpdate): Promise<ApiResponse<BlogPost>> {
-    return this.request<BlogPost>(`/api/admin/blog/posts/${id}`, {
+    return this.request<BlogPost>(`/api/blog/admin/posts/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -449,32 +455,32 @@ class ApiClient {
 
   // Delete blog post (admin)
   async deleteBlogPost(id: string): Promise<ApiResponse<{ message: string }>> {
-    return this.request(`/api/admin/blog/posts/${id}`, {
+    return this.request(`/api/blog/admin/posts/${id}`, {
       method: 'DELETE',
     });
   }
 
   // Blog post workflow actions
   async publishPost(id: string): Promise<ApiResponse<BlogPost>> {
-    return this.request<BlogPost>(`/api/admin/blog/posts/${id}/publish`, {
+    return this.request<BlogPost>(`/api/blog/admin/posts/${id}/publish`, {
       method: 'POST',
     });
   }
 
   async unpublishPost(id: string): Promise<ApiResponse<BlogPost>> {
-    return this.request<BlogPost>(`/api/admin/blog/posts/${id}/unpublish`, {
+    return this.request<BlogPost>(`/api/blog/admin/posts/${id}/unpublish`, {
       method: 'POST',
     });
   }
 
   async approvePost(id: string): Promise<ApiResponse<BlogPost>> {
-    return this.request<BlogPost>(`/api/admin/blog/posts/${id}/approve`, {
+    return this.request<BlogPost>(`/api/blog/admin/posts/${id}/approve`, {
       method: 'POST',
     });
   }
 
   async rejectPost(id: string, reason: string): Promise<ApiResponse<BlogPost>> {
-    return this.request<BlogPost>(`/api/admin/blog/posts/${id}/reject`, {
+    return this.request<BlogPost>(`/api/blog/admin/posts/${id}/reject`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
