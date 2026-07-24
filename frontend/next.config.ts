@@ -14,6 +14,13 @@ const nextConfig: NextConfig = {
         destination: 'https://api.styxproxy.com/api/admin/:path*',
       },
       {
+        // Public blog endpoints (Jul 24: added — without this rewrite the
+        // browser fetch from styxproxy.com/api/blog/* hit Next.js's own
+        // 404 handler instead of being proxied to the BE).
+        source: '/api/blog/:path*',
+        destination: 'https://api.styxproxy.com/api/blog/:path*',
+      },
+      {
         source: '/api/public/maintenance',
         destination: 'https://api.styxproxy.com/api/public/maintenance',
       },
