@@ -69,9 +69,19 @@ import type {
   AdminRole,
 } from '@/types';
 
-// Admin API calls go through Next.js middleware (src/middleware.ts)
-// which rewrites /api/admin/* → https://api.styxproxy.com/api/admin/*
-const API_BASE_URL = ''; // relative — browser always talks to same origin
+// API base URL resolution:
+//   - In the browser: relative URL ('') — same-origin fetch hits Next.js, which
+//     then proxies to the BE via next.config.ts rewrites.
+//   - On the server (SSR/RSC): must use the absolute BE URL. Hitting localhost
+//     during SSR is unreliable on Vercel — the rewrite fires but the outbound
+//     HTTPS to api.styxproxy.com from the lambda can fail with fetch failed,
+//     so the page renders with no data (Jul 24: this caused the blog page
+//     to show 'No posts found' even though curl from outside returned 17).
+//
+// NEXT_PUBLIC_API_BASE_URL is inlined at build time by Next.js for both client
+// and server bundles. Empty/undefined → fall back to the production BE URL.
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.styxproxy.com';
 
 class ApiClient {
   private baseUrl: string;
@@ -226,7 +236,7 @@ class ApiClient {
 
   // Charon Admin
   async getCharonConversations(page: number = 1, limit: number = 20): Promise<ApiResponse<{ conversations: CharonConversation[]; total: number; limit: number; offset: number }>> {
-    return this.request(`/charon/conversations?page=${page}&limit=${limit}`);
+    return this.request(`/api/v1/charon/conversations?page=${page}&limit=${limit}`);
   }
 
   async getCharonLogs(
@@ -244,11 +254,11 @@ class ApiClient {
     if (escalated !== undefined) params.append('escalated', String(escalated));
     if (dateFrom) params.append('date_from', dateFrom);
     if (dateTo) params.append('date_to', dateTo);
-    return this.request(`/charon/logs?${params.toString()}`);
+    return this.request(`/api/v1/charon/logs?${params.toString()}`);
   }
 
   getCharonStreamUrl(): string {
-    return `${this.baseUrl}/charon/stream`;
+    return `${this.baseUrl}/api/v1/charon/stream`;
   }
 
   // Learned Files Management
@@ -257,7 +267,7 @@ class ApiClient {
   }
 
   async getLearnedFileContent(filename: string): Promise<ApiResponse<LearnContentResponse>> {
-    return this.request<LearnContentResponse>(`/admin/charon/learned/${encodeURIComponent(filename)}`);
+    return this.request<LearnContentResponse>(`/api/admin/charon/learned/${encodeURIComponent(filename)}`);
   }
 
   async deleteLearnedFile(filename: string): Promise<ApiResponse<{ ok: boolean; message: string }>> {
@@ -302,7 +312,7 @@ class ApiClient {
   }
 
   async learnContent(data: LearnRequest): Promise<ApiResponse<LearnResponse>> {
-    return this.request<LearnResponse>('/charon/learn', {
+    return this.request<LearnResponse>('/api/v1/charon/learn', {
       method: 'POST',
       body: JSON.stringify(data),
     });
