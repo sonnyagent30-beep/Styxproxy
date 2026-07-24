@@ -50,7 +50,8 @@ export default async function AuthorPage({ params }: Props) {
     .map(([t]) => t);
 
   return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+    // Use <section> not <main>: surrounding PublicLayout already renders a <main>.
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
       {/* Header card */}
       <header className="mb-12 pb-10 border-b border-[var(--border)]">
         <div className="flex items-start gap-5">
@@ -89,6 +90,6 @@ export default async function AuthorPage({ params }: Props) {
           <PostCard key={post.id} post={post} />
         ))}
       </div>
-    </main>
+    </section>
   );
 }
