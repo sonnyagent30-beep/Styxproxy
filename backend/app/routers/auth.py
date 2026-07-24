@@ -375,6 +375,22 @@ async def setup_admin_step2(
         invite.used_at = datetime.now(timezone.utc)
         invite.used_by = email
 
+        # Apply feature_overrides granted by the superadmin at invite time.
+        # Each name in feature_overrides is enabled for this admin by
+        # storing their email in feature_flags.admin_overrides. The
+        # FeatureFlag check (role + per-admin override) reads this field.
+        feature_names = invite.feature_overrides or []
+        if feature_names:
+            stmt2 = select(FeatureFlag).where(FeatureFlag.name.in_(feature_names))
+            flags = (await session.execute(stmt2)).scalars().all()
+            for flag in flags:
+                # Merge with any existing overrides; never reduce access.
+                overrides = list(flag.admin_overrides or [])
+                if email not in overrides:
+                    overrides.append(email)
+                flag.admin_overrides = overrides
+                flag.updated_at = datetime.now(timezone.utc)
+
     await session.commit()
 
     # Auto-issue admin access token so the user is logged in immediately
@@ -659,10 +675,12 @@ async def change_totp(
 async def create_invite(
     request: Request,
     body: AdminInviteCreateRequest,
-    current_admin: dict = Depends(require_admin),
+    current_admin: dict = Depends(require_superadmin),
     session: AsyncSession = Depends(get_session),
 ):
-    """Create an admin invite code."""
+    """Create an admin invite code. Superadmin-only — only superadmins can
+    extend the admin team and grant authorization to new admins (Jul 24 2026:
+    tightened from require_admin after product review)."""
     invite_code = generate_invite_code()
     expires_at = datetime.now(timezone.utc) + timedelta(hours=body.expires_in_hours)
 
@@ -673,6 +691,7 @@ async def create_invite(
         created_by=current_admin["email"],
         expires_at=expires_at,
         max_uses=body.max_uses,
+        feature_overrides=body.feature_overrides,
     )
     session.add(invite)
     await session.commit()
@@ -693,7 +712,12 @@ async def create_invite(
         action="create_invite",
         resource_type="admin_invite",
         resource_id=str(invite.id),
-        details={"role": body.role.value, "expires_in_hours": body.expires_in_hours, "max_uses": body.max_uses},
+        details={
+            "role": body.role.value,
+            "expires_in_hours": body.expires_in_hours,
+            "max_uses": body.max_uses,
+            "feature_overrides": body.feature_overrides or [],
+        },
         request=request,
     )
 
@@ -704,6 +728,7 @@ async def create_invite(
         expires_at=expires_at,
         max_uses=body.max_uses,
         created_by=current_admin["email"],
+        feature_overrides=body.feature_overrides,
     )
 
 
