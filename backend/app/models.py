@@ -489,8 +489,8 @@ class AdminInvite(Base):
         String(20), default="admin", nullable=False
     )  # admin, superadmin, viewer
     created_by: Mapped[Optional[str]] = mapped_column(
-        String(20), nullable=True
-    )  # email or phone of admin who issued the invite
+        String(255), nullable=True
+    )  # email of admin who issued the invite (Jul 24: widened from 20)
     expires_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -498,13 +498,16 @@ class AdminInvite(Base):
         DateTime(timezone=True), nullable=True
     )
     used_by: Mapped[Optional[str]] = mapped_column(
-        String(20), nullable=True
-    )  # email or phone of admin who consumed the invite
+        String(255), nullable=True
+    )  # email of admin who consumed the invite (Jul 23: widened from 20)
     max_uses: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     uses_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    feature_overrides: Mapped[Optional[list]] = mapped_column(
+        JSON, nullable=True
+    )  # Jul 24: list of feature-flag names granted by the superadmin at invite time
 
 
 class AdminAuditLog(Base):

@@ -895,11 +895,22 @@ class AdminChangeTOTPResponse(BaseModel):
 
 
 class AdminInviteCreateRequest(BaseModel):
-    """Request to create an admin invite."""
+    """Request to create an admin invite.
+
+    Superadmin-only (POST /api/admin/auth/invites). The role determines the
+    baseline access level via RoleChecker (superadmin / admin / viewer).
+    `feature_overrides` is an optional list of feature-flag names the new
+    admin gets pre-enabled when they consume the invite — this is how the
+    superadmin grants permission to specific features beyond the role default.
+    """
     email: Optional[str] = Field(None, max_length=255)
     role: AdminRole = AdminRole.ADMIN
     expires_in_hours: int = Field(default=24, ge=1, le=168)
     max_uses: int = Field(default=1, ge=1, le=100)
+    feature_overrides: Optional[list[str]] = Field(
+        default=None,
+        description="Feature flag names to enable for the new admin. E.g. ['blog_draft', 'charon_eval']. None = role default only.",
+    )
 
 
 class AdminInviteCreateResponse(BaseModel):
@@ -910,6 +921,7 @@ class AdminInviteCreateResponse(BaseModel):
     expires_at: Optional[datetime]
     max_uses: int
     created_by: str
+    feature_overrides: Optional[list[str]] = None
 
 
 class AdminInviteResponse(BaseModel):

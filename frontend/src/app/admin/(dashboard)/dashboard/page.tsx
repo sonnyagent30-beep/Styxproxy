@@ -55,34 +55,46 @@ export default function AdminDashboardPage() {
   const loadAll = async () => {
     setLoading(true);
     setError('');
-    const [statsRes, metricsRes, healthRes, charonRes] = await Promise.all([
-      api.getAdminStats(),
-      api.getMetricsOverview(),
-      api.getSystemHealth(),
-      api.getCharonStats().catch(() => ({ data: null, error: 'unavailable' })),
-    ]);
-    if (statsRes.error) setError(statsRes.error);
-    else setStats(statsRes.data || null);
+    try {
+      const [statsRes, metricsRes, healthRes, charonRes] = await Promise.all([
+        api.getAdminStats().catch((e: Error) => ({ data: null, error: e?.message || 'stats failed' })),
+        api.getMetricsOverview().catch((e: Error) => ({ data: null, error: e?.message || 'metrics failed' })),
+        api.getSystemHealth().catch((e: Error) => ({ data: null, error: e?.message || 'health failed' })),
+        api.getCharonStats().catch(() => ({ data: null, error: 'unavailable' })),
+      ]);
+      if (statsRes.error) setError(statsRes.error);
+      else setStats(statsRes.data || null);
 
-    if (metricsRes.data) setMetrics(metricsRes.data);
+      if (metricsRes.data) setMetrics(metricsRes.data);
 
-    if (healthRes.data) {
-      const h = healthRes.data;
-      setHealth({
-        status: h.status,
-        database: h.services.database,
-        redis: h.services.redis,
-        litellm: h.services.litellm,
-        ollama: h.services.ollama,
-        m2_cloud: h.services.m2_cloud,
-        charon_available: h.charon_available,
-        charon_primary: h.charon_routing.primary,
-        charon_fallback: h.charon_routing.fallback,
-      });
+      if (healthRes.data) {
+        const h = healthRes.data;
+        // Defensive: /api/v1/health sometimes returns degraded payloads
+        // without the full services object. Treat partial as unknown rather
+        // than crashing the dashboard.
+        const services = h.services ?? {};
+        setHealth({
+          status: h.status ?? 'unknown',
+          database: services.database ?? 'unknown',
+          redis: services.redis ?? 'unknown',
+          litellm: services.litellm ?? { status: 'unknown' },
+          ollama: services.ollama ?? { status: 'unknown' },
+          m2_cloud: services.m2_cloud ?? { status: 'unknown' },
+          charon_available: h.charon_available ?? false,
+          charon_primary: h.charon_routing?.primary ?? 'unknown',
+          charon_fallback: h.charon_routing?.fallback ?? 'unknown',
+        });
+      }
+
+      if (charonRes.data) setCharonStats(charonRes.data);
+    } catch (e) {
+      // Last-resort guard: if Promise.all itself blows up (rare — usually
+      // .catch() on each call above handles it), show the message instead
+      // of letting the error bubble to the page-level error boundary.
+      setError(e instanceof Error ? e.message : 'Failed to load dashboard');
+    } finally {
+      setLoading(false);
     }
-
-    if (charonRes.data) setCharonStats(charonRes.data);
-    setLoading(false);
   };
 
   const handleResetCharon = async () => {
