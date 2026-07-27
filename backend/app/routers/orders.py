@@ -796,7 +796,7 @@ async def get_receipt_pdf(
     import io as _io
 
     buffer = _io.BytesIO()
-    W, H = A4
+    W, H = A4  # W = 210mm, H = 297mm (A4 portrait, ReportLab bottom-up coords)
     c = pdf_canvas.Canvas(buffer, pagesize=A4)
 
     def _rgb(hex_str):
@@ -813,297 +813,258 @@ async def get_receipt_pdf(
     BORDER = _rgb("#262626")
 
     # ── Background ────────────────────────────────────────────
+    # Register TTF fonts (DejaVu Sans has ₦ glyph; Helvetica doesn't)
+    from reportlab.pdfbase import pdfmetrics as _pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont as _TTFont
+    try:
+        _pdfmetrics.registerFont(_TTFont("DejaVu", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+        _pdfmetrics.registerFont(_TTFont("DejaVu-Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
+        NAIRA_FONT = "DejaVu-Bold"
+    except Exception:
+        NAIRA_FONT = "Helvetica-Bold"
+
     c.setFillColorRGB(*BG)
     c.rect(0, 0, W, H, fill=1, stroke=0)
 
-    # ── Top accent bar ─────────────────────────────────────
+    # ── Top accent bar (4mm green stripe across the top) ─────
     c.setFillColorRGB(*GREEN)
     c.rect(0, H - 4 * mm, W, 4 * mm, fill=1, stroke=0)
 
-    # ── Header ─────────────────────────────────────────────
-    # Official Styxproxy logo (PNG, 2:1 aspect ratio)
-    # Original 3264x1632 px, displayed at 16mm wide × 8mm tall
-    # Fits exactly in the slot the old "S in box" occupied, so layout math stays correct
+    # Use a TOP-DOWN cursor `y_top_mm` that increases as we go down the page.
+    # All values stored as mm. We convert to bottom-up POINTS only at the helper boundary.
+    from reportlab.lib.units import mm as _mm
+    H_mm = H / _mm  # convert page height from points to mm (A4 = 297mm)
+    y_top_mm = 4.0  # mm from top, start below the green accent bar
+
+    def _bot_pt(top_mm):
+        """Convert top-down cursor (in mm) to bottom-up PDF coord (in points)."""
+        return (H_mm - top_mm) * _mm
+
+    def _draw_text(x_mm, top_mm, text, color, font="Helvetica", size=9, align="left"):
+        c.setFillColorRGB(*color)
+        c.setFont(font, size)
+        y_pt = _bot_pt(top_mm)
+        x_pt = x_mm * _mm
+        if align == "right":
+            c.drawRightString(x_pt, y_pt, text)
+        elif align == "center":
+            c.drawCentredString(x_pt, y_pt, text)
+        else:
+            c.drawString(x_pt, y_pt, text)
+
+    def _draw_rect(x_mm, top_mm, w_mm, h_mm, fill_color=None, stroke_color=None, radius=0, line_width=0.2):
+        """Draw a rectangle whose TOP edge is at top_mm, extending DOWN."""
+        bot_mm = top_mm + h_mm  # bottom edge in top-down
+        y_bot_pt = _bot_pt(bot_mm)  # bottom-up in points
+        if fill_color is not None:
+            c.setFillColorRGB(*fill_color)
+        if stroke_color is not None:
+            c.setStrokeColorRGB(*stroke_color)
+        c.setLineWidth(line_width)
+        c.roundRect(x_mm * _mm, y_bot_pt, w_mm * _mm, h_mm * _mm, radius * _mm, fill=1 if fill_color else 0, stroke=1 if stroke_color else 0)
+
+    def _draw_line(x1_mm, top1_mm, x2_mm, top2_mm, color, width=0.2):
+        c.setStrokeColorRGB(*color)
+        c.setLineWidth(width)
+        c.line(x1_mm * _mm, _bot_pt(top1_mm), x2_mm * _mm, _bot_pt(top2_mm))
+
+    # ── Header: logo + tagline (left) | PAYMENT RECEIPT (right) ──
     logo_path = get_logo_path("dark")
     if logo_path.exists():
         c.drawImage(
             str(logo_path),
-            15 * mm,
-            H - 22 * mm,  # bottom edge at H-22mm (8mm tall, same as old "S" box)
-            width=16 * mm,
-            height=8 * mm,
-            mask="auto",  # Respect PNG alpha channel
+            15 * _mm,
+            _bot_pt(y_top_mm + 8),  # logo TOP at y_top_mm, 8mm tall
+            width=16 * _mm,
+            height=8 * _mm,
+            mask="auto",
         )
     else:
-        # Fallback if logo missing — keep the original "S in box" so receipts still work
-        c.setFillColorRGB(*GREEN)
-        c.roundRect(15 * mm, H - 22 * mm, 8 * mm, 8 * mm, 1.5 * mm, fill=1, stroke=0)
-        c.setFillColorRGB(*BG)
-        c.setFont("Helvetica-Bold", 6)
-        c.drawCentredString(19 * mm, H - 18.5 * mm, "S")
+        _draw_rect(15, y_top_mm, 8, 8, fill_color=GREEN, radius=1.5)
+        _draw_text(19, y_top_mm + 4.5, "S", BG, font="Helvetica-Bold", size=6, align="center")
 
-    # Wordmark (since the logo now IS the icon+wordmark combo, no extra text needed)
-    # Just the tagline below
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica", 7)
-    c.drawString(15 * mm, H - 25 * mm, "Anonymous Proxy Service")
+    # Tagline below the logo
+    _draw_text(15, y_top_mm + 9.5, "Anonymous Proxy Service", MUTED, font="Helvetica", size=7)
 
-    # Right header
-    c.setFillColorRGB(*GREEN)
-    c.setFont("Helvetica-Bold", 9)
-    c.drawRightString(W - 15 * mm, H - 17 * mm, "PAYMENT RECEIPT")
+    # Right-aligned header
+    _draw_text(W / _mm - 15, y_top_mm + 5.5, "PAYMENT RECEIPT", GREEN, font="Helvetica-Bold", size=9, align="right")
+    _draw_text(W / _mm - 15, y_top_mm + 9, "styxproxy.com", MUTED, font="Helvetica", size=7, align="right")
+    _draw_text(W / _mm - 15, y_top_mm + 12.5, f"Issued: {datetime.now().strftime('%B %d, %Y')}", MUTED, font="Helvetica", size=7, align="right")
 
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica", 7)
-    c.drawRightString(W - 15 * mm, H - 21 * mm, "styxproxy.com")
-    c.drawRightString(W - 15 * mm, H - 24.5 * mm, f"Issued: {datetime.now().strftime('%B %d, %Y')}")
+    y_top_mm += 22  # advance past header block
 
-    # ── Divider ─────────────────────────────────────────────
-    y = H - 30 * mm
-    c.setStrokeColorRGB(*BORDER)
-    c.setLineWidth(0.2)
-    c.line(15 * mm, y, W - 15 * mm, y)
+    # ── Divider line ─────────────────────────────────────────
+    _draw_line(15, y_top_mm, W / _mm - 15, y_top_mm, BORDER)
+    y_top_mm += 4
 
-    # ── ORDER CONFIRMATION ─────────────────────────────────
-    y -= 7 * mm
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica-Bold", 6.5)
-    c.drawString(15 * mm, y, "ORDER CONFIRMATION")
+    # ── ORDER CONFIRMATION label + Thank you hero ─────────────
+    _draw_text(15, y_top_mm, "ORDER CONFIRMATION", MUTED, font="Helvetica-Bold", size=6.5)
+    y_top_mm += 4
 
     customer_name = customer.name.strip() if customer and customer.name else None
     thank_you = f"Thank you, {customer_name}." if customer_name else "Thank you, customer."
-    y -= 12 * mm
-    c.setFillColorRGB(*WHITE)
-    c.setFont("Helvetica-Bold", 22)
-    c.drawString(15 * mm, y, thank_you)
+    y_top_mm += 8  # breathing room before big text
+    thank_you_top_mm = y_top_mm
+    _draw_text(15, y_top_mm, thank_you, WHITE, font="Helvetica-Bold", size=22)
+    y_top_mm += 11  # height of 22pt text + a bit
 
-    y -= 7 * mm
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica", 9)
-    c.drawString(15 * mm, y, "Your proxy is ready to use. Below are your credentials.")
+    _draw_text(15, y_top_mm, "Your proxy is ready to use. Below are your credentials.", MUTED, font="Helvetica", size=9)
 
-    # FULFILLED pill (vertically centered with thank-you)
+    # FULFILLED pill — right-aligned with thank_you
     status = (order.status or "pending").upper()
-    c.setFillColorRGB(*GREEN)
-    c.roundRect(W - 50 * mm, y - 4.5 * mm, 35 * mm, 9 * mm, 4.5 * mm, fill=1, stroke=0)
-    c.setFillColorRGB(*BG)
-    c.setFont("Helvetica-Bold", 8)
-    c.drawCentredString(W - 32.5 * mm, y - 0.5 * mm, status)
+    pill_w_mm = 38
+    pill_h_mm = 10
+    pill_x_mm = W / _mm - 15 - pill_w_mm
+    # Vertically center the pill with the thank_you hero text
+    pill_top_mm = thank_you_top_mm + (11 - pill_h_mm) / 2
+    _draw_rect(pill_x_mm, pill_top_mm, pill_w_mm, pill_h_mm, fill_color=GREEN, radius=5)
+    # Text vertically centered in pill: text baseline is roughly font_size * 0.75 above bottom
+    text_baseline_mm = pill_top_mm + pill_h_mm / 2 - 3
+    _draw_text(pill_x_mm + pill_w_mm / 2, text_baseline_mm, status, BG, font="Helvetica-Bold", size=9, align="center")
+
+    y_top_mm += 8  # breathing room after subtitle
 
     # ── Order details card ──────────────────────────────────
-    y -= 12 * mm  # breathing room
-    order_card_top = y
-    order_card_h = 44 * mm
-    c.setFillColorRGB(*CARD)
-    c.roundRect(15 * mm, order_card_top, W - 30 * mm, order_card_h, 3 * mm, fill=1, stroke=0)
+    order_card_top_mm = y_top_mm
+    order_card_h_mm = 36
+    _draw_rect(15, order_card_top_mm, W / _mm - 30, order_card_h_mm, fill_color=CARD, radius=3)
 
-    # Row 1 labels — start INSIDE the card, going DOWN from card top
-    row_y = order_card_top - 10 * mm
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica-Bold", 6.5)
-    c.drawString(20 * mm, row_y, "TRANSACTION REFERENCE")
-    c.drawString(W / 2 + 5 * mm, row_y, "ORDER ID")
+    # Inside-card layout: top-down
+    row_top_mm = order_card_top_mm + 6
 
-    # Row 1 values
-    row_y -= 8 * mm
-    c.setFillColorRGB(*WHITE)
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(20 * mm, row_y, tx_ref)
+    # Manually draw Row 1 (Transaction Ref | Order ID)
+    _draw_text(20, row_top_mm, "TRANSACTION REFERENCE", MUTED, font="Helvetica-Bold", size=6.5)
+    _draw_text(W / _mm / 2 + 5, row_top_mm, "ORDER ID", MUTED, font="Helvetica-Bold", size=6.5)
+    row_top_mm += 4.5
+
     oid = order.order_id or "N/A"
     if len(oid) > 22:
         oid = oid[:22] + "…"
-    c.drawString(W / 2 + 5 * mm, row_y, oid)
+    _draw_text(20, row_top_mm, tx_ref, WHITE, font="Helvetica-Bold", size=10)
+    _draw_text(W / _mm / 2 + 5, row_top_mm, oid, WHITE, font="Helvetica-Bold", size=10)
+    row_top_mm += 5
 
-    # Row 1 dim labels
-    row_y -= 5 * mm
-    c.setFillColorRGB(*DIM)
-    c.setFont("Helvetica", 6)
-    c.drawString(20 * mm, row_y, "Flutterwave payment reference")
-    c.drawString(W / 2 + 5 * mm, row_y, "Internal order reference")
+    _draw_text(20, row_top_mm, "Flutterwave payment reference", DIM, font="Helvetica", size=6)
+    _draw_text(W / _mm / 2 + 5, row_top_mm, "Internal order reference", DIM, font="Helvetica", size=6)
+    row_top_mm += 3.5
 
     # Divider
-    row_y -= 5 * mm
-    c.setStrokeColorRGB(*BORDER)
-    c.line(20 * mm, row_y, W - 20 * mm, row_y)
+    _draw_line(20, row_top_mm, W / _mm - 20, row_top_mm, BORDER)
+    row_top_mm += 4
 
-    # Row 2 labels
-    row_y -= 6 * mm
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica-Bold", 6.5)
-    c.drawString(20 * mm, row_y, "DATE")
-    c.drawString(W / 2 + 5 * mm, row_y, "METHOD")
+    # Row 2 (Date | Method)
+    _draw_text(20, row_top_mm, "DATE", MUTED, font="Helvetica-Bold", size=6.5)
+    _draw_text(W / _mm / 2 + 5, row_top_mm, "METHOD", MUTED, font="Helvetica-Bold", size=6.5)
+    row_top_mm += 4.5
 
-    # Row 2 values
-    row_y -= 6 * mm
-    c.setFillColorRGB(*WHITE)
-    c.setFont("Helvetica", 9)
     date_str = order.created_at.strftime("%B %d, %Y") if order.created_at else datetime.now().strftime("%B %d, %Y")
-    c.drawString(20 * mm, row_y, date_str)
-    c.drawString(W / 2 + 5 * mm, row_y, "Card / Bank / USSD / QR")
+    _draw_text(20, row_top_mm, date_str, WHITE, font="Helvetica", size=9)
+    _draw_text(W / _mm / 2 + 5, row_top_mm, "Card / Bank / USSD / QR", WHITE, font="Helvetica", size=9)
 
-    y = order_card_top + order_card_h + 12 * mm  # below the card with breathing room
+    y_top_mm = order_card_top_mm + order_card_h_mm + 5  # below the card
 
-    # ── Items section ───────────────────────────────────────
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica-Bold", 7)
-    c.drawString(15 * mm, y, "ITEMS")
-    c.drawRightString(W - 35 * mm, y, "QTY")
-    c.drawRightString(W - 15 * mm, y, "AMOUNT")
+    # ── ITEMS section header ─────────────────────────────────
+    _draw_text(15, y_top_mm, "ITEMS", MUTED, font="Helvetica-Bold", size=7)
+    _draw_text(W / _mm - 45, y_top_mm, "QTY", MUTED, font="Helvetica-Bold", size=7, align="right")
+    _draw_text(W / _mm - 15, y_top_mm, "AMOUNT", MUTED, font="Helvetica-Bold", size=7, align="right")
+    y_top_mm += 1.5
 
-    y -= 2 * mm
-    c.setStrokeColorRGB(*BORDER)
-    c.line(15 * mm, y, W - 15 * mm, y)
+    # Underline
+    _draw_line(15, y_top_mm, W / _mm - 15, y_top_mm, BORDER)
+    y_top_mm += 4
 
-    y -= 8 * mm
+    # ── Item row ─────────────────────────────────────────────
     amount = float(order.amount_paid_ngn or 0)
     quantity = order.quantity or 1
     plan_label = f"{order.plan_code or 'Proxy'} - {order.country or 'N/A'}"
 
-    c.setFillColorRGB(*WHITE)
-    c.setFont("Helvetica", 10)
-    c.drawString(15 * mm, y, plan_label)
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica", 6.5)
-    c.drawString(15 * mm, y - 4 * mm, f"{quantity} unit{'s' if quantity != 1 else ''}  |  HTTP/SOCKS5")
-    c.setFillColorRGB(*WHITE)
-    c.setFont("Helvetica", 10)
-    c.drawRightString(W - 35 * mm, y, str(quantity))
-    c.drawRightString(W - 15 * mm, y, f"₦{amount:,.0f}")
+    item_top_mm = y_top_mm
+    _draw_text(15, item_top_mm, plan_label, WHITE, font="Helvetica", size=10)
+    _draw_text(15, item_top_mm + 5, f"{quantity} unit{'s' if quantity != 1 else ''}  |  HTTP/SOCKS5", MUTED, font="Helvetica", size=6.5)
+    _draw_text(W / _mm - 45, item_top_mm, str(quantity), WHITE, font="Helvetica", size=10, align="right")
+    _draw_text(W / _mm - 15, item_top_mm, f"₦{amount:,.0f}", WHITE, font=NAIRA_FONT, size=10, align="right")
+    y_top_mm = item_top_mm + 12
 
-    y -= 14 * mm
+    # ── TOTAL PAID pill (right-aligned, green) ────────────────
+    pill_w_mm = 95
+    pill_h_mm = 14
+    pill_x_mm = W / _mm - 15 - pill_w_mm
+    _draw_rect(pill_x_mm, y_top_mm, pill_w_mm, pill_h_mm, fill_color=GREEN, radius=2)
+    # Vertically center text inside pill
+    _draw_text(pill_x_mm + 6, y_top_mm + pill_h_mm / 2 - 4, "TOTAL PAID", BG, font="Helvetica-Bold", size=10)
+    # Amount uses DejaVu-Bold for the ₦ glyph (extra right padding so glyph doesn't clip)
+    _draw_text(pill_x_mm + pill_w_mm - 10, y_top_mm + pill_h_mm / 2 - 4.5, f"₦{amount:,.0f}", BG, font=NAIRA_FONT, size=14, align="right")
 
-    # ── TOTAL PAID pill ─────────────────────────────────────
-    c.setFillColorRGB(*GREEN)
-    c.roundRect(W - 75 * mm, y - 2 * mm, 60 * mm, 11 * mm, 2 * mm, fill=1, stroke=0)
-    c.setFillColorRGB(*BG)
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(W - 70 * mm, y + 3.5 * mm, "TOTAL PAID")
-    c.setFont("Helvetica-Bold", 11)
-    c.drawRightString(W - 19 * mm, y + 3.5 * mm, f"₦{amount:,.0f}")
+    y_top_mm += pill_h_mm + 10  # breathing room
 
-    # ── Credentials card ───────────────────────────────────
+    # ── Credentials card (if cred exists) ───────────────────
     if cred:
-        y -= 14 * mm  # breathing room after total pill
+        _draw_text(15, y_top_mm, "YOUR PROXY CREDENTIALS", GREEN, font="Helvetica-Bold", size=8)
+        y_top_mm += 4
 
-        # Section label
-        c.setFillColorRGB(*GREEN)
-        c.setFont("Helvetica-Bold", 8)
-        c.drawString(15 * mm, y, "YOUR PROXY CREDENTIALS")
+        card_top_mm = y_top_mm
+        card_h_mm = 70
+        card_bottom_mm = card_top_mm + card_h_mm
+        _draw_rect(15, card_top_mm, W / _mm - 30, card_h_mm, fill_color=BG, stroke_color=GREEN, radius=3, line_width=0.6)
 
-        # Card (top-down y math)
-        card_top = y - 5 * mm
-        card_h = 80 * mm
-        card_bottom = card_top - card_h
-
-        c.setFillColorRGB(*BG)
-        c.setStrokeColorRGB(*GREEN)
-        c.setLineWidth(0.6)
-        c.roundRect(15 * mm, card_bottom, W - 30 * mm, card_h, 3 * mm, fill=1, stroke=1)
-        c.setStrokeColorRGB(*BORDER)
-        c.setLineWidth(0.2)
-
-        # Each row 16mm tall, drawn top-down
-        row_h = 16 * mm
-        row_top = card_top - 5 * mm  # first row top edge
+        # 4 rows × card_h/4 each
+        row_h_mm = card_h_mm / 4
+        row_top_mm = card_top_mm + 4
 
         # Row 1: USERNAME | PASSWORD
-        c.setFillColorRGB(*MUTED)
-        c.setFont("Helvetica-Bold", 6.5)
-        c.drawString(20 * mm, row_top - 3 * mm, "USERNAME")
-        c.drawString(W / 2 + 5 * mm, row_top - 3 * mm, "PASSWORD")
-
-        c.setFillColorRGB(*GREEN)
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(20 * mm, row_top - 10 * mm, str(cred.bun_username or "N/A"))
-        c.drawString(W / 2 + 5 * mm, row_top - 10 * mm, str(cred.bun_password or "N/A"))
-
-        c.setStrokeColorRGB(*BORDER)
-        c.line(20 * mm, row_top - 13 * mm, W - 20 * mm, row_top - 13 * mm)
-        row_top -= row_h
+        _draw_text(20, row_top_mm, "USERNAME", MUTED, font="Helvetica-Bold", size=6.5)
+        _draw_text(W / _mm / 2 + 5, row_top_mm, "PASSWORD", MUTED, font="Helvetica-Bold", size=6.5)
+        _draw_text(20, row_top_mm + 5, str(cred.bun_username or "N/A"), GREEN, font="Helvetica-Bold", size=10)
+        _draw_text(W / _mm / 2 + 5, row_top_mm + 5, str(cred.bun_password or "N/A"), GREEN, font="Helvetica-Bold", size=10)
+        _draw_line(20, row_top_mm + row_h_mm - 3, W / _mm - 20, row_top_mm + row_h_mm - 3, BORDER)
+        row_top_mm += row_h_mm
 
         # Row 2: PROXY ADDRESS | PROTOCOL
-        c.setFillColorRGB(*MUTED)
-        c.setFont("Helvetica-Bold", 6.5)
-        c.drawString(20 * mm, row_top - 3 * mm, "PROXY ADDRESS")
-        c.drawString(W / 2 + 5 * mm, row_top - 3 * mm, "PROTOCOL")
-
-        c.setFillColorRGB(*GREEN)
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(20 * mm, row_top - 10 * mm, f"{cred.upstream_proxy_ip or 'N/A'}:{cred.upstream_proxy_port or ''}")
-        c.drawString(W / 2 + 5 * mm, row_top - 10 * mm, "HTTP / SOCKS5")
-
-        c.setStrokeColorRGB(*BORDER)
-        c.line(20 * mm, row_top - 13 * mm, W - 20 * mm, row_top - 13 * mm)
-        row_top -= row_h
+        _draw_text(20, row_top_mm, "PROXY ADDRESS", MUTED, font="Helvetica-Bold", size=6.5)
+        _draw_text(W / _mm / 2 + 5, row_top_mm, "PROTOCOL", MUTED, font="Helvetica-Bold", size=6.5)
+        _draw_text(20, row_top_mm + 5, f"{cred.upstream_proxy_ip or 'N/A'}:{cred.upstream_proxy_port or ''}", GREEN, font="Helvetica-Bold", size=10)
+        _draw_text(W / _mm / 2 + 5, row_top_mm + 5, "HTTP / SOCKS5", GREEN, font="Helvetica-Bold", size=10)
+        _draw_line(20, row_top_mm + row_h_mm - 3, W / _mm - 20, row_top_mm + row_h_mm - 3, BORDER)
+        row_top_mm += row_h_mm
 
         # Row 3: FULL FORMAT (full width)
-        c.setFillColorRGB(*MUTED)
-        c.setFont("Helvetica-Bold", 6.5)
-        c.drawString(20 * mm, row_top - 3 * mm, "FULL FORMAT")
-
-        c.setFillColorRGB(*LIGHT)
-        c.setFont("Courier", 7.5)
+        _draw_text(20, row_top_mm, "FULL FORMAT", MUTED, font="Helvetica-Bold", size=6.5)
         full_str = (
             f"http://{cred.bun_username or 'user'}:{cred.bun_password or 'pass'}"
             f"@{cred.upstream_proxy_ip or '0.0.0.0'}:{cred.upstream_proxy_port or 8080}"
         )
-        c.drawString(20 * mm, row_top - 10 * mm, full_str)
-
-        c.setStrokeColorRGB(*BORDER)
-        c.line(20 * mm, row_top - 13 * mm, W - 20 * mm, row_top - 13 * mm)
-        row_top -= row_h
+        _draw_text(20, row_top_mm + 5, full_str, LIGHT, font="Courier", size=8)
+        _draw_line(20, row_top_mm + row_h_mm - 3, W / _mm - 20, row_top_mm + row_h_mm - 3, BORDER)
+        row_top_mm += row_h_mm
 
         # Row 4: EXPIRES | AUTO-RENEW
-        c.setFillColorRGB(*MUTED)
-        c.setFont("Helvetica-Bold", 6.5)
-        c.drawString(20 * mm, row_top - 3 * mm, "EXPIRES")
-        c.drawString(W / 2 + 5 * mm, row_top - 3 * mm, "AUTO-RENEW")
-
-        c.setFillColorRGB(*WHITE)
-        c.setFont("Helvetica", 9)
+        _draw_text(20, row_top_mm, "EXPIRES", MUTED, font="Helvetica-Bold", size=6.5)
+        _draw_text(W / _mm / 2 + 5, row_top_mm, "AUTO-RENEW", MUTED, font="Helvetica-Bold", size=6.5)
         exp_str = cred.expires_at.strftime("%B %d, %Y") if cred.expires_at else "N/A"
-        c.drawString(20 * mm, row_top - 10 * mm, exp_str)
-        c.drawString(W / 2 + 5 * mm, row_top - 10 * mm, "On (manage to disable)")
+        _draw_text(20, row_top_mm + 5, exp_str, WHITE, font="Helvetica", size=9)
+        _draw_text(W / _mm / 2 + 5, row_top_mm + 5, "On (manage to disable)", WHITE, font="Helvetica", size=9)
 
-        y = card_bottom - 14 * mm
-    else:
-        # No credentials — advance y past where the credentials card WOULD have been
-        # so the support section doesn't pile up on top of the ITEMS row.
-        # Credentials card is card_h (80mm) + 14mm breathing room.
-        y -= 80 * mm + 14 * mm
+        y_top_mm = card_bottom_mm + 5
 
     # ── Support section ─────────────────────────────────────
-    sup_top = y
-    sup_h = 22 * mm
-    c.setFillColorRGB(*CARD)
-    c.roundRect(15 * mm, sup_top - sup_h, W - 30 * mm, sup_h, 3 * mm, fill=1, stroke=0)
+    sup_top_mm = y_top_mm
+    sup_h_mm = 22
+    _draw_rect(15, sup_top_mm, W / _mm - 30, sup_h_mm, fill_color=CARD, radius=3)
 
-    # Left column
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica-Bold", 7)
-    c.drawString(20 * mm, sup_top - 6 * mm, "NEED HELP?")
-    c.setFillColorRGB(*WHITE)
-    c.setFont("Helvetica", 8)
-    c.drawString(20 * mm, sup_top - 12 * mm, "Chat support:")
-    c.setFillColorRGB(*GREEN)
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(20 * mm, sup_top - 18 * mm, "styxproxy.com/contact")
+    # Inside the support card
+    _draw_text(20, sup_top_mm + 5, "NEED HELP?", MUTED, font="Helvetica-Bold", size=7)
+    _draw_text(20, sup_top_mm + 11, "Chat support:", WHITE, font="Helvetica", size=8)
+    _draw_text(20, sup_top_mm + 17, "styxproxy.com/contact", GREEN, font="Helvetica-Bold", size=8)
 
-    # Right column
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica", 7)
-    c.drawString(95 * mm, sup_top - 12 * mm, "Email:")
-    c.drawString(95 * mm, sup_top - 18 * mm, "Web:")
-    c.setFillColorRGB(*WHITE)
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(105 * mm, sup_top - 12 * mm, "oyebiyiayomide30@gmail.com")
-    c.drawString(105 * mm, sup_top - 18 * mm, "styxproxy.com")
+    _draw_text(95, sup_top_mm + 11, "Email:", MUTED, font="Helvetica", size=7)
+    _draw_text(95, sup_top_mm + 17, "Web:", MUTED, font="Helvetica", size=7)
+    _draw_text(108, sup_top_mm + 11, "oyebiyiayomide30@gmail.com", WHITE, font="Helvetica-Bold", size=8)
+    _draw_text(108, sup_top_mm + 17, "styxproxy.com", WHITE, font="Helvetica-Bold", size=8)
 
     # ── Footer ─────────────────────────────────────────────
-    c.setFillColorRGB(*DIM)
-    c.setFont("Helvetica", 6.5)
-    c.drawCentredString(W / 2, 8 * mm, "This receipt was generated automatically. No signature required.")
+    _draw_text(W / _mm / 2, H / _mm - 8, "This receipt was generated automatically. No signature required.", DIM, font="Helvetica", size=6.5, align="center")
 
+    c.showPage()
     c.save()
     buffer.seek(0)
 
