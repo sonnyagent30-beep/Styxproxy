@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -184,12 +185,44 @@ class StyxproxyCredential(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     styxproxy_username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    # Proxy auth credential — stored plaintext (not a hash). The customer
-    # uses this to authenticate to the Dante proxy server, so we need to
-    # be able to retrieve it for receipts, rotation, and admin tooling.
-    # This is NOT the customer's account password (which is hashed in
-    # customers.password_hash) — these are auth tokens, like API keys.
-    styxproxy_password: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Proxy auth credential — stored as encrypted bytes (Fernet ciphertext).
+    # The plaintext is needed for the receipt / email delivery / rotation, but
+    # should not be visible to anyone with raw DB read access.
+    #
+    # Use get_password() / set_password() rather than touching this attribute
+    # directly — they handle encryption transparently. Read the raw column for
+    # debugging only.
+    styxproxy_password: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
+
+    def get_password(self) -> Optional[str]:
+        """Decrypt and return the plaintext proxy password.
+
+        Returns None if the password is not set, encryption is not configured,
+        or decryption fails (wrong key / tampered ciphertext).
+        """
+        # Imported lazily to avoid a circular import at module load time.
+        from app.services.crypto import decrypt_credential
+
+        return decrypt_credential(self.styxproxy_password)
+
+    def set_password(self, plaintext: str) -> None:
+        """Encrypt and store the proxy password.
+
+        No-op (logs a warning) if encryption is not configured — refusing
+        to write plaintext is the whole point of this column.
+        """
+        from app.services.crypto import encrypt_credential
+
+        ciphertext = encrypt_credential(plaintext)
+        if ciphertext is None:
+            import logging
+
+            logging.getLogger(__name__).error(
+                "Refusing to set styxproxy_password — CRED_ENCRYPTION_KEY not configured. "
+                "Set the key in your secrets manager (Doppler/Vault/SSM)."
+            )
+            return
+        self.styxproxy_password = ciphertext
     customer_phone: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("customers.phone"), nullable=True)
     order_id: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("orders.order_id"), nullable=True)
     pool_type: Mapped[str] = mapped_column(String(20), default="paid", nullable=False)

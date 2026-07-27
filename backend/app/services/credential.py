@@ -224,16 +224,15 @@ async def create_credential(
     )
 
     # 3. Build the DB record
-    # NOTE: styxproxy_password is stored plaintext (not hashed). This is the
-    # customer's proxy auth credential — like an API key, not an account
-    # password. We need to be able to retrieve it for receipts, rotation,
-    # and admin tooling. The customer's *account* password (in customers
-    # table) is hashed; that one never leaves the bcrypt path.
+    # NOTE: styxproxy_password is stored encrypted (Fernet ciphertext, see
+    # app/services/crypto.py). The customer's *account* password (in
+    # customers.password_hash) is bcrypt-hashed; the proxy auth token is
+    # encrypted-with-recoverable-key — distinct domains.
     expires_at = proxy.get("expires_at") or (datetime.now(timezone.utc) + timedelta(days=duration_days))
 
     credential = StyxproxyCredential(
         styxproxy_username=dante["bun_username"],
-        styxproxy_password=dante["bun_password"],
+        # set_password() handles encryption transparently
         customer_phone=customer_phone,
         order_id=order_id,
         pool_type=pool_type,
@@ -249,13 +248,18 @@ async def create_credential(
         expires_at=expires_at,
     )
 
+    # Encrypt the proxy password before persisting. set_password() will refuse
+    # to write plaintext if CRED_ENCRYPTION_KEY is not configured — that's the
+    # whole point of the encrypted column.
+    credential.set_password(dante["bun_password"])
+
     db_session.add(credential)
     await db_session.commit()
     await db_session.refresh(credential)
 
-    # The plaintext password is now persisted in the DB (styxproxy_password
-    # column) so we can return it from the credential object itself.
-    return credential, credential.styxproxy_password
+    # Plaintext can be returned from the credential itself for downstream use
+    # (n8n webhook, email) since we just encrypted it and have the key in memory.
+    return credential, credential.get_password() or ""
 
 
 # ─── Read helpers ─────────────────────────────────────────────────────────────

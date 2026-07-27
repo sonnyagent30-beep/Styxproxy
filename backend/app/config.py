@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 15
 
+    # ── Credential Encryption (Fernet key for at-rest field encryption) ────
+    # Used to encrypt styxproxy_password (proxy auth tokens) at rest.
+    # Generate with: python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Leave empty to disable (NOT RECOMMENDED in production).
+    cred_encryption_key: str = ""
+
     # ── Admin ───────────────────────────────────────────────────────────────
     admin_token: str = "your-admin-token-change-in-production"
 

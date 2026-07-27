@@ -495,9 +495,9 @@ async def rotate_proxy(
         expires_at=cred.expires_at or datetime.utcnow(),
     )
 
-    # Update DB with new credentials (plaintext — proxy auth token, not account password)
+    # Update DB with new credentials (encrypt the new password at rest)
     cred.styxproxy_username = new_dante.new_styxproxy_username
-    cred.styxproxy_password = new_dante.new_styxproxy_password
+    cred.set_password(new_dante.new_styxproxy_password)
     cred.rotation_count = current_count + 1
     await session.commit()
     await session.refresh(cred)
@@ -807,11 +807,11 @@ async def get_receipt_pdf(
     date_str = order.created_at.strftime("%B %d, %Y") if order.created_at else "—"
     oid = order.order_id or "N/A"
     if cred:
-        # The credential model has styxproxy_username + styxproxy_password
-        # (proxy auth tokens, stored plaintext so the customer can see them
-        # on the receipt and use them to connect to Dante).
+        # The credential model stores styxproxy_password as Fernet ciphertext.
+        # get_password() decrypts transparently; returns None if encryption is
+        # not configured or ciphertext is tampered.
         cred_username = cred.styxproxy_username or "N/A"
-        cred_password_display = cred.styxproxy_password or "N/A"
+        cred_password_display = cred.get_password() or "N/A"
         cred_ip = cred.upstream_proxy_ip or "N/A"
         cred_port = cred.upstream_proxy_port or 8080
         cred_full = f"http://{cred_username}:{cred_password_display}@{cred_ip}:{cred_port}"
