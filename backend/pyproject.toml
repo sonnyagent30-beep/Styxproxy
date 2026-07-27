@@ -11,7 +11,37 @@ name = "styxproxy-backend"
 version = "1.0.0"
 description = "Styxproxy Backend API"
 requires-python = ">=3.11"
-dynamic = ["dependencies"]
+dependencies = [
+    # Web Framework
+    "fastapi==0.133.1",
+    "uvicorn[standard]==0.41.0",
+    # Database
+    "sqlalchemy[asyncio]==2.0.51",
+    "asyncpg==0.31.0",
+    # Data Validation
+    "pydantic[email]==2.13.4",
+    "email-validator>=2.0.0",
+    "reportlab>=4.0.0",
+    "pydantic-settings==2.14.2",
+    # Authentication
+    "python-jose[cryptography]==3.5.0",
+    "passlib[bcrypt]==1.7.4",
+    "bcrypt==4.3.0",
+    "pyotp>=2.9.0",
+    # HTTP Client
+    "httpx==0.28.1",
+    # Rate Limiting
+    "slowapi==0.1.10",
+    # Logging & Monitoring
+    "structlog==26.1.0",
+    "sentry-sdk==2.64.0",
+    # Utilities
+    "python-multipart==0.0.27",
+    "python-dotenv==1.2.2",
+    # Observability + Caching
+    "sentry-sdk[fastapi]==2.64.0",
+    "redis==8.0.1",
+]
 
 [tool.ruff]
 line-length = 120
