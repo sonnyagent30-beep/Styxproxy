@@ -670,11 +670,8 @@ LIGHT_COLOR = _hex_to_rgb("#D1D5DB")
 BORDER_COLOR = _hex_to_rgb("#262626")
 
 
-def _build_receipt_data(session: AsyncSession, tx_ref: str) -> Optional[dict]:
+async def _build_receipt_data(session: AsyncSession, tx_ref: str) -> Optional[dict]:
     """Fetch order data for receipt by tx_ref (payment reference)."""
-    import asyncio
-
-    # Run sync SQLAlchemy in async context
     stmt = (
         select(Order, Customer)
         .outerjoin(Customer, Order.customer_phone == Customer.phone)
@@ -682,8 +679,7 @@ def _build_receipt_data(session: AsyncSession, tx_ref: str) -> Optional[dict]:
         .limit(1)
     )
 
-    # Execute synchronously in async context
-    result = asyncio.get_event_loop().run_until_complete(session.execute(stmt))
+    result = await session.execute(stmt)
     row = result.first()
 
     if not row:
@@ -695,7 +691,7 @@ def _build_receipt_data(session: AsyncSession, tx_ref: str) -> Optional[dict]:
     cred = None
     if order.styxproxy_credential_id:
         cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
-        cred_result = asyncio.get_event_loop().run_until_complete(session.execute(cred_stmt))
+        cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
 
     return {
@@ -711,8 +707,6 @@ async def get_receipt(
     session: AsyncSession = Depends(get_session),
 ):
     """Get order data for public receipt page (no auth required)."""
-    import asyncio
-
     # Query by tx_ref or payment_reference
     stmt = (
         select(Order, Customer)
@@ -721,7 +715,7 @@ async def get_receipt(
         .limit(1)
     )
 
-    result = asyncio.get_event_loop().run_until_complete(session.execute(stmt))
+    result = await session.execute(stmt)
     row = result.first()
 
     if not row:
@@ -733,7 +727,7 @@ async def get_receipt(
     cred_brief = None
     if order.styxproxy_credential_id:
         cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
-        cred_result = asyncio.get_event_loop().run_until_complete(session.execute(cred_stmt))
+        cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
         if cred:
             cred_brief = StyxproxyCredentialBrief(
