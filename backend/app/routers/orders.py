@@ -38,6 +38,7 @@ from app.services.email import (
     send_order_confirmation_email,
     send_refund_request_notification,
 )
+from app.services.logo_paths import get_logo_path
 from app.services.provider import check_availability
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -826,21 +827,31 @@ async def get_receipt_pdf(
     c.rect(0, H - 4 * mm, W, 4 * mm, fill=1, stroke=0)
 
     # ── Header ─────────────────────────────────────────────
-    # S-mark logo
-    c.setFillColorRGB(*GREEN)
-    c.roundRect(15 * mm, H - 22 * mm, 8 * mm, 8 * mm, 1.5 * mm, fill=1, stroke=0)
-    c.setFillColorRGB(*BG)
-    c.setFont("Helvetica-Bold", 6)
-    c.drawCentredString(19 * mm, H - 18.5 * mm, "S")
+    # Official Styxproxy logo (PNG, 2:1 aspect ratio)
+    # Original 3264x1632 px, displayed at 30mm wide × 15mm tall
+    logo_path = get_logo_path("dark")
+    if logo_path.exists():
+        # Logo: 30mm wide at (15mm, H - 22mm)
+        c.drawImage(
+            str(logo_path),
+            15 * mm,
+            H - 22 * mm,
+            width=30 * mm,
+            height=15 * mm,
+            mask="auto",  # Respect PNG alpha channel
+        )
+    else:
+        # Fallback if logo missing — keep the original "S in box" so receipts still work
+        c.setFillColorRGB(*GREEN)
+        c.roundRect(15 * mm, H - 22 * mm, 8 * mm, 8 * mm, 1.5 * mm, fill=1, stroke=0)
+        c.setFillColorRGB(*BG)
+        c.setFont("Helvetica-Bold", 6)
+        c.drawCentredString(19 * mm, H - 18.5 * mm, "S")
 
-    # Wordmark
-    c.setFillColorRGB(*WHITE)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(26 * mm, H - 18 * mm, "styxproxy")
-
+    # Tagline (replaces the wordmark "styxproxy" text since the logo already includes it)
     c.setFillColorRGB(*MUTED)
     c.setFont("Helvetica", 7)
-    c.drawString(26 * mm, H - 22 * mm, "Anonymous Proxy Service")
+    c.drawString(15 * mm, H - 24 * mm, "Anonymous Proxy Service")
 
     # Right header
     c.setFillColorRGB(*GREEN)
