@@ -822,16 +822,16 @@ async def get_receipt_pdf(
 
     # ── Header ─────────────────────────────────────────────
     # Official Styxproxy logo (PNG, 2:1 aspect ratio)
-    # Original 3264x1632 px, displayed at 30mm wide × 15mm tall
+    # Original 3264x1632 px, displayed at 16mm wide × 8mm tall
+    # Fits exactly in the slot the old "S in box" occupied, so layout math stays correct
     logo_path = get_logo_path("dark")
     if logo_path.exists():
-        # Logo: 30mm wide at (15mm, H - 22mm)
         c.drawImage(
             str(logo_path),
             15 * mm,
-            H - 22 * mm,
-            width=30 * mm,
-            height=15 * mm,
+            H - 22 * mm,  # bottom edge at H-22mm (8mm tall, same as old "S" box)
+            width=16 * mm,
+            height=8 * mm,
             mask="auto",  # Respect PNG alpha channel
         )
     else:
@@ -842,10 +842,11 @@ async def get_receipt_pdf(
         c.setFont("Helvetica-Bold", 6)
         c.drawCentredString(19 * mm, H - 18.5 * mm, "S")
 
-    # Tagline (replaces the wordmark "styxproxy" text since the logo already includes it)
+    # Wordmark (since the logo now IS the icon+wordmark combo, no extra text needed)
+    # Just the tagline below
     c.setFillColorRGB(*MUTED)
     c.setFont("Helvetica", 7)
-    c.drawString(15 * mm, H - 24 * mm, "Anonymous Proxy Service")
+    c.drawString(15 * mm, H - 25 * mm, "Anonymous Proxy Service")
 
     # Right header
     c.setFillColorRGB(*GREEN)
@@ -896,8 +897,8 @@ async def get_receipt_pdf(
     c.setFillColorRGB(*CARD)
     c.roundRect(15 * mm, order_card_top, W - 30 * mm, order_card_h, 3 * mm, fill=1, stroke=0)
 
-    # Row 1 labels
-    row_y = order_card_top + 10 * mm
+    # Row 1 labels — start INSIDE the card, going DOWN from card top
+    row_y = order_card_top - 10 * mm
     c.setFillColorRGB(*MUTED)
     c.setFont("Helvetica-Bold", 6.5)
     c.drawString(20 * mm, row_y, "TRANSACTION REFERENCE")
@@ -1066,7 +1067,10 @@ async def get_receipt_pdf(
 
         y = card_bottom - 14 * mm
     else:
-        y -= 14 * mm
+        # No credentials — advance y past where the credentials card WOULD have been
+        # so the support section doesn't pile up on top of the ITEMS row.
+        # Credentials card is card_h (80mm) + 14mm breathing room.
+        y -= 80 * mm + 14 * mm
 
     # ── Support section ─────────────────────────────────────
     sup_top = y
