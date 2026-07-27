@@ -808,14 +808,18 @@ async def get_receipt_pdf(
     date_str = order.created_at.strftime("%B %d, %Y") if order.created_at else "—"
     oid = order.order_id or "N/A"
     if cred:
-        cred_username = cred.bun_username or "N/A"
-        cred_password = cred.bun_password or "N/A"
+        # The credential model has styxproxy_username (not bun_username) and only stores
+        # password_hash (the plaintext is NOT persisted for security). For the receipt we
+        # show the username and a placeholder for the password — the actual plaintext was
+        # delivered to the customer via email/webhook at fulfillment time.
+        cred_username = cred.styxproxy_username or "N/A"
+        cred_password_display = "•••••••••••"
         cred_ip = cred.upstream_proxy_ip or "N/A"
         cred_port = cred.upstream_proxy_port or 8080
-        cred_full = f"http://{cred_username}:{cred_password}@{cred_ip}:{cred_port}"
+        cred_full = f"http://{cred_username}:{cred_password_display}@{cred_ip}:{cred_port}"
         cred_expires = cred.expires_at.strftime("%B %d, %Y") if cred.expires_at else "N/A"
     else:
-        cred_username = cred_password = cred_ip = "—"
+        cred_username = cred_password_display = cred_ip = "—"
         cred_port = 0
         cred_full = "—"
         cred_expires = "—"
@@ -834,7 +838,7 @@ async def get_receipt_pdf(
             </div>
             <div class="cred-row">
                 <span class="cred-label">Password</span>
-                <span class="cred-value">{cred_password}</span>
+                <span class="cred-value">{cred_password_display}</span>
             </div>
             <div class="cred-row">
                 <span class="cred-label">Proxy Address</span>
@@ -854,12 +858,121 @@ async def get_receipt_pdf(
             </div>
         </div>"""
 
+    # Receipt-specific style overrides — match the reference PDF look
+    receipt_styles = """
+        /* Receipt-specific overrides on top of email base styles */
+        body { background-color: #000; }
+        .accent-bar-top { height: 6px; }
+        .accent-bar-bottom { height: 6px; }
+        .email-container {
+            max-width: 760px;
+            padding: 0 24px;
+        }
+        .header-section {
+            padding: 20px 0 16px;
+            align-items: flex-start;
+        }
+        .header-section .logo-section img {
+            width: 160px;
+            height: auto;
+        }
+        .logo-subtitle {
+            font-size: 10px;
+            white-space: nowrap;
+        }
+        .header-label {
+            font-size: 12px;
+            letter-spacing: 1.5px;
+        }
+        .header-sublabel {
+            font-size: 9px;
+        }
+        .divider { margin: 0 0 8px; }
+        .main-heading {
+            font-size: 24px;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+        .subheading { font-size: 13px; margin-bottom: 12px; }
+        .card { padding: 14px 18px; border-radius: 4px; margin: 8px 0; }
+        .card-row { padding: 8px 0; }
+        .card-label {
+            font-size: 10px;
+            letter-spacing: 1px;
+        }
+        .card-value { font-size: 14px; }
+        .card-value.card-value-primary {
+            color: #0AD25A;
+            font-weight: 700;
+        }
+        .total-pill {
+            padding: 14px 20px;
+            border-radius: 3px;
+            background: #0AD25A;
+        }
+        .total-label { font-size: 11px; }
+        .total-amount { font-size: 18px; color: #000; }
+        .credentials-card {
+            border: 1.5px solid #0AD25A;
+            border-radius: 4px;
+            padding: 12px 18px;
+        }
+        .credentials-header {
+            color: #0AD25A;
+            font-size: 11px;
+            letter-spacing: 1.2px;
+            margin-bottom: 4px;
+        }
+        .cred-row {
+            padding: 6px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+        .cred-label {
+            font-size: 10px;
+            letter-spacing: 1px;
+            flex-shrink: 0;
+        }
+        .cred-value {
+            font-family: 'Courier New', Courier, monospace;
+            color: #0AD25A;
+            font-size: 13px;
+            text-align: right;
+            margin-left: 16px;
+        }
+        .support-card {
+            padding: 16px 20px;
+            border-radius: 4px;
+            margin-top: 16px;
+        }
+        .support-title {
+            margin-bottom: 8px;
+        }
+        .support-row {
+            margin-bottom: 4px;
+        }
+        .footer { font-size: 10px; padding: 12px 0; }
+        /* Receipt page layout — single page, A4 */
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        .email-wrapper {
+            background-color: #000;
+        }
+    """
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <title>Styxproxy Receipt — {tx_ref}</title>
-    <style>{base_styles}</style>
+    <style>{base_styles}{receipt_styles}</style>
 </head>
 <body>
     <div class="email-wrapper">
@@ -880,7 +993,7 @@ async def get_receipt_pdf(
 
             <div class="content-section">
                 <div class="section-label">ORDER CONFIRMATION</div>
-                <div class="main-heading">Thank you, {customer_name}!</div>
+                <div class="main-heading">Thank you, customer.</div>
                 <div class="subheading">Your proxy is ready to use. Below are your credentials.</div>
 
                 <div class="card">
@@ -907,7 +1020,7 @@ async def get_receipt_pdf(
                     <span class="items-label" style="text-align: right;">AMOUNT</span>
                 </div>
                 <div class="item-row">
-                    <span class="item-name">🌐 {plan_label} × {quantity}</span>
+                    <span class="item-name">{plan_label} × {quantity}</span>
                     <span>{currency} {amount:,.0f}</span>
                 </div>
 
