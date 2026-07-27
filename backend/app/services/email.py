@@ -30,6 +30,7 @@ from PIL import Image
 from pydantic import BaseModel, EmailStr
 
 from app.config import get_settings
+from app.services.logo_paths import get_logo_path
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +71,11 @@ settings = get_settings()
 # =============================================================================
 # Logo processing for inline embedding (dual mode support)
 # =============================================================================
+
+
 def _get_logo_b64_dark() -> str:
     """Process and return the dark mode Styxproxy logo as base64 PNG."""
-    logo = Image.open("/app/app/assets/styxproxy_logo_dark.png")
+    logo = Image.open(get_logo_path("dark"))
     # The image is already cropped to just the logo (icon + wordmark)
     # Resize for email header — 480px wide, aspect ratio preserved
     target_w = 480
@@ -86,7 +89,7 @@ def _get_logo_b64_dark() -> str:
 
 def _get_logo_b64_light() -> str:
     """Process and return the light mode Styxproxy logo as base64 PNG."""
-    logo = Image.open("/app/app/assets/styxproxy_logo_light.png")
+    logo = Image.open(get_logo_path("light"))
     # The image is already cropped to just the logo (icon + wordmark)
     target_w = 480
     ratio = target_w / logo.size[0]
