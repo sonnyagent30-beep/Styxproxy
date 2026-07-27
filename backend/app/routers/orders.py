@@ -792,281 +792,162 @@ async def get_receipt_pdf(
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
 
-    # ── Build PDF with canvas (full dark-theme control) ──────────
-    import io as _io
+    # ── Build PDF using HTML/CSS (matches email template design) ─────
+    from app.services.email import (
+        _get_base_styles,
+        LOGO_DARK_B64,
+    )
+    from weasyprint import HTML as _WeasyHTML
 
-    buffer = _io.BytesIO()
-    W, H = A4  # W = 210mm, H = 297mm (A4 portrait, ReportLab bottom-up coords)
-    c = pdf_canvas.Canvas(buffer, pagesize=A4)
-
-    def _rgb(hex_str):
-        h = hex_str.lstrip("#")
-        return tuple(int(h[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
-
-    GREEN = _rgb("#0AD25A")
-    BG = _rgb("#0a0a0a")
-    CARD = _rgb("#1a1a1a")
-    MUTED = _rgb("#9CA3AF")
-    DIM = _rgb("#6B7280")
-    WHITE = _rgb("#ffffff")
-    LIGHT = _rgb("#D1D5DB")
-    BORDER = _rgb("#262626")
-
-    # ── Background ────────────────────────────────────────────
-    # Register TTF fonts (DejaVu Sans has ₦ glyph; Helvetica doesn't)
-    from reportlab.pdfbase import pdfmetrics as _pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont as _TTFont
-    try:
-        _pdfmetrics.registerFont(_TTFont("DejaVu", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
-        _pdfmetrics.registerFont(_TTFont("DejaVu-Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
-        NAIRA_FONT = "DejaVu-Bold"
-    except Exception:
-        NAIRA_FONT = "Helvetica-Bold"
-
-    c.setFillColorRGB(*BG)
-    c.rect(0, 0, W, H, fill=1, stroke=0)
-
-    # ── Top accent bar (4mm green stripe across the top) ─────
-    c.setFillColorRGB(*GREEN)
-    c.rect(0, H - 4 * mm, W, 4 * mm, fill=1, stroke=0)
-
-    # Use a TOP-DOWN cursor `y_top_mm` that increases as we go down the page.
-    # All values stored as mm. We convert to bottom-up POINTS only at the helper boundary.
-    from reportlab.lib.units import mm as _mm
-    H_mm = H / _mm  # convert page height from points to mm (A4 = 297mm)
-    y_top_mm = 4.0  # mm from top, start below the green accent bar
-
-    def _bot_pt(top_mm):
-        """Convert top-down cursor (in mm) to bottom-up PDF coord (in points)."""
-        return (H_mm - top_mm) * _mm
-
-    def _draw_text(x_mm, top_mm, text, color, font="Helvetica", size=9, align="left"):
-        c.setFillColorRGB(*color)
-        c.setFont(font, size)
-        y_pt = _bot_pt(top_mm)
-        x_pt = x_mm * _mm
-        if align == "right":
-            c.drawRightString(x_pt, y_pt, text)
-        elif align == "center":
-            c.drawCentredString(x_pt, y_pt, text)
-        else:
-            c.drawString(x_pt, y_pt, text)
-
-    def _draw_rect(x_mm, top_mm, w_mm, h_mm, fill_color=None, stroke_color=None, radius=0, line_width=0.2):
-        """Draw a rectangle whose TOP edge is at top_mm, extending DOWN."""
-        bot_mm = top_mm + h_mm  # bottom edge in top-down
-        y_bot_pt = _bot_pt(bot_mm)  # bottom-up in points
-        if fill_color is not None:
-            c.setFillColorRGB(*fill_color)
-        if stroke_color is not None:
-            c.setStrokeColorRGB(*stroke_color)
-        c.setLineWidth(line_width)
-        c.roundRect(x_mm * _mm, y_bot_pt, w_mm * _mm, h_mm * _mm, radius * _mm, fill=1 if fill_color else 0, stroke=1 if stroke_color else 0)
-
-    def _draw_line(x1_mm, top1_mm, x2_mm, top2_mm, color, width=0.2):
-        c.setStrokeColorRGB(*color)
-        c.setLineWidth(width)
-        c.line(x1_mm * _mm, _bot_pt(top1_mm), x2_mm * _mm, _bot_pt(top2_mm))
-
-    # ── Header: logo + tagline (left) | PAYMENT RECEIPT (right) ──
-    logo_path = get_logo_path("dark")
-    if logo_path.exists():
-        c.drawImage(
-            str(logo_path),
-            15 * _mm,
-            _bot_pt(y_top_mm + 8),  # logo TOP at y_top_mm, 8mm tall
-            width=16 * _mm,
-            height=8 * _mm,
-            mask="auto",
-        )
-    else:
-        _draw_rect(15, y_top_mm, 8, 8, fill_color=GREEN, radius=1.5)
-        _draw_text(19, y_top_mm + 4.5, "S", BG, font="Helvetica-Bold", size=6, align="center")
-
-    # Tagline below the logo
-    _draw_text(15, y_top_mm + 9.5, "Anonymous Proxy Service", MUTED, font="Helvetica", size=7)
-
-    # Right-aligned header
-    _draw_text(W / _mm - 15, y_top_mm + 5.5, "PAYMENT RECEIPT", GREEN, font="Helvetica-Bold", size=9, align="right")
-    _draw_text(W / _mm - 15, y_top_mm + 9, "styxproxy.com", MUTED, font="Helvetica", size=7, align="right")
-    _draw_text(W / _mm - 15, y_top_mm + 12.5, f"Issued: {datetime.now().strftime('%B %d, %Y')}", MUTED, font="Helvetica", size=7, align="right")
-
-    y_top_mm += 22  # advance past header block
-
-    # ── Divider line ─────────────────────────────────────────
-    _draw_line(15, y_top_mm, W / _mm - 15, y_top_mm, BORDER)
-    y_top_mm += 4
-
-    # ── ORDER CONFIRMATION label + Thank you hero ─────────────
-    _draw_text(15, y_top_mm, "ORDER CONFIRMATION", MUTED, font="Helvetica-Bold", size=6.5)
-    y_top_mm += 4
-
-    customer_name = customer.name.strip() if customer and customer.name else None
-    thank_you = f"Thank you, {customer_name}." if customer_name else "Thank you, customer."
-    y_top_mm += 8  # breathing room before big text
-    thank_you_top_mm = y_top_mm
-    _draw_text(15, y_top_mm, thank_you, WHITE, font="Helvetica-Bold", size=22)
-    y_top_mm += 11  # height of 22pt text + a bit
-
-    _draw_text(15, y_top_mm, "Your proxy is ready to use. Below are your credentials.", MUTED, font="Helvetica", size=9)
-
-    # FULFILLED pill — right-aligned with thank_you
+    customer_name = customer.name.strip() if customer and customer.name else "Customer"
     status = (order.status or "pending").upper()
-    pill_w_mm = 38
-    pill_h_mm = 10
-    pill_x_mm = W / _mm - 15 - pill_w_mm
-    # Vertically center the pill with the thank_you hero text
-    pill_top_mm = thank_you_top_mm + (11 - pill_h_mm) / 2
-    _draw_rect(pill_x_mm, pill_top_mm, pill_w_mm, pill_h_mm, fill_color=GREEN, radius=5)
-    # Text vertically centered in pill: text baseline is roughly font_size * 0.75 above bottom
-    text_baseline_mm = pill_top_mm + pill_h_mm / 2 - 3
-    _draw_text(pill_x_mm + pill_w_mm / 2, text_baseline_mm, status, BG, font="Helvetica-Bold", size=9, align="center")
-
-    y_top_mm += 8  # breathing room after subtitle
-
-    # ── Order details card ──────────────────────────────────
-    order_card_top_mm = y_top_mm
-    order_card_h_mm = 36
-    _draw_rect(15, order_card_top_mm, W / _mm - 30, order_card_h_mm, fill_color=CARD, radius=3)
-
-    # Inside-card layout: top-down
-    row_top_mm = order_card_top_mm + 6
-
-    # Manually draw Row 1 (Transaction Ref | Order ID)
-    _draw_text(20, row_top_mm, "TRANSACTION REFERENCE", MUTED, font="Helvetica-Bold", size=6.5)
-    _draw_text(W / _mm / 2 + 5, row_top_mm, "ORDER ID", MUTED, font="Helvetica-Bold", size=6.5)
-    row_top_mm += 4.5
-
-    oid = order.order_id or "N/A"
-    if len(oid) > 22:
-        oid = oid[:22] + "…"
-    _draw_text(20, row_top_mm, tx_ref, WHITE, font="Helvetica-Bold", size=10)
-    _draw_text(W / _mm / 2 + 5, row_top_mm, oid, WHITE, font="Helvetica-Bold", size=10)
-    row_top_mm += 5
-
-    _draw_text(20, row_top_mm, "Flutterwave payment reference", DIM, font="Helvetica", size=6)
-    _draw_text(W / _mm / 2 + 5, row_top_mm, "Internal order reference", DIM, font="Helvetica", size=6)
-    row_top_mm += 3.5
-
-    # Divider
-    _draw_line(20, row_top_mm, W / _mm - 20, row_top_mm, BORDER)
-    row_top_mm += 4
-
-    # Row 2 (Date | Method)
-    _draw_text(20, row_top_mm, "DATE", MUTED, font="Helvetica-Bold", size=6.5)
-    _draw_text(W / _mm / 2 + 5, row_top_mm, "METHOD", MUTED, font="Helvetica-Bold", size=6.5)
-    row_top_mm += 4.5
-
-    date_str = order.created_at.strftime("%B %d, %Y") if order.created_at else datetime.now().strftime("%B %d, %Y")
-    _draw_text(20, row_top_mm, date_str, WHITE, font="Helvetica", size=9)
-    _draw_text(W / _mm / 2 + 5, row_top_mm, "Card / Bank / USSD / QR", WHITE, font="Helvetica", size=9)
-
-    y_top_mm = order_card_top_mm + order_card_h_mm + 5  # below the card
-
-    # ── ITEMS section header ─────────────────────────────────
-    _draw_text(15, y_top_mm, "ITEMS", MUTED, font="Helvetica-Bold", size=7)
-    _draw_text(W / _mm - 45, y_top_mm, "QTY", MUTED, font="Helvetica-Bold", size=7, align="right")
-    _draw_text(W / _mm - 15, y_top_mm, "AMOUNT", MUTED, font="Helvetica-Bold", size=7, align="right")
-    y_top_mm += 1.5
-
-    # Underline
-    _draw_line(15, y_top_mm, W / _mm - 15, y_top_mm, BORDER)
-    y_top_mm += 4
-
-    # ── Item row ─────────────────────────────────────────────
+    currency = "NGN"
     amount = float(order.amount_paid_ngn or 0)
     quantity = order.quantity or 1
     plan_label = f"{order.plan_code or 'Proxy'} - {order.country or 'N/A'}"
-
-    item_top_mm = y_top_mm
-    _draw_text(15, item_top_mm, plan_label, WHITE, font="Helvetica", size=10)
-    _draw_text(15, item_top_mm + 5, f"{quantity} unit{'s' if quantity != 1 else ''}  |  HTTP/SOCKS5", MUTED, font="Helvetica", size=6.5)
-    _draw_text(W / _mm - 45, item_top_mm, str(quantity), WHITE, font="Helvetica", size=10, align="right")
-    _draw_text(W / _mm - 15, item_top_mm, f"₦{amount:,.0f}", WHITE, font=NAIRA_FONT, size=10, align="right")
-    y_top_mm = item_top_mm + 12
-
-    # ── TOTAL PAID pill (right-aligned, green) ────────────────
-    pill_w_mm = 95
-    pill_h_mm = 14
-    pill_x_mm = W / _mm - 15 - pill_w_mm
-    _draw_rect(pill_x_mm, y_top_mm, pill_w_mm, pill_h_mm, fill_color=GREEN, radius=2)
-    # Vertically center text inside pill
-    _draw_text(pill_x_mm + 6, y_top_mm + pill_h_mm / 2 - 4, "TOTAL PAID", BG, font="Helvetica-Bold", size=10)
-    # Amount uses DejaVu-Bold for the ₦ glyph (extra right padding so glyph doesn't clip)
-    _draw_text(pill_x_mm + pill_w_mm - 10, y_top_mm + pill_h_mm / 2 - 4.5, f"₦{amount:,.0f}", BG, font=NAIRA_FONT, size=14, align="right")
-
-    y_top_mm += pill_h_mm + 10  # breathing room
-
-    # ── Credentials card (if cred exists) ───────────────────
+    date_str = order.created_at.strftime("%B %d, %Y") if order.created_at else "—"
+    oid = order.order_id or "N/A"
     if cred:
-        _draw_text(15, y_top_mm, "YOUR PROXY CREDENTIALS", GREEN, font="Helvetica-Bold", size=8)
-        y_top_mm += 4
+        cred_username = cred.bun_username or "N/A"
+        cred_password = cred.bun_password or "N/A"
+        cred_ip = cred.upstream_proxy_ip or "N/A"
+        cred_port = cred.upstream_proxy_port or 8080
+        cred_full = f"http://{cred_username}:{cred_password}@{cred_ip}:{cred_port}"
+        cred_expires = cred.expires_at.strftime("%B %d, %Y") if cred.expires_at else "N/A"
+    else:
+        cred_username = cred_password = cred_ip = "—"
+        cred_port = 0
+        cred_full = "—"
+        cred_expires = "—"
 
-        card_top_mm = y_top_mm
-        card_h_mm = 70
-        card_bottom_mm = card_top_mm + card_h_mm
-        _draw_rect(15, card_top_mm, W / _mm - 30, card_h_mm, fill_color=BG, stroke_color=GREEN, radius=3, line_width=0.6)
+    base_styles = _get_base_styles()
 
-        # 4 rows × card_h/4 each
-        row_h_mm = card_h_mm / 4
-        row_top_mm = card_top_mm + 4
+    # Build credentials block (only if credential exists)
+    credentials_html = ""
+    if cred:
+        credentials_html = f"""
+        <div class="credentials-card">
+            <div class="credentials-header">YOUR PROXY CREDENTIALS</div>
+            <div class="cred-row">
+                <span class="cred-label">Username</span>
+                <span class="cred-value">{cred_username}</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Password</span>
+                <span class="cred-value">{cred_password}</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Proxy Address</span>
+                <span class="cred-value">{cred_ip}:{cred_port}</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Protocol</span>
+                <span class="cred-value">HTTP / SOCKS5</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Full Format</span>
+                <span class="cred-value" style="font-size: 11px;">{cred_full}</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Expires</span>
+                <span class="cred-value">{cred_expires}</span>
+            </div>
+        </div>"""
 
-        # Row 1: USERNAME | PASSWORD
-        _draw_text(20, row_top_mm, "USERNAME", MUTED, font="Helvetica-Bold", size=6.5)
-        _draw_text(W / _mm / 2 + 5, row_top_mm, "PASSWORD", MUTED, font="Helvetica-Bold", size=6.5)
-        _draw_text(20, row_top_mm + 5, str(cred.bun_username or "N/A"), GREEN, font="Helvetica-Bold", size=10)
-        _draw_text(W / _mm / 2 + 5, row_top_mm + 5, str(cred.bun_password or "N/A"), GREEN, font="Helvetica-Bold", size=10)
-        _draw_line(20, row_top_mm + row_h_mm - 3, W / _mm - 20, row_top_mm + row_h_mm - 3, BORDER)
-        row_top_mm += row_h_mm
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Styxproxy Receipt — {tx_ref}</title>
+    <style>{base_styles}</style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="accent-bar-top"></div>
+            <div class="header-section">
+                <div class="logo-section">
+                    <img class="logo-dark" src="data:image/png;base64,{LOGO_DARK_B64}" alt="Styxproxy" width="200" height="58" style="display:block;width:200px;height:auto;">
+                    <div class="logo-subtitle">Anonymous Proxy Service</div>
+                </div>
+                <div>
+                    <div class="header-label">PAYMENT RECEIPT</div>
+                    <div class="header-sublabel">styxproxy.com</div>
+                    <div class="header-sublabel">Issued: {date_str}</div>
+                </div>
+            </div>
+            <div class="divider"></div>
 
-        # Row 2: PROXY ADDRESS | PROTOCOL
-        _draw_text(20, row_top_mm, "PROXY ADDRESS", MUTED, font="Helvetica-Bold", size=6.5)
-        _draw_text(W / _mm / 2 + 5, row_top_mm, "PROTOCOL", MUTED, font="Helvetica-Bold", size=6.5)
-        _draw_text(20, row_top_mm + 5, f"{cred.upstream_proxy_ip or 'N/A'}:{cred.upstream_proxy_port or ''}", GREEN, font="Helvetica-Bold", size=10)
-        _draw_text(W / _mm / 2 + 5, row_top_mm + 5, "HTTP / SOCKS5", GREEN, font="Helvetica-Bold", size=10)
-        _draw_line(20, row_top_mm + row_h_mm - 3, W / _mm - 20, row_top_mm + row_h_mm - 3, BORDER)
-        row_top_mm += row_h_mm
+            <div class="content-section">
+                <div class="section-label">ORDER CONFIRMATION</div>
+                <div class="main-heading">Thank you, {customer_name}!</div>
+                <div class="subheading">Your proxy is ready to use. Below are your credentials.</div>
 
-        # Row 3: FULL FORMAT (full width)
-        _draw_text(20, row_top_mm, "FULL FORMAT", MUTED, font="Helvetica-Bold", size=6.5)
-        full_str = (
-            f"http://{cred.bun_username or 'user'}:{cred.bun_password or 'pass'}"
-            f"@{cred.upstream_proxy_ip or '0.0.0.0'}:{cred.upstream_proxy_port or 8080}"
-        )
-        _draw_text(20, row_top_mm + 5, full_str, LIGHT, font="Courier", size=8)
-        _draw_line(20, row_top_mm + row_h_mm - 3, W / _mm - 20, row_top_mm + row_h_mm - 3, BORDER)
-        row_top_mm += row_h_mm
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Transaction Reference</span>
+                        <span class="card-value card-value-primary">{tx_ref}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Order ID</span>
+                        <span class="card-value">{oid[:24]}{'…' if len(oid) > 24 else ''}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Date</span>
+                        <span class="card-value">{date_str}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Method</span>
+                        <span class="card-value">Card / Bank / USSD / QR</span>
+                    </div>
+                </div>
 
-        # Row 4: EXPIRES | AUTO-RENEW
-        _draw_text(20, row_top_mm, "EXPIRES", MUTED, font="Helvetica-Bold", size=6.5)
-        _draw_text(W / _mm / 2 + 5, row_top_mm, "AUTO-RENEW", MUTED, font="Helvetica-Bold", size=6.5)
-        exp_str = cred.expires_at.strftime("%B %d, %Y") if cred.expires_at else "N/A"
-        _draw_text(20, row_top_mm + 5, exp_str, WHITE, font="Helvetica", size=9)
-        _draw_text(W / _mm / 2 + 5, row_top_mm + 5, "On (manage to disable)", WHITE, font="Helvetica", size=9)
+                <div class="items-header">
+                    <span class="items-label">ITEMS</span>
+                    <span class="items-label" style="text-align: right;">AMOUNT</span>
+                </div>
+                <div class="item-row">
+                    <span class="item-name">🌐 {plan_label} × {quantity}</span>
+                    <span>{currency} {amount:,.0f}</span>
+                </div>
 
-        y_top_mm = card_bottom_mm + 5
+                <div class="total-pill">
+                    <span class="total-label">Total Paid</span>
+                    <span class="total-amount">{currency} {amount:,.0f}</span>
+                </div>
 
-    # ── Support section ─────────────────────────────────────
-    sup_top_mm = y_top_mm
-    sup_h_mm = 22
-    _draw_rect(15, sup_top_mm, W / _mm - 30, sup_h_mm, fill_color=CARD, radius=3)
+                {credentials_html}
 
-    # Inside the support card
-    _draw_text(20, sup_top_mm + 5, "NEED HELP?", MUTED, font="Helvetica-Bold", size=7)
-    _draw_text(20, sup_top_mm + 11, "Chat support:", WHITE, font="Helvetica", size=8)
-    _draw_text(20, sup_top_mm + 17, "styxproxy.com/contact", GREEN, font="Helvetica-Bold", size=8)
+                <div class="support-card">
+                    <div class="support-title">NEED HELP?</div>
+                    <div class="support-row">
+                        <span class="support-label">Chat:</span>
+                        <a href="https://styxproxy.com/contact" class="support-link">styxproxy.com/contact</a>
+                    </div>
+                    <div class="support-row">
+                        <span class="support-label">Email:</span>
+                        <a href="mailto:support@styxproxy.com" class="support-link">support@styxproxy.com</a>
+                    </div>
+                    <div class="support-row" style="margin-bottom: 0;">
+                        <span class="support-label">Web:</span>
+                        <a href="https://styxproxy.com" class="support-link">styxproxy.com</a>
+                    </div>
+                </div>
+            </div>
 
-    _draw_text(95, sup_top_mm + 11, "Email:", MUTED, font="Helvetica", size=7)
-    _draw_text(95, sup_top_mm + 17, "Web:", MUTED, font="Helvetica", size=7)
-    _draw_text(108, sup_top_mm + 11, "oyebiyiayomide30@gmail.com", WHITE, font="Helvetica-Bold", size=8)
-    _draw_text(108, sup_top_mm + 17, "styxproxy.com", WHITE, font="Helvetica-Bold", size=8)
+            <div class="footer">
+                <div class="footer-auto">This receipt was generated automatically. No signature required.</div>
+                <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
+            </div>
+            <div class="accent-bar-bottom"></div>
+        </div>
+    </div>
+</body>
+</html>"""
 
-    # ── Footer ─────────────────────────────────────────────
-    _draw_text(W / _mm / 2, H / _mm - 8, "This receipt was generated automatically. No signature required.", DIM, font="Helvetica", size=6.5, align="center")
-
-    c.showPage()
-    c.save()
-    buffer.seek(0)
+    pdf_bytes = _WeasyHTML(string=html).write_pdf()
+    import io as _io
+    buffer = _io.BytesIO(pdf_bytes or b"")
 
     from fastapi.responses import StreamingResponse
 
