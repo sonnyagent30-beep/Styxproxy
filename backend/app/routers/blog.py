@@ -1,4 +1,5 @@
 """Blog router - public and admin endpoints for blog posts."""
+
 import re
 import unicodedata
 from datetime import datetime
@@ -6,33 +7,32 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, delete, insert
-from sqlalchemy.orm import selectinload
 
+from app.auth import admin_only
 from app.database import get_session
-from app.models import Post, Category, PostCategory
+from app.models import Category, Post, PostCategory
 from app.schemas import (
-    PostCreateRequest,
-    PostUpdateRequest,
-    PostResponse,
-    PostBriefResponse,
-    PostListResponse,
-    PostSubmitRequest,
-    PostSubmitResponse,
+    CategoryCreateRequest,
+    CategoryListResponse,
+    CategoryResponse,
+    CategoryUpdateRequest,
     PostApproveRequest,
-    PostRejectRequest,
-    PostReviewResponse,
+    PostBriefResponse,
+    PostCreateRequest,
+    PostListResponse,
     PostPublishRequest,
     PostPublishResponse,
+    PostRejectRequest,
+    PostResponse,
+    PostReviewResponse,
     PostScheduleRequest,
     PostScheduleResponse,
-    CategoryCreateRequest,
-    CategoryUpdateRequest,
-    CategoryResponse,
-    CategoryListResponse,
+    PostSubmitRequest,
+    PostSubmitResponse,
+    PostUpdateRequest,
 )
-from app.auth import admin_only, verify_admin_token
 
 router = APIRouter(prefix="/api/blog", tags=["blog"])
 
@@ -63,7 +63,7 @@ async def generate_unique_slug(session: AsyncSession, title: str) -> str:
     """Generate a unique slug, appending a number if necessary."""
     base_slug = generate_slug(title)
     slug = base_slug
-    
+
     # Check for existing slug
     counter = 1
     while True:
@@ -74,7 +74,7 @@ async def generate_unique_slug(session: AsyncSession, title: str) -> str:
             break
         slug = f"{base_slug}-{counter}"
         counter += 1
-    
+
     return slug
 
 
@@ -98,30 +98,22 @@ async def get_post_categories(session: AsyncSession, post_id: UUID) -> list[dict
     )
     result = await session.execute(stmt)
     categories = result.scalars().all()
-    return [
-        {"id": str(c.id), "name": c.name, "slug": c.slug, "color": c.color}
-        for c in categories
-    ]
+    return [{"id": str(c.id), "name": c.name, "slug": c.slug, "color": c.color} for c in categories]
 
 
-async def update_post_categories(
-    session: AsyncSession, post_id: UUID, category_ids: list[UUID]
-) -> None:
+async def update_post_categories(session: AsyncSession, post_id: UUID, category_ids: list[UUID]) -> None:
     """Update categories for a post."""
     # Delete existing categories
     stmt = PostCategory.__table__.delete().where(PostCategory.post_id == post_id)
     await session.execute(stmt)
-    
+
     # Add new categories
     for category_id in category_ids:
-        await session.execute(
-            PostCategory.__table__.insert().values(
-                post_id=post_id, category_id=category_id
-            )
-        )
+        await session.execute(PostCategory.__table__.insert().values(post_id=post_id, category_id=category_id))
 
 
 # ============== Public Endpoints ==============
+
 
 @router.get("/posts", response_model=PostListResponse)
 async def list_published_posts(
@@ -153,13 +145,7 @@ async def list_published_posts(
         cat_result = await session.execute(stmt)
         cat = cat_result.scalar_one_or_none()
         if cat:
-            conditions.append(
-                Post.id.in_(
-                    select(PostCategory.post_id).where(
-                        PostCategory.category_id == cat
-                    )
-                )
-            )
+            conditions.append(Post.id.in_(select(PostCategory.post_id).where(PostCategory.category_id == cat)))
 
     if featured is not None:
         conditions.append(Post.featured == featured)
@@ -168,13 +154,7 @@ async def list_published_posts(
     total = (await session.execute(count_stmt)).scalar() or 0
 
     offset = (page - 1) * limit
-    stmt = (
-        select(Post)
-        .where(and_(*conditions))
-        .order_by(Post.published_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
+    stmt = select(Post).where(and_(*conditions)).order_by(Post.published_at.desc()).offset(offset).limit(limit)
     posts = (await session.execute(stmt)).scalars().all()
 
     response = PostListResponse(
@@ -197,9 +177,7 @@ async def list_published_posts(
 @router.get("/posts/{slug}", response_model=PostResponse)
 async def get_post_by_slug(slug: str, session: AsyncSession = Depends(get_session)):
     """Get a published blog post by slug (public)."""
-    stmt = select(Post).where(
-        and_(Post.slug == slug, Post.status == "published")
-    )
+    stmt = select(Post).where(and_(Post.slug == slug, Post.status == "published"))
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
 
@@ -217,9 +195,7 @@ async def get_post_by_slug(slug: str, session: AsyncSession = Depends(get_sessio
         .where(PostCategory.post_id == post.id)
     )
     cats_result = await session.execute(cat_stmt)
-    categories = [
-        {"id": str(c.id), "name": c.name, "slug": c.slug} for c in cats_result.scalars().all()
-    ]
+    categories = [{"id": str(c.id), "name": c.name, "slug": c.slug} for c in cats_result.scalars().all()]
     post.categories = categories  # type: ignore[attr-defined]
 
     # Increment view count
@@ -235,15 +211,10 @@ async def get_post_by_slug(slug: str, session: AsyncSession = Depends(get_sessio
 async def rss_feed(session: AsyncSession = Depends(get_session)):
     """Generate RSS 2.0 feed for published posts."""
     from fastapi.responses import Response
-    
-    stmt = (
-        select(Post)
-        .where(Post.status == "published")
-        .order_by(Post.published_at.desc())
-        .limit(20)
-    )
+
+    stmt = select(Post).where(Post.status == "published").order_by(Post.published_at.desc()).limit(20)
     posts = (await session.execute(stmt)).scalars().all()
-    
+
     # Build RSS XML
     items = []
     for post in posts:
@@ -252,11 +223,11 @@ async def rss_feed(session: AsyncSession = Depends(get_session)):
         <link>{BLOG_URL}/blog/{post.slug}</link>
         <guid isPermaLink="true">{BLOG_URL}/blog/{post.slug}</guid>
         <description><![CDATA[{post.excerpt or post.content[:200]}]]></description>
-        <pubDate>{post.published_at.strftime('%a, %d %b %Y %H:%M:%S GMT') if post.published_at else ''}</pubDate>
+        <pubDate>{post.published_at.strftime("%a, %d %b %Y %H:%M:%S GMT") if post.published_at else ""}</pubDate>
         <author>{post.author}</author>
     </item>"""
         items.append(item)
-    
+
     rss = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
 <channel>
@@ -264,11 +235,11 @@ async def rss_feed(session: AsyncSession = Depends(get_session)):
     <link>{BLOG_URL}</link>
     <description>{BLOG_DESCRIPTION}</description>
     <language>en-us</language>
-    <lastBuildDate>{datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')}</lastBuildDate>
+    <lastBuildDate>{datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")}</lastBuildDate>
     {"".join(items)}
 </channel>
 </rss>"""
-    
+
     return Response(content=rss, media_type="application/rss+xml")
 
 
@@ -279,21 +250,15 @@ async def list_featured_posts(
     session: AsyncSession = Depends(get_session),
 ):
     """List featured blog posts (public)."""
-    conditions = [Post.status == "published", Post.featured == True]
-    
+    conditions = [Post.status == "published", Post.featured]
+
     count_stmt = select(func.count()).select_from(Post).where(and_(*conditions))
     total = (await session.execute(count_stmt)).scalar() or 0
-    
+
     offset = (page - 1) * limit
-    stmt = (
-        select(Post)
-        .where(and_(*conditions))
-        .order_by(Post.published_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
+    stmt = select(Post).where(and_(*conditions)).order_by(Post.published_at.desc()).offset(offset).limit(limit)
     posts = (await session.execute(stmt)).scalars().all()
-    
+
     return PostListResponse(
         posts=[PostBriefResponse.model_validate(p) for p in posts],
         pagination={
@@ -309,6 +274,7 @@ async def list_featured_posts(
 
 # ============== Category Endpoints ==============
 
+
 @router.get("/categories", response_model=CategoryListResponse)
 async def list_categories(
     page: int = Query(1, ge=1),
@@ -318,22 +284,15 @@ async def list_categories(
     """List all categories (public)."""
     count_stmt = select(func.count()).select_from(Category)
     total = (await session.execute(count_stmt)).scalar() or 0
-    
+
     offset = (page - 1) * limit
-    stmt = (
-        select(Category)
-        .order_by(Category.name.asc())
-        .offset(offset)
-        .limit(limit)
-    )
+    stmt = select(Category).order_by(Category.name.asc()).offset(offset).limit(limit)
     categories = (await session.execute(stmt)).scalars().all()
-    
+
     # Get post counts for each category
     result_categories = []
     for cat in categories:
-        count_stmt = select(func.count()).select_from(PostCategory).where(
-            PostCategory.category_id == cat.id
-        )
+        count_stmt = select(func.count()).select_from(PostCategory).where(PostCategory.category_id == cat.id)
         post_count = (await session.execute(count_stmt)).scalar() or 0
         result_categories.append(
             CategoryResponse(
@@ -347,7 +306,7 @@ async def list_categories(
                 post_count=post_count,
             )
         )
-    
+
     return CategoryListResponse(
         categories=result_categories,
         pagination={
@@ -367,19 +326,17 @@ async def get_category(slug: str, session: AsyncSession = Depends(get_session)):
     stmt = select(Category).where(Category.slug == slug)
     result = await session.execute(stmt)
     category = result.scalar_one_or_none()
-    
+
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Category not found",
         )
-    
+
     # Get post count
-    count_stmt = select(func.count()).select_from(PostCategory).where(
-        PostCategory.category_id == category.id
-    )
+    count_stmt = select(func.count()).select_from(PostCategory).where(PostCategory.category_id == category.id)
     post_count = (await session.execute(count_stmt)).scalar() or 0
-    
+
     return CategoryResponse(
         id=category.id,
         name=category.name,
@@ -394,6 +351,7 @@ async def get_category(slug: str, session: AsyncSession = Depends(get_session)):
 
 # ============== Admin Category Endpoints ==============
 
+
 @router.post("/admin/categories", response_model=CategoryResponse, dependencies=[Depends(admin_only)])
 async def create_category(
     request: CategoryCreateRequest,
@@ -401,7 +359,7 @@ async def create_category(
 ):
     """Create a new category (admin only)."""
     slug = generate_category_slug(request.name)
-    
+
     # Check for existing slug
     stmt = select(Category).where(Category.slug == slug)
     result = await session.execute(stmt)
@@ -415,18 +373,18 @@ async def create_category(
             result = await session.execute(stmt)
             existing = result.scalar_one_or_none()
             counter += 1
-    
+
     category = Category(
         name=request.name,
         slug=slug,
         description=request.description,
         color=request.color,
     )
-    
+
     session.add(category)
     await session.commit()
     await session.refresh(category)
-    
+
     return CategoryResponse(
         id=category.id,
         name=category.name,
@@ -448,21 +406,14 @@ async def list_all_categories(
     """List all categories with post counts (admin only)."""
     count_stmt = select(func.count()).select_from(Category)
     total = (await session.execute(count_stmt)).scalar() or 0
-    
+
     offset = (page - 1) * limit
-    stmt = (
-        select(Category)
-        .order_by(Category.name.asc())
-        .offset(offset)
-        .limit(limit)
-    )
+    stmt = select(Category).order_by(Category.name.asc()).offset(offset).limit(limit)
     categories = (await session.execute(stmt)).scalars().all()
-    
+
     result_categories = []
     for cat in categories:
-        count_stmt = select(func.count()).select_from(PostCategory).where(
-            PostCategory.category_id == cat.id
-        )
+        count_stmt = select(func.count()).select_from(PostCategory).where(PostCategory.category_id == cat.id)
         post_count = (await session.execute(count_stmt)).scalar() or 0
         result_categories.append(
             CategoryResponse(
@@ -476,7 +427,7 @@ async def list_all_categories(
                 post_count=post_count,
             )
         )
-    
+
     return CategoryListResponse(
         categories=result_categories,
         pagination={
@@ -499,18 +450,16 @@ async def get_category_admin(
     stmt = select(Category).where(Category.id == category_id)
     result = await session.execute(stmt)
     category = result.scalar_one_or_none()
-    
+
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Category not found",
         )
-    
-    count_stmt = select(func.count()).select_from(PostCategory).where(
-        PostCategory.category_id == category.id
-    )
+
+    count_stmt = select(func.count()).select_from(PostCategory).where(PostCategory.category_id == category.id)
     post_count = (await session.execute(count_stmt)).scalar() or 0
-    
+
     return CategoryResponse(
         id=category.id,
         name=category.name,
@@ -533,31 +482,29 @@ async def update_category(
     stmt = select(Category).where(Category.id == category_id)
     result = await session.execute(stmt)
     category = result.scalar_one_or_none()
-    
+
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Category not found",
         )
-    
+
     if request.name is not None:
         category.name = request.name
         category.slug = generate_category_slug(request.name)
-    
+
     if request.description is not None:
         category.description = request.description
-    
+
     if request.color is not None:
         category.color = request.color
-    
+
     await session.commit()
     await session.refresh(category)
-    
-    count_stmt = select(func.count()).select_from(PostCategory).where(
-        PostCategory.category_id == category.id
-    )
+
+    count_stmt = select(func.count()).select_from(PostCategory).where(PostCategory.category_id == category.id)
     post_count = (await session.execute(count_stmt)).scalar() or 0
-    
+
     return CategoryResponse(
         id=category.id,
         name=category.name,
@@ -579,20 +526,21 @@ async def delete_category(
     stmt = select(Category).where(Category.id == category_id)
     result = await session.execute(stmt)
     category = result.scalar_one_or_none()
-    
+
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Category not found",
         )
-    
+
     await session.delete(category)
     await session.commit()
-    
+
     return {"status": "deleted", "category_id": str(category_id)}
 
 
 # ============== Admin Endpoints ==============
+
 
 @router.post("/posts", response_model=PostResponse, dependencies=[Depends(admin_only)])
 async def create_post(
@@ -601,11 +549,11 @@ async def create_post(
 ):
     """Create a new blog post (admin only)."""
     # Get admin phone from request state (set by middleware)
-    from fastapi import Request
+
     # Use a default admin for now since admin_only doesn't return phone
     admin_phone = "admin"
     slug = await generate_unique_slug(session, request.title)
-    
+
     post = Post(
         title=request.title,
         slug=slug,
@@ -619,23 +567,24 @@ async def create_post(
         scheduled_at=request.scheduled_at,
         featured=request.featured,
     )
-    
+
     session.add(post)
     await session.commit()
     await session.refresh(post)
-    
+
     # Update categories if provided
     if request.category_ids:
         await update_post_categories(session, post.id, request.category_ids)
-    
+
     # Get categories for response
     categories = await get_post_categories(session, post.id)
-    
+
     response_data = PostResponse.model_validate(post)
     response_data.categories = categories
 
     # Invalidate the public list cache so the new post shows up immediately
     from app.services.observability import cache_delete_prefix
+
     await cache_delete_prefix("blog:list:")
 
     return response_data
@@ -651,33 +600,27 @@ async def list_all_posts(
 ):
     """List all blog posts with filters (admin only)."""
     conditions = []
-    
+
     if status_filter:
         conditions.append(Post.status == status_filter)
-    
+
     if search:
         escaped = re.sub(r"([%_\\])", r"\\\1", search)
         conditions.append(
-            (Post.title.ilike(f"%{escaped}%", escape="\\"))
-            | (Post.slug.ilike(f"%{escaped}%", escape="\\"))
+            (Post.title.ilike(f"%{escaped}%", escape="\\")) | (Post.slug.ilike(f"%{escaped}%", escape="\\"))
         )
-    
+
     count_stmt = select(func.count()).select_from(Post)
     if conditions:
         count_stmt = count_stmt.where(and_(*conditions))
     total = (await session.execute(count_stmt)).scalar() or 0
-    
+
     offset = (page - 1) * limit
-    stmt = (
-        select(Post)
-        .order_by(Post.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
+    stmt = select(Post).order_by(Post.created_at.desc()).offset(offset).limit(limit)
     if conditions:
         stmt = stmt.where(and_(*conditions))
     posts = (await session.execute(stmt)).scalars().all()
-    
+
     return PostListResponse(
         posts=[PostBriefResponse.model_validate(p) for p in posts],
         pagination={
@@ -700,13 +643,13 @@ async def get_post(
     stmt = select(Post).where(Post.id == post_id)
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
-    
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    
+
     return PostResponse.model_validate(post)
 
 
@@ -720,56 +663,57 @@ async def update_post(
     stmt = select(Post).where(Post.id == post_id)
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
-    
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    
+
     # Update fields if provided
     if request.title is not None:
         post.title = request.title
         # Regenerate slug if title changed
         if request.title != post.title:
             post.slug = await generate_unique_slug(session, request.title)
-    
+
     if request.content is not None:
         post.content = request.content
-    
+
     if request.excerpt is not None:
         post.excerpt = request.excerpt
-    
+
     if request.cover_image_url is not None:
         post.cover_image_url = request.cover_image_url
-    
+
     if request.meta_description is not None:
         post.meta_description = request.meta_description
-    
+
     if request.tags is not None:
         post.tags = request.tags  # type: ignore
-    
+
     if request.scheduled_at is not None:
         post.scheduled_at = request.scheduled_at
-    
+
     if request.featured is not None:
         post.featured = request.featured
-    
+
     await session.commit()
     await session.refresh(post)
-    
+
     # Update categories if provided
     if request.category_ids is not None:
         await update_post_categories(session, post.id, request.category_ids)
-    
+
     # Get categories for response
     categories = await get_post_categories(session, post.id)
-    
+
     response_data = PostResponse.model_validate(post)
     response_data.categories = categories
 
     # Invalidate the public list cache so the new post shows up immediately
     from app.services.observability import cache_delete_prefix
+
     await cache_delete_prefix("blog:list:")
 
     return response_data
@@ -784,16 +728,16 @@ async def delete_post(
     stmt = select(Post).where(Post.id == post_id)
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
-    
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    
+
     await session.delete(post)
     await session.commit()
-    
+
     return {"status": "deleted", "post_id": str(post_id)}
 
 
@@ -807,25 +751,25 @@ async def submit_post(
     stmt = select(Post).where(Post.id == post_id)
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
-    
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    
+
     if post.status not in ["draft", "rejected"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot submit post with status '{post.status}'",
         )
-    
+
     post.status = "pending"
     post.submitted_at = datetime.utcnow()
-    
+
     await session.commit()
     await session.refresh(post)
-    
+
     return PostSubmitResponse(
         post_id=post.id,
         status=post.status,
@@ -843,27 +787,27 @@ async def approve_post(
     stmt = select(Post).where(Post.id == post_id)
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
-    
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    
+
     if post.status != "pending":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot approve post with status '{post.status}'",
         )
-    
+
     post.status = "approved"
     post.reviewed_by = "admin"
     post.reviewed_at = datetime.utcnow()
     post.rejection_reason = None
-    
+
     await session.commit()
     await session.refresh(post)
-    
+
     return PostReviewResponse(
         post_id=post.id,
         status=post.status,
@@ -882,27 +826,27 @@ async def reject_post(
     stmt = select(Post).where(Post.id == post_id)
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
-    
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    
+
     if post.status != "pending":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot reject post with status '{post.status}'",
         )
-    
+
     post.status = "rejected"
     post.reviewed_by = "admin"
     post.reviewed_at = datetime.utcnow()
     post.rejection_reason = request.reason
-    
+
     await session.commit()
     await session.refresh(post)
-    
+
     return PostReviewResponse(
         post_id=post.id,
         status=post.status,
@@ -921,30 +865,30 @@ async def publish_post(
     stmt = select(Post).where(Post.id == post_id)
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
-    
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    
+
     if post.status not in ["approved", "draft"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot publish post with status '{post.status}'. Must be 'approved' or 'draft'.",
         )
-    
+
     now = datetime.utcnow()
     post.status = "published"
     post.published_at = now
-    
+
     # If scheduled and publish_now=True, clear scheduled_at
     if request.publish_now:
         post.scheduled_at = None
-    
+
     await session.commit()
     await session.refresh(post)
-    
+
     return PostPublishResponse(
         post_id=post.id,
         status=post.status,
@@ -961,19 +905,19 @@ async def unpublish_post(
     stmt = select(Post).where(Post.id == post_id)
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
-    
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    
+
     post.status = "archived"
     post.published_at = None
-    
+
     await session.commit()
     await session.refresh(post)
-    
+
     return PostPublishResponse(
         post_id=post.id,
         status=post.status,
@@ -991,31 +935,31 @@ async def schedule_post(
     stmt = select(Post).where(Post.id == post_id)
     result = await session.execute(stmt)
     post = result.scalar_one_or_none()
-    
+
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    
+
     if post.status not in ["approved", "draft"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot schedule post with status '{post.status}'. Must be 'approved' or 'draft'.",
         )
-    
+
     if request.scheduled_at <= datetime.utcnow():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Scheduled time must be in the future",
         )
-    
+
     post.scheduled_at = request.scheduled_at
     post.status = "approved"
-    
+
     await session.commit()
     await session.refresh(post)
-    
+
     return PostScheduleResponse(
         post_id=post.id,
         status=post.status,

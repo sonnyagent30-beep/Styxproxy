@@ -1,4 +1,5 @@
 """n8n webhook service for triggering automation workflows."""
+
 import asyncio
 import logging
 from datetime import datetime
@@ -25,7 +26,7 @@ async def trigger_credentials_delivered_webhook(
 ) -> bool:
     """
     Fire-and-forget webhook to n8n with credential delivery info.
-    
+
     Sends a POST to n8n.styxproxy.com/webhook/credentials-delivered with:
     {
         "order_id": "ORD-XXXXXX",
@@ -39,16 +40,16 @@ async def trigger_credentials_delivered_webhook(
         "expires_at": "2026-08-15T12:00:00Z",
         "receipt_url": "https://..."
     }
-    
+
     Returns True if webhook was sent (fire-and-forget, errors are logged but not raised).
     """
     settings = get_settings()
     webhook_url = settings.n8n_webhook_url
-    
+
     if not webhook_url:
         logger.warning("n8n webhook URL not configured, skipping credential delivery notification")
         return False
-    
+
     payload = {
         "order_id": order_id,
         "tx_ref": tx_ref,
@@ -60,10 +61,10 @@ async def trigger_credentials_delivered_webhook(
         "proxy_port": proxy_port,
         "expires_at": expires_at.isoformat() if isinstance(expires_at, datetime) else expires_at,
     }
-    
+
     if receipt_url:
         payload["receipt_url"] = receipt_url
-    
+
     async def _send_webhook():
         """Background task to send webhook (logs errors but doesn't raise)."""
         try:
@@ -78,7 +79,7 @@ async def trigger_credentials_delivered_webhook(
         except Exception as e:
             logger.error(f"Unexpected error sending n8n webhook for order {order_id}: {e}")
             return False
-    
+
     # Fire and forget - don't await, just schedule and return immediately
     asyncio.create_task(_send_webhook())
     return True

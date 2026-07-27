@@ -6,28 +6,32 @@ For now, returns realistic stub data so the rest of the system can develop
 against a known contract. When real providers are chosen, swap the
 implementation here — the calling code throughout the app stays the same.
 """
+
 import random
 import socket
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
-
 
 # ─── Lazy settings ───────────────────────────────────────────────────────────
 
 _settings = None
 
+
 def _s():
     global _settings
     if _settings is None:
         from app.config import get_settings
+
         _settings = get_settings()
     return _settings
 
+
 def _PROXY_SELLER_API_KEY() -> str:
     return _s().proxy_seller_api_key or ""
+
 
 def _PROXY_SELLER_BASE_URL() -> str:
     return _s().proxy_seller_base_url or "https://api.proxy-seller.com"
@@ -35,9 +39,11 @@ def _PROXY_SELLER_BASE_URL() -> str:
 
 # ─── Dataclasses ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ProviderProxy:
     """A raw proxy from the provider — before branding."""
+
     provider_order_id: str
     ip: str
     port: int
@@ -53,6 +59,7 @@ class ProviderProxy:
 @dataclass
 class AvailabilityResult:
     """Result of an availability / precheck call."""
+
     available: bool
     reason: Optional[str] = None
     price_ngn: Optional[float] = None
@@ -62,6 +69,7 @@ class AvailabilityResult:
 @dataclass
 class TestResult:
     """Result of proxy health + speed test."""
+
     alive: bool
     latency_ms: Optional[float] = None
     error: Optional[str] = None
@@ -69,11 +77,13 @@ class TestResult:
 
 # ─── HTTP Client ───────────────────────────────────────────────────────────────
 
+
 def _client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=10.0)
 
 
 # ─── Health & Balance ─────────────────────────────────────────────────────────
+
 
 async def check_health() -> bool:
     """Check if the provider API is reachable and responding."""
@@ -108,6 +118,7 @@ async def check_balance() -> float:
 
 # ─── Availability / Precheck ───────────────────────────────────────────────────
 
+
 async def check_availability(
     plan_code: str,
     country: str,
@@ -135,8 +146,12 @@ async def check_availability(
 
     # 3. Stub: check stock by country
     available_countries = {
-        "Nigeria": True, "United Kingdom": True, "United States": True,
-        "Canada": True, "Germany": True, "France": True,
+        "Nigeria": True,
+        "United Kingdom": True,
+        "United States": True,
+        "Canada": True,
+        "Germany": True,
+        "France": True,
     }
     if not available_countries.get(country, False):
         return AvailabilityResult(
@@ -155,6 +170,7 @@ async def check_availability(
 
 
 # ─── Order Creation ────────────────────────────────────────────────────────────
+
 
 async def create_order(
     plan_code: str,
@@ -201,8 +217,10 @@ async def create_order(
         expires_at = datetime.now(timezone.utc) + timedelta(days=30)
         return ProviderProxy(
             provider_order_id=order_id,
-            ip=ip, port=port,
-            username=username, password=password,
+            ip=ip,
+            port=port,
+            username=username,
+            password=password,
             protocol="http",
             expires_at=expires_at,
             country=country,
@@ -218,8 +236,8 @@ async def create_order(
         password=data.get("password", ""),
         protocol=data.get("protocol", "http"),
         expires_at=datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00"))
-            if data.get("expires_at")
-            else datetime.now(timezone.utc) + timedelta(days=30),
+        if data.get("expires_at")
+        else datetime.now(timezone.utc) + timedelta(days=30),
         country=country,
         isp=data.get("isp", ""),
         asn=data.get("asn", ""),
@@ -227,6 +245,7 @@ async def create_order(
 
 
 # ─── Health + Speed Test ───────────────────────────────────────────────────────
+
 
 async def test_proxy(proxy: ProviderProxy) -> TestResult:
     """Test whether a proxy is alive and fast enough."""

@@ -11,15 +11,15 @@ The device_id is NOT PII — just a UUID tied to one browser.
 Same browser = same device_id. Different browser = different device_id.
 Customers who clear browser data lose their order history (acceptable trade-off for privacy).
 """
-from datetime import datetime, timedelta, timezone
-import uuid
+
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import create_access_token, settings
+from app.auth import create_access_token
 from app.database import get_session
 from app.models import PlatformAccount
 
@@ -115,6 +115,7 @@ async def refresh_session(
 
     # Decode the existing token to get the platform_account_id
     from app.auth import decode_access_token
+
     payload = decode_access_token(token)
     platform_account_id = payload.get("sub")
     if not platform_account_id:

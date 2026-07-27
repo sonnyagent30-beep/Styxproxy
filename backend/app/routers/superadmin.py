@@ -1,50 +1,49 @@
 """Superadmin router - administrative functions for system management."""
+
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import get_password_hash
 from app.database import get_session
 from app.models import (
+    AdminAuditLog,
     AdminAuth,
     AdminInvite,
-    AdminAuditLog,
+    CharonEscalation,
+    ContactSubmission,
+    Customer,
+    FeatureFlag,
     Order,
     StyxproxyCredential,
-    Customer,
     SupportThread,
-    ContactSubmission,
-    CharonEscalation,
-    FeatureFlag,
 )
+from app.routers.auth import require_superadmin
 from app.schemas import (
     AdminAuditLogEntryResponse,
     AdminAuditLogListResponse,
+    GlobalSearchContactResult,
+    GlobalSearchCustomerResult,
+    GlobalSearchOrderResult,
+    GlobalSearchResponse,
+    GlobalSearchTicketResult,
+    MetricsOverviewResponse,
+    ProviderCostResponse,
+    ProviderCostsResponse,
     SuperadminAdminResponse,
     SuperadminAdminsListResponse,
     SuperadminCreateAdminRequest,
     SuperadminCreateAdminResponse,
     SuperadminUpdateRoleRequest,
-    ProviderCostsResponse,
-    ProviderCostResponse,
     SystemSettingsListResponse,
-    SystemSettingResponse,
     SystemSettingUpdateRequest,
-    GlobalSearchResponse,
-    GlobalSearchCustomerResult,
-    GlobalSearchOrderResult,
-    GlobalSearchTicketResult,
-    GlobalSearchContactResult,
-    MetricsOverviewResponse,
 )
-from app.auth import get_password_hash
-from app.routers.auth import require_superadmin
 from app.services.audit import write_audit_log
-from app.services.email import send_admin_invite_email
 
 router = APIRouter(prefix="/api/admin", tags=["superadmin"])
 
@@ -56,6 +55,7 @@ def generate_temp_password(length: int = 16) -> str:
 
 
 # ============== Audit Log Endpoints ==============
+
 
 @router.get("/audit-log", response_model=AdminAuditLogListResponse)
 async def get_admin_audit_log(
@@ -97,12 +97,7 @@ async def get_admin_audit_log(
 
     # Data query
     offset = (page - 1) * limit
-    stmt = (
-        select(AdminAuditLog)
-        .order_by(AdminAuditLog.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
+    stmt = select(AdminAuditLog).order_by(AdminAuditLog.created_at.desc()).offset(offset).limit(limit)
     if conditions:
         stmt = stmt.where(and_(*conditions))
     logs = (await session.execute(stmt)).scalars().all()
@@ -149,6 +144,7 @@ async def get_admin_audit_log(
 
 # ============== Admin Management Endpoints ==============
 
+
 @router.get("/admins", response_model=SuperadminAdminsListResponse)
 async def list_admins(
     page: int = Query(1, ge=1),
@@ -167,12 +163,7 @@ async def list_admins(
 
     # Paginated query
     offset = (page - 1) * limit
-    stmt = (
-        select(AdminAuth)
-        .order_by(AdminAuth.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
+    stmt = select(AdminAuth).order_by(AdminAuth.created_at.desc()).offset(offset).limit(limit)
     admins = (await session.execute(stmt)).scalars().all()
 
     return SuperadminAdminsListResponse(
@@ -449,6 +440,7 @@ async def unlock_admin(
 
 # ============== Provider Costs Endpoint ==============
 
+
 @router.get("/providers/costs", response_model=ProviderCostsResponse)
 async def get_provider_costs(
     current_admin: dict = Depends(require_superadmin),
@@ -487,6 +479,7 @@ async def get_provider_costs(
 
 
 # ============== System Settings Endpoints ==============
+
 
 @router.get("/settings", response_model=SystemSettingsListResponse)
 async def list_settings(
@@ -541,6 +534,7 @@ async def update_setting(
 
 # ============== Global Search Endpoint ==============
 
+
 @router.get("/search", response_model=GlobalSearchResponse)
 async def global_search(
     q: str = Query(..., min_length=1, description="Search query"),
@@ -554,13 +548,7 @@ async def global_search(
     contacts = []
 
     # Search customers (phone or name)
-    customer_stmt = (
-        select(Customer)
-        .where(
-            (Customer.phone.ilike(f"%{q}%")) | (Customer.name.ilike(f"%{q}%"))
-        )
-        .limit(10)
-    )
+    customer_stmt = select(Customer).where((Customer.phone.ilike(f"%{q}%")) | (Customer.name.ilike(f"%{q}%"))).limit(10)
     customer_results = (await session.execute(customer_stmt)).scalars().all()
     for c in customer_results:
         customers.append(
@@ -572,11 +560,7 @@ async def global_search(
         )
 
     # Search orders (order_id)
-    order_stmt = (
-        select(Order)
-        .where(Order.order_id.ilike(f"%{q}%"))
-        .limit(10)
-    )
+    order_stmt = select(Order).where(Order.order_id.ilike(f"%{q}%")).limit(10)
     order_results = (await session.execute(order_stmt)).scalars().all()
     for o in order_results:
         orders.append(
@@ -591,10 +575,7 @@ async def global_search(
     # Search support threads (subject or from_email)
     thread_stmt = (
         select(SupportThread)
-        .where(
-            (SupportThread.subject.ilike(f"%{q}%"))
-            | (SupportThread.customer_email.ilike(f"%{q}%"))
-        )
+        .where((SupportThread.subject.ilike(f"%{q}%")) | (SupportThread.customer_email.ilike(f"%{q}%")))
         .limit(10)
     )
     thread_results = (await session.execute(thread_stmt)).scalars().all()
@@ -611,10 +592,7 @@ async def global_search(
     # Search contact submissions (subject or from_email)
     contact_stmt = (
         select(ContactSubmission)
-        .where(
-            (ContactSubmission.subject.ilike(f"%{q}%"))
-            | (ContactSubmission.from_email.ilike(f"%{q}%"))
-        )
+        .where((ContactSubmission.subject.ilike(f"%{q}%")) | (ContactSubmission.from_email.ilike(f"%{q}%")))
         .limit(10)
     )
     contact_results = (await session.execute(contact_stmt)).scalars().all()
@@ -643,6 +621,7 @@ async def global_search(
 
 # ============== Metrics Overview Endpoint ==============
 
+
 @router.get("/metrics/overview", response_model=MetricsOverviewResponse)
 async def get_metrics_overview(
     current_admin: dict = Depends(require_superadmin),
@@ -657,50 +636,37 @@ async def get_metrics_overview(
 
     # Orders today
     orders_today = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.created_at >= today_start)
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.created_at >= today_start))
     ).scalar() or 0
 
     # Orders this week
     orders_this_week = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.created_at >= week_start)
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.created_at >= week_start))
     ).scalar() or 0
 
     # Revenue today (in NGN)
-    revenue_today_stmt = (
-        select(func.sum(Order.amount_paid_ngn))
-        .where(
-            and_(
-                Order.created_at >= today_start,
-                Order.status.in_(["active", "fulfilled"]),
-            )
+    revenue_today_stmt = select(func.sum(Order.amount_paid_ngn)).where(
+        and_(
+            Order.created_at >= today_start,
+            Order.status.in_(["active", "fulfilled"]),
         )
     )
     revenue_today_ngn = float((await session.execute(revenue_today_stmt)).scalar() or 0)
 
     # Revenue this week
-    revenue_week_stmt = (
-        select(func.sum(Order.amount_paid_ngn))
-        .where(
-            and_(
-                Order.created_at >= week_start,
-                Order.status.in_(["active", "fulfilled"]),
-            )
+    revenue_week_stmt = select(func.sum(Order.amount_paid_ngn)).where(
+        and_(
+            Order.created_at >= week_start,
+            Order.status.in_(["active", "fulfilled"]),
         )
     )
     revenue_this_week_ngn = float((await session.execute(revenue_week_stmt)).scalar() or 0)
 
     # Revenue this month
-    revenue_month_stmt = (
-        select(func.sum(Order.amount_paid_ngn))
-        .where(
-            and_(
-                Order.created_at >= month_start,
-                Order.status.in_(["active", "fulfilled"]),
-            )
+    revenue_month_stmt = select(func.sum(Order.amount_paid_ngn)).where(
+        and_(
+            Order.created_at >= month_start,
+            Order.status.in_(["active", "fulfilled"]),
         )
     )
     revenue_this_month_ngn = float((await session.execute(revenue_month_stmt)).scalar() or 0)
@@ -714,9 +680,7 @@ async def get_metrics_overview(
 
     # Churned today (orders that expired today)
     churned_today = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.expires_at >= today_start)
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.expires_at >= today_start))
     ).scalar() or 0
 
     # Open escalations
@@ -728,9 +692,7 @@ async def get_metrics_overview(
 
     # Open support threads
     support_threads_open = (
-        await session.execute(
-            select(func.count()).select_from(SupportThread).where(SupportThread.status == "open")
-        )
+        await session.execute(select(func.count()).select_from(SupportThread).where(SupportThread.status == "open"))
     ).scalar() or 0
 
     # Pending contact submissions
@@ -763,10 +725,12 @@ def _charon_stats():
     """Lazy import so a missing Charon module doesn't break metrics."""
     try:
         from app.services.charon.stats import CharonMetrics
+
         return CharonMetrics.get()
     except Exception:
         # Return a zero-shaped stub so the response model always validates.
         from app.services.charon.stats import CharonStats
+
         return CharonStats()
 
 
@@ -774,6 +738,7 @@ def _charon_llm_status() -> str:
     """Best-effort 'up' / 'degraded' / 'down' indicator for the dashboard."""
     try:
         import os
+
         # P0-5 (Jul 22 2026): primary is M2 cloud. Always check the
         # cloud key — local-only is no longer a configuration.
         if not os.getenv("MINIMAX_API_KEY"):
@@ -783,7 +748,9 @@ def _charon_llm_status() -> str:
         if not getattr(s, "llm_configured", False):
             # Probe by checking Ollama reachability? Keep simple: report based on counters.
             return "unknown"
-        if s.llm_errors > 0 and (s.llm_last_error_at and (s.llm_last_success_at is None or s.llm_last_error_at > s.llm_last_success_at)):
+        if s.llm_errors > 0 and (
+            s.llm_last_error_at and (s.llm_last_success_at is None or s.llm_last_error_at > s.llm_last_success_at)
+        ):
             return "degraded"
         if s.llm_last_success_at is None and s.total_requests > 0:
             return "degraded"
@@ -793,6 +760,7 @@ def _charon_llm_status() -> str:
 
 
 # ============== Charon Stats ==============
+
 
 @router.get("/charon/stats")
 async def get_charon_stats(
@@ -808,6 +776,7 @@ async def get_charon_stats(
     # doesn't break superadmin startup.
     try:
         from app.services.charon.stats import CharonMetrics
+
         return CharonMetrics.get().to_dict()
     except Exception as e:
         return {
@@ -823,10 +792,8 @@ async def reset_charon_stats(
     """Reset Charon counters to zero. Useful after deploying a config fix."""
     try:
         from app.services.charon.stats import CharonMetrics
+
         CharonMetrics.reset()
         return {"ok": True, "reset_at": "now"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
-
-
-

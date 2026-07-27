@@ -11,10 +11,9 @@ The maintenance page itself is rendered client-side; this router just
 owns the boolean state.
 """
 
-from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,9 +42,7 @@ class MaintenanceUpdate(BaseModel):
 
 
 async def _get_flag(session: AsyncSession, name: str) -> Optional[FeatureFlag]:
-    return (
-        await session.execute(select(FeatureFlag).where(FeatureFlag.name == name))
-    ).scalar_one_or_none()
+    return (await session.execute(select(FeatureFlag).where(FeatureFlag.name == name))).scalar_one_or_none()
 
 
 async def _ensure_flag(session: AsyncSession, name: str, default: bool = False) -> FeatureFlag:

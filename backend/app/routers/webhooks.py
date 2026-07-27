@@ -1,20 +1,20 @@
 """Webhooks router."""
+
 import json
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
 from app.config import get_settings
+from app.database import get_session
+from app.services.audit import log_audit_event
 from app.services.flutterwave import (
-    verify_flutterwave_signature,
     is_webhook_processed,
     mark_webhook_processed,
     process_payment_webhook,
+    verify_flutterwave_signature,
 )
-from app.services.audit import log_audit_event
-from app.schemas import FlutterwaveWebhookPayload
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 
@@ -39,9 +39,7 @@ async def flutterwave_webhook(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing Verif-Hash header",
         )
-    if not verify_flutterwave_signature(
-        payload_bytes, verif_hash, settings.flutterwave_webhook_secret
-    ):
+    if not verify_flutterwave_signature(payload_bytes, verif_hash, settings.flutterwave_webhook_secret):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Flutterwave signature",

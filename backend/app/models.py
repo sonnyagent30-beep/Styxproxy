@@ -1,4 +1,5 @@
 """SQLAlchemy async ORM models for all 10 tables."""
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -22,6 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
     """Base class for all models."""
+
     pass
 
 
@@ -30,126 +32,92 @@ class Base(DeclarativeBase):
 
 class Customer(Base):
     """Customer table - Primary identity table."""
+
     __tablename__ = "customers"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     recovery_method: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     pin_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     blocked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     blocked_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     free_trials_used_today: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    free_trial_offer_sent_today: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
-    free_trial_offer_sent_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    free_trial_declined_today: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    free_trial_offer_sent_today: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    free_trial_offer_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    free_trial_declined_today: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     total_orders: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    lifetime_value_ngn: Mapped[float] = mapped_column(
-        Numeric(12, 2), default=0, nullable=False
-    )
-    last_active_subscription: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    last_message_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    last_order_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    lifetime_value_ngn: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    last_active_subscription: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_order_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     replacement_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     consent_given: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     consent_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    consent_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    consent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     support_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relationships
-    platform_accounts: Mapped[list["PlatformAccount"]] = relationship(
-        "PlatformAccount", back_populates="customer"
-    )
+    platform_accounts: Mapped[list["PlatformAccount"]] = relationship("PlatformAccount", back_populates="customer")
 
 
 class PlatformAccount(Base):
     """Platform accounts table - Platform-specific accounts."""
+
     __tablename__ = "platform_accounts"
     __table_args__ = (
         UniqueConstraint("platform", "platform_user_id", name="uq_platform_user"),
         Index("idx_platform_device", "device_id"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     customer_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True
     )
     platform: Mapped[str] = mapped_column(String(50), nullable=False)
     platform_user_id: Mapped[str] = mapped_column(String(100), nullable=False)
     extra_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Anonymous device session: ties anonymous website orders to a specific browser
     # via a UUID stored in localStorage on the client. No PII — just a UUID.
-    device_id: Mapped[Optional[str]] = mapped_column(
-        String(64), nullable=True, unique=False
-    )
+    device_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=False)
 
     # Relationships
-    customer: Mapped[Optional[Customer]] = relationship(
-        "Customer", back_populates="platform_accounts"
-    )
+    customer: Mapped[Optional[Customer]] = relationship("Customer", back_populates="platform_accounts")
     orders: Mapped[list["Order"]] = relationship("Order", back_populates="platform_account")
 
 
 class MergeRequest(Base):
     """Merge requests table - OTP-based account merging."""
+
     __tablename__ = "merge_requests"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_account_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_accounts.id"), nullable=False
     )
     target_account_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_accounts.id"), nullable=False
     )
-    status: Mapped[str] = mapped_column(
-        String(20), default="pending", nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     requested_by: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True
     )
     approved_by: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Order(Base):
     """Orders table - Every proxy order."""
+
     __tablename__ = "orders"
     __table_args__ = (
         Index("idx_orders_customer", "customer_phone"),
@@ -162,71 +130,39 @@ class Order(Base):
     platform_account_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_accounts.id"), nullable=True
     )
-    customer_phone: Mapped[Optional[str]] = mapped_column(
-        String(20), ForeignKey("customers.phone"), nullable=True
-    )
+    customer_phone: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("customers.phone"), nullable=True)
     plan_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     plan_code: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     country: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     quantity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    amount_paid_ngn: Mapped[Optional[float]] = mapped_column(
-        Numeric(12, 2), nullable=True
-    )
-    payment_reference: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
-    tx_ref: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True, index=True
-    )
+    amount_paid_ngn: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    payment_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    tx_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    provider_order_id: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
+    provider_order_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     styxproxy_credential_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("styxproxy_credentials.id"), nullable=True
     )
-    status: Mapped[str] = mapped_column(
-        String(50), default="pending", nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
     ip_tested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    ip_test_result: Mapped[Optional[str]] = mapped_column(
-        String(10), nullable=True
-    )
-    data_total_gb: Mapped[Optional[float]] = mapped_column(
-        Numeric(10, 2), nullable=True
-    )
-    data_remaining_gb: Mapped[Optional[float]] = mapped_column(
-        Numeric(10, 2), nullable=True
-    )
-    data_expires: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    expires_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    ip_test_result: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    data_total_gb: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+    data_remaining_gb: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+    data_expires: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     ban_reported: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     screenshot_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     ban_verified: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     replacement_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    refund_requested: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    refund_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     refund_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    fulfilled_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    cost_usd: Mapped[Optional[float]] = mapped_column(
-        Numeric(10, 4), nullable=True
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    fulfilled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    cost_usd: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
 
     # Relationships
-    platform_account: Mapped[Optional[PlatformAccount]] = relationship(
-        "PlatformAccount", back_populates="orders"
-    )
+    platform_account: Mapped[Optional[PlatformAccount]] = relationship("PlatformAccount", back_populates="orders")
     styxproxy_credential: Mapped[Optional["StyxproxyCredential"]] = relationship(
         "StyxproxyCredential",
         foreign_keys="[Order.styxproxy_credential_id]",
@@ -235,6 +171,7 @@ class Order(Base):
 
 class StyxproxyCredential(Base):
     """Styxproxy credentials table — Styxproxy usernames to provider IPs."""
+
     __tablename__ = "styxproxy_credentials"
     __table_args__ = (
         Index("idx_styxproxy_cred_username", "styxproxy_username"),
@@ -246,59 +183,27 @@ class StyxproxyCredential(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    styxproxy_username: Mapped[str] = mapped_column(
-        String(50), unique=True, nullable=False
-    )
+    styxproxy_username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    customer_phone: Mapped[Optional[str]] = mapped_column(
-        String(20), ForeignKey("customers.phone"), nullable=True
-    )
-    order_id: Mapped[Optional[str]] = mapped_column(
-        String(20), ForeignKey("orders.order_id"), nullable=True
-    )
-    pool_type: Mapped[str] = mapped_column(
-        String(20), default="paid", nullable=False
-    )
-    protocol: Mapped[str] = mapped_column(
-        String(10), default="socks5", nullable=False
-    )
+    customer_phone: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("customers.phone"), nullable=True)
+    order_id: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("orders.order_id"), nullable=True)
+    pool_type: Mapped[str] = mapped_column(String(20), default="paid", nullable=False)
+    protocol: Mapped[str] = mapped_column(String(10), default="socks5", nullable=False)
     provider_name: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    provider_order_id: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
-    provider_username: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
-    provider_password: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
+    provider_order_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    provider_username: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    provider_password: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     upstream_proxy_ip: Mapped[Optional[str]] = mapped_column(INET, nullable=True)
     upstream_proxy_port: Mapped[int] = mapped_column(Integer, default=1080, nullable=False)
     dante_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    status: Mapped[str] = mapped_column(
-        String(20), default="active", nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    expires_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    revoke_reason: Mapped[Optional[str]] = mapped_column(
-        String(50), nullable=True
-    )
-    last_used_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    gb_used: Mapped[float] = mapped_column(
-        Numeric(10, 2), default=0, nullable=False
-    )
-    rotation_count: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoke_reason: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    gb_used: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+    rotation_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Relationships
     order: Mapped[Optional[Order]] = relationship(
@@ -311,6 +216,7 @@ class StyxproxyCredential(Base):
 
 class FreeTrial(Base):
     """Free trials table - Free trial tracking."""
+
     __tablename__ = "free_trials"
     __table_args__ = (
         Index("idx_free_trials_phone_date", "phone", "trial_date"),
@@ -318,26 +224,16 @@ class FreeTrial(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    phone: Mapped[Optional[str]] = mapped_column(
-        String(20), ForeignKey("customers.phone"), nullable=True
-    )
-    trial_date: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    phone: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("customers.phone"), nullable=True)
+    trial_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     survey_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    reward_usd: Mapped[Optional[float]] = mapped_column(
-        Numeric(10, 4), nullable=True
-    )
+    reward_usd: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
     styxproxy_credential_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("styxproxy_credentials.id"), nullable=True
     )
     status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    disclaimer_accepted: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    disclaimer_accepted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     styxproxy_credential: Mapped[Optional[StyxproxyCredential]] = relationship(
@@ -348,35 +244,25 @@ class FreeTrial(Base):
 
 class PendingTrialSurvey(Base):
     """Pending trial surveys table - Trial feedback."""
+
     __tablename__ = "pending_trial_surveys"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    free_trial_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("free_trials.id"), nullable=True
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    free_trial_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("free_trials.id"), nullable=True)
     customer_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True
     )
-    survey_token: Mapped[str] = mapped_column(
-        String(100), unique=True, nullable=False
-    )
+    survey_token: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     questions: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     responses: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    status: Mapped[str] = mapped_column(
-        String(20), default="pending", nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class CustomerAuditLog(Base):
     """Customer audit log table - Immutable audit trail."""
+
     __tablename__ = "customer_audit_log"
     __table_args__ = (
         Index("idx_audit_timestamp", "timestamp"),
@@ -385,9 +271,7 @@ class CustomerAuditLog(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     request_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     customer_hash: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     event_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
@@ -399,28 +283,22 @@ class CustomerAuditLog(Base):
 
 class ProcessedWebhook(Base):
     """Processed webhooks table - Idempotency storage."""
+
     __tablename__ = "processed_webhooks"
-    __table_args__ = (
-        Index("idx_processed_webhooks_id", "webhook_id"),
-    )
+    __table_args__ = (Index("idx_processed_webhooks_id", "webhook_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    webhook_id: Mapped[str] = mapped_column(
-        String(100), unique=True, nullable=False
-    )
+    webhook_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     provider: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     event_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    processed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    response_sent: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    response_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     extra_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
 
 class AdminAuth(Base):
     """Admin auth table - Admin authentication."""
+
     __tablename__ = "admin_auth"
     __table_args__ = (
         Index("idx_admin_auth_locked", "locked_until"),
@@ -428,9 +306,7 @@ class AdminAuth(Base):
     )
 
     # UUID primary key
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     # Legacy: phone kept for backward compat during migration
     admin_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     # Primary identity (unique, used for login)
@@ -439,72 +315,47 @@ class AdminAuth(Base):
     password_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Legacy: kept for migration path
     pin_hash: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    pin_set_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    pin_set_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     totp_secret: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    totp_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
-    totp_set_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    failed_attempts: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False
-    )
-    locked_until: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    last_used: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    totp_set_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_used: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     # Role column - source of truth for admin role
     role: Mapped[str] = mapped_column(
         String(20), default="admin", nullable=False, index=True
     )  # admin, superadmin, viewer
     # Password reset tokens
     reset_token_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    reset_token_expires: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    reset_token_expires: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AdminInvite(Base):
     """Admin invites table - Invite codes for new admin registration."""
+
     __tablename__ = "admin_invites"
     __table_args__ = (
         Index("idx_admin_invites_code", "invite_code", unique=True),
         Index("idx_admin_invites_email", "email"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     invite_code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    role: Mapped[str] = mapped_column(
-        String(20), default="admin", nullable=False
-    )  # admin, superadmin, viewer
+    role: Mapped[str] = mapped_column(String(20), default="admin", nullable=False)  # admin, superadmin, viewer
     created_by: Mapped[Optional[str]] = mapped_column(
         String(255), nullable=True
     )  # email of admin who issued the invite (Jul 24: widened from 20)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    used_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     used_by: Mapped[Optional[str]] = mapped_column(
         String(255), nullable=True
     )  # email of admin who consumed the invite (Jul 23: widened from 20)
     max_uses: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     uses_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     feature_overrides: Mapped[Optional[list]] = mapped_column(
         JSON, nullable=True
     )  # Jul 24: list of feature-flag names granted by the superadmin at invite time
@@ -515,6 +366,7 @@ class AdminAuditLog(Base):
 
     Matches existing schema in production Postgres (integer PK + admin_phone).
     """
+
     __tablename__ = "admin_audit_log"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -523,13 +375,12 @@ class AdminAuditLog(Base):
     ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class Plan(Base):
     """Plans table - Proxy plans with pricing for each country/type combo."""
+
     __tablename__ = "plans"
     __table_args__ = (
         Index("idx_plans_code", "plan_code", unique=True),
@@ -547,9 +398,7 @@ class Plan(Base):
     features: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -557,6 +406,7 @@ class Plan(Base):
 
 class TriggerEvent(Base):
     """Trigger events table — anonymous behavioral trigger firings."""
+
     __tablename__ = "trigger_events"
     __table_args__ = (
         Index("idx_trigger_events_trigger_fired", "trigger_id", "fired_at"),
@@ -566,20 +416,15 @@ class TriggerEvent(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(String(64), nullable=False)
     trigger_id: Mapped[str] = mapped_column(String(50), nullable=False)
-    fired_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    outcome: Mapped[str] = mapped_column(
-        String(20), nullable=False
-    )  # opened_chat | dismissed | ignored | converted
+    fired_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(20), nullable=False)  # opened_chat | dismissed | ignored | converted
     charon_msg: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class TriggerWeight(Base):
     """Trigger weights table — aggregate learning weights per trigger."""
+
     __tablename__ = "trigger_weights"
 
     trigger_id: Mapped[str] = mapped_column(String(50), primary_key=True)
@@ -596,14 +441,11 @@ class TriggerWeight(Base):
 
 class FeatureFlag(Base):
     """Feature flags table - Toggle features globally or per-admin."""
-    __tablename__ = "feature_flags"
-    __table_args__ = (
-        Index("idx_feature_flags_name", "name", unique=True),
-    )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    __tablename__ = "feature_flags"
+    __table_args__ = (Index("idx_feature_flags_name", "name", unique=True),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -614,15 +456,14 @@ class FeatureFlag(Base):
 
 class ContactSubmission(Base):
     """Contact form submissions table."""
+
     __tablename__ = "contact_submissions"
     __table_args__ = (
         Index("idx_contact_submissions_created", "created_at"),
         Index("idx_contact_submissions_email", "email"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
@@ -630,9 +471,7 @@ class ContactSubmission(Base):
     tx_ref: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     admin_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -640,15 +479,14 @@ class ContactSubmission(Base):
 
 class CharonEscalation(Base):
     """Charon AI sales agent escalation table."""
+
     __tablename__ = "charon_escalations"
     __table_args__ = (
         Index("idx_charon_escalations_conversation", "conversation_id"),
         Index("idx_charon_escalations_created", "created_at"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     conversation_id: Mapped[str] = mapped_column(String(100), nullable=False)
     customer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     customer_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
@@ -657,9 +495,7 @@ class CharonEscalation(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     admin_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -667,6 +503,7 @@ class CharonEscalation(Base):
 
 class Post(Base):
     """Blog posts table - CMS for blog articles with approval workflow."""
+
     __tablename__ = "posts"
     __table_args__ = (
         Index("idx_posts_slug", "slug", unique=True),
@@ -675,9 +512,7 @@ class Post(Base):
         Index("idx_posts_scheduled", "scheduled_at"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
@@ -685,25 +520,15 @@ class Post(Base):
     cover_image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     author: Mapped[str] = mapped_column(String(100), nullable=False)
     # Status: draft, pending, approved, rejected, published, archived
-    status: Mapped[str] = mapped_column(
-        String(20), default="draft", nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False)
     # Approval workflow
-    submitted_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     reviewed_by: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    reviewed_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Scheduling
-    scheduled_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    published_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     # SEO
     meta_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     tags: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
@@ -712,9 +537,7 @@ class Post(Base):
     # Counters
     view_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # Timestamps
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -722,21 +545,16 @@ class Post(Base):
 
 class Category(Base):
     """Blog categories for organizing posts."""
-    __tablename__ = "categories"
-    __table_args__ = (
-        Index("idx_categories_slug", "slug", unique=True),
-    )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    __tablename__ = "categories"
+    __table_args__ = (Index("idx_categories_slug", "slug", unique=True),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     color: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)  # Hex color
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -744,6 +562,7 @@ class Category(Base):
 
 class PostCategory(Base):
     """Junction table for posts <-> categories many-to-many relationship."""
+
     __tablename__ = "post_categories"
 
     post_id: Mapped[uuid.UUID] = mapped_column(
@@ -756,6 +575,7 @@ class PostCategory(Base):
 
 class SupportThread(Base):
     """Support threads table - tracks customer support conversations."""
+
     __tablename__ = "support_threads"
     __table_args__ = (
         Index("idx_support_threads_customer_email", "customer_email"),
@@ -763,46 +583,33 @@ class SupportThread(Base):
         Index("idx_support_threads_last_message", "last_message_at"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     customer_email: Mapped[str] = mapped_column(String(255), nullable=False)
     customer_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     subject: Mapped[str] = mapped_column(String(500), nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(20), default="open", nullable=False
-    )  # open, replied, closed
-    order_id: Mapped[Optional[str]] = mapped_column(
-        String(20), ForeignKey("orders.order_id"), nullable=True
-    )
-    resend_last_message_id: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
-    )
+    status: Mapped[str] = mapped_column(String(20), default="open", nullable=False)  # open, replied, closed
+    order_id: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("orders.order_id"), nullable=True)
+    resend_last_message_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     last_message_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class SupportMessage(Base):
     """Support messages table - individual messages in support threads."""
+
     __tablename__ = "support_messages"
     __table_args__ = (
         Index("idx_support_messages_thread", "thread_id"),
         Index("idx_support_messages_created", "created_at"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     thread_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("support_threads.id", ondelete="CASCADE"), nullable=False
     )
-    direction: Mapped[str] = mapped_column(
-        String(20), nullable=False
-    )  # inbound, outbound
+    direction: Mapped[str] = mapped_column(String(20), nullable=False)  # inbound, outbound
     from_email: Mapped[str] = mapped_column(String(255), nullable=False)
     to_email: Mapped[str] = mapped_column(String(255), nullable=False)
     subject: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -811,6 +618,4 @@ class SupportMessage(Base):
     resend_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     in_reply_to: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     references: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

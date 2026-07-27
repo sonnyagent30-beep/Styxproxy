@@ -1,36 +1,75 @@
 """Admin router."""
+
 import json
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
-from app.database import get_session
-from app.models import Customer, Order, StyxproxyCredential, FreeTrial, CustomerAuditLog, ProcessedWebhook, FeatureFlag, Plan, ContactSubmission, CharonEscalation
-from app.schemas import (
-    AdminStatsResponse, AdminCustomerResponse, AdminCustomersResponse, AdminBlockRequest,
-    AdminOrderResponse, AdminOrdersResponse, AdminOrderUpdateRequest, AdminRefundRequest,
-    AdminCredentialResponse, AdminCredentialsResponse, AdminAuditLogsResponse, AdminAuditLogResponse,
-    AdminWebhookLogsResponse, AdminWebhookLogResponse,
-    LearnedFilesResponse, LearnedFileResponse, LearnContentResponse,
-    DeleteLearnedFileRequest, DeleteLearnedFileResponse,
-    KnowledgeFileResponse, AllKnowledgeFilesResponse, UpdateKnowledgeRequest, UpdateKnowledgeResponse,
-    EvalSetResponse, EvalRunResponse,
-    PlanResponse, PlansResponse, PlanCreateRequest, PlanUpdateRequest,
-    ChannelFeatureFlagsResponse, ChannelFeatureFlagsUpdate, ChannelConfig,
-    ContactSubmissionResponse, ContactSubmissionsResponse, ContactSubmissionReplyRequest,
-    CharonEscalationResponse, EscalationsResponse, EscalationRespondRequest,
-)
+
 from app.auth import admin_only, admin_only_with_email
-from app.services.audit import write_audit_log
+from app.database import get_session
+from app.models import (
+    CharonEscalation,
+    ContactSubmission,
+    Customer,
+    FeatureFlag,
+    Order,
+    Plan,
+    ProcessedWebhook,
+    StyxproxyCredential,
+)
+from app.schemas import (
+    AdminAuditLogResponse,
+    AdminAuditLogsResponse,
+    AdminBlockRequest,
+    AdminCredentialResponse,
+    AdminCredentialsResponse,
+    AdminCustomerResponse,
+    AdminCustomersResponse,
+    AdminOrderResponse,
+    AdminOrdersResponse,
+    AdminOrderUpdateRequest,
+    AdminRefundRequest,
+    AdminStatsResponse,
+    AdminWebhookLogResponse,
+    AdminWebhookLogsResponse,
+    AllKnowledgeFilesResponse,
+    ChannelConfig,
+    ChannelFeatureFlagsResponse,
+    ChannelFeatureFlagsUpdate,
+    CharonEscalationResponse,
+    ContactSubmissionReplyRequest,
+    ContactSubmissionResponse,
+    ContactSubmissionsResponse,
+    DeleteLearnedFileRequest,
+    DeleteLearnedFileResponse,
+    EscalationRespondRequest,
+    EscalationsResponse,
+    EvalRunResponse,
+    EvalSetResponse,
+    KnowledgeFileResponse,
+    LearnContentResponse,
+    LearnedFileResponse,
+    LearnedFilesResponse,
+    PlanCreateRequest,
+    PlanResponse,
+    PlansResponse,
+    PlanUpdateRequest,
+    UpdateKnowledgeRequest,
+    UpdateKnowledgeResponse,
+)
+from app.services.audit import get_audit_logs, write_audit_log
 from app.services.credential import replace_credential
+from app.services.email import (
+    send_refund_approved_notification,
+    send_refund_processed_email,
+)
 from app.services.trial import get_trials_today_count
-from app.services.audit import get_audit_logs
-from app.services.email import send_refund_request_notification, send_refund_approved_notification, send_refund_processed_email
-from pathlib import Path
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -43,10 +82,18 @@ async def admin_health():
 @router.get("/stats", response_model=AdminStatsResponse, dependencies=[Depends(admin_only)])
 async def get_stats(session: AsyncSession = Depends(get_session)):
     total_customers = (await session.execute(select(func.count()).select_from(Customer))).scalar() or 0
-    active_orders = (await session.execute(select(func.count()).select_from(Order).where(Order.status == "active"))).scalar() or 0
-    total_revenue = (await session.execute(select(func.sum(Order.amount_paid_ngn)).where(Order.status.in_(["active", "fulfilled"])))).scalar() or 0
+    active_orders = (
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "active"))
+    ).scalar() or 0
+    total_revenue = (
+        await session.execute(select(func.sum(Order.amount_paid_ngn)).where(Order.status.in_(["active", "fulfilled"])))
+    ).scalar() or 0
     free_trials_today = await get_trials_today_count(session)
-    active_credentials = (await session.execute(select(func.count()).select_from(StyxproxyCredential).where(StyxproxyCredential.status == "active"))).scalar() or 0
+    active_credentials = (
+        await session.execute(
+            select(func.count()).select_from(StyxproxyCredential).where(StyxproxyCredential.status == "active")
+        )
+    ).scalar() or 0
     return AdminStatsResponse(
         total_customers=total_customers,
         active_orders=active_orders,
@@ -71,8 +118,7 @@ async def list_customers(
         # Sanitise search term: escape LIKE/ILIKE special chars (% _ \)
         escaped = re.sub(r"([%_\\])", r"\\\1", search)
         conditions.append(
-            (Customer.phone.ilike(f"%{escaped}%", escape="\\"))
-            | (Customer.name.ilike(f"%{escaped}%", escape="\\"))
+            (Customer.phone.ilike(f"%{escaped}%", escape="\\")) | (Customer.name.ilike(f"%{escaped}%", escape="\\"))
         )
     count_stmt = select(func.count()).select_from(Customer)
     if conditions:
@@ -86,7 +132,9 @@ async def list_customers(
     return AdminCustomersResponse(
         customers=[AdminCustomerResponse.model_validate(c) for c in customers],
         pagination={
-            "page": page, "limit": limit, "total_items": total,
+            "page": page,
+            "limit": limit,
+            "total_items": total,
             "total_pages": (total + limit - 1) // limit,
             "has_next": page * limit < total,
             "has_prev": page > 1,
@@ -155,7 +203,9 @@ async def list_orders(
     return AdminOrdersResponse(
         orders=[AdminOrderResponse.model_validate(o) for o in orders],
         pagination={
-            "page": page, "limit": limit, "total_items": total,
+            "page": page,
+            "limit": limit,
+            "total_items": total,
             "total_pages": (total + limit - 1) // limit,
             "has_next": page * limit < total,
             "has_prev": page > 1,
@@ -226,7 +276,11 @@ async def refund_order(
     order.refund_requested = True
     order.refund_reason = body.reason
     if order.styxproxy_credential_id:
-        cred = (await session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id))).scalar_one_or_none()
+        cred = (
+            await session.execute(
+                select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+            )
+        ).scalar_one_or_none()
         if cred:
             cred.status = "revoked"
     await session.commit()
@@ -248,14 +302,16 @@ async def refund_order(
         amount=float(order.amount_paid_ngn or 0),
         currency="NGN",
     )
-    
+
     # Send refund processed email to customer if email available
     customer = None
     if order.customer_phone:
-        customer = (await session.execute(select(Customer).where(Customer.phone == order.customer_phone))).scalar_one_or_none()
-    
+        customer = (
+            await session.execute(select(Customer).where(Customer.phone == order.customer_phone))
+        ).scalar_one_or_none()
+
     if customer:
-        customer_email = getattr(customer, 'email', None)
+        customer_email = getattr(customer, "email", None)
         if customer_email:
             try:
                 await send_refund_processed_email(
@@ -269,7 +325,7 @@ async def refund_order(
                 )
             except Exception:
                 pass
-    
+
     return {"status": "refunded", "order_id": order_id, "refund_amount": float(order.amount_paid_ngn or 0)}
 
 
@@ -309,7 +365,9 @@ async def list_credentials(
     return AdminCredentialsResponse(
         credentials=[AdminCredentialResponse.model_validate(c) for c in credentials],
         pagination={
-            "page": page, "limit": limit, "total_items": total,
+            "page": page,
+            "limit": limit,
+            "total_items": total,
             "total_pages": (total + limit - 1) // limit,
             "has_next": page * limit < total,
             "has_prev": page > 1,
@@ -320,7 +378,9 @@ async def list_credentials(
 @router.get("/email-delivery-log", dependencies=[Depends(admin_only)])
 async def get_email_delivery_log(
     limit: int = Query(100, ge=1, le=500),
-    status_filter: Optional[str] = Query(None, description="Filter by status: queued, api_error, http_error, unexpected_error, skipped_no_key"),
+    status_filter: Optional[str] = Query(
+        None, description="Filter by status: queued, api_error, http_error, unexpected_error, skipped_no_key"
+    ),
 ):
     """Return recent email delivery events from the persistent JSON-lines log.
 
@@ -376,7 +436,9 @@ async def list_audit_logs(
     return AdminAuditLogsResponse(
         logs=[AdminAuditLogResponse.model_validate(log) for log in logs],
         pagination={
-            "page": page, "limit": limit, "total_items": total,
+            "page": page,
+            "limit": limit,
+            "total_items": total,
             "total_pages": (total + limit - 1) // limit,
             "has_next": page * limit < total,
             "has_prev": page > 1,
@@ -397,7 +459,9 @@ async def list_webhook_logs(
     return AdminWebhookLogsResponse(
         webhooks=[AdminWebhookLogResponse.model_validate(w) for w in webhooks],
         pagination={
-            "page": page, "limit": limit, "total_items": total,
+            "page": page,
+            "limit": limit,
+            "total_items": total,
             "total_pages": (total + limit - 1) // limit,
             "has_next": page * limit < total,
             "has_prev": page > 1,
@@ -414,16 +478,18 @@ async def list_learned_files():
     """List all learned files in the RAG knowledge base."""
     if not LEARNED_DIR.exists():
         return LearnedFilesResponse(files=[])
-    
+
     files = []
     for path in sorted(LEARNED_DIR.rglob("*.md")):
         stat = path.stat()
-        files.append(LearnedFileResponse(
-            name=path.name,
-            path=str(path.relative_to(LEARNED_DIR.parent.parent)),
-            size=stat.st_size,
-            modified_at=datetime.fromtimestamp(stat.st_mtime),
-        ))
+        files.append(
+            LearnedFileResponse(
+                name=path.name,
+                path=str(path.relative_to(LEARNED_DIR.parent.parent)),
+                size=stat.st_size,
+                modified_at=datetime.fromtimestamp(stat.st_mtime),
+            )
+        )
     return LearnedFilesResponse(files=files)
 
 
@@ -433,13 +499,13 @@ async def get_learned_file_content(filename: str):
     # Security: prevent path traversal
     filename = filename.replace("..", "").replace("/", "")
     filepath = LEARNED_DIR / filename
-    
+
     if not filepath.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
-    
+
     if not filepath.is_file():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a file")
-    
+
     content = filepath.read_text(encoding="utf-8")
     return LearnContentResponse(
         name=filepath.name,
@@ -454,17 +520,18 @@ async def delete_learned_file(request: DeleteLearnedFileRequest):
     # Security: prevent path traversal
     filename = request.filename.replace("..", "").replace("/", "")
     filepath = LEARNED_DIR / filename
-    
+
     if not filepath.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
-    
+
     if not filepath.is_file():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a file")
-    
+
     filepath.unlink()
 
     # Invalidate cache after deletion
     from app.services.charon.knowledge import invalidate_cache
+
     invalidate_cache()
 
     return DeleteLearnedFileResponse(
@@ -540,6 +607,7 @@ async def update_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
 
     # Invalidate RAG cache so the new content is picked up immediately
     from app.services.charon.knowledge import invalidate_cache
+
     invalidate_cache()
 
     return UpdateKnowledgeResponse(
@@ -566,6 +634,7 @@ async def create_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
     stat = filepath.stat()
 
     from app.services.charon.knowledge import invalidate_cache
+
     invalidate_cache()
 
     return UpdateKnowledgeResponse(
@@ -596,6 +665,7 @@ async def run_eval_questions():
 
 # ============== Plans CRUD ==============
 
+
 @router.get("/plans", response_model=PlansResponse, dependencies=[Depends(admin_only)])
 async def list_plans(
     page: int = Query(1, ge=1),
@@ -613,22 +683,24 @@ async def list_plans(
         conditions.append(Plan.country == country.upper())
     if is_active is not None:
         conditions.append(Plan.is_active == is_active)
-    
+
     count_stmt = select(func.count()).select_from(Plan)
     if conditions:
         count_stmt = count_stmt.where(and_(*conditions))
     total = (await session.execute(count_stmt)).scalar() or 0
-    
+
     offset = (page - 1) * limit
     stmt = select(Plan).order_by(Plan.sort_order, Plan.plan_code).offset(offset).limit(limit)
     if conditions:
         stmt = stmt.where(and_(*conditions))
     plans = (await session.execute(stmt)).scalars().all()
-    
+
     return PlansResponse(
         plans=[PlanResponse.model_validate(p) for p in plans],
         pagination={
-            "page": page, "limit": limit, "total_items": total,
+            "page": page,
+            "limit": limit,
+            "total_items": total,
             "total_pages": (total + limit - 1) // limit,
             "has_next": page * limit < total,
             "has_prev": page > 1,
@@ -652,7 +724,7 @@ async def create_plan(request: PlanCreateRequest, session: AsyncSession = Depend
     existing = (await session.execute(select(Plan).where(Plan.plan_code == request.plan_code))).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Plan code already exists")
-    
+
     plan = Plan(
         plan_code=request.plan_code,
         plan_type=request.plan_type.upper(),
@@ -676,7 +748,7 @@ async def update_plan(plan_id: int, request: PlanUpdateRequest, session: AsyncSe
     plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
-    
+
     if request.price_ngn is not None:
         plan.price_ngn = request.price_ngn
     if request.quantity is not None:
@@ -689,7 +761,7 @@ async def update_plan(plan_id: int, request: PlanUpdateRequest, session: AsyncSe
         plan.is_active = request.is_active
     if request.sort_order is not None:
         plan.sort_order = request.sort_order
-    
+
     await session.commit()
     await session.refresh(plan)
     return PlanResponse.model_validate(plan)
@@ -701,13 +773,14 @@ async def delete_plan(plan_id: int, session: AsyncSession = Depends(get_session)
     plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
-    
+
     await session.delete(plan)
     await session.commit()
     return {"status": "deleted", "plan_id": plan_id}
 
 
 # ============== Channel Feature Flags ==============
+
 
 async def get_or_create_feature_flag(session: AsyncSession, name: str, default_url: str = "") -> FeatureFlag:
     """Get or create a feature flag for a channel."""
@@ -731,11 +804,11 @@ async def get_channel_feature_flags(session: AsyncSession = Depends(get_session)
     telegram_flag = await get_or_create_feature_flag(session, "telegram")
     # Get or create WhatsApp flag
     whatsapp_flag = await get_or_create_feature_flag(session, "whatsapp")
-    
+
     # Parse admin_overrides (JSON) for URLs - using {"url": "..."} format
     telegram_url = telegram_flag.admin_overrides.get("url", "") if telegram_flag.admin_overrides else ""
     whatsapp_url = whatsapp_flag.admin_overrides.get("url", "") if whatsapp_flag.admin_overrides else ""
-    
+
     return ChannelFeatureFlagsResponse(
         telegram=ChannelConfig(enabled=telegram_flag.enabled, url=telegram_url),
         whatsapp=ChannelConfig(enabled=whatsapp_flag.enabled, url=whatsapp_url),
@@ -752,16 +825,16 @@ async def update_channel_feature_flags(
     telegram_flag = await get_or_create_feature_flag(session, "telegram")
     telegram_flag.enabled = request.telegram.enabled
     telegram_flag.admin_overrides = {"url": request.telegram.url}
-    
+
     # Update WhatsApp
     whatsapp_flag = await get_or_create_feature_flag(session, "whatsapp")
     whatsapp_flag.enabled = request.whatsapp.enabled
     whatsapp_flag.admin_overrides = {"url": request.whatsapp.url}
-    
+
     await session.commit()
     await session.refresh(telegram_flag)
     await session.refresh(whatsapp_flag)
-    
+
     return ChannelFeatureFlagsResponse(
         telegram=ChannelConfig(
             enabled=telegram_flag.enabled,
@@ -776,6 +849,7 @@ async def update_channel_feature_flags(
 
 # ============== Contact Submissions ==============
 
+
 @router.get("/contact-submissions", response_model=ContactSubmissionsResponse, dependencies=[Depends(admin_only)])
 async def list_contact_submissions(
     status: Optional[str] = None,
@@ -787,15 +861,15 @@ async def list_contact_submissions(
     query = select(ContactSubmission).order_by(ContactSubmission.created_at.desc())
     if status:
         query = query.where(ContactSubmission.status == status)
-    
+
     # Count
     count_q = select(func.count()).select_from(query.subquery())
     total = (await session.execute(count_q)).scalar_one()
-    
+
     # Paginate
-    query = query.offset((page-1)*limit).limit(limit)
+    query = query.offset((page - 1) * limit).limit(limit)
     rows = (await session.execute(query)).scalars().all()
-    
+
     return ContactSubmissionsResponse(
         data=[ContactSubmissionResponse.model_validate(r) for r in rows],
         total=total,
@@ -809,13 +883,11 @@ async def reply_contact_submission(
     session: AsyncSession = Depends(get_session),
 ):
     """Reply to a contact submission."""
-    result = await session.execute(
-        select(ContactSubmission).where(ContactSubmission.id == submission_id)
-    )
+    result = await session.execute(select(ContactSubmission).where(ContactSubmission.id == submission_id))
     submission = result.scalar_one_or_none()
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
-    
+
     submission.status = "replied"
     submission.admin_notes = request.admin_notes
     await session.commit()
@@ -829,19 +901,18 @@ async def update_contact_submission(
     session: AsyncSession = Depends(get_session),
 ):
     """Update contact submission status."""
-    result = await session.execute(
-        select(ContactSubmission).where(ContactSubmission.id == submission_id)
-    )
+    result = await session.execute(select(ContactSubmission).where(ContactSubmission.id == submission_id))
     submission = result.scalar_one_or_none()
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
-    
+
     submission.status = status
     await session.commit()
     return {"success": True}
 
 
 # ============== Charon Escalations ==============
+
 
 @router.get("/escalations", response_model=EscalationsResponse, dependencies=[Depends(admin_only)])
 async def list_escalations(
@@ -854,13 +925,13 @@ async def list_escalations(
     query = select(CharonEscalation).order_by(CharonEscalation.created_at.desc())
     if status:
         query = query.where(CharonEscalation.status == status)
-    
+
     count_q = select(func.count()).select_from(query.subquery())
     total = (await session.execute(count_q)).scalar_one()
-    
-    query = query.offset((page-1)*limit).limit(limit)
+
+    query = query.offset((page - 1) * limit).limit(limit)
     rows = (await session.execute(query)).scalars().all()
-    
+
     return EscalationsResponse(
         data=[CharonEscalationResponse.model_validate(r) for r in rows],
         total=total,
@@ -874,13 +945,11 @@ async def respond_escalation(
     session: AsyncSession = Depends(get_session),
 ):
     """Respond to a Charon escalation."""
-    result = await session.execute(
-        select(CharonEscalation).where(CharonEscalation.id == escalation_id)
-    )
+    result = await session.execute(select(CharonEscalation).where(CharonEscalation.id == escalation_id))
     escalation = result.scalar_one_or_none()
     if not escalation:
         raise HTTPException(status_code=404, detail="Escalation not found")
-    
+
     escalation.status = "reviewed"
     escalation.admin_notes = request.admin_notes
     await session.commit()
@@ -894,13 +963,11 @@ async def update_escalation(
     session: AsyncSession = Depends(get_session),
 ):
     """Update escalation status."""
-    result = await session.execute(
-        select(CharonEscalation).where(CharonEscalation.id == escalation_id)
-    )
+    result = await session.execute(select(CharonEscalation).where(CharonEscalation.id == escalation_id))
     escalation = result.scalar_one_or_none()
     if not escalation:
         raise HTTPException(status_code=404, detail="Escalation not found")
-    
+
     escalation.status = status
     await session.commit()
     return {"success": True}

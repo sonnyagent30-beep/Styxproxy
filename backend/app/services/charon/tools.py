@@ -17,14 +17,14 @@ Live tools:
 - get_product_catalog: hardcoded plan list
 - suggest_articles: RAG over knowledge base
 """
+
 from __future__ import annotations
 
-import asyncio
 import inspect
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Union
+from typing import Any, Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +80,7 @@ class _Registry:
         return ToolResult(ok=True, data=rv)
 
     def list_specs(self) -> list[dict]:
-        return [
-            {"name": t.name, "description": t.description, "parameters": t.schema}
-            for t in self.tools.values()
-        ]
+        return [{"name": t.name, "description": t.description, "parameters": t.schema} for t in self.tools.values()]
 
 
 registry = _Registry()
@@ -102,6 +99,7 @@ async def _lookup_order_tx_ref(tx_ref: str) -> ToolResult:
     Does NOT require auth — Charon runs inside the service boundary."""
     try:
         from sqlalchemy import select
+
         from app.database import async_session
         from app.models import Order, StyxproxyCredential
 
@@ -122,13 +120,8 @@ async def _lookup_order_tx_ref(tx_ref: str) -> ToolResult:
 
             # Get credentials if fulfilled
             creds = None
-            if (
-                order.styxproxy_credential_id
-                and order.status in ("fulfilled", "active", "fulfilling")
-            ):
-                cred_stmt = select(StyxproxyCredential).where(
-                    StyxproxyCredential.id == order.styxproxy_credential_id
-                )
+            if order.styxproxy_credential_id and order.status in ("fulfilled", "active", "fulfilling"):
+                cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
                 cred_result = await session.execute(cred_stmt)
                 cred = cred_result.scalar_one_or_none()
                 if cred:
@@ -218,8 +211,8 @@ async def _lookup_payment_status(tx_ref: str) -> ToolResult:
         return ToolResult(
             ok=False,
             error=f"Payment status lookup failed: {exc}. "
-                   "Please ask the customer for their Flutterwave confirmation "
-                   "reference and try again.",
+            "Please ask the customer for their Flutterwave confirmation "
+            "reference and try again.",
         )
 
 
@@ -232,10 +225,7 @@ async def _generate_order_link(tx_ref: str) -> ToolResult:
         data={
             "url": url,
             "display_text": "View your order",
-            "message": (
-                f"Here is your order link — bookmark it to check your status anytime: "
-                f"{url}"
-            ),
+            "message": (f"Here is your order link — bookmark it to check your status anytime: {url}"),
         },
     )
 
@@ -245,6 +235,7 @@ async def _generate_receipt_link(tx_ref: str) -> ToolResult:
     Verifies the order exists and has a paid status before sharing the receipt URL."""
     try:
         from sqlalchemy import select
+
         from app.database import async_session
         from app.models import Order
 
@@ -295,15 +286,69 @@ async def _get_product_catalog() -> ToolResult:
         ok=True,
         data={
             "plans": [
-                {"code": "ISP-1", "type": "isp", "label": "ISP", "starting_price_ngn": 6500, "starting_price_period": "month"},
-                {"code": "RESIDENTIAL-5GB", "type": "residential", "label": "Residential 5GB", "price_ngn": 5000, "period": "data_plan"},
-                {"code": "RESIDENTIAL-10GB", "type": "residential", "label": "Residential 10GB", "price_ngn": 9000, "period": "data_plan"},
-                {"code": "RESIDENTIAL-50GB", "type": "residential", "label": "Residential 50GB", "price_ngn": 38000, "period": "data_plan"},
-                {"code": "MOBILE-5GB", "type": "mobile", "label": "Mobile 4G 5GB", "price_ngn": 20000, "period": "data_plan"},
-                {"code": "MOBILE-10GB", "type": "mobile", "label": "Mobile 4G 10GB", "price_ngn": 35000, "period": "data_plan"},
-                {"code": "DC-10", "type": "datacenter", "label": "Datacenter 10 IPs", "price_ngn": 3000, "period": "month"},
-                {"code": "DC-50", "type": "datacenter", "label": "Datacenter 50 IPs", "price_ngn": 12000, "period": "month"},
-                {"code": "DC-100", "type": "datacenter", "label": "Datacenter 100 IPs", "price_ngn": 20000, "period": "month"},
+                {
+                    "code": "ISP-1",
+                    "type": "isp",
+                    "label": "ISP",
+                    "starting_price_ngn": 6500,
+                    "starting_price_period": "month",
+                },
+                {
+                    "code": "RESIDENTIAL-5GB",
+                    "type": "residential",
+                    "label": "Residential 5GB",
+                    "price_ngn": 5000,
+                    "period": "data_plan",
+                },
+                {
+                    "code": "RESIDENTIAL-10GB",
+                    "type": "residential",
+                    "label": "Residential 10GB",
+                    "price_ngn": 9000,
+                    "period": "data_plan",
+                },
+                {
+                    "code": "RESIDENTIAL-50GB",
+                    "type": "residential",
+                    "label": "Residential 50GB",
+                    "price_ngn": 38000,
+                    "period": "data_plan",
+                },
+                {
+                    "code": "MOBILE-5GB",
+                    "type": "mobile",
+                    "label": "Mobile 4G 5GB",
+                    "price_ngn": 20000,
+                    "period": "data_plan",
+                },
+                {
+                    "code": "MOBILE-10GB",
+                    "type": "mobile",
+                    "label": "Mobile 4G 10GB",
+                    "price_ngn": 35000,
+                    "period": "data_plan",
+                },
+                {
+                    "code": "DC-10",
+                    "type": "datacenter",
+                    "label": "Datacenter 10 IPs",
+                    "price_ngn": 3000,
+                    "period": "month",
+                },
+                {
+                    "code": "DC-50",
+                    "type": "datacenter",
+                    "label": "Datacenter 50 IPs",
+                    "price_ngn": 12000,
+                    "period": "month",
+                },
+                {
+                    "code": "DC-100",
+                    "type": "datacenter",
+                    "label": "Datacenter 100 IPs",
+                    "price_ngn": 20000,
+                    "period": "month",
+                },
             ],
         },
     )
@@ -312,6 +357,7 @@ async def _get_product_catalog() -> ToolResult:
 async def _suggest_articles(topic: str) -> ToolResult:
     """Suggest articles from the knowledge base for a topic."""
     from .knowledge import search
+
     chunks = search(topic, top_k=3)
     return ToolResult(
         ok=True,
@@ -321,97 +367,112 @@ async def _suggest_articles(topic: str) -> ToolResult:
 
 # ─── Register read-tools ─────────────────────────────────────────────────────
 
-registry.register(ToolSpec(
-    name="lookup_order",
-    description=(
-        "Look up an order by its Flutterwave transaction reference (tx_ref). "
-        "Returns the order's status, plan, country, payment status, and redacted credentials "
-        "if the proxy is already active. Use this when a customer provides a transaction reference "
-        "to check on their order or retrieve their proxy credentials."
-    ),
-    schema={
-        "type": "object",
-        "properties": {
-            "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
+registry.register(
+    ToolSpec(
+        name="lookup_order",
+        description=(
+            "Look up an order by its Flutterwave transaction reference (tx_ref). "
+            "Returns the order's status, plan, country, payment status, and redacted credentials "
+            "if the proxy is already active. Use this when a customer provides a transaction reference "
+            "to check on their order or retrieve their proxy credentials."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
+            },
+            "required": ["tx_ref"],
         },
-        "required": ["tx_ref"],
-    },
-    handler=_lookup_order_tx_ref,
-))
+        handler=_lookup_order_tx_ref,
+    )
+)
 
 
-registry.register(ToolSpec(
-    name="lookup_payment_status",
-    description=(
-        "Look up payment status for a transaction reference via Flutterwave. "
-        "Returns 'pending', 'successful', 'failed', or 'refunded'."
-    ),
-    schema={
-        "type": "object",
-        "properties": {
-            "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
+registry.register(
+    ToolSpec(
+        name="lookup_payment_status",
+        description=(
+            "Look up payment status for a transaction reference via Flutterwave. "
+            "Returns 'pending', 'successful', 'failed', or 'refunded'."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
+            },
+            "required": ["tx_ref"],
         },
-        "required": ["tx_ref"],
-    },
-    handler=_lookup_payment_status,
-))
+        handler=_lookup_payment_status,
+    )
+)
 
 
-registry.register(ToolSpec(
-    name="generate_order_link",
-    description=(
-        "Generate a direct link to the customer's order page where they can view their "
-        "order status and credentials. Use when a customer needs to retrieve their proxy "
-        "or check their order status — especially if they were disconnected during checkout."
-    ),
-    schema={
-        "type": "object",
-        "properties": {
-            "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
+registry.register(
+    ToolSpec(
+        name="generate_order_link",
+        description=(
+            "Generate a direct link to the customer's order page where they can view their "
+            "order status and credentials. Use when a customer needs to retrieve their proxy "
+            "or check their order status — especially if they were disconnected during checkout."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
+            },
+            "required": ["tx_ref"],
         },
-        "required": ["tx_ref"],
-    },
-    handler=_generate_order_link,
-))
+        handler=_generate_order_link,
+    )
+)
 
 
-registry.register(ToolSpec(
-    name="generate_receipt_link",
-    description=(
-        "Generate a download link for the customer's official receipt PDF. "
-        "Use after fulfilling an order to send the customer their receipt."
-    ),
-    schema={
-        "type": "object",
-        "properties": {
-            "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
+registry.register(
+    ToolSpec(
+        name="generate_receipt_link",
+        description=(
+            "Generate a download link for the customer's official receipt PDF. "
+            "Use after fulfilling an order to send the customer their receipt."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "tx_ref": {"type": "string", "description": "The customer's Flutterwave transaction reference"},
+            },
+            "required": ["tx_ref"],
         },
-        "required": ["tx_ref"],
-    },
-    handler=_generate_receipt_link,
-))
+        handler=_generate_receipt_link,
+    )
+)
 
 
-registry.register(ToolSpec(
-    name="get_product_catalog",
-    description="Return the full product catalog with plans and prices. Use when the customer wants plan details.",
-    schema={"type": "object", "properties": {}},
-    handler=_get_product_catalog,
-))
+registry.register(
+    ToolSpec(
+        name="get_product_catalog",
+        description="Return the full product catalog with plans and prices. Use when the customer wants plan details.",
+        schema={"type": "object", "properties": {}},
+        handler=_get_product_catalog,
+    )
+)
 
 
-registry.register(ToolSpec(
-    name="suggest_articles",
-    description="Suggest relevant knowledge-base chunks for a topic. Use before falling back to LLM-only answers when context is thin.",
-    schema={
-        "type": "object",
-        "properties": {
-            "topic": {"type": "string", "description": "Topic keyword or phrase"},
+registry.register(
+    ToolSpec(
+        name="suggest_articles",
+        description=(
+            "Suggest relevant knowledge-base chunks for a topic. "
+            "Use before falling back to LLM-only answers when context is thin."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string", "description": "Topic keyword or phrase"},
+            },
+            "required": ["topic"],
         },
-        "required": ["topic"],
-    },
-    handler=_suggest_articles,
-))
+        handler=_suggest_articles,
+    )
+)
 
 
 # ─── Forbidden tools (not registered — guard rails) ───────────────────────────

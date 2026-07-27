@@ -1,32 +1,31 @@
 """Pydantic v2 request/response models."""
+
 import re
 from datetime import datetime
-from decimal import Decimal
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import (
-    AfterValidator,
     BaseModel,
     ConfigDict,
-    EmailStr,
     Field,
     field_validator,
-    model_validator,
 )
-
 
 # ============== Enums ==============
 
+
 class PlatformEnum(str, Enum):
     """Platform types."""
+
     WHATSAPP = "whatsapp"
     TELEGRAM = "telegram"
 
 
 class PlanTypeEnum(str, Enum):
     """Plan types."""
+
     ISP = "ISP"
     DC = "DC"
     RESIDENTIAL = "RESIDENTIAL"
@@ -35,6 +34,7 @@ class PlanTypeEnum(str, Enum):
 
 class OrderStatusEnum(str, Enum):
     """Order status values."""
+
     PENDING = "pending"
     PAID = "paid"
     FULFILLED = "fulfilled"
@@ -47,6 +47,7 @@ class OrderStatusEnum(str, Enum):
 
 class CredentialStatusEnum(str, Enum):
     """Credential status values."""
+
     ACTIVE = "active"
     EXPIRED = "expired"
     REVOKED = "revoked"
@@ -55,6 +56,7 @@ class CredentialStatusEnum(str, Enum):
 
 class PoolTypeEnum(str, Enum):
     """Pool type values."""
+
     PAID = "paid"
     FREE_TRIAL = "free_trial"
     REFUNDED_RECYCLED = "refunded_recycled"
@@ -62,6 +64,7 @@ class PoolTypeEnum(str, Enum):
 
 class ProtocolEnum(str, Enum):
     """Proxy protocol types."""
+
     HTTP = "http"
     HTTPS = "https"
     SOCKS5 = "socks5"
@@ -69,6 +72,7 @@ class ProtocolEnum(str, Enum):
 
 class MergeStatusEnum(str, Enum):
     """Merge request status values."""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -77,6 +81,7 @@ class MergeStatusEnum(str, Enum):
 
 class TrialStatusEnum(str, Enum):
     """Trial status values."""
+
     ACTIVE = "active"
     EXPIRED = "expired"
     DEAD = "dead"
@@ -104,22 +109,27 @@ def validate_country(country: str) -> str:
 
 # ============== Base Schemas ==============
 
+
 class PaginationParams(BaseModel):
     """Pagination parameters."""
+
     page: int = Field(default=1, ge=1)
     limit: int = Field(default=20, ge=1, le=100)
 
 
 class PaginatedResponse(BaseModel):
     """Paginated response wrapper."""
+
     data: list[Any]
     pagination: dict[str, Any]
 
 
 # ============== Health Check ==============
 
+
 class HealthResponse(BaseModel):
     """Health check response."""
+
     status: str
     version: str = "1.0.0"
     database: str
@@ -128,8 +138,10 @@ class HealthResponse(BaseModel):
 
 # ============== Platform Schemas ==============
 
+
 class PlatformRegisterRequest(BaseModel):
     """Request to register a platform account."""
+
     platform: PlatformEnum
     platform_user_id: str = Field(..., min_length=1, max_length=100)
     metadata: Optional[dict[str, Any]] = None
@@ -137,6 +149,7 @@ class PlatformRegisterRequest(BaseModel):
 
 class PlatformAccountResponse(BaseModel):
     """Platform account response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -149,11 +162,13 @@ class PlatformAccountResponse(BaseModel):
 
 class PlatformRegisterResponse(PlatformAccountResponse):
     """Response after registering platform account."""
+
     pass
 
 
 class CustomerBrief(BaseModel):
     """Brief customer information."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -163,18 +178,21 @@ class CustomerBrief(BaseModel):
 
 class PlatformMeResponse(BaseModel):
     """Response for /api/platform/me endpoint."""
+
     customer: Optional[CustomerBrief]
     accounts: list[PlatformAccountResponse]
 
 
 class MergeRequestRequest(BaseModel):
     """Request to merge accounts."""
+
     source_account_id: UUID
     target_account_id: UUID
 
 
 class MergeRequestResponse(BaseModel):
     """Merge request response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -186,8 +204,10 @@ class MergeRequestResponse(BaseModel):
 
 # ============== Products Schemas ==============
 
+
 class ProductResponse(BaseModel):
     """Product response."""
+
     plan_code: str
     plan_type: str
     country: str
@@ -199,13 +219,16 @@ class ProductResponse(BaseModel):
 
 class ProductsResponse(BaseModel):
     """Products list response."""
+
     products: list[ProductResponse]
 
 
 # ============== Plans Schemas ==============
 
+
 class PlanCreateRequest(BaseModel):
     """Request to create a plan."""
+
     plan_code: str = Field(..., min_length=1, max_length=50)
     plan_type: str = Field(..., min_length=1, max_length=20)
     country: str = Field(..., min_length=2, max_length=10)
@@ -232,6 +255,7 @@ class PlanCreateRequest(BaseModel):
 
 class PlanUpdateRequest(BaseModel):
     """Request to update a plan."""
+
     price_ngn: Optional[float] = Field(None, ge=0)
     quantity: Optional[int] = Field(None, ge=1)
     duration_days: Optional[int] = Field(None, ge=1)
@@ -242,6 +266,7 @@ class PlanUpdateRequest(BaseModel):
 
 class PlanResponse(BaseModel):
     """Plan response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -260,14 +285,17 @@ class PlanResponse(BaseModel):
 
 class PlansResponse(BaseModel):
     """Plans list response."""
+
     plans: list[PlanResponse]
     pagination: dict[str, Any]
 
 
 # ============== Orders Schemas ==============
 
+
 class StyxproxyCredentialBrief(BaseModel):
     """Brief credential information for order response."""
+
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
@@ -280,6 +308,7 @@ class StyxproxyCredentialBrief(BaseModel):
 
 class OrderCreateRequest(BaseModel):
     """Request to create an order."""
+
     plan_code: str = Field(..., min_length=1, max_length=50)
     country: str = Field(..., min_length=2, max_length=10)
     quantity: int = Field(default=1, ge=1)
@@ -294,6 +323,7 @@ class OrderCreateRequest(BaseModel):
 
 class OrderResponse(BaseModel):
     """Order response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     order_id: str
@@ -312,11 +342,13 @@ class OrderResponse(BaseModel):
 
 class OrderCancelRequest(BaseModel):
     """Request to cancel an order."""
+
     reason: str = Field(..., max_length=500)
 
 
 class OrderCancelResponse(BaseModel):
     """Response after cancelling an order."""
+
     order_id: str
     status: str
     refund_processed: bool
@@ -325,12 +357,14 @@ class OrderCancelResponse(BaseModel):
 
 class OrderReportDeadRequest(BaseModel):
     """Request to report a dead IP."""
+
     screenshot_url: str = Field(..., max_length=500)
     issue_description: str = Field(..., max_length=500)
 
 
 class OrderReportDeadResponse(BaseModel):
     """Response after reporting dead IP."""
+
     order_id: str
     ban_reported: bool
     status: str
@@ -339,6 +373,7 @@ class OrderReportDeadResponse(BaseModel):
 
 class PrecheckRequest(BaseModel):
     """Request to precheck order availability."""
+
     plan_code: str = Field(..., min_length=1, max_length=50)
     country: str = Field(..., min_length=2, max_length=10)
     quantity: int = Field(default=1, ge=1)
@@ -351,6 +386,7 @@ class PrecheckRequest(BaseModel):
 
 class PrecheckResponse(BaseModel):
     """Response from precheck endpoint."""
+
     available: bool
     reason: Optional[str] = None
     price_ngn: Optional[float] = None
@@ -359,6 +395,7 @@ class PrecheckResponse(BaseModel):
 
 class ReceiptOrderResponse(BaseModel):
     """Receipt response - order with credential data for public receipt page."""
+
     model_config = ConfigDict(from_attributes=True)
 
     order_id: str
@@ -377,8 +414,10 @@ class ReceiptOrderResponse(BaseModel):
 
 # ============== Payments Schemas ==============
 
+
 class PaymentInitiateRequest(BaseModel):
     """Request to initiate payment."""
+
     plan_code: str = Field(..., min_length=1, max_length=50)
     quantity: int = Field(default=1, ge=1)
     customer_phone: str = Field(..., min_length=10, max_length=20)
@@ -392,6 +431,7 @@ class PaymentInitiateRequest(BaseModel):
 
 class PaymentInitiateResponse(BaseModel):
     """Payment initiation response."""
+
     payment_id: str
     checkout_url: str
     amount_ngn: float
@@ -400,6 +440,7 @@ class PaymentInitiateResponse(BaseModel):
 
 class PaymentStatusResponse(BaseModel):
     """Payment status response."""
+
     tx_ref: str
     status: str
     amount: float
@@ -408,8 +449,10 @@ class PaymentStatusResponse(BaseModel):
 
 # ============== Credentials Schemas ==============
 
+
 class CredentialResponse(BaseModel):
     """Credential response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -424,18 +467,22 @@ class CredentialResponse(BaseModel):
 
 class CredentialsListResponse(BaseModel):
     """List of credentials response."""
+
     credentials: list[CredentialResponse]
 
 
 # ============== Trials Schemas ==============
 
+
 class TrialClaimRequest(BaseModel):
     """Request to claim free trial."""
+
     disclaimer_accepted: bool
 
 
 class TrialCredentialResponse(BaseModel):
     """Trial credential response."""
+
     bun_username: str
     protocol: str
     upstream_proxy_ip: str
@@ -445,6 +492,7 @@ class TrialCredentialResponse(BaseModel):
 
 class TrialClaimResponse(BaseModel):
     """Response after claiming trial."""
+
     trial_id: int
     status: str
     styxproxy_credential: TrialCredentialResponse
@@ -452,6 +500,7 @@ class TrialClaimResponse(BaseModel):
 
 class TrialSurveyRequest(BaseModel):
     """Request to submit trial survey."""
+
     rating: int = Field(..., ge=1, le=5)
     feedback: str = Field(..., max_length=1000)
     would_recommend: bool
@@ -459,6 +508,7 @@ class TrialSurveyRequest(BaseModel):
 
 class TrialSurveyResponse(BaseModel):
     """Response after submitting survey."""
+
     survey_id: str
     status: str
     reward_usd: Optional[float]
@@ -466,8 +516,10 @@ class TrialSurveyResponse(BaseModel):
 
 # ============== Admin Schemas ==============
 
+
 class AdminStatsResponse(BaseModel):
     """Admin statistics response."""
+
     total_customers: int
     active_orders: int
     total_revenue_ngn: float
@@ -477,6 +529,7 @@ class AdminStatsResponse(BaseModel):
 
 class AdminCustomerResponse(BaseModel):
     """Admin customer response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -490,17 +543,20 @@ class AdminCustomerResponse(BaseModel):
 
 class AdminCustomersResponse(BaseModel):
     """Admin customers list response."""
+
     customers: list[AdminCustomerResponse]
     pagination: dict[str, Any]
 
 
 class AdminBlockRequest(BaseModel):
     """Request to block customer."""
+
     reason: str = Field(..., max_length=500)
 
 
 class AdminOrderResponse(BaseModel):
     """Admin order response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     order_id: str
@@ -516,12 +572,14 @@ class AdminOrderResponse(BaseModel):
 
 class AdminOrdersResponse(BaseModel):
     """Admin orders list response."""
+
     orders: list[AdminOrderResponse]
     pagination: dict[str, Any]
 
 
 class AdminOrderUpdateRequest(BaseModel):
     """Request to update order."""
+
     status: Optional[str] = None
     notes: Optional[str] = None
     ban_verified: Optional[str] = None
@@ -529,12 +587,14 @@ class AdminOrderUpdateRequest(BaseModel):
 
 class AdminRefundRequest(BaseModel):
     """Request to refund order."""
+
     reason: str = Field(..., max_length=500)
     full_refund: bool = True
 
 
 class AdminCredentialResponse(BaseModel):
     """Admin credential response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -550,12 +610,14 @@ class AdminCredentialResponse(BaseModel):
 
 class AdminCredentialsResponse(BaseModel):
     """Admin credentials list response."""
+
     credentials: list[AdminCredentialResponse]
     pagination: dict[str, Any]
 
 
 class AdminAuditLogResponse(BaseModel):
     """Admin audit log response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -570,12 +632,14 @@ class AdminAuditLogResponse(BaseModel):
 
 class AdminAuditLogsResponse(BaseModel):
     """Admin audit logs list response."""
+
     logs: list[AdminAuditLogResponse]
     pagination: dict[str, Any]
 
 
 class AdminWebhookLogResponse(BaseModel):
     """Admin webhook log response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -588,6 +652,7 @@ class AdminWebhookLogResponse(BaseModel):
 
 class AdminWebhookLogsResponse(BaseModel):
     """Admin webhook logs list response."""
+
     webhooks: list[AdminWebhookLogResponse]
     pagination: dict[str, Any]
 
@@ -595,6 +660,7 @@ class AdminWebhookLogsResponse(BaseModel):
 # ============== Contact Submission Schemas ==============
 class ContactSubmissionResponse(BaseModel):
     """Contact submission response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -610,18 +676,21 @@ class ContactSubmissionResponse(BaseModel):
 
 class ContactSubmissionsResponse(BaseModel):
     """Contact submissions list response."""
+
     data: list[ContactSubmissionResponse]
     total: int
 
 
 class ContactSubmissionReplyRequest(BaseModel):
     """Request to reply to a contact submission."""
+
     admin_notes: str = Field(..., min_length=1)
 
 
 # ============== Charon Escalation Schemas ==============
 class CharonEscalationResponse(BaseModel):
     """Charon escalation response."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -638,17 +707,20 @@ class CharonEscalationResponse(BaseModel):
 
 class EscalationsResponse(BaseModel):
     """Escalations list response."""
+
     data: list[CharonEscalationResponse]
     total: int
 
 
 class EscalationRespondRequest(BaseModel):
     """Request to respond to an escalation."""
+
     admin_notes: str = Field(..., min_length=1)
 
 
 class LearnedFileResponse(BaseModel):
     """Learned file response."""
+
     name: str
     path: str
     size: int
@@ -657,11 +729,13 @@ class LearnedFileResponse(BaseModel):
 
 class LearnedFilesResponse(BaseModel):
     """List of learned files."""
+
     files: list[LearnedFileResponse]
 
 
 class LearnContentResponse(BaseModel):
     """Content of a learned file."""
+
     name: str
     path: str
     content: str
@@ -669,11 +743,13 @@ class LearnContentResponse(BaseModel):
 
 class DeleteLearnedFileRequest(BaseModel):
     """Request to delete a learned file."""
+
     filename: str = Field(..., description="Filename to delete")
 
 
 class DeleteLearnedFileResponse(BaseModel):
     """Response after deleting a learned file."""
+
     ok: bool
     message: str
 
@@ -683,6 +759,7 @@ class DeleteLearnedFileResponse(BaseModel):
 
 class KnowledgeFileResponse(BaseModel):
     """A file from the knowledge/ directory (read-only seeded knowledge)."""
+
     name: str
     path: str
     size: int
@@ -692,18 +769,21 @@ class KnowledgeFileResponse(BaseModel):
 
 class AllKnowledgeFilesResponse(BaseModel):
     """Both knowledge/ (read-only) and learned/ (admin-editable) files."""
+
     knowledge: list[KnowledgeFileResponse]
     learned: list[KnowledgeFileResponse]
 
 
 class UpdateKnowledgeRequest(BaseModel):
     """Request body to update or create a knowledge file."""
+
     title: str = Field(..., min_length=1, max_length=200, description="Document title (becomes the H1 heading)")
     content: str = Field(..., min_length=1, description="Markdown body content")
 
 
 class UpdateKnowledgeResponse(BaseModel):
     """Response after updating a knowledge file."""
+
     ok: bool
     message: str
     name: str
@@ -716,6 +796,7 @@ class UpdateKnowledgeResponse(BaseModel):
 
 class EvalQuestion(BaseModel):
     """A single test question with the expected answer."""
+
     id: str
     question: str
     expected_keywords: list[str] = Field(
@@ -731,6 +812,7 @@ class EvalQuestion(BaseModel):
 
 class EvalSetResponse(BaseModel):
     """The Q/A evaluation set derived from Scenarios."""
+
     name: str
     description: str
     questions: list[EvalQuestion]
@@ -738,6 +820,7 @@ class EvalSetResponse(BaseModel):
 
 class EvalResult(BaseModel):
     """Result of running a single test question."""
+
     id: str
     question: str
     answer: str
@@ -751,6 +834,7 @@ class EvalResult(BaseModel):
 
 class EvalRunResponse(BaseModel):
     """Result of running the entire Q/A eval set."""
+
     total: int
     passed: int
     failed: int
@@ -761,29 +845,36 @@ class EvalRunResponse(BaseModel):
 
 # ============== Error Schemas ==============
 
+
 class ErrorDetail(BaseModel):
     """Error detail."""
+
     field: str
     message: str
 
 
 class ErrorResponse(BaseModel):
     """Error response."""
+
     error: dict[str, Any]
 
 
 # ============== Webhook Schemas ==============
 
+
 class FlutterwaveWebhookPayload(BaseModel):
     """Flutterwave webhook payload."""
+
     event: str
     data: dict[str, Any]
 
 
 # ============== Admin Auth Schemas ==============
 
+
 class AdminRole(str, Enum):
     """Admin role values."""
+
     ADMIN = "admin"
     SUPERADMIN = "superadmin"
     VIEWER = "viewer"
@@ -791,11 +882,13 @@ class AdminRole(str, Enum):
 
 class AdminSetupCheckInviteRequest(BaseModel):
     """Step 1: Validate invite code only."""
+
     invite_code: str = Field(..., min_length=8, max_length=64)
 
 
 class AdminSetupCheckInviteResponse(BaseModel):
     """Step 1 response: invite is valid."""
+
     valid: bool
     email: Optional[str] = None
     role: Optional[str] = None
@@ -803,6 +896,7 @@ class AdminSetupCheckInviteResponse(BaseModel):
 
 class AdminSetupRequest(BaseModel):
     """Step 2: submit credentials — returns TOTP secret for user to scan."""
+
     invite_code: str = Field(..., min_length=8, max_length=64)
     email: str = Field(..., pattern=r"^[^@]+@[^@]+\.[^@]+$")
     password: str = Field(..., min_length=8, max_length=128)
@@ -810,6 +904,7 @@ class AdminSetupRequest(BaseModel):
 
 class AdminSetupTOTPResponse(BaseModel):
     """Response after step 1: credentials accepted, TOTP setup required."""
+
     temp_token: str  # short-lived token to complete step 2
     totp_secret: str  # base32 secret (user can manually enter)
     otpauth_url: str  # otpauth:// URL for QR code
@@ -819,12 +914,14 @@ class AdminSetupTOTPResponse(BaseModel):
 
 class AdminSetupCompleteRequest(BaseModel):
     """Step 2: complete setup after verifying TOTP code."""
+
     temp_token: str
     totp_code: str = Field(..., min_length=6, max_length=6)
 
 
 class AdminSetupResponse(BaseModel):
     """Final response after setup is complete."""
+
     access_token: str
     token_type: str = "bearer"
     expires_in: int
@@ -836,6 +933,7 @@ class AdminSetupResponse(BaseModel):
 
 class AdminLoginRequest(BaseModel):
     """Legacy: Phone + PIN login (for migration only)."""
+
     admin_phone: str = Field(..., min_length=10, max_length=20)
     pin: str = Field(..., min_length=4, max_length=6)
     totp_code: Optional[str] = Field(None, min_length=6, max_length=6)
@@ -843,6 +941,7 @@ class AdminLoginRequest(BaseModel):
 
 class AdminLoginEmailRequest(BaseModel):
     """Email + password login (primary auth method)."""
+
     email: str = Field(..., pattern=r"^[^@]+@[^@]+\.[^@]+$")
     password: str = Field(..., min_length=1)
     totp_code: Optional[str] = Field(None, min_length=6, max_length=6)
@@ -850,6 +949,7 @@ class AdminLoginEmailRequest(BaseModel):
 
 class AdminLoginResponse(BaseModel):
     """Response after admin login."""
+
     access_token: str
     token_type: str = "bearer"
     email: str
@@ -860,6 +960,7 @@ class AdminLoginResponse(BaseModel):
 
 class AdminMeResponse(BaseModel):
     """Response for /api/admin/auth/me endpoint."""
+
     email: str
     role: str
     totp_enabled: bool
@@ -872,24 +973,28 @@ class AdminMeResponse(BaseModel):
 
 class AdminChangePasswordRequest(BaseModel):
     """Request to change admin password."""
+
     current_pin: str = Field(..., min_length=8, max_length=128)  # renamed for compat
     new_pin: str = Field(..., min_length=8, max_length=128)
 
 
 class AdminChangePasswordResponse(BaseModel):
     """Response after changing admin PIN."""
+
     message: str
     pin_set_at: datetime
 
 
 class AdminChangeTOTPRequest(BaseModel):
     """Request to enable/disable TOTP."""
+
     action: str = Field(..., pattern="^(enable|disable)$")
     totp_code: Optional[str] = Field(None, min_length=6, max_length=6)
 
 
 class AdminChangeTOTPResponse(BaseModel):
     """Response after changing TOTP status."""
+
     totp_enabled: bool
     message: str
 
@@ -903,18 +1008,23 @@ class AdminInviteCreateRequest(BaseModel):
     admin gets pre-enabled when they consume the invite — this is how the
     superadmin grants permission to specific features beyond the role default.
     """
+
     email: Optional[str] = Field(None, max_length=255)
     role: AdminRole = AdminRole.ADMIN
     expires_in_hours: int = Field(default=24, ge=1, le=168)
     max_uses: int = Field(default=1, ge=1, le=100)
     feature_overrides: Optional[list[str]] = Field(
         default=None,
-        description="Feature flag names to enable for the new admin. E.g. ['blog_draft', 'charon_eval']. None = role default only.",
+        description=(
+            "Feature flag names to enable for the new admin. "
+            "E.g. ['blog_draft', 'charon_eval']. None = role default only."
+        ),
     )
 
 
 class AdminInviteCreateResponse(BaseModel):
     """Response after creating an admin invite."""
+
     invite_code: str
     email: Optional[str]
     role: str
@@ -926,6 +1036,7 @@ class AdminInviteCreateResponse(BaseModel):
 
 class AdminInviteResponse(BaseModel):
     """Response for an admin invite."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -941,12 +1052,14 @@ class AdminInviteResponse(BaseModel):
 
 class AdminInvitesListResponse(BaseModel):
     """List of admin invites response."""
+
     invites: list[AdminInviteResponse]
     pagination: dict[str, Any]
 
 
 class AdminInviteUseRequest(BaseModel):
     """Legacy: Use an invite code with phone (deprecated — use /setup instead)."""
+
     invite_code: str = Field(..., min_length=8, max_length=64)
     admin_phone: str = Field(..., min_length=10, max_length=20)
     pin: str = Field(..., min_length=4, max_length=6)
@@ -954,6 +1067,7 @@ class AdminInviteUseRequest(BaseModel):
 
 class AdminInviteUseResponse(BaseModel):
     """Response after using an invite code."""
+
     email: str
     role: str
     message: str
@@ -961,8 +1075,10 @@ class AdminInviteUseResponse(BaseModel):
 
 # ============== Feature Flag Schemas ==============
 
+
 class FeatureFlagCreateRequest(BaseModel):
     """Request to create a feature flag."""
+
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
     enabled: bool = False
@@ -971,6 +1087,7 @@ class FeatureFlagCreateRequest(BaseModel):
 
 class FeatureFlagUpdateRequest(BaseModel):
     """Request to update a feature flag."""
+
     description: Optional[str] = None
     enabled: Optional[bool] = None
     enabled_for: Optional[str] = None
@@ -979,6 +1096,7 @@ class FeatureFlagUpdateRequest(BaseModel):
 
 class FeatureFlagResponse(BaseModel):
     """Response for a feature flag."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -993,19 +1111,23 @@ class FeatureFlagResponse(BaseModel):
 
 class FeatureFlagsListResponse(BaseModel):
     """List of feature flags response."""
+
     flags: list[FeatureFlagResponse]
 
 
 class FeatureFlagCheckResponse(BaseModel):
     """Response for checking a feature flag."""
+
     name: str
     enabled: bool
 
 
 # ============== Team Management Schemas ==============
 
+
 class AdminTeamMemberResponse(BaseModel):
     """Response for an admin team member."""
+
     email: str
     role: str
     totp_enabled: bool
@@ -1017,17 +1139,20 @@ class AdminTeamMemberResponse(BaseModel):
 
 class AdminTeamListResponse(BaseModel):
     """List of admin team members response."""
+
     members: list[AdminTeamMemberResponse]
     pagination: dict[str, Any]
 
 
 class AdminUpdateRoleRequest(BaseModel):
     """Request to update an admin's role."""
+
     role: AdminRole
 
 
 class AdminUpdateRoleResponse(BaseModel):
     """Response after updating an admin's role."""
+
     email: str
     role: str
     message: str
@@ -1035,11 +1160,13 @@ class AdminUpdateRoleResponse(BaseModel):
 
 class AdminLockRequest(BaseModel):
     """Request to lock/unlock an admin account."""
+
     action: str = Field(..., pattern="^(lock|unlock)$")
 
 
 class AdminLockResponse(BaseModel):
     """Response after locking/unlocking an admin account."""
+
     email: str
     locked: bool
     locked_until: Optional[datetime]
@@ -1051,29 +1178,35 @@ class AdminLockResponse(BaseModel):
 
 class PasswordForgotRequest(BaseModel):
     """Request to request a password reset."""
+
     email: str = Field(..., description="Admin email address")
 
 
 class PasswordForgotResponse(BaseModel):
     """Response after requesting a password reset."""
+
     message: str
 
 
 class PasswordResetRequest(BaseModel):
     """Request to reset password with token."""
+
     reset_token: str = Field(..., description="Password reset token")
     new_password: str = Field(..., min_length=8, max_length=100, description="New password")
 
 
 class PasswordResetResponse(BaseModel):
     """Response after resetting password."""
+
     message: str
 
 
 # ============== Blog/Post Schemas ==============
 
+
 class PostStatusEnum(str, Enum):
     """Post status values."""
+
     DRAFT = "draft"
     PENDING = "pending"
     APPROVED = "approved"
@@ -1084,6 +1217,7 @@ class PostStatusEnum(str, Enum):
 
 class PostCreateRequest(BaseModel):
     """Request to create a blog post."""
+
     title: str = Field(..., min_length=1, max_length=255)
     content: str = Field(..., min_length=1)
     excerpt: Optional[str] = Field(None, max_length=500)
@@ -1097,6 +1231,7 @@ class PostCreateRequest(BaseModel):
 
 class PostUpdateRequest(BaseModel):
     """Request to update a blog post."""
+
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     content: Optional[str] = None
     excerpt: Optional[str] = Field(None, max_length=500)
@@ -1110,6 +1245,7 @@ class PostUpdateRequest(BaseModel):
 
 class PostResponse(BaseModel):
     """Response for a blog post."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -1137,6 +1273,7 @@ class PostResponse(BaseModel):
 
 class PostBriefResponse(BaseModel):
     """Brief response for a blog post (list view)."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -1153,17 +1290,20 @@ class PostBriefResponse(BaseModel):
 
 class PostListResponse(BaseModel):
     """List of blog posts response."""
+
     posts: list[PostBriefResponse]
     pagination: dict[str, Any]
 
 
 class PostSubmitRequest(BaseModel):
     """Request to submit a post for review."""
+
     pass
 
 
 class PostSubmitResponse(BaseModel):
     """Response after submitting a post for review."""
+
     post_id: UUID
     status: str
     submitted_at: datetime
@@ -1171,16 +1311,19 @@ class PostSubmitResponse(BaseModel):
 
 class PostApproveRequest(BaseModel):
     """Request to approve a post."""
+
     pass
 
 
 class PostRejectRequest(BaseModel):
     """Request to reject a post."""
+
     reason: str = Field(..., min_length=1, max_length=500)
 
 
 class PostReviewResponse(BaseModel):
     """Response after reviewing a post."""
+
     post_id: UUID
     status: str
     reviewed_by: str
@@ -1189,11 +1332,13 @@ class PostReviewResponse(BaseModel):
 
 class PostPublishRequest(BaseModel):
     """Request to publish a post."""
+
     publish_now: bool = True
 
 
 class PostPublishResponse(BaseModel):
     """Response after publishing a post."""
+
     post_id: UUID
     status: str
     published_at: datetime
@@ -1201,11 +1346,13 @@ class PostPublishResponse(BaseModel):
 
 class PostScheduleRequest(BaseModel):
     """Request to schedule a post."""
+
     scheduled_at: datetime
 
 
 class PostScheduleResponse(BaseModel):
     """Response after scheduling a post."""
+
     post_id: UUID
     status: str
     scheduled_at: datetime
@@ -1213,8 +1360,10 @@ class PostScheduleResponse(BaseModel):
 
 # ============== Category Schemas ==============
 
+
 class CategoryCreateRequest(BaseModel):
     """Request to create a category."""
+
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
@@ -1222,6 +1371,7 @@ class CategoryCreateRequest(BaseModel):
 
 class CategoryUpdateRequest(BaseModel):
     """Request to update a category."""
+
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
@@ -1229,6 +1379,7 @@ class CategoryUpdateRequest(BaseModel):
 
 class CategoryResponse(BaseModel):
     """Response for a category."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -1243,31 +1394,37 @@ class CategoryResponse(BaseModel):
 
 class CategoryListResponse(BaseModel):
     """List of categories response."""
+
     categories: list[CategoryResponse]
     pagination: dict[str, Any]
 
 
 # ============== Channel Feature Flags ==============
 
+
 class ChannelConfig(BaseModel):
     """Channel configuration for Telegram/WhatsApp."""
+
     enabled: bool = False
     url: str = ""
 
 
 class ChannelFeatureFlagsResponse(BaseModel):
     """Response for channel feature flags."""
+
     telegram: ChannelConfig
     whatsapp: ChannelConfig
 
 
 class ChannelFeatureFlagsUpdate(BaseModel):
     """Request to update channel feature flags."""
+
     telegram: ChannelConfig
     whatsapp: ChannelConfig
 
 
 # ============== Superadmin Schemas ==============
+
 
 class AdminAuditLogEntryResponse(BaseModel):
     """Response for a single admin audit log entry.
@@ -1276,6 +1433,7 @@ class AdminAuditLogEntryResponse(BaseModel):
     ip_address, user_agent, details-as-text, created_at). For convenience
     admin_phone is surfaced as admin_email when it contains an '@'.
     """
+
     id: int
     admin_email: Optional[str] = None  # parsed from admin_phone column
     admin_phone: Optional[str] = None
@@ -1290,12 +1448,14 @@ class AdminAuditLogEntryResponse(BaseModel):
 
 class AdminAuditLogListResponse(BaseModel):
     """Response for listing admin audit logs."""
+
     logs: list[AdminAuditLogEntryResponse]
     pagination: dict
 
 
 class SuperadminAdminResponse(BaseModel):
     """Response for a superadmin admin entry."""
+
     email: str
     role: str
     totp_enabled: bool
@@ -1307,6 +1467,7 @@ class SuperadminAdminResponse(BaseModel):
 
 class SuperadminAdminsListResponse(BaseModel):
     """Response for listing admins with stats."""
+
     admins: list[SuperadminAdminResponse]
     stats: dict
     pagination: dict
@@ -1314,6 +1475,7 @@ class SuperadminAdminsListResponse(BaseModel):
 
 class SuperadminCreateAdminRequest(BaseModel):
     """Request to create a new admin."""
+
     email: str = Field(..., description="Admin email address")
     password: str = Field(..., min_length=8, description="Initial password")
     role: str = Field(default="admin", pattern="^(admin|superadmin|viewer)$")
@@ -1321,6 +1483,7 @@ class SuperadminCreateAdminRequest(BaseModel):
 
 class SuperadminCreateAdminResponse(BaseModel):
     """Response after creating an admin."""
+
     email: str
     role: str
     message: str
@@ -1328,11 +1491,13 @@ class SuperadminCreateAdminResponse(BaseModel):
 
 class SuperadminUpdateRoleRequest(BaseModel):
     """Request to update an admin's role."""
+
     role: str = Field(..., pattern="^(admin|superadmin|viewer)$")
 
 
 class ProviderCostResponse(BaseModel):
     """Response for provider cost data."""
+
     name: str
     total_orders: int
     total_cost_usd: float
@@ -1340,12 +1505,14 @@ class ProviderCostResponse(BaseModel):
 
 class ProviderCostsResponse(BaseModel):
     """Response for listing provider costs."""
+
     providers: list[ProviderCostResponse]
     note: Optional[str] = None
 
 
 class SystemSettingResponse(BaseModel):
     """Response for a system setting."""
+
     key: str
     value: Any
     description: Optional[str] = None
@@ -1353,17 +1520,20 @@ class SystemSettingResponse(BaseModel):
 
 class SystemSettingsListResponse(BaseModel):
     """Response for listing system settings."""
+
     settings: list[SystemSettingResponse]
     note: Optional[str] = None
 
 
 class SystemSettingUpdateRequest(BaseModel):
     """Request to update a system setting."""
+
     value: Any
 
 
 class GlobalSearchCustomerResult(BaseModel):
     """Customer search result."""
+
     id: str
     phone: str
     name: str
@@ -1371,6 +1541,7 @@ class GlobalSearchCustomerResult(BaseModel):
 
 class GlobalSearchOrderResult(BaseModel):
     """Order search result."""
+
     order_id: str
     customer_phone: Optional[str]
     status: str
@@ -1379,6 +1550,7 @@ class GlobalSearchOrderResult(BaseModel):
 
 class GlobalSearchTicketResult(BaseModel):
     """Support thread search result."""
+
     id: str
     subject: str
     customer_email: str
@@ -1387,6 +1559,7 @@ class GlobalSearchTicketResult(BaseModel):
 
 class GlobalSearchContactResult(BaseModel):
     """Contact submission search result."""
+
     id: str
     from_email: str
     subject: str
@@ -1395,12 +1568,14 @@ class GlobalSearchContactResult(BaseModel):
 
 class GlobalSearchResponse(BaseModel):
     """Response for global search."""
+
     results: dict
     total: int
 
 
 class MetricsOverviewResponse(BaseModel):
     """Response for system metrics overview."""
+
     orders_today: int
     orders_this_week: int
     revenue_today_ngn: float

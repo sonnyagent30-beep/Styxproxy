@@ -2,7 +2,7 @@
 
 Provides transactional email functionality with Styxproxy brand design language:
 - Contact form submissions
-- Charon escalation notifications  
+- Charon escalation notifications
 - Admin notifications (orders, refunds, etc.)
 - Order confirmations and credentials delivery
 - Password reset and admin invites
@@ -14,10 +14,11 @@ Design language matches the receipt PDF:
 - Card-based layout with dividers
 - Credentials with green border
 """
-import logging
+
 import base64
 import io
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from enum import Enum
@@ -61,6 +62,8 @@ def _append_delivery_log(entry: dict) -> None:
     except Exception as exc:
         # Never let logging break the actual send path
         logger.warning("Could not write email delivery log: %s", exc)
+
+
 settings = get_settings()
 
 
@@ -548,13 +551,15 @@ async def _send_via_resend(
     """Send email via Resend API."""
     if not settings.resend_api_key:
         logger.warning("RESEND_API_KEY not configured, skipping email send")
-        _append_delivery_log({
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "to": recipient.email,
-            "subject": subject,
-            "status": "skipped_no_key",
-            "error": "RESEND_API_KEY missing",
-        })
+        _append_delivery_log(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "to": recipient.email,
+                "subject": subject,
+                "status": "skipped_no_key",
+                "error": "RESEND_API_KEY missing",
+            }
+        )
         return EmailResult(
             success=False,
             error="Email service not configured (RESEND_API_KEY missing)",
@@ -589,13 +594,15 @@ async def _send_via_resend(
                     response.status_code,
                     error_body,
                 )
-                _append_delivery_log({
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "to": recipient.email,
-                    "subject": subject,
-                    "status": "api_error",
-                    "error": f"{response.status_code}: {error_body[:200]}",
-                })
+                _append_delivery_log(
+                    {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "to": recipient.email,
+                        "subject": subject,
+                        "status": "api_error",
+                        "error": f"{response.status_code}: {error_body[:200]}",
+                    }
+                )
                 return EmailResult(
                     success=False,
                     status="api_error",
@@ -603,13 +610,15 @@ async def _send_via_resend(
                 )
 
             data = response.json()
-            _append_delivery_log({
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "to": recipient.email,
-                "subject": subject,
-                "status": "queued",
-                "message_id": data.get("id"),
-            })
+            _append_delivery_log(
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "to": recipient.email,
+                    "subject": subject,
+                    "status": "queued",
+                    "message_id": data.get("id"),
+                }
+            )
             return EmailResult(
                 success=True,
                 message_id=data.get("id"),
@@ -617,13 +626,15 @@ async def _send_via_resend(
 
     except httpx.HTTPError as e:
         logger.error("Failed to send email: %s", e)
-        _append_delivery_log({
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "to": recipient.email,
-            "subject": subject,
-            "status": "http_error",
-            "error": str(e),
-        })
+        _append_delivery_log(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "to": recipient.email,
+                "subject": subject,
+                "status": "http_error",
+                "error": str(e),
+            }
+        )
         return EmailResult(
             success=False,
             status="http_error",
@@ -631,13 +642,15 @@ async def _send_via_resend(
         )
     except Exception as e:
         logger.error("Unexpected error sending email: %s", e)
-        _append_delivery_log({
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "to": recipient.email,
-            "subject": subject,
-            "status": "unexpected_error",
-            "error": str(e),
-        })
+        _append_delivery_log(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "to": recipient.email,
+                "subject": subject,
+                "status": "unexpected_error",
+                "error": str(e),
+            }
+        )
         return EmailResult(
             success=False,
             status="unexpected_error",
@@ -657,7 +670,7 @@ async def send_email(
 ) -> EmailResult:
     """
     Generic send email function with optional threading headers.
-    
+
     Args:
         to: Recipient email address
         subject: Email subject
@@ -685,24 +698,24 @@ async def send_email(
                 "html": html,
                 "text": text,
             }
-            
+
             # Add optional headers
             headers = {
                 "Authorization": f"Bearer {settings.resend_api_key}",
                 "Content-Type": "application/json",
             }
-            
+
             # Add reply_to if provided
             if reply_to:
                 payload["reply_to"] = reply_to
-            
+
             # Resend supports custom headers for threading
             custom_headers = {}
             if in_reply_to:
                 custom_headers["In-Reply-To"] = in_reply_to
             if references:
                 custom_headers["References"] = references
-            
+
             if custom_headers:
                 payload["headers"] = custom_headers
 
@@ -753,8 +766,22 @@ def _render_header(right_label: str, right_sublabel: str = "") -> str:
         <div class="accent-bar-top"></div>
         <div class="header-section">
             <div class="logo-section">
-                <img class="logo-dark" src="data:image/png;base64,{LOGO_DARK_B64}" alt="Styxproxy" width="200" height="58" style="display:block;width:200px;height:auto;">
-                <img class="logo-light" src="data:image/png;base64,{LOGO_LIGHT_B64}" alt="Styxproxy" width="200" height="58" style="display:none;width:200px;height:auto;">
+                <img
+    class="logo-dark"
+    src="data:image/png;base64,{LOGO_DARK_B64}"
+    alt="Styxproxy"
+    width="200"
+    height="58"
+    style="display:block;width:200px;height:auto;"
+>
+                <img
+    class="logo-light"
+    src="data:image/png;base64,{LOGO_LIGHT_B64}"
+    alt="Styxproxy"
+    width="200"
+    height="58"
+    style="display:none;width:200px;height:auto;"
+>
                 <div class="logo-subtitle">Anonymous Proxy Service</div>
             </div>
             <div>
@@ -789,7 +816,7 @@ def _render_support_footer() -> str:
 
 def _render_footer() -> str:
     """Render the email footer - matches receipt PDF."""
-    return f"""
+    return """
         <div class="footer">
             <div class="footer-auto">This receipt was generated automatically. No signature required.</div>
             <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
@@ -802,6 +829,7 @@ def _render_footer() -> str:
 # Support Reply Email Template
 # =============================================================================
 
+
 def _render_support_reply_email(
     customer_name: str,
     original_subject: str,
@@ -809,7 +837,7 @@ def _render_support_reply_email(
     admin_name: str = "Dannion",
 ) -> EmailContent:
     """Render support reply email - branded wrapper around admin reply.
-    
+
     This template wraps a support reply in the Styxproxy brand design:
     - Top green accent bar
     - Logo header with "Styxproxy Support" subtitle
@@ -821,10 +849,10 @@ def _render_support_reply_email(
     - Bottom green accent bar
     """
     base_styles = _get_base_styles()
-    
+
     # Build the greeting
     greeting = f"Hi {customer_name}," if customer_name else "Hi there,"
-    
+
     html = f"""
 <!DOCTYPE html>
 <html>
@@ -844,8 +872,22 @@ def _render_support_reply_email(
             <div class="accent-bar-top"></div>
             <div class="header-section">
                 <div class="logo-section">
-                    <img class="logo-dark" src="data:image/png;base64,{LOGO_DARK_B64}" alt="Styxproxy" width="200" height="58" style="display:block;width:200px;height:auto;">
-                    <img class="logo-light" src="data:image/png;base64,{LOGO_LIGHT_B64}" alt="Styxproxy" width="200" height="58" style="display:none;width:200px;height:auto;">
+                    <img
+    class="logo-dark"
+    src="data:image/png;base64,{LOGO_DARK_B64}"
+    alt="Styxproxy"
+    width="200"
+    height="58"
+    style="display:block;width:200px;height:auto;"
+>
+                    <img
+    class="logo-light"
+    src="data:image/png;base64,{LOGO_LIGHT_B64}"
+    alt="Styxproxy"
+    width="200"
+    height="58"
+    style="display:none;width:200px;height:auto;"
+>
                     <div class="logo-subtitle">Styxproxy Support</div>
                 </div>
                 <div>
@@ -883,9 +925,9 @@ def _render_support_reply_email(
 </body>
 </html>
 """
-    
+
     # Simple text version - extract the HTML to text conversion
-    text_reply = reply_body_html.replace('<br>', '\n').replace('<p>', '').replace('</p>', '\n')
+    text_reply = reply_body_html.replace("<br>", "\n").replace("<p>", "").replace("</p>", "\n")
     text = f"""Re: {original_subject}
 
 {greeting}
@@ -899,7 +941,7 @@ Need help? Contact us at support@styxproxy.com or visit styxproxy.com
 
 © 2026 Styxproxy
 """
-    
+
     return EmailContent(
         subject=f"Re: {original_subject}",
         html=html,
@@ -911,6 +953,7 @@ Need help? Contact us at support@styxproxy.com or visit styxproxy.com
 # Contact Form Email Templates
 # =============================================================================
 
+
 def _render_contact_form_email(
     name: str,
     email: str,
@@ -919,19 +962,27 @@ def _render_contact_form_email(
     ip_address: Optional[str] = None,
 ) -> EmailContent:
     """Render contact form submission email (to admin) - matches receipt design."""
-    phone_html = f"""
+    phone_html = (
+        f"""
         <div class="card-row">
             <span class="card-label">Phone</span>
             <span class="card-value">{phone}</span>
         </div>
-    """ if phone else ""
-    
-    ip_html = f"""
+    """
+        if phone
+        else ""
+    )
+
+    ip_html = (
+        f"""
         <div class="card-row">
             <span class="card-label">IP Address</span>
             <span class="card-value">{ip_address}</span>
         </div>
-    """ if ip_address else ""
+    """
+        if ip_address
+        else ""
+    )
 
     base_styles = _get_base_styles()
 
@@ -971,7 +1022,7 @@ def _render_contact_form_email(
                         <span class="card-label">Message</span>
                     </div>
                     <div style="padding: 12px 0; color: var(--brand-foreground); font-size: 14px; line-height: 1.6;">
-                        {message.replace(chr(10), '<br>')}
+                        {message.replace(chr(10), "<br>")}
                     </div>
                     {ip_html}
                 </div>
@@ -998,7 +1049,7 @@ Email: {email}
 Message:
 {message}
 
-Submitted at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+Submitted at {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")} UTC
 © 2026 Styxproxy
 """
 
@@ -1066,6 +1117,7 @@ def _render_customer_confirmation_email(
 # Charon Escalation Email Template
 # =============================================================================
 
+
 def _render_charon_escalation_email(
     conversation_id: str,
     customer_email: Optional[str],
@@ -1125,12 +1177,13 @@ def _render_charon_escalation_email(
                         <span class="card-label">Latest Message</span>
                     </div>
                     <div style="padding: 12px 0; color: var(--brand-foreground); font-size: 14px; line-height: 1.6;">
-                        {message.replace(chr(10), '<br>')}
+                        {message.replace(chr(10), "<br>")}
                     </div>
                     <div class="card-row">
                         <span class="card-label">Conversation History</span>
                     </div>
-                    <div style="padding: 12px 0; color: var(--brand-muted); font-size: 12px; line-height: 1.6; font-family: monospace; white-space: pre-wrap;">
+                    <div style="padding: 12px 0; color: var(--brand-muted); font-size: 12px; line-height: 1.6;
+                        font-family: monospace; white-space: pre-wrap;">
                         {history_summary}
                     </div>
                 </div>
@@ -1150,8 +1203,8 @@ def _render_charon_escalation_email(
     text = f"""Charon Escalation Alert
 
 Conversation ID: {conversation_id}
-{('Email: ' + customer_email) if customer_email else ''}
-{('Phone: ' + customer_phone) if customer_phone else ''}
+{("Email: " + customer_email) if customer_email else ""}
+{("Phone: " + customer_phone) if customer_phone else ""}
 
 Latest Message:
 {message}
@@ -1159,7 +1212,7 @@ Latest Message:
 Conversation History:
 {history_summary}
 
-Escalated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+Escalated at {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")} UTC
 """
 
     return EmailContent(
@@ -1173,18 +1226,13 @@ Escalated at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 # Admin Notification Email Template
 # =============================================================================
 
+
 def _render_admin_notification_email(
     title: str,
     details: dict,
     pill_type: str = "green",
 ) -> EmailContent:
     """Render admin notification email - dynamic title pill."""
-    pill_class = "pill-green"
-    if pill_type == "amber":
-        pill_class = "pill-amber"
-    elif pill_type == "red":
-        pill_class = "pill-red"
-    
     details_html = "".join(
         f"""
         <div class="card-row">
@@ -1237,7 +1285,7 @@ def _render_admin_notification_email(
 
 {text_details}
 
-Notification sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
+Notification sent at {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")} UTC
 """
 
     return EmailContent(
@@ -1250,6 +1298,7 @@ Notification sent at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC
 # =============================================================================
 # Admin Invite Email Template
 # =============================================================================
+
 
 def _render_admin_invite_email(
     email: str,
@@ -1304,11 +1353,14 @@ def _render_admin_invite_email(
                     <a href="{setup_link}" class="cta-button">Open Setup Page →</a>
                 </div>
 
-                <div style="margin-top: 20px; padding: 16px; background: var(--brand-bg-elevated); border: 1px dashed var(--brand-border); border-radius: 8px;">
-                    <p style="margin: 0 0 8px; color: var(--brand-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+                <div style="margin-top: 20px; padding: 16px; background: var(--brand-bg-elevated);
+                        border: 1px dashed var(--brand-border); border-radius: 8px;">
+                    <p style="margin: 0 0 8px; color: var(--brand-muted); font-size: 12px; text-transform: uppercase;
+                        letter-spacing: 0.5px;">
                         Your Invite Code
                     </p>
-                    <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 20px; font-weight: bold; color: var(--brand-primary-brighter); text-align: center; word-break: break-all;">
+                    <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 20px; font-weight: bold;
+                        color: var(--brand-primary-brighter); text-align: center; word-break: break-all;">
                         {invite_code}
                     </p>
                     <p style="margin: 8px 0 0; color: var(--brand-muted); font-size: 12px; text-align: center;">
@@ -1318,7 +1370,8 @@ def _render_admin_invite_email(
                 </div>
                 
                 <div class="warning-box">
-                    ⚠️ <strong>Important:</strong> This invite expires in {expires_in_hours} hours. If you didn't request this, please ignore this email.
+                    ⚠️ <strong>Important:</strong> This invite expires
+                       in {expires_in_hours} hours. If you didn't request this, please ignore this email.  # noqa: E501
                 </div>
             </div>
             
@@ -1362,6 +1415,7 @@ If you didn't request this, please ignore this email.
 # =============================================================================
 # Password Reset Email Template
 # =============================================================================
+
 
 def _render_password_reset_email(
     email: str,
@@ -1409,7 +1463,8 @@ def _render_password_reset_email(
                 </div>
                 
                 <p style="color: var(--brand-muted); font-size: 13px; margin-top: 16px; text-align: center;">
-                    Or copy this link: <span style="color: var(--brand-primary-brighter); word-break: break-all;">{reset_link}</span>
+                    Or copy this link: <span style="color: var(--brand-primary-brighter); word-break: break-all;
+                        ">{reset_link}</span>
                 </p>
                 
                 <div class="warning-box">
@@ -1448,6 +1503,7 @@ If you didn't request this, please ignore this email. Your password will remain 
 # =============================================================================
 # Order Confirmation Email Template (Pending Payment)
 # =============================================================================
+
 
 def _render_order_confirmation_email(
     customer_name: str,
@@ -1503,7 +1559,8 @@ def _render_order_confirmation_email(
                 </div>
                 
                 <div class="warning-box">
-                    <strong>Next step:</strong> Complete your payment. Once confirmed, your proxy credentials will be sent to this email automatically.
+                    <strong>Next step:</strong> Complete your payment.
+                       Once confirmed, your proxy credentials will be sent to this email automatically.  # noqa: E501
                 </div>
                 
                 <div style="text-align: center; margin-top: 20px;">
@@ -1549,6 +1606,7 @@ Need help? Contact us at styxproxy.com
 # Proxy Credentials Email Template
 # =============================================================================
 
+
 def _render_proxy_credentials_email(
     customer_name: str,
     order_id: str,
@@ -1566,7 +1624,7 @@ def _render_proxy_credentials_email(
     payment_method: str = "Card / Bank / USSD / QR",
 ) -> EmailContent:
     """Render proxy credentials email (order paid + active) - matches receipt design."""
-    expires_str = expires_at.strftime('%Y-%m-%d %H:%M UTC') if expires_at else "N/A"
+    expires_str = expires_at.strftime("%Y-%m-%d %H:%M UTC") if expires_at else "N/A"
     full_format = f"http://{bun_username}:{bun_password}@{proxy_ip}:{proxy_port}"
 
     base_styles = _get_base_styles()
@@ -1605,7 +1663,7 @@ def _render_proxy_credentials_email(
                     </div>
                     <div class="card-row">
                         <span class="card-label">Date</span>
-                        <span class="card-value">{datetime.utcnow().strftime('%Y-%m-%d')}</span>
+                        <span class="card-value">{datetime.utcnow().strftime("%Y-%m-%d")}</span>
                     </div>
                     <div class="card-row">
                         <span class="card-label">Method</span>
@@ -1704,6 +1762,7 @@ Need help? Contact us at styxproxy.com
 # Order Active Email (Combined Payment + Credentials) - The Receipt Email
 # =============================================================================
 
+
 async def send_order_active_email(
     customer_email: str,
     customer_name: str,
@@ -1722,7 +1781,7 @@ async def send_order_active_email(
     payment_method: str = "Card / Bank / USSD / QR",
 ) -> EmailResult:
     """Send order confirmation + credentials in ONE email when order is paid and proxy is active.
-    
+
     This is the most important email - it looks nearly identical to the receipt PDF.
     """
     content = _render_proxy_credentials_email(
@@ -1754,6 +1813,7 @@ async def send_order_active_email(
 # =============================================================================
 # Refund Processed Email Template
 # =============================================================================
+
 
 def _render_refund_processed_email(
     customer_name: str,
@@ -1800,7 +1860,8 @@ def _render_refund_processed_email(
                     </div>
                     <div class="card-row">
                         <span class="card-label">Refund Amount</span>
-                        <span class="card-value card-value-primary card-value-large">{currency} {refund_amount:,.2f}</span>
+                        <span class="card-value card-value-primary
+                       card-value-large">{currency} {refund_amount:,.2f}</span>  # noqa: E501
                     </div>
                     <div class="card-row">
                         <span class="card-label">Reason</span>
@@ -1808,9 +1869,12 @@ def _render_refund_processed_email(
                     </div>
                 </div>
                 
-                <div style="background: var(--brand-card); padding: 16px; border-radius: 3px; margin: 16px 0; border-left: 4px solid #f59e0b;">
+                <div style="background: var(--brand-card); padding: 16px; border-radius: 3px; margin: 16px 0;
+                        border-left: 4px solid #f59e0b;">
                     <div style="color: #f59e0b; font-size: 13px;">
-                        <strong>Note:</strong> Please allow 5-10 business days for the refund to appear in your account. The exact timing depends on your bank or payment provider.
+                        <strong>Note:</strong> Please allow 5-10 business days
+                       for the refund to appear in your account. The exact timing depends on your bank or payment
+                        provider.  # noqa: E501
                     </div>
                 </div>
                 
@@ -1852,6 +1916,7 @@ Questions? Contact us at styxproxy.com
 # =============================================================================
 # Credentials Rotated Email Template
 # =============================================================================
+
 
 def _render_credentials_rotated_email(
     customer_name: str,
@@ -1922,7 +1987,9 @@ def _render_credentials_rotated_email(
                 </div>
                 
                 <div class="warning-box">
-                    ⚠️ <strong>Important:</strong> Your password has been changed. Please update your proxy configuration with the new credentials immediately to avoid service interruption.
+                    ⚠️ <strong>Important:</strong> Your password has been changed.
+                       Please update your proxy configuration with the new credentials immediately to avoid service
+                        interruption.  # noqa: E501
                 </div>
                 
                 {_render_support_footer()}
@@ -1951,7 +2018,8 @@ Protocol: {protocol.upper()}
 Full Format: {full_format}
 =========================
 
-⚠️ IMPORTANT: Your password has been changed. Please update your proxy configuration with the new credentials immediately.
+⚠️ IMPORTANT: Your password has been changed. Please update your proxy configuration with the new credentials
+                        immediately.
 
 Need help? Contact us at styxproxy.com
 
@@ -1968,6 +2036,7 @@ Need help? Contact us at styxproxy.com
 # =============================================================================
 # Public API - Email Sending Functions
 # =============================================================================
+
 
 async def send_contact_form_notification(
     name: str,
@@ -2324,7 +2393,7 @@ async def send_support_reply_email(
 ) -> EmailResult:
     """
     Send a support reply email to a customer.
-    
+
     This wraps the reply in the branded support template and sends from support@styxproxy.com
     with proper threading headers for Gmail/Outlook.
     """
@@ -2334,7 +2403,7 @@ async def send_support_reply_email(
         reply_body_html=reply_body_html,
         admin_name=admin_name,
     )
-    
+
     return await send_email(
         to=customer_email,
         subject=content.subject,

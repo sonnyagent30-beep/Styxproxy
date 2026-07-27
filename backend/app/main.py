@@ -1,6 +1,6 @@
 """Styxproxy Backend FastAPI Application."""
+
 import logging
-import sys
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -12,8 +12,8 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
 from app.database import engine
-from app.models import Base
 from app.limiter import limiter
+from app.models import Base
 from app.routers import (
     admin,
     admin_support,
@@ -46,9 +46,7 @@ structlog.configure(
         structlog.processors.JSONRenderer(),
     ],
     logger_factory=structlog.PrintLoggerFactory(),
-    wrapper_class=structlog.make_filtering_bound_logger(
-        logging.getLevelName(settings.log_level)
-    ),
+    wrapper_class=structlog.make_filtering_bound_logger(logging.getLevelName(settings.log_level)),
 )
 
 logger = structlog.get_logger()
@@ -66,31 +64,39 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Idempotent migration: ensure device_id column exists on platform_accounts
         # (create_all only creates new tables, doesn't add columns to existing ones)
         from sqlalchemy import text
-        await conn.execute(text(
-            "ALTER TABLE platform_accounts ADD COLUMN IF NOT EXISTS device_id VARCHAR(64)"
-        ))
-        await conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS idx_platform_device ON platform_accounts (device_id)"
-        ))
-        await conn.execute(text(
-            "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS rotation_count INTEGER NOT NULL DEFAULT 0"
-        ))
+
+        await conn.execute(text("ALTER TABLE platform_accounts ADD COLUMN IF NOT EXISTS device_id VARCHAR(64)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_platform_device ON platform_accounts (device_id)"))
+        await conn.execute(
+            text("ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS rotation_count INTEGER NOT NULL DEFAULT 0")
+        )
 
     # Seed initial trigger weights if they don't exist
     from sqlalchemy import text
+
     async with engine.connect() as conn:
         TRIGGERS = [
-            'repeat_pricing', 'pricing_dwell', 'product_browse', 'cart_abandon',
-            'order_confusion', 'session_stuck', 'scroll_bottom', 'exit_intent', 'geo_question'
+            "repeat_pricing",
+            "pricing_dwell",
+            "product_browse",
+            "cart_abandon",
+            "order_confusion",
+            "session_stuck",
+            "scroll_bottom",
+            "exit_intent",
+            "geo_question",
         ]
         for trigger_id in TRIGGERS:
             await conn.execute(
-                text("""
-                    INSERT INTO trigger_weights (trigger_id, weight, total_fires, total_opens, total_dismissed, total_converted, positive_rate)
+                text(
+                    """
+                    INSERT INTO trigger_weights
+                        (trigger_id, weight, total_fires, total_opens, total_dismissed, total_converted, positive_rate)
                     VALUES (:tid, 1.0, 0, 0, 0, 0, 0)
                     ON CONFLICT (trigger_id) DO NOTHING
-                """),
-                {"tid": trigger_id}
+                    """
+                ),
+                {"tid": trigger_id},
             )
         await conn.commit()
 
@@ -123,11 +129,13 @@ app = FastAPI(
 )
 
 # Initialize Sentry (no-op when SENTRY_DSN is not set)
-from app.services.observability import init_sentry
-init_sentry()
+from app.services import observability  # noqa: E402
+
+observability.init_sentry()
 
 # Add rate limiter to app state
 app.state.limiter = limiter
+
 
 # Rate limit exception handler
 @app.exception_handler(RateLimitExceeded)
@@ -141,6 +149,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     """
     if request.url.path.startswith("/api/v1/charon/"):
         from app.services.charon.stats import CharonMetrics
+
         CharonMetrics.mark_rate_limited()
     return JSONResponse(
         status_code=429,
@@ -253,31 +262,22 @@ async def maintenance_block(request: Request, call_next):
 
     # Check maintenance state
     try:
+        from sqlalchemy import select
+
         from app.database import async_session
         from app.models import FeatureFlag
-        from sqlalchemy import select
 
         async with async_session() as session:
             flag = (
-                await session.execute(
-                    select(FeatureFlag).where(FeatureFlag.name == "maintenance_mode")
-                )
+                await session.execute(select(FeatureFlag).where(FeatureFlag.name == "maintenance_mode"))
             ).scalar_one_or_none()
 
             if flag and flag.enabled:
                 # Read optional message + ready_at
                 from app.models import FeatureFlag as FF
 
-                ra = (
-                    await session.execute(
-                        select(FF).where(FF.name == "maintenance_ready_at")
-                    )
-                ).scalar_one_or_none()
-                msg = (
-                    await session.execute(
-                        select(FF).where(FF.name == "maintenance_message")
-                    )
-                ).scalar_one_or_none()
+                ra = (await session.execute(select(FF).where(FF.name == "maintenance_ready_at"))).scalar_one_or_none()
+                msg = (await session.execute(select(FF).where(FF.name == "maintenance_message"))).scalar_one_or_none()
 
                 return JSONResponse(
                     status_code=503,

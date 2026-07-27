@@ -13,12 +13,11 @@ implementation here — the calling code throughout the app stays the same.
 
 Dante API URL and key are configured via environment variables.
 """
-import asyncio
+
 import random
 import string
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import datetime
 
 import httpx
 
@@ -27,6 +26,7 @@ from app.config import get_settings
 _settings = None  # lazy singleton
 
 # ─── Constants ────────────────────────────────────────────────────────────────
+
 
 def _DANTE_API_URL() -> str:
     return get_settings().dante_api_url or "http://localhost:9000"
@@ -39,14 +39,17 @@ def _DANTE_API_KEY() -> str:
 def _DANTE_DEFAULT_PORT() -> int:
     return get_settings().dante_default_port or 1080
 
+
 ALPHANUM = string.ascii_lowercase + string.digits
 
 
 # ─── Dataclasses ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class DanteCredential:
     """A branded credential registered on Dante."""
+
     styxproxy_username: str
     styxproxy_password: str
     upstream_ip: str
@@ -59,6 +62,7 @@ class DanteCredential:
 @dataclass
 class DanteRotateResult:
     """Result of rotating Dante credentials."""
+
     new_styxproxy_username: str
     new_styxproxy_password: str
     upstream_ip: str
@@ -68,6 +72,7 @@ class DanteRotateResult:
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _random_username(prefix: str = "bun", length: int = 8) -> str:
     suffix = "".join(random.choices(ALPHANUM, k=length))
@@ -84,6 +89,7 @@ def _client() -> httpx.AsyncClient:
 
 
 # ─── Dante API ────────────────────────────────────────────────────────────────
+
 
 async def _dante_post(path: str, payload: dict) -> dict:
     """Make an authenticated request to the Dante API."""
@@ -120,6 +126,7 @@ async def _dante_get(path: str) -> dict:
 
 
 # ─── Credential Management ───────────────────────────────────────────────────
+
 
 async def register_credential(
     upstream_ip: str,

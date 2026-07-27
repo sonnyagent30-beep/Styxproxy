@@ -1,30 +1,30 @@
 """Admin authentication router."""
+
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import pyotp
-from jose import jwt as jose_jwt
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func, and_
+from jose import jwt as jose_jwt
+from slowapi.util import get_remote_address
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import (
+    JWTBearer,
+    create_access_token,
+    decode_access_token,
+    get_password_hash,
+    pwd_context,
+    verify_password,
+)
 from app.config import get_settings
 from app.database import get_session
+from app.limiter import limiter
 from app.models import AdminAuth, AdminInvite, FeatureFlag
 from app.schemas import (
-    AdminLoginRequest,
-    AdminLoginEmailRequest,
-    AdminLoginResponse,
-    AdminMeResponse,
-    AdminSetupCheckInviteRequest,
-    AdminSetupCheckInviteResponse,
-    AdminSetupRequest,
-    AdminSetupTOTPResponse,
-    AdminSetupCompleteRequest,
-    AdminSetupResponse,
     AdminChangePasswordRequest,
     AdminChangePasswordResponse,
     AdminChangeTOTPRequest,
@@ -33,37 +33,34 @@ from app.schemas import (
     AdminInviteCreateResponse,
     AdminInviteResponse,
     AdminInvitesListResponse,
-    AdminInviteUseRequest,
-    AdminInviteUseResponse,
+    AdminLockRequest,
+    AdminLockResponse,
+    AdminLoginEmailRequest,
+    AdminLoginRequest,
+    AdminLoginResponse,
+    AdminMeResponse,
+    AdminSetupCheckInviteRequest,
+    AdminSetupCheckInviteResponse,
+    AdminSetupCompleteRequest,
+    AdminSetupRequest,
+    AdminSetupResponse,
+    AdminSetupTOTPResponse,
     AdminTeamListResponse,
     AdminTeamMemberResponse,
     AdminUpdateRoleRequest,
     AdminUpdateRoleResponse,
-    AdminLockRequest,
-    AdminLockResponse,
+    FeatureFlagCheckResponse,
     FeatureFlagCreateRequest,
-    FeatureFlagUpdateRequest,
     FeatureFlagResponse,
     FeatureFlagsListResponse,
-    FeatureFlagCheckResponse,
+    FeatureFlagUpdateRequest,
     PasswordForgotRequest,
     PasswordForgotResponse,
     PasswordResetRequest,
     PasswordResetResponse,
 )
-from app.auth import (
-    get_password_hash,
-    verify_password,
-    create_access_token,
-    decode_access_token,
-    JWTBearer,
-    pwd_context,
-)
 from app.services.audit import write_audit_log
 from app.services.email import send_admin_invite_email, send_password_reset_email
-from app.limiter import limiter
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 settings = get_settings()
 
@@ -74,6 +71,7 @@ security = JWTBearer()
 
 
 # ============== Role-Based Dependencies ==============
+
 
 class RoleChecker:
     """Dependency to check admin roles."""
@@ -130,6 +128,7 @@ require_viewer = RoleChecker(["admin", "superadmin", "viewer"])
 
 # ============== Auth Utilities ==============
 
+
 def generate_invite_code(length: int = 16) -> str:
     """Generate a secure invite code."""
     alphabet = string.ascii_letters + string.digits
@@ -145,9 +144,7 @@ def create_admin_access_token(
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.jwt_expire_minutes
-        )
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
 
     to_encode = {
         "sub": email,
@@ -159,22 +156,23 @@ def create_admin_access_token(
 
     from jose import jwt
 
-    encoded_jwt = jwt.encode(
-        to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
     return encoded_jwt
 
 
 # ============== Auth Endpoints ==============
 
+
 @router.get("/status", response_model=dict)
 async def check_setup_status(session: AsyncSession = Depends(get_session)):
     """Check if admin setup is required (no auth needed)."""
     from app.models import AdminAuth
+
     stmt = select(AdminAuth).limit(1)
     result = await session.execute(stmt)
     admin = result.scalar_one_or_none()
     return {"setup_required": admin is None}
+
 
 def generate_backup_codes(count: int = 10) -> list[str]:
     """Generate random backup codes."""
@@ -200,9 +198,7 @@ def create_setup_temp_token(email: str, password_hash: str, totp_secret: str, in
 def decode_setup_temp_token(token: str) -> dict | None:
     """Decode and validate a setup temp token."""
     try:
-        payload = jose_jwt.decode(
-            token, get_settings().jwt_secret, algorithms=[get_settings().jwt_algorithm]
-        )
+        payload = jose_jwt.decode(token, get_settings().jwt_secret, algorithms=[get_settings().jwt_algorithm])
         if payload.get("type") != "setup_temp":
             return None
         return payload
@@ -281,10 +277,7 @@ async def setup_admin_step1(
     if invite.email and request.email.lower() != invite.email.lower():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"This invite was issued for {invite.email}. "
-                "Use that email or request a new invite."
-            ),
+            detail=(f"This invite was issued for {invite.email}. Use that email or request a new invite."),
         )
 
     # Check if admin with this email already exists
@@ -394,7 +387,7 @@ async def setup_admin_step2(
     await session.commit()
 
     # Auto-issue admin access token so the user is logged in immediately
-    from app.auth import create_access_token
+
     access_token = create_access_token(
         sub=email,
         platform="admin",
@@ -533,6 +526,7 @@ async def login_admin_email(
             )
         # TOTP verification
         import pyotp
+
         if not admin.totp_secret:
             raise HTTPException(status_code=500, detail="TOTP secret missing")
         totp = pyotp.TOTP(admin.totp_secret)
@@ -670,6 +664,7 @@ async def change_totp(
 
 
 # ============== Invite Management ==============
+
 
 @router.post("/invites", response_model=AdminInviteCreateResponse)
 async def create_invite(
@@ -841,9 +836,7 @@ async def forgot_password(
         )
 
     # Return generic message regardless of whether email exists
-    return PasswordForgotResponse(
-        message="If an account with that email exists, a password reset link has been sent."
-    )
+    return PasswordForgotResponse(message="If an account with that email exists, a password reset link has been sent.")
 
 
 @router.post("/password/reset", response_model=PasswordResetResponse)
@@ -883,12 +876,11 @@ async def reset_password(
     # For better security, consider implementing a token blacklist or using short-lived tokens
     await session.commit()
 
-    return PasswordResetResponse(
-        message="Password reset successfully. Please log in with your new password."
-    )
+    return PasswordResetResponse(message="Password reset successfully. Please log in with your new password.")
 
 
 # ============== Team Management ==============
+
 
 @router.get("/team", response_model=AdminTeamListResponse)
 async def list_team(
@@ -1034,6 +1026,7 @@ async def lock_team_member(
 
 # ============== Feature Flags ==============
 
+
 @router.post("/flags", response_model=FeatureFlagResponse)
 async def create_feature_flag(
     body: FeatureFlagCreateRequest,
@@ -1084,9 +1077,7 @@ async def list_feature_flags(
     stmt = select(FeatureFlag).order_by(FeatureFlag.name)
     flags = (await session.execute(stmt)).scalars().all()
 
-    return FeatureFlagsListResponse(
-        flags=[FeatureFlagResponse.model_validate(f) for f in flags]
-    )
+    return FeatureFlagsListResponse(flags=[FeatureFlagResponse.model_validate(f) for f in flags])
 
 
 @router.get("/flags/{flag_name}", response_model=FeatureFlagResponse)

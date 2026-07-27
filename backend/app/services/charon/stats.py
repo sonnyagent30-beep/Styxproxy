@@ -7,6 +7,7 @@ A lightweight counter store for observability. Reset only on process restart
 Numbers here are best-effort operational signals, not analytics-grade
 counters. Use the JSONL log for fine-grained analysis.
 """
+
 from __future__ import annotations
 
 import logging
@@ -55,11 +56,7 @@ class CharonStats:
     def to_dict(self) -> dict:
         now = time.time()
         uptime_s = int(now - self.started_at)
-        avg_latency_ms = (
-            round(self.latency_sum_ms / self.latency_samples, 1)
-            if self.latency_samples
-            else 0.0
-        )
+        avg_latency_ms = round(self.latency_sum_ms / self.latency_samples, 1) if self.latency_samples else 0.0
         return {
             "uptime_seconds": uptime_s,
             "llm_configured": self.llm_configured,
@@ -145,7 +142,7 @@ class CharonMetrics:
                 }
             )
             if len(s.recent_errors) > cls._MAX_RECENT_ERRORS:
-                s.recent_errors = s.recent_errors[-cls._MAX_RECENT_ERRORS:]
+                s.recent_errors = s.recent_errors[-cls._MAX_RECENT_ERRORS :]
 
     @classmethod
     def mark_rate_limited(cls) -> None:

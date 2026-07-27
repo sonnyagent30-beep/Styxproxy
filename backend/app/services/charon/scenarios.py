@@ -8,6 +8,7 @@ case-insensitively. We always try simple scenarios before calling
 the LLM — this both saves LLM tokens and gives us deterministic
 answers for the most common questions.
 """
+
 from __future__ import annotations
 
 import json

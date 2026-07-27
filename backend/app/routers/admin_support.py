@@ -1,4 +1,5 @@
 """Admin support threads router - manage customer support conversations."""
+
 import logging
 from datetime import datetime
 from typing import Optional
@@ -6,13 +7,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
 
-from app.database import get_session
 from app.auth import admin_only
-from app.models import SupportThread, SupportMessage
-from app.services.email import send_support_reply_email, send_email
+from app.database import get_session
+from app.models import SupportMessage, SupportThread
+from app.services.email import send_support_reply_email
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,10 @@ router = APIRouter(prefix="/api/v1/admin/support", tags=["admin-support"])
 # Pydantic Schemas
 # =============================================================================
 
+
 class SupportMessageResponse(BaseModel):
     """Support message response."""
+
     id: str
     thread_id: str
     direction: str
@@ -44,6 +47,7 @@ class SupportMessageResponse(BaseModel):
 
 class SupportThreadResponse(BaseModel):
     """Support thread response."""
+
     id: str
     customer_email: str
     customer_name: Optional[str]
@@ -61,24 +65,28 @@ class SupportThreadResponse(BaseModel):
 
 class SupportThreadListResponse(BaseModel):
     """List of support threads."""
+
     threads: list[SupportThreadResponse]
     pagination: dict
 
 
 class SupportReplyRequest(BaseModel):
     """Request to reply to a support thread."""
+
     reply_html: str
     admin_name: str = "Dannion"
 
 
 class SupportThreadCloseRequest(BaseModel):
     """Request to close a support thread."""
+
     reason: Optional[str] = None
 
 
 # =============================================================================
 # Endpoints
 # =============================================================================
+
 
 @router.get("/threads", response_model=SupportThreadListResponse, dependencies=[Depends(admin_only)])
 async def list_support_threads(
@@ -89,7 +97,7 @@ async def list_support_threads(
 ):
     """
     List all support threads with pagination.
-    
+
     Args:
         page: Page number (1-indexed)
         limit: Items per page
@@ -98,26 +106,21 @@ async def list_support_threads(
     conditions = []
     if status_filter:
         conditions.append(SupportThread.status == status_filter)
-    
+
     # Count total
     count_stmt = select(func.count()).select_from(SupportThread)
     if conditions:
         count_stmt = count_stmt.where(and_(*conditions))
     total = (await session.execute(count_stmt)).scalar() or 0
-    
+
     # Get paginated results
     offset = (page - 1) * limit
-    stmt = (
-        select(SupportThread)
-        .order_by(SupportThread.last_message_at.desc())
-        .offset(offset)
-        .limit(limit)
-    )
+    stmt = select(SupportThread).order_by(SupportThread.last_message_at.desc()).offset(offset).limit(limit)
     if conditions:
         stmt = stmt.where(and_(*conditions))
-    
+
     threads = (await session.execute(stmt)).scalars().all()
-    
+
     return SupportThreadListResponse(
         threads=[
             SupportThreadResponse(
@@ -155,13 +158,13 @@ async def get_support_thread(
     """
     stmt = select(SupportThread).where(SupportThread.id == thread_id)
     thread = (await session.execute(stmt)).scalar_one_or_none()
-    
+
     if not thread:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Support thread not found",
         )
-    
+
     messages = []
     if include_messages:
         msg_stmt = (
@@ -170,7 +173,7 @@ async def get_support_thread(
             .order_by(SupportMessage.created_at.asc())
         )
         messages = (await session.execute(msg_stmt)).scalars().all()
-    
+
     return SupportThreadResponse(
         id=str(thread.id),
         customer_email=thread.customer_email,
@@ -209,26 +212,26 @@ async def reply_to_support_thread(
 ):
     """
     Reply to a support thread.
-    
+
     Sends an email to the customer from support@styxproxy.com with proper
     threading headers. The reply is also saved to the database.
     """
     # Get the thread
     stmt = select(SupportThread).where(SupportThread.id == thread_id)
     thread = (await session.execute(stmt)).scalar_one_or_none()
-    
+
     if not thread:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Support thread not found",
         )
-    
+
     if thread.status == "closed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot reply to a closed thread",
         )
-    
+
     # Get the last outbound message for threading headers
     last_outbound_stmt = (
         select(SupportMessage)
@@ -241,7 +244,7 @@ async def reply_to_support_thread(
         .order_by(SupportMessage.created_at.desc())
     )
     last_outbound = (await session.execute(last_outbound_stmt)).scalar_one_or_none()
-    
+
     # Build threading headers
     in_reply_to = thread.resend_last_message_id
     references = in_reply_to
@@ -251,11 +254,11 @@ async def reply_to_support_thread(
             references = f"{references} {last_outbound.resend_id}"
         else:
             references = last_outbound.resend_id
-    
+
     # Send the email
     customer_email = thread.customer_email
     customer_name = thread.customer_name or "Customer"
-    
+
     result = await send_support_reply_email(
         customer_email=customer_email,
         customer_name=customer_name,
@@ -265,14 +268,14 @@ async def reply_to_support_thread(
         in_reply_to=in_reply_to,
         references=references,
     )
-    
+
     if not result.success:
         logger.error(f"Failed to send reply email: {result.error}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to send email: {result.error}",
         )
-    
+
     # Save the outbound message to DB
     outbound_message = SupportMessage(
         thread_id=thread.id,
@@ -287,14 +290,14 @@ async def reply_to_support_thread(
         references=references,
     )
     session.add(outbound_message)
-    
+
     # Update thread
     thread.last_message_at = datetime.utcnow()
     thread.status = "replied"
     thread.resend_last_message_id = result.message_id
-    
+
     await session.commit()
-    
+
     return {
         "status": "sent",
         "message_id": result.message_id,
@@ -313,18 +316,18 @@ async def close_support_thread(
     """
     stmt = select(SupportThread).where(SupportThread.id == thread_id)
     thread = (await session.execute(stmt)).scalar_one_or_none()
-    
+
     if not thread:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Support thread not found",
         )
-    
+
     thread.status = "closed"
     thread.last_message_at = datetime.utcnow()
-    
+
     await session.commit()
-    
+
     return {
         "status": "closed",
         "thread_id": str(thread.id),
@@ -341,18 +344,18 @@ async def reopen_support_thread(
     """
     stmt = select(SupportThread).where(SupportThread.id == thread_id)
     thread = (await session.execute(stmt)).scalar_one_or_none()
-    
+
     if not thread:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Support thread not found",
         )
-    
+
     thread.status = "open"
     thread.last_message_at = datetime.utcnow()
-    
+
     await session.commit()
-    
+
     return {
         "status": "reopened",
         "thread_id": str(thread.id),

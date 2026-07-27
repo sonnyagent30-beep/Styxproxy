@@ -14,6 +14,7 @@ to production we'll layer an internal-token gateway in front, but
 that's separate from agent auth (which the agent's tools enforce
 themselves).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,19 +23,20 @@ import logging
 import os
 import re
 import time
-from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-import httpx
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 
 from app.auth import decode_access_token, verify_admin_token
+from app.database import async_session
 from app.limiter import limiter
-from app.services.charon import agent, stats as charon_stats
+from app.services.charon import agent
 from app.services.charon.agent import Message
 from app.services.charon.knowledge import invalidate_cache
 from app.services.charon.stats import CharonMetrics
@@ -108,6 +110,7 @@ async def public_only(request: Request) -> None:
             detail="Not Found",
         )
 
+
 # Log file path
 CHARON_LOG_DIR = os.getenv("CHARON_LOG_DIR", "/tmp")
 CHARON_LOG_PATH = os.path.join(CHARON_LOG_DIR, "charon.log")
@@ -162,6 +165,7 @@ class CharonLogEntry(BaseModel):
     error: Optional[str] = None
     tool_calls: Optional[list[dict]] = None
 
+
 @router.post("/reply", response_model=ChatReplyResponse)
 @limiter.limit("30/minute")
 async def post_reply(
@@ -186,9 +190,7 @@ async def post_reply(
     CharonMetrics.mark_request(payload.channel)
 
     history = [
-        Message(role=m.role, content=m.content)
-        for m in payload.history
-        if m.role in ("system", "user", "assistant")
+        Message(role=m.role, content=m.content) for m in payload.history if m.role in ("system", "user", "assistant")
     ]
 
     started = time.perf_counter()
@@ -214,9 +216,7 @@ async def post_reply(
     # Send escalation email if the conversation was escalated
     if result.escalated and (payload.customer_email or payload.customer_phone):
         # Build history summary for the email
-        history_summary = "\n".join(
-            f"{m.role}: {m.content[:200]}" for m in history[-5:]
-        )
+        history_summary = "\n".join(f"{m.role}: {m.content[:200]}" for m in history[-5:])
         await send_charon_escalation_email(
             conversation_id=payload.conversation_id or "unknown",
             customer_email=payload.customer_email,
@@ -254,6 +254,7 @@ async def health():
       - llm_status: "up" / "degraded" / "down"
     """
     import os
+
     from app.services.charon import scenarios
 
     # P0-5 (Jul 22 2026): Provider priority is M2 cloud primary,
@@ -276,12 +277,8 @@ async def health():
     CharonMetrics.llm_configured(api_key_set)
 
     s = CharonMetrics.get()
-    error_age = (
-        time.time() - s.llm_last_error_at if s.llm_last_error_at else None
-    )
-    success_age = (
-        time.time() - s.llm_last_success_at if s.llm_last_success_at else None
-    )
+    error_age = time.time() - s.llm_last_error_at if s.llm_last_error_at else None
+    success_age = time.time() - s.llm_last_success_at if s.llm_last_success_at else None
 
     if not api_key_set:
         llm_status = "down"
@@ -347,7 +344,7 @@ def _get_conversations() -> list[ConversationSummary]:
     """Extract unique conversations from logs."""
     conversations: dict[str, dict] = {}
     logs = _read_logs(limit=5000)
-    
+
     for log in logs:
         conv_id = log.get("conversation_id")
         if not conv_id:
@@ -366,11 +363,8 @@ def _get_conversations() -> list[ConversationSummary]:
         conversations[conv_id]["last_message_at"] = log.get("ts", "")
         if log.get("escalated"):
             conversations[conv_id]["escalated"] = True
-    
-    return [
-        ConversationSummary(**conv) 
-        for conv in conversations.values()
-    ]
+
+    return [ConversationSummary(**conv) for conv in conversations.values()]
 
 
 @router.get("/conversations")
@@ -385,7 +379,7 @@ async def list_conversations(
     # Sort by last_message_at descending
     all_conversations.sort(key=lambda x: x.last_message_at, reverse=True)
     return {
-        "conversations": all_conversations[offset:offset + limit],
+        "conversations": all_conversations[offset : offset + limit],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -405,7 +399,7 @@ async def list_logs(
 ):
     """Filterable logs for Charon conversations."""
     logs = _read_logs(limit=5000)
-    
+
     # Apply filters
     filtered = []
     for log in logs:
@@ -424,13 +418,13 @@ async def list_logs(
             if log_ts and log_ts > date_to:
                 continue
         filtered.append(log)
-    
+
     # Sort by ts descending
     filtered.sort(key=lambda x: x.get("ts", ""), reverse=True)
-    
+
     total = len(filtered)
     return {
-        "logs": filtered[offset:offset + limit],
+        "logs": filtered[offset : offset + limit],
         "total": total,
         "limit": limit,
         "offset": offset,
@@ -456,12 +450,12 @@ async def stream_events():
     """SSE stream for real-time Charon events."""
     queue: asyncio.Queue = asyncio.Queue()
     _sse_subscribers.add(queue)
-    
+
     async def event_generator():
         try:
             # Send initial connection event
-            yield "event: connected\ndata: {\"status\": \"connected\"}\n\n"
-            
+            yield 'event: connected\ndata: {"status": "connected"}\n\n'
+
             while True:
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=30)
@@ -473,7 +467,7 @@ async def stream_events():
             pass
         finally:
             _sse_subscribers.discard(queue)
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -489,14 +483,14 @@ async def stream_events():
 def _install_event_hook():
     """Install the event broadcast hook into the agent module."""
     import app.services.charon.agent as agent_module
-    
+
     original_persist = agent_module._persist_log
-    
+
     def hooked_persist(ctx: dict):
         original_persist(ctx)
         # Broadcast to SSE subscribers
         asyncio.create_task(_broadcast_event("charon.log", ctx))
-    
+
     agent_module._persist_log = hooked_persist
 
 
@@ -510,6 +504,7 @@ except Exception:
 # =============================================================================
 # LEARN ENDPOINT - Write learned content to RAG knowledge base
 # =============================================================================
+
 
 class LearnRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=200, description="Title/heading for the learned content")
@@ -547,13 +542,13 @@ async def post_learn(
     _public: None = Depends(public_only),
 ):
     """Write learned content to the RAG knowledge base.
-    
+
     Content is saved as a markdown file in data/charon/learned/ and
     becomes available to Charon's RAG search on next query.
     """
     # Ensure learned directory exists
     LEARNED_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     # Generate filename
     if payload.filename:
         base_name = _sanitize_filename(payload.filename)
@@ -561,27 +556,27 @@ async def post_learn(
         # Use title to generate filename with timestamp
         timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         base_name = f"{_sanitize_filename(payload.title[:50])}-{timestamp}"
-    
+
     # Ensure .md extension
     if not base_name.endswith(".md"):
         base_name += ".md"
-    
+
     filepath = LEARNED_DIR / base_name
-    
+
     # Handle duplicate filenames
     counter = 1
     while filepath.exists():
         base, ext = base_name.rsplit(".md", 1)
         filepath = LEARNED_DIR / f"{base}-{counter}.md"
         counter += 1
-    
+
     # Write the content with a header
     content = f"# {payload.title}\n\n{payload.content}"
     filepath.write_text(content, encoding="utf-8")
-    
+
     # Invalidate the RAG cache so new content is picked up
     invalidate_cache()
-    
+
     return LearnResponse(
         ok=True,
         filepath=str(filepath.relative_to(LEARNED_DIR.parent.parent)),
@@ -593,8 +588,6 @@ async def post_learn(
 # TRIGGER ENDPOINTS - Record and query trigger event weights
 # =============================================================================
 
-from app.database import async_session
-from sqlalchemy import text
 
 
 class TriggerEventRequest(BaseModel):
@@ -610,7 +603,7 @@ VALID_OUTCOMES = {"opened_chat", "dismissed", "ignored", "converted"}
 @router.post("/trigger-event")
 async def post_trigger_event(payload: TriggerEventRequest):
     """Record a trigger outcome and update aggregate weights.
-    
+
     This endpoint records how users responded to behavioral triggers
     (e.g., repeat_pricing, cart_abandon). The outcome updates:
     - total_fires (always +1)
@@ -623,7 +616,7 @@ async def post_trigger_event(payload: TriggerEventRequest):
     if payload.outcome not in VALID_OUTCOMES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid outcome. Must be one of: {', '.join(VALID_OUTCOMES)}"
+            detail=f"Invalid outcome. Must be one of: {', '.join(VALID_OUTCOMES)}",
         )
 
     async with async_session() as session:
@@ -638,7 +631,7 @@ async def post_trigger_event(payload: TriggerEventRequest):
                 "trigger_id": payload.trigger_id,
                 "outcome": payload.outcome,
                 "charon_msg": payload.charon_msg,
-            }
+            },
         )
 
         # Determine counter updates based on outcome
@@ -688,7 +681,7 @@ async def post_trigger_event(payload: TriggerEventRequest):
 @router.get("/weights")
 async def get_weights():
     """Get all trigger weights.
-    
+
     Returns a dict mapping trigger_id to {weight, total_fires}.
     """
     async with async_session() as session:
@@ -701,8 +694,5 @@ async def get_weights():
         )
         rows = result.fetchall()
 
-    weights = {
-        row[0]: {"weight": float(row[1]), "total_fires": row[2]}
-        for row in rows
-    }
+    weights = {row[0]: {"weight": float(row[1]), "total_fires": row[2]} for row in rows}
     return {"weights": weights}

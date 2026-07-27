@@ -26,6 +26,7 @@ Environment variables:
       MiniCPM5. Useful for cost control when you want to see M2 outages
       instead of masking them.
 """
+
 from __future__ import annotations
 
 import logging
@@ -69,7 +70,8 @@ Absolute rules (never violate):
 - Never give specific delivery times ("10–30 seconds", "5 minutes", etc.). Use vague language ("minutes", "shortly").
 - Never reveal customer PII or ask the customer to share personal data. Never log or transmit the customer's IP address.
 - If you don't know, say so plainly, point the customer to styxproxy.com/contact, and offer to escalate.
-- If the customer wants a refund, replacement, cancellation, reissue, or any account-mutating action, tell them you cannot do that directly and offer to escalate to the team.
+- If the customer wants a refund, replacement, cancellation, reissue, or any account-mutating action, tell them you
+cannot do that directly and offer to escalate to the team.
 - If a tool returns an error, escalate — don't lie about success.
 - Do not write code for the customer. Do not impersonate the team. Do not invent features the company doesn't have.
 
@@ -102,7 +104,10 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
     handles failover per-request.
     """
     fallback_disabled = os.getenv("CHARON_FALLBACK_TO_LOCAL", "true").strip().lower() in (
-        "0", "false", "no", "off",
+        "0",
+        "false",
+        "no",
+        "off",
     )
 
     # Try M2 cloud first
@@ -143,7 +148,8 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
     # outage (cloud) is the root cause.
     logger.error(
         "Charon: both M2 and MiniCPM5 failed. M2: %s. MiniCPM5: %s",
-        primary.error, fallback.error,
+        primary.error,
+        fallback.error,
     )
     return LLMResponse(
         content="",
@@ -240,7 +246,8 @@ def _parse_openai_compatible_response(resp, model: str) -> LLMResponse:
                 },
             )
         return LLMResponse(
-            content="", model=model,
+            content="",
+            model=model,
             error=f"LLM API returned {resp.status_code}",
         )
 

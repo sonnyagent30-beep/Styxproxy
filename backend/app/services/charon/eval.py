@@ -7,6 +7,7 @@ This gives us a fast, deterministic smoke test for the RAG + scenario pipeline.
 The set lives in code (not the LLM) so it never drifts and can be reviewed
 in a PR. Each entry traces back to a Scenarios source file.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,7 +15,7 @@ import time
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.schemas import EvalQuestion, EvalSetResponse, EvalResult, EvalRunResponse
+from app.schemas import EvalQuestion, EvalResult, EvalRunResponse, EvalSetResponse
 
 logger = logging.getLogger(__name__)
 
@@ -109,9 +110,9 @@ def _grade(answer: str, expected_keywords: list[str]) -> tuple[bool, list[str], 
 async def run_eval_set() -> EvalRunResponse:
     """Run each eval question through the live Charon pipeline and grade the answer."""
     # Lazy imports to avoid circular deps
-    from app.services.charon.scenarios import match, all_scenarios, ScenarioAction
-    from app.services.charon.knowledge import search, format_context
+    from app.services.charon.knowledge import format_context, search
     from app.services.charon.llm import call_llm
+    from app.services.charon.scenarios import ScenarioAction, match
 
     results: list[EvalResult] = []
 
@@ -136,7 +137,9 @@ async def run_eval_set() -> EvalRunResponse:
                     "Answer concisely using the provided context. "
                     "If you don't know, say so and offer to escalate."
                 )
-                user_content = f"Context:\n{context}\n\nCustomer: {q.question}" if context else f"Customer: {q.question}"
+                user_content = (
+                    f"Context:\n{context}\n\nCustomer: {q.question}" if context else f"Customer: {q.question}"
+                )
                 resp = call_llm(
                     messages=[
                         {"role": "system", "content": system_prompt},

@@ -1,4 +1,5 @@
 """JWT authentication utilities and admin token verification."""
+
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
@@ -61,9 +62,7 @@ def create_access_token(
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.jwt_expire_minutes
-        )
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
 
     to_encode = {
         "sub": sub,
@@ -75,18 +74,14 @@ def create_access_token(
     if role:
         to_encode["role"] = role
 
-    encoded_jose_jwt = jose_jwt.encode(
-        to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm
-    )
+    encoded_jose_jwt = jose_jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
     return encoded_jose_jwt
 
 
 def decode_access_token(token: str) -> dict:
     """Decode and validate a JWT access token."""
     try:
-        payload = jose_jwt.decode(
-            token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
-        )
+        payload = jose_jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
         return payload
     except JWTError as e:
         raise HTTPException(
@@ -119,8 +114,12 @@ def verify_admin_token(authorization: Optional[str]) -> bool:
             detail="Authorization token missing",
         )
 
-    token = parts[1] if parts and len(parts) == 2 else (authorization.credentials if hasattr(authorization, 'credentials') else authorization)
-    if isinstance(token, str) and token.startswith('Bearer '):
+    token = (
+        parts[1]
+        if parts and len(parts) == 2
+        else (authorization.credentials if hasattr(authorization, "credentials") else authorization)
+    )
+    if isinstance(token, str) and token.startswith("Bearer "):
         token = token[7:]
     if token != settings.admin_token:
         raise HTTPException(
@@ -142,7 +141,7 @@ async def get_current_account(
     Backend auto-creates an anonymous PlatformAccount on first call.
     JWT cookie is set by /api/session/init and reused.
     """
-    from app.models import PlatformAccount, Customer
+    from app.models import Customer, PlatformAccount
 
     token = credentials.credentials
     payload = decode_access_token(token)
@@ -155,9 +154,7 @@ async def get_current_account(
         )
 
     # Get platform account
-    stmt = select(PlatformAccount).where(
-        PlatformAccount.id == UUID(platform_account_id)
-    )
+    stmt = select(PlatformAccount).where(PlatformAccount.id == UUID(platform_account_id))
     result = await session.execute(stmt)
     platform_account = result.scalar_one_or_none()
 

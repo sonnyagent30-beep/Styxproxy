@@ -19,6 +19,7 @@ Self-improvement loop:
   file as part of context, so Charon handles similar cases correctly
   without escalating again.
 """
+
 from __future__ import annotations
 
 import json
@@ -29,9 +30,10 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
+import sentry_sdk
+
 from . import knowledge, scenarios, tools
 from .llm import LLMResponse, call_llm
-import sentry_sdk
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +63,14 @@ _TX_REF_PATTERN = re.compile(
 
 # Thinking-trace guard: strip any internal monologue the model leaks.
 _THINK_BLOCKS = [
-    re.compile(r"<(?:think|thinking|reasoning|scratchpad)>.*?</(?:think|thinking|reasoning|scratchpad)>", re.DOTALL | re.IGNORECASE),
-    re.compile(r"\[(?:think|thinking|reasoning|scratchpad)\].*?\[/(?:think|thinking|reasoning|scratchpad)\]", re.DOTALL | re.IGNORECASE),
+    re.compile(
+        r"<(?:think|thinking|reasoning|scratchpad)>.*?</(?:think|thinking|reasoning|scratchpad)>",
+        re.DOTALL | re.IGNORECASE,
+    ),
+    re.compile(
+        r"\[(?:think|thinking|reasoning|scratchpad)\].*?\[/(?:think|thinking|reasoning|scratchpad)\]",
+        re.DOTALL | re.IGNORECASE,
+    ),
 ]
 # Fenced code blocks the model sometimes emits when it wasn't asked for code.
 _FENCED_CODE = re.compile(r"```[a-zA-Z0-9_+\-]*\n.*?\n```", re.DOTALL)
@@ -95,6 +103,7 @@ def _clean_reply(text: str) -> str:
     lines = out.splitlines()
     cleaned: list[str] = []
     table_buf: list[str] = []
+
     def flush_table() -> None:
         if not table_buf:
             return
@@ -217,7 +226,12 @@ async def reply(
 
     # ── 2b. Plain prompt to LLM (no tool step) ───────────────────────
     plain_messages = [
-        {"role": "system", "content": system_block + "\n\nAnswer the customer's question using ONLY the context above. Be concise. If the context does not contain the answer, say so and offer to escalate."},
+        {
+            "role": "system",
+            "content": system_block
+            + "\n\nAnswer the customer's question using ONLY the context above. "
+            + "Be concise. If the context does not contain the answer, say so and offer to escalate."
+        },
         *history_dicts,
     ]
 
@@ -292,7 +306,7 @@ def _emit_escalation(scenario: scenarios.Scenario, action, tx_ref: str | None) -
             "scenario_id": scenario.id,
             "tx_ref": tx_ref or "none",
             "reason": action.reason or "customer_requested",
-        }
+        },
     )
 
 
@@ -315,14 +329,15 @@ async def _try_tool_call(
     # by responding with JSON {"tool": "...", "params": {...}} or to
     # answer directly.
     tool_prompt_messages = [
-        {"role": "system", "content": (
-            extra_system
-            + "\n\n"
-            + "Format your response strictly as JSON with one of these shapes:\n"
-              "{\"answer\": \"<short customer-facing message>\"}\n"
-              "{\"tool\": \"<tool_name>\", \"params\": {<json-args>}}\n"
-              "Pick at most one tool call. If you don't need a tool, return {\"answer\": ...}."
-        )},
+        {
+            "role": "system",
+            "content": (
+                extra_system + "\n\n" + "Format your response strictly as JSON with one of these shapes:\n"
+                '{"answer": "<short customer-facing message>"}\n'
+                '{"tool": "<tool_name>", "params": {<json-args>}}\n'
+                'Pick at most one tool call. If you don\'t need a tool, return {"answer": ...}.'
+            ),
+        },
         *messages,
     ]
 
@@ -339,21 +354,26 @@ async def _try_tool_call(
         tool_name = parsed["tool"]
         tool_params = parsed.get("params") or {}
         if tool_name in (tools.registry.tools.keys()):
-            log_ctx.setdefault("tool_calls", []).append({
-                "tool": tool_name,
-                "params": tool_params,
-            })
+            log_ctx.setdefault("tool_calls", []).append(
+                {
+                    "tool": tool_name,
+                    "params": tool_params,
+                }
+            )
             result = await tools.registry.call(tool_name, **tool_params)
             if result.ok:
                 # Compose a follow-up prompt with the tool result so
                 # the LLM can synthesise a customer-facing answer.
                 follow_up_messages = [
-                    {"role": "system", "content": (
-                        extra_system
-                        + "\n\nYou called a tool. Here is its result:\n"
-                        + json.dumps(result.data, default=str)
-                        + "\n\nCompose a 1–3 sentence customer-facing answer based ONLY on this. Be concise."
-                    )},
+                    {
+                        "role": "system",
+                        "content": (
+                            extra_system
+                            + "\n\nYou called a tool. Here is its result:\n"
+                            + json.dumps(result.data, default=str)
+                            + "\n\nCompose a 1–3 sentence customer-facing answer based ONLY on this. Be concise."
+                        ),
+                    },
                     *messages,
                 ]
                 follow_up = call_llm(follow_up_messages, max_tokens=400)
@@ -373,7 +393,7 @@ async def _try_tool_call(
                         "tool": tool_name,
                         "params": tool_params,
                         "error": result.error or "unknown",
-                    }
+                    },
                 )
                 return Reply(
                     text=(
@@ -400,7 +420,7 @@ def _safe_parse_tool_json(content: str) -> dict | None:
     text = content.strip()
     # strip ```json fences
     if text.startswith("```"):
-        lines = [l for l in text.splitlines() if not l.strip().startswith("```")]
+        lines = [item for item in text.splitlines() if not item.strip().startswith("```")]
         text = "\n".join(lines).strip()
     # try direct parse
     try:
@@ -440,4 +460,5 @@ def _persist_log(ctx: dict) -> None:
 
 def _now() -> str:
     from datetime import datetime, timezone
+
     return datetime.now(timezone.utc).isoformat()

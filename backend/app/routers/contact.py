@@ -1,4 +1,5 @@
 """Contact form API endpoints."""
+
 import logging
 from typing import Optional
 

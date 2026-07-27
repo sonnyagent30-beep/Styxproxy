@@ -1,17 +1,18 @@
 """Inbound email webhook router for Resend."""
+
 import logging
 import re
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, EmailStr
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_session
-from app.models import SupportThread, SupportMessage, ProcessedWebhook
+from app.models import ProcessedWebhook, SupportMessage, SupportThread
 from app.services.email import send_email
 
 logger = logging.getLogger(__name__)
@@ -42,22 +43,23 @@ def _extract_email_from_header(header: str) -> tuple[str, Optional[str]]:
 def _is_spam_sender(email: str) -> bool:
     """Check if sender looks like spam."""
     email_lower = email.lower()
-    
+
     # Check for spam domains
     for domain in SPAM_DOMAINS:
         if email_lower.endswith(domain):
             return True
-    
+
     # Check for spam keywords
     for keyword in SPAM_KEYWORDS:
         if keyword in email_lower:
             return True
-    
+
     return False
 
 
 class ResendInboundPayload(BaseModel):
     """Payload from Resend inbound email webhook."""
+
     type: str
     created_at: str
     data: dict
@@ -65,6 +67,7 @@ class ResendInboundPayload(BaseModel):
 
 class InboundEmailData(BaseModel):
     """Parsed inbound email data."""
+
     email_id: str
     from_header: str
     to: list[str]
@@ -82,9 +85,7 @@ async def _find_thread_by_in_reply_to(
 ) -> Optional[SupportThread]:
     """Find thread by In-Reply-To header (Resend message ID)."""
     # Try to find by resend_last_message_id first (our sent messages)
-    stmt = select(SupportThread).where(
-        SupportThread.resend_last_message_id == in_reply_to
-    )
+    stmt = select(SupportThread).where(SupportThread.resend_last_message_id == in_reply_to)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -98,9 +99,7 @@ async def _find_thread_by_references(
     # The first one is the root, last is parent
     ref_ids = references.split()
     for ref_id in reversed(ref_ids):
-        stmt = select(SupportThread).where(
-            SupportThread.resend_last_message_id == ref_id.strip("<>")
-        )
+        stmt = select(SupportThread).where(SupportThread.resend_last_message_id == ref_id.strip("<>"))
         result = await session.execute(stmt)
         thread = result.scalar_one_or_none()
         if thread:
@@ -124,7 +123,7 @@ async def _create_new_thread(
     )
     session.add(thread)
     await session.flush()  # Get the ID
-    
+
     # Create initial inbound message
     message = SupportMessage(
         thread_id=thread.id,
@@ -139,7 +138,7 @@ async def _create_new_thread(
         references=None,
     )
     session.add(message)
-    
+
     return thread
 
 
@@ -169,12 +168,12 @@ async def _add_message_to_thread(
         references=references,
     )
     session.add(message)
-    
+
     # Update thread
     thread.last_message_at = datetime.utcnow()
     if thread.status == "closed":
         thread.status = "open"
-    
+
     return message
 
 
@@ -189,28 +188,28 @@ async def _forward_to_admin(
     try:
         # Build a simple forward email
         forward_subject = f"[Support] {subject}"
-        
+
         # Simple HTML wrapper for forwarded email
         forward_html = f"""
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><title>Forwarded Email</title></head>
 <body style="font-family: -apple-system, sans-serif; padding: 20px;">
-    <p><strong>From:</strong> {from_name or ''} &lt;{from_email}&gt;</p>
+    <p><strong>From:</strong> {from_name or ""} &lt;{from_email}&gt;</p>
     <p><strong>Subject:</strong> {subject}</p>
     <hr>
-    {body_html or '<pre>' + (body_text or '').replace('<', '&lt;').replace('>', '&gt;') + '</pre>'}
+    {body_html or "<pre>" + (body_text or "").replace("<", "&lt;").replace(">", "&gt;") + "</pre>"}
 </body>
 </html>
 """
-        
+
         result = await send_email(
             to=ADMIN_EMAIL,
             subject=forward_subject,
             html=forward_html,
             text=body_text,
         )
-        
+
         if result.success:
             logger.info(f"Forwarded inbound email to admin: {ADMIN_EMAIL}")
             return True
@@ -230,40 +229,34 @@ async def receive_resend_webhook(
 ):
     """
     Receive inbound email webhook from Resend.
-    
+
     Resend sends this when someone emails support@styxproxy.com
     """
     # Validate event type
     if payload.type != "email.received":
         logger.warning(f"Ignoring non-email.received event: {payload.type}")
         return {"status": "ignored", "reason": "not an inbound email"}
-    
+
     data = payload.data
-    
+
     # Parse the email data
     email_id = data.get("email_id", "")
     from_header = data.get("from", "")
-    to_list = data.get("to", [])
     subject = data.get("subject", "(No Subject)")
-    message_id = data.get("message_id", "")
     in_reply_to = data.get("in_reply_to")
     references = data.get("references")
     text = data.get("text")
     html = data.get("html")
-    
+
     # Extract email and name from From header
     from_email, from_name = _extract_email_from_header(from_header)
-    
+
     # Idempotency: check if already processed
-    existing = await session.execute(
-        select(ProcessedWebhook).where(
-            ProcessedWebhook.webhook_id == email_id
-        )
-    )
+    existing = await session.execute(select(ProcessedWebhook).where(ProcessedWebhook.webhook_id == email_id))
     if existing.scalar_one_or_none():
         logger.info(f"Email already processed: {email_id}")
         return {"status": "already_processed", "email_id": email_id}
-    
+
     # Spam check
     if _is_spam_sender(from_email):
         logger.warning(f"Blocking spam email from: {from_email}")
@@ -278,18 +271,18 @@ async def receive_resend_webhook(
         session.add(processed)
         await session.commit()
         return {"status": "blocked_spam", "email_id": email_id}
-    
+
     # Find or create thread
     thread = None
     if in_reply_to:
         thread = await _find_thread_by_in_reply_to(session, in_reply_to)
-    
+
     if not thread and references:
         thread = await _find_thread_by_references(session, references)
-    
+
     if thread:
         # Add to existing thread
-        message = await _add_message_to_thread(
+        await _add_message_to_thread(
             session=session,
             thread=thread,
             from_email=from_email,
@@ -312,7 +305,7 @@ async def receive_resend_webhook(
             email_id=email_id,
         )
         # Update the message with body
-        message = await _add_message_to_thread(
+        await _add_message_to_thread(
             session=session,
             thread=thread,
             from_email=from_email,
@@ -325,7 +318,7 @@ async def receive_resend_webhook(
             references=references,
         )
         logger.info(f"Created new thread {thread.id}")
-    
+
     # Record as processed (idempotency)
     processed = ProcessedWebhook(
         webhook_id=email_id,
@@ -339,7 +332,7 @@ async def receive_resend_webhook(
         },
     )
     session.add(processed)
-    
+
     # Forward to admin (don't await - send in background)
     # Note: In production, consider using a task queue
     await _forward_to_admin(
@@ -349,15 +342,11 @@ async def receive_resend_webhook(
         body_text=text,
         body_html=html,
     )
-    
+
     await session.commit()
-    
+
     return {
         "status": "received",
         "email_id": email_id,
         "thread_id": str(thread.id),
     }
-
-
-# Import Depends at module level
-from fastapi import Depends

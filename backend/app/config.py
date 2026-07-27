@@ -1,5 +1,5 @@
 """Styxproxy Backend Configuration"""
-import os
+
 from functools import lru_cache
 from typing import List
 
@@ -79,10 +79,10 @@ class Settings(BaseSettings):
     # ── Redis ───────────────────────────────────────────────────────────────
     redis_url: str = "redis://localhost:6379/0"
 
-        # ── MiniMax-M2 cloud (Charon primary) ─────────────────────────────────
+    # ── MiniMax-M2 cloud (Charon primary) ─────────────────────────────────
     # P0-5 (Jul 22 2026): M2 is the Charon primary. Endpoint is api.minimax.io.
     # Set MINIMAX_API_KEY in .env to enable.
-    minimax_base_url: str = 'https://api.minimax.io/v1'
+    minimax_base_url: str = "https://api.minimax.io/v1"
 
     # ── LiteLLM (Charon LLM proxy sidecar) ──────────────────────────────────
     # P0-5 (Jul 22 2026): required for the deep health endpoint to verify
@@ -114,7 +114,6 @@ class Settings(BaseSettings):
         Warns on missing optional integration keys (Flutterwave, WhatsApp, Minimax).
         """
         import logging
-        import warnings as _warnings_module
 
         logger = logging.getLogger("app.config")
 
@@ -123,15 +122,11 @@ class Settings(BaseSettings):
 
         if not self.jwt_secret or self.jwt_secret == "your-jwt-secret-key-change-in-production":
             failures.append(
-                "JWT_SECRET is still the default placeholder. "
-                "Set JWT_SECRET to a secure value: openssl rand -base64 32"
+                "JWT_SECRET is still the default placeholder. Set JWT_SECRET to a secure value: openssl rand -base64 32"
             )
 
         if not self.admin_token or self.admin_token == "your-admin-token-change-in-production":
-            failures.append(
-                "ADMIN_TOKEN is still the default placeholder. "
-                "Set ADMIN_TOKEN to a secure value."
-            )
+            failures.append("ADMIN_TOKEN is still the default placeholder. Set ADMIN_TOKEN to a secure value.")
 
         if failures:
             raise ValueError("\n".join(failures))
@@ -147,21 +142,13 @@ class Settings(BaseSettings):
         env_warnings: list[str] = []
 
         if not self.flutterwave_secret_key:
-            env_warnings.append(
-                "FLUTTERWAVE_SECRET_KEY not set — payment processing is disabled"
-            )
+            env_warnings.append("FLUTTERWAVE_SECRET_KEY not set — payment processing is disabled")
         if not self.whatsapp_access_token:
-            env_warnings.append(
-                "WHATSAPP_ACCESS_TOKEN not set — WhatsApp messaging is disabled"
-            )
+            env_warnings.append("WHATSAPP_ACCESS_TOKEN not set — WhatsApp messaging is disabled")
         if not self.minimax_api_key:
-            env_warnings.append(
-                "MINIMAX_API_KEY not set — AI features are disabled"
-            )
+            env_warnings.append("MINIMAX_API_KEY not set — AI features are disabled")
         if not self.resend_api_key:
-            env_warnings.append(
-                "RESEND_API_KEY not set — email features are disabled"
-            )
+            env_warnings.append("RESEND_API_KEY not set — email features are disabled")
 
         if env_warnings:
             for w in env_warnings:
@@ -201,6 +188,7 @@ class Settings(BaseSettings):
         """Accept both list and comma-separated string."""
         if isinstance(v, str):
             import ast
+
             try:
                 return ast.literal_eval(v)
             except Exception:

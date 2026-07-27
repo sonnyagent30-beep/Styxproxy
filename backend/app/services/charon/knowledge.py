@@ -11,6 +11,7 @@ a liability, and the corpus is small (~5 files at launch).
 When you migrate to n8n, swap this for whatever RAG node you wire
 up there.
 """
+
 from __future__ import annotations
 
 import logging
@@ -28,12 +29,63 @@ LEARNED_DIR = Path(__file__).parents[3] / "data" / "charon" / "learned"
 SCENARIOS_DIR = Path("/root/styxproxy/scenarios")
 
 STOPWORDS = {
-    "the", "a", "an", "is", "are", "do", "you", "i", "me", "my", "we",
-    "and", "or", "of", "in", "to", "for", "can", "your", "you", "that",
-    "this", "it", "on", "with", "as", "be", "by", "from", "have", "has",
-    "had", "but", "if", "or", "so", "not", "what", "which", "how", "when",
-    "where", "why", "who", "do", "does", "did", "would", "could", "should",
-    "will", "shall", "may", "might", "must", "ought", "to",
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "do",
+    "you",
+    "i",
+    "me",
+    "my",
+    "we",
+    "and",
+    "or",
+    "of",
+    "in",
+    "to",
+    "for",
+    "can",
+    "your",
+    "you",
+    "that",
+    "this",
+    "it",
+    "on",
+    "with",
+    "as",
+    "be",
+    "by",
+    "from",
+    "have",
+    "has",
+    "had",
+    "but",
+    "if",
+    "or",
+    "so",
+    "not",
+    "what",
+    "which",
+    "how",
+    "when",
+    "where",
+    "why",
+    "who",
+    "do",
+    "does",
+    "did",
+    "would",
+    "could",
+    "should",
+    "will",
+    "shall",
+    "may",
+    "might",
+    "must",
+    "ought",
+    "to",
 }
 
 
@@ -60,13 +112,17 @@ def _chunks_for_file(path: Path, source_label: str) -> list[Chunk]:
         if line.startswith("# "):
             # flush
             if buffer:
-                chunks.append(Chunk(source=source_label, heading=current_heading or "intro", content="\n".join(buffer).strip()))
+                chunks.append(
+                    Chunk(source=source_label, heading=current_heading or "intro", content="\n".join(buffer).strip())
+                )
                 buffer = []
             current_heading = line[2:].strip()
             continue
         if line.startswith("## "):
             if buffer:
-                chunks.append(Chunk(source=source_label, heading=current_heading or "section", content="\n".join(buffer).strip()))
+                chunks.append(
+                    Chunk(source=source_label, heading=current_heading or "section", content="\n".join(buffer).strip())
+                )
                 buffer = []
             current_heading = line[3:].strip()
             continue

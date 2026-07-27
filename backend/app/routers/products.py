@@ -1,12 +1,14 @@
 """Products router - uses Plans table for pricing."""
-from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
+
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import get_session
 from app.models import Plan
-from app.schemas import ProductsResponse, ProductResponse
-
+from app.schemas import ProductResponse, ProductsResponse
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 
@@ -18,15 +20,15 @@ async def list_products(
     session: AsyncSession = Depends(get_session),
 ):
     """List all available products (active plans only)."""
-    conditions = [Plan.is_active == True]
+    conditions = [Plan.is_active]
     if plan_type:
         conditions.append(Plan.plan_type == plan_type.upper())
     if country:
         conditions.append(Plan.country == country.upper())
-    
+
     stmt = select(Plan).where(*conditions).order_by(Plan.sort_order, Plan.plan_code)
     plans = (await session.execute(stmt)).scalars().all()
-    
+
     products = [
         ProductResponse(
             plan_code=p.plan_code,

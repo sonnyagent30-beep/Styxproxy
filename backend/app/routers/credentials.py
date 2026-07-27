@@ -1,12 +1,13 @@
 """Credentials router."""
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth import get_current_account
 from app.database import get_session
 from app.models import StyxproxyCredential
-from app.schemas import CredentialsListResponse, CredentialResponse
-from app.auth import get_current_account
+from app.schemas import CredentialResponse, CredentialsListResponse
 from app.services.credential import get_active_credentials_by_phone
 
 router = APIRouter(prefix="/api/credentials", tags=["credentials"])

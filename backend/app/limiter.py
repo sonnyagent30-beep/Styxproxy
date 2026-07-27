@@ -1,4 +1,5 @@
 """Rate limiter instance — imported by routers, not main (avoids circular import)."""
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 

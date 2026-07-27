@@ -16,17 +16,17 @@ This module has two layers:
 When Dante and the provider are deployed on the VPS, only the underlying
 service stubs (app/services/dante.py, app/services/provider.py) need updating.
 """
+
 import random
 import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import StyxproxyCredential, Order
 from app.auth import get_password_hash
-
+from app.models import Order, StyxproxyCredential
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -40,6 +40,7 @@ STUB_PROXY_POOL = {
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def generate_styxproxy_username(phone: Optional[str] = None, order_id: Optional[str] = None) -> str:
     """Generate a Styxproxy proxy username.
@@ -93,6 +94,7 @@ def _stub_proxy(country: str):
 
 # ─── Provider Proxy Pipeline ───────────────────────────────────────────────────
 
+
 async def get_provider_proxy(
     plan_code: str,
     country: str,
@@ -140,13 +142,11 @@ async def get_provider_proxy(
         except Exception as e:
             last_error = str(e)
 
-    raise RuntimeError(
-        f"Provider proxy unavailable after {MAX_PROVIDER_RETRIES} attempts. "
-        f"Last error: {last_error}"
-    )
+    raise RuntimeError(f"Provider proxy unavailable after {MAX_PROVIDER_RETRIES} attempts. Last error: {last_error}")
 
 
 # ─── Dante Pipeline ───────────────────────────────────────────────────────────
+
 
 async def register_on_dante(
     upstream_ip: str,
@@ -186,6 +186,7 @@ async def register_on_dante(
 
 
 # ─── High-level Credential Creation ──────────────────────────────────────────
+
 
 async def create_credential(
     db_session: AsyncSession,
@@ -256,14 +257,13 @@ async def create_credential(
 
 # ─── Read helpers ─────────────────────────────────────────────────────────────
 
+
 async def get_credential_by_order(
     db_session: AsyncSession,
     order_id: str,
 ) -> Optional[StyxproxyCredential]:
     return (
-        await db_session.execute(
-            select(StyxproxyCredential).where(StyxproxyCredential.order_id == order_id)
-        )
+        await db_session.execute(select(StyxproxyCredential).where(StyxproxyCredential.order_id == order_id))
     ).scalar_one_or_none()
 
 
@@ -272,9 +272,7 @@ async def get_credential_by_id(
     credential_id: int,
 ) -> Optional[StyxproxyCredential]:
     return (
-        await db_session.execute(
-            select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id)
-        )
+        await db_session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id))
     ).scalar_one_or_none()
 
 
@@ -318,9 +316,7 @@ async def replace_credential(
     if not old:
         return None
 
-    order = (
-        await db_session.execute(select(Order).where(Order.order_id == old.order_id))
-    ).scalar_one_or_none()
+    order = (await db_session.execute(select(Order).where(Order.order_id == old.order_id))).scalar_one_or_none()
     if not order:
         return None
 

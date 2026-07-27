@@ -9,6 +9,7 @@ status panel and the ChatWidget fallback can detect when the LLM
 stack is down BEFORE users see a broken spinner. Charon itself
 handles per-request failover in app/services/charon/llm.py.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,13 +17,13 @@ from datetime import datetime
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, Response
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import get_session
 from app.schemas import HealthResponse
-from app.config import get_settings
 
 settings = get_settings()
 
@@ -77,7 +78,11 @@ async def _check_litellm() -> dict[str, Any]:
             latency = (datetime.utcnow() - t0).total_seconds() * 1000
             if r.status_code == 200 and "alive" in r.text.lower():
                 return {"status": "connected", "latency_ms": round(latency, 1), "error": None}
-            return {"status": "degraded", "latency_ms": round(latency, 1), "error": f"HTTP {r.status_code}: {r.text[:100]}"}
+            return {
+                "status": "degraded",
+                "latency_ms": round(latency, 1),
+                "error": f"HTTP {r.status_code}: {r.text[:100]}",
+            }
     except Exception as e:
         return {"status": "disconnected", "latency_ms": None, "error": str(e)[:200]}
 
@@ -119,7 +124,11 @@ async def _check_m2_cloud() -> dict[str, Any]:
             if r.status_code == 200:
                 return {"status": "connected", "latency_ms": round(latency, 1), "error": None}
             if r.status_code in (401, 403):
-                return {"status": "auth_error", "latency_ms": round(latency, 1), "error": f"HTTP {r.status_code} (key invalid?)"}
+                return {
+                    "status": "auth_error",
+                    "latency_ms": round(latency, 1),
+                    "error": f"HTTP {r.status_code} (key invalid?)",
+                }
             return {"status": "degraded", "latency_ms": round(latency, 1), "error": f"HTTP {r.status_code}"}
     except Exception as e:
         return {"status": "disconnected", "latency_ms": None, "error": str(e)[:200]}

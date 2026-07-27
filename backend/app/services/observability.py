@@ -6,6 +6,7 @@ when SENTRY_DSN is set in the environment (no-op otherwise).
 Redis: simple async cache with TTL. Falls back to in-process dict when
 Redis is unavailable. Used by blog router to cache list responses.
 """
+
 from __future__ import annotations
 
 import json
@@ -34,8 +35,8 @@ def init_sentry() -> None:
     try:
         import sentry_sdk
         from sentry_sdk.integrations.fastapi import FastApiIntegration
-        from sentry_sdk.integrations.starlette import StarletteIntegration
         from sentry_sdk.integrations.logging import LoggingIntegration
+        from sentry_sdk.integrations.starlette import StarletteIntegration
 
         sentry_sdk.init(
             dsn=_SENTRY_DSN,
@@ -76,6 +77,7 @@ async def get_redis() -> Any:
 
     try:
         import redis.asyncio as redis_async
+
         _redis_client = redis_async.from_url(url, decode_responses=True)
         # quick ping to fail fast if Redis is down
         await _redis_client.ping()
@@ -100,6 +102,7 @@ async def cache_get(key: str) -> Optional[Any]:
 
     # In-process fallback
     import time
+
     entry = _inproc_cache.get(key)
     if entry is None:
         return None
@@ -122,6 +125,7 @@ async def cache_set(key: str, value: Any, ttl_seconds: int = 60) -> None:
 
     # In-process fallback
     import time
+
     _inproc_cache[key] = (time.time() + ttl_seconds, value)
     # simple LRU-style cap
     if len(_inproc_cache) > 1000:

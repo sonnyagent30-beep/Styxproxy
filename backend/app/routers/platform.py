@@ -1,27 +1,26 @@
 """Platform accounts router."""
-from datetime import datetime
-from typing import Optional
-from uuid import UUID
+
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import get_current_account
 from app.database import get_session
-from app.models import Customer, PlatformAccount, MergeRequest
+from app.models import MergeRequest, PlatformAccount
 from app.schemas import (
-    PlatformRegisterRequest,
-    PlatformRegisterResponse,
-    PlatformMeResponse,
     CustomerBrief,
-    PlatformAccountResponse,
     MergeRequestRequest,
     MergeRequestResponse,
+    PlatformAccountResponse,
+    PlatformMeResponse,
+    PlatformRegisterRequest,
+    PlatformRegisterResponse,
 )
-from app.auth import get_current_account
 from app.services.audit import log_audit_event
 
 router = APIRouter(prefix="/api/platform", tags=["platform"])
+
 
 @router.post("/register", response_model=PlatformRegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register_platform(
@@ -51,6 +50,7 @@ async def register_platform(
 
     return PlatformRegisterResponse.model_validate(platform_account)
 
+
 @router.get("/me", response_model=PlatformMeResponse)
 async def get_my_account(
     session: AsyncSession = Depends(get_session),
@@ -78,6 +78,7 @@ async def get_my_account(
         ),
         accounts=[PlatformAccountResponse.model_validate(acc) for acc in accounts],
     )
+
 
 @router.post("/merge", response_model=MergeRequestResponse, status_code=status.HTTP_201_CREATED)
 async def merge_accounts(
