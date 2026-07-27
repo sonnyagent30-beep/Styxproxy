@@ -28,9 +28,16 @@ _settings = None  # lazy singleton
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
-_DANTE_API_URL() = get_settings().dante_api_url or "http://localhost:9000"
-_DANTE_API_KEY() = get_settings().dante_api_key or ""
-_DANTE_DEFAULT_PORT() = get_settings().dante_default_port or 1080
+def _DANTE_API_URL() -> str:
+    return get_settings().dante_api_url or "http://localhost:9000"
+
+
+def _DANTE_API_KEY() -> str:
+    return get_settings().dante_api_key or ""
+
+
+def _DANTE_DEFAULT_PORT() -> int:
+    return get_settings().dante_default_port or 1080
 
 ALPHANUM = string.ascii_lowercase + string.digits
 
@@ -151,8 +158,8 @@ async def register_credential(
     dante_port = _DANTE_DEFAULT_PORT()
 
     return DanteCredential(
-        bun_username=bun_username,
-        bun_password=bun_password,
+        styxproxy_username=styxproxy_username,
+        styxproxy_password=styxproxy_password,
         upstream_ip=upstream_ip,
         upstream_port=upstream_port,
         dante_port=dante_port,

@@ -22,7 +22,7 @@ from app.schemas import (
     PrecheckResponse,
     ReceiptOrderResponse,
 )
-from app.auth import get_current_account
+from app.auth import get_current_account, get_password_hash
 from app.services.credential import create_credential
 from app.services.audit import log_audit_event
 from app.services.email import (

@@ -262,9 +262,10 @@ async def refund_order(
                     customer_email=customer_email,
                     customer_name=customer.name if customer.name else "Customer",
                     order_id=order_id,
-                    amount=float(order.amount_paid_ngn or 0),
+                    original_amount=float(order.amount_paid_ngn or 0),
+                    refund_amount=float(order.amount_paid_ngn or 0),
                     currency="NGN",
-                    reason=request.reason or "Refund processed",
+                    reason=body.reason or "Refund processed",
                 )
             except Exception:
                 pass
