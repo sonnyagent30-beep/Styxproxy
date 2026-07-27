@@ -184,7 +184,12 @@ class StyxproxyCredential(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     styxproxy_username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    # Proxy auth credential — stored plaintext (not a hash). The customer
+    # uses this to authenticate to the Dante proxy server, so we need to
+    # be able to retrieve it for receipts, rotation, and admin tooling.
+    # This is NOT the customer's account password (which is hashed in
+    # customers.password_hash) — these are auth tokens, like API keys.
+    styxproxy_password: Mapped[str] = mapped_column(String(100), nullable=False)
     customer_phone: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("customers.phone"), nullable=True)
     order_id: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("orders.order_id"), nullable=True)
     pool_type: Mapped[str] = mapped_column(String(20), default="paid", nullable=False)

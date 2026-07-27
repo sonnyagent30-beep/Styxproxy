@@ -25,7 +25,6 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_password_hash
 from app.models import Order, StyxproxyCredential
 
 # ─── Constants ────────────────────────────────────────────────────────────────
@@ -225,14 +224,16 @@ async def create_credential(
     )
 
     # 3. Build the DB record
-    plaintext_password = dante["bun_password"]
-    password_hash = get_password_hash(plaintext_password)
-
+    # NOTE: styxproxy_password is stored plaintext (not hashed). This is the
+    # customer's proxy auth credential — like an API key, not an account
+    # password. We need to be able to retrieve it for receipts, rotation,
+    # and admin tooling. The customer's *account* password (in customers
+    # table) is hashed; that one never leaves the bcrypt path.
     expires_at = proxy.get("expires_at") or (datetime.now(timezone.utc) + timedelta(days=duration_days))
 
     credential = StyxproxyCredential(
         styxproxy_username=dante["bun_username"],
-        password_hash=password_hash,
+        styxproxy_password=dante["bun_password"],
         customer_phone=customer_phone,
         order_id=order_id,
         pool_type=pool_type,
@@ -252,7 +253,9 @@ async def create_credential(
     await db_session.commit()
     await db_session.refresh(credential)
 
-    return credential, plaintext_password
+    # The plaintext password is now persisted in the DB (styxproxy_password
+    # column) so we can return it from the credential object itself.
+    return credential, credential.styxproxy_password
 
 
 # ─── Read helpers ─────────────────────────────────────────────────────────────

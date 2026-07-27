@@ -14,7 +14,7 @@ from reportlab.lib.units import mm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_account, get_password_hash
+from app.auth import get_current_account
 from app.database import get_session
 from app.models import Customer, Order, StyxproxyCredential
 from app.schemas import (
@@ -489,16 +489,15 @@ async def rotate_proxy(
     from app.services import dante as dante_svc
 
     new_dante = await dante_svc.rotate_credential(
-        current_bun_username=cred.bun_username,
+        current_styxproxy_username=cred.styxproxy_username,
         upstream_ip=cred.upstream_proxy_ip or "",
         upstream_port=cred.upstream_proxy_port or 1080,
         expires_at=cred.expires_at or datetime.utcnow(),
     )
 
-    # Update DB with new credentials
-    new_hash = get_password_hash(new_dante.new_bun_password)
-    cred.bun_username = new_dante.new_bun_username
-    cred.password_hash = new_hash
+    # Update DB with new credentials (plaintext — proxy auth token, not account password)
+    cred.styxproxy_username = new_dante.new_styxproxy_username
+    cred.styxproxy_password = new_dante.new_styxproxy_password
     cred.rotation_count = current_count + 1
     await session.commit()
     await session.refresh(cred)
@@ -510,8 +509,8 @@ async def rotate_proxy(
         order_id=order_id,
         details={
             "rotation_count": current_count + 1,
-            "old_username": cred.bun_username,
-            "new_username": new_dante.new_bun_username,
+            "old_username": cred.styxproxy_username,
+            "new_username": new_dante.new_styxproxy_username,
             "upstream_ip": cred.upstream_proxy_ip,
         },
     )
@@ -527,7 +526,7 @@ async def rotate_proxy(
                 customer_email=customer_email,
                 customer_name=customer_name,
                 order_id=order_id,
-                new_username=new_dante.new_bun_username,
+                new_username=new_dante.new_styxproxy_username,
                 proxy_ip=cred.upstream_proxy_ip or "",
                 proxy_port=cred.upstream_proxy_port or 1080,
                 protocol=cred.protocol or "socks5",
@@ -550,8 +549,8 @@ async def rotate_proxy(
                 tx_ref=order.payment_reference or "",
                 phone=order.customer_phone or "",
                 channel=order.channel or "web",
-                bun_username=new_dante.new_bun_username,
-                bun_password=new_dante.new_bun_password,
+                bun_username=new_dante.new_styxproxy_username,
+                bun_password=new_dante.new_styxproxy_password,
                 proxy_ip=cred.upstream_proxy_ip or "",
                 proxy_port=cred.upstream_proxy_port or 1080,
                 expires_at=cred.expires_at,
@@ -808,12 +807,11 @@ async def get_receipt_pdf(
     date_str = order.created_at.strftime("%B %d, %Y") if order.created_at else "—"
     oid = order.order_id or "N/A"
     if cred:
-        # The credential model has styxproxy_username (not bun_username) and only stores
-        # password_hash (the plaintext is NOT persisted for security). For the receipt we
-        # show the username and a placeholder for the password — the actual plaintext was
-        # delivered to the customer via email/webhook at fulfillment time.
+        # The credential model has styxproxy_username + styxproxy_password
+        # (proxy auth tokens, stored plaintext so the customer can see them
+        # on the receipt and use them to connect to Dante).
         cred_username = cred.styxproxy_username or "N/A"
-        cred_password_display = "•••••••••••"
+        cred_password_display = cred.styxproxy_password or "N/A"
         cred_ip = cred.upstream_proxy_ip or "N/A"
         cred_port = cred.upstream_proxy_port or 8080
         cred_full = f"http://{cred_username}:{cred_password_display}@{cred_ip}:{cred_port}"

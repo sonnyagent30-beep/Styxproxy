@@ -176,7 +176,7 @@ async def register_credential(
 
 
 async def rotate_credential(
-    current_bun_username: str,
+    current_styxproxy_username: str,
     upstream_ip: str,
     upstream_port: int,
     expires_at: datetime,
@@ -184,20 +184,20 @@ async def rotate_credential(
     """
     Rotate the Dante credentials for a customer.
 
-    - Generates NEW bun_username + bun_password
+    - Generates NEW styxproxy_username + styxproxy_password
     - Re-registers on Dante, same upstream proxy (IP unchanged)
     - Invalidates the old credentials immediately
     - Customer keeps same upstream proxy IP
 
     This is the Dante-only rotation — NOT the provider IP rotation.
     """
-    new_bun_username = _random_username()
-    new_bun_password = _random_password()
+    new_styxproxy_username = _random_username()
+    new_styxproxy_password = _random_password()
 
     payload = {
-        "old_username": current_bun_username,
-        "username": new_bun_username,
-        "password": new_bun_password,
+        "old_username": current_styxproxy_username,
+        "username": new_styxproxy_username,
+        "password": new_styxproxy_password,
         "upstream_host": upstream_ip,
         "upstream_port": upstream_port,
         "expires_at": expires_at.isoformat(),
@@ -211,8 +211,8 @@ async def rotate_credential(
         pass
 
     return DanteRotateResult(
-        new_bun_username=new_bun_username,
-        new_bun_password=new_bun_password,
+        new_styxproxy_username=new_styxproxy_username,
+        new_styxproxy_password=new_styxproxy_password,
         upstream_ip=upstream_ip,
         upstream_port=upstream_port,
         dante_port=_DANTE_DEFAULT_PORT(),
