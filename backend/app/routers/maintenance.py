@@ -131,3 +131,97 @@ async def public_maintenance(session: AsyncSession = Depends(get_session)):
         ready_at=ra.description if ra else None,
         message=msg.description if msg else None,
     )
+
+
+
+# ─── Public status endpoint (Betterstack-compatible) ──────────────────────────
+# Theme A: small public status endpoint that returns overall service health.
+# Suitable for:
+# - Betterstack / Atlassian Statuspage / Instatus webhooks (poll this URL)
+# - A custom static status page that fetches this and renders a chart
+# - Uptime monitoring (any HTTP client that wants a 200 from a healthy service)
+#
+# Response shape (Statuspage-compatible):
+# {
+#   "status": { "indicator": "none|minor|major|critical", "description": "..." },
+#   "components": [
+#     {"name": "API", "status": "operational|degraded|down"},
+#     {"name": "Database", "status": "operational|degraded|down"},
+#     ...
+#   ],
+#   "incidents": []
+# }
+#
+# Caching: no cache headers by default. For Betterstack webhooks, the
+# recommendation is to cache for ~60s to avoid hammering. Add
+# Cache-Control header here if needed.
+
+@router.get("/api/public/status")
+async def public_status(session: AsyncSession = Depends(get_session)) -> dict:
+    """Public service status (Betterstack-compatible).
+
+    Returns the latest HealthSnapshot from the cron poller (M5) plus
+    computed indicator. No auth — safe to expose to public monitors.
+
+    Indicator logic:
+    - "none" (operational): overall_status == healthy
+    - "minor" (degraded): overall_status == degraded (some components
+      down but core still works)
+    - "major" (down): overall_status == unhealthy (DB down)
+    """
+    from sqlalchemy import select
+
+    from app.models import HealthSnapshot
+
+    # Read most recent snapshot (cron writes every minute)
+    stmt = select(HealthSnapshot).order_by(HealthSnapshot.created_at.desc()).limit(1)
+    result = await session.execute(stmt)
+    snap = result.scalar_one_or_none()
+
+    if snap is None:
+        # No snapshot yet — likely fresh deploy before first cron ran
+        return {
+            "status": {
+                "indicator": "unknown",
+                "description": "No health data yet. Status will populate within 1 minute.",
+            },
+            "components": [],
+            "incidents": [],
+        }
+
+    # Map component status
+    def component_status(connected: bool, is_core: bool = False) -> str:
+        if connected:
+            return "operational"
+        if is_core:
+            return "down"
+        return "degraded"
+
+    components = [
+        {"name": "API", "status": "operational"},  # We're responding, so API is up
+        {"name": "Database", "status": component_status(snap.db_connected, is_core=True)},
+        {"name": "Redis", "status": component_status(snap.redis_connected)},
+        {"name": "M2 Cloud (Charon primary)", "status": component_status(snap.m2_connected)},
+        {"name": "LiteLLM (Charon fallback)", "status": component_status(snap.litellm_connected)},
+        {"name": "Ollama (Charon fallback)", "status": component_status(snap.ollama_connected)},
+        {"name": "Charon (support bot)", "status": component_status(snap.charon_available)},
+    ]
+
+    # Map overall to statuspage indicator
+    indicator_map = {
+        "healthy": ("none", "All systems operational"),
+        "degraded": ("minor", "Some non-core components are degraded"),
+        "unhealthy": ("major", "Core systems are down — service degraded"),
+    }
+    indicator, description = indicator_map.get(
+        snap.overall_status, ("unknown", f"Status: {snap.overall_status}")
+    )
+
+    return {
+        "status": {"indicator": indicator, "description": description},
+        "components": components,
+        "incidents": [],
+        "last_updated": snap.created_at.isoformat() if snap.created_at else None,
+        "source": snap.source,
+        "latency_ms": float(snap.total_latency_ms) if snap.total_latency_ms is not None else None,
+    }
