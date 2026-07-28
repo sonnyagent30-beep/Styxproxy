@@ -22,6 +22,15 @@ export default function CheckoutPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Bug walk theme-B fix: precheck state. Map of plan_code → precheck result.
+  // Default {checking: true} until precheck returns. Pay button disabled
+  // until every cart item has available=true.
+  const [precheck, setPrecheck] = useState<Record<string, {
+    checking: boolean;
+    available?: boolean;
+    reason?: string;
+    etaSeconds?: number;
+  }>>({});
 
   useEffect(() => {
     const stored = sessionStorage.getItem('styxproxy_cart');
@@ -40,6 +49,59 @@ export default function CheckoutPage() {
       router.replace('/order');
     }
   }, [router]);
+
+  // Bug walk theme-B fix: when cart loads or changes, fire a precheck per item.
+  // Precheck tells us if the provider has inventory for that plan+country+qty.
+  // Display "Usually delivered in ~Xs" + warn if any item unavailable.
+  useEffect(() => {
+    if (cart.length === 0) return;
+
+    let cancelled = false;
+    const runPrecheck = async () => {
+      // Initialize all to checking state
+      const initial: typeof precheck = {};
+      cart.forEach(item => { initial[item.plan_code] = { checking: true }; });
+      setPrecheck(initial);
+
+      for (const item of cart) {
+        try {
+          const r = await api.precheckOrder(
+            item.plan_code,
+            item.country_code || 'NG',
+            item.quantity,
+          );
+          if (cancelled) return;
+          if (r.data) {
+            setPrecheck(prev => ({
+              ...prev,
+              [item.plan_code]: {
+                checking: false,
+                available: r.data!.available,
+                reason: r.data!.reason,
+                etaSeconds: r.data!.estimated_delivery_seconds,
+              },
+            }));
+          } else {
+            // Network error or 5xx — treat as available=true so we don't block
+            // the customer from buying. Worst case: backend will fail at
+            // /api/payments/initiate anyway.
+            setPrecheck(prev => ({
+              ...prev,
+              [item.plan_code]: { checking: false, available: true, etaSeconds: 60 },
+            }));
+          }
+        } catch {
+          if (cancelled) return;
+          setPrecheck(prev => ({
+            ...prev,
+            [item.plan_code]: { checking: false, available: true, etaSeconds: 60 },
+          }));
+        }
+      }
+    };
+    runPrecheck();
+    return () => { cancelled = true; };
+  }, [cart]);
 
   const updateQuantity = (plan_code: string, delta: number) => {
     setCart(prev => {
@@ -64,10 +126,26 @@ export default function CheckoutPage() {
 
   const subtotal = cart.reduce((sum, i) => sum + i.price_ngn * i.quantity, 0);
 
+  // Bug walk theme-B fix: aggregate precheck state for the Pay button.
+  // Disabled while any item is still checking OR any item is unavailable.
+  const allChecked = cart.length > 0 && cart.every(
+    item => !precheck[item.plan_code]?.checking,
+  );
+  const anyUnavailable = cart.some(
+    item => precheck[item.plan_code]?.available === false,
+  );
+  const payDisabled = loading || cart.length === 0 || !allChecked || anyUnavailable;
+
   const handlePay = async () => {
     if (cart.length === 0) return;
     setError('');
     setLoading(true);
+
+    // Bug walk theme-B fix: this checkout currently only handles single-item
+    // orders via /api/payments/initiate. Multi-item cart bug (#6) is being
+    // tracked separately. For now, take the first item — the rest of the
+    // cart is silently dropped (this is the pre-existing behavior).
+    const firstItem = cart[0];
 
     try {
       // Store email in sessionStorage for thank-you page
@@ -175,6 +253,24 @@ export default function CheckoutPage() {
                         </p>
                       )}
                       <p className="text-sm text-[var(--muted)]">{formatPrice(item.price_ngn)} each</p>
+                      {/* Bug walk theme-B fix: per-item precheck badge */}
+                      {precheck[item.plan_code]?.checking && (
+                        <p className="text-xs text-[var(--muted)] mt-1 flex items-center gap-1">
+                          <span className="inline-block w-3 h-3 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+                          Checking availability…
+                        </p>
+                      )}
+                      {precheck[item.plan_code]?.available === true && precheck[item.plan_code]?.etaSeconds != null && (
+                        <p className="text-xs text-green-400 mt-1">
+                          ✓ Available · Usually delivered in ~{precheck[item.plan_code]!.etaSeconds}s
+                        </p>
+                      )}
+                      {precheck[item.plan_code]?.available === false && (
+                        <p className="text-xs text-red-400 mt-1">
+                          ✗ Currently unavailable
+                          {precheck[item.plan_code]?.reason ? ` (${precheck[item.plan_code]!.reason})` : ''}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -257,10 +353,16 @@ export default function CheckoutPage() {
         {/* Pay Button */}
         <button
           onClick={handlePay}
-          disabled={loading || cart.length === 0}
+          disabled={payDisabled}
           className="w-full py-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-xl transition-colors text-lg"
         >
-          {loading ? 'Redirecting to payment...' : `Pay ${formatPrice(subtotal)}`}
+          {loading
+            ? 'Redirecting to payment...'
+            : !allChecked
+              ? 'Checking availability...'
+              : anyUnavailable
+                ? 'Some items unavailable'
+                : `Pay ${formatPrice(subtotal)}`}
         </button>
 
         <p className="text-xs text-center text-[var(--muted)] mt-3">

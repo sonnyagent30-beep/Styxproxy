@@ -212,6 +212,31 @@ class ApiClient {
     });
   }
 
+  // Orders
+  // Bug walk theme-B fix: precheck endpoint wired into FE checkout.
+  // Returns provider availability + estimated delivery seconds.
+  // Used by /order/checkout to warn customers if plan is unavailable
+  // before they hit the payment button.
+  async precheckOrder(
+    planCode: string,
+    country: string,
+    quantity: number = 1,
+  ): Promise<ApiResponse<{
+    available: boolean;
+    reason?: string;
+    price_ngn?: number;
+    estimated_delivery_seconds: number;
+  }>> {
+    return this.request('/orders/precheck', {
+      method: 'POST',
+      body: JSON.stringify({
+        plan_code: planCode,
+        country,
+        quantity,
+      }),
+    });
+  }
+
   // Trials
   async claimTrial(disclaimerAccepted: boolean): Promise<ApiResponse<{ trial_id: number; status: string; styxproxy_credential: { styxproxy_username: string; upstream_proxy_ip: string; upstream_proxy_port: number; expires_at: string } }>> {
     return this.request('/trials/claim', {
