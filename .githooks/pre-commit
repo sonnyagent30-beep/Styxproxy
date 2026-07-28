@@ -1,0 +1,27 @@
+#!/bin/bash
+# Sprint 1.4 pre-commit hook: run gitleaks on staged files
+# Bypass with: git commit --no-verify
+set -e
+
+# Only run if gitleaks is installed
+if ! command -v gitleaks &> /dev/null; then
+    echo "WARNING: gitleaks not installed, skipping secret scan"
+    exit 0
+fi
+
+# Get list of staged files (added/modified)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+if [ -z "$STAGED" ]; then
+    exit 0
+fi
+
+# Run gitleaks against the staged content
+gitleaks protect --config .gitleaks/gitleaks.toml --staged --no-banner 2>&1
+RC=$?
+
+if [ $RC -ne 0 ]; then
+    echo ""
+    echo "❌ gitleaks found secrets in staged files. Aborting commit."
+    echo "Bypass with: git commit --no-verify"
+    exit 1
+fi
