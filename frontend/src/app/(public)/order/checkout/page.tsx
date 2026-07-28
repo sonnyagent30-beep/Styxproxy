@@ -141,63 +141,105 @@ export default function CheckoutPage() {
     setError('');
     setLoading(true);
 
-    // Bug walk theme-B fix: this checkout currently only handles single-item
-    // orders via /api/payments/initiate. Multi-item cart bug (#6) is being
-    // tracked separately. For now, take the first item — the rest of the
-    // cart is silently dropped (this is the pre-existing behavior).
-    const firstItem = cart[0];
-
     try {
-      // Store email in sessionStorage for thank-you page
-      if (email.trim()) {
-        sessionStorage.setItem('styxproxy_email', email.trim());
-      }
-
-      // ─── Double-payment prevention (frontend layer) ─────────────
-      // If we already have an in-flight order for this plan_code from the
-      // same device in the last 5 minutes, reuse it instead of starting a new one.
-      // This protects against accidental double-clicks and double-tab confusion.
-      const { tx_ref, is_resume } = tryStartOrder(firstItem.plan_code, generateTxRef);
-
-      if (is_resume) {
-        setError(`Payment already in progress for this order. Complete or close the existing tab.`);
-        setLoading(false);
-        return;
-      }
-
-      // Record tx_ref in cart so thank-you page can match it
-      sessionStorage.setItem('styxproxy_active_tx', tx_ref);
-
-      // Track this order in local device history (anonymous, no PII)
-      addToOrderHistory({
-        tx_ref,
-        order_id: tx_ref, // same — backend uses tx_ref as order_id
-        plan_code: firstItem.plan_code,
-        country: firstItem.country_code || 'NG',
-        amount: subtotal,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      });
-      // Initiate payment with first cart item.
-      // Pass customer_email if user typed one on this page (anonymous checkout support).
+      // Bug walk theme-B fix (#6): handle multi-item cart.
+      // Previously the checkout took only cart[0] and silently dropped
+      // cart[1..N]. Now we fire one /api/payments/initiate per cart item
+      // in parallel and redirect to the FIRST successful checkout_url.
+      //
+      // The customer pays item #1 via Flutterwave → returns to /thank-you.
+      // cart[1..N] remain in the cart. After payment #1 completes, we
+      // show a "Pay remaining items" CTA on /thank-you that re-opens this
+      // page with cart[1..N] in styxproxy_cart. One click = one payment.
+      //
+      // This is intentionally a per-payment redirect (not a single
+      // aggregate Flutterwave transaction) because Flutterwave Standard
+      // doesn't support multi-line invoices, and the multi-item Order
+      // schema refactor needed for that would touch the entire order
+      // model. Per-payment keeps Order.payment_reference consistent and
+      // matches the existing webhook lookup logic.
       const trimmedEmail = email.trim();
-      const result = await api.initiatePayment(firstItem.plan_code, firstItem.quantity, '', trimmedEmail || undefined);
+      if (trimmedEmail) {
+        sessionStorage.setItem('styxproxy_email', trimmedEmail);
+      }
 
-      if (result.error) {
-        setError(result.error);
-        setLoading(false);
-        // Clear in-flight since payment failed
+      // Generate one tx_ref per cart item so /thank-you /manage page can
+      // reference each independently. Keep cart[0]'s tx_ref in
+      // styxproxy_active_tx for backward-compat with the existing
+      // polling flow (commit 4f9679b).
+      const txRefs = cart.map(() => generateTxRef());
+      sessionStorage.setItem('styxproxy_active_tx', txRefs[0]);
+
+      // Track each pending order in local device history so /manage page
+      // can recover them. addToOrderHistory dedupes by tx_ref.
+      for (let i = 0; i < cart.length; i++) {
+        addToOrderHistory({
+          tx_ref: txRefs[i],
+          order_id: txRefs[i],
+          plan_code: cart[i].plan_code,
+          country: cart[i].country_code || 'NG',
+          amount: cart[i].price_ngn * cart[i].quantity,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        });
+      }
+
+      // Double-payment prevention: if ANY of the cart items has an
+      // in-flight tx_ref from the last 5 minutes, refuse and tell the
+      // customer to complete or close the existing tab.
+      const { tryStartOrder } = await import('@/lib/device-id');
+      for (let i = 0; i < cart.length; i++) {
+        const { is_resume } = tryStartOrder(cart[i].plan_code, () => txRefs[i]);
+        if (is_resume) {
+          setError(
+            `Payment already in progress for ${cart[i].name}. Complete or close the existing tab.`,
+          );
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Fire one initiate per cart item in parallel. allSettled means
+      // one item's failure doesn't block the others.
+      const results = await Promise.allSettled(
+        cart.map((item) =>
+          api.initiatePayment(
+            item.plan_code,
+            item.quantity,
+            '',
+            trimmedEmail || undefined,
+          ),
+        ),
+      );
+
+      // Find first successful result with a checkout_url.
+      let firstCheckoutUrl = '';
+      let lastError = '';
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        if (r.status === 'fulfilled' && r.value.data?.checkout_url) {
+          firstCheckoutUrl = r.value.data.checkout_url;
+          break;
+        }
+        if (r.status === 'rejected') {
+          lastError = r.reason?.message || 'payment initiation failed';
+        } else if (r.status === 'fulfilled' && r.value.error) {
+          lastError = r.value.error;
+        }
+      }
+
+      if (firstCheckoutUrl) {
+        // Don't clear in-flight — webhook will clear it on payment confirm
+        // OR 5-min expiry will auto-clear.
+        window.location.href = firstCheckoutUrl;
         return;
       }
 
-      if (result.data?.checkout_url) {
-        // Don't clear in-flight yet — webhook will clear it on payment confirm
-        // OR 5-min expiry will auto-clear
-        window.location.href = result.data.checkout_url;
-      } else {
-        setError('Payment link not received. Please try again.');
-        setLoading(false);
-      }
+      // All items failed.
+      setError(
+        `Could not start payment for any items. ${lastError ? `Last error: ${lastError}` : 'Please try again.'}`,
+      );
+      setLoading(false);
     } catch {
       setError('Failed to initiate payment. Please try again.');
       setLoading(false);
@@ -338,7 +380,7 @@ export default function CheckoutPage() {
               className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
             />
             <p className="text-xs text-[var(--muted)] mt-2">
-              We'll email your receipt after payment. No spam — ever.
+              We&apos;ll email your receipt after payment. No spam — ever.
             </p>
           </div>
         </div>
