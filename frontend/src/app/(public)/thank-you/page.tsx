@@ -717,8 +717,12 @@ function ThankYouContent() {
         {!loading && !order && attempts >= maxAttempts && (
           <div className="text-center animate-fade-in">
             <h1 className="text-2xl font-bold mb-2">Still Processing</h1>
-            <p className="text-[var(--muted)] mb-6">
-              Your order is being processed. Please check back in a few minutes.
+            <p className="text-[var(--muted)] mb-2">
+              Your order is still being processed. Your payment was
+              received — credentials are being generated.
+            </p>
+            <p className="text-sm text-[var(--muted)] mb-6">
+              Reference: <span className="font-mono">{txRef}</span>
             </p>
             <Link
               href={`/manage?ref=${txRef}`}
@@ -726,6 +730,11 @@ function ThankYouContent() {
             >
               Check Order Status
             </Link>
+            <p className="text-xs text-[var(--muted)] mt-4">
+              Tip: paste your reference (STX-XXXXXX) in the search box on
+              the next page. If it shows credentials, you can use them
+              immediately.
+            </p>
           </div>
         )}
       </div>
