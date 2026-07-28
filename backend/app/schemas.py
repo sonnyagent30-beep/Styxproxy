@@ -307,18 +307,38 @@ class StyxproxyCredentialBrief(BaseModel):
 
 
 class OrderCreateRequest(BaseModel):
-    """Request to create an order."""
+    """Request to create an order.
+
+    Added optional customer_email to mirror PaymentInitiateRequest — anonymous
+    customers who reached the order page via Flutterwave checkout (handled
+    by /payments/initiate) need to be resolvable here too, otherwise the
+    "customer missing" gate 400's even though the payment was successful.
+
+    Backward compat: existing callers that send only phone or only payment_reference
+    keep working unchanged.
+    """
 
     plan_code: str = Field(..., min_length=1, max_length=50)
     country: str = Field(..., min_length=2, max_length=10)
     quantity: int = Field(default=1, ge=1)
     payment_reference: Optional[str] = Field(None, max_length=100)
+    customer_email: Optional[str] = Field(None, max_length=255)
     idempotency_key: Optional[str] = Field(None, max_length=100)
 
     @field_validator("country")
     @classmethod
-    def validate_country_code(cls, v: str) -> str:
+    def validate_country_code(cls, v):
         return validate_country(v)
+
+    @field_validator("customer_email")
+    @classmethod
+    def validate_email(cls, v):
+        if v is None or v == "":
+            return None
+        v = v.strip().lower()
+        if "@" not in v or " " in v or len(v) > 255:
+            raise ValueError("invalid email")
+        return v
 
 
 class OrderResponse(BaseModel):

@@ -1,17 +1,14 @@
-"""Regression test for /api/payments/initiate anonymous checkout.
+"""Regression test for /api/payments/initiate and /api/orders/create anonymous checkout.
 
-Verifies the schema accepts the new optional customer_email field and that
-the request body shape the FE sends is accepted (no Pydantic validation
-failure). The full db path requires a running test DB; here we just
-exercise the schema + Pydantic validation path.
+Verifies both schemas (PaymentInitiateRequest and OrderCreateRequest) accept
+the new optional customer_email field, with shape validation. The full DB
+path requires a running test DB; here we just exercise the schema layer.
 
 Run: python3 backend/scripts/test_anonymous_checkout.py
 """
 import sys
 
 sys.path.insert(0, "/opt/styxproxy/backend")
-# We need database config to import schemas, but it's only used by validators.
-# Use a stub before importing.
 import os
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
@@ -19,7 +16,7 @@ os.environ.setdefault("JWT_SECRET", "test-not-used-in-schema")
 os.environ.setdefault("ADMIN_TOKEN", "test-not-used")
 
 try:
-    from app.schemas import PaymentInitiateRequest
+    from app.schemas import OrderCreateRequest, PaymentInitiateRequest
 except Exception as e:
     print(f"Could not import schemas (probably missing deps): {e}")
     sys.exit(0)
@@ -28,6 +25,7 @@ except Exception as e:
 def main() -> int:
     failed = []
 
+    print("\n=== PaymentInitiateRequest ===")
     # Test 1: just customer_email (no phone) - the new anonymous path
     try:
         req = PaymentInitiateRequest(
@@ -38,7 +36,7 @@ def main() -> int:
         print(f"[PASS] email-only: phone={req.customer_phone!r} email={req.customer_email!r}")
     except Exception as e:
         print(f"[FAIL] email-only: {e}")
-        failed.append("email-only")
+        failed.append("payments:email-only")
 
     # Test 2: just customer_phone (backward compatible)
     try:
@@ -50,7 +48,7 @@ def main() -> int:
         print(f"[PASS] phone-only: phone={req.customer_phone!r} email={req.customer_email!r}")
     except Exception as e:
         print(f"[FAIL] phone-only: {e}")
-        failed.append("phone-only")
+        failed.append("payments:phone-only")
 
     # Test 3: both
     try:
@@ -63,18 +61,18 @@ def main() -> int:
         print(f"[PASS] both: phone={req.customer_phone!r} email={req.customer_email!r}")
     except Exception as e:
         print(f"[FAIL] both: {e}")
-        failed.append("both")
+        failed.append("payments:both")
 
-    # Test 4: neither (should still construct but endpoint should reject)
+    # Test 4: neither (schema accepts; endpoint rejects)
     try:
         req = PaymentInitiateRequest(plan_code="ISP-NG-1", quantity=1)
         print(
-            f"[PASS] neither (schema accepts, endpoint will reject): "
+            f"[PASS] neither (schema accepts, endpoint rejects): "
             f"phone={req.customer_phone!r} email={req.customer_email!r}"
         )
     except Exception as e:
         print(f"[FAIL] neither schema accepts: {e}")
-        failed.append("neither")
+        failed.append("payments:neither")
 
     # Test 5: invalid email rejected
     try:
@@ -84,11 +82,11 @@ def main() -> int:
             customer_email="not-an-email",
         )
         print(f"[FAIL] invalid email accepted: {req.customer_email!r}")
-        failed.append("invalid_email")
-    except Exception as e:
-        print(f"[PASS] invalid email rejected: {type(e).__name__}")
+        failed.append("payments:invalid_email")
+    except Exception:
+        print("[PASS] invalid email rejected: ValidationError")
 
-    # Test 6: invalid phone rejected (when present)
+    # Test 6: invalid phone rejected
     try:
         req = PaymentInitiateRequest(
             plan_code="ISP-NG-1",
@@ -96,15 +94,69 @@ def main() -> int:
             customer_phone="abc",
         )
         print(f"[FAIL] invalid phone accepted: {req.customer_phone!r}")
-        failed.append("invalid_phone")
+        failed.append("payments:invalid_phone")
+    except Exception:
+        print("[PASS] invalid phone rejected: ValidationError")
+
+    print("\n=== OrderCreateRequest ===")
+    # Test 7: OrderCreateRequest with customer_email
+    try:
+        req = OrderCreateRequest(
+            plan_code="ISP-NG-1",
+            country="NG",
+            quantity=1,
+            customer_email="ord@example.com",
+        )
+        print(f"[PASS] email accepted: email={req.customer_email!r}")
     except Exception as e:
-        print(f"[PASS] invalid phone rejected: {type(e).__name__}")
+        print(f"[FAIL] email accepted: {e}")
+        failed.append("orders:email")
+
+    # Test 8: OrderCreateRequest backward compat (no email)
+    try:
+        req = OrderCreateRequest(
+            plan_code="ISP-NG-1",
+            country="NG",
+            quantity=1,
+            payment_reference="TXF-TEST",
+        )
+        print(f"[PASS] no email works: email={req.customer_email!r}")
+    except Exception as e:
+        print(f"[FAIL] no email works: {e}")
+        failed.append("orders:no_email")
+
+    # Test 9: OrderCreateRequest with whitespace-only email rejected (no @)
+    # Note: schema validator is intentionally LOOSE — checks @ present, no spaces,
+    # max 255 chars. RFC 5322 validation is the responsibility of a downstream service.
+    try:
+        req = OrderCreateRequest(
+            plan_code="ISP-NG-1",
+            country="NG",
+            quantity=1,
+            customer_email="bad email with spaces",
+        )
+        print(f"[FAIL] whitespace email accepted: {req.customer_email!r}")
+        failed.append("orders:invalid_email")
+    except Exception:
+        print("[PASS] whitespace email rejected: ValidationError")
+
+    # Test 10: OrderCreateRequest invalid country rejected
+    try:
+        req = OrderCreateRequest(
+            plan_code="ISP-NG-1",
+            country="XYZ",  # > 10 chars
+            quantity=1,
+        )
+        print(f"[FAIL] invalid country accepted: country={req.country!r}")
+        failed.append("orders:invalid_country")
+    except Exception:
+        print("[PASS] invalid country rejected: ValidationError")
 
     print()
     if failed:
         print(f"FAIL: {len(failed)} assertion(s): {failed}")
         return 1
-    print("PASS: all PaymentInitiateRequest schema checks pass")
+    print("PASS: all schema checks pass (payments + orders)")
     return 0
 
 

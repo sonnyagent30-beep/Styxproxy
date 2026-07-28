@@ -31,6 +31,7 @@ from app.schemas import (
 )
 from app.services.audit import log_audit_event
 from app.services.credential import create_credential
+from app.services.customer import get_or_create_customer
 from app.services.email import (
     send_credentials_rotated_email,
     send_new_order_notification,
@@ -113,11 +114,30 @@ async def create_order(
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_account),
 ):
-    customer = current_user["customer"]
-    platform_account = current_user["platform_account"]
+    # Get the JWT-resolved customer (existing customers keep their phone)
+    customer = current_user.get("customer")
+    platform_account = current_user.get("platform_account")
     device_id = current_user.get("device_id")
-    if not customer:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+
+    # For anonymous checkout — fall back to request body to resolve/create
+    # the Customer row (mirrors /payments/initiate). If JWT-derived
+    # customer exists, prefer it (real phone + last_used_at history).
+    if customer is None:
+        customer = await get_or_create_customer(
+            session,
+            phone=None,
+            email=body.customer_email,
+            platform_account=platform_account,
+        )
+        if customer is None:
+            # No customer_email supplied AND no JWT customer — reject with
+            # the SAME message current behavior used so FE scripts get the
+            # same hint.
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No customer profile found",
+            )
+
     price = PRODUCT_PRICES.get(body.plan_code)
     if not price:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
