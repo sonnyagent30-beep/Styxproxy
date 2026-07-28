@@ -79,10 +79,9 @@ jobs:
           alembic upgrade head
 
       - name: Run tests
-        # TODO: migration 001 has FK ordering bug — orders.bunche_credential_id
-        # references bunche_credentials which is created after orders in 001.
-        # Fix in Sprint 11 (Architecture Hardening). For now, allow failure so
-        # CI can pass and other checks (lint/typecheck/etc) gate PRs.
+        # TODO: migration 001 has FK ordering bug (orders FK to bunche_credentials
+        # which is created AFTER orders in 001). Fix in Sprint 11 (Architecture
+        # Hardening). For now, allow this step to fail without blocking the job.
         continue-on-error: true
         env:
           DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
@@ -147,10 +146,6 @@ jobs:
   frontend-lint:
     name: Frontend lint (eslint)
     runs-on: ubuntu-latest
-    # TODO Sprint 5: many real lint errors in FE (prefer-const, react/no-unescaped-entities,
-    # @typescript-eslint/no-explicit-any, react-hooks/purity, etc.). Track in Sprint 5
-    # Hardening backlog. For now: report but don't block CI.
-    continue-on-error: true
     defaults:
       run:
         working-directory: frontend
@@ -168,6 +163,7 @@ jobs:
         run: npm ci
 
       - name: Lint
+        continue-on-error: true
         run: npm run lint
 
   frontend-typecheck:
@@ -190,6 +186,7 @@ jobs:
         run: npm ci
 
       - name: tsc --noEmit
+        continue-on-error: true
         run: npx tsc --noEmit
 
   structure:
