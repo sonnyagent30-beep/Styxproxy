@@ -408,13 +408,18 @@ async def setup_admin_step2(
 
 
 @router.post("/login", response_model=AdminLoginResponse)
+@limiter.limit("10/5minute", key_func=get_remote_address)
 async def login_admin(
-    request: AdminLoginRequest,
+    request: Request,  # Theme A: required by slowapi (must be first param)
+    body: AdminLoginRequest,  # Theme A: renamed from 'request' to avoid shadowing
     session: AsyncSession = Depends(get_session),
 ):
-    """Legacy login: phone + PIN (for backward compat during migration)."""
+    """Legacy login: phone + PIN (for backward compat during migration).
+
+    Theme A: 10 logins / 5 minutes / IP rate limit (matches /login/email).
+    """
     # Get admin by phone
-    stmt = select(AdminAuth).where(AdminAuth.admin_phone == request.admin_phone)
+    stmt = select(AdminAuth).where(AdminAuth.admin_phone == body.admin_phone)
     result = await session.execute(stmt)
     admin = result.scalar_one_or_none()
 
@@ -432,7 +437,7 @@ async def login_admin(
         )
 
     # Verify PIN
-    if not admin.pin_hash or not verify_password(request.pin, admin.pin_hash):
+    if not admin.pin_hash or not verify_password(body.pin, admin.pin_hash):
         admin.failed_attempts += 1
         if admin.failed_attempts >= 5:
             admin.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
@@ -443,7 +448,7 @@ async def login_admin(
         )
 
     # TOTP check
-    if admin.totp_enabled and not request.totp_code:
+    if admin.totp_enabled and not body.totp_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="TOTP code required",
@@ -455,17 +460,17 @@ async def login_admin(
     await session.commit()
 
     role = "admin"
-    stmt = select(AdminInvite).where(AdminInvite.used_by == request.admin_phone)
+    stmt = select(AdminInvite).where(AdminInvite.used_by == body.admin_phone)
     result = await session.execute(stmt)
     invite = result.scalar_one_or_none()
     if invite:
         role = invite.role
 
-    token = create_admin_access_token(admin.email or request.admin_phone, role)
+    token = create_admin_access_token(admin.email or body.admin_phone, role)
 
     return AdminLoginResponse(
         access_token=token,
-        email=admin.email or request.admin_phone,
+        email=admin.email or body.admin_phone,
         role=role,
         totp_enabled=admin.totp_enabled,
         expires_in=settings.jwt_expire_minutes * 60,
@@ -473,7 +478,7 @@ async def login_admin(
 
 
 @router.post("/login/email", response_model=AdminLoginResponse)
-@limiter.limit("10/minute", key_func=get_remote_address)
+@limiter.limit("10/5minute", key_func=get_remote_address)
 async def login_admin_email(
     request: Request,  # Sprint 5: required by slowapi (must be first param)
     body: AdminLoginEmailRequest,  # Sprint 5: renamed from 'request' to avoid shadowing
