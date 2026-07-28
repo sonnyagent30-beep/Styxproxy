@@ -412,3 +412,132 @@ for f in "${SYNC_FILES[@]}"; do
 done
 ssh -i ~/.ssh/styxproxy-interserver root@162.35.184.69 "find /opt/styxproxy/backend -name __pycache__ -type d -exec rm -rf {} +; systemctl restart styxproxy-api.service"
 \\`\\`\\`
+
+---
+
+## §10 DNS Cutover (Cloudflare)
+
+**When**: Migrating domain between hosts, or pointing to a new VPS.
+
+### Current DNS state
+- `styxproxy.com` → Cloudflare-proxied (proxy enabled, real IP hidden)
+- `api.styxproxy.com` → Cloudflare A record → `162.35.184.69` (Interserver)
+- Admin pages same.
+
+### Cutover procedure (5-step)
+
+1. **Pre-cut**: Lower DNS TTL on the affected records to 60s at Cloudflare
+   \\`\\`\\`bash
+   CF_API="https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records/$CF_RECORD_ID"
+   curl -s -X PATCH "$CF_API" -H "Authorization: Bearer $CF_TOKEN" \\
+     -H "Content-Type: application/json" \\
+     -d '{"type":"A","name":"api","content":"162.35.184.69","ttl":60}'
+   \\`\\`\\`
+
+2. **Wait 24 hours** for old TTLs to expire across global resolvers.
+
+3. **New server ready + nginx configured** with LE certs (try `certbot --nginx -d api.styxproxy.com`).
+
+4. **Cutover** (atomic DNS swap, ~5 seconds of stale-cache probability):
+   \\`\\`\\`bash
+   curl -s -X PATCH "$CF_API" -H "Authorization: Bearer $CF_TOKEN" \\
+     -H "Content-Type: application/json" \\
+     -d '{"type":"A","content":"$NEW_IP"}'
+   \\`\\`\\`
+
+5. **Verify**:  From a different network (`curl --resolve api.styxproxy.com:443:$NEW_IP https://api.styxproxy.com/api/v1/health`).
+   After 24h, restore TTL to 3600.
+
+### Rollback
+- Re-point DNS to old IP (same patch, just flip content).
+- DNS will revert in ≤TTL window (1-60s if TTL was lowered).
+
+---
+
+## §11 Monitoring (Prometheus node_exporter)
+
+**Installed**: `2026-07-28 17:24 UTC` on Interserver via apt package `prometheus-node-exporter`.
+**Bound to**: `:9100` on `127.0.0.1` (binds to all interfaces — secured by UFW).
+**Unit**: `/lib/systemd/system/prometheus-node-exporter.service` (auto-start enabled).
+
+### Network access control (UFW)
+
+\\`\\`\\`bash
+# External scrape blocked by default
+# (UFW policy = DROP, only 22/80/443/1080/8000/5432/6379/9000/1081/9100 allowed)
+
+# Contabo (Prometheus scraper) only:
+ufw allow from 84.247.132.12 to any port 9100 proto tcp comment "prometheus scrape from Contabo"
+
+# Verify
+ufw status | grep 9100
+# 9100/tcp   ALLOW   84.247.132.12   # prometheus scrape from Contabo
+\\`\\`\\`
+
+### Test scrape (from Contabo)
+
+\\`\\`\\`bash
+curl -s http://162.35.184.69:9100/metrics | grep '^node_' | head -5
+# node_arp_entries{device="eth0"} 1
+# node_boot_time_seconds 1.785...
+# node_context_switches_total 1.04e+07
+\\`\\`\\`
+
+### What it exposes
+- CPU seconds per mode (idle, system, user, iowait, etc.)
+- Load average (1m/5m/15m)
+- Memory (MemTotal, MemFree, Buffers, Cached, etc.)
+- Disk I/O bytes and operations
+- Network interfaces bytes and packets
+- Filesystem usage per mount
+- ARP entries, context switches, interrupts
+
+### Future: connect to Grafana/Prometheus
+- Set up Prometheus on Contabo: `apt install prometheus`
+- Add scrape config to `/etc/prometheus/prometheus.yml`:
+  \\`\\`\\`yaml
+  scrape_configs:
+    - job_name: 'styxproxy-interserver'
+      static_configs:
+        - targets: ['162.35.184.69:9100']
+          labels: { hostname: 'interserver', env: 'production' }
+  \\`\\`\\`
+- Add Grafana: `apt install grafana`, configure Prometheus as data source.
+- Dashboard: import community Node Exporter Full ID `1860`.
+
+### Restart / reconfigure
+\\`\\`\\`bash
+systemctl restart prometheus-node-exporter
+# Edit /etc/default/prometheus-node-exporter to change ARGS (e.g. --web.listen-address=':' to bind all)
+systemctl edit prometheus-node-exporter  # for overriding unit
+journalctl -u prometheus-node-exporter -n 50
+\\`\\`\\`
+
+---
+
+## §12 Backup Pipeline (Cross-Reference)
+
+### Overview
+- **Daily 3:05 AM UTC**: `pg_dump` → gzip → age-encrypt → shred plaintext → rclone copy to B2
+- **Weekly Sun 4 AM UTC**: DR drill (B2 → age decrypt → gunzip → restore to test DB → verify)
+- **Both run from Contabo**, NOT Interserver (cron on Contabo orchestrates via SSH)
+
+### Verified dates
+- `2026-07-28 17:23 UTC` — DR drill PASSED (23 tables, 2 admin_auth rows)
+- `2026-07-28 11:37 UTC` — daily backup PASSED (44K dump, encrypted to B2)
+
+### Files
+- Backup script: `/root/.hermes/scripts/styxproxy_pg_dump_to_b2.sh`
+- DR drill script: `/root/.hermes/scripts/styxproxy_dr_drill.sh`
+- Age key (X25519): `/root/.hermes/keys/age-backup.key` (chmod 600, **MUST be backed up off-VPS**)
+- B2 config: `/root/.config/rclone/rclone.conf` (remote: `b2-styxproxy`)
+- Logs: `/var/log/styxproxy-pgdump.log`, `/var/log/styxproxy-dr-drill.log`
+
+### RTO / RPO
+- **RPO**: ~24 hours (worst case: latest daily backup fails, fall back to previous day)
+- **RTO**: ~30 minutes (manual restore: rclone copyto + age decrypt + gunzip + psql restore)
+
+### Future hardening
+- pg_basebackup weekly + WAL archiving for PITR (target RPO < 5min)
+- Cross-region B2 bucket replication (US → EU)
+
