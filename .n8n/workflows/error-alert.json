@@ -57,7 +57,7 @@
     },
     {
       "parameters": {
-        "message": "🔴 Bunche Error — {{$json.severity}}\n━━━━━━━━━━━━━━━\n\n⚠️ Workflow: {{$json.workflowName}}\n📍 Node: {{$json.nodeName}}\n\n{{$json.errorMessage}}\n\n⏰ {{$json.timestamp}}\n🆔 {{$json.executionId}}\n\nAction required.",
+        "message": "🔴 Styxproxy Error — {{$json.severity}}\n━━━━━━━━━━━━━━━\n\n⚠️ Workflow: {{$json.workflowName}}\n📍 Node: {{$json.nodeName}}\n\n{{$json.errorMessage}}\n\n⏰ {{$json.timestamp}}\n🆔 {{$json.executionId}}\n\nAction required.",
         "extraOptions": {}
       },
       "id": "ea-alert-admin",

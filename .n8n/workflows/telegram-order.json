@@ -35,7 +35,7 @@
         "additionalFields": {}
       },
       "credentials": {
-        "redisApi": "bunche-redis"
+        "redisApi": "styxproxy-redis"
       }
     },
     {
@@ -77,7 +77,7 @@
               "value": [
                 {
                   "role": "system",
-                  "content": "You are a customer service AI for Bunche, a Nigerian proxy reseller. Analyze the customer's Telegram message and determine their intent.\n\nAvailable intents:\n- order: Customer wants to buy a proxy\n- help: Customer needs general help or has questions\n- check_data: Customer wants to check their order status or data usage\n- free_trial: Customer wants a free trial\n- renewal: Customer wants to renew their proxy\n- recovery: Customer needs help recovering their number or account\n- how_to_use: Customer wants to know how to use the proxy\n- unknown: Cannot determine intent\n\nRespond with JSON only (no other text):\n{\"intent\": \"<intent>\", \"confidence\": 0.0-1.0, \"entities\": {}}"
+                  "content": "You are a customer service AI for Styxproxy, a Nigerian proxy reseller. Analyze the customer's Telegram message and determine their intent.\n\nAvailable intents:\n- order: Customer wants to buy a proxy\n- help: Customer needs general help or has questions\n- check_data: Customer wants to check their order status or data usage\n- free_trial: Customer wants a free trial\n- renewal: Customer wants to renew their proxy\n- recovery: Customer needs help recovering their number or account\n- how_to_use: Customer wants to know how to use the proxy\n- unknown: Cannot determine intent\n\nRespond with JSON only (no other text):\n{\"intent\": \"<intent>\", \"confidence\": 0.0-1.0, \"entities\": {}}"
                 },
                 {
                   "role": "user",
@@ -114,7 +114,7 @@
         "additionalFields": {}
       },
       "credentials": {
-        "redisApi": "bunche-redis"
+        "redisApi": "styxproxy-redis"
       }
     },
     {
@@ -201,7 +201,7 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "Hello! Welcome to Bunche. I can help you with:\n\nOrders - Buy new proxies\nCheck Data - View your usage\nRenewals - Extend your proxy\nHelp - General support\nRecovery - Recover your account\n\nWhat would you like help with?",
+        "text": "Hello! Welcome to Styxproxy. I can help you with:\n\nOrders - Buy new proxies\nCheck Data - View your usage\nRenewals - Extend your proxy\nHelp - General support\nRecovery - Recover your account\n\nWhat would you like help with?",
         "additionalFields": {}
       },
       "credentials": {
@@ -334,7 +334,7 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "📖 How to use Bunche proxy:\\n\\n1. Copy your proxy details from the message I send you\\n2. Open your browser or app settings → Proxy\\n3. Enter the IP, Port, Username, Password\\n4. Save and you dey set!\\n\\n💡 Make sure e no be HTTPS, na SOCKS5 proxy.\\n\\nNeed more help? Just ask!",
+        "text": "📖 How to use Styxproxy proxy:\\n\\n1. Copy your proxy details from the message I send you\\n2. Open your browser or app settings → Proxy\\n3. Enter the IP, Port, Username, Password\\n4. Save and you dey set!\\n\\n💡 Make sure e no be HTTPS, na SOCKS5 proxy.\\n\\nNeed more help? Just ask!",
         "additionalFields": {}
       },
       "credentials": {

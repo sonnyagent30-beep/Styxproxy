@@ -82,7 +82,7 @@ jobs:
           alembic upgrade head
 
       - name: Run tests
-        # TODO: migration 001 has FK ordering bug (orders FK to bunche_credentials
+        # TODO: migration 001 has FK ordering bug (orders FK to styxproxy_credentials (was bunche_credentials before migration 010)
         # which is created AFTER orders in 001). Fix in Sprint 11 (Architecture
         # Hardening). For now, allow this step to fail without blocking the job.
         continue-on-error: true

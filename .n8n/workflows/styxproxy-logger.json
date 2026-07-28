@@ -1,22 +1,22 @@
 {
-  "name": "Bunche Logger",
+  "name": "Styxproxy Logger",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "bunche-logger",
+        "path": "styxproxy-logger",
         "responseMode": "lastNode",
         "options": {}
       },
       "id": "wf11-trigger",
-      "name": "Webhook: Bunche Logger",
+      "name": "Webhook: Styxproxy Logger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
         0,
         0
       ],
-      "webhookId": "bunche-logger"
+      "webhookId": "styxproxy-logger"
     },
     {
       "parameters": {
@@ -63,7 +63,7 @@
     }
   ],
   "connections": {
-    "Webhook: Bunche Logger": {
+    "Webhook: Styxproxy Logger": {
       "main": [
         [
           {

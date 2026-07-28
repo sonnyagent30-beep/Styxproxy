@@ -1,6 +1,6 @@
 {
   "name": "Free Trial Handler (WhatsApp)",
-  "tags": ["bunche", "free-trial", "whatsapp", "3proxy"],
+  "tags": ["styxproxy", "free-trial", "whatsapp", "3proxy"],
   "nodes": [
     {
       "parameters": {
@@ -177,7 +177,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Compose success message\nconst c = $input.item.json;\nconst totalHours = parseInt(c.total_hours);\nconst remaining = Math.max(0, 12 - parseInt(c.survey_count));\nconst hitCap = parseInt(c.survey_count) >= 12;\n\nlet hoursLine = `${totalHours} hours`;\nif (hitCap) hoursLine = '24 hours (maximum!)';\n\nconst message = `Survey verified! Trial ready.\\n\\n━━━━━━━━━━━━━━━━━━\\n🌐 BUNCHE TRIAL PROXY\\n━━━━━━━━━━━━━━━━━━\\n\\n🔗 IP: proxy.styxproxy.com\\n🔌 Port: ${c.port}\\n👤 User: ${c.user_id}\\n🔑 Pass: ${c.password}\\n\\n⏰ Expires: ${c.expires_display}\\n\\n⚠️ Shared proxy — other trial users share this IP.\\nFor private/production use, upgrade to a paid plan.\\n\\n🛡️ You have used ${c.survey_count}/12 surveys.\\n\\n💡 Want more time? You can do up to ${remaining} more surveys!\\nJust come back and tell me \"done\" again. 😊`;\n\nreturn { json: { message, phone: c.phone } };"
+        "jsCode": "// Compose success message\nconst c = $input.item.json;\nconst totalHours = parseInt(c.total_hours);\nconst remaining = Math.max(0, 12 - parseInt(c.survey_count));\nconst hitCap = parseInt(c.survey_count) >= 12;\n\nlet hoursLine = `${totalHours} hours`;\nif (hitCap) hoursLine = '24 hours (maximum!)';\n\nconst message = `Survey verified! Trial ready.\\n\\n━━━━━━━━━━━━━━━━━━\\n🌐 STYXPROXY TRIAL PROXY\\n━━━━━━━━━━━━━━━━━━\\n\\n🔗 IP: proxy.styxproxy.com\\n🔌 Port: ${c.port}\\n👤 User: ${c.user_id}\\n🔑 Pass: ${c.password}\\n\\n⏰ Expires: ${c.expires_display}\\n\\n⚠️ Shared proxy — other trial users share this IP.\\nFor private/production use, upgrade to a paid plan.\\n\\n🛡️ You have used ${c.survey_count}/12 surveys.\\n\\n💡 Want more time? You can do up to ${remaining} more surveys!\\nJust come back and tell me \"done\" again. 😊`;\n\nreturn { json: { message, phone: c.phone } };"
       },
       "id": "ft-gen-success",
       "name": "Generate Success Message",
@@ -221,7 +221,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Disclaimer + survey link\nconst surveyLink = process.env.THEOREM_REACH_SURVEY_URL || 'https://theoremreach.com/survey/XXXXX';\n\nconst message = `🎁 FREE TRIAL — DISCLAIMER\\n\\nBefore we send your free IP, please read:\\n\\n━━━━━━━━━━━━━━━━━━\\n⚠️ FREE TRIAL TERMS ⚠️\\n━━━━━━━━━━━━━━━━━━\\n\\nThis free trial uses a Bunche-hosted proxy\\nshared with other trial users. By accepting, you agree:\\n\\n❌ NOT for production/critical use\\n❌ Not guaranteed private (shared with other trials)\\n❌ IP shared = if one user misbehaves, IP could get flagged\\n❌ No replacement if proxy dies or expires\\n❌ Used entirely at YOUR OWN RISK\\n\\n✅ Bunche-hosted proxy — generally reliable\\n✅ Auto-expires based on how many surveys you complete\\n✅ For testing our service only\\n✅ Upgrade to paid plan for reliability + privacy\\n\\n━━━━━━━━━━━━━━━━━━\\n\\nHow e go work:\\n1. Complete surveys to earn proxy time\\n2. Each survey = 2 hours of proxy access\\n3. Do up to 12 surveys = up to 24 hours free!\\n4. When you ready, tell me \"done\" and I go send your proxy details\\n\\nComplete ONE survey to start:\\n${surveyLink}\\n\\nAfter completing, come back and tell me \"done\"\\nYou fit do more surveys to get more time! 👇`;\n\nreturn { json: { message } };"
+        "jsCode": "// Disclaimer + survey link\nconst surveyLink = process.env.THEOREM_REACH_SURVEY_URL || 'https://theoremreach.com/survey/XXXXX';\n\nconst message = `🎁 FREE TRIAL — DISCLAIMER\\n\\nBefore we send your free IP, please read:\\n\\n━━━━━━━━━━━━━━━━━━\\n⚠️ FREE TRIAL TERMS ⚠️\\n━━━━━━━━━━━━━━━━━━\\n\\nThis free trial uses a Styxproxy-hosted proxy\\nshared with other trial users. By accepting, you agree:\\n\\n❌ NOT for production/critical use\\n❌ Not guaranteed private (shared with other trials)\\n❌ IP shared = if one user misbehaves, IP could get flagged\\n❌ No replacement if proxy dies or expires\\n❌ Used entirely at YOUR OWN RISK\\n\\n✅ Styxproxy-hosted proxy — generally reliable\\n✅ Auto-expires based on how many surveys you complete\\n✅ For testing our service only\\n✅ Upgrade to paid plan for reliability + privacy\\n\\n━━━━━━━━━━━━━━━━━━\\n\\nHow e go work:\\n1. Complete surveys to earn proxy time\\n2. Each survey = 2 hours of proxy access\\n3. Do up to 12 surveys = up to 24 hours free!\\n4. When you ready, tell me \"done\" and I go send your proxy details\\n\\nComplete ONE survey to start:\\n${surveyLink}\\n\\nAfter completing, come back and tell me \"done\"\\nYou fit do more surveys to get more time! 👇`;\n\nreturn { json: { message } };"
       },
       "id": "ft-gen-disc",
       "name": "Generate Disclaimer Message",

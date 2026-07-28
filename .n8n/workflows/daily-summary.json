@@ -150,7 +150,7 @@
     },
     {
       "parameters": {
-        "message": "📊 Bunche Daily Summary\n━━━━━━━━━━━━━━━\n\n🛒 Orders: {{$json.orders}}\n💰 Revenue: ₦{{$json.revenue}}\n💳 Refunds: {{$json.refunds}}\n⚠️ Errors: {{$json.errors}} ({{$json.critical}} critical)\n👥 New Customers: {{$json.newCustomers}}\n🎁 Free Trials: {{$json.trials}}\n━━━━━━━━━━━━━━━",
+        "message": "📊 Styxproxy Daily Summary\n━━━━━━━━━━━━━━━\n\n🛒 Orders: {{$json.orders}}\n💰 Revenue: ₦{{$json.revenue}}\n💳 Refunds: {{$json.refunds}}\n⚠️ Errors: {{$json.errors}} ({{$json.critical}} critical)\n👥 New Customers: {{$json.newCustomers}}\n🎁 Free Trials: {{$json.trials}}\n━━━━━━━━━━━━━━━",
         "extraOptions": {}
       },
       "id": "ds-send-normal",
@@ -161,7 +161,7 @@
     },
     {
       "parameters": {
-        "message": "🚨 Bunche Daily Alert\n━━━━━━━━━━━━━━━\n\n⚠️ Issues detected:\n{{#if $json.revenue < 50000}}💰 Low revenue: ₦{{$json.revenue}} (< ₦50k)\n{{/if}}{{#if $json.errors > 5}}⚠️ High errors: {{$json.errors}}\n{{/if}}{{#if $json.critical > 0}}🔴 Critical: {{$json.critical}}\n{{/if}}\n\n📊 Full Summary:\nOrders: {{$json.orders}}\nRevenue: ₦{{$json.revenue}}\nRefunds: {{$json.refunds}}\nErrors: {{$json.errors}}\n━━━━━━━━━━━━━━━",
+        "message": "🚨 Styxproxy Daily Alert\n━━━━━━━━━━━━━━━\n\n⚠️ Issues detected:\n{{#if $json.revenue < 50000}}💰 Low revenue: ₦{{$json.revenue}} (< ₦50k)\n{{/if}}{{#if $json.errors > 5}}⚠️ High errors: {{$json.errors}}\n{{/if}}{{#if $json.critical > 0}}🔴 Critical: {{$json.critical}}\n{{/if}}\n\n📊 Full Summary:\nOrders: {{$json.orders}}\nRevenue: ₦{{$json.revenue}}\nRefunds: {{$json.refunds}}\nErrors: {{$json.errors}}\n━━━━━━━━━━━━━━━",
         "extraOptions": {}
       },
       "id": "ds-send-alert",
