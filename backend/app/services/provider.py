@@ -248,22 +248,80 @@ async def create_order(
 
 
 async def test_proxy(proxy: ProviderProxy) -> TestResult:
-    """Test whether a proxy is alive and fast enough."""
-    start = datetime.now()
+    """Test whether a proxy is alive AND speaks the expected proxy protocol.
+
+    Two-step check:
+    1. TCP connect (5s) — verifies the port is open at all
+    2. Protocol handshake — for HTTP proxies, issue a CONNECT to
+       example.com:80 and expect a 2xx response. This catches
+       "router accepts TCP but proxy is dead" false-positives that
+       a pure TCP-connect test misses.
+
+    SOCKS5 protocol test isn't included (no PySocks in requirements, and
+    providers currently emit protocol='http' — the upstream path is
+    http; we re-brand to socks5 for the customer via Dante).
+    """
+    connect_start = datetime.now()
     try:
         sock = socket.create_connection(
             (proxy.ip, proxy.port),
             timeout=5,
         )
-        sock.close()
-        latency_ms = (datetime.now() - start).total_seconds() * 1000
-        return TestResult(alive=True, latency_ms=round(latency_ms, 1))
     except socket.timeout:
         return TestResult(alive=False, error="connection_timeout")
     except ConnectionRefusedError:
         return TestResult(alive=False, error="connection_refused")
     except Exception as e:
         return TestResult(alive=False, error=str(e))
+
+    try:
+        # Most providers return protocol="http"; we exercise HTTP CONNECT.
+        # If the proxy is a different protocol we still got TCP-up, so
+        # fall back to "alive=True with TCP-only check".
+        if (proxy.protocol or "http").lower() == "http":
+            sock.settimeout(5)
+            # Minimal HTTP/1.0 CONNECT: server replies 200 on success.
+            connect_req = (
+                b"CONNECT example.com:80 HTTP/1.0\r\n"
+                b"Host: example.com:80\r\n"
+                b"User-Agent: styxproxy-test/1.0\r\n"
+                b"\r\n"
+            )
+            sock.sendall(connect_req)
+            resp = b""
+            while b"\r\n\r\n" not in resp and len(resp) < 2048:
+                chunk = sock.recv(1024)
+                if not chunk:
+                    break
+                resp += chunk
+            sock.close()
+            # Parse status line: "HTTP/1.x NNN ..."
+            status_line = resp.split(b"\r\n", 1)[0].decode("latin-1", errors="ignore")
+            # Accept 2xx as "proxy works"; anything else is a dead proxy
+            # masquerading as a working one.
+            try:
+                status_code = int(status_line.split()[1])
+            except (IndexError, ValueError):
+                status_code = 0
+            if 200 <= status_code < 300:
+                latency_ms = (datetime.now() - connect_start).total_seconds() * 1000
+                return TestResult(alive=True, latency_ms=round(latency_ms, 1))
+            # CONNECT failed — proxy rejected, treat as dead
+            return TestResult(
+                alive=False,
+                error=f"connect_rejected:{status_code}",
+            )
+
+        # Non-http protocol (rare): trust the TCP connect + measure latency.
+        sock.close()
+        latency_ms = (datetime.now() - connect_start).total_seconds() * 1000
+        return TestResult(alive=True, latency_ms=round(latency_ms, 1))
+    except Exception as e:
+        try:
+            sock.close()
+        except Exception:
+            pass
+        return TestResult(alive=False, error=f"protocol_handshake_failed:{e}")
 
 
 async def rotate_ip(provider_order_id: str) -> ProviderProxy:
