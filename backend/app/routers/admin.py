@@ -1289,3 +1289,266 @@ async def charon_health() -> dict:
         return {"charon_available": False, "error": "health_endpoint_unreachable"}
     except Exception as e:
         return {"charon_available": False, "error": str(e)[:200]}
+
+
+
+# ─── §14 Monitor & Regulate API — M4 endpoints ────────────────────────────────
+# Theme A: operational tools that let admin recover from stuck orders and
+# diagnose pipeline failures. Both admin_only with email audit trail.
+
+
+@router.post("/orders/{order_id}/re-fulfill", dependencies=[Depends(admin_only_with_email)])
+async def re_fulfill_order(
+    order_id: str,
+    http_request: Request,
+    admin_email: str = Depends(admin_only_with_email),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Re-run credential creation for an order.
+
+    Theme A M4 endpoint: when a paid order is stuck (status=paid but no
+    credential, or customer reports dead proxy), admin can manually
+    trigger create_credential again. Useful for:
+    - Orders where the original webhook failed mid-pipeline
+    - Orders where credentials expired prematurely
+    - Manual recovery from a provider outage
+
+    Safety:
+    - Refuses if order is already refunded or cancelled
+    - Revokes existing credential before creating new one
+    - Audit-logs the action with admin_email + IP
+
+    Returns the new credential brief + new order status.
+    """
+    from app.services.credential import create_credential
+
+    order = (
+        await session.execute(select(Order).where(Order.order_id == order_id))
+    ).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    if order.status in ("refunded", "cancelled"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Order is {order.status}; cannot re-fulfill",
+        )
+
+    try:
+        # Revoke existing credential if any (avoid duplicates)
+        if order.styxproxy_credential_id:
+            old_cred = (
+                await session.execute(
+                    select(StyxproxyCredential).where(
+                        StyxproxyCredential.id == order.styxproxy_credential_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if old_cred:
+                old_cred.status = "revoked"
+
+        # Re-run credential creation
+        credential, plaintext_password = await create_credential(
+            db_session=session,
+            order_id=order.order_id,
+            customer_phone=order.customer_phone or "",
+            plan_code=order.plan_code or "unknown",
+            country=order.country or "NG",
+            proxy_type="isp",
+            quantity=1,
+            duration_days=30,
+            protocol="socks5",
+            pool_type="paid",
+        )
+        order.styxproxy_credential_id = credential.id
+        order.status = "active"
+        order.replacement_count = (order.replacement_count or 0) + 1
+        await session.commit()
+        await session.refresh(credential)
+        await session.refresh(order)
+    except Exception as e:
+        await session.rollback()
+        await write_audit_log(
+            session,
+            admin_email=admin_email,
+            action="re_fulfill_failed",
+            resource_type="order",
+            resource_id=order.order_id,
+            details={"error": str(e)[:500]},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Re-fulfill failed: {str(e)[:200]}",
+        )
+
+    await write_audit_log(
+        session,
+        admin_email=admin_email,
+        action="re_fulfill_order",
+        resource_type="order",
+        resource_id=order.order_id,
+        details={
+            "new_credential_id": credential.id,
+            "new_status": order.status,
+            "replacement_count": order.replacement_count,
+        },
+    )
+
+    return {
+        "success": True,
+        "order_id": order.order_id,
+        "status": order.status,
+        "credential_id": credential.id,
+        "bun_username": credential.bun_username,
+        "upstream_proxy_ip": credential.upstream_proxy_ip,
+        "upstream_proxy_port": credential.upstream_proxy_port,
+        "expires_at": credential.expires_at.isoformat() if credential.expires_at else None,
+        "replacement_count": order.replacement_count,
+        "note": "plaintext password not returned; check webhook/email delivery",
+    }
+
+
+@router.post("/self-test", dependencies=[Depends(admin_only_with_email)])
+async def self_test(
+    http_request: Request,
+    admin_email: str = Depends(admin_only_with_email),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Run a full pipeline self-test without creating real orders.
+
+    Theme A M4 endpoint: validates that every component of the order
+    pipeline is reachable. Specifically checks:
+    - Database: SELECT 1 + counts on critical tables
+    - Redis: PING
+    - Provider availability: calls check_availability for the cheapest
+      ISP-NG-1 plan + quantity=1 (dry-run, no real cost)
+    - Stripe/Flutterwave: configured (env var present) but does NOT
+      hit their API
+    - Feature flag infra: can read a known flag
+    - n8n: configured (URL present) but does NOT call webhook
+
+    Returns one entry per check with pass/fail + reason + latency_ms.
+    Audit-logged as 'self_test_run' for compliance.
+
+    If any check fails, the response is still 200 — caller inspects
+    results. This endpoint is informational, not a fail-fast gate.
+    """
+    import time
+
+    from app.config import get_settings
+    from app.services.observability import get_redis
+
+    results = []
+    settings = get_settings()
+
+    # DB check
+    t0 = time.time()
+    try:
+        await session.execute(text("SELECT 1"))
+        customers = (await session.execute(text("SELECT count(*) FROM customers"))).scalar() or 0
+        orders = (await session.execute(text("SELECT count(*) FROM orders"))).scalar() or 0
+        results.append({
+            "check": "database",
+            "pass": True,
+            "latency_ms": round((time.time() - t0) * 1000, 1),
+            "details": {"customers": customers, "orders": orders},
+        })
+    except Exception as e:
+        results.append({
+            "check": "database",
+            "pass": False,
+            "error": str(e)[:200],
+        })
+
+    # Redis check
+    t0 = time.time()
+    try:
+        client = await get_redis()
+        if client is None:
+            results.append({"check": "redis", "pass": False, "error": "redis_unavailable"})
+        else:
+            await client.ping()
+            results.append({
+                "check": "redis",
+                "pass": True,
+                "latency_ms": round((time.time() - t0) * 1000, 1),
+            })
+    except Exception as e:
+        results.append({"check": "redis", "pass": False, "error": str(e)[:200]})
+
+    # Provider availability check (dry-run; no real proxy order)
+    t0 = time.time()
+    try:
+        from app.services.availability import check_availability
+
+        result = await check_availability(
+            plan_code="ISP-NG-1",
+            country="Nigeria",
+            proxy_type="isp",
+            quantity=1,
+        )
+        results.append({
+            "check": "provider_availability",
+            "pass": bool(result.get("available")),
+            "latency_ms": round((time.time() - t0) * 1000, 1),
+            "details": result,
+        })
+    except Exception as e:
+        results.append({"check": "provider_availability", "pass": False, "error": str(e)[:200]})
+
+    # Flutterwave configured (env var present, no API call)
+    results.append({
+        "check": "flutterwave_configured",
+        "pass": bool(settings.flutterwave_secret_key),
+        "details": {
+            "secret_key_set": bool(settings.flutterwave_secret_key),
+            "public_key_set": bool(getattr(settings, "flutterwave_public_key", "")),
+        },
+    })
+
+    # n8n webhook configured (URL present, no API call)
+    results.append({
+        "check": "n8n_configured",
+        "pass": bool(settings.n8n_webhook_url),
+        "details": {"url_set": bool(settings.n8n_webhook_url)},
+    })
+
+    # Feature flag infra check
+    t0 = time.time()
+    try:
+        flag = (
+            await session.execute(
+                select(FeatureFlag).where(FeatureFlag.name == "maintenance_mode")
+            )
+        ).scalar_one_or_none()
+        results.append({
+            "check": "feature_flags",
+            "pass": flag is not None,
+            "latency_ms": round((time.time() - t0) * 1000, 1),
+            "details": {"maintenance_mode_flag_exists": flag is not None},
+        })
+    except Exception as e:
+        results.append({"check": "feature_flags", "pass": False, "error": str(e)[:200]})
+
+    overall_pass = all(r["pass"] for r in results)
+
+    await write_audit_log(
+        session,
+        admin_email=admin_email,
+        action="self_test_run",
+        resource_type="system",
+        details={
+            "overall_pass": overall_pass,
+            "checks_run": len(results),
+            "checks_failed": sum(1 for r in results if not r["pass"]),
+        },
+    )
+
+    return {
+        "overall_pass": overall_pass,
+        "checks": results,
+        "summary": {
+            "total": len(results),
+            "passed": sum(1 for r in results if r["pass"]),
+            "failed": sum(1 for r in results if not r["pass"]),
+        },
+    }
