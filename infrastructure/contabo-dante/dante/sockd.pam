@@ -1,0 +1,11 @@
+# Custom PAM for dante-server that validates against our own passwd file
+# Format: same as /etc/shadow (`username:crypt_password`)
+#
+# Built-in pam_unix works on /etc/shadow. We use a wrapper approach:
+# - Container keeps /etc/shadow as a writeable file (owned by root in container)
+# - Control API writes directly via atomic read-modify-write
+# - No bind mount of host files needed
+
+auth required pam_unix.so use_first_pass
+account required pam_unix.so
+session required pam_unix.so

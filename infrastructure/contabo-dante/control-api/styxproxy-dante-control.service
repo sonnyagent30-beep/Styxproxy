@@ -1,0 +1,21 @@
+[Unit]
+Description=Styxproxy Dante Control API (port 9000)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/styxproxy-dante/control-api
+Environment="VPS_LABEL=interserver-secondary"
+Environment="PUBLIC_IP=162.35.184.69"
+Environment="DANTE_PORT=1080"
+Environment="USERS_FILE=/etc/dante/users.json"
+Environment="LOG_LEVEL=INFO"
+ExecStart=/usr/bin/python3 -m uvicorn app:app --host 0.0.0.0 --port 9000
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/styxproxy-dante-control.log
+StandardError=append:/var/log/styxproxy-dante-control.err.log
+
+[Install]
+WantedBy=multi-user.target

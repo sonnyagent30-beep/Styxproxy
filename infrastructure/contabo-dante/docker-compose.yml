@@ -1,0 +1,95 @@
+name: styxproxy-dante
+
+services:
+  danted:
+    build: ./dante
+    container_name: styxproxy-dante
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - DANTE_ROLE=primary
+      - VPS_LABEL=contabo-primary
+      - PUBLIC_IP=84.247.132.12
+      - DANTE_PORT=1080
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - dante-users:/etc/dante:rw
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    healthcheck:
+      # bash /dev/tcp works in alpine; busybox nc -z is flaky with IPv6
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/1080 && exec 3<&- && exec 3>&- || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Custom Python SOCKS5 proxy that:
+  #   - Listens on :1081 (public-facing)
+  #   - Authenticates users against /etc/dante/users.json
+  #   - Forwards to dante :1080 (no auth) using each user's assigned upstream IP
+  socks-auth-proxy:
+    build: ./socks-auth-proxy
+    container_name: styxproxy-socks-auth
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - VPS_LABEL=contabo-primary
+      - PUBLIC_IP=84.247.132.12
+      - DANTE_HOST=127.0.0.1
+      - DANTE_PORT=1080
+      - LISTEN_HOST=0.0.0.0
+      - LISTEN_PORT=1081
+      - USERS_FILE=/etc/dante/users.json
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - dante-users:/etc/dante:ro
+    depends_on:
+      - danted
+    healthcheck:
+      # curl is installed in the image; use it to verify SOCKS5 proxy responds
+      # (a SOCKS5 server returns a fixed banner / reply)
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/1081 && exec 3<&- && exec 3>&- || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  control-api:
+    build: ./control-api
+    container_name: styxproxy-dante-control
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - DANTE_ROLE=primary
+      - VPS_LABEL=contabo-primary
+      - PUBLIC_IP=84.247.132.12
+      - DANTE_PORT=1080
+      - USERS_FILE=/etc/dante/users.json
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - dante-users:/etc/dante:rw
+    depends_on:
+      - danted
+    healthcheck:
+      # python is installed but curl isn't; use stdlib socket to test the port
+      test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.settimeout(2); s.connect(('localhost',9000)); s.close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  dante-users:
