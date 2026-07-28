@@ -8,12 +8,13 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import admin_only, admin_only_with_email
 from app.database import get_session
 from app.models import (
+    AdminAuditLog,
     CharonEscalation,
     ContactSubmission,
     Customer,
@@ -1011,3 +1012,280 @@ async def clear_n8n_webhook_failures() -> dict:
     """
     cleared = await clear_failures()
     return {"cleared": cleared}
+
+
+
+# ─── §14 Monitor & Regulate API — M2/M3 endpoints ────────────────────────────
+# Theme A: small admin monitoring endpoints (5 M2 + 3 M3). Each is small
+# but together they close the admin observability gap. All admin_only.
+# See Notion §14 spec for the rationale.
+
+
+@router.get("/errors", dependencies=[Depends(admin_only)])
+async def list_recent_errors(
+    limit: int = Query(default=50, le=500),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """List recent error events from admin_audit_log.
+
+    Filters action column for entries containing 'error' or 'fail'.
+    Theme A M2 endpoint: admin uses this to spot systemic issues
+    (e.g. payment_initiate_failed spiking after a Flutterwave outage).
+    """
+    stmt = (
+        select(AdminAuditLog)
+        .where(AdminAuditLog.action.ilike("%error%") | AdminAuditLog.action.ilike("%fail%"))
+        .order_by(AdminAuditLog.created_at.desc())
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    rows = result.scalars().all()
+    return {
+        "errors": [
+            {
+                "id": r.id,
+                "admin_phone": r.admin_phone,
+                "action": r.action,
+                "ip_address": r.ip_address,
+                "details": r.details,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+        "limit": limit,
+    }
+
+
+@router.get("/logs", dependencies=[Depends(admin_only)])
+async def list_admin_logs(
+    limit: int = Query(default=100, le=500),
+    action_filter: Optional[str] = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """List recent admin actions from admin_audit_log.
+
+    Theme A M2 endpoint: full admin action log. Use action_filter to
+    narrow (e.g. 'maintenance_toggle', 'feature_flag_update',
+    'login_success', etc.).
+    """
+    stmt = select(AdminAuditLog).order_by(AdminAuditLog.created_at.desc()).limit(limit)
+    if action_filter:
+        stmt = stmt.where(AdminAuditLog.action.ilike(f"%{action_filter}%"))
+    result = await session.execute(stmt)
+    rows = result.scalars().all()
+    return {
+        "logs": [
+            {
+                "id": r.id,
+                "admin_phone": r.admin_phone,
+                "action": r.action,
+                "ip_address": r.ip_address,
+                "details": r.details,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+        "limit": limit,
+        "filter": action_filter,
+    }
+
+
+@router.get("/db/connections", dependencies=[Depends(admin_only)])
+async def db_connection_stats(session: AsyncSession = Depends(get_session)) -> dict:
+    """PostgreSQL connection stats from pg_stat_activity.
+
+    Theme A M2 endpoint: shows active vs idle connections, plus the
+    server-side max_connections setting. Useful for spotting connection
+    leaks (active >> expected) before they crash the pool.
+    """
+    active_q = text("""
+        SELECT
+          count(*) FILTER (WHERE state = 'active') AS active,
+          count(*) FILTER (WHERE state = 'idle') AS idle,
+          count(*) FILTER (WHERE state = 'idle in transaction') AS idle_in_txn,
+          count(*) AS total,
+          (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') AS max_conn
+        FROM pg_stat_activity
+        WHERE datname = current_database()
+    """)
+    by_app = text("""
+        SELECT application_name, count(*) AS count
+        FROM pg_stat_activity
+        WHERE datname = current_database()
+        GROUP BY application_name
+        ORDER BY count DESC
+        LIMIT 10
+    """)
+    active_result = await session.execute(active_q)
+    active_row = active_result.mappings().one()
+    by_app_result = await session.execute(by_app)
+    by_app_rows = by_app_result.mappings().all()
+
+    return {
+        "active": active_row["active"],
+        "idle": active_row["idle"],
+        "idle_in_transaction": active_row["idle_in_txn"],
+        "total": active_row["total"],
+        "max_connections": active_row["max_conn"],
+        "by_application": [{"application_name": r["application_name"], "count": r["count"]} for r in by_app_rows],
+    }
+
+
+@router.get("/db/slow-queries", dependencies=[Depends(admin_only)])
+async def db_slow_queries(
+    threshold_ms: int = Query(default=200, ge=50, le=10000),
+    limit: int = Query(default=20, le=100),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Recent slow queries from pg_stat_statements.
+
+    Theme A M2 endpoint: surfaces queries above the threshold. Requires
+    pg_stat_statements extension (often enabled by default). Returns
+    empty list if extension isn't loaded — caller should fall back to
+    reading the empty result and not raise.
+
+    Note: pg_stat_statements requires superuser to enable. If the
+    styxproxy role can't query it, this returns 403 from PG.
+    """
+    try:
+        q = text("""
+            SELECT
+              round((mean_exec_time)::numeric, 2) AS avg_ms,
+              calls,
+              round((total_exec_time)::numeric, 0) AS total_ms,
+              query
+            FROM pg_stat_statements
+            WHERE mean_exec_time > :threshold
+            ORDER BY mean_exec_time DESC
+            LIMIT :limit
+        """)
+        result = await session.execute(q, {"threshold": threshold_ms, "limit": limit})
+        rows = result.mappings().all()
+        return {
+            "slow_queries": [
+                {"avg_ms": r["avg_ms"], "calls": r["calls"], "total_ms": r["total_ms"], "query": r["query"][:500]}
+                for r in rows
+            ],
+            "threshold_ms": threshold_ms,
+            "extension_available": True,
+        }
+    except Exception as e:
+        return {
+            "slow_queries": [],
+            "threshold_ms": threshold_ms,
+            "extension_available": False,
+            "error": str(e)[:200],
+        }
+
+
+@router.get("/cache/stats", dependencies=[Depends(admin_only)])
+async def cache_stats() -> dict:
+    """Redis cache statistics (if available).
+
+    Theme A M2 endpoint: returns Redis keyspace info (hits, misses,
+    memory, key count by db). Returns empty stats if Redis isn't
+    configured or reachable.
+    """
+    try:
+        from app.services.observability import get_redis
+
+        client = await get_redis()
+        if client is None:
+            return {"available": False, "reason": "redis_unavailable"}
+        info = await client.info("stats")
+        keyspace = await client.info("keyspace")
+        return {
+            "available": True,
+            "hits": info.get("keyspace_hits", 0),
+            "misses": info.get("keyspace_misses", 0),
+            "hit_rate": (
+                info.get("keyspace_hits", 0)
+                / max(1, info.get("keyspace_hits", 0) + info.get("keyspace_misses", 0))
+            ),
+            "total_keys": sum(int(v.get("keys", 0)) for v in keyspace.values() if isinstance(v, dict)),
+            "memory_used_bytes": info.get("used_memory", 0),
+        }
+    except Exception as e:
+        return {"available": False, "error": str(e)[:200]}
+
+
+# ─── M3 endpoints ────────────────────────────────────────────────────────────
+
+
+@router.get("/webhooks/health", dependencies=[Depends(admin_only)])
+async def webhook_health(session: AsyncSession = Depends(get_session)) -> dict:
+    """Webhook delivery health from processed_webhooks table.
+
+    Theme A M3 endpoint: shows recent webhook activity, separated by
+    provider (Flutterwave, etc.). The /api/admin/n8n/failures endpoint
+    covers outbound n8n delivery; this covers inbound webhook processing.
+    """
+    q = text("""
+        SELECT
+          provider,
+          count(*) FILTER (WHERE created_at > now() - interval '1 hour') AS last_1h,
+          count(*) FILTER (WHERE created_at > now() - interval '24 hours') AS last_24h,
+          count(*) AS total
+        FROM processed_webhooks
+        GROUP BY provider
+    """)
+    try:
+        result = await session.execute(q)
+        rows = result.mappings().all()
+        return {
+            "providers": [dict(r) for r in rows],
+            "note": "Counts of processed (not necessarily successful) webhooks.",
+        }
+    except Exception as e:
+        return {"providers": [], "error": str(e)[:200]}
+
+
+@router.get("/providers/health", dependencies=[Depends(admin_only)])
+async def providers_health() -> dict:
+    """Provider availability summary from in-memory cache.
+
+    Theme A M3 endpoint: reports configured providers. The full
+    provider_test.py benchmarks (separate sprint) cover deeper
+    analysis; this is a quick at-a-glance summary for the admin
+    dashboard.
+    """
+    from app.services.providers import PROVIDER_COSTS
+    return {
+        "providers_configured": list(PROVIDER_COSTS.keys()),
+        "note": "For live availability benchmarks use /api/admin/providers/test (Theme B+).",
+    }
+
+
+@router.get("/charon/health", dependencies=[Depends(admin_only)])
+async def charon_health() -> dict:
+    """Charon support bot health summary.
+
+    Theme A M3 endpoint: aggregates M2 cloud + LiteLLM + Ollama
+    reachability + computed charon_available flag (matches the logic
+    in /api/v1/health). Useful for the admin dashboard.
+
+    Reuses the existing /api/v1/health probe logic by calling that
+    endpoint internally rather than importing private helpers.
+    """
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get("http://127.0.0.1:8000/api/v1/health")
+            if r.status_code == 200:
+                data = r.json()
+                services = data.get("services", {})
+                m2 = services.get("m2_cloud", {})
+                litellm = services.get("litellm", {})
+                ollama = services.get("ollama", {})
+                m2_ok = m2.get("status") == "connected"
+                local_ok = litellm.get("status") == "connected" and ollama.get("status") == "connected"
+                return {
+                    "charon_available": m2_ok or local_ok,
+                    "m2_cloud": m2,
+                    "litellm": litellm,
+                    "ollama": ollama,
+                    "source": "delegated_to_/api/v1/health",
+                }
+        return {"charon_available": False, "error": "health_endpoint_unreachable"}
+    except Exception as e:
+        return {"charon_available": False, "error": str(e)[:200]}
