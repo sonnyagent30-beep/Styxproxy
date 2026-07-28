@@ -19,6 +19,44 @@ from app.services.flutterwave import (
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 
 
+# Maximum age of a Flutterwave webhook payload before we consider it a replay attack.
+# Flutterwave expects endpoints to be hit within seconds of the event firing.
+# 5 minutes = 300s gives generous headroom for clock drift + retry latency.
+FLUTTERWAVE_MAX_PAYLOAD_AGE_SECONDS = 300
+
+
+def _is_flutterwave_payload_fresh(payload: dict) -> bool:
+    """Return True if the webhook payload is recent enough to be from a live event.
+
+    Flutterwave v3 embeds `data.created_at` as ISO 8601 like "2025-01-15T10:30:00.000Z".
+
+    If created_at is missing (older payload shape), reject conservatively as a
+    potential replay attempt. If it parses to a timestamp older than the window,
+    reject the payload.
+    """
+    import datetime as _dt
+
+    created_at_raw = (payload.get("data") or {}).get("created_at")
+    if not created_at_raw or not isinstance(created_at_raw, str):
+        # Missing timestamp = treat as suspicious. Could be older API version,
+        # but conservatively reject so a captured payload without created_at
+        # cannot be replayed indefinitely.
+        return False
+    try:
+        # Flutterwave emits "2025-01-15T10:30:00.000Z" (fractional seconds).
+        # Tolerate +00:00 vs Z, and missing fractional seconds.
+        cleaned = created_at_raw.replace("Z", "+00:00")
+        created_at = _dt.datetime.fromisoformat(cleaned)
+    except (ValueError, TypeError):
+        return False
+    if created_at.tzinfo is None:
+        # Naive timestamp - assume UTC.
+        created_at = created_at.replace(tzinfo=_dt.timezone.utc)
+    now = _dt.datetime.now(_dt.timezone.utc)
+    age = (now - created_at).total_seconds()
+    return 0 <= age <= FLUTTERWAVE_MAX_PAYLOAD_AGE_SECONDS
+
+
 @router.post("/flutterwave", status_code=status.HTTP_200_OK)
 async def flutterwave_webhook(
     request: Request,
@@ -58,6 +96,26 @@ async def flutterwave_webhook(
     event_data = payload.get("data", {})
     webhook_id = str(event_data.get("id", ""))
     tx_ref = event_data.get("tx_ref", "")
+
+    # Replay-window check: reject webhooks whose embedded created_at is older
+    # than FLUTTERWAVE_MAX_PAYLOAD_AGE_SECONDS. Closes the loop on attacker who
+    # captures a valid (payload, signature) pair and replays it indefinitely;
+    # the duplicate-processing check alone keeps the state consistent, but
+    # this drops the request earlier and surfaces replay attempts in Sentry.
+    if not _is_flutterwave_payload_fresh(payload):
+        await log_audit_event(
+            session,
+            event_type="flutterwave_webhook_replay_rejected",
+            details={
+                "tx_ref": tx_ref,
+                "created_at": (event_data or {}).get("created_at"),
+                "reason": "stale_or_missing_created_at",
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook payload outside replay window",
+        )
 
     # Check for duplicate processing
     if webhook_id and await is_webhook_processed(session, webhook_id):
