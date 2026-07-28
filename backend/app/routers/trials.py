@@ -15,6 +15,7 @@ from app.schemas import (
     TrialSurveyResponse,
 )
 from app.services.audit import log_audit_event
+from app.services.customer import get_or_create_customer
 from app.services.trial import check_trial_limit, create_trial, get_trial_by_id, submit_trial_survey
 
 router = APIRouter(prefix="/api/trials", tags=["trials"])
@@ -26,9 +27,24 @@ async def claim_trial(
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_account),
 ):
-    customer = current_user["customer"]
-    if not customer:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+    # JWT-resolved customer takes priority; otherwise resolve-or-create
+    # from request body (same pattern as /payments/initiate and
+    # /orders/create). Returning customer on new browser can now claim
+    # trial by supplying their email.
+    customer = current_user.get("customer")
+    platform_account = current_user.get("platform_account")
+    if customer is None:
+        customer = await get_or_create_customer(
+            session,
+            phone=None,
+            email=request.customer_email,
+            platform_account=platform_account,
+        )
+        if customer is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No customer profile found",
+            )
     if not request.disclaimer_accepted:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Disclaimer must be accepted")
     if not await check_trial_limit(session, customer.phone):

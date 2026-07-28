@@ -16,7 +16,7 @@ os.environ.setdefault("JWT_SECRET", "test-not-used-in-schema")
 os.environ.setdefault("ADMIN_TOKEN", "test-not-used")
 
 try:
-    from app.schemas import OrderCreateRequest, PaymentInitiateRequest
+    from app.schemas import OrderCreateRequest, PaymentInitiateRequest, TrialClaimRequest
 except Exception as e:
     print(f"Could not import schemas (probably missing deps): {e}")
     sys.exit(0)
@@ -152,11 +152,47 @@ def main() -> int:
     except Exception:
         print("[PASS] invalid country rejected: ValidationError")
 
+    print("\n=== TrialClaimRequest ===")
+    # Test 11: TrialClaimRequest accepts customer_email optional
+    try:
+        req = TrialClaimRequest(disclaimer_accepted=True, customer_email="trial@example.com")
+        print(f"[PASS] with email: email={req.customer_email!r}")
+    except Exception as e:
+        print(f"[FAIL] with email: {e}")
+        failed.append("trials:with_email")
+
+    # Test 12: TrialClaimRequest backward compat (no email)
+    try:
+        req = TrialClaimRequest(disclaimer_accepted=True)
+        print(f"[PASS] no email: email={req.customer_email!r}")
+    except Exception as e:
+        print(f"[FAIL] no email: {e}")
+        failed.append("trials:no_email")
+
+    # Test 13: TrialClaimRequest with whitespace email rejected
+    try:
+        req = TrialClaimRequest(disclaimer_accepted=True, customer_email="bad email with spaces")
+        print(f"[FAIL] whitespace email accepted: {req.customer_email!r}")
+        failed.append("trials:invalid_email")
+    except Exception:
+        print("[PASS] whitespace email rejected: ValidationError")
+
+    # Test 14: TrialClaimRequest still requires disclaimer_accepted=True
+    try:
+        req = TrialClaimRequest(disclaimer_accepted=False)
+        print(
+            f"[PASS] disclaimer=False schema accepts (handler will reject): "
+            f"disclaimer={req.disclaimer_accepted}"
+        )
+    except Exception as e:
+        print(f"[FAIL] disclaimer=False schema: {e}")
+        failed.append("trials:disclaimer")
+
     print()
     if failed:
         print(f"FAIL: {len(failed)} assertion(s): {failed}")
         return 1
-    print("PASS: all schema checks pass (payments + orders)")
+    print("PASS: all schema checks pass (payments + orders + trials)")
     return 0
 
 

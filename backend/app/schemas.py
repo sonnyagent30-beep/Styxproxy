@@ -522,9 +522,27 @@ class CredentialsListResponse(BaseModel):
 
 
 class TrialClaimRequest(BaseModel):
-    """Request to claim free trial."""
+    """Request to claim free trial.
+
+    customer_email is optional — same pattern as PaymentInitiateRequest and
+    OrderCreateRequest (an anonymous checkout can now reach the trial flow
+    too, where previously the "No customer profile found" gate 400'd).
+    disclaimer_accepted stays required: the user must opt in to the trial
+    terms.
+    """
 
     disclaimer_accepted: bool
+    customer_email: Optional[str] = None
+
+    @field_validator("customer_email")
+    @classmethod
+    def validate_email(cls, v):
+        if v is None or v == "":
+            return None
+        v = v.strip().lower()
+        if "@" not in v or " " in v or len(v) > 255:
+            raise ValueError("invalid email")
+        return v
 
 
 class TrialCredentialResponse(BaseModel):
