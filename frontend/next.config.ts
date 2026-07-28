@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { withSentryConfig } from "@sentry/nextjs";
+
 const nextConfig: NextConfig = {
   typescript: {
     // Pre-existing TS errors in admin pages — don't block deploys while we fix them iteratively
@@ -79,4 +81,20 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sprint 5.8: Sentry integration
+// - withSentryConfig wraps the Next.js config with Sentry's build plugin
+//   (source maps, instrumentation, browser tracing)
+// - silent: true suppresses build logs noise (errors still surface)
+// - hideSourceMaps: true prevents source maps from being deployed to Vercel
+// Note: @sentry/nextjs@10 handles its own tunnel via the SDK's `tunnel` option
+// (set automatically from `tunnelRoute`). No custom route handler needed.
+export default withSentryConfig(nextConfig, {
+  org: "dannion-creative-hub",
+  project: "styxproxy-frontend",
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  hideSourceMaps: true,
+  disableLogger: true,
+  widenClientFileUpload: true,
+  transpileClientSDK: true,
+});
