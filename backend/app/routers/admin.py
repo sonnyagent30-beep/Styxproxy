@@ -1552,3 +1552,75 @@ async def self_test(
             "failed": sum(1 for r in results if not r["pass"]),
         },
     }
+
+
+
+@router.get("/health/history", dependencies=[Depends(admin_only)])
+async def health_history(
+    hours: int = Query(default=24, ge=1, le=168),  # max 7 days
+    limit: int = Query(default=500, le=5000),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Read health_snapshots time-series for the admin dashboard.
+
+    Theme A M5 endpoint: returns the last N snapshots within the time
+    window, newest first. Suitable for rendering time-series charts
+    (overall_status line, component availability bars, latency trend).
+
+    Query params:
+        hours: how far back to look (default 24, max 168 = 7 days)
+        limit: max snapshots to return (default 500, max 5000)
+
+    Returns:
+        {
+            "snapshots": [{timestamp, status, components, latency}, ...],
+            "summary": {total, healthy_count, degraded_count, unhealthy_count}
+        }
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.models import HealthSnapshot
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    stmt = (
+        select(HealthSnapshot)
+        .where(HealthSnapshot.created_at >= cutoff)
+        .order_by(HealthSnapshot.created_at.desc())
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    rows = result.scalars().all()
+
+    snapshots = [
+        {
+            "id": r.id,
+            "timestamp": r.created_at.isoformat() if r.created_at else None,
+            "overall_status": r.overall_status,
+            "components": {
+                "db": r.db_connected,
+                "redis": r.redis_connected,
+                "m2": r.m2_connected,
+                "litellm": r.litellm_connected,
+                "ollama": r.ollama_connected,
+                "charon": r.charon_available,
+            },
+            "latency_ms": float(r.total_latency_ms) if r.total_latency_ms is not None else None,
+            "error": r.error_summary,
+            "source": r.source,
+        }
+        for r in rows
+    ]
+
+    summary = {
+        "total": len(snapshots),
+        "healthy": sum(1 for s in snapshots if s["overall_status"] == "healthy"),
+        "degraded": sum(1 for s in snapshots if s["overall_status"] == "degraded"),
+        "unhealthy": sum(1 for s in snapshots if s["overall_status"] == "unhealthy"),
+    }
+
+    return {
+        "snapshots": snapshots,
+        "summary": summary,
+        "window_hours": hours,
+        "limit": limit,
+    }

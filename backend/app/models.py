@@ -658,3 +658,42 @@ class SupportMessage(Base):
     in_reply_to: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     references: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+
+class HealthSnapshot(Base):
+    """Health history table — Time-series of system health probes.
+
+    Theme A M5: a cron job polls health every minute and writes a snapshot.
+    GET /api/admin/health/history reads these for time-series display in
+    the admin dashboard. Used for incident triage (was it always down or
+    did it just drop?), uptime monitoring (SLO calculations), and
+    trend spotting (gradually increasing DB latency, etc.).
+
+    Retention: 7 days (caller should add a cron to prune older rows).
+    Index on created_at DESC so time-range queries are fast.
+    """
+
+    __tablename__ = "health_snapshots"
+    __table_args__ = (Index("idx_health_snapshots_created", "created_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # Component status flags
+    db_connected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    redis_connected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    m2_connected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    litellm_connected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ollama_connected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Aggregated
+    overall_status: Mapped[str] = mapped_column(String(20), nullable=False, default="unknown")
+    charon_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Performance
+    total_latency_ms: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+    # Errors
+    error_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Source
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="cron")
+    # Timestamp
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
