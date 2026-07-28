@@ -387,6 +387,83 @@ async def list_orders_by_device(
     return results
 
 
+@router.get("/by-payment-reference/{payment_reference}", response_model=OrderResponse)
+async def get_order_by_payment_reference(
+    payment_reference: str,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Look up order by the FE-generated payment reference (STX-XXXXXX).
+
+    Used by /thank-you polling. Requires no auth — the payment reference
+    itself is a sufficiently strong opaque token (32^6 entropy ≈ 60 bits).
+    Bug walk theme-B fix: previously the FE polled /api/orders/{txRef}
+    which matched @router.get('/{order_id}') and returned 404 because the
+    BE Order.order_id format is ORD-XXXXXX (not STX-). The customer
+    spent 5 minutes in Loading spinner before timing out.
+
+    Lookup falls back to Order.tx_ref because Flutterwave webhooks set
+    that field for fully-paid orders (the FE txRef and the BE tx_ref
+    are different fields; FE generates STX-XXXXXX pre-payment,
+    Flutterwave stamps its own internal tx_ref post-payment).
+
+    Returns Order + StyxproxyCredential brief so /thank-you can show the
+    customer their credentials without a second round-trip.
+    """
+    stmt = (
+        select(Order)
+        .where(
+            (Order.payment_reference == payment_reference)
+            | (Order.tx_ref == payment_reference)
+        )
+        .order_by(Order.created_at.desc())
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    cred_brief = None
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(
+            StyxproxyCredential.id == order.styxproxy_credential_id
+        )
+        cred_result = await session.execute(cred_stmt)
+        cred = cred_result.scalar_one_or_none()
+        if cred:
+            cred_brief = StyxproxyCredentialBrief(
+                id=cred.id,
+                bun_username=cred.bun_username,
+                protocol=cred.protocol or "socks5",
+                upstream_proxy_ip=cred.upstream_proxy_ip,
+                upstream_proxy_port=cred.upstream_proxy_port,
+                status=cred.status,
+            )
+
+    # customer_name lookup (optional — anonymous orders don't have it
+    # available if customer.row was deleted)
+    customer_name = None
+    if order.customer_phone:
+        cust_stmt = select(Customer).where(Customer.phone == order.customer_phone)
+        cust_result = await session.execute(cust_stmt)
+        cust = cust_result.scalar_one_or_none()
+        if cust and cust.name:
+            customer_name = cust.name
+
+    return OrderResponse(
+        order_id=order.order_id,
+        status=order.status,
+        plan_type=order.plan_type,
+        country=order.country,
+        amount_paid_ngn=order.amount_paid_ngn,
+        styxproxy_credential=cred_brief,
+        created_at=order.created_at,
+        expires_at=order.expires_at,
+        customer_name=customer_name,
+        is_renewable=order.status == "active" and order.expires_at is not None,
+    )
+
+
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(
     order_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)

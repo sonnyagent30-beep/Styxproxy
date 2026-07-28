@@ -405,14 +405,34 @@ function ThankYouContent() {
 
     const fetchOrder = async () => {
       try {
-        const res = await fetch(`/api/orders/${txRef}`);
-        if (!res.ok) throw new Error('Failed');
+        // Bug walk theme-B fix: use /by-payment-reference/{ref} instead of
+        // /{order_id}. The FE generates STX-XXXXXX (payment_reference field)
+        // but the BE Order.order_id is ORD-XXXXXX. Without this fix, every
+        // poll 404s and customer sits at Loading spinner for 5 minutes.
+        const res = await fetch(`/api/orders/by-payment-reference/${txRef}`);
+        if (!res.ok) {
+          if (res.status === 404) {
+            // Order still being created on the BE side, keep polling
+            setAttempts(prev => prev + 1);
+            return;
+          }
+          throw new Error(`HTTP ${res.status}`);
+        }
         const data = await res.json();
 
         if (data.order_id) setOrder(data);
 
-        if (data.status === 'fulfilled' || data.status === 'active' ||
-            data.status === 'expired' || data.status === 'cancelled') {
+        // Stop polling on terminal states (active/fulfilled = success;
+        // refunded/cancelled/expired = failure UX). Bug walk theme-B fix:
+        // include 'refunded' here so auto-refunds (commit ec0fb07) clear
+        // the Loading spinner instead of polling forever.
+        if (
+          data.status === 'fulfilled' ||
+          data.status === 'active' ||
+          data.status === 'expired' ||
+          data.status === 'cancelled' ||
+          data.status === 'refunded'
+        ) {
           setLoading(false);
           // Order fulfilled — clear in-flight lock so customer can buy again
           if (data.status === 'active') {
@@ -488,7 +508,12 @@ function ThankYouContent() {
 
   const isPending = order?.status === 'pending' || order?.status === 'paid';
   const isSuccess = order?.status === 'fulfilled' || order?.status === 'active';
-  const isErrorState = order?.status === 'expired' || order?.status === 'cancelled';
+  // Bug walk theme-B fix: add 'refunded' to terminal failure states. Auto-refund
+  // (commit ec0fb07) sets order.status = "refunded" when provider exhausts 5 retries.
+  const isErrorState =
+    order?.status === 'expired' ||
+    order?.status === 'cancelled' ||
+    order?.status === 'refunded';
 
   return (
     <main className="flex-1 flex items-start justify-center px-4 pt-32 pb-16">
@@ -652,6 +677,7 @@ function ThankYouContent() {
         )}
 
         {/* Error/Expired State */}
+        {/* Error State (expired / cancelled / refunded) */}
         {!loading && isErrorState && (
           <div className="text-center animate-fade-in">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--error)]/20 flex items-center justify-center">
@@ -659,8 +685,25 @@ function ThankYouContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold mb-2">Order {order?.status === 'expired' ? 'Expired' : 'Cancelled'}</h1>
-            <p className="text-[var(--muted)] mb-6">This order is no longer active.</p>
+            <h1 className="text-2xl font-bold mb-2">
+              {order?.status === 'expired'
+                ? 'Order Expired'
+                : order?.status === 'refunded'
+                  ? 'Order Refunded'
+                  : 'Order Cancelled'}
+            </h1>
+            <p className="text-[var(--muted)] mb-6">
+              {order?.status === 'refunded' ? (
+                <>
+                  Your order has been refunded. The provider could not deliver
+                  a working proxy. Refund processing typically takes 5–10 minutes —
+                  contact <a href="https://wa.me/2347032981049" className="text-[var(--primary)] hover:underline">support</a>
+                  {' '}if you don&apos;t see it within 24 hours.
+                </>
+              ) : (
+                'This order is no longer active.'
+              )}
+            </p>
             <Link
               href="/order"
               className="inline-block px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors"
