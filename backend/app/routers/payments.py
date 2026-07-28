@@ -4,10 +4,12 @@ import uuid
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_account
 from app.database import get_session
+from app.models import FeatureFlag
 from app.schemas import PaymentInitiateRequest, PaymentInitiateResponse, PaymentStatusResponse
 from app.services.audit import log_audit_event
 from app.services.customer import get_or_create_customer
@@ -37,6 +39,23 @@ async def initiate_payment(
     Customer resolution delegated to app.services.customer.get_or_create_customer
     so /payments/initiate and /orders/create stay in sync.
     """
+    # Theme A kill-switch: if the 'checkout_disabled' feature flag is on,
+    # return 503 so customers see a clear "checkout temporarily disabled"
+    # message instead of mysterious payment failures. Admin can toggle
+    # this flag via PATCH /api/admin/auth/flags/checkout_disabled or via
+    # the admin dashboard. Site stays up (so customers can still view
+    # orders, contact support, etc.) — only the buy path is blocked.
+    kill_switch = (
+        await session.execute(
+            select(FeatureFlag).where(FeatureFlag.name == "checkout_disabled")
+        )
+    ).scalar_one_or_none()
+    if kill_switch and kill_switch.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Checkout is temporarily disabled. Please contact support or try again later.",
+        )
+
     price = PRODUCT_PRICES.get(request.plan_code)
     if not price:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
