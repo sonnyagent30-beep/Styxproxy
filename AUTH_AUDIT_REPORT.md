@@ -140,7 +140,7 @@ INSERT INTO system_settings (key, value) VALUES ('totp_secret', '<current-secret
 
 ## Invite URL Format
 
-**Raw code:** `<<REDACTED_LEAKED_ADMIN_TOKEN_2026-07-28>>` (bootstrap token — first admin only)
+**Raw code:** `<REDACTED - see rotation log 2026-07-28> (bootstrap token — first admin only)
 
 **Signed URL format:**
 ```
