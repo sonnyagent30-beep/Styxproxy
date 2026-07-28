@@ -473,13 +473,15 @@ async def login_admin(
 
 
 @router.post("/login/email", response_model=AdminLoginResponse)
+@limiter.limit("10/minute", key_func=get_remote_address)
 async def login_admin_email(
-    request: AdminLoginEmailRequest,
+    request: Request,  # Sprint 5: required by slowapi (must be first param)
+    body: AdminLoginEmailRequest,  # Sprint 5: renamed from 'request' to avoid shadowing
     session: AsyncSession = Depends(get_session),
 ):
     """Primary login: email + password + optional TOTP."""
     # Get admin by email
-    stmt = select(AdminAuth).where(AdminAuth.email == request.email)
+    stmt = select(AdminAuth).where(AdminAuth.email == body.email)
     result = await session.execute(stmt)
     admin = result.scalar_one_or_none()
 
@@ -542,17 +544,17 @@ async def login_admin_email(
     await session.commit()
 
     role = "admin"
-    stmt = select(AdminInvite).where(AdminInvite.used_by == request.email).limit(1)
+    stmt = select(AdminInvite).where(AdminInvite.used_by == body.email).limit(1)
     result = await session.execute(stmt)
     invite = result.scalar_one_or_none()
     if invite:
         role = invite.role
 
-    token = create_admin_access_token(request.email, role)
+    token = create_admin_access_token(body.email, role)
 
     return AdminLoginResponse(
         access_token=token,
-        email=request.email,
+        email=body.email,
         role=role,
         totp_enabled=admin.totp_enabled,
         expires_in=settings.jwt_expire_minutes * 60,
@@ -807,12 +809,13 @@ async def delete_invite(
 @router.post("/password/forgot", response_model=PasswordForgotResponse)
 @limiter.limit("1/minute", key_func=get_remote_address)
 async def forgot_password(
-    request: PasswordForgotRequest,
+    request: Request,  # Sprint 5: required by slowapi (was missing — was silent no-op)
+    body: PasswordForgotRequest,  # Sprint 5: renamed from 'request' to avoid shadowing
     session: AsyncSession = Depends(get_session),
 ):
     """Request a password reset for an admin account."""
     # Find admin by email
-    stmt = select(AdminAuth).where(AdminAuth.email == request.email.lower())
+    stmt = select(AdminAuth).where(AdminAuth.email == body.email.lower())
     result = await session.execute(stmt)
     admin = result.scalar_one_or_none()
 
@@ -831,7 +834,7 @@ async def forgot_password(
 
         # Send reset email
         await send_password_reset_email(
-            email=request.email,
+            email=body.email,
             reset_token=reset_token,
         )
 

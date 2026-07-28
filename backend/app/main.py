@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import get_settings
 from app.database import engine
@@ -135,6 +136,11 @@ observability.init_sentry()
 
 # Add rate limiter to app state
 app.state.limiter = limiter
+
+# Sprint 5: Enable the limiter middleware so @limiter.limit decorators actually fire.
+# Without this, all decorators are silent no-ops (we discovered this Jul 28 — Sprint 5).
+# Also: SlowAPIMiddleware MUST be added BEFORE CORSMiddleware so it runs first in the chain.
+app.add_middleware(SlowAPIMiddleware)
 
 
 # Rate limit exception handler

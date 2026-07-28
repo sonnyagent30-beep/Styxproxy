@@ -5,8 +5,9 @@ import string
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
+from slowapi.util import get_remote_address
 
 # Reportlab imports for PDF generation
 from sqlalchemy import select
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_account
 from app.database import get_session
+from app.limiter import limiter
 from app.models import Customer, Order, StyxproxyCredential
 from app.schemas import (
     OrderCancelRequest,
@@ -104,8 +106,10 @@ def generate_order_id() -> str:
 
 
 @router.post("/create", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute", key_func=get_remote_address)
 async def create_order(
-    request: OrderCreateRequest,
+    request: Request,  # Sprint 5: required by slowapi (must be first param)
+    body: OrderCreateRequest,  # Sprint 5: renamed from 'request' to avoid shadowing
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_account),
 ):
@@ -114,10 +118,10 @@ async def create_order(
     device_id = current_user.get("device_id")
     if not customer:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
-    price = PRODUCT_PRICES.get(request.plan_code)
+    price = PRODUCT_PRICES.get(body.plan_code)
     if not price:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
-    total_amount = price * request.quantity
+    total_amount = price * body.quantity
 
     # In-flight payment check: prevent double payments on the same device
     # If there's a 'pending' order for this device in the last 5 minutes, block
