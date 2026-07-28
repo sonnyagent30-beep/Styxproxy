@@ -69,6 +69,7 @@ from app.services.email import (
     send_refund_approved_notification,
     send_refund_processed_email,
 )
+from app.services.n8n import clear_failures, get_failure_stats, get_failures
 from app.services.trial import get_trials_today_count
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -971,3 +972,42 @@ async def update_escalation(
     escalation.status = status
     await session.commit()
     return {"success": True}
+
+
+
+@router.get("/n8n/failures", dependencies=[Depends(admin_only)])
+async def list_n8n_webhook_failures(limit: int = Query(default=50, le=200)) -> dict:
+    """List recent n8n webhook delivery failures (admin only).
+
+    Bug walk theme-B fix: previously failed webhook deliveries were only
+    logged to stdout and lost. Now persisted to Redis (capped at 100) so
+    admin can review which customers never got their n8n-driven delivery
+    (WhatsApp message, Telegram notification, etc.) and trigger manual
+    recovery.
+
+    Query params:
+        limit: Max number of failures to return (default 50, max 200).
+
+    Returns:
+        {
+            "stats": {"buffer_size": int, "last_48h_count": int},
+            "failures": [
+                {"order_id", "tx_ref", "timestamp", "error", "payload_summary"},
+                ...
+            ]
+        }
+    """
+    failures = await get_failures(limit=limit)
+    stats = await get_failure_stats()
+    return {"stats": stats, "failures": failures}
+
+
+@router.delete("/n8n/failures", dependencies=[Depends(admin_only)])
+async def clear_n8n_webhook_failures() -> dict:
+    """Clear the n8n webhook failures buffer (admin only).
+
+    Use after handling each failure manually (resending the webhook,
+    refunding, etc.). Returns the number of failures cleared.
+    """
+    cleared = await clear_failures()
+    return {"cleared": cleared}
