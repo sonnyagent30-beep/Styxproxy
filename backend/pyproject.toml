@@ -18,6 +18,7 @@ dependencies = [
     # Database
     "sqlalchemy[asyncio]==2.0.51",
     "asyncpg==0.31.0",
+    "alembic==1.13.2",
     # Data Validation
     "pydantic[email]==2.13.4",
     "email-validator>=2.0.0",
@@ -43,6 +44,18 @@ dependencies = [
     "redis==8.0.1",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.3",
+    "pytest-asyncio==0.24.0",
+    "pytest-cov==6.0.0",
+    "pytest-xdist==3.6.1",
+    "aiosqlite==0.20.0",
+    "ruff==0.8.4",
+    "black==25.1.0",
+    "pre-commit==4.0.1",
+]
+
 [tool.ruff]
 line-length = 120
 target-version = "py311"
@@ -61,3 +74,9 @@ ignore = [
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = ["-ra", "--strict-markers", "--tb=short"]
