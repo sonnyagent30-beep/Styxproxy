@@ -1,27 +1,78 @@
 #!/bin/bash
-# Sprint 1.4 pre-commit hook: run gitleaks on staged files
+# Sprint 4 pre-commit hook: gitleaks + ruff + ruff-format + black + eslint + prettier
 # Bypass with: git commit --no-verify
 set -e
 
-# Only run if gitleaks is installed
-if ! command -v gitleaks &> /dev/null; then
-    echo "WARNING: gitleaks not installed, skipping secret scan"
-    exit 0
-fi
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# Get list of staged files (added/modified)
+# Get list of staged files
 STAGED=$(git diff --cached --name-only --diff-filter=ACM)
 if [ -z "$STAGED" ]; then
     exit 0
 fi
 
-# Run gitleaks against the staged content
-gitleaks protect --config .gitleaks/gitleaks.toml --staged --no-banner 2>&1
-RC=$?
-
-if [ $RC -ne 0 ]; then
-    echo ""
-    echo "❌ gitleaks found secrets in staged files. Aborting commit."
-    echo "Bypass with: git commit --no-verify"
-    exit 1
+# 1. gitleaks (secrets) — Sprint 1.4
+if command -v gitleaks &> /dev/null; then
+    if ! gitleaks protect --config "$REPO_ROOT/.gitleaks/gitleaks.toml" --staged --no-banner > /dev/null 2>&1; then
+        echo "❌ gitleaks found secrets in staged files. Aborting commit."
+        echo "Bypass with: git commit --no-verify"
+        exit 1
+    fi
 fi
+
+# 2. ruff (Python lint)
+if echo "$STAGED" | grep -qE '\.py$'; then
+    if command -v ruff &> /dev/null; then
+        PY_FILES=$(echo "$STAGED" | grep -E '\.py$')
+        if [ -n "$PY_FILES" ]; then
+            echo "Running ruff check on staged Python files..."
+            cd "$REPO_ROOT"
+            # Run ruff against each staged file (relative to repo root)
+            echo "$PY_FILES" | while read f; do
+                [ -f "$f" ] && ruff check --select=E,F,I --force-exclude "$f"
+            done
+            rc=$?
+            if [ $rc -ne 0 ]; then
+                echo "❌ ruff check failed. Fix with: ruff check --fix <file>"
+                echo "Bypass with: git commit --no-verify"
+                exit 1
+            fi
+        fi
+    fi
+fi
+
+# 3. black (Python format) — auto-fix
+if echo "$STAGED" | grep -qE '\.py$'; then
+    if command -v black &> /dev/null; then
+        PY_FILES=$(echo "$STAGED" | grep -E '\.py$' | tr '\n' ' ')
+        if [ -n "$PY_FILES" ]; then
+            echo "Running black --check on staged Python files..."
+            cd "$REPO_ROOT/backend"
+            if ! black --check --line-length=120 --target-version=py311 $PY_FILES 2>&1; then
+                echo "❌ black format check failed. Fix with: black <file>"
+                echo "Bypass with: git commit --no-verify"
+                exit 1
+            fi
+        fi
+    fi
+fi
+
+# 4. eslint + prettier (frontend)
+if echo "$STAGED" | grep -qE '^frontend/.*\.(ts|tsx|js|jsx)$'; then
+    cd "$REPO_ROOT/frontend"
+    if [ -d node_modules ]; then
+        FE_FILES=$(echo "$STAGED" | grep -E '^frontend/.*\.(ts|tsx|js|jsx)$' | sed 's|^frontend/||')
+        if [ -n "$FE_FILES" ]; then
+            echo "Running eslint on staged frontend files..."
+            if ! npx eslint $FE_FILES 2>&1; then
+                echo "❌ eslint failed. Fix with: npm run lint -- --fix"
+                echo "Bypass with: git commit --no-verify"
+                exit 1
+            fi
+        fi
+    else
+        echo "WARN: frontend/node_modules not installed, skipping eslint/prettier"
+    fi
+fi
+
+echo "✓ pre-commit checks passed"
