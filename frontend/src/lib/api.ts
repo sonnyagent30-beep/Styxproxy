@@ -195,13 +195,19 @@ class ApiClient {
   }
 
   // Payments
-  async initiatePayment(planCode: string, quantity: number, customerPhone: string): Promise<ApiResponse<PaymentInitiateResponse>> {
+  async initiatePayment(
+    planCode: string,
+    quantity: number,
+    customerPhone: string,
+    customerEmail?: string,
+  ): Promise<ApiResponse<PaymentInitiateResponse>> {
     return this.request<PaymentInitiateResponse>('/payments/initiate', {
       method: 'POST',
       body: JSON.stringify({
         plan_code: planCode,
         quantity,
-        customer_phone: customerPhone,
+        customer_phone: customerPhone || undefined,
+        customer_email: customerEmail || undefined,
       }),
     });
   }

@@ -75,9 +75,6 @@ export default function CheckoutPage() {
         sessionStorage.setItem('styxproxy_email', email.trim());
       }
 
-      // Initiate payment with first cart item
-      const firstItem = cart[0];
-
       // ─── Double-payment prevention (frontend layer) ─────────────
       // If we already have an in-flight order for this plan_code from the
       // same device in the last 5 minutes, reuse it instead of starting a new one.
@@ -103,8 +100,10 @@ export default function CheckoutPage() {
         status: 'pending',
         created_at: new Date().toISOString(),
       });
-
-      const result = await api.initiatePayment(firstItem.plan_code, firstItem.quantity, '');
+      // Initiate payment with first cart item.
+      // Pass customer_email if user typed one on this page (anonymous checkout support).
+      const trimmedEmail = email.trim();
+      const result = await api.initiatePayment(firstItem.plan_code, firstItem.quantity, '', trimmedEmail || undefined);
 
       if (result.error) {
         setError(result.error);

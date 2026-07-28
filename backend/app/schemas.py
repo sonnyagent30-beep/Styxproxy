@@ -416,17 +416,44 @@ class ReceiptOrderResponse(BaseModel):
 
 
 class PaymentInitiateRequest(BaseModel):
-    """Request to initiate payment."""
+    """Request to initiate payment.
+
+    Customers can arrive here anonymously (no Customer row yet). All we need
+    is an email + plan_code + quantity. If customer_phone is missing and
+    customer_email is present, the backend creates a placeholder phone from
+    the email's local part + a stable domain, then auto-creates the Customer
+    row so subsequent calls (orders/create, session/init) can find it.
+
+    customer_phone remains the source of truth when present. The Flutterwave
+    invoice uses customer_email as the recipient and customer_phone for
+    payment-method fraud checks.
+    """
 
     plan_code: str = Field(..., min_length=1, max_length=50)
     quantity: int = Field(default=1, ge=1)
-    customer_phone: str = Field(..., min_length=10, max_length=20)
+    customer_phone: Optional[str] = Field(None, min_length=10, max_length=20)
+    customer_email: Optional[str] = Field(None, max_length=255)
     callback_url: Optional[str] = Field(None, max_length=200)
 
     @field_validator("customer_phone")
     @classmethod
-    def validate_phone_number(cls, v: str) -> str:
+    def validate_phone_number(cls, v):
+        """Phone is optional now (anonymous checkout). When present, must be valid."""
+        if v is None or v == "":
+            return None
         return validate_phone(v)
+
+    @field_validator("customer_email")
+    @classmethod
+    def validate_email(cls, v):
+        """Email is optional but if present must be a plausible address."""
+        if v is None or v == "":
+            return None
+        v = v.strip().lower()
+        # Minimal shape check — full RFC 5322 is overkill
+        if "@" not in v or " " in v or len(v) > 255:
+            raise ValueError("invalid email")
+        return v
 
 
 class PaymentInitiateResponse(BaseModel):
