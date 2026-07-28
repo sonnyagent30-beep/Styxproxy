@@ -159,14 +159,66 @@ async def create_order(
     session.add(order)
     if request.payment_reference:
         order.status = "paid"
-        credential = await create_credential(
-            session,
-            customer_phone=customer.phone,
-            order_id=order_id,
-            pool_type="paid",
-            duration_days=30,
-            country=request.country,
-        )
+        try:
+            credential = await create_credential(
+                session,
+                customer_phone=customer.phone,
+                order_id=order_id,
+                pool_type="paid",
+                duration_days=30,
+                country=request.country,
+            )
+        except Exception as credential_err:
+            # Provider exhausted (5x retry fails in get_provider_proxy).
+            # Mark the order for refund: status="refunded", refund_requested=True.
+            # We do NOT yet call the Flutterwave refund API — that's a
+            # separate ticket (FLUTTERWAVE_WEBHOOK_SECRET plus refund endpoint
+            # are both unwired). Marking it here lets admin queue process
+            # the actual money movement via existing /admin/orders/{id}/refund.
+            order.status = "refunded"
+            order.refund_requested = True
+            order.refund_reason = (
+                f"Auto-refund: provider could not deliver a working proxy after "
+                f"5 retries. Underlying error: {type(credential_err).__name__}: {credential_err}"
+            )
+            await session.commit()
+
+            await log_audit_event(
+                session,
+                event_type="credential_provider_exhausted",
+                phone=customer.phone,
+                order_id=order_id,
+                details={
+                    "plan_code": request.plan_code,
+                    "country": request.country,
+                    "amount": total_amount,
+                    "error": str(credential_err),
+                    "auto_refund": True,
+                    "flw_refund_pending": True,
+                },
+            )
+
+            # Notify admin so ops sees the failure immediately.
+            try:
+                await send_refund_request_notification(
+                    order_id=order_id,
+                    customer_phone=customer.phone,
+                    reason=f"Provider exhausted: {credential_err}",
+                    amount=total_amount,
+                    currency="NGN",
+                )
+            except Exception:
+                # Notification failure should not block the refund itself.
+                pass
+
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=(
+                    f"Order {order_id} could not be fulfilled — provider unavailable. "
+                    "Auto-refund queued. Admin will process your refund within 24 hours."
+                ),
+            )
+
         order.styxproxy_credential_id = credential.id
         order.status = "active"
     await session.commit()
