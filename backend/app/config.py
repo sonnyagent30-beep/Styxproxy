@@ -71,13 +71,18 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = 0.1
 
     # ── CORS ────────────────────────────────────────────────────────────────
+    # Verified Jul 28 18:13 UTC against live api.styxproxy.com CORS endpoints.
+    # Removed: styxproxy-api-push.vercel.app (Vercel returns DEPLOYMENT_NOT_FOUND).
+    # Removed duplicate 'https://styxproxy.com' in the list.
+    # Kept: http://localhost:3000 only as a local-dev fallback; production
+    # frontends must use https://styxproxy.com or https://www.styxproxy.com
+    # (the www apex points to the same Vercel project as the apex).
     cors_origins: List[str] = [
         "http://localhost:3000",
         "https://styxproxy.com",
-        "https://styxproxy.com",
         "https://www.styxproxy.com",
         "https://api.styxproxy.com",
-    ]
+    ]  # + anything added via CORS_ORIGINS env var
 
     # ── Rate Limiting ───────────────────────────────────────────────────────
     rate_limit_per_minute: int = 60
