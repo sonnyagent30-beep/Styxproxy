@@ -65,6 +65,15 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
+          TESTING: "1"
+          JWT_SECRET: test-jwt-secret-not-real-32chars-long
+          ADMIN_TOKEN: test-admin-token-not-real
+          FLUTTERWAVE_SECRET_KEY: test-flw-key
+          FLUTTERWAVE_PUBLIC_KEY: test-flw-pub
+          FLUTTERWAVE_WEBHOOK_SECRET: test-webhook-secret
+          WHATSAPP_ACCESS_TOKEN: test-wa-token
+          WHATSAPP_PHONE_NUMBER_ID: test-phone-id
+          MINIMAX_API_KEY: test-minimax-key
         run: |
           cd backend
           alembic upgrade head
