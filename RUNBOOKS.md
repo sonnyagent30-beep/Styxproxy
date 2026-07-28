@@ -394,3 +394,21 @@ After any P0:
 2. Identify root cause + contributing factors
 3. List action items with owners + deadlines
 4. Track until complete
+---
+
+## 9. Critical: Repo vs Live Backend
+
+There are TWO copies of the backend:
+- Repo (git): /opt/styxproxy/repo/backend/ - what GitHub sees, what CI tests
+- Live (running): /opt/styxproxy/backend/ - what uvicorn app.main:app actually executes
+
+The systemd unit styxproxy-api.service runs from /opt/styxproxy/backend/. All edits to /opt/styxproxy/repo/backend/ do NOT affect the live api until you sync them.
+
+### Sync procedure after editing repo files
+\\`\\`\\`bash
+SYNC_FILES=( "backend/app/main.py" "backend/app/routers/auth.py" "backend/app/routers/orders.py" )
+for f in "${SYNC_FILES[@]}"; do
+  scp -i ~/.ssh/styxproxy-interserver "/opt/styxproxy/repo/$f" "root@162.35.184.69:/opt/styxproxy/$f"
+done
+ssh -i ~/.ssh/styxproxy-interserver root@162.35.184.69 "find /opt/styxproxy/backend -name __pycache__ -type d -exec rm -rf {} +; systemctl restart styxproxy-api.service"
+\\`\\`\\`
