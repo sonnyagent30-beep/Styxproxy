@@ -8,6 +8,7 @@ This module resolves the logo path once, at import time, relative to
 this file. Falls back to a hardcoded path for backward compat if the
 file isn't where we expect.
 """
+
 from pathlib import Path
 
 _THIS_DIR = Path(__file__).resolve().parent

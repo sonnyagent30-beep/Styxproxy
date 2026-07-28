@@ -589,7 +589,6 @@ async def post_learn(
 # =============================================================================
 
 
-
 class TriggerEventRequest(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=64)
     trigger_id: str = Field(..., min_length=1, max_length=50)

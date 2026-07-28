@@ -9,8 +9,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 # Reportlab imports for PDF generation
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,7 +36,6 @@ from app.services.email import (
     send_order_confirmation_email,
     send_refund_request_notification,
 )
-from app.services.logo_paths import get_logo_path
 from app.services.provider import check_availability
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -653,6 +650,7 @@ async def deliver_credentials(
 
 # ─── Receipt & PDF Endpoints ───────────────────────────────────────────────────
 
+
 def _hex_to_rgb(hex_color: str):
     """Convert hex color to RGB tuple (0-1 range)."""
     hex_color = hex_color.lstrip("#")
@@ -762,7 +760,6 @@ async def get_receipt_pdf(
     session: AsyncSession = Depends(get_session),
 ):
     """Generate and download a dark-themed PDF receipt."""
-    from reportlab.pdfgen import canvas as pdf_canvas
 
     # Query by tx_ref or payment_reference
     from sqlalchemy import select
@@ -792,14 +789,13 @@ async def get_receipt_pdf(
         cred = cred_result.scalar_one_or_none()
 
     # ── Build PDF using HTML/CSS (matches email template design) ─────
-    from app.services.email import (
-        _get_base_styles,
-        LOGO_DARK_B64,
-    )
     from weasyprint import HTML as _WeasyHTML
 
-    customer_name = customer.name.strip() if customer and customer.name else "Customer"
-    status = (order.status or "pending").upper()
+    from app.services.email import (
+        LOGO_DARK_B64,
+        _get_base_styles,
+    )
+
     currency = "NGN"
     amount = float(order.amount_paid_ngn or 0)
     quantity = order.quantity or 1
@@ -1058,6 +1054,7 @@ async def get_receipt_pdf(
 
     pdf_bytes = _WeasyHTML(string=html).write_pdf()
     import io as _io
+
     buffer = _io.BytesIO(pdf_bytes or b"")
 
     from fastapi.responses import StreamingResponse

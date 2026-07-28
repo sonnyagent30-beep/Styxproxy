@@ -108,8 +108,7 @@ def decrypt_credential(ciphertext: Optional[bytes]) -> Optional[str]:
     f = _get_fernet()
     if f is None:
         logger.error(
-            "Cannot decrypt credential: CRED_ENCRYPTION_KEY not configured. "
-            "Set the key in your secrets manager."
+            "Cannot decrypt credential: CRED_ENCRYPTION_KEY not configured. " "Set the key in your secrets manager."
         )
         return None
 

@@ -223,6 +223,7 @@ class StyxproxyCredential(Base):
             )
             return
         self.styxproxy_password = ciphertext
+
     customer_phone: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("customers.phone"), nullable=True)
     order_id: Mapped[Optional[str]] = mapped_column(String(20), ForeignKey("orders.order_id"), nullable=True)
     pool_type: Mapped[str] = mapped_column(String(20), default="paid", nullable=False)

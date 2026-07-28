@@ -70,6 +70,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 "tests/**/*.py" = ["F401", "F841"]
+"app/routers/orders.py" = ["E501"]  # HTML f-string template
 
 [tool.ruff.format]
 quote-style = "double"

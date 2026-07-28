@@ -56,8 +56,7 @@ class Message:
 
 
 _TX_REF_PATTERN = re.compile(
-    r"\b(?:STX|TX|TXF|TXF-ORD|ORD)-\d{4,}[A-Z0-9\-]*\b|"
-    r"\b[A-Z0-9]{6,12}-\d{4,}\b",
+    r"\b(?:STX|TX|TXF|TXF-ORD|ORD)-\d{4,}[A-Z0-9\-]*\b|" r"\b[A-Z0-9]{6,12}-\d{4,}\b",
     re.IGNORECASE,
 )
 
@@ -230,7 +229,7 @@ async def reply(
             "role": "system",
             "content": system_block
             + "\n\nAnswer the customer's question using ONLY the context above. "
-            + "Be concise. If the context does not contain the answer, say so and offer to escalate."
+            + "Be concise. If the context does not contain the answer, say so and offer to escalate.",
         },
         *history_dicts,
     ]
