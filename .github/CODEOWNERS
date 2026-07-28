@@ -1,0 +1,20 @@
+# CODEOWNERS — auto-assign reviewers based on path
+# Backend → Sonny
+/backend/          @sonnyagent30-beep
+/backend/alembic/  @sonnyagent30-beep
+/backend/tests/    @sonnyagent30-beep
+/backend/scripts/  @sonnyagent30-beep
+/pyproject.toml    @sonnyagent30-beep
+/backend/requirements.txt @sonnyagent30-beep
+
+# Frontend → Dannion
+/frontend/         @dannion-code
+
+# CI/security — both
+/.github/          @sonnyagent30-beep @dannion-code
+/.githooks/        @sonnyagent30-beep @dannion-code
+/.gitleaks/        @sonnyagent30-beep
+/.gitignore        @sonnyagent30-beep
+
+# Docs — Dannion
+*.md               @dannion-code
