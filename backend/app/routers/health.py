@@ -22,7 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.database import get_session
+from app.database import engine, get_session
 from app.schemas import HealthResponse
 
 settings = get_settings()
@@ -206,4 +206,64 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
         # Hint for the frontend: when Charon is impaired, show a fallback
         # UI instead of a broken spinner. True means Charon can answer.
         "charon_available": charon_available,
+        # Theme C (Jul 28): DB connection pool stats so the admin panel
+        # can alert at 80% utilization. Read from the SQLAlchemy engine's
+        # pool — synchronous getters, safe to call from async.
+        "db_pool": _pool_stats(),
+    }
+
+
+def _pool_stats() -> dict[str, Any]:
+    """Return SQLAlchemy AsyncEngine pool stats: size, overflow, in-use, idle.
+
+    pool_size=20 + max_overflow=10 → max 30 concurrent connections.
+    Returns utilization = (in_use + overflow) / max for alert routing at 80%.
+    The pool is shared across all workers (NOT per-process — asyncpg
+    uses the same pool object per process, but uvicorn workers each
+    have their own engine). Treat utilization as per-worker.
+    """
+    pool = engine.pool
+    size = pool.size()
+    checkedout = pool.checkedout()
+    overflow = pool.overflow()
+    # checkedin = size - checkedout (capped at 0)
+    checkedin = pool.checkedin()
+    max_conns = size + abs(min(overflow, 0)) + max(overflow, 0)
+    # In-use = checkedout + overflow currently over the base size
+    in_use = checkedout
+    utilization = round(in_use / max(1, size), 3) if size else 0.0
+    return {
+        "size": size,
+        "max_overflow": pool._max_overflow,
+        "checked_out": checkedout,
+        "checked_in": checkedin,
+        "overflow": overflow,
+        "max_connections": max_conns,
+        "utilization": utilization,
+    }
+
+
+@router.get("/api/health/db")
+async def db_pool_health(session: AsyncSession = Depends(get_session)):
+    """Dedicated DB pool endpoint for the admin status panel.
+
+    Theme C — surfaces pool stats in isolation so alerting can be
+    wired to pool exhaustion without parsing the full /api/v1/health
+    payload. Returns 200 always (status field indicates health).
+    """
+    db = await _check_db(session)
+    pool = _pool_stats()
+    # Alert threshold: 80% utilization OR any DB error
+    utilization = pool["utilization"]
+    pool_alert = utilization >= 0.8
+    overall = "unhealthy" if db != "connected" else "warning" if pool_alert else "healthy"
+    return {
+        "status": overall,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "database": db,
+        "pool": pool,
+        "alert": {
+            "pool_high_utilization": pool_alert,
+            "threshold": 0.8,
+        },
     }
