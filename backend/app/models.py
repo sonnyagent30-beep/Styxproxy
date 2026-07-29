@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import (
+    ARRAY,
     JSON,
     Boolean,
     DateTime,
@@ -538,6 +539,47 @@ class CharonEscalation(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class CharonContext(Base):
+    """Charon AI sales agent — per-conversation rolling summary.
+
+    Theme C — give Charon persistent memory across page reloads. Today
+    Charon reconstructs context from the escalations table and the
+    knowledge base only. With this table, Charon can:
+      - Remember the customer's last intent (e.g. "asked about 3GB plan")
+      - Resume a conversation if the customer returns within 24h
+      - Surface "what we talked about last time" to the agent
+
+    Retention: 24h, enforced by cleanup_charon_context cron (Theme C).
+    After 24h customers get a fresh conversation rather than stale context.
+
+    Uniqueness: one row per conversation_id (UPSERT on the next turn).
+    """
+
+    __tablename__ = "charon_context"
+    __table_args__ = (
+        Index("idx_charon_context_conversation", "conversation_id"),
+        Index("idx_charon_context_expires", "expires_at"),
+        Index("idx_charon_context_customer_email", "customer_email"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    session_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    customer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    customer_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    summary_json: Mapped[str] = mapped_column(Text, nullable=False)
+    message_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_intent: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    last_topics: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(100)), nullable=True)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class Post(Base):
