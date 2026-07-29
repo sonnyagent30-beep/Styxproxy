@@ -41,23 +41,15 @@ wal_keep_size = 5GB           # keep 5GB WAL locally for safety
 - `/var/log/pitr-wal-sync.log` — sync attempts to B2
 - `/var/log/pitr-pgbase.log` — base backup runs
 
-## KNOWN ISSUE: B2 sync failing from Interserver
+## KNOWN ISSUE: B2 sync failing from Interserver (Jul 28 22:00)
 
-**Symptom:** `rclone sync` to B2 from Interserver fails with:
+**Root cause (fully diagnosed):** The B2 application key is **read-only or expired**. Listing works, writing fails with 401.
 
-```
-CRITICAL: Failed to create file system for "b2-styxproxy:...":
-  failed to authorize account: failed to authenticate:
-  This request is not currently supported on API version number 1 (400 bad_request)
-```
+The initial "API version number 1 (400 bad_request)" error was a red herring — caused by rclone v1.69.0 being too old. Upgraded to v1.74.4 made listing work, but writing still fails.
 
-The same B2 application key works from Contabo. Suspected: IP-based restriction on the B2 application key, or a B2 API version mismatch.
+**Action required:** See `B2_KEY_BROKEN.md` for replacement steps. This is a HUMAN task.
 
-**Impact:** WAL files are archived locally (good) but not synced to B2 (bad). If the Interserver disk dies, we lose PITR history.
-
-**Workaround in place:** Local WAL retention is 14 days (pruned by cron). Local base backups are kept 7 days. Together this means a 7-day recovery window from local-only data.
-
-**Permanent fix:** Either (a) ask Hakan/rayobyte to remove the B2 IP restriction, (b) generate a new B2 application key scoped to Interserver's IP, or (c) rsync WAL to Contabo first then push to B2. (c) is the fastest fix and the cron can be extended to do this.
+**Impact:** WAL files archived locally only. Local retention 14d WAL + 7d base backups on SAME disk — if Interserver disk dies, we lose everything.
 
 ## How to restore from PITR
 
