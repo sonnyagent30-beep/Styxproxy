@@ -777,3 +777,108 @@ class HealthSnapshot(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class AdminPermission(Base):
+    """Permission code catalog (Theme C).
+
+    The permission system lives in 4 tables:
+      - admin_permissions: the catalog of all valid permission codes
+      - admin_role_permissions: role → default grants (superadmin/admin/viewer)
+      - admin_user_permissions: per-admin overrides (grant or revoke)
+      - permission_change_requests: workflow for non-superadmin requests
+
+    Migration 016 created them. The seed (scripts/seed_permissions.py)
+    populates ~50 permission codes + role defaults matching the existing
+    hardcoded RoleChecker in app/routers/auth.py.
+
+    Note: today's auth code still uses the 3-role RoleChecker. The
+    permission tables are SETUP for the future granular permission
+    system; the existing flow is unchanged.
+    """
+
+    __tablename__ = "admin_permissions"
+    __table_args__ = (
+        Index("idx_admin_permissions_category", "category"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    is_sensitive: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class AdminRolePermission(Base):
+    """Role → permission defaults (Theme C)."""
+
+    __tablename__ = "admin_role_permissions"
+    __table_args__ = (
+        Index("idx_admin_role_permissions_role", "role"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    permission_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    granted: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class AdminUserPermission(Base):
+    """Per-admin permission overrides (Theme C)."""
+
+    __tablename__ = "admin_user_permissions"
+    __table_args__ = (
+        Index("idx_admin_user_permissions_email", "admin_email"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    admin_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    permission_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    granted: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    granted_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    granted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+class PermissionChangeRequest(Base):
+    """Permission request workflow (Theme C).
+
+    Admins who lack a permission can file a request here. Superadmins
+    approve/reject from the admin panel. A 7-day auto-expire keeps the
+    queue short if reviewers are unavailable.
+    """
+
+    __tablename__ = "permission_change_requests"
+    __table_args__ = (
+        Index("idx_pcr_status", "status"),
+        Index("idx_pcr_target_email", "target_email"),
+        Index("idx_pcr_target_role", "target_role"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    requested_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    target_role: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    permission_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    desired_state: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    justification: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    reviewed_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewer_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
