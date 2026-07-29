@@ -882,3 +882,75 @@ class PermissionChangeRequest(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class RlsPolicy(Base):
+    """Single source of truth for which tables have RLS enabled (Theme C).
+
+    RLS was rolled back in commit 0ba7241 (security review found the
+    policies too restrictive). This table tracks future RLS decisions:
+    - policy_enabled: TRUE if RLS is currently active on this table
+    - applied_at: when RLS was last enabled (NULL if never)
+    - rolled_back_at: when RLS was last disabled (NULL if never rolled back)
+    - last_audit: when admins last reviewed the policy
+
+    INSERT-only updates: never DELETE. Old entries remain as audit trail.
+    """
+
+    __tablename__ = "rls_policy"
+    __table_args__ = (
+        Index("idx_rls_policy_enabled", "policy_enabled"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    table_name: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    policy_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    policy_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    applied_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    rolled_back_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_audit: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class AdminTotpSession(Base):
+    """TOTP session tokens for "remember this device" feature (Theme C).
+
+    When an admin successfully TOTP-authenticates, the API issues a
+    session_token (in the Set-Cookie header). Subsequent requests with
+    that cookie skip TOTP for `expires_at` days.
+
+    The token is hashed (Argon2 via pwd_context) before storage. The
+    raw token never touches the DB. Revoke by setting revoked_at.
+
+    TTL: a daily cron will clean up expired rows (cleanup_admin_totp_sessions).
+    """
+
+    __tablename__ = "admin_totp_sessions"
+    __table_args__ = (
+        Index("idx_admin_totp_sessions_email", "admin_email"),
+        Index("idx_admin_totp_sessions_expires", "expires_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    admin_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    session_token_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    granted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    device_fingerprint: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(INET, nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
