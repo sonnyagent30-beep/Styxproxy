@@ -258,13 +258,20 @@ CREATE INDEX idx_instant_status ON instant_orders(status);
                     │   FastAPI)   │
                     └──────┬───────┘
                            ↓
-            ┌──────────────┼──────────────┐
-            ↓              ↓              ↓
-      Proxy-Seller    DataImpulse      3proxy
-            ↓              ↓              ↓
-      IP generated   IP generated   Trial proxies
-            ↓              ↓              ↓
-      Instant order  Instant order  Free trial
+            ┌─────────────────────────────────────────────────────────────┐
+            ↓                                                             ↓
+   ┌──────────────────────┐                                  ┌─────────────────────┐
+   │  INTERSERVER RELAY   │                                  │   CONTABO RELAY     │
+   │  (gost + Postgres)   │                                  │   (3proxy + socks-  │
+   │  Host: proxy.styxproxy.com:1080/8080                   │   auth-proxy)       │
+   │  ────────────────────────                               │   Host: trial.styxproxy.com:8001-8100│
+   │  • US Datacenter (static IP)                            │   ──────────────────────  │
+   │  • US ISP                                              │   • Free trial pool   │
+   │  • ALL Residential (Rayobyte pool)                     │   • UK Datacenter     │
+   │  • ALL Mobile (Rayobyte pool)                          │   • UK ISP           │
+   └──────────┬───────────────┘                              └──────────┬──────────┘
+              ↓                                                          ↓
+       Rayobyte / Proxy-Seller                                 Contabo static IPs
 ```
 
 **Backend API responsibilities:**
@@ -320,14 +327,28 @@ Implications for the build:
 | Database | **PostgreSQL** | All Styxproxy data |
 | Async queue | **Redis** | Background job processing for webhooks |
 | Process manager | **Uvicorn** | ASGI server for FastAPI |
-| Paid proxy auth | **Dante SOCKS5** | Customer connects to Dante → routed to upstream provider IP |
-| Trial proxy auth | **3proxy** | Free trial proxies on ports 8001–8100 |
+| Paid relay (Interserver) | **gost** | SOCKS5 + HTTP relay; auth table from Postgres styxproxy_relay_entries; 30s hot-reload |
+| Paid relay (Contabo — UK region) | **gost** (planned) | Same gost config; relays UK Datacenter + UK ISP. v1 = Interserver only. |
 | Payments | **Flutterwave** | Naira payments |
 | Email | **Resend** | Transactional emails |
 | Website | **Static HTML/CSS/JS** | Display only, zero business logic |
 | n8n | (existing) | Workflow automation |
 
 **Rule:** Frontend (website) = display only. All business logic in FastAPI backend.
+
+---
+
+## Architecture decision log (added 2026-07-29)
+
+**Refactor:** Dante was originally conceived as the "paid proxy branding layer" but the actual deployed fleet on Contabo only runs the free trial. Decision per Dannion:
+
+- **Contabo + 3proxy + socks-auth-proxy** = free trial pool (replaces old "Dante = paid branding" framing)
+- **Interserver + gost + Postgres auth** = paid proxy relay (new)
+- **Customer-facing principle:** `proxy.styxproxy.com` for paid, `trial.styxproxy.com` for trials. They never see the underlying provider.
+- **Region split:** Contabo relays UK static (datacenter + ISP) + free trial. Interserver relays US static + ALL rotating pools.
+- **Decoupling:** The two relays don't share credentials. Paid customers have styxproxy_* credentials that work on Interserver relay. Trial customers have trial_* credentials that work on Contabo relay.
+
+See [PRD.md](./docs/PRD.md) for the full region routing table and [PAID_PROXY_RELAY.md](./docs/PAID_PROXY_RELAY.md) for the gost relay implementation.
 
 ---
 
