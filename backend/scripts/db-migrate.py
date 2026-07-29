@@ -63,7 +63,12 @@ CONFIRM_MARKER = re.compile(r"^\s*--\s*DESTRUCTIVE-CONFIRMED\s*$", re.MULTILINE 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MIGRATIONS_DIR = REPO_ROOT / "db" / "migrations"
 DEFAULT_DBNAME = "styxproxy"
-DEFAULT_PSQL_USER = "postgres"
+DEFAULT_PSQL_USER = "styxproxy_migrate"
+
+# NOTE (Jul 29 2026, Theme C closure):
+#   Migrations default to styxproxy_migrate (NOSUPERUSER) instead of postgres.
+#   styxproxy_migrate owns all tables; postgres is reserved for emergencies.
+#   Override with --psql-user postgres if you need superuser actions (rare).
 
 
 def scan_for_destructive(sql: str) -> list[tuple[str, str]]:
@@ -89,17 +94,50 @@ def scan_is_protected(hits: list[tuple[str, str]]) -> list[tuple[str, str]]:
 def run_psql(sql_path: Path, dbname: str, psql_user: str) -> int:
     """Pipe the SQL file to psql. Returns the psql exit code.
 
-    Reads the file as the current user (root), pipes to `sudo -u postgres
-    psql` via stdin. This avoids the chicken-and-egg of file permissions
-    when the runner is invoked by a different account than the migration
-    files' owner — common when migrations are written by Claude and run
-    by a maintenance cron under a different user.
+    Two auth modes supported:
+      - "postgres" → sudo -u postgres psql (peer auth, no password needed)
+      - any other role → psql via TCP with PGPASSWORD from /opt/styxproxy/.env
+                         (avoids needing a matching Unix user for every DB role)
+
+    Reads the file as the current user (root), pipes to psql via stdin.
+    This avoids the chicken-and-egg of file permissions when the runner is
+    invoked by a different account than the migration files' owner.
     """
     sql = sql_path.read_text()
-    cmd = ["sudo", "-u", psql_user, "psql", "-d", dbname, "-v", "ON_ERROR_STOP=1"]
+    env = os.environ.copy()
+
+    if psql_user == "postgres":
+        # Peer auth via Unix socket
+        cmd = ["sudo", "-u", psql_user, "psql", "-d", dbname, "-v", "ON_ERROR_STOP=1"]
+    else:
+        # TCP auth with password from .env (DATABASE_URL has styxproxy creds;
+        # for styxproxy_migrate we read PGPASSWORD or fall back to same password)
+        pg_password = env.get("PGPASSWORD") or _read_migrate_password()
+        env["PGPASSWORD"] = pg_password
+        cmd = [
+            "psql",
+            "-h", "127.0.0.1",
+            "-U", psql_user,
+            "-d", dbname,
+            "-v", "ON_ERROR_STOP=1",
+        ]
     print(f"\n$ cat {sql_path} | {' '.join(cmd)}")
-    proc = subprocess.run(cmd, input=sql, text=True, check=False)
+    proc = subprocess.run(cmd, input=sql, text=True, check=False, env=env)
     return proc.returncode
+
+
+def _read_migrate_password() -> str:
+    """Read styxproxy_migrate password from /opt/styxproxy/.env.
+
+    Convention: MIGRATE_PASSWORD=<password> in .env, falls back to
+    styxproxy_migrate_2026 if not set (matches migration 016 default).
+    """
+    env_path = Path("/opt/styxproxy/.env")
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            if line.startswith("MIGRATE_PASSWORD="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return "styxproxy_migrate_2026"
 
 
 def apply_one(sql_path: Path, dbname: str, psql_user: str, yes: bool, dry_run: bool) -> int:
