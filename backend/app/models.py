@@ -580,6 +580,44 @@ class CharonContext(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+class Country(Base):
+    """ISO 3166-1 country reference table.
+
+    Theme C — replace the hardcoded `available_countries` dict in
+    `app/services/provider.py` with a queryable DB table. Lets the
+    admin panel flip is_supported / plan_type_eligible without a
+    deploy, and lets Charon answer country questions from live data
+    instead of a frozen list.
+
+    Seeded with all 195 ISO 3166-1 entries (see scripts/seed_countries.py).
+    The 9 currently-enabled countries in provider.py are seeded with
+    is_supported=TRUE; the rest are FALSE by default.
+    """
+
+    __tablename__ = "countries"
+    __table_args__ = (
+        Index("idx_countries_supported", "is_supported"),
+        Index("idx_countries_eligible", "plan_type_eligible"),
+        Index("idx_countries_region", "region"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(2), nullable=False, unique=True)
+    code3: Mapped[str] = mapped_column(String(3), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    flag_emoji: Mapped[str] = mapped_column(String(8), nullable=False)
+    region: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    subregion: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    plan_type_eligible: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_supported: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    proxy_pool: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
 
 class Post(Base):
