@@ -1,6 +1,6 @@
 # PITR (Point-In-Time Recovery) Setup — Theme C
 
-**Status (Jul 28 2026):** Configured but B2 sync is degraded. README below.
+**Status (Jul 28 22:00 UTC):** Working end-to-end. WAL archives + pg_basebackup both syncing to B2 successfully. See "Resolution" below.
 
 ## What is PITR?
 
