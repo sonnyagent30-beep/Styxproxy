@@ -1,0 +1,26 @@
+# CODEOWNERS — auto-assign reviewers on PRs
+# Pattern: <path> <owner1> <owner2> ...
+# Last match wins, so put broad rules at top, narrow overrides at bottom
+
+# Default: backend → Sonny (agent maintainer), frontend → Dannion (human owner)
+/backend/          @sonnyagent30-beep
+/frontend/         @Dannion-code
+/docs/             @Dannion-code
+
+# Database migrations get extra review from both
+/backend/db/migrations/  @sonnyagent30-beep @Dannion-code
+
+# Security-sensitive files (auth, secrets, RLS, payments)
+/backend/app/routers/auth.py        @sonnyagent30-beep @Dannion-code
+/backend/app/routers/payments.py    @sonnyagent30-beep @Dannion-code
+/backend/app/routers/superadmin.py  @sonnyagent30-beep @Dannion-code
+/backend/app/auth.py                @sonnyagent30-beep @Dannion-code
+/backend/app/limiter.py             @sonnyagent30-beep @Dannion-code
+
+# Infrastructure (docker, nginx, postgres configs)
+/docker-compose.yml  @sonnyagent30-beep @Dannion-code
+/nginx/              @sonnyagent30-beep
+/scripts/            @sonnyagent30-beep
+
+# CI/CD — both
+/.github/    @sonnyagent30-beep @Dannion-code

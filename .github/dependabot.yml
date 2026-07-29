@@ -1,48 +1,88 @@
+# dependabot.yml — automated dependency update PRs
+# Docs: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
 version: 2
-updates:
-  - package-ecosystem: "npm"
-    directory: "/frontend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "frontend"
-    commit-message:
-      prefix: "deps(frontend)"
-    # Don't auto-bump major versions
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
 
+updates:
+  # Python (backend)
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
+      time: "08:00"
+      timezone: "Africa/Lagos"
     open-pull-requests-limit: 5
+    reviewers:
+      - "sonnyagent30-beep"
     labels:
       - "dependencies"
       - "backend"
     commit-message:
-      prefix: "deps(backend)"
+      prefix: "deps"
+    # Group minor/patch updates to reduce PR noise
+    groups:
+      python-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
+  # JavaScript / TypeScript (frontend)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Africa/Lagos"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "Dannion-code"
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "deps"
+    groups:
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 5
+      time: "08:00"
+      timezone: "Africa/Lagos"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "sonnyagent30-beep"
     labels:
       - "dependencies"
       - "ci"
     commit-message:
-      prefix: "ci(deps)"
+      prefix: "ci"
     groups:
-      github-actions:
+      actions-patch:
         patterns:
           - "*"
+        update-types:
+          - "patch"
+
+  # Docker (compose base images)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 2
+    reviewers:
+      - "sonnyagent30-beep"
+    labels:
+      - "dependencies"
+      - "docker"
