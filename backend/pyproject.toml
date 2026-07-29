@@ -13,12 +13,12 @@ description = "Styxproxy Backend API"
 requires-python = ">=3.11"
 dependencies = [
     # Web Framework
-    "fastapi==0.133.1",
-    "uvicorn[standard]==0.41.0",
+    "fastapi==0.140.13",
+    "uvicorn[standard]==0.52.0",
     # Database
     "sqlalchemy[asyncio]==2.0.51",
     "asyncpg==0.31.0",
-    "alembic==1.13.2",
+    "alembic==1.18.5",
     # Data Validation
     "pydantic[email]==2.13.4",
     "email-validator>=2.0.0",
@@ -35,12 +35,12 @@ dependencies = [
     "slowapi==0.1.10",
     # Logging & Monitoring
     "structlog==26.1.0",
-    "sentry-sdk==2.64.0",
+    "sentry-sdk==2.66.1",
     # Utilities
-    "python-multipart==0.0.27",
+    "python-multipart==0.0.32",
     "python-dotenv==1.2.2",
     # Observability + Caching
-    "sentry-sdk[fastapi]==2.64.0",
+    "sentry-sdk[fastapi]==2.66.1",
     "redis==8.0.1",
 ]
 
@@ -49,11 +49,11 @@ dev = [
     "pytest==8.3.3",
     "pytest-asyncio==0.24.0",
     "pytest-cov==6.0.0",
-    "pytest-xdist==3.6.1",
-    "aiosqlite==0.20.0",
-    "ruff==0.8.4",
+    "pytest-xdist==3.8.0",
+    "aiosqlite==0.22.1",
+    "ruff==0.16.0",
     "black==25.1.0",
-    "pre-commit==4.0.1",
+    "pre-commit==4.6.1",
 ]
 
 [tool.ruff]
