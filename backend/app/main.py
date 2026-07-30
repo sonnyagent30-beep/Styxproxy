@@ -31,6 +31,7 @@ from app.routers import (
     orders,
     payment_status,
     payments,
+    permissions,
     platform,
     products,
     proxies,
@@ -374,6 +375,7 @@ app.include_router(contact.router)
 app.include_router(auth.router)
 app.include_router(catalog.router)
 app.include_router(payment_status.router)
+app.include_router(permissions.router)
 app.include_router(blog.router)
 app.include_router(inbound.router)
 app.include_router(superadmin.router)
