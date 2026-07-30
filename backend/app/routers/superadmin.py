@@ -23,7 +23,6 @@ from app.models import (
     StyxproxyCredential,
     SupportThread,
 )
-from app.routers.auth import require_superadmin
 from app.schemas import (
     AdminAuditLogEntryResponse,
     AdminAuditLogListResponse,
@@ -44,6 +43,7 @@ from app.schemas import (
     SystemSettingUpdateRequest,
 )
 from app.services.audit import write_audit_log
+from app.services.permissions import require_permission
 
 router = APIRouter(prefix="/api/admin", tags=["superadmin"])
 
@@ -65,7 +65,7 @@ async def get_admin_audit_log(
     admin_email: Optional[str] = None,
     from_date: Optional[datetime] = Query(None, alias="from"),
     to_date: Optional[datetime] = Query(None, alias="to"),
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.system.audit_log.read")),
     session: AsyncSession = Depends(get_session),
 ):
     """Get paginated admin audit log entries (superadmin only).
@@ -149,7 +149,7 @@ async def get_admin_audit_log(
 async def list_admins(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.auth.team.list")),
     session: AsyncSession = Depends(get_session),
 ):
     """List all admins with role from AdminAuth (not invite lookup)."""
@@ -197,7 +197,7 @@ async def list_admins(
 @router.post("/admins", response_model=SuperadminCreateAdminResponse)
 async def create_admin(
     request: SuperadminCreateAdminRequest,
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.auth.invite.create")),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):
@@ -258,7 +258,7 @@ async def create_admin(
 async def update_admin_role(
     admin_email: str,
     request: SuperadminUpdateRoleRequest,
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.auth.role.update")),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):
@@ -307,7 +307,7 @@ async def update_admin_role(
 @router.delete("/admins/{admin_email}")
 async def delete_admin(
     admin_email: str,
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.auth.invite.delete")),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):
@@ -364,7 +364,7 @@ async def delete_admin(
 @router.post("/admins/{admin_email}/lock", response_model=dict)
 async def lock_admin(
     admin_email: str,
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.auth.lock_admin")),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):
@@ -402,7 +402,7 @@ async def lock_admin(
 @router.post("/admins/{admin_email}/unlock", response_model=dict)
 async def unlock_admin(
     admin_email: str,
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.auth.lock_admin")),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):
@@ -443,7 +443,7 @@ async def unlock_admin(
 
 @router.get("/providers/costs", response_model=ProviderCostsResponse)
 async def get_provider_costs(
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.billing.transactions.list")),
     session: AsyncSession = Depends(get_session),
 ):
     """Get aggregated provider cost data."""
@@ -483,7 +483,7 @@ async def get_provider_costs(
 
 @router.get("/settings", response_model=SystemSettingsListResponse)
 async def list_settings(
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.system.maintenance.read")),
     session: AsyncSession = Depends(get_session),
 ):
     """List system settings (superadmin only)."""
@@ -499,7 +499,7 @@ async def list_settings(
 async def update_setting(
     key: str,
     request: SystemSettingUpdateRequest,
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.system.maintenance.read")),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):
@@ -538,7 +538,7 @@ async def update_setting(
 @router.get("/search", response_model=GlobalSearchResponse)
 async def global_search(
     q: str = Query(..., min_length=1, description="Search query"),
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.system.audit_log.read")),
     session: AsyncSession = Depends(get_session),
 ):
     """Global search across customers, orders, support threads, and contact submissions."""
@@ -624,7 +624,7 @@ async def global_search(
 
 @router.get("/metrics/overview", response_model=MetricsOverviewResponse)
 async def get_metrics_overview(
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.monitor.metrics.read")),
     session: AsyncSession = Depends(get_session),
 ):
     """Get system metrics overview."""
@@ -764,7 +764,7 @@ def _charon_llm_status() -> str:
 
 @router.get("/charon/stats")
 async def get_charon_stats(
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.monitor.logs.read")),
 ):
     """Detailed Charon runtime stats (superadmin only).
 
@@ -787,7 +787,7 @@ async def get_charon_stats(
 
 @router.post("/charon/reset")
 async def reset_charon_stats(
-    current_admin: dict = Depends(require_superadmin),
+    current_admin: dict = Depends(require_permission("admin.system.maintenance.read")),
 ):
     """Reset Charon counters to zero. Useful after deploying a config fix."""
     try:
