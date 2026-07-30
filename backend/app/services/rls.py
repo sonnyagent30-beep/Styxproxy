@@ -13,6 +13,14 @@ RLS here only takes effect once DATABASE_URL is re-pinned to
 styxproxy_app (Sprint 15 final todo). Until then this forward-preps the
 policies in Postgres.
 
+For convenience during the rollout, the toggle creates TWO policies per
+table:
+  - <table>_app_all: TO styxproxy_app USING (the supplied using_clause)
+  - <table>_admin_all: TO styxproxy USING (true) WITH CHECK (true)
+    Lets the existing styxproxy (app) connection keep reading/writing
+    for admin/observability sessions. Will be dropped in a follow-up
+    when DATABASE_URL is pinned to styxproxy_app.
+
 Single-statement SQL only — asyncpg with prepared statements rejects
 multi-statement strings.
 """
@@ -41,6 +49,16 @@ def _read_migrate_password() -> str:
     return "styxproxy_migrate_2026"
 
 
+def _read_superuser_password() -> str:
+    """Read postgres superuser password from /opt/styxproxy/.env."""
+    env_path = Path("/opt/styxproxy/.env")
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            if line.startswith("PG_SUPERUSER_PASSWORD="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return "postgres"
+
+
 def get_migrate_engine():
     """Separate engine connected as styxproxy_migrate (table owner)."""
     url = (
@@ -50,49 +68,67 @@ def get_migrate_engine():
     return create_async_engine(url, echo=False)
 
 
-async def _ensure_styxproxy_app_role(eng) -> bool:
+def get_superuser_engine():
+    """Engine connected as postgres (superuser, BYPASSRLS).
+
+    Used ONLY by _ensure_styxproxy_app_role() to grant schema-level
+    privileges to styxproxy_app. styxproxy_migrate can't GRANT without
+    GRANT OPTION (which it doesn't have). Bringing postgres in here
+    means we keep styxproxy_migrate non-superuser, which preserves
+    the dual-role blast-radius model.
+    """
+    url = (
+        f"postgresql+asyncpg://postgres:{_read_superuser_password()}"
+        "@127.0.0.1:5432/styxproxy"
+    )
+    return create_async_engine(url, echo=False)
+
+
+async def _ensure_styxproxy_app_role(_unused) -> bool:
     """Create styxproxy_app role + grant schema-level read/write if missing.
 
     Returns True if role existed, False if newly created. Idempotent.
     """
-    async with eng.begin() as mconn:
-        existed = (await mconn.execute(
-            text("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = :r)"),
-            {"r": "styxproxy_app"},
-        )).scalar()
-        if not existed:
+    eng_super = get_superuser_engine()
+    try:
+        async with eng_super.begin() as mconn:
+            existed = (await mconn.execute(
+                text("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = :r)"),
+                {"r": "styxproxy_app"},
+            )).scalar()
+            if not existed:
+                await mconn.execute(
+                    text(
+                        "CREATE ROLE styxproxy_app NOLOGIN NOSUPERUSER NOINHERIT"
+                    )
+                )
+                log.info("rls: created role styxproxy_app")
             await mconn.execute(
                 text(
-                    "CREATE ROLE styxproxy_app NOLOGIN NOSUPERUSER NOINHERIT"
+                    "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES "
+                    "IN SCHEMA public TO styxproxy_app"
                 )
             )
-            log.info("rls: created role styxproxy_app")
-        # Always re-grant (cheap, idempotent)
-        await mconn.execute(
-            text(
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES "
-                "IN SCHEMA public TO styxproxy_app"
+            await mconn.execute(
+                text(
+                    "GRANT USAGE, SELECT ON ALL SEQUENCES "
+                    "IN SCHEMA public TO styxproxy_app"
+                )
             )
-        )
-        await mconn.execute(
-            text(
-                "GRANT USAGE, SELECT ON ALL SEQUENCES "
-                "IN SCHEMA public TO styxproxy_app"
+            await mconn.execute(
+                text(
+                    "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
+                    "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO styxproxy_app"
+                )
             )
-        )
-        # ALTER DEFAULT PRIVILEGES so future tables inherit
-        await mconn.execute(
-            text(
-                "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
-                "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO styxproxy_app"
+            await mconn.execute(
+                text(
+                    "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
+                    "GRANT USAGE, SELECT ON SEQUENCES TO styxproxy_app"
+                )
             )
-        )
-        await mconn.execute(
-            text(
-                "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
-                "GRANT USAGE, SELECT ON SEQUENCES TO styxproxy_app"
-            )
-        )
+    finally:
+        await eng_super.dispose()
     return bool(existed)
 
 
@@ -160,13 +196,12 @@ async def toggle_policy(
         log.info("rls: created rls_policy row for %s by %s", table_name, admin_email)
 
     policy_name = row.policy_name or f"{table_name}_app_all"
+    admin_policy_name = f"{table_name}_admin_all"
 
     # 2 + 3. DDL through the migrate engine (table-owner role).
-    # Single-statement per execute — asyncpg rejects multi-stmt prep statements.
     eng = get_migrate_engine()
     try:
         if enable:
-            # Ensure styxproxy_app role + grants exist first
             await _ensure_styxproxy_app_role(eng)
             async with eng.begin() as mconn:
                 await mconn.execute(
@@ -179,17 +214,43 @@ async def toggle_policy(
                 )
                 await mconn.execute(
                     text(
+                        "DROP POLICY IF EXISTS " + admin_policy_name +
+                        " ON " + table_name
+                    )
+                )
+                # App policy — what styxproxy_app sees
+                await mconn.execute(
+                    text(
                         "CREATE POLICY " + policy_name +
                         " ON " + table_name +
                         " AS PERMISSIVE FOR ALL TO styxproxy_app" +
                         " USING (" + using + ") WITH CHECK (" + check + ")"
                     )
                 )
-            log.info("rls: ENABLED on %s (policy=%s)", table_name, policy_name)
+                # Admin bridge policy — keeps styxproxy (current app user)
+                # reading/writing until DATABASE_URL is pinned to styxproxy_app.
+                await mconn.execute(
+                    text(
+                        "CREATE POLICY " + admin_policy_name +
+                        " ON " + table_name +
+                        " AS PERMISSIVE FOR ALL TO styxproxy" +
+                        " USING (true) WITH CHECK (true)"
+                    )
+                )
+            log.info(
+                "rls: ENABLED on %s (policies=%s, %s)",
+                table_name, policy_name, admin_policy_name,
+            )
         else:
             async with eng.begin() as mconn:
                 await mconn.execute(
                     text("DROP POLICY IF EXISTS " + policy_name + " ON " + table_name)
+                )
+                await mconn.execute(
+                    text(
+                        "DROP POLICY IF EXISTS " + admin_policy_name +
+                        " ON " + table_name
+                    )
                 )
                 await mconn.execute(
                     text(
@@ -226,6 +287,11 @@ async def toggle_policy(
         "rolled_back_at": row.rolled_back_at,
         "pg_rls_state": pg_state,
         "pg_policy_count": pg_count,
+        "policies": (
+            [policy_name, admin_policy_name] if enable else []
+        ),
+        "app_policy": policy_name,
+        "admin_policy": admin_policy_name if enable else None,
     }
 
 

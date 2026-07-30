@@ -1007,19 +1007,11 @@ class RlsPolicy(Base):
     rolled_back_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     last_audit: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    # Sprint 15 additions
-    using_clause: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default="true"
-    )
-    with_check: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default="true"
-    )
-    role_name: Mapped[str] = mapped_column(
-        String(32), nullable=False, server_default="styxproxy_app"
-    )
-    policy_status: Mapped[str] = mapped_column(
-        String(20), nullable=False, server_default="not_started"
-    )
+    # Sprint 15 — added via migration 022
+    using_clause: Mapped[Optional[str]] = mapped_column(Text, nullable=True, server_default="true")
+    with_check: Mapped[Optional[str]] = mapped_column(Text, nullable=True, server_default="true")
+    role_name: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, server_default="styxproxy_app")
+    policy_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, server_default="not_started")
     created_by: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
