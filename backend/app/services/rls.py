@@ -1,36 +1,99 @@
 """Sprint 15 — RLS toggle service.
 
-Actually executes ALTER TABLE / CREATE POLICY against Postgres, then
-updates the rls_policy bookkeeping row. Every toggle is audit-logged
-via app.services.audit.write_audit_log.
+Executes ALTER TABLE / CREATE POLICY against Postgres via a separate
+engine connected as styxproxy_migrate (the table owner). The app user
+(styxproxy) is BYPASSRLS=false and NOT the table owner, so ALTER TABLE
+fails in its session.
 
-Connection note:
-  Today's app connects as styxproxy (superuser, BYPASSRLS). Enabling RLS
-  on a table here won't actually restrict the app until we re-pin the
-  connection string to styxproxy_app (per Sprint 15 last todo). Until
-  that happens, this work is forward-prep: the policies exist in Postgres
-  with USING/WITH CHECK clauses; flipping DATABASE_URL later is config,
-  not schema.
+Bookkeeping (rls_policy row) stays on the app session. The router then
+calls write_audit_log() for the audit trail.
 
-Safety:
-  Each toggle is idempotent (re-enabling an already-enabled table is a
-  no-op except for stamping applied_at). Disabling an already-disabled
-  table is similarly a no-op. We never DROP POLICY (would lose USING
-  clause); we only DROP POLICY IF EXISTS in disable path so a re-enable
-  is reproducible.
+Today the app connects as styxproxy, which BYPASSES RLS — so enabling
+RLS here only takes effect once DATABASE_URL is re-pinned to
+styxproxy_app (Sprint 15 final todo). Until then this forward-preps the
+policies in Postgres.
+
+Single-statement SQL only — asyncpg with prepared statements rejects
+multi-statement strings.
 """
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.models import RlsPolicy
 
 log = logging.getLogger(__name__)
+
+
+def _read_migrate_password() -> str:
+    """Read styxproxy_migrate password from /opt/styxproxy/.env."""
+    env_path = Path("/opt/styxproxy/.env")
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            if line.startswith("MIGRATE_PASSWORD="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return "styxproxy_migrate_2026"
+
+
+def get_migrate_engine():
+    """Separate engine connected as styxproxy_migrate (table owner)."""
+    url = (
+        f"postgresql+asyncpg://styxproxy_migrate:{_read_migrate_password()}"
+        "@127.0.0.1:5432/styxproxy"
+    )
+    return create_async_engine(url, echo=False)
+
+
+async def _ensure_styxproxy_app_role(eng) -> bool:
+    """Create styxproxy_app role + grant schema-level read/write if missing.
+
+    Returns True if role existed, False if newly created. Idempotent.
+    """
+    async with eng.begin() as mconn:
+        existed = (await mconn.execute(
+            text("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = :r)"),
+            {"r": "styxproxy_app"},
+        )).scalar()
+        if not existed:
+            await mconn.execute(
+                text(
+                    "CREATE ROLE styxproxy_app NOLOGIN NOSUPERUSER NOINHERIT"
+                )
+            )
+            log.info("rls: created role styxproxy_app")
+        # Always re-grant (cheap, idempotent)
+        await mconn.execute(
+            text(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES "
+                "IN SCHEMA public TO styxproxy_app"
+            )
+        )
+        await mconn.execute(
+            text(
+                "GRANT USAGE, SELECT ON ALL SEQUENCES "
+                "IN SCHEMA public TO styxproxy_app"
+            )
+        )
+        # ALTER DEFAULT PRIVILEGES so future tables inherit
+        await mconn.execute(
+            text(
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO styxproxy_app"
+            )
+        )
+        await mconn.execute(
+            text(
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public "
+                "GRANT USAGE, SELECT ON SEQUENCES TO styxproxy_app"
+            )
+        )
+    return bool(existed)
 
 
 async def list_policies(session: AsyncSession) -> tuple[list[RlsPolicy], int, int]:
@@ -45,18 +108,14 @@ async def list_policies(session: AsyncSession) -> tuple[list[RlsPolicy], int, in
 
 
 async def get_pg_rls_state(session: AsyncSession, table_name: str) -> tuple[str, int]:
-    """Query pg_class + pg_policy for a given table.
-
-    Returns (rowsecurity_status, policy_count).
-    """
+    """Query pg_class + pg_policy for a given table. Returns (state, policy_count)."""
     row = (await session.execute(
-        text("""
-            SELECT c.relrowsecurity, COUNT(p.oid) AS policy_count
-            FROM pg_class c
-            LEFT JOIN pg_policy p ON p.polrelid = c.oid
-            WHERE c.relname = :table AND c.relkind = 'r'
-            GROUP BY c.relrowsecurity
-        """),
+        text(
+            "SELECT c.relrowsecurity, COUNT(p.oid) AS policy_count "
+            "FROM pg_class c LEFT JOIN pg_policy p ON p.polrelid = c.oid "
+            "WHERE c.relname = :table AND c.relkind = 'r' "
+            "GROUP BY c.relrowsecurity"
+        ),
         {"table": table_name},
     )).fetchone()
     if not row:
@@ -75,21 +134,15 @@ async def toggle_policy(
     notes: Optional[str] = None,
     admin_email: Optional[str] = None,
 ) -> dict:
-    """Enable or disable RLS on a single table. Returns the new state.
-
-    Steps:
-      1. Look up the rls_policy row (auto-create if missing for forward-prep).
-      2. ALTER TABLE <name> ENABLE / DISABLE ROW LEVEL SECURITY.
-      3. CREATE / DROP POLICY <name>_app_all TO styxproxy_app USING(...) WITH CHECK(...).
-      4. Update rls_policy row: policy_enabled, policy_status, applied_at / rolled_back_at.
-      5. Caller is expected to also call write_audit_log() for the audit trail.
-    """
+    """Enable or disable RLS on a single table. Returns the new state."""
     using = using_clause or "true"
     check = with_check or "true"
 
-    # 1. Find or create the rls_policy row
+    # 1. Find or create the rls_policy row in the app session
     row = (await session.execute(
-        __import__("sqlalchemy").select(RlsPolicy).where(RlsPolicy.table_name == table_name)
+        __import__("sqlalchemy").select(RlsPolicy).where(
+            RlsPolicy.table_name == table_name
+        )
     )).scalar_one_or_none()
 
     if row is None:
@@ -108,40 +161,46 @@ async def toggle_policy(
 
     policy_name = row.policy_name or f"{table_name}_app_all"
 
-    # 2 + 3. Toggle RLS in Postgres.
-    if enable:
-        await session.execute(text(f"ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY"))
-        await session.execute(text(f"""
-            DROP POLICY IF EXISTS {policy_name} ON {table_name};
-            CREATE POLICY {policy_name}
-              ON {table_name}
-              AS PERMISSIVE
-              FOR ALL
-              TO styxproxy_app
-              USING ({using})
-              WITH CHECK ({check});
-        """))
-        # Make sure role exists (defensive — earlier migrations created styxproxy_app)
-        await session.execute(text("""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'styxproxy_app') THEN
-                    CREATE ROLE styxproxy_app NOLOGIN NOSUPERUSER NOINHERIT;
-                END IF;
-            END $$;
-            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO styxproxy_app;
-            GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO styxproxy_app;
-        """))
-        await session.commit()
-        log.info("rls: ENABLED on %s (policy=%s)", table_name, policy_name)
-    else:
-        # Disable: drop policy first (if any), then ALTER.
-        await session.execute(text(f"DROP POLICY IF EXISTS {policy_name} ON {table_name}"))
-        await session.execute(text(f"ALTER TABLE {table_name} DISABLE ROW LEVEL SECURITY"))
-        await session.commit()
-        log.info("rls: DISABLED on %s", table_name)
+    # 2 + 3. DDL through the migrate engine (table-owner role).
+    # Single-statement per execute — asyncpg rejects multi-stmt prep statements.
+    eng = get_migrate_engine()
+    try:
+        if enable:
+            # Ensure styxproxy_app role + grants exist first
+            await _ensure_styxproxy_app_role(eng)
+            async with eng.begin() as mconn:
+                await mconn.execute(
+                    text(
+                        "ALTER TABLE " + table_name + " ENABLE ROW LEVEL SECURITY"
+                    )
+                )
+                await mconn.execute(
+                    text("DROP POLICY IF EXISTS " + policy_name + " ON " + table_name)
+                )
+                await mconn.execute(
+                    text(
+                        "CREATE POLICY " + policy_name +
+                        " ON " + table_name +
+                        " AS PERMISSIVE FOR ALL TO styxproxy_app" +
+                        " USING (" + using + ") WITH CHECK (" + check + ")"
+                    )
+                )
+            log.info("rls: ENABLED on %s (policy=%s)", table_name, policy_name)
+        else:
+            async with eng.begin() as mconn:
+                await mconn.execute(
+                    text("DROP POLICY IF EXISTS " + policy_name + " ON " + table_name)
+                )
+                await mconn.execute(
+                    text(
+                        "ALTER TABLE " + table_name + " DISABLE ROW LEVEL SECURITY"
+                    )
+                )
+            log.info("rls: DISABLED on %s", table_name)
+    finally:
+        await eng.dispose()
 
-    # 4. Update bookkeeping
+    # 4. Bookkeeping commit on app session
     now = datetime.now(timezone.utc)
     row.policy_enabled = enable
     row.using_clause = using
@@ -157,7 +216,6 @@ async def toggle_policy(
     await session.commit()
     await session.refresh(row)
 
-    # 5. Refresh PG-side state for response
     pg_state, pg_count = await get_pg_rls_state(session, table_name)
 
     return {
@@ -177,7 +235,10 @@ async def get_bypass_role_status(session: AsyncSession) -> dict:
         text("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname = 'styxproxy_app')")
     )).scalar()
     current_user_role_row = (await session.execute(
-        text("SELECT current_user, rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user")
+        text(
+            "SELECT current_user, rolname, rolsuper, rolbypassrls "
+            "FROM pg_roles WHERE rolname = current_user"
+        )
     )).fetchone()
     return {
         "bypass_role_exists": bool(bypass_role_exists_row),
@@ -191,7 +252,6 @@ async def get_bypass_role_status(session: AsyncSession) -> dict:
 
 
 # Phase 2a-2h rollout order (low-risk first, customer PII last).
-# All tables are listed by unique_name so we can render an actionable plan.
 ROLLOUT_PHASES = [
     ("2a", "plans", "Lowest-risk: catalog table, no PII, no JOINs", "low"),
     ("2b", "cities", "No PII, no JOINs, used by Sprint 13 pricing", "low"),
@@ -205,9 +265,11 @@ ROLLOUT_PHASES = [
 
 
 async def get_rollout_plan(session: AsyncSession) -> tuple[list[dict], Optional[str], bool]:
-    """Return the 2a-2h phase list with completion flags + next phase + conn-string-pinned."""
+    """Return 2a-2h phase list + next phase + conn-string-pinned."""
     result = (await session.execute(
-        __import__("sqlalchemy").select(RlsPolicy.table_name, RlsPolicy.policy_enabled, RlsPolicy.applied_at).where(
+        __import__("sqlalchemy").select(
+            RlsPolicy.table_name, RlsPolicy.policy_enabled, RlsPolicy.applied_at
+        ).where(
             RlsPolicy.table_name.in_([p[1] for p in ROLLOUT_PHASES])
         )
     ))
@@ -229,9 +291,5 @@ async def get_rollout_plan(session: AsyncSession) -> tuple[list[dict], Optional[
         if not completed and next_phase is None:
             next_phase = ph
 
-    # Connection-string pin: check DATABASE_URL / dbname mapping
-    # The "real" check is whether the running app connects as styxproxy_app or styxproxy.
-    # For now: rls_enabled=true on customers == full rollout.
     conn_pinned = False
-
     return phases, next_phase, conn_pinned
