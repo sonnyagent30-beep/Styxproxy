@@ -238,7 +238,9 @@ class StyxproxyCredential(Base):
     provider_order_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     provider_username: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     provider_password: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    upstream_proxy_ip: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # TEXT (was INET pre-migration 018)
+    upstream_proxy_ip: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )  # TEXT (was INET pre-migration 018)
     upstream_proxy_port: Mapped[int] = mapped_column(Integer, default=1080, nullable=False)
     dante_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)

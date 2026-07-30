@@ -8,6 +8,19 @@ import type { CartItem } from '@/types';
 import api from '@/lib/api';
 import { tryStartOrder, setInflightOrder, getDeviceId, addToOrderHistory } from '@/lib/device-id';
 
+// Sprint 13: per-GB vs per-IP pricing
+function itemPrice(item: import('@/types').CartItem): number {
+  const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
+    && typeof item.price_per_gb === 'number'
+    && typeof item.quantity_gb === 'number';
+  if (isPerGb) {
+    const perGb = item.price_per_gb as number;
+    const qtyGb = item.quantity_gb as number;
+    return perGb * qtyGb;
+  }
+  return item.price_ngn * item.quantity;
+}
+
 function generateTxRef(): string {
   // Format: STX-XXXXXX (e.g. STYX-A3K9L2)
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/1/I/O confusion
@@ -65,10 +78,17 @@ export default function CheckoutPage() {
 
       for (const item of cart) {
         try {
+          const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
+            && typeof item.price_per_gb === 'number';
           const r = await api.precheckOrder(
             item.plan_code,
             item.country_code || 'NG',
-            item.quantity,
+            isPerGb ? 1 : item.quantity,
+            {
+              quantity_gb: isPerGb ? item.quantity_gb : undefined,
+              city_id: item.city_id ?? null,
+              city_name: item.city_name ?? null,
+            },
           );
           if (cancelled) return;
           if (r.data) {
@@ -124,7 +144,7 @@ export default function CheckoutPage() {
     if (updated.length === 0) router.replace('/order');
   };
 
-  const subtotal = cart.reduce((sum, i) => sum + i.price_ngn * i.quantity, 0);
+  const subtotal = cart.reduce((sum, i) => sum + itemPrice(i), 0);
 
   // Bug walk theme-B fix: aggregate precheck state for the Pay button.
   // Disabled while any item is still checking OR any item is unavailable.
@@ -178,7 +198,7 @@ export default function CheckoutPage() {
           order_id: txRefs[i],
           plan_code: cart[i].plan_code,
           country: cart[i].country_code || 'NG',
-          amount: cart[i].price_ngn * cart[i].quantity,
+          amount: itemPrice(cart[i]),
           status: 'pending',
           created_at: new Date().toISOString(),
         });
@@ -202,14 +222,16 @@ export default function CheckoutPage() {
       // Fire one initiate per cart item in parallel. allSettled means
       // one item's failure doesn't block the others.
       const results = await Promise.allSettled(
-        cart.map((item) =>
-          api.initiatePayment(
+        cart.map((item) => {
+          const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
+            && typeof item.price_per_gb === 'number';
+          return api.initiatePayment(
             item.plan_code,
-            item.quantity,
+            isPerGb ? 1 : item.quantity,
             '',
             trimmedEmail || undefined,
-          ),
-        ),
+          );
+        }),
       );
 
       // Find first successful result with a checkout_url.
@@ -292,9 +314,19 @@ export default function CheckoutPage() {
                       {country && (
                         <p className="text-xs text-[var(--muted)]">
                           {country.flag} {country.name} · {country.region}
+                          {item.city_name ? ` · ${item.city_name}` : ''}
                         </p>
                       )}
-                      <p className="text-sm text-[var(--muted)]">{formatPrice(item.price_ngn)} each</p>
+                      <p className="text-sm text-[var(--muted)]">
+                        {(() => {
+                          const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
+                            && typeof item.price_per_gb === 'number';
+                          if (isPerGb) {
+                            return `${formatPrice(item.price_per_gb as number)}/GB`;
+                          }
+                          return `${formatPrice(item.price_ngn)} each`;
+                        })()}
+                      </p>
                       {/* Bug walk theme-B fix: per-item precheck badge */}
                       {precheck[item.plan_code]?.checking && (
                         <p className="text-xs text-[var(--muted)] mt-1 flex items-center gap-1">
@@ -317,28 +349,48 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     {/* Quantity controls */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => updateQuantity(item.plan_code, -1)}
-                        className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                        </svg>
-                      </button>
-                      <span className="w-6 text-center font-medium">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.plan_code, 1)}
-                        className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                      </button>
-                    </div>
+                    {(() => {
+                      const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
+                        && typeof item.price_per_gb === 'number';
+                      if (isPerGb) {
+                        return (
+                          <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
+                            <span className="px-2 py-1 rounded bg-[var(--card-hover)] border border-[var(--border)]">
+                              {item.quantity_gb ?? item.min_gb ?? 5} GB
+                            </span>
+                            {item.city_name && (
+                              <span className="px-2 py-1 rounded bg-[var(--card-hover)] border border-[var(--border)]">
+                                {item.city_name}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => updateQuantity(item.plan_code, -1)}
+                            className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                            </svg>
+                          </button>
+                          <span className="w-6 text-center font-medium">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(item.plan_code, 1)}
+                            className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          </button>
+                        </div>
+                      );
+                    })()}
                     {/* Line total */}
                     <span className="font-semibold text-[var(--primary)] w-28 text-right">
-                      {formatPrice(item.price_ngn * item.quantity)}
+                      {formatPrice(itemPrice(item))}
                     </span>
                     {/* Remove */}
                     <button

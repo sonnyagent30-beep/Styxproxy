@@ -15,6 +15,13 @@ export interface Product {
   quantity: number;
   duration_days: number;
   features: string[];
+  // Sprint 13: per-GB pricing + city picker. Populated from CatalogTemplate.
+  price_per_gb?: number | null;
+  min_gb?: number | null;
+  max_gb?: number | null;
+  gb_tiers?: number[] | null;
+  supports_city?: boolean;
+  cities?: { [country_code: string]: CatalogCity[] };
 }
 
 export interface Order {
@@ -95,10 +102,19 @@ export interface CartItem {
   plan_code: string;        // either a real plan_code (ISP-UK-1) or a synthetic "{TYPE}-{COUNTRY}-{BASE}" code
   name: string;
   flag: string;             // country flag of the selected geo
-  price_ngn: number;
-  quantity: number;
+  price_ngn: number;        // base price for residential/mobile is per-GB; for DC/ISP is per-IP
+  quantity: number;         // for DC/ISP = number of IPs; for residential/mobile = IP proxy count (legacy compat)
   country_code: string;     // user-selected country code (always populated)
   plan_type: PlanType;
+  // Sprint 13: per-GB pricing + city picker support
+  quantity_gb?: number;     // GB amount for residential/mobile (preferred over quantity for those plan types)
+  city_id?: number | null;  // null = random from country pool
+  city_name?: string | null;
+  price_per_gb?: number;    // DB-canonical per-GB price (residential/mobile only)
+  min_gb?: number;
+  max_gb?: number;
+  gb_tiers?: number[];
+  supports_city?: boolean;
 }
 
 // API Response Types
@@ -670,6 +686,75 @@ export interface AdminRoleUpdateRequest {
   role: AdminRole;
 }
 
+// ============== Admin Permissions (Sprint 14) ==============
+export interface AdminPermission {
+  code: string;
+  description: string;
+  is_sensitive: boolean;
+}
+
+export interface AdminPermissionWithGrant extends AdminPermission {
+  granted: boolean;
+}
+
+export interface AdminPermissionsByCategory {
+  [category: string]: AdminPermissionWithGrant[];
+}
+
+export interface AdminMyPermissionsResponse {
+  email: string;
+  role: AdminRole;
+  permission_count: number;
+  permissions_by_category: AdminPermissionsByCategory;
+}
+
+export interface AdminAllPermissionsResponse {
+  total: number;
+  categories: string[];
+  permissions_by_category: {
+    [category: string]: AdminPermission[];
+  };
+}
+
+// ============== TOTP Step-up (Sprint 14) ==============
+export interface AdminTotpStatusResponse {
+  totp_enabled: boolean;
+  step_upped: boolean;
+  step_up_expires_at: string | null;
+  step_up_window_seconds: number;
+}
+
+export interface AdminTotpElevateRequest {
+  totp_code: string;
+  remember_device: boolean;
+}
+
+export interface AdminTotpElevateResponse {
+  elevated: boolean;
+  expires_at: string;
+  window_seconds: number;
+  session_token?: string;
+  session_token_header?: string;
+}
+
+export interface AdminGrantPermissionRequest {
+  admin_email: string;
+  permission_code: string;
+}
+
+export interface AdminGrantPermissionResponse {
+  granted: boolean;
+  admin_email: string;
+  permission_code: string;
+  permission_is_sensitive: boolean;
+}
+
+export interface AdminRevokePermissionResponse {
+  revoked: boolean;
+  admin_email: string;
+  permission_code: string;
+}
+
 // ============== Provider Costs ==============
 export interface ProviderCost {
   provider_name: string;
@@ -732,12 +817,28 @@ export interface CatalogVariant {
   is_active: boolean;
 }
 
+export interface CatalogCity {
+  id: number;
+  city_name: string;
+  state_code?: string | null;
+  isp_name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
 export interface CatalogTemplate {
   plan_type: CatalogPlanType;
   rotation_mode_options: CatalogRotationMode[];
   available_countries: string[];
   base_quantity_gb: number;
-  base_price_ngn: number;
+  base_price_ngn: number;             // legacy per-IP price (DC/ISP)
+  base_price_per_gb?: number | null; // per-GB (residential/mobile)
+  base_price_per_ip?: number | null; // per-IP (DC/ISP)
+  min_gb?: number | null;            // minimum GB customer can buy
+  max_gb?: number | null;            // maximum GB customer can buy
+  gb_tiers?: number[] | null;        // suggested GB tiers
+  supports_city: boolean;            // residential/mobile only
+  cities: { [country_code: string]: CatalogCity[] };  // country_code -> cities
   duration_days: number;
   static_price_multiplier: number;
   supports_country_change: boolean;

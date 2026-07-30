@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { CityPicker } from '@/components/CityPicker';
 import { useRouter } from 'next/navigation';
 import { products, getProductsByGroup, formatPrice } from '@/lib/products';
 import {
@@ -82,6 +83,9 @@ export default function OrderPage() {
   const [addedMessage, setAddedMessage] = useState('');
   // Country selected in the active modal — used to scope the plan list
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  // Sprint 13: city picker + GB quantity for residential/mobile add-to-cart
+  const [pendingCity, setPendingCity] = useState<{ id: number | null; name: string | null }>({ id: null, name: null });
+  const [pendingQtyGb, setPendingQtyGb] = useState<number>(5);
 
   // Load cart from sessionStorage
   useEffect(() => {
@@ -104,14 +108,18 @@ export default function OrderPage() {
     setActiveModal(key);
     const firstCountry = (PRODUCT_COUNTRIES[key] || [])[0];
     setSelectedCountry(firstCountry || null);
+    setPendingCity({ id: null, name: null });
+    setPendingQtyGb(5);
   };
 
   const closeModal = () => {
     setActiveModal(null);
     setSelectedCountry(null);
+    setPendingCity({ id: null, name: null });
+    setPendingQtyGb(5);
   };
 
-  const addToCart = (product: Product, countryCode: string) => {
+  const addToCart = (product: Product, countryCode: string, options?: { quantity_gb?: number; city_id?: number | null; city_name?: string | null }) => {
     const country = COUNTRIES[countryCode];
     const planCode = makePlanCode(product.plan_type, countryCode, product.plan_code);
     const name =
@@ -119,25 +127,44 @@ export default function OrderPage() {
         ? `${country.name} ISP`
         : `${country.name} · ${product.features[0] || ''}`;
 
+    // Sprint 13: per-GB plans start with quantity_gb; per-IP plans start with quantity 1
+    const isPerGb = (product.plan_type === 'RESIDENTIAL' || product.plan_type === 'MOBILE')
+      && typeof product.price_per_gb === 'number';
+    const defaultQty = isPerGb ? (product.min_gb ?? 5) : 1;
+    const startingQty = options?.quantity_gb ?? defaultQty;
+
     const existing = cart.find(i => i.plan_code === planCode);
     if (existing) {
-      const updated = cart.map(i =>
-        i.plan_code === planCode ? { ...i, quantity: i.quantity + 1 } : i
-      );
+      const updated = cart.map(i => {
+        if (i.plan_code === planCode) {
+          if (isPerGb && typeof i.quantity_gb === 'number') {
+            return { ...i, quantity_gb: i.quantity_gb + startingQty };
+          }
+          return { ...i, quantity: i.quantity + 1 };
+        }
+        return i;
+      });
       saveCart(updated);
     } else {
-      saveCart([
-        ...cart,
-        {
-          plan_code: planCode,
-          name,
-          flag: country.flag,
-          price_ngn: product.price_ngn,
-          quantity: 1,
-          country_code: countryCode,
-          plan_type: product.plan_type,
-        },
-      ]);
+      const newItem: import('@/types').CartItem = {
+        plan_code: planCode,
+        name,
+        flag: country.flag,
+        price_ngn: product.price_ngn,
+        quantity: isPerGb ? 1 : 1,
+        country_code: countryCode,
+        plan_type: product.plan_type,
+        // Sprint 13: per-GB pricing + city picker
+        quantity_gb: isPerGb ? startingQty : undefined,
+        city_id: options?.city_id ?? null,
+        city_name: options?.city_name ?? null,
+        price_per_gb: product.price_per_gb ?? undefined,
+        min_gb: product.min_gb ?? undefined,
+        max_gb: product.max_gb ?? undefined,
+        gb_tiers: product.gb_tiers ?? undefined,
+        supports_city: product.supports_city ?? false,
+      };
+      saveCart([...cart, newItem]);
     }
     setAddedMessage(`${country.flag} ${name} added to cart`);
     setTimeout(() => setAddedMessage(''), 2000);
@@ -293,6 +320,69 @@ export default function OrderPage() {
                     </span>
                   </p>
                 )}
+
+                {/* Sprint 13: city picker + GB quantity for residential/mobile plans */}
+                {(() => {
+                  if (!selectedCountry || !modalData?.card) return null;
+                  const cardKey = modalData.card.key as string;
+                  if (cardKey !== 'RESIDENTIAL' && cardKey !== 'MOBILE') return null;
+                  // Find the displayed product to read pricing
+                  const firstProduct = modalData.variants?.[0];
+                  const pricePerGb = (firstProduct?.price_per_gb ?? null) as number | null;
+                  const minGb = (firstProduct?.min_gb ?? 5) as number;
+                  const maxGb = (firstProduct?.max_gb ?? 50) as number;
+                  const gbTiers = (firstProduct?.gb_tiers ?? [minGb, 10, 20, 50]) as number[];
+                  return (
+                    <div className="mt-4 p-3 rounded-lg bg-[var(--surface-2)] border border-[var(--border)]">
+                      <CityPicker
+                        planType={cardKey}
+                        country={selectedCountry}
+                        onCountryChange={(c: string) => {
+                          setSelectedCountry(c);
+                          setPendingCity({ id: null, name: null });
+                        }}
+                        onCityChange={(city: { id: number; city_name: string } | null) =>
+                          setPendingCity({ id: city?.id ?? null, name: city?.city_name ?? null })
+                        }
+                        selectedCityId={pendingCity.id}
+                        showLabels={true}
+                        compact={true}
+                      />
+                      <div className="mt-3">
+                        <label className="text-xs text-[var(--muted)] block mb-1">GB amount</label>
+                        <div className="flex flex-wrap gap-2">
+                          {gbTiers.map((tier: number) => (
+                            <button
+                              key={tier}
+                              onClick={() => setPendingQtyGb(tier)}
+                              className={`px-3 py-1 rounded-lg text-sm border transition-colors ${
+                                pendingQtyGb === tier
+                                  ? 'bg-[var(--primary)] text-black border-[var(--primary)]'
+                                  : 'bg-[var(--card)] border-[var(--border)] hover:border-[var(--primary)]'
+                              }`}
+                            >
+                              {tier} GB
+                            </button>
+                          ))}
+                        </div>
+                        {pendingQtyGb < minGb && (
+                          <p className="text-xs text-amber-400 mt-1">Minimum {minGb} GB</p>
+                        )}
+                        {pendingQtyGb > maxGb && (
+                          <p className="text-xs text-amber-400 mt-1">Maximum {maxGb} GB</p>
+                        )}
+                        {pricePerGb && (
+                          <p className="text-xs text-[var(--muted)] mt-2">
+                            {pendingQtyGb} GB × {formatPrice(pricePerGb)} = {' '}
+                            <span className="font-semibold text-[var(--primary)]">
+                              {formatPrice(pricePerGb * pendingQtyGb)}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Plan List — one card per country (deduplicated by country code) */}
@@ -351,7 +441,19 @@ export default function OrderPage() {
                         <div className="flex items-center gap-3">
                           <span className="font-semibold text-[var(--primary)]">{formatPrice(product.price_ngn)}</span>
                           <button
-                            onClick={() => addToCart(product, selectedCountry)}
+                            onClick={() => {
+                              const isPerGb = (product.plan_type === 'RESIDENTIAL' || product.plan_type === 'MOBILE')
+                                && typeof product.price_per_gb === 'number';
+                              if (isPerGb) {
+                                addToCart(product, selectedCountry, {
+                                  quantity_gb: pendingQtyGb,
+                                  city_id: pendingCity.id,
+                                  city_name: pendingCity.name,
+                                });
+                              } else {
+                                addToCart(product, selectedCountry);
+                              }
+                            }}
                             className="px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium text-sm transition-colors"
                           >
                             {cartItem ? '✓ Added' : '+ Add'}

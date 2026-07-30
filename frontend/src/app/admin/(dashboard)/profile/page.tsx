@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
+import AdminTotpStepUpModal from '@/components/AdminTotpStepUpModal';
 import type { AdminMeResponse, AdminRole } from '@/types';
 
 export default function AdminProfilePage() {
@@ -24,10 +25,14 @@ export default function AdminProfilePage() {
   const [totpMessage, setTotpMessage] = useState('');
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [totpSecret, setTotpSecret] = useState('');
+  // TOTP step-up (Sprint 14)
+  const [showStepUpModal, setShowStepUpModal] = useState(false);
+  const [stepUpStatus, setStepUpStatus] = useState<{step_upped: boolean; expires_at: string | null} | null>(null);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  const loadStepUpStatus = async () => {
+    const r = await api.getTotpStatus();
+    if (r.data) setStepUpStatus({ step_upped: r.data.step_upped, expires_at: r.data.step_up_expires_at });
+  };
 
   const loadProfile = async () => {
     setLoading(true);
@@ -216,6 +221,25 @@ export default function AdminProfilePage() {
                     >
                       Disable
                     </button>
+                    {stepUpStatus?.step_upped ? (
+                      <span className="text-xs text-[var(--muted)]">
+                        Step-up active until {stepUpStatus.expires_at ? new Date(stepUpStatus.expires_at).toLocaleTimeString() : 'soon'}
+                        {' '}
+                        <button
+                          onClick={() => setShowStepUpModal(true)}
+                          className="text-[var(--primary)] hover:opacity-80"
+                        >
+                          Refresh
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setShowStepUpModal(true)}
+                        className="text-sm text-[var(--primary)] hover:opacity-80"
+                      >
+                        Step-up (5 min)
+                      </button>
+                    )}
                   </>
                 ) : (
                   <>
@@ -448,6 +472,18 @@ export default function AdminProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Sprint 14 TOTP step-up modal */}
+      <AdminTotpStepUpModal
+        isOpen={showStepUpModal}
+        onSuccess={() => {
+          setShowStepUpModal(false);
+          loadStepUpStatus();
+        }}
+        onCancel={() => setShowStepUpModal(false)}
+        title="Refresh TOTP step-up"
+        description="Enter your 6-digit code to refresh the 5-minute step-up window for sensitive admin actions."
+      />
     </div>
   );
 }

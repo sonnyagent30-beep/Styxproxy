@@ -13,7 +13,15 @@
  * Pages should prefer `loadCatalog()` for new code paths.
  */
 
-import type { Product, CatalogResponse, CatalogVariant } from '@/types';
+import type {
+  Product,
+  CatalogCity,
+  CatalogResponse,
+  CatalogRotationMode,
+  CatalogTemplate,
+  CatalogPlanType,
+  CatalogVariant,
+} from '@/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Legacy: synchronous access to the in-memory catalog (populated after fetch)
@@ -21,8 +29,16 @@ import type { Product, CatalogResponse, CatalogVariant } from '@/types';
 
 let cachedProducts: Product[] | null = null;
 
-function variantToProduct(v: CatalogVariant): Product {
+function variantToProduct(
+  v: CatalogVariant,
+  template?: CatalogTemplate,
+): Product {
   const country = (v.country || 'GLOBAL').toUpperCase();
+  const isPerGB = v.plan_type === 'residential' || v.plan_type === 'mobile';
+  const pricePerGB = template?.base_price_per_gb ?? null;
+  const pricePerIP = template?.base_price_per_ip ?? v.price_ngn;
+  // Sprint 13: catalog stores cities by ISO-2 code (uppercase)
+  const cities = template?.cities ?? {};
   return {
     plan_code: v.plan_code,
     plan_type: v.plan_type.toUpperCase() as Product['plan_type'],
@@ -37,7 +53,46 @@ function variantToProduct(v: CatalogVariant): Product {
       `${v.duration_days}-day expiry`,
       v.rotation_mode === 'static' ? 'Static IP' : 'Rotating pool',
     ],
+    // Sprint 13: per-GB pricing + city picker
+    price_per_gb: pricePerGB,
+    min_gb: template?.min_gb ?? null,
+    max_gb: template?.max_gb ?? null,
+    gb_tiers: template?.gb_tiers ?? null,
+    supports_city: template?.supports_city ?? false,
+    cities,
   };
+}
+
+// Sprint 13 — richer product metadata that exposes the catalog cities + pricing
+export interface CatalogProductInfo {
+  plan_type: CatalogPlanType;
+  rotation_mode_options: CatalogRotationMode[];
+  available_countries: string[];
+  base_quantity_gb: number;
+  base_price_ngn: number;
+  base_price_per_gb: number | null;
+  base_price_per_ip: number | null;
+  min_gb: number | null;
+  max_gb: number | null;
+  gb_tiers: number[] | null;
+  supports_city: boolean;
+  cities: { [country_code: string]: CatalogCity[] };
+  description: string;
+}
+
+let cachedCatalog: CatalogResponse | null = null;
+
+export function getCachedCatalog(): CatalogResponse | null {
+  return cachedCatalog;
+}
+
+/**
+ * Build the legacy Product[] shape from a catalog template, preserving city info.
+ * The returned products have `country` and `plan_code` keys; consumers can call
+ * getCitiesForCountry(plan_type, country_code) to get the city list.
+ */
+export function buildProductsFromTemplate(template: CatalogTemplate): Product[] {
+  return template.variants.map((v) => variantToProduct(v, template));
 }
 
 /**
@@ -47,21 +102,48 @@ function variantToProduct(v: CatalogVariant): Product {
  * @throws if the catalog endpoint is unreachable AND we have no cache.
  */
 export async function loadCatalog(): Promise<Product[]> {
-  if (cachedProducts) return cachedProducts;
+  return (await loadFullCatalog()).products;
+}
+
+export async function loadFullCatalog(): Promise<{
+  products: Product[];
+  templates: CatalogTemplate[];
+  catalog: CatalogResponse;
+}> {
+  if (cachedProducts && cachedCatalog) {
+    return { products: cachedProducts, templates: cachedCatalog.templates, catalog: cachedCatalog };
+  }
 
   const res = await fetch('/api/catalog', { cache: 'no-store' });
   if (!res.ok) {
     throw new Error(`Catalog endpoint returned ${res.status}`);
   }
   const data: CatalogResponse = await res.json();
+  cachedCatalog = data;
   const products: Product[] = [];
   for (const template of data.templates) {
     for (const variant of template.variants) {
-      products.push(variantToProduct(variant));
+      products.push(variantToProduct(variant, template));
     }
   }
   cachedProducts = products;
-  return products;
+  return { products, templates: data.templates, catalog: data };
+}
+
+/**
+ * Get the city list for a given plan_type + country_code from the cached catalog.
+ * Returns empty array if no cities are available (random selection).
+ */
+export function getCitiesForCountry(
+  plan_type: string,
+  country_code: string,
+): CatalogCity[] {
+  if (!cachedCatalog) return [];
+  const template = cachedCatalog.templates.find(
+    (t) => t.plan_type.toLowerCase() === plan_type.toLowerCase(),
+  );
+  if (!template) return [];
+  return template.cities?.[country_code] || [];
 }
 
 /**

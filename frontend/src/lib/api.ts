@@ -24,6 +24,14 @@ import type {
   AdminSetupCheckInviteResponse,
   AdminMeResponse,
   AdminTeamMember,
+  AdminMyPermissionsResponse,
+  AdminAllPermissionsResponse,
+  AdminGrantPermissionRequest,
+  AdminGrantPermissionResponse,
+  AdminRevokePermissionResponse,
+  AdminTotpStatusResponse,
+  AdminTotpElevateRequest,
+  AdminTotpElevateResponse,
   AdminInviteCreateRequest,
   AdminInviteCreateResponse,
   AdminInvitesListResponse,
@@ -176,13 +184,21 @@ class ApiClient {
   }
 
   // Orders
-  async createOrder(planCode: string, country: string, quantity: number = 1): Promise<ApiResponse<Order>> {
+  async createOrder(
+    planCode: string,
+    country: string,
+    quantity: number = 1,
+    opts?: { quantity_gb?: number; city_id?: number | null; city_name?: string | null },
+  ): Promise<ApiResponse<Order>> {
     return this.request<Order>('/orders', {
       method: 'POST',
       body: JSON.stringify({
         plan_code: planCode,
         country,
         quantity,
+        quantity_gb: opts?.quantity_gb,
+        city_id: opts?.city_id ?? undefined,
+        city_name: opts?.city_name ?? undefined,
       }),
     });
   }
@@ -235,6 +251,7 @@ class ApiClient {
     planCode: string,
     country: string,
     quantity: number = 1,
+    opts?: { quantity_gb?: number; city_id?: number | null; city_name?: string | null },
   ): Promise<ApiResponse<{
     available: boolean;
     reason?: string;
@@ -247,6 +264,9 @@ class ApiClient {
         plan_code: planCode,
         country,
         quantity,
+        quantity_gb: opts?.quantity_gb,
+        city_id: opts?.city_id ?? undefined,
+        city_name: opts?.city_name ?? undefined,
       }),
     });
   }
@@ -453,6 +473,58 @@ class ApiClient {
     return this.request<AdminInviteCreateResponse>('/api/admin/auth/invites', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Sprint 14 — RBAC + TOTP step-up
+  async getMyPermissions(): Promise<ApiResponse<AdminMyPermissionsResponse>> {
+    return this.request<AdminMyPermissionsResponse>('/api/me/permissions');
+  }
+
+  async getAllPermissions(): Promise<ApiResponse<AdminAllPermissionsResponse>> {
+    return this.request<AdminAllPermissionsResponse>('/api/admin/permissions');
+  }
+
+  async grantPermission(
+    adminEmail: string,
+    permissionCode: string,
+  ): Promise<ApiResponse<AdminGrantPermissionResponse>> {
+    return this.request<AdminGrantPermissionResponse>('/api/admin/permissions/grant', {
+      method: 'POST',
+      body: JSON.stringify({
+        admin_email: adminEmail,
+        permission_code: permissionCode,
+      }),
+    });
+  }
+
+  async revokePermission(
+    adminEmail: string,
+    permissionCode: string,
+  ): Promise<ApiResponse<AdminRevokePermissionResponse>> {
+    return this.request<AdminRevokePermissionResponse>('/api/admin/permissions/revoke', {
+      method: 'POST',
+      body: JSON.stringify({
+        admin_email: adminEmail,
+        permission_code: permissionCode,
+      }),
+    });
+  }
+
+  async getTotpStatus(): Promise<ApiResponse<AdminTotpStatusResponse>> {
+    return this.request<AdminTotpStatusResponse>('/api/me/totp/status');
+  }
+
+  async elevateTotp(
+    totpCode: string,
+    rememberDevice: boolean = false,
+  ): Promise<ApiResponse<AdminTotpElevateResponse>> {
+    return this.request<AdminTotpElevateResponse>('/api/me/totp/elevate', {
+      method: 'POST',
+      body: JSON.stringify({
+        totp_code: totpCode,
+        remember_device: rememberDevice,
+      }),
     });
   }
 
