@@ -1,6 +1,8 @@
-import type { 
-  Product, 
-  Order, 
+import type {
+  Product,
+  Order,
+  OrderPaymentStatus,
+  CatalogResponse,
   PaymentInitiateResponse, 
   AdminStats,
   Customer,
@@ -159,6 +161,18 @@ class ApiClient {
   // Products
   async getProducts(): Promise<ApiResponse<Product[]>> {
     return this.request<Product[]>('/products');
+  }
+
+  // Catalog (BE-driven) — single source of truth for plan templates
+  // Replaces hardcoded products.ts where possible.
+  async getCatalog(): Promise<ApiResponse<CatalogResponse>> {
+    return this.request<CatalogResponse>('/catalog');
+  }
+
+  // Payment status polling — used by /thank-you page
+  // Returns the next_action state machine for the frontend to render.
+  async getOrderPaymentStatus(orderId: string): Promise<ApiResponse<OrderPaymentStatus>> {
+    return this.request<OrderPaymentStatus>(`/orders/${orderId}/status`);
   }
 
   // Orders

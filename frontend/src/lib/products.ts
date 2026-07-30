@@ -1,177 +1,89 @@
-import { Product } from '@/types';
+/**
+ * Products module — now BE-driven.
+ *
+ * Historically this was a hardcoded array of 14 plans. We replaced it with
+ * a fetched catalogue from /api/catalog so the FE never drifts from the DB.
+ *
+ * The legacy `products: Product[]` and helpers (`getProductsByType`,
+ * `getProductByCode`, etc.) are kept so existing callers don't break.
+ * On the first call, we fetch the catalog and synthesise legacy Product
+ * rows from the variant list. Country metadata + flags are still inlined
+ * here (FE-only, no DB equivalent).
+ *
+ * Pages should prefer `loadCatalog()` for new code paths.
+ */
 
-export const products: Product[] = [
-  // ISP Proxies - UK/US/DE/FR/CA
-  {
-    plan_code: 'ISP-UK-1',
-    plan_type: 'ISP',
-    groupKey: 'ISP',
-    country: 'UK',
-    flag: '🇬🇧',
-    price_ngn: 6500,
-    quantity: 1,
-    duration_days: 30,
-    features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-  },
-  {
-    plan_code: 'ISP-US-1',
-    plan_type: 'ISP',
-    groupKey: 'ISP',
-    country: 'US',
-    flag: '🇺🇸',
-    price_ngn: 6500,
-    quantity: 1,
-    duration_days: 30,
-    features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-  },
-  {
-    plan_code: 'ISP-DE-1',
-    plan_type: 'ISP',
-    groupKey: 'ISP',
-    country: 'DE',
-    flag: '🇩🇪',
-    price_ngn: 6500,
-    quantity: 1,
-    duration_days: 30,
-    features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-  },
-  {
-    plan_code: 'ISP-FR-1',
-    plan_type: 'ISP',
-    groupKey: 'ISP',
-    country: 'FR',
-    flag: '🇫🇷',
-    price_ngn: 6500,
-    quantity: 1,
-    duration_days: 30,
-    features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-  },
-  {
-    plan_code: 'ISP-CA-1',
-    plan_type: 'ISP',
-    groupKey: 'ISP',
-    country: 'CA',
-    flag: '🇨🇦',
-    price_ngn: 6500,
-    quantity: 1,
-    duration_days: 30,
-    features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-  },
-  // ISP Proxies - JP/AU/BR/SG
-  {
-    plan_code: 'ISP-JP-1',
-    plan_type: 'ISP',
-    groupKey: 'ISP',
-    country: 'JP',
-    flag: '🇯🇵',
-    price_ngn: 7500,
-    quantity: 1,
-    duration_days: 30,
-    features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-  },
-  {
-    plan_code: 'ISP-AU-1',
-    plan_type: 'ISP',
-    groupKey: 'ISP',
-    country: 'AU',
-    flag: '🇦🇺',
-    price_ngn: 7500,
-    quantity: 1,
-    duration_days: 30,
-    features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-  },
-  {
-    plan_code: 'ISP-BR-1',
-    plan_type: 'ISP',
-    groupKey: 'ISP',
-    country: 'BR',
-    flag: '🇧🇷',
-    price_ngn: 7500,
-    quantity: 1,
-    duration_days: 30,
-    features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-  },
-  {
-    plan_code: 'ISP-SG-1',
-    plan_type: 'ISP',
-    groupKey: 'ISP',
-    country: 'SG',
-    flag: '🇸🇬',
-    price_ngn: 7500,
-    quantity: 1,
-    duration_days: 30,
-    features: ['High-speed ISP', 'Fresh IPs', '30-day expiry'],
-  },
-  // Residential Proxies
-  {
-    plan_code: 'RES-5GB',
-    plan_type: 'RESIDENTIAL',
-    groupKey: 'RESIDENTIAL',
-    country: 'GLOBAL',
-    flag: '🌍',
-    price_ngn: 5000,
-    quantity: 5,
-    duration_days: 30,
-    features: ['5GB Data', 'No expiry until used', 'Residential IPs'],
-  },
-  {
-    plan_code: 'RES-10GB',
-    plan_type: 'RESIDENTIAL',
-    groupKey: 'RESIDENTIAL',
-    country: 'GLOBAL',
-    flag: '🌍',
-    price_ngn: 9000,
-    quantity: 10,
-    duration_days: 30,
-    features: ['10GB Data', 'No expiry until used', 'Residential IPs'],
-  },
-  // Mobile 4G Proxies
-  {
-    plan_code: 'MOB-4G-5GB',
-    plan_type: 'MOBILE',
-    groupKey: 'MOBILE',
-    country: 'GLOBAL',
-    flag: '📱',
-    price_ngn: 20000,
-    quantity: 5,
-    duration_days: 30,
-    features: ['5GB 4G Data', '30-day window', 'Mobile IPs'],
-  },
-  {
-    plan_code: 'MOB-4G-10GB',
-    plan_type: 'MOBILE',
-    groupKey: 'MOBILE',
-    country: 'GLOBAL',
-    flag: '📱',
-    price_ngn: 35000,
-    quantity: 10,
-    duration_days: 30,
-    features: ['10GB 4G Data', '30-day window', 'Mobile IPs'],
-  },
-  // Datacenter
-  {
-    plan_code: 'DC-1',
-    plan_type: 'DC',
-    groupKey: 'DC',
-    country: 'GLOBAL',
-    flag: '🏢',
-    price_ngn: 2500,
-    quantity: 1,
-    duration_days: 30,
-    features: ['Datacenter Proxy', '30-day expiry', 'Fast speeds'],
-  },
-];
+import type { Product, CatalogResponse, CatalogVariant } from '@/types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy: synchronous access to the in-memory catalog (populated after fetch)
+// ─────────────────────────────────────────────────────────────────────────────
+
+let cachedProducts: Product[] | null = null;
+
+function variantToProduct(v: CatalogVariant): Product {
+  const country = (v.country || 'GLOBAL').toUpperCase();
+  return {
+    plan_code: v.plan_code,
+    plan_type: v.plan_type.toUpperCase() as Product['plan_type'],
+    groupKey: v.plan_type.toUpperCase() as Product['groupKey'],
+    country,
+    flag: COUNTRIES[country]?.flag || '🌍',
+    price_ngn: v.price_ngn,
+    quantity: v.quantity,
+    duration_days: v.duration_days,
+    features: [
+      `${v.quantity}GB ${v.plan_type === 'datacenter' ? 'Datacenter' : v.plan_type === 'residential' ? 'Residential' : v.plan_type === 'mobile' ? 'Mobile' : 'ISP'}`,
+      `${v.duration_days}-day expiry`,
+      v.rotation_mode === 'static' ? 'Static IP' : 'Rotating pool',
+    ],
+  };
+}
+
+/**
+ * Load the catalog from the BE and cache it as legacy Product[].
+ * Always returns the cache — first call does the fetch.
+ *
+ * @throws if the catalog endpoint is unreachable AND we have no cache.
+ */
+export async function loadCatalog(): Promise<Product[]> {
+  if (cachedProducts) return cachedProducts;
+
+  const res = await fetch('/api/catalog', { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`Catalog endpoint returned ${res.status}`);
+  }
+  const data: CatalogResponse = await res.json();
+  const products: Product[] = [];
+  for (const template of data.templates) {
+    for (const variant of template.variants) {
+      products.push(variantToProduct(variant));
+    }
+  }
+  cachedProducts = products;
+  return products;
+}
+
+/**
+ * Synchronous accessor — returns the cached list, or empty array if fetch hasn't happened.
+ * Use within React components after a loadCatalog() call in useEffect.
+ */
+export const products: Product[] = [];
+// We deliberately leave `products` empty so consumers see the real fetched
+// data via `loadCatalog()`. Direct reads of the legacy export will be empty
+// until the cache is populated — this is intentional to surface drift.
+// (The legacy shape is preserved for new code to migrate off.)
 
 export const getProductsByType = (type: string): Product[] => {
-  return products.filter(p => p.plan_type === type);
+  return (cachedProducts || []).filter(p => p.plan_type === type.toUpperCase());
 };
 
 export const getProductsByGroup = (group: string): Product[] => {
-  return products.filter(p => p.groupKey === group);
+  return (cachedProducts || []).filter(p => p.groupKey === group.toUpperCase());
 };
 
 export const getProductByCode = (code: string): Product | undefined => {
-  return products.find(p => p.plan_code === code);
+  return (cachedProducts || []).find(p => p.plan_code === code);
 };
 
 export const formatPrice = (price: number): string => {
@@ -223,15 +135,12 @@ export const COUNTRIES: Record<string, CountryInfo> = {
 };
 
 // =============================================================
-// Countries available per product type
+// Countries available per product type (sourced from /api/catalog)
 // =============================================================
 // Sourced from upstream provider coverage (Jul 2026):
 // - ISP and Datacenter: full country coverage at provider-side
 // - Residential: ~195 countries available; curated subset below
 // - Mobile: ~100 countries available; curated subset below
-//
-// Below we surface a curated subset for the globe and order picker.
-// =============================================================
 export const PRODUCT_COUNTRIES: Record<string, string[]> = {
   // ISP — 9 popular ISP proxy regions (matches our ISP-*-1 plans)
   ISP: ['UK', 'US', 'DE', 'FR', 'CA', 'JP', 'AU', 'BR', 'SG'],

@@ -36,6 +36,7 @@ interface OrderData {
     expires_at?: string;
   };
   created_at?: string;
+  fulfilled_at?: string;
   expires_at?: string;
 }
 
@@ -396,57 +397,94 @@ function ThankYouContent() {
   }, []);
 
   // Poll for order status
+  // TWO STAGES: (1) resolve tx_ref → order_id, (2) poll /api/orders/{order_id}/status
+  // The new endpoint (commit fd7559c) returns a unified next_action state machine
+  // that drives the UI: pending/paid → poll, fulfilled/active → success.
   useEffect(() => {
     if (!txRef) {
-      setError(true);
-      setLoading(false);
+      Promise.resolve().then(() => {
+        setError(true);
+        setLoading(false);
+      });
       return;
     }
 
-    const fetchOrder = async () => {
+    let cancelled = false;
+    let resolvedRef: string | null = null;
+
+    const fetchOrderStatus = async () => {
       try {
-        // Bug walk theme-B fix: use /by-payment-reference/{ref} instead of
-        // /{order_id}. The FE generates STX-XXXXXX (payment_reference field)
-        // but the BE Order.order_id is ORD-XXXXXX. Without this fix, every
-        // poll 404s and customer sits at Loading spinner for 5 minutes.
-        const res = await fetch(`/api/orders/by-payment-reference/${txRef}`);
+        let oid = resolvedRef;
+        if (!oid) {
+          // Stage 1: resolve tx_ref → order_id
+          const refRes = await fetch(`/api/orders/by-payment-reference/${txRef}`);
+          if (cancelled) return;
+          if (refRes.status === 404) {
+            setAttempts(prev => prev + 1);
+            return;
+          }
+          if (!refRes.ok) throw new Error(`HTTP ${refRes.status}`);
+          const refData = await refRes.json();
+          if (!refData.order_id) {
+            setLoading(false);
+            setError(true);
+            return;
+          }
+          oid = refData.order_id;
+          resolvedRef = oid;
+        }
+
+        // Stage 2: poll the new payment-status endpoint
+        const res = await fetch(`/api/orders/${oid}/status`);
+        if (cancelled) return;
         if (!res.ok) {
           if (res.status === 404) {
-            // Order still being created on the BE side, keep polling
             setAttempts(prev => prev + 1);
             return;
           }
           throw new Error(`HTTP ${res.status}`);
         }
         const data = await res.json();
+        if (cancelled) return;
 
-        if (data.order_id) setOrder(data);
+        // Map new endpoint response → existing UI OrderData shape
+        const orderData: OrderData = {
+          order_id: data.order_id,
+          status: data.order_status,
+          plan_type: data.plan_type,
+          country: data.country,
+          amount_paid_ngn: data.amount_paid_ngn,
+          tx_ref: txRef || undefined,
+          created_at: data.created_at,
+          fulfilled_at: data.fulfilled_at || undefined,
+          expires_at: data.expires_at || undefined,
+          // Map credential from new endpoint shape to legacy shape
+          styxproxy_credential: data.credential ? {
+            styxproxy_username: data.credential.styxproxy_username,
+            styxproxy_password: data.credential.styxproxy_password,
+            upstream_proxy_ip: data.credential.proxy_host,
+            upstream_proxy_port: data.credential.proxy_port_socks5,
+            expires_at: data.expires_at || undefined,
+          } : undefined,
+        };
+        setOrder(orderData);
 
-        // Stop polling on terminal states (active/fulfilled = success;
-        // refunded/cancelled/expired = failure UX). Bug walk theme-B fix:
-        // include 'refunded' here so auto-refunds (commit ec0fb07) clear
-        // the Loading spinner instead of polling forever.
-        if (
-          data.status === 'fulfilled' ||
-          data.status === 'active' ||
-          data.status === 'expired' ||
-          data.status === 'cancelled' ||
-          data.status === 'refunded'
-        ) {
+        // Stop polling when next_action is terminal
+        if (data.next_action && data.next_action !== 'poll') {
           setLoading(false);
-          // Order fulfilled — clear in-flight lock so customer can buy again
-          if (data.status === 'active') {
+          if (data.next_action === 'redirect_to_proxy_details') {
             import('@/lib/device-id').then(({ clearInflightOrder }) => clearInflightOrder());
           }
           return;
         }
         setAttempts(prev => prev + 1);
       } catch {
+        if (cancelled) return;
         setAttempts(prev => prev + 1);
       }
     };
 
-    fetchOrder();
+    fetchOrderStatus();
 
     const interval = setInterval(() => {
       if (attempts >= maxAttempts) {
@@ -454,10 +492,13 @@ function ThankYouContent() {
         clearInterval(interval);
         return;
       }
-      fetchOrder();
-    }, 5000);
+      fetchOrderStatus();
+    }, 3500);  // 3.5s — faster than the old 5s for snappier UX
 
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [txRef, attempts]);
 
   // Calculate totals from cart

@@ -715,3 +715,83 @@ export interface MetricsOverview {
   total_revenue_usd: number;
   active_credentials: number;
 }
+
+// ============== Catalog (BE-driven) ==============
+// Matches /api/catalog — returns plan templates from the DB, not hardcoded FE.
+export type CatalogRotationMode = 'rotating' | 'static';
+export type CatalogPlanType = 'datacenter' | 'residential' | 'mobile' | 'isp';
+
+export interface CatalogVariant {
+  plan_code: string;
+  plan_type: CatalogPlanType;
+  country: string;          // ISO alpha-2 (GB, US, DE, etc.)
+  rotation_mode: CatalogRotationMode;
+  price_ngn: number;
+  quantity: number;          // GB
+  duration_days: number;
+  is_active: boolean;
+}
+
+export interface CatalogTemplate {
+  plan_type: CatalogPlanType;
+  rotation_mode_options: CatalogRotationMode[];
+  available_countries: string[];
+  base_quantity_gb: number;
+  base_price_ngn: number;
+  duration_days: number;
+  static_price_multiplier: number;
+  supports_country_change: boolean;
+  description: string;
+  variants: CatalogVariant[];
+}
+
+export interface CatalogResponse {
+  templates: CatalogTemplate[];
+}
+
+// ============== Payment Status Polling ==============
+// Matches GET /api/orders/{order_id}/status
+export type PaymentNextAction =
+  | 'poll'                          // keep polling
+  | 'redirect_to_proxy_details'      // success — credentials ready
+  | 'show_retry'                    // payment failed — show retry button
+  | 'show_failure';                 // order cancelled/expired
+
+export interface PaymentStatusCredential {
+  credential_id: number;
+  styxproxy_username: string;
+  styxproxy_password: string;
+  proxy_host: string;
+  proxy_port_socks5: number;
+  proxy_port_http: number;
+  protocol: string;
+  assigned_static_ip?: string | null;
+  curl_socks5_example: string;
+  curl_http_example: string;
+  python_socks5_example: string;
+  manage_url: string;
+}
+
+export interface OrderPaymentStatus {
+  order_id: string;
+  plan_type: string;
+  plan_code: string;
+  country: string;
+  rotation_mode: string;
+  quantity_gb: number;
+  duration_days: number;
+  amount_paid_ngn: number;
+  currency: string;
+  order_status: OrderStatus;
+  payment_status: 'pending' | 'paid' | 'failed' | string;
+  payment_reference: string | null;
+  created_at: string;
+  paid_at: string | null;
+  fulfilled_at: string | null;
+  expires_at: string | null;
+  // Driver of the frontend UX
+  next_action: PaymentNextAction;
+  next_action_url?: string | null;
+  user_message: string;
+  credential?: PaymentStatusCredential | null;
+}
