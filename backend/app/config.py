@@ -36,7 +36,8 @@ class Settings(BaseSettings):
 
     # ── Flutterwave (required for payments) ─────────────────────────────────
     flutterwave_secret_key: str = ""
-    flutterwave_public_key: str = ""
+    # FLWPUBK-TEST (Flutterwave test public key); override via FLUTTERWAVE_PUBLIC_KEY in .env when going live
+    flutterwave_public_key: str = "I14tjXLvFqcs4eCcaDW1BeY22XJaaLre"
     flutterwave_webhook_secret: str = ""
 
     # ── WhatsApp (required for WhatsApp messaging) ──────────────────────────
