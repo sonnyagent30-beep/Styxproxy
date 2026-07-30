@@ -11,7 +11,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import admin_only, admin_only_with_email
 from app.database import get_session
 from app.models import (
     AdminAuditLog,
@@ -71,17 +70,21 @@ from app.services.email import (
     send_refund_processed_email,
 )
 from app.services.n8n import clear_failures, get_failure_stats, get_failures
+from app.services.permissions import require_permission
 from app.services.trial import get_trials_today_count
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
-@router.get("/health", dependencies=[Depends(admin_only)])
+@router.get("/health", dependencies=[Depends(require_permission("admin.monitor.health.read"))])
 async def admin_health():
     return {"status": "healthy", "admin": True}
 
 
-@router.get("/stats", response_model=AdminStatsResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/stats", response_model=AdminStatsResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.metrics.read"))]
+)
 async def get_stats(session: AsyncSession = Depends(get_session)):
     total_customers = (await session.execute(select(func.count()).select_from(Customer))).scalar() or 0
     active_orders = (
@@ -105,7 +108,10 @@ async def get_stats(session: AsyncSession = Depends(get_session)):
     )
 
 
-@router.get("/customers", response_model=AdminCustomersResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/customers", response_model=AdminCustomersResponse, 
+    dependencies=[Depends(require_permission("admin.customers.list"))]
+)
 async def list_customers(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -144,7 +150,10 @@ async def list_customers(
     )
 
 
-@router.get("/customers/{customer_id}", response_model=AdminCustomerResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/customers/{customer_id}", response_model=AdminCustomerResponse, 
+    dependencies=[Depends(require_permission("admin.customers.list"))]
+)
 async def get_customer(customer_id: UUID, session: AsyncSession = Depends(get_session)):
     customer = (await session.execute(select(Customer).where(Customer.id == customer_id))).scalar_one_or_none()
     if not customer:
@@ -152,7 +161,9 @@ async def get_customer(customer_id: UUID, session: AsyncSession = Depends(get_se
     return AdminCustomerResponse.model_validate(customer)
 
 
-@router.post("/customers/{customer_id}/block", dependencies=[Depends(admin_only)])
+@router.post(
+    "/customers/{customer_id}/block", dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+)
 async def block_customer(customer_id: UUID, request: AdminBlockRequest, session: AsyncSession = Depends(get_session)):
     customer = (await session.execute(select(Customer).where(Customer.id == customer_id))).scalar_one_or_none()
     if not customer:
@@ -163,7 +174,9 @@ async def block_customer(customer_id: UUID, request: AdminBlockRequest, session:
     return {"status": "blocked", "customer_id": str(customer_id)}
 
 
-@router.post("/customers/{customer_id}/unblock", dependencies=[Depends(admin_only)])
+@router.post(
+    "/customers/{customer_id}/unblock", dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+)
 async def unblock_customer(customer_id: UUID, session: AsyncSession = Depends(get_session)):
     customer = (await session.execute(select(Customer).where(Customer.id == customer_id))).scalar_one_or_none()
     if not customer:
@@ -174,7 +187,9 @@ async def unblock_customer(customer_id: UUID, session: AsyncSession = Depends(ge
     return {"status": "unblocked", "customer_id": str(customer_id)}
 
 
-@router.get("/orders", response_model=AdminOrdersResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/orders", response_model=AdminOrdersResponse, dependencies=[Depends(require_permission("admin.orders.list"))]
+)
 async def list_orders(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -215,7 +230,10 @@ async def list_orders(
     )
 
 
-@router.get("/orders/{order_id}", response_model=AdminOrderResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/orders/{order_id}", response_model=AdminOrderResponse, 
+    dependencies=[Depends(require_permission("admin.orders.list"))]
+)
 async def get_order(order_id: str, session: AsyncSession = Depends(get_session)):
     order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
     if not order:
@@ -223,14 +241,15 @@ async def get_order(order_id: str, session: AsyncSession = Depends(get_session))
     return AdminOrderResponse.model_validate(order)
 
 
-@router.patch("/orders/{order_id}")
+@router.patch("/orders/{order_id}", dependencies=[Depends(require_permission("admin.orders.refund"))])
 async def update_order(
     order_id: str,
     body: AdminOrderUpdateRequest,
     http_request: Request,
-    admin_email: str = Depends(admin_only_with_email),
+    current_admin: dict = Depends(require_permission("admin.orders.refund")),
     session: AsyncSession = Depends(get_session),
 ):
+    admin_email = current_admin["admin"].email
     order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
@@ -261,14 +280,15 @@ async def update_order(
     return {"status": "updated", "order_id": order_id}
 
 
-@router.post("/orders/{order_id}/refund")
+@router.post("/orders/{order_id}/refund", dependencies=[Depends(require_permission("admin.orders.refund"))])
 async def refund_order(
     order_id: str,
     body: AdminRefundRequest,
     http_request: Request,
-    admin_email: str = Depends(admin_only_with_email),
+    current_admin: dict = Depends(require_permission("admin.orders.refund")),
     session: AsyncSession = Depends(get_session),
 ):
+    admin_email = current_admin["admin"].email
     order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
@@ -331,7 +351,9 @@ async def refund_order(
     return {"status": "refunded", "order_id": order_id, "refund_amount": float(order.amount_paid_ngn or 0)}
 
 
-@router.post("/credentials/{credential_id}/replace", dependencies=[Depends(admin_only)])
+@router.post(
+    "/credentials/{credential_id}/replace", dependencies=[Depends(require_permission("admin.monitor.providers.read"))]
+)
 async def replace_credential_endpoint(credential_id: int, session: AsyncSession = Depends(get_session)):
     new_credential = await replace_credential(session, credential_id, "admin_replacement")
     if not new_credential:
@@ -339,7 +361,10 @@ async def replace_credential_endpoint(credential_id: int, session: AsyncSession 
     return {"status": "replaced", "old_credential_id": credential_id, "new_credential_id": new_credential.id}
 
 
-@router.get("/credentials", response_model=AdminCredentialsResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/credentials", response_model=AdminCredentialsResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.providers.read"))]
+)
 async def list_credentials(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -377,7 +402,7 @@ async def list_credentials(
     )
 
 
-@router.get("/email-delivery-log", dependencies=[Depends(admin_only)])
+@router.get("/email-delivery-log", dependencies=[Depends(require_permission("admin.monitor.logs.read"))])
 async def get_email_delivery_log(
     limit: int = Query(100, ge=1, le=500),
     status_filter: Optional[str] = Query(
@@ -416,7 +441,10 @@ async def get_email_delivery_log(
     }
 
 
-@router.get("/audit", response_model=AdminAuditLogsResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/audit", response_model=AdminAuditLogsResponse, 
+    dependencies=[Depends(require_permission("admin.system.audit_log.read"))]
+)
 async def list_audit_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -448,7 +476,10 @@ async def list_audit_logs(
     )
 
 
-@router.get("/webhooks", response_model=AdminWebhookLogsResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/webhooks", response_model=AdminWebhookLogsResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.webhooks.read"))]
+)
 async def list_webhook_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -475,7 +506,10 @@ async def list_webhook_logs(
 LEARNED_DIR = Path(__file__).parents[3] / "data" / "charon" / "learned"
 
 
-@router.get("/charon/learned", response_model=LearnedFilesResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/charon/learned", response_model=LearnedFilesResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+)
 async def list_learned_files():
     """List all learned files in the RAG knowledge base."""
     if not LEARNED_DIR.exists():
@@ -495,7 +529,10 @@ async def list_learned_files():
     return LearnedFilesResponse(files=files)
 
 
-@router.get("/charon/learned/{filename}", response_model=LearnContentResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/charon/learned/{filename}", response_model=LearnContentResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+)
 async def get_learned_file_content(filename: str):
     """Get the content of a specific learned file."""
     # Security: prevent path traversal
@@ -516,7 +553,10 @@ async def get_learned_file_content(filename: str):
     )
 
 
-@router.delete("/charon/learned", response_model=DeleteLearnedFileResponse, dependencies=[Depends(admin_only)])
+@router.delete(
+    "/charon/learned", response_model=DeleteLearnedFileResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+)
 async def delete_learned_file(request: DeleteLearnedFileRequest):
     """Delete a learned file from the RAG knowledge base."""
     # Security: prevent path traversal
@@ -566,7 +606,10 @@ def _list_md_files(directory: Path, source_label: str, editable: bool) -> list:
     return items
 
 
-@router.get("/charon/knowledge", response_model=AllKnowledgeFilesResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/charon/knowledge", response_model=AllKnowledgeFilesResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+)
 async def list_all_knowledge_files():
     """List both knowledge/ (read-only seeded) and learned/ (admin-editable) files."""
     return AllKnowledgeFilesResponse(
@@ -575,7 +618,10 @@ async def list_all_knowledge_files():
     )
 
 
-@router.get("/charon/knowledge/{filename}", response_model=LearnContentResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/charon/knowledge/{filename}", response_model=LearnContentResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+)
 async def get_knowledge_file_content(filename: str):
     """Read the content of a knowledge/ file (read-only seeded knowledge)."""
     # Security: prevent path traversal
@@ -593,7 +639,10 @@ async def get_knowledge_file_content(filename: str):
     )
 
 
-@router.put("/charon/knowledge/{filename}", response_model=UpdateKnowledgeResponse, dependencies=[Depends(admin_only)])
+@router.put(
+    "/charon/knowledge/{filename}", response_model=UpdateKnowledgeResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+)
 async def update_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
     """Update an existing knowledge/ file (replaces content with title + body as markdown)."""
     filename = filename.replace("..", "").replace("/", "")
@@ -621,7 +670,10 @@ async def update_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
     )
 
 
-@router.post("/charon/knowledge/{filename}", response_model=UpdateKnowledgeResponse, dependencies=[Depends(admin_only)])
+@router.post(
+    "/charon/knowledge/{filename}", response_model=UpdateKnowledgeResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+)
 async def create_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
     """Create a new file in knowledge/."""
     filename = filename.replace("..", "").replace("/", "")
@@ -653,13 +705,19 @@ async def create_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
 from app.services.charon.eval import get_eval_set, run_eval_set  # noqa: E402
 
 
-@router.get("/charon/eval", response_model=EvalSetResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/charon/eval", response_model=EvalSetResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+)
 async def get_eval_questions():
     """Return the Q/A eval set derived from Scenarios."""
     return get_eval_set()
 
 
-@router.post("/charon/eval/run", response_model=EvalRunResponse, dependencies=[Depends(admin_only)])
+@router.post(
+    "/charon/eval/run", response_model=EvalRunResponse, 
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+)
 async def run_eval_questions():
     """Run the eval set against the live Charon pipeline and report pass/fail per question."""
     return await run_eval_set()
@@ -668,7 +726,9 @@ async def run_eval_questions():
 # ============== Plans CRUD ==============
 
 
-@router.get("/plans", response_model=PlansResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/plans", response_model=PlansResponse, dependencies=[Depends(require_permission("admin.system.maintenance.read"))]
+)
 async def list_plans(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -710,7 +770,10 @@ async def list_plans(
     )
 
 
-@router.get("/plans/{plan_id}", response_model=PlanResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/plans/{plan_id}", response_model=PlanResponse, 
+    dependencies=[Depends(require_permission("admin.system.maintenance.read"))]
+)
 async def get_plan(plan_id: int, session: AsyncSession = Depends(get_session)):
     """Get a single plan by ID."""
     plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
@@ -719,7 +782,9 @@ async def get_plan(plan_id: int, session: AsyncSession = Depends(get_session)):
     return PlanResponse.model_validate(plan)
 
 
-@router.post("/plans", response_model=PlanResponse, dependencies=[Depends(admin_only)])
+@router.post(
+    "/plans", response_model=PlanResponse, dependencies=[Depends(require_permission("admin.system.maintenance.read"))]
+)
 async def create_plan(request: PlanCreateRequest, session: AsyncSession = Depends(get_session)):
     """Create a new plan.
 
@@ -776,7 +841,10 @@ async def create_plan(request: PlanCreateRequest, session: AsyncSession = Depend
     return PlanResponse.model_validate(plan)
 
 
-@router.patch("/plans/{plan_id}", response_model=PlanResponse, dependencies=[Depends(admin_only)])
+@router.patch(
+    "/plans/{plan_id}", response_model=PlanResponse, 
+    dependencies=[Depends(require_permission("admin.system.maintenance.read"))]
+)
 async def update_plan(plan_id: int, request: PlanUpdateRequest, session: AsyncSession = Depends(get_session)):
     """Update a plan. Admin can edit price_per_gb, gb_tiers, min/max_gb,
     supports_city, rotation_mode, static_price_multiplier (Sprint 13)."""
@@ -816,7 +884,7 @@ async def update_plan(plan_id: int, request: PlanUpdateRequest, session: AsyncSe
     return PlanResponse.model_validate(plan)
 
 
-@router.delete("/plans/{plan_id}", dependencies=[Depends(admin_only)])
+@router.delete("/plans/{plan_id}", dependencies=[Depends(require_permission("admin.system.maintenance.read"))])
 async def delete_plan(plan_id: int, session: AsyncSession = Depends(get_session)):
     """Delete a plan."""
     plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
@@ -864,7 +932,10 @@ async def get_channel_feature_flags(session: AsyncSession = Depends(get_session)
     )
 
 
-@router.put("/features/channels", response_model=ChannelFeatureFlagsResponse, dependencies=[Depends(admin_only)])
+@router.put(
+    "/features/channels", response_model=ChannelFeatureFlagsResponse, 
+    dependencies=[Depends(require_permission("admin.feature_flags.update"))]
+)
 async def update_channel_feature_flags(
     request: ChannelFeatureFlagsUpdate,
     session: AsyncSession = Depends(get_session),
@@ -899,7 +970,10 @@ async def update_channel_feature_flags(
 # ============== Contact Submissions ==============
 
 
-@router.get("/contact-submissions", response_model=ContactSubmissionsResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/contact-submissions", response_model=ContactSubmissionsResponse, 
+    dependencies=[Depends(require_permission("admin.customers.support.respond"))]
+)
 async def list_contact_submissions(
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
@@ -925,7 +999,10 @@ async def list_contact_submissions(
     )
 
 
-@router.post("/contact-submissions/{submission_id}/reply", dependencies=[Depends(admin_only)])
+@router.post(
+    "/contact-submissions/{submission_id}/reply", 
+    dependencies=[Depends(require_permission("admin.customers.support.respond"))]
+)
 async def reply_contact_submission(
     submission_id: UUID,
     request: ContactSubmissionReplyRequest,
@@ -943,7 +1020,10 @@ async def reply_contact_submission(
     return {"success": True}
 
 
-@router.patch("/contact-submissions/{submission_id}", dependencies=[Depends(admin_only)])
+@router.patch(
+    "/contact-submissions/{submission_id}", 
+    dependencies=[Depends(require_permission("admin.customers.support.respond"))]
+)
 async def update_contact_submission(
     submission_id: UUID,
     status: str = Query(...),
@@ -963,7 +1043,10 @@ async def update_contact_submission(
 # ============== Charon Escalations ==============
 
 
-@router.get("/escalations", response_model=EscalationsResponse, dependencies=[Depends(admin_only)])
+@router.get(
+    "/escalations", response_model=EscalationsResponse, 
+    dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+)
 async def list_escalations(
     status: Optional[str] = None,
     page: int = Query(1, ge=1),
@@ -987,7 +1070,10 @@ async def list_escalations(
     )
 
 
-@router.post("/escalations/{escalation_id}/respond", dependencies=[Depends(admin_only)])
+@router.post(
+    "/escalations/{escalation_id}/respond", 
+    dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+)
 async def respond_escalation(
     escalation_id: UUID,
     request: EscalationRespondRequest,
@@ -1005,7 +1091,9 @@ async def respond_escalation(
     return {"success": True}
 
 
-@router.patch("/escalations/{escalation_id}", dependencies=[Depends(admin_only)])
+@router.patch(
+    "/escalations/{escalation_id}", dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+)
 async def update_escalation(
     escalation_id: UUID,
     status: str = Query(...),
@@ -1023,7 +1111,7 @@ async def update_escalation(
 
 
 
-@router.get("/n8n/failures", dependencies=[Depends(admin_only)])
+@router.get("/n8n/failures", dependencies=[Depends(require_permission("admin.monitor.webhooks.read"))])
 async def list_n8n_webhook_failures(limit: int = Query(default=50, le=200)) -> dict:
     """List recent n8n webhook delivery failures (admin only).
 
@@ -1050,7 +1138,7 @@ async def list_n8n_webhook_failures(limit: int = Query(default=50, le=200)) -> d
     return {"stats": stats, "failures": failures}
 
 
-@router.delete("/n8n/failures", dependencies=[Depends(admin_only)])
+@router.delete("/n8n/failures", dependencies=[Depends(require_permission("admin.monitor.webhooks.read"))])
 async def clear_n8n_webhook_failures() -> dict:
     """Clear the n8n webhook failures buffer (admin only).
 
@@ -1068,7 +1156,7 @@ async def clear_n8n_webhook_failures() -> dict:
 # See Notion §14 spec for the rationale.
 
 
-@router.get("/errors", dependencies=[Depends(admin_only)])
+@router.get("/errors", dependencies=[Depends(require_permission("admin.monitor.logs.read"))])
 async def list_recent_errors(
     limit: int = Query(default=50, le=500),
     session: AsyncSession = Depends(get_session),
@@ -1103,7 +1191,7 @@ async def list_recent_errors(
     }
 
 
-@router.get("/logs", dependencies=[Depends(admin_only)])
+@router.get("/logs", dependencies=[Depends(require_permission("admin.monitor.logs.read"))])
 async def list_admin_logs(
     limit: int = Query(default=100, le=500),
     action_filter: Optional[str] = Query(default=None),
@@ -1137,7 +1225,7 @@ async def list_admin_logs(
     }
 
 
-@router.get("/db/connections", dependencies=[Depends(admin_only)])
+@router.get("/db/connections", dependencies=[Depends(require_permission("admin.monitor.db.read"))])
 async def db_connection_stats(session: AsyncSession = Depends(get_session)) -> dict:
     """PostgreSQL connection stats from pg_stat_activity.
 
@@ -1178,7 +1266,7 @@ async def db_connection_stats(session: AsyncSession = Depends(get_session)) -> d
     }
 
 
-@router.get("/db/slow-queries", dependencies=[Depends(admin_only)])
+@router.get("/db/slow-queries", dependencies=[Depends(require_permission("admin.monitor.db.read"))])
 async def db_slow_queries(
     threshold_ms: int = Query(default=200, ge=50, le=10000),
     limit: int = Query(default=20, le=100),
@@ -1225,7 +1313,7 @@ async def db_slow_queries(
         }
 
 
-@router.get("/cache/stats", dependencies=[Depends(admin_only)])
+@router.get("/cache/stats", dependencies=[Depends(require_permission("admin.monitor.cache.read"))])
 async def cache_stats() -> dict:
     """Redis cache statistics (if available).
 
@@ -1259,7 +1347,7 @@ async def cache_stats() -> dict:
 # ─── M3 endpoints ────────────────────────────────────────────────────────────
 
 
-@router.get("/webhooks/health", dependencies=[Depends(admin_only)])
+@router.get("/webhooks/health", dependencies=[Depends(require_permission("admin.monitor.webhooks.read"))])
 async def webhook_health(session: AsyncSession = Depends(get_session)) -> dict:
     """Webhook delivery health from processed_webhooks table.
 
@@ -1287,7 +1375,7 @@ async def webhook_health(session: AsyncSession = Depends(get_session)) -> dict:
         return {"providers": [], "error": str(e)[:200]}
 
 
-@router.get("/providers/health", dependencies=[Depends(admin_only)])
+@router.get("/providers/health", dependencies=[Depends(require_permission("admin.monitor.providers.read"))])
 async def providers_health() -> dict:
     """Provider availability summary from in-memory cache.
 
@@ -1303,7 +1391,7 @@ async def providers_health() -> dict:
     }
 
 
-@router.get("/charon/health", dependencies=[Depends(admin_only)])
+@router.get("/charon/health", dependencies=[Depends(require_permission("admin.monitor.logs.read"))])
 async def charon_health() -> dict:
     """Charon support bot health summary.
 
@@ -1344,13 +1432,14 @@ async def charon_health() -> dict:
 # diagnose pipeline failures. Both admin_only with email audit trail.
 
 
-@router.post("/orders/{order_id}/re-fulfill", dependencies=[Depends(admin_only_with_email)])
+@router.post("/orders/{order_id}/re-fulfill", dependencies=[Depends(require_permission("admin.orders.re_fulfill"))])
 async def re_fulfill_order(
     order_id: str,
     http_request: Request,
-    admin_email: str = Depends(admin_only_with_email),
+    current_admin: dict = Depends(require_permission("admin.orders.re_fulfill")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
+    admin_email = current_admin["admin"].email
     """Re-run credential creation for an order.
 
     Theme A M4 endpoint: when a paid order is stuck (status=paid but no
@@ -1454,12 +1543,13 @@ async def re_fulfill_order(
     }
 
 
-@router.post("/self-test", dependencies=[Depends(admin_only_with_email)])
+@router.post("/self-test", dependencies=[Depends(require_permission("admin.monitor.self_test.run"))])
 async def self_test(
     http_request: Request,
-    admin_email: str = Depends(admin_only_with_email),
+    current_admin: dict = Depends(require_permission("admin.monitor.self_test.run")),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
+    admin_email = current_admin["admin"].email
     """Run a full pipeline self-test without creating real orders.
 
     Theme A M4 endpoint: validates that every component of the order
@@ -1602,7 +1692,7 @@ async def self_test(
 
 
 
-@router.get("/health/history", dependencies=[Depends(admin_only)])
+@router.get("/health/history", dependencies=[Depends(require_permission("admin.monitor.health.read"))])
 async def health_history(
     hours: int = Query(default=24, ge=1, le=168),  # max 7 days
     limit: int = Query(default=500, le=5000),
