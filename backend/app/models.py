@@ -163,6 +163,10 @@ class Order(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     fulfilled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     cost_usd: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
+    rotation_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # rotating | static
+    # Sprint 13 — city picker (residential/mobile orders)
+    city_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("cities.id", ondelete="SET NULL"), nullable=True)
+    city_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # Relationships
     platform_account: Mapped[Optional[PlatformAccount]] = relationship("PlatformAccount", back_populates="orders")
@@ -234,7 +238,7 @@ class StyxproxyCredential(Base):
     provider_order_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     provider_username: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     provider_password: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    upstream_proxy_ip: Mapped[Optional[str]] = mapped_column(INET, nullable=True)
+    upstream_proxy_ip: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # TEXT (was INET pre-migration 018)
     upstream_proxy_port: Mapped[int] = mapped_column(Integer, default=1080, nullable=False)
     dante_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
@@ -245,6 +249,39 @@ class StyxproxyCredential(Base):
     last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     gb_used: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     rotation_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # ─── Customer proxy management (added Jul 30) ─────────────────────────
+    # Password rotation tracking (rate-limited 3/day per customer)
+    password_rotated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    password_rotations_today: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    password_rotations_reset_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Targeting + sticky session
+    country_target: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
+    sticky_session_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    session_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    session_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Bandwidth alerting (alert customer when usage exceeds N% of plan)
+    bandwidth_alert_pct: Mapped[int] = mapped_column(Integer, default=80, nullable=False)
+
+    # Last seen (for activity feeds)
+    last_ip_country: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
+    last_ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)  # IPv6 max 45 chars
+
+    # ─── Rotation mode + static IP pinning (added Jul 30) ────────────────
+    # rotating = pool, IP changes per request (Rayobyte -country-XX password)
+    # static   = pinned IP via Rayobyte -session-XXXX-country-XX password
+    rotation_mode: Mapped[str] = mapped_column(String(20), default="rotating", nullable=False)
+    assigned_static_ip: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    assigned_static_session_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    last_static_assigned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Daily rate-limit counters (reset at UTC midnight)
+    location_change_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    rotation_mode_change_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    location_changes_reset_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    rotation_mode_changes_reset_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     order: Mapped[Optional[Order]] = relationship(
@@ -434,15 +471,71 @@ class Plan(Base):
     plan_type: Mapped[str] = mapped_column(String(20), nullable=False)  # ISP, DC, RESIDENTIAL, MOBILE
     country: Mapped[str] = mapped_column(String(10), nullable=False)
     price_ngn: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    # per-GB price for residential/mobile (Jul 30 2026 — Sprint 13)
+    # For DC/ISP plans, NULL; the price_ngn column is the per-IP price.
+    price_per_gb: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
     quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     duration_days: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
     features: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # ─── Rotation + location flexibility (added Jul 30) ──────────────────
+    # rotation_mode = 'rotating' (pool) | 'static' (pinned IP) | 'both' (customer picks)
+    # supports_country_change = false for ISP/Datacenter (location is fixed per IP)
+    # static_price_multiplier = static mode costs this × base price
+    rotation_mode: Mapped[str] = mapped_column(String(20), default="both", nullable=False)
+    supports_country_change: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    static_price_multiplier: Mapped[float] = mapped_column(Numeric(4, 2), default=2.50, nullable=False)
+    # ─── Sprint 13: pricing model + city picker ─────────────────────────
+    # min_gb: minimum GB customer can purchase (residential/mobile)
+    # max_gb: maximum GB customer can purchase
+    # gb_tiers: suggested GB tiers shown in the FE dropdown (e.g. [5,10,20,50])
+    # supports_city: TRUE for residential/mobile (customer picks country+city)
+    min_gb: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    max_gb: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
+    gb_tiers: Mapped[Optional[list]] = mapped_column(ARRAY(Integer), nullable=True)
+    supports_city: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class City(Base):
+    """Cities table — provider-supported cities per country (Sprint 13).
+
+    Populated from Rayobyte's residential gateway for residential/mobile plans.
+    Customers can pick a city for exact targeting or skip (="random") to get
+    a pool IP from the country.
+    """
+    __tablename__ = "cities"
+    __table_args__ = (
+        Index("idx_cities_country", "country_code"),
+        Index("idx_cities_active", "is_active"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False)
+    city_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    state_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    isp_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    latitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
+    longitude: Mapped[Optional[float]] = mapped_column(Numeric(9, 6), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    source: Mapped[Optional[str]] = mapped_column(String(20), default="rayobyte", nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class PlanCity(Base):
+    """Plan <-> City mapping (admin can restrict cities per plan)."""
+    __tablename__ = "plan_cities"
+    plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("plans.id", ondelete="CASCADE"), primary_key=True)
+    city_id: Mapped[int] = mapped_column(Integer, ForeignKey("cities.id", ondelete="CASCADE"), primary_key=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class TriggerEvent(Base):

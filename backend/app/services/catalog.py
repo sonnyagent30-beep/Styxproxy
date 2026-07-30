@@ -19,7 +19,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Order, Plan, StyxproxyCredential
+from app.models import City, Order, Plan, StyxproxyCredential
 
 # ─── Plan catalog (what we actually sell) ─────────────────────────────────────
 
@@ -141,7 +141,7 @@ async def list_catalog(session: AsyncSession) -> dict:
 
     # Pull all active plans
     plans_result = await session.execute(
-        select(Plan).where(Plan.is_active is True).order_by(Plan.sort_order, Plan.plan_code)
+        select(Plan).where(Plan.is_active).order_by(Plan.sort_order, Plan.plan_code)
     )
     plans = plans_result.scalars().all()
 
@@ -201,12 +201,58 @@ async def list_catalog(session: AsyncSession) -> dict:
         default_plan = plan_list[0]
 
         description_map = {
-            "residential": "Real home Wi-Fi connections from a rotating pool of consumer devices. Pick from US, GB, DE, CA, AU, FR, BR, IN. Switch countries anytime via /manage. Best for scraping, sneaker bots, ad verification.",  # noqa: E501
-            "datacenter":  "Fast, low-cost static IPs in cloud data centers (US or UK). Same IP every request. Best for high-volume non-sensitive workloads. Switch between US and UK via /manage.",  # noqa: E501
+            "residential": (
+                "Real home Wi-Fi connections from a rotating pool of consumer devices. "
+                "Pick from US, GB, DE, CA, AU, FR, BR, IN. Switch countries anytime via /manage. "
+                "Best for scraping, sneaker bots, ad verification."
+            ),
+            "datacenter": (
+                "Fast, low-cost static IPs in cloud data centers (US or UK). "
+                "Same IP every request. Best for high-volume non-sensitive workloads. "
+                "Switch between US and UK via /manage."
+            ),
             # mobile and isp are coming soon — UI hides them, this just prevents crashes
-            "mobile":      "3G/4G mobile carrier IPs. Coming soon — not yet available for purchase.",
-            "isp":         "Real residential IPs hosted at ISPs but sold as static. Coming soon — not yet available for purchase.",  # noqa: E501
+            "mobile": "3G/4G mobile carrier IPs. Coming soon — not yet available for purchase.",
+            "isp": "Real residential IPs hosted at ISPs but sold as static. Coming soon — not yet available.",
         }
+
+        # ─── Cities per country (for residential/mobile city picker) ─────
+        cities_map = {}
+        if plan_type in ("residential", "mobile"):
+            country_codes = [c.upper() for c in template["available_countries"]]
+            # Translate GB→UK for the city lookup
+            db_country_codes = list(set(
+                COUNTRY_TRANSLATION.get(c, c) for c in country_codes
+            ))
+            cities_result = await session.execute(
+                select(City)
+                .where(City.country_code.in_(db_country_codes), City.is_active)
+                .order_by(City.country_code, City.city_name)
+            )
+            cities = cities_result.scalars().all()
+            for city in cities:
+                # Translate back: if DB has UK, customer sees GB
+                customer_country = (
+                    "GB" if city.country_code == "UK" and "GB" in country_codes
+                    else city.country_code
+                )
+                cities_map.setdefault(customer_country, []).append({
+                    "id": city.id,
+                    "city_name": city.city_name,
+                    "state_code": city.state_code,
+                    "isp_name": city.isp_name,
+                    "latitude": float(city.latitude) if city.latitude else None,
+                    "longitude": float(city.longitude) if city.longitude else None,
+                })
+
+        # ─── Compute the right pricing for this template ─────────────
+        # residential/mobile: customer picks GB tier, price_per_gb × quantity
+        # datacenter: per-IP at price_ngn
+        base_price_per_gb = float(default_plan.price_per_gb or 0)
+        base_price_per_ip = float(default_plan.price_ngn or 0)
+        min_gb = int(default_plan.min_gb or 5)
+        max_gb = int(default_plan.max_gb or 50)
+        gb_tiers = list(default_plan.gb_tiers or [5, 10, 20, 50])
 
         templates.append({
             "plan_type": plan_type,
@@ -214,6 +260,13 @@ async def list_catalog(session: AsyncSession) -> dict:
             "available_countries": template["available_countries"],
             "base_quantity_gb": default_quantity,
             "base_price_ngn": default_price,
+            "base_price_per_gb": base_price_per_gb,
+            "base_price_per_ip": base_price_per_ip,
+            "min_gb": min_gb,
+            "max_gb": max_gb,
+            "gb_tiers": gb_tiers,
+            "supports_city": plan_type in ("residential", "mobile"),
+            "cities": cities_map,
             "duration_days": default_duration,
             "static_price_multiplier": float(default_plan.static_price_multiplier),
             "supports_country_change": template["supports_country_change"],
@@ -265,7 +318,7 @@ async def create_order_with_credential(
         select(Plan).where(
             Plan.plan_type == plan_type,
             Plan.country == db_country,
-            Plan.is_active is True,
+            Plan.is_active,
         ).order_by(Plan.price_ngn)
     )
     plan = plan_result.scalars().first()

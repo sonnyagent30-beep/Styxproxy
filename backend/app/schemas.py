@@ -227,17 +227,31 @@ class ProductsResponse(BaseModel):
 
 
 class PlanCreateRequest(BaseModel):
-    """Request to create a plan."""
+    """Request to create a plan.
+
+    Pricing model (Sprint 13, Jul 30 2026):
+    - Residential / Mobile: price_per_gb (customer picks country + city)
+    - Datacenter / ISP:     price_ngn (per-IP, fixed country)
+    - Either price_ngn OR price_per_gb must be set depending on plan_type.
+    """
 
     plan_code: str = Field(..., min_length=1, max_length=50)
     plan_type: str = Field(..., min_length=1, max_length=20)
     country: str = Field(..., min_length=2, max_length=10)
-    price_ngn: float = Field(..., ge=0)
-    quantity: int = Field(default=1, ge=1)
+    price_ngn: Optional[float] = Field(None, ge=0)        # per-IP (DC/ISP)
+    price_per_gb: Optional[float] = Field(None, ge=0)     # per-GB (residential/mobile)
+    quantity: int = Field(default=1, ge=1)                # GB included (residential/mobile)
     duration_days: int = Field(default=30, ge=1)
     features: Optional[dict[str, Any]] = None
     is_active: bool = True
     sort_order: int = 0
+    # Sprint 13 — city picker + tier configuration
+    min_gb: int = Field(default=5, ge=1)
+    max_gb: int = Field(default=50, ge=1)
+    gb_tiers: Optional[list[int]] = None
+    supports_city: bool = False
+    rotation_mode: str = Field(default="both", max_length=20)  # rotating|static|both
+    static_price_multiplier: float = Field(default=2.50, ge=1.0, le=10.0)
 
     @field_validator("plan_type")
     @classmethod
@@ -254,14 +268,25 @@ class PlanCreateRequest(BaseModel):
 
 
 class PlanUpdateRequest(BaseModel):
-    """Request to update a plan."""
+    """Request to update a plan.
+
+    Sprint 13 (Jul 30 2026): admin can update price_per_gb, gb_tiers,
+    min_gb/max_gb, supports_city, rotation_mode, static_price_multiplier.
+    """
 
     price_ngn: Optional[float] = Field(None, ge=0)
+    price_per_gb: Optional[float] = Field(None, ge=0)
     quantity: Optional[int] = Field(None, ge=1)
     duration_days: Optional[int] = Field(None, ge=1)
     features: Optional[dict[str, Any]] = None
     is_active: Optional[bool] = None
     sort_order: Optional[int] = None
+    min_gb: Optional[int] = Field(None, ge=1)
+    max_gb: Optional[int] = Field(None, ge=1)
+    gb_tiers: Optional[list[int]] = None
+    supports_city: Optional[bool] = None
+    rotation_mode: Optional[str] = Field(None, max_length=20)
+    static_price_multiplier: Optional[float] = Field(None, ge=1.0, le=10.0)
 
 
 class PlanResponse(BaseModel):
@@ -273,12 +298,19 @@ class PlanResponse(BaseModel):
     plan_code: str
     plan_type: str
     country: str
-    price_ngn: float
+    price_ngn: Optional[float] = None
+    price_per_gb: Optional[float] = None
     quantity: int
     duration_days: int
     features: Optional[dict[str, Any]]
     is_active: bool
     sort_order: int
+    min_gb: int = 5
+    max_gb: int = 50
+    gb_tiers: Optional[list[int]] = None
+    supports_city: bool = False
+    rotation_mode: str = "both"
+    static_price_multiplier: float = 2.50
     created_at: datetime
     updated_at: datetime
 
@@ -309,10 +341,8 @@ class StyxproxyCredentialBrief(BaseModel):
 class OrderCreateRequest(BaseModel):
     """Request to create an order.
 
-    Added optional customer_email to mirror PaymentInitiateRequest — anonymous
-    customers who reached the order page via Flutterwave checkout (handled
-    by /payments/initiate) need to be resolvable here too, otherwise the
-    "customer missing" gate 400's even though the payment was successful.
+    Sprint 13 (Jul 30 2026): customer can specify city_id + quantity_gb for
+    residential/mobile plans. The DB plan.price_per_gb × quantity_gb = price.
 
     Backward compat: existing callers that send only phone or only payment_reference
     keep working unchanged.
@@ -324,6 +354,10 @@ class OrderCreateRequest(BaseModel):
     payment_reference: Optional[str] = Field(None, max_length=100)
     customer_email: Optional[str] = Field(None, max_length=255)
     idempotency_key: Optional[str] = Field(None, max_length=100)
+    # Sprint 13 — city picker + per-GB pricing
+    city_id: Optional[int] = Field(None, description="City ID for residential/mobile")
+    city_name: Optional[str] = Field(None, description="City name (denormalized for cred)")
+    quantity_gb: Optional[int] = Field(None, ge=1, description="Override quantity in GB for residential/mobile")
 
     @field_validator("country")
     @classmethod
@@ -392,11 +426,16 @@ class OrderReportDeadResponse(BaseModel):
 
 
 class PrecheckRequest(BaseModel):
-    """Request to precheck order availability."""
+    """Request to precheck order availability.
+
+    Sprint 13: include quantity_gb for residential/mobile so the precheck
+    returns the right per-GB price.
+    """
 
     plan_code: str = Field(..., min_length=1, max_length=50)
     country: str = Field(..., min_length=2, max_length=10)
     quantity: int = Field(default=1, ge=1)
+    quantity_gb: Optional[int] = Field(None, ge=1, description="GB for residential/mobile")
 
     @field_validator("country")
     @classmethod

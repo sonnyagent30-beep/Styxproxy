@@ -117,6 +117,29 @@ async def precheck_order(
 
     # plan_type from the DB row, not a hardcoded map
     proxy_type = plan.plan_type.lower()
+    pt = proxy_type
+
+    # Sprint 13 pricing model
+    quantity_gb = getattr(request, "quantity_gb", None)
+    if pt in ("residential", "mobile"):
+        gb = quantity_gb or plan.quantity
+        if gb < plan.min_gb:
+            return PrecheckResponse(
+                available=False,
+                reason=f"minimum_{plan.min_gb}_gb",
+                price_ngn=None,
+                estimated_delivery_seconds=0,
+            )
+        if gb > plan.max_gb:
+            return PrecheckResponse(
+                available=False,
+                reason=f"maximum_{plan.max_gb}_gb",
+                price_ngn=None,
+                estimated_delivery_seconds=0,
+            )
+        computed_price = float(plan.price_per_gb or 0) * gb
+    else:
+        computed_price = float(plan.price_ngn or 0) * request.quantity
 
     # Country mapping for provider
     country_map = {"NG": "Nigeria", "UK": "United Kingdom", "US": "United States", "DE": "Germany", "JP": "Japan"}
@@ -130,10 +153,14 @@ async def precheck_order(
         quantity=request.quantity,
     )
 
+    # Override BE-computed price with our DB price (single source of truth).
+    # If provider check returned no price, fall back to our computed value.
+    final_price = computed_price if computed_price > 0 else (result.price_ngn or computed_price)
+
     return PrecheckResponse(
         available=result.available,
         reason=result.reason,
-        price_ngn=result.price_ngn,
+        price_ngn=final_price,
         estimated_delivery_seconds=result.estimated_delivery_seconds,
     )
 
@@ -180,9 +207,46 @@ async def create_order(
     plan_code = LEGACY_PLAN_TRANSLATION.get(body.plan_code, body.plan_code)
     plan = await resolve_plan(session, plan_code, country=body.country)
     if not plan:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
-    price = float(plan.price_ngn)
-    total_amount = price * body.quantity
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid plan {plan_code} for country {body.country}",
+        )
+
+    # Sprint 13 pricing model:
+    # - residential/mobile: price_per_gb × quantity_gb (customer picks GB)
+    # - datacenter/ISP:     price_ngn × quantity (per-IP)
+    pt = plan.plan_type.lower()
+    if pt in ("residential", "mobile"):
+        # Use per-GB pricing
+        gb = body.quantity_gb or plan.quantity  # default to plan's bundled GB
+        if gb < plan.min_gb:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Minimum purchase is {plan.min_gb} GB (you sent {gb})",
+            )
+        if gb > plan.max_gb:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Maximum purchase is {plan.max_gb} GB (you sent {gb})",
+            )
+        if plan.price_per_gb is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Plan has no price_per_gb configured. Admin must set it in /admin/plans.",
+            )
+        price_per_gb = float(plan.price_per_gb)
+        total_amount = price_per_gb * gb
+        effective_quantity = gb  # store GB as the order quantity
+    else:
+        # DC/ISP: per-IP pricing
+        if plan.price_ngn is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Plan has no price_ngn configured",
+            )
+        price_per_ip = float(plan.price_ngn)
+        total_amount = price_per_ip * body.quantity
+        effective_quantity = body.quantity
 
     # In-flight payment check: prevent double payments on the same device
     # If there's a 'pending' order for this device in the last 5 minutes, block
@@ -215,9 +279,12 @@ async def create_order(
         # not the FE-sent code, so the order carries the real plan identifier.
         plan_code=plan_code,
         country=plan.country,
-        quantity=body.quantity,
+        quantity=effective_quantity,  # GB for residential/mobile, IPs for DC/ISP
         amount_paid_ngn=total_amount,
         payment_reference=body.payment_reference,
+        # Sprint 13: city picker (residential/mobile only)
+        city_id=body.city_id if pt in ("residential", "mobile") else None,
+        city_name=body.city_name if pt in ("residential", "mobile") else None,
         status="pending",
     )
     session.add(order)

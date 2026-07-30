@@ -721,22 +721,54 @@ async def get_plan(plan_id: int, session: AsyncSession = Depends(get_session)):
 
 @router.post("/plans", response_model=PlanResponse, dependencies=[Depends(admin_only)])
 async def create_plan(request: PlanCreateRequest, session: AsyncSession = Depends(get_session)):
-    """Create a new plan."""
+    """Create a new plan.
+
+    Pricing model (Sprint 13):
+    - residential/mobile: price_per_gb required, price_ngn optional (computed)
+    - datacenter/isp:     price_ngn required (per-IP)
+    """
     # Check for duplicate plan_code
     existing = (await session.execute(select(Plan).where(Plan.plan_code == request.plan_code))).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Plan code already exists")
 
+    # Validate pricing per plan_type
+    pt = request.plan_type.upper()
+    if pt in ("RESIDENTIAL", "MOBILE"):
+        if request.price_per_gb is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="price_per_gb is required for residential/mobile plans",
+            )
+    elif pt in ("DATACENTER", "ISP", "DC"):
+        if request.price_ngn is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="price_ngn is required for datacenter/ISP plans (per-IP pricing)",
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown plan_type: {pt}",
+        )
+
     plan = Plan(
         plan_code=request.plan_code,
-        plan_type=request.plan_type.upper(),
+        plan_type=pt,
         country=request.country.upper(),
-        price_ngn=request.price_ngn,
+        price_ngn=request.price_ngn or 0,
+        price_per_gb=request.price_per_gb,
         quantity=request.quantity,
         duration_days=request.duration_days,
         features=request.features,
         is_active=request.is_active,
         sort_order=request.sort_order,
+        min_gb=request.min_gb,
+        max_gb=request.max_gb,
+        gb_tiers=request.gb_tiers,
+        supports_city=request.supports_city,
+        rotation_mode=request.rotation_mode,
+        static_price_multiplier=request.static_price_multiplier,
     )
     session.add(plan)
     await session.commit()
@@ -746,13 +778,16 @@ async def create_plan(request: PlanCreateRequest, session: AsyncSession = Depend
 
 @router.patch("/plans/{plan_id}", response_model=PlanResponse, dependencies=[Depends(admin_only)])
 async def update_plan(plan_id: int, request: PlanUpdateRequest, session: AsyncSession = Depends(get_session)):
-    """Update a plan."""
+    """Update a plan. Admin can edit price_per_gb, gb_tiers, min/max_gb,
+    supports_city, rotation_mode, static_price_multiplier (Sprint 13)."""
     plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
 
     if request.price_ngn is not None:
         plan.price_ngn = request.price_ngn
+    if request.price_per_gb is not None:
+        plan.price_per_gb = request.price_per_gb
     if request.quantity is not None:
         plan.quantity = request.quantity
     if request.duration_days is not None:
@@ -763,6 +798,18 @@ async def update_plan(plan_id: int, request: PlanUpdateRequest, session: AsyncSe
         plan.is_active = request.is_active
     if request.sort_order is not None:
         plan.sort_order = request.sort_order
+    if request.min_gb is not None:
+        plan.min_gb = request.min_gb
+    if request.max_gb is not None:
+        plan.max_gb = request.max_gb
+    if request.gb_tiers is not None:
+        plan.gb_tiers = request.gb_tiers
+    if request.supports_city is not None:
+        plan.supports_city = request.supports_city
+    if request.rotation_mode is not None:
+        plan.rotation_mode = request.rotation_mode
+    if request.static_price_multiplier is not None:
+        plan.static_price_multiplier = request.static_price_multiplier
 
     await session.commit()
     await session.refresh(plan)
