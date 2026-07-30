@@ -77,6 +77,13 @@ import type {
   GlobalSearchResponse,
   MetricsOverview,
   AdminRole,
+  RlsPolicyResponse,
+  RlsPolicyListResponse,
+  RlsPolicyToggleRequest,
+  RlsPolicyToggleResponse,
+  RlsRolloutPhase,
+  RlsRolloutPlanResponse,
+  RlsSafeStatus,
 } from '@/types';
 
 // API base URL resolution:
@@ -1028,6 +1035,38 @@ class ApiClient {
   /** @deprecated use respondEscalation */
   async respondToEscalation(id: string, adminNotes: string): Promise<ApiResponse<{ success: boolean }>> {
     return this.respondEscalation(id, adminNotes);
+  }
+
+  // ============== RLS / Row-Level Security (Sprint 15) ==============
+
+  async getRlsPolicies(): Promise<ApiResponse<RlsPolicyListResponse>> {
+    return this.request<RlsPolicyListResponse>('/api/admin/rls/policies');
+  }
+
+  async getRlsStatus(): Promise<ApiResponse<RlsSafeStatus>> {
+    return this.request<RlsSafeStatus>('/api/admin/rls/status');
+  }
+
+  async getRlsRolloutPlan(): Promise<ApiResponse<RlsRolloutPlanResponse>> {
+    return this.request<RlsRolloutPlanResponse>('/api/admin/rls/rollout-plan');
+  }
+
+  async toggleRlsPolicy(
+    table_name: string,
+    enable: boolean,
+    notes?: string,
+  ): Promise<ApiResponse<RlsPolicyToggleResponse>> {
+    return this.request<RlsPolicyToggleResponse>(
+      '/api/admin/rls/policies/toggle',
+      {
+        method: 'POST',
+        body: JSON.stringify({ table_name, enable, notes }),
+      },
+    );
+  }
+
+  async refreshRlsPolicies(): Promise<ApiResponse<{ added: Array<{ table: string; now_enabled: boolean }>; count_added: number }>> {
+    return this.request('/api/admin/rls/policies/refresh', { method: 'POST' });
   }
 
   // ============== Local token clear ==============

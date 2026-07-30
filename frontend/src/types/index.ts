@@ -755,6 +755,74 @@ export interface AdminRevokePermissionResponse {
   permission_code: string;
 }
 
+export interface RlsPolicyResponse {
+  id: number;
+  table_name: string;
+  policy_name: string;
+  policy_enabled: boolean;
+  description?: string | null;
+  notes?: string | null;
+  using_clause?: string | null;
+  with_check?: string | null;
+  role_name?: string | null;
+  policy_status?: string | null;
+  created_by?: string | null;
+  applied_at?: string | null;
+  rolled_back_at?: string | null;
+  last_audit?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface RlsPolicyListResponse {
+  policies: RlsPolicyResponse[];
+  total: number;
+  enabled_count: number;
+  not_started_count: number;
+}
+
+export interface RlsPolicyToggleRequest {
+  table_name: string;
+  enable: boolean;
+  using_clause?: string;
+  with_check?: string;
+  notes?: string;
+}
+
+export interface RlsPolicyToggleResponse extends RlsPolicyResponse {
+  pg_rls_state: string;
+  pg_policy_count: number;
+  policies?: string[];
+  app_policy?: string;
+  admin_policy?: string | null;
+}
+
+export interface RlsRolloutPhase {
+  phase: string;
+  table_name: string;
+  rationale: string;
+  risk: 'low' | 'medium' | 'high';
+  completed: boolean;
+  enabled_at: string | null;
+}
+
+export interface RlsRolloutPlanResponse {
+  phases: RlsRolloutPhase[];
+  next_phase: string | null;
+  connection_string_pinned: boolean;
+}
+
+export interface RlsSafeStatus {
+  total_tables: number;
+  rls_enabled_count: number;
+  rls_disabled_count: number;
+  policies: RlsPolicyResponse[];
+  bypass_role_exists: boolean;
+  current_user_role: string;
+  bypass_role_attr_present: boolean;
+}
+
+
 // ============== Provider Costs ==============
 export interface ProviderCost {
   provider_name: string;
