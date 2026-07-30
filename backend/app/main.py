@@ -17,9 +17,11 @@ from app.limiter import limiter
 from app.models import Base
 from app.routers import (
     admin,
+    admin_proxies,
     admin_support,
     auth,
     blog,
+    catalog,
     charon,
     contact,
     credentials,
@@ -27,9 +29,11 @@ from app.routers import (
     inbound,
     maintenance,
     orders,
+    payment_status,
     payments,
     platform,
     products,
+    proxies,
     session,
     superadmin,
     trials,
@@ -62,15 +66,41 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Idempotent migration: ensure device_id column exists on platform_accounts
-        # (create_all only creates new tables, doesn't add columns to existing ones)
-        from sqlalchemy import text
 
-        await conn.execute(text("ALTER TABLE platform_accounts ADD COLUMN IF NOT EXISTS device_id VARCHAR(64)"))
-        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_platform_device ON platform_accounts (device_id)"))
-        await conn.execute(
-            text("ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS rotation_count INTEGER NOT NULL DEFAULT 0")
-        )
+    # Idempotent schema patches: each wrapped in try/except so an InsufficientPrivilege
+    # error on one table doesn't kill startup. Patches should be applied manually as
+    # migrations by styxproxy_migrate role.
+    from sqlalchemy import text
+
+    idempotent_patches = [
+        "ALTER TABLE platform_accounts ADD COLUMN IF NOT EXISTS device_id VARCHAR(64)",
+        "CREATE INDEX IF NOT EXISTS idx_platform_device ON platform_accounts (device_id)",
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS rotation_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS country_target VARCHAR(2)",
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS sticky_session_minutes INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS bandwidth_alert_pct INTEGER NOT NULL DEFAULT 80",
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS password_rotated_at TIMESTAMPTZ",
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS password_rotations_today INTEGER NOT NULL DEFAULT 0",  # noqa: E501
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS password_rotations_reset_at DATE NOT NULL DEFAULT CURRENT_DATE",  # noqa: E501
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS last_ip_country VARCHAR(2)",
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS last_ip_address INET",
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS session_id VARCHAR(50)",
+        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS session_expires_at TIMESTAMPTZ",
+    ]
+
+    for stmt_sql in idempotent_patches:
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(stmt_sql))
+        except Exception as patch_err:
+            # InsufficientPrivilegeError is expected if styxproxy role doesn't own the
+            # table — log at warning level and continue. Migrations should be applied
+            # manually via db-migrate.py using styxproxy_migrate role.
+            logger.warning(
+                "idempotent_patch_skipped",
+                stmt=stmt_sql[:80],
+                error=str(patch_err)[:200],
+            )
 
     # Seed initial trigger weights if they don't exist
     from sqlalchemy import text
@@ -328,6 +358,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Include routers
 app.include_router(health.router)
 app.include_router(platform.router)
+app.include_router(proxies.router)
 app.include_router(products.router)
 app.include_router(orders.router)
 app.include_router(payments.router)
@@ -335,11 +366,14 @@ app.include_router(webhooks.router)
 app.include_router(credentials.router)
 app.include_router(trials.router)
 app.include_router(admin.router)
+app.include_router(admin_proxies.router)
 app.include_router(admin_support.router)
 app.include_router(session.router)
 app.include_router(charon.router)
 app.include_router(contact.router)
 app.include_router(auth.router)
+app.include_router(catalog.router)
+app.include_router(payment_status.router)
 app.include_router(blog.router)
 app.include_router(inbound.router)
 app.include_router(superadmin.router)

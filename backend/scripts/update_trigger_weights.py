@@ -12,10 +12,11 @@ Constants: BASELINE=0.40, LEARNING_RATE=0.10, MIN=0.2, MAX=3.0, MIN_FIRES=20, MI
 
 Author: Oyebiyi Ayomide
 """
-import os
 import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+import os
+
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 

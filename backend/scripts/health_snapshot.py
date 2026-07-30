@@ -11,7 +11,8 @@ Usage:
   /opt/styxproxy/backend/venv/bin/python3 /opt/styxproxy/backend/scripts/health_snapshot.py
 
 Cron:
-  * * * * * /opt/styxproxy/backend/venv/bin/python3 /opt/styxproxy/backend/scripts/health_snapshot.py >> /var/log/health_snapshot.log 2>&1
+  * * * * * /opt/styxproxy/backend/venv/bin/python3 \
+      /opt/styxproxy/backend/scripts/health_snapshot.py >> /var/log/health_snapshot.log 2>&1  # noqa: E501
 """
 import asyncio
 import os
@@ -32,10 +33,13 @@ if os.path.exists(_env_path):
                 os.environ.setdefault(_k.strip(), _v.strip())
 
 # Force full model import so SQLAlchemy mapper registers
-from app.models import HealthSnapshot  # noqa: E402
 from app.database import async_session  # noqa: E402
+from app.models import HealthSnapshot  # noqa: E402
 from app.routers.health import (  # noqa: E402
-    _check_db, _check_redis, _check_m2_cloud, _check_litellm, _check_ollama,
+    _check_db,
+    _check_litellm,
+    _check_m2_cloud,
+    _check_ollama,
 )
 
 
