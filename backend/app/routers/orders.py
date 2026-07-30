@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_account
 from app.database import get_session
 from app.limiter import limiter
-from app.models import Customer, Order, StyxproxyCredential
+from app.models import Customer, Order, Plan, StyxproxyCredential
 from app.schemas import (
     OrderCancelRequest,
     OrderCancelResponse,
@@ -43,43 +43,80 @@ from app.services.provider import check_availability
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
-PRODUCT_PRICES = {
-    "ISP-NG-1": 5000,
-    "ISP-NG-2": 9500,
-    "DC-NG-1": 8000,
-    "RESIDENTIAL-UK-1": 12000,
-    "RESIDENTIAL-US-1": 10000,
-    "MOBILE-DE-1": 15000,
-    "MOBILE-JP-1": 18000,
+# ─── Plan resolution (DB-driven, Sprint 13) ──────────────────────────────────
+# Plans are managed by superadmin via /admin/plans. The FE never sends prices;
+# it sends plan_code and the BE resolves price + type from the plans table.
+# The legacy PRODUCT_PRICES + PLAN_TYPE_MAP dicts were removed Jul 30 2026 —
+# keeping a fallback for the brief moment the FE sends a legacy code.
+
+
+async def resolve_plan(
+    session: AsyncSession,
+    plan_code: str,
+    country: Optional[str] = None,
+) -> Optional[Plan]:
+    """Look up a plan by plan_code. Returns None if not found or inactive.
+
+    Used by /precheck and /create to validate the customer-selected plan
+    and resolve (price, plan_type, country) from the DB. Superadmin manages
+    pricing via /admin/plans — this is the single source of truth.
+
+    If country is provided, the plan must match (after GB→UK translation).
+    """
+    stmt = select(Plan).where(
+        Plan.plan_code == plan_code,
+        Plan.is_active.is_(True),
+    )
+    if country:
+        stmt = stmt.where(Plan.country == translate_country(country))
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+# Legacy codes → DB plan_codes. The FE hardcoded these for ~6 months before
+# we shipped the catalog-driven flow (commit fd7559c). During the deprecation
+# window we accept the legacy codes and translate to the real DB plans.
+# After /admin/plans is the primary UI, this can be removed in a follow-up.
+LEGACY_PLAN_TRANSLATION = {
+    "ISP-NG-1": "RESI-NG-5GB",       # legacy ISP code → residential NG
+    "ISP-NG-2": "RESI-NG-10GB",
+    "DC-NG-1": "DC-US-5GB",          # legacy DC NG → DC US (closest)
+    "RESIDENTIAL-UK-1": "RESI-UK-5GB",
+    "RESIDENTIAL-US-1": "RESI-US-5GB",
+    "MOBILE-DE-1": "MOB-US-5GB",
+    "MOBILE-JP-1": "MOB-US-5GB",
 }
 
-# Map plan codes to proxy types for provider API
-PLAN_TYPE_MAP = {
-    "ISP-NG-1": "isp",
-    "ISP-NG-2": "isp",
-    "DC-NG-1": "datacenter",
-    "RESIDENTIAL-UK-1": "residential",
-    "RESIDENTIAL-US-1": "residential",
-    "MOBILE-DE-1": "mobile",
-    "MOBILE-JP-1": "mobile",
+# Customer-facing country codes (ISO alpha-2) → DB plan country codes (legacy)
+# The catalog (commit fd7559c) shows "GB" to customers but the plans table
+# stores "UK" (legacy naming). The BE endpoints accept both.
+COUNTRY_TRANSLATION = {
+    "GB": "UK",  # residential plans
 }
+
+
+def translate_country(country: str) -> str:
+    return COUNTRY_TRANSLATION.get(country.upper(), country.upper())
 
 
 @router.post("/precheck", response_model=PrecheckResponse)
 async def precheck_order(
     request: PrecheckRequest,
+    session: AsyncSession = Depends(get_session),
 ):
     """Check if an order can be fulfilled - provider availability, pricing, delivery estimate."""
-    # Validate plan code exists
-    if request.plan_code not in PRODUCT_PRICES:
+    # Resolve plan from DB (with legacy fallback for the deprecation window)
+    plan_code = LEGACY_PLAN_TRANSLATION.get(request.plan_code, request.plan_code)
+    plan = await resolve_plan(session, plan_code, country=request.country)
+    if not plan:
         return PrecheckResponse(
             available=False,
             reason="invalid_plan_code",
             estimated_delivery_seconds=0,
         )
 
-    # Determine proxy type from plan code
-    proxy_type = PLAN_TYPE_MAP.get(request.plan_code, "isp")
+    # plan_type from the DB row, not a hardcoded map
+    proxy_type = plan.plan_type.lower()
 
     # Country mapping for provider
     country_map = {"NG": "Nigeria", "UK": "United Kingdom", "US": "United States", "DE": "Germany", "JP": "Japan"}
@@ -138,9 +175,13 @@ async def create_order(
                 detail="No customer profile found",
             )
 
-    price = PRODUCT_PRICES.get(body.plan_code)
-    if not price:
+    # Resolve price + plan_type from the DB (single source of truth —
+    # /admin/plans is the only place prices are edited).
+    plan_code = LEGACY_PLAN_TRANSLATION.get(body.plan_code, body.plan_code)
+    plan = await resolve_plan(session, plan_code, country=body.country)
+    if not plan:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
+    price = float(plan.price_ngn)
     total_amount = price * body.quantity
 
     # In-flight payment check: prevent double payments on the same device
@@ -163,21 +204,24 @@ async def create_order(
             )
 
     order_id = generate_order_id()
-    plan_type = request.plan_code.split("-")[0] if "-" in request.plan_code else "ISP"
+    # plan_type from DB row, not a guess from the plan_code prefix
+    plan_type = plan.plan_type.lower()
     order = Order(
         order_id=order_id,
         platform_account_id=platform_account.id,
         customer_phone=customer.phone,
         plan_type=plan_type,
-        plan_code=request.plan_code,
-        country=request.country,
-        quantity=request.quantity,
+        # Store the canonical DB plan_code (after legacy translation),
+        # not the FE-sent code, so the order carries the real plan identifier.
+        plan_code=plan_code,
+        country=plan.country,
+        quantity=body.quantity,
         amount_paid_ngn=total_amount,
-        payment_reference=request.payment_reference,
+        payment_reference=body.payment_reference,
         status="pending",
     )
     session.add(order)
-    if request.payment_reference:
+    if body.payment_reference:
         order.status = "paid"
         try:
             credential = await create_credential(
@@ -186,7 +230,7 @@ async def create_order(
                 order_id=order_id,
                 pool_type="paid",
                 duration_days=30,
-                country=request.country,
+                country=body.country,
             )
         except Exception as credential_err:
             # Provider exhausted (5x retry fails in get_provider_proxy).
@@ -209,8 +253,8 @@ async def create_order(
                 phone=customer.phone,
                 order_id=order_id,
                 details={
-                    "plan_code": request.plan_code,
-                    "country": request.country,
+                    "plan_code": body.plan_code,
+                    "country": body.country,
                     "amount": total_amount,
                     "error": str(credential_err),
                     "auto_refund": True,
@@ -249,8 +293,8 @@ async def create_order(
         phone=customer.phone,
         order_id=order_id,
         details={
-            "plan_code": request.plan_code,
-            "country": request.country,
+            "plan_code": body.plan_code,
+            "country": body.country,
             "amount": total_amount,
             "status": order.status,
         },
@@ -265,7 +309,7 @@ async def create_order(
         await send_new_order_notification(
             order_id=order_id,
             customer_phone=customer.phone,
-            plan_code=request.plan_code,
+            plan_code=body.plan_code,
             amount=total_amount,
             currency="NGN",
         )
@@ -276,10 +320,10 @@ async def create_order(
                     customer_email=customer_email,
                     customer_name=customer_name,
                     order_id=order_id,
-                    plan_code=request.plan_code,
+                    plan_code=body.plan_code,
                     amount=total_amount,
                     currency="NGN",
-                    quantity=request.quantity,
+                    quantity=body.quantity,
                 )
             except Exception:
                 pass
@@ -297,10 +341,10 @@ async def create_order(
                         customer_email=customer_email,
                         customer_name=customer_name,
                         order_id=order_id,
-                        plan_code=request.plan_code,
+                        plan_code=body.plan_code,
                         amount=total_amount,
                         currency="NGN",
-                        quantity=request.quantity,
+                        quantity=body.quantity,
                         bun_username=cred.bun_username,
                         proxy_ip=cred.upstream_proxy_ip or "",
                         proxy_port=cred.upstream_proxy_port or 1080,
@@ -1127,7 +1171,9 @@ async def get_receipt_pdf(
             <div class="accent-bar-top"></div>
             <div class="header-section">
                 <div class="logo-section">
-                    <img class="logo-dark" src="data:image/png;base64,{LOGO_DARK_B64}" alt="Styxproxy" width="200" height="58" style="display:block;width:200px;height:auto;">
+                    <img class="logo-dark" src="data:image/png;base64,{LOGO_DARK_B64}"
+     alt="Styxproxy" width="200" height="58"
+     style="display:block;width:200px;height:auto;">
                     <div class="logo-subtitle">Anonymous Proxy Service</div>
                 </div>
                 <div>

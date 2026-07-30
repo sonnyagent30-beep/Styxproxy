@@ -89,7 +89,7 @@ class TrialStatusEnum(str, Enum):
 
 # ============== Validators ==============
 
-VALID_COUNTRIES = {"NG", "UK", "US", "DE", "JP", "AU", "BR", "SG", "KR"}
+VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN"}
 
 
 def validate_phone(phone: str) -> str:
