@@ -35,6 +35,7 @@ from app.routers import (
     platform,
     products,
     proxies,
+    rls,
     session,
     superadmin,
     trials,
@@ -376,6 +377,7 @@ app.include_router(auth.router)
 app.include_router(catalog.router)
 app.include_router(payment_status.router)
 app.include_router(permissions.router)
+app.include_router(rls.router)
 app.include_router(blog.router)
 app.include_router(inbound.router)
 app.include_router(superadmin.router)
