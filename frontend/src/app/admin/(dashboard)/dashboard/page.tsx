@@ -189,7 +189,7 @@ export default function AdminDashboardPage() {
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
           <p className="text-[var(--muted)] text-sm mb-1">Revenue (USD)</p>
           <p className="text-3xl font-bold text-[var(--primary)]">
-            {formatUSD(metrics?.total_revenue_usd ?? 0)}
+            {formatUSD((metrics?.revenue_this_month_ngn ?? 0) / 1700)}
           </p>
         </div>
       </div>
@@ -197,8 +197,8 @@ export default function AdminDashboardPage() {
       {/* Secondary KPIs */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-          <p className="text-[var(--muted)] text-sm mb-1">Total Orders</p>
-          <p className="text-3xl font-bold">{(metrics?.total_orders ?? 0).toLocaleString()}</p>
+          <p className="text-[var(--muted)] text-sm mb-1">Total Customers</p>
+          <p className="text-3xl font-bold">{(stats?.total_customers ?? 0).toLocaleString()}</p>
         </div>
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
           <p className="text-[var(--muted)] text-sm mb-1">Active Credentials</p>
