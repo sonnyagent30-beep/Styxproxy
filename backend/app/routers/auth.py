@@ -704,14 +704,18 @@ async def create_invite(
     session.add(invite)
     await session.commit()
 
-    # Send invite email
+    # Send invite email (non-blocking — if this fails, invite is still valid)
     if body.email:
-        await send_admin_invite_email(
-            email=body.email,
-            role=body.role.value,
-            invite_code=invite_code,
-            expires_in_hours=body.expires_in_hours,
-        )
+        try:
+            await send_admin_invite_email(
+                email=body.email,
+                role=body.role.value,
+                invite_code=invite_code,
+                expires_in_hours=body.expires_in_hours,
+            )
+        except Exception as e:
+            import logger
+            logger.warning(f"Failed to send invite email to {body.email}: {e}")
 
     # Audit log
     await write_audit_log(
