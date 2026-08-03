@@ -187,6 +187,16 @@ async def post_reply(
             detail="user_message cannot be empty",
         )
 
+    from app.services.charon.stats import CharonMetrics
+
+    # Check daily cost budget before spending any tokens
+    allowed, spend, budget = CharonMetrics.check_budget()
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Charon daily budget exhausted ({spend:.4f}/{budget:.4f} USD). Resets at midnight.",
+        )
+
     CharonMetrics.mark_request(payload.channel)
 
     history = [
@@ -210,6 +220,7 @@ async def post_reply(
         CharonMetrics.mark_llm_error(result.error)
     elif result.tokens_used:
         CharonMetrics.mark_success(result.tokens_used, elapsed_ms)
+        CharonMetrics.record_spend(result.tokens_used)
     if result.scenario_id and not result.error:
         CharonMetrics.mark_scenario_hit(result.scenario_id)
 
