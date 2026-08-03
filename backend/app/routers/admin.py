@@ -1391,6 +1391,42 @@ async def providers_health() -> dict:
     }
 
 
+@router.post("/providers/test", dependencies=[Depends(require_permission("admin.monitor.providers.read"))])
+async def test_provider_proxy(
+    ip: str,
+    port: int,
+    http: bool = True,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """
+    Run full Speed + Strength + Quality benchmark on a single proxy IP.
+
+    Returns ProxyTestResult with speed/strength/quality grades + PASS/FAIL verdict.
+    Requires: ip (string) and port (int) query params.
+    """
+    from app.services.provider import ProviderProxy, test_proxy
+    from app.services.provider_test import benchmark_tiers, test_proxy_full
+
+    proxy = ProviderProxy(
+        provider_order_id=f"manual-test-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+        ip=ip,
+        port=port,
+        username="",
+        password="",
+        protocol="http" if http else "socks5",
+        expires_at=datetime.now(timezone.utc),
+        country="",
+        isp="",
+        asn="",
+    )
+
+    result = await test_proxy_full(proxy)
+    return {
+        "benchmark": result.to_dict(),
+        "tiers": benchmark_tiers(),
+    }
+
+
 @router.get("/charon/health", dependencies=[Depends(require_permission("admin.monitor.logs.read"))])
 async def charon_health() -> dict:
     """Charon support bot health summary.
