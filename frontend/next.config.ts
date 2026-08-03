@@ -26,6 +26,14 @@ const nextConfig: NextConfig = {
         source: '/api/public/maintenance',
         destination: 'https://api.styxproxy.com/api/public/maintenance',
       },
+      {
+        source: '/api/catalog',
+        destination: 'https://api.styxproxy.com/api/catalog',
+      },
+      {
+        source: '/api/products',
+        destination: 'https://api.styxproxy.com/api/products',
+      },
     ];
   },
 
