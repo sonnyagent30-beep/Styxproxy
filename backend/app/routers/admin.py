@@ -967,6 +967,83 @@ async def update_channel_feature_flags(
     )
 
 
+# ============== Generic Feature Flags ==============
+
+
+class FeatureFlagUpdate(BaseModel):
+    enabled: Optional[bool] = None
+
+
+class FeatureFlagResponse(BaseModel):
+    name: str
+    enabled: bool
+    description: Optional[str] = None
+
+
+@router.get(
+    "/features/flags/{flag_name}",
+    response_model=FeatureFlagResponse,
+    dependencies=[Depends(require_permission("admin.feature_flags.read"))]
+)
+async def get_feature_flag(
+    flag_name: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """Get a feature flag by name."""
+    flag = (await session.execute(select(FeatureFlag).where(FeatureFlag.name == flag_name))).scalar_one_or_none()
+    if not flag:
+        # Auto-create with default values
+        flag = FeatureFlag(
+            name=flag_name,
+            description=f"auto-created: {flag_name}",
+            enabled=False,
+        )
+        session.add(flag)
+        await session.commit()
+        await session.refresh(flag)
+    return FeatureFlagResponse(name=flag.name, enabled=flag.enabled, description=flag.description)
+
+
+@router.patch(
+    "/features/flags/{flag_name}",
+    response_model=FeatureFlagResponse,
+    dependencies=[Depends(require_permission("admin.feature_flags.update"))]
+)
+async def update_feature_flag(
+    flag_name: str,
+    request: FeatureFlagUpdate,
+    session: AsyncSession = Depends(get_session),
+):
+    """Update a feature flag (enable/disable). Used for checkout_disabled, etc."""
+    flag = (await session.execute(select(FeatureFlag).where(FeatureFlag.name == flag_name))).scalar_one_or_none()
+    if not flag:
+        # Auto-create if doesn't exist
+        flag = FeatureFlag(
+            name=flag_name,
+            description=f"auto-created: {flag_name}",
+            enabled=request.enabled if request.enabled is not None else False,
+        )
+        session.add(flag)
+    else:
+        if request.enabled is not None:
+            flag.enabled = request.enabled
+
+    await session.commit()
+    await session.refresh(flag)
+
+    # Audit log
+    from app.models import AdminAuditLog
+    audit = AdminAuditLog(
+        admin_email="unknown",  # Will be filled by auth dependency
+        action=f"feature_flag_update_{flag_name}",
+        details={"enabled": flag.enabled},
+    )
+    session.add(audit)
+    await session.commit()
+
+    return FeatureFlagResponse(name=flag.name, enabled=flag.enabled, description=flag.description)
+
+
 # ============== Contact Submissions ==============
 
 

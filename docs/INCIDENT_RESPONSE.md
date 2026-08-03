@@ -160,9 +160,54 @@ Enable: `POST /api/v1/maintenance-mode` with `{ "mode": "soft-block" }`
 
 ## Status Page
 
-Status page: `https://styxproxy.com/status` (TODO — implement)
+Status page: https://status.styxproxy.com
 
 When live, update it during every P0/P1 incident. Customers check it before emailing support.
+
+During P0/P1 incidents:
+1. Acknowledge alert in Betterstack
+2. Post incident with affected components
+3. Update as status changes
+4. Resolve when fully operational
+
+---
+
+## Checkout Kill Switch
+
+**What happened:** Admin has disabled checkout (payment processing broken).
+
+**How it works:**
+- Feature flag `checkout_disabled` is enabled by superadmin
+- Backend returns 503 on `POST /api/v1/payments/initiate`
+- Frontend shows a warning banner on all public pages
+- Status page reflects the incident
+
+**Customer message:**
+> "We're experiencing a temporary payment issue. Your order and payment are safe — nothing has been charged. Please try again in the next 15-30 minutes. We'll have it resolved shortly. Sorry for the inconvenience."
+
+**Internal actions:**
+1. Enable flag: `PATCH /api/admin/auth/flags/checkout_disabled` with `{ "enabled": true }`
+2. Check Flutterwave status → https://status.flutterwave.com
+3. Investigate and fix the payment issue
+4. When resolved: disable flag (`enabled: false`)
+5. Verify banner disappears and checkout works
+
+**Toggle via API:**
+```bash
+# Enable checkout kill switch
+curl -X PATCH https://api.styxproxy.com/api/admin/auth/flags/checkout_disabled \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": true}'
+
+# Disable checkout kill switch (after fix)
+curl -X PATCH https://api.styxproxy.com/api/admin/auth/flags/checkout_disabled \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+```
+
+**Toggle via Dashboard:** Admin → Features → Checkout Disabled
 
 ---
 

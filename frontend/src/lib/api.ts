@@ -675,6 +675,13 @@ class ApiClient {
     });
   }
 
+  // ============== Checkout Status ==============
+
+  // Get checkout status (public - no auth required)
+  async getCheckoutStatus(): Promise<ApiResponse<{ disabled: boolean; message?: string }>> {
+    return this.request<{ disabled: boolean; message?: string }>('/api/public/checkout-status');
+  }
+
   // ============== Plans (Admin) ==============
 
   async getPlans(page: number = 1, limit: number = 20, filters?: {

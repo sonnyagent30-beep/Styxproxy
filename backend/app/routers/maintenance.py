@@ -225,3 +225,34 @@ async def public_status(session: AsyncSession = Depends(get_session)) -> dict:
         "source": snap.source,
         "latency_ms": float(snap.total_latency_ms) if snap.total_latency_ms is not None else None,
     }
+
+
+# ─── Checkout Kill Switch (Public) ───────────────────────────────────────────────
+# Returns whether checkout is disabled. Frontend polls this to show a banner.
+
+CHECKOUT_DISABLED_FLAG = "checkout_disabled"
+
+
+class CheckoutStatus(BaseModel):
+    disabled: bool
+    message: Optional[str] = None
+
+
+@router.get("/api/public/checkout-status", response_model=CheckoutStatus)
+async def public_checkout_status(session: AsyncSession = Depends(get_session)):
+    """Public endpoint to check if checkout is disabled.
+
+    Frontend polls this on pages with buy buttons. When disabled:
+    - Backend returns 503 on /payments/initiate
+    - Frontend shows a banner explaining the issue
+    - Admin can toggle via PATCH /api/admin/auth/flags/checkout_disabled
+    """
+    flag = await _get_flag(session, CHECKOUT_DISABLED_FLAG)
+
+    if flag and flag.enabled:
+        return CheckoutStatus(
+            disabled=True,
+            message="Checkout is temporarily disabled. Please contact support or try again later.",
+        )
+
+    return CheckoutStatus(disabled=False)

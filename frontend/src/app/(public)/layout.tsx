@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ChatWidget from "@/components/ChatWidget";
 import SentryBoundary from "@/components/SentryBoundary";
+import CheckoutDisabledBanner from "@/components/CheckoutDisabledBanner";
 import { ChannelFeatureFlagsProvider } from "@/lib/feature-flags";
 
 /**
@@ -19,6 +20,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   return (
     <ChannelFeatureFlagsProvider>
       <SentryBoundary>
+        <CheckoutDisabledBanner />
         <Header />
         {/* pt-20 (80px) gives clearance for the fixed h-16 header (64px) plus
             a little breathing room so page titles aren't hidden under it. */}

@@ -50,6 +50,7 @@ PERMISSIONS = [
     # FEATURE FLAGS
     ("admin.feature_flags.create", "feature_flags", "Create new feature flags", True),
     ("admin.feature_flags.list", "feature_flags", "List all feature flags", False),
+    ("admin.feature_flags.read", "feature_flags", "Read feature flag by name", False),
     ("admin.feature_flags.update", "feature_flags", "Enable/disable/update feature flags", True),
     ("admin.feature_flags.delete", "feature_flags", "Delete feature flags", True),
     # CUSTOMER / SALES
