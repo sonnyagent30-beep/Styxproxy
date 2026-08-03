@@ -26,11 +26,6 @@ const nextConfig: NextConfig = {
         source: '/api/public/maintenance',
         destination: 'https://api.styxproxy.com/api/public/maintenance',
       },
-      {
-        // Products page (SSR + client) fetches /api/catalog — rewrite to backend
-        source: '/api/catalog',
-        destination: 'https://api.styxproxy.com/api/catalog',
-      },
     ];
   },
 

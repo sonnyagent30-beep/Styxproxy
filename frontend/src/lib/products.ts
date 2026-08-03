@@ -114,7 +114,7 @@ export async function loadFullCatalog(): Promise<{
     return { products: cachedProducts, templates: cachedCatalog.templates, catalog: cachedCatalog };
   }
 
-  const res = await fetch('https://api.styxproxy.com/api/catalog', { cache: 'no-store' });
+  const res = await fetch('/api/catalog', { cache: 'no-store' });
   if (!res.ok) {
     throw new Error(`Catalog endpoint returned ${res.status}`);
   }
