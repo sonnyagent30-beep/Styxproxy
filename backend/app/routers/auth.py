@@ -548,12 +548,18 @@ async def login_admin_email(
     admin.last_used = datetime.now(timezone.utc)
     await session.commit()
 
-    role = "admin"
-    stmt = select(AdminInvite).where(AdminInvite.used_by == body.email).limit(1)
-    result = await session.execute(stmt)
-    invite = result.scalar_one_or_none()
-    if invite:
-        role = invite.role
+    # Determine role: superadmin via invite or admin_auth.role field
+    role = admin.role or "admin"
+    if role == "admin":
+        # Check invite for elevated role
+        stmt = select(AdminInvite).where(
+            (AdminInvite.used_by == body.email) |
+            (AdminInvite.email == body.email)
+        ).limit(1)
+        result = await session.execute(stmt)
+        invite = result.scalar_one_or_none()
+        if invite:
+            role = invite.role
 
     token = create_admin_access_token(body.email, role)
 
