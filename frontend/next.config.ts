@@ -34,6 +34,11 @@ const nextConfig: NextConfig = {
         source: '/api/products',
         destination: 'https://api.styxproxy.com/api/products',
       },
+      {
+        // Self-service admin endpoints (RBAC permissions, TOTP status)
+        source: '/api/me/:path*',
+        destination: 'https://api.styxproxy.com/api/me/:path*',
+      },
     ];
   },
 
