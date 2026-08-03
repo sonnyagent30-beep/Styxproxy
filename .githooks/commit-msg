@@ -1,0 +1,45 @@
+#!/bin/bash
+# Commit message hook: validates commit message format
+# Format: <type>(<scope>): <subject> OR <type>: <subject>
+# Types: feat, fix, docs, style, refactor, test, chore, perf, ci, revert
+
+set -euo pipefail
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Skip if this is a merge commit or amend
+if [ -n "$(git rev-parse -q --verify MERGE_HEAD)" ] || [ "$(git rev-parse -q --verify HEAD --short)" = "$(git rev-parse -q --verify HEAD~0 --short 2>/dev/null || echo '')" ]; then
+    exit 0
+fi
+
+# Allowed types
+TYPES="feat|fix|docs|style|refactor|test|chore|perf|ci|revert"
+
+# Conventional commit regex
+# Supports: feat, fix, docs, etc. with optional scope
+PATTERN="^($TYPES)(\([a-zA-Z0-9_-]+\))?: .+"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+    echo "ERROR: Commit message does not follow conventional format."
+    echo ""
+    echo "Required format: <type>: <subject>"
+    echo "Example: fix: resolve login timeout issue"
+    echo ""
+    echo "Allowed types: feat, fix, docs, style, refactor, test, chore, perf, ci, revert"
+    echo ""
+    echo "You can fix with: git commit --amend -m \"<new message>\""
+    exit 1
+fi
+
+# Check subject line length (max 72 chars)
+FIRST_LINE=$(echo "$COMMIT_MSG" | head -n1)
+if [ ${#FIRST_LINE} -gt 72 ]; then
+    echo "ERROR: Subject line too long (max 72 characters)"
+    echo "Current: ${#FIRST_LINE} characters"
+    echo ""
+    echo "You can fix with: git commit --amend -m \"<new message>\""
+    exit 1
+fi
+
+echo "✓ Commit message validated"

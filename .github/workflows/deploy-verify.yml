@@ -1,0 +1,66 @@
+name: Deploy and Verify
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "url=https://styxproxy.com" >> $GITHUB_OUTPUT
+            echo "env=production" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://staging.styxproxy.com" >> $GITHUB_OUTPUT
+            echo "env=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run browser verification
+        env:
+          STAGING_URL: ${{ steps.env.outputs.url }}
+        run: node scripts/browser-verify.js
+
+      - name: Upload verification screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-screenshot-${{ steps.env.outputs.env }}
+          path: /tmp/verify*.png
+          retention-days: 7
+
+      - name: Post deployment status
+        if: always()
+        run: |
+          echo "Deployment to ${{ steps.env.outputs.env }}: ${{ job.status }}"
+          echo "URL: ${{ steps.env.outputs.url }}"

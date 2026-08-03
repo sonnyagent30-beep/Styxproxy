@@ -26,5 +26,9 @@ backend/app/routers/__pycache__/
 backend/app/services/__pycache__/
 backend/tests/__pycache__/
 
+# Node dependencies
+node_modules/
+package-lock.json
+
 # Postman test reports (may contain admin JWTs and tokens) - never commit
 postman/reports/

@@ -5,6 +5,9 @@
   "dependencies": {
     "next": "latest"
   },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  },
   "scripts": {
     "build": "cd frontend && npm install && npm run build"
   }
