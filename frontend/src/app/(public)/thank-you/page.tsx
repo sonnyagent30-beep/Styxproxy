@@ -379,6 +379,8 @@ function ThankYouContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const [nextAction, setNextAction] = useState<string | null>(null);
+  const [userMessage, setUserMessage] = useState<string | null>(null);
   const maxAttempts = 60;
 
   // Load cart from sessionStorage
@@ -472,6 +474,8 @@ function ThankYouContent() {
         // Stop polling when next_action is terminal
         if (data.next_action && data.next_action !== 'poll') {
           setLoading(false);
+          setNextAction(data.next_action);
+          setUserMessage(data.user_message || null);
           if (data.next_action === 'redirect_to_proxy_details') {
             import('@/lib/device-id').then(({ clearInflightOrder }) => clearInflightOrder());
           }
@@ -555,6 +559,10 @@ function ThankYouContent() {
     order?.status === 'expired' ||
     order?.status === 'cancelled' ||
     order?.status === 'refunded';
+  
+  // Detect failed payment states from next_action
+  const isPaymentFailed = nextAction === 'show_failure' || nextAction === 'show_retry';
+  const isRetryState = nextAction === 'show_retry';
 
   return (
     <main className="flex-1 flex items-start justify-center px-4 pt-32 pb-16">
@@ -751,6 +759,77 @@ function ThankYouContent() {
             >
               Place New Order
             </Link>
+          </div>
+        )}
+
+        {/* Payment Failed State (show_failure / show_retry) */}
+        {!loading && isPaymentFailed && (
+          <div className="animate-fade-in">
+            {/* Red error banner for show_failure */}
+            {nextAction === 'show_failure' && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-red-400">Payment could not be processed</h2>
+                    <p className="text-sm text-[var(--muted)] mt-1">
+                      {userMessage || 'There was an issue processing your payment. Please contact support if you were charged.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Yellow warning banner for show_retry */}
+            {nextAction === 'show_retry' && (
+              <div className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-yellow-400">Your order is still being processed</h2>
+                    <p className="text-sm text-[var(--muted)] mt-1">
+                      {userMessage || 'Please wait while we complete your order. This usually takes a few moments.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Order reference */}
+            <div className="text-center mb-6">
+              <p className="text-sm text-[var(--muted)]">
+                Reference: <span className="font-mono">{txRef}</span>
+              </p>
+              {order?.order_id && (
+                <p className="text-sm text-[var(--muted)]">
+                  Order ID: <span className="font-mono">{order.order_id}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-3">
+              <Link
+                href="/order"
+                className="block w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg text-center transition-colors"
+              >
+                Try Again
+              </Link>
+              <Link
+                href="/contact"
+                className="block w-full px-6 py-3 border border-[var(--border)] hover:border-red-500/50 text-[var(--foreground)] font-medium rounded-lg text-center transition-colors"
+              >
+                Contact Support
+              </Link>
+            </div>
           </div>
         )}
 
