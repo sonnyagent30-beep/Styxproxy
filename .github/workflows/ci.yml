@@ -166,7 +166,6 @@ jobs:
         run: npm ci
 
       - name: Lint
-        continue-on-error: true
         run: npm run lint
 
   frontend-typecheck:
@@ -189,7 +188,6 @@ jobs:
         run: npm ci
 
       - name: tsc --noEmit
-        continue-on-error: true
         run: npx tsc --noEmit
 
   structure:
