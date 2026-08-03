@@ -506,9 +506,9 @@ async def login_admin_email(
     # Verify password (also accept legacy `pin_hash` so older admin accounts
     # created before the email flow can still authenticate during migration).
     password_ok = False
-    if admin.password_hash and verify_password(request.password, admin.password_hash):
+    if admin.password_hash and verify_password(body.password, admin.password_hash):
         password_ok = True
-    elif admin.pin_hash and verify_password(request.password, admin.pin_hash):
+    elif admin.pin_hash and verify_password(body.password, admin.pin_hash):
         password_ok = True
         # Migrate: copy the legacy PIN hash to password_hash so future logins
         # don't keep falling into the pin_hash branch.
@@ -526,7 +526,7 @@ async def login_admin_email(
 
     # TOTP check
     if admin.totp_enabled:
-        if not request.totp_code:
+        if not body.totp_code:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="TOTP code required",
@@ -537,7 +537,7 @@ async def login_admin_email(
         if not admin.totp_secret:
             raise HTTPException(status_code=500, detail="TOTP secret missing")
         totp = pyotp.TOTP(admin.totp_secret)
-        if not totp.verify(request.totp_code, valid_window=1):
+        if not totp.verify(body.totp_code, valid_window=1):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid TOTP code",
