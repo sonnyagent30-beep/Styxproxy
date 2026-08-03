@@ -547,6 +547,14 @@ export interface PlanUpdate {
   sort_order?: number;
 }
 
+// ============== Catalog Templates (Admin) ==============
+export interface CatalogTemplate {
+  plan_type: string;
+  available_countries: string[];
+  default_countries?: string[];
+  updated_at: string;
+}
+
 // ============== Contact Submissions ==============
 export interface ContactSubmission {
   id: string;

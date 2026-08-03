@@ -713,6 +713,22 @@ class ApiClient {
     });
   }
 
+  // ============== Catalog Templates (Admin) ==============
+
+  async getCatalogTemplates(): Promise<ApiResponse<CatalogTemplate[]>> {
+    return this.request('/api/admin/catalog/templates');
+  }
+
+  async updateCatalogTemplate(
+    planType: string,
+    availableCountries: string[]
+  ): Promise<ApiResponse<CatalogTemplate>> {
+    return this.request(`/api/admin/catalog/templates/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ available_countries: availableCountries }),
+    });
+  }
+
   // ============== Support Threads =============
 
   async getSupportThreads(status?: string, page = 1, limit = 20): Promise<ApiResponse<SupportThreadsResponse>> {
