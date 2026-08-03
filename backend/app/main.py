@@ -25,9 +25,11 @@ from app.routers import (
     charon,
     contact,
     credentials,
+    customers,
     health,
     inbound,
     maintenance,
+    ops,
     orders,
     payment_status,
     payments,
@@ -379,6 +381,8 @@ app.include_router(payment_status.router)
 app.include_router(permissions.router)
 app.include_router(rls.router)
 app.include_router(blog.router)
+app.include_router(customers.router)
 app.include_router(inbound.router)
 app.include_router(superadmin.router)
 app.include_router(maintenance.router)
+app.include_router(ops.router)

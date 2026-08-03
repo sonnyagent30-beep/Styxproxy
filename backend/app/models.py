@@ -340,6 +340,22 @@ class PendingTrialSurvey(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ConsentEvent(Base):
+    """Consent events — immutable log of every consent interaction."""
+
+    __tablename__ = "consent_events"
+    __table_args__ = (Index("idx_consent_customer", "customer_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
+    consent_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    consent_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    granted: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class CustomerAuditLog(Base):
     """Customer audit log table - Immutable audit trail."""
 
