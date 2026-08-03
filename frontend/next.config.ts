@@ -39,6 +39,11 @@ const nextConfig: NextConfig = {
         source: '/api/me/:path*',
         destination: 'https://api.styxproxy.com/api/me/:path*',
       },
+      {
+        // Public health check — used by the admin dashboard System Health widget
+        source: '/api/v1/health',
+        destination: 'https://api.styxproxy.com/api/v1/health',
+      },
     ];
   },
 
