@@ -4,8 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 
-// Load GlobeScene client-side only (SSR disabled — WebGL cannot render server-side)
-const GlobeScene = dynamic(() => import('@/components/GlobeScene'), { ssr: false });
+// Load GlobeMap client-side only (SSR disabled — WebGL cannot render server-side)
+const GlobeMap = dynamic(() => import('@/components/GlobeMap'), { ssr: false });
 
 export default function Hero() {
   return (
@@ -19,7 +19,7 @@ export default function Hero() {
 
         {/* Globe — full width above everything */}
         <div className="w-full">
-          <GlobeScene />
+          <GlobeMap />
         </div>
 
         {/* Hero Logo — full lockup, no crop, preserves 2.84:1 aspect */}
