@@ -67,7 +67,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               // 'unsafe-eval' REMOVED: no eval/new Function in app code.
               // Remove 'unsafe-inline' from script-src — Next.js 16 bundles safely.
-              "script-src 'self'",
+              "script-src 'self' 'unsafe-inline'",
               // 'unsafe-inline' needed for inline style={{}} objects used in:
               // admin/setup/page.tsx, admin/rls/page.tsx, global-error.tsx
               "style-src 'self' 'unsafe-inline'",
