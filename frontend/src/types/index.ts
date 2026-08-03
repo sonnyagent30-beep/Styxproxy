@@ -930,9 +930,10 @@ export interface CatalogResponse {
 // Matches GET /api/orders/{order_id}/status
 export type PaymentNextAction =
   | 'poll'                          // keep polling
-  | 'redirect_to_proxy_details'      // success — credentials ready
-  | 'show_retry'                    // payment failed — show retry button
-  | 'show_failure';                 // order cancelled/expired
+  | 'redirect_to_proxy_details'     // success — credentials ready
+  | 'show_retry'                   // payment failed — show retry button
+  | 'show_failure'                 // order cancelled/expired
+  | 'provider_down';                // upstream proxy provider unavailable
 
 export interface PaymentStatusCredential {
   credential_id: number;

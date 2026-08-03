@@ -563,6 +563,7 @@ function ThankYouContent() {
   // Detect failed payment states from next_action
   const isPaymentFailed = nextAction === 'show_failure' || nextAction === 'show_retry';
   const isRetryState = nextAction === 'show_retry';
+  const isProviderDown = nextAction === 'provider_down';
 
   return (
     <main className="flex-1 flex items-start justify-center px-4 pt-32 pb-16">
@@ -725,6 +726,42 @@ function ThankYouContent() {
           </div>
         )}
 
+        {/* Provider Down State */}
+        {!loading && isProviderDown && (
+          <div className="text-center animate-fade-in">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-orange-500/20 flex items-center justify-center">
+              <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold mb-2">Provider Temporarily Unavailable</h1>
+            <p className="text-[var(--muted)] mb-2">
+              Our proxy provider is temporarily out of stock for your selected region.
+            </p>
+            {order?.user_message && (
+              <p className="text-sm text-orange-400 mb-6">{order.user_message}</p>
+            )}
+            <p className="text-sm text-[var(--muted)] mb-6">
+              Your payment was received. Your credentials are being generated — this usually takes a few minutes.
+              Reference: <span className="font-mono">{txRef}</span>
+            </p>
+            <div className="space-y-3">
+              <Link
+                href={`/manage?ref=${txRef}`}
+                className="block w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg text-center transition-colors"
+              >
+                Check Order Status
+              </Link>
+              <Link
+                href="/order"
+                className="block w-full px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-lg text-center transition-colors"
+              >
+                Browse Other Plans
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Error/Expired State */}
         {/* Error State (expired / cancelled / refunded) */}
         {!loading && isErrorState && (
@@ -844,12 +881,30 @@ function ThankYouContent() {
             <p className="text-sm text-[var(--muted)] mb-6">
               Reference: <span className="font-mono">{txRef}</span>
             </p>
-            <Link
-              href={`/manage?ref=${txRef}`}
-              className="inline-block px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors"
-            >
-              Check Order Status
-            </Link>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setAttempts(0);
+                  setOrder(undefined);
+                  setNextAction('poll');
+                }}
+                className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors"
+              >
+                Retry Now
+              </button>
+              <Link
+                href={`/manage?ref=${txRef}`}
+                className="block w-full px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-lg text-center transition-colors"
+              >
+                Check Order Status
+              </Link>
+              <Link
+                href="/order"
+                className="block w-full px-6 py-3 text-[var(--muted)] hover:text-[var(--foreground)] text-center transition-colors"
+              >
+                Order Another
+              </Link>
+            </div>
             <p className="text-xs text-[var(--muted)] mt-4">
               Tip: paste your reference (STX-XXXXXX) in the search box on
               the next page. If it shows credentials, you can use them
