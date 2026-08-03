@@ -20,7 +20,7 @@ export function useMaintenanceStatus() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/maintenance', { cache: 'no-store' });
+        const res = await fetch('https://api.styxproxy.com/api/maintenance', { cache: 'no-store' });
         if (cancelled) return;
         if (res.ok) {
           const data = (await res.json()) as MaintenanceState;

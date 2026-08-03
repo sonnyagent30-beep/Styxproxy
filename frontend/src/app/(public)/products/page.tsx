@@ -103,7 +103,7 @@ export default function ProductsPage() {
         setCatalogProducts(products);
         // Rebuild categories from the catalog templates
         // We need full templates, so re-fetch
-        return fetch('/api/catalog', { cache: 'no-store' }).then((r) => r.json());
+        return fetch('https://api.styxproxy.com/api/catalog', { cache: 'no-store' }).then((r) => r.json());
       })
       .then((data) => {
         const cats = buildCategories(data.templates || []);
