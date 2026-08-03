@@ -141,12 +141,12 @@ class ApiClient {
       
       const adminToken = this.getAdminToken();
       // Attach Bearer token to admin API endpoints.
-      // Matches: /admin/..., /api/admin/..., /api/blog/admin/... (the blog
-      // router mounts admin endpoints under /api/blog/admin/* even though
-      // it doesn't start with /admin — see backend/app/routers/blog.py).
+      // Covers: /admin/..., /api/admin/..., /api/me/... (RBAC self-service),
+      // /api/blog/admin/... (blog router mounts admin endpoints there).
       const isAdminEndpoint =
         endpoint.startsWith('/admin') ||
         endpoint.startsWith('/api/admin') ||
+        endpoint.startsWith('/api/me') ||
         endpoint.startsWith('/api/blog/admin');
       if (adminToken && isAdminEndpoint) {
         headers['Authorization'] = `Bearer ${adminToken}`;
