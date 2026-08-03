@@ -36,6 +36,7 @@ from app.routers import (
     permissions,
     platform,
     products,
+    proxy_stats,
     proxies,
     rls,
     session,
@@ -364,6 +365,7 @@ app.include_router(health.router)
 app.include_router(platform.router)
 app.include_router(proxies.router)
 app.include_router(products.router)
+app.include_router(proxy_stats.router)
 app.include_router(orders.router)
 app.include_router(payments.router)
 app.include_router(webhooks.router)
