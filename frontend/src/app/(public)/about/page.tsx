@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { Broadcast, House, DeviceMobile, HardDrives, CaretDown } from '@phosphor-icons/react';
 
 export const metadata = {
   title: 'About — Styxproxy',
@@ -116,42 +117,26 @@ export default function AboutPage() {
               {
                 title: 'ISP Proxies',
                 desc: 'Real ISP-assigned IPs that look like a home or office connection. Fast enough for production workloads, residential enough to be trusted.',
-                icon: (
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
-                  </svg>
-                ),
+                icon: <Broadcast className="w-9 h-9 text-[var(--primary)]" />,
               },
               {
                 title: 'Residential Proxies',
                 desc: 'A real residential IP from the country you choose, paid by the gigabyte. Your traffic looks like any other household&rsquo;s.',
-                icon: (
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                  </svg>
-                ),
+                icon: <House className="w-9 h-9 text-[var(--primary)]" />,
               },
               {
                 title: 'Mobile 4G Proxies',
                 desc: 'Carrier-grade mobile IPs. The hardest class of IP to detect or block, because real carriers cycle them naturally.',
-                icon: (
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-                  </svg>
-                ),
+                icon: <DeviceMobile className="w-9 h-9 text-[var(--primary)]" />,
               },
               {
                 title: 'Datacenter Proxies',
                 desc: 'When raw throughput matters more than stealth. Built for scraping at scale where the target isn&rsquo;t playing defense.',
-                icon: (
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
-                  </svg>
-                ),
+                icon: <HardDrives className="w-9 h-9 text-[var(--primary)]" />,
               },
             ].map((item) => (
               <div key={item.title} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--primary)] transition-all duration-200 card-depth">
-                <div className="w-9 h-9 mb-2 text-[var(--primary)] [&_svg]:w-9 [&_svg]:h-9">
+                <div className="w-9 h-9 mb-2 text-[var(--primary)]">
                   {item.icon}
                 </div>
                 <h3 className="font-semibold mb-1">{item.title}</h3>
@@ -245,9 +230,7 @@ export default function AboutPage() {
               >
                 <summary className="font-medium text-[var(--foreground)] flex items-center justify-between">
                   <span>{item.q}</span>
-                  <svg className="w-4 h-4 text-[var(--muted)] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <CaretDown className="w-4 h-4 text-[var(--muted)] transition-transform group-open:rotate-180" />
                 </summary>
                 <p className="mt-3 text-sm text-[var(--muted)] leading-relaxed">{item.a}</p>
               </details>
