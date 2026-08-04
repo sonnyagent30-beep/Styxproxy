@@ -153,18 +153,17 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
   const atmosphereColor = BRAND_GREEN_LIGHT;
   const atmosphereAlt   = 0.15;
 
-  // Continent outlines — HIGHLY VISIBLE in both modes.
-  // Opacity bumped to 0.70 so outlines clearly show through the sphere.
-  const outlineColor    = isDark ? 'rgba(255, 255, 255, 0.70)' : 'rgba(30, 41, 59, 0.65)';
-  // Sphere: PhongMaterial (specular allowed) — slightly shinier so surface depth reads well.
-  // Polygon altitude bumped to 0.03 so outlines sit clearly above the sphere.
+  // Continent outlines — subtle brand-aligned in both modes.
+  // Dark mode: dim sage green. Light mode: slate gray. Both 25-30% opacity max.
+  const outlineColor    = isDark ? 'rgba(132, 204, 22, 0.25)' : 'rgba(100, 116, 139, 0.30)';
+  // Sphere: PhongMaterial with warm brand emissive — satin sheen, not flat-matte.
   const globeMaterial = useMemo(() => {
       return new THREE.MeshPhongMaterial({
         color: new THREE.Color(sphereBaseColor),
-        specular: new THREE.Color(isDark ? '#334455' : '#cccccc'),
+        specular: new THREE.Color(isDark ? '#1a3a28' : '#cccccc'),
         shininess: isDark ? 15 : 20,
-        emissive: new THREE.Color(isDark ? '#0f1a2e' : '#e8f5e9'),
-        emissiveIntensity: isDark ? 0.25 : 0.05,
+        emissive: new THREE.Color(isDark ? '#0a2018' : '#e8f5e9'),
+        emissiveIntensity: isDark ? 0.12 : 0.05,
       });
     }, [sphereBaseColor, isDark]);
   const featured = LOCATIONS[featuredIdx];
@@ -207,8 +206,7 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
           ringPropagationSpeed={1.4}
           ringRepeat={2.2}
           arcsData={[]}
-          autoRotate={true}
-          autoRotateSpeed={0.3}
+          autoRotate={false}
           onGlobeReady={() => {
             setContainerOpacity(1);
             setTimeout(() => setReady(true), 300);
