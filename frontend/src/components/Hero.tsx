@@ -136,7 +136,7 @@ export default function Hero() {
           <div className="w-full max-w-xl mx-auto">
             <GlobeMap productType={activeTab === 'ALL' ? undefined : activeTab} />
             {/* Tab switcher — BELOW the globe */}
-            <div className="flex items-center justify-center gap-1.5 flex-nowrap overflow-x-auto pb-1">
+            <div className="flex items-center justify-center gap-1.5 flex-wrap md:flex-nowrap">
               {PRODUCT_TABS.map(({ key, label, icon: Icon }) => {
                 const isActive = activeTab === key;
                 return (
