@@ -16,10 +16,12 @@ export default function Footer() {
             {/* Brand */}
             <div className="max-w-xs">
               <Link href="/" className="inline-flex items-center gap-3 mb-4 group">
-                <picture>
-                  <source srcSet="/footer-logo-dark.png" media="(prefers-color-scheme: dark)" />
-                  <img src="/footer-logo-light.png" alt="Styxproxy" className="h-10 w-auto object-contain" />
-                </picture>
+                <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 border border-[var(--primary)]/30 flex items-center justify-center group-hover:border-[var(--primary)]/60 transition-colors duration-200">
+                  <svg className="w-5 h-5 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+                  </svg>
+                </div>
+                <span className="text-xl font-bold text-[var(--foreground)] tracking-tight">Styxproxy</span>
               </Link>
               <p className="text-sm text-[var(--muted)] leading-relaxed">
                 AI-powered proxy intelligence for those who move in silence.
