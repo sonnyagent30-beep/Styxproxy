@@ -136,20 +136,20 @@ export default function Hero() {
           <div className="w-full max-w-xl mx-auto">
             <GlobeMap productType={activeTab === 'ALL' ? undefined : activeTab} />
             {/* Tab switcher — BELOW the globe */}
-            <div className="flex items-center justify-center gap-1.5 flex-wrap md:flex-nowrap">
+            <div className="flex items-center justify-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
               {PRODUCT_TABS.map(({ key, label, icon: Icon }) => {
                 const isActive = activeTab === key;
                 return (
                   <button
                     key={key}
                     onClick={() => setActiveTab(key)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border ${
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all duration-200 border whitespace-nowrap ${
                       isActive
                         ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
                         : 'border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]'
                     }`}
                   >
-                    <Icon size={14} />
+                    <Icon size={12} />
                     {label}
                   </button>
                 );
