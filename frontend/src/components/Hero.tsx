@@ -158,7 +158,7 @@ export default function Hero() {
             </Link>
             <Link href="/order"
               className="w-full sm:w-auto min-w-[200px] px-8 py-4 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-black text-center transition-all duration-200 hover:shadow-[0_0_30px_rgba(10,210,90,0.3)]">
-              Order Now
+              Get Instant
             </Link>
           </div>
 
@@ -365,7 +365,7 @@ export default function Hero() {
           <p className="text-[var(--muted)] mb-10 text-lg">Start in seconds. No signup required.</p>
           <Link href="/order"
             className="inline-block px-12 py-5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-black text-lg transition-all duration-200 hover:shadow-[0_0_40px_rgba(10,210,90,0.35)]">
-            Order Now
+            Get Instant
           </Link>
         </div>
       </section>
