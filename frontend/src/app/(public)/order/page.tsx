@@ -12,17 +12,14 @@ import {
 import { getAvailableCountries, formatPlanName } from '@/lib/products_page';
 import type { CartItem, Product } from '@/types';
 import api from '@/lib/api';
+import { Globe, House, DeviceMobile, HardDrives, ArrowRight, X } from '@phosphor-icons/react';
 
 // Type card metadata
 const typeCards = [
   {
     key: 'ISP',
     label: 'ISP Proxies',
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-      </svg>
-    ),
+    icon: <Globe className="w-8 h-8" />,
     description: 'High-speed ISP IPs, ideal for web scraping and automation',
     price: 'From ₦6,500/mo',
     hasGeoPlans: true,
@@ -30,11 +27,7 @@ const typeCards = [
   {
     key: 'RESIDENTIAL',
     label: 'Residential',
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    ),
+    icon: <House className="w-8 h-8" />,
     description: 'Real residential IPs, harder to detect and block',
     price: 'From ₦5,000',
     hasGeoPlans: false,
@@ -42,11 +35,7 @@ const typeCards = [
   {
     key: 'MOBILE',
     label: 'Mobile 4G',
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-      </svg>
-    ),
+    icon: <DeviceMobile className="w-8 h-8" />,
     description: 'Mobile carrier IPs, perfect for social media and ad verification',
     price: 'From ₦20,000',
     hasGeoPlans: false,
@@ -54,11 +43,7 @@ const typeCards = [
   {
     key: 'DC',
     label: 'Datacenter',
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-      </svg>
-    ),
+    icon: <HardDrives className="w-8 h-8" />,
     description: 'Fast datacenter proxies for general purpose use',
     price: 'From ₦2,500/mo',
     hasGeoPlans: false,
@@ -207,9 +192,7 @@ export default function OrderPage() {
                 <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)]/20 transition-colors">
                   {card.icon}
                 </div>
-                <svg className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                <ArrowRight className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors" />
               </div>
               <h3 className="text-lg font-bold mb-1">{card.label}</h3>
               <p className="text-sm text-[var(--muted)] mb-3">{card.description}</p>
@@ -287,9 +270,7 @@ export default function OrderPage() {
                     onClick={closeModal}
                     className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 

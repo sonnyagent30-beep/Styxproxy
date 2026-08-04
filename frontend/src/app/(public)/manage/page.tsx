@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/components/Toast';
 import { getOrderHistory, type OrderHistoryEntry, getInflightOrder, clearInflightOrder } from '@/lib/device-id';
+import { Eye, EyeSlash, Copy, Clock, Check, ArrowRight, ArrowClockwise, X, WarningCircle } from '@phosphor-icons/react';
 
 // Helper: Copy to clipboard with toast feedback
 function copyToClipboard(text: string, label: string) {
@@ -56,13 +57,7 @@ function CredentialField({ label, value, sensitive = false }: { label: string; v
               className="text-[var(--muted)] hover:text-foreground p-1"
               aria-label={revealed ? 'Hide' : 'Show'}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {revealed ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                )}
-              </svg>
+              {revealed ? <EyeSlash className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           )}
           <button
@@ -70,9 +65,7 @@ function CredentialField({ label, value, sensitive = false }: { label: string; v
             className="text-[var(--muted)] hover:text-foreground p-1"
             aria-label={`Copy ${label}`}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
+            <Copy className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -198,9 +191,7 @@ export default function ManagePage() {
           {inflight && !order && (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
               <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <Clock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-amber-400 text-sm font-medium">Order In Progress</p>
                   <p className="text-xs text-[var(--muted)] mt-1">
@@ -288,9 +279,7 @@ export default function ManagePage() {
           {/* Error */}
           {error && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 flex items-start gap-3">
-              <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <WarningCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
               <p className="text-red-500 text-sm">{error}</p>
             </div>
           )}
@@ -309,15 +298,11 @@ export default function ManagePage() {
                   <div className="flex items-center gap-3">
                     {isActive ? (
                       <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
+                        <Check className="w-5 h-5 text-emerald-400" weight="bold" />
                       </div>
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <Clock className="w-5 h-5 text-amber-400" />
                       </div>
                     )}
                     <div>
@@ -406,9 +391,7 @@ export default function ManagePage() {
                     {order.expires_at && (
                       <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
+                          <Clock className="w-4 h-4 text-amber-400" />
                           <span className="text-sm text-amber-400">
                             {formatTimeRemaining(order.expires_at)}
                           </span>
@@ -437,9 +420,7 @@ export default function ManagePage() {
                           onClick={() => copyToClipboard(`http://${order.styxproxy_credential?.styxproxy_username}:${order.styxproxy_credential?.styxproxy_password || 'N/A'}@${order.styxproxy_credential?.upstream_proxy_ip}:${order.styxproxy_credential?.upstream_proxy_port}`, 'Proxy URL')}
                           className="text-xs text-[var(--primary)] hover:underline flex items-center gap-1"
                         >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
+                          <Copy className="w-3 h-3" />
                           Copy
                         </button>
                       </div>
@@ -455,9 +436,7 @@ export default function ManagePage() {
                         disabled={rotating}
                         className="w-full px-4 py-2.5 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
+                        <ArrowClockwise className="w-4 h-4" />
                         {rotating ? 'Rotating…' : `Rotate Proxy Key (${rotationsLeft} left)`}
                       </button>
                     )}
@@ -471,9 +450,7 @@ export default function ManagePage() {
                         onClick={handleRenew}
                         className="w-full px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                        <ArrowClockwise className="w-4 h-4" />
                         Renew This Proxy
                       </button>
                     )}
