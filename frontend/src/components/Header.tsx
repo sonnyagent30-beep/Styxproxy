@@ -42,16 +42,22 @@ export default function Header() {
               Products
             </Link>
             <Link
-              href="/order"
+              href="/pricing"
               className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
               Pricing
             </Link>
             <Link
-              href="/#how-it-works"
+              href="/how-it-works"
               className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             >
               How It Works
+            </Link>
+            <Link
+              href="/about"
+              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            >
+              About
             </Link>
             <Link
               href="/blog"
@@ -103,8 +109,9 @@ export default function Header() {
           <nav className="flex flex-col space-y-1 py-4 border-t border-[var(--border)]">
             {[
               ['/products', 'Products'],
-              ['/order', 'Pricing'],
-              ['/#how-it-works', 'How It Works'],
+              ['/pricing', 'Pricing'],
+              ['/how-it-works', 'How It Works'],
+              ['/about', 'About'],
               ['/blog', 'Blog'],
               ['/contact', 'Contact'],
             ].map(([href, label]) => (

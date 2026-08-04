@@ -76,6 +76,7 @@ export default function Footer() {
             <h4 className="font-semibold text-[var(--foreground)] mb-4 text-sm">Resources</h4>
             <ul className="space-y-3 text-sm text-[var(--muted)]">
               <li><Link href="/how-it-works" className="hover:text-[var(--primary)] transition-colors duration-150">How It Works</Link></li>
+              <li><Link href="/about" className="hover:text-[var(--primary)] transition-colors duration-150">About</Link></li>
               <li><Link href="/manage" className="hover:text-[var(--primary)] transition-colors duration-150">Manage Order</Link></li>
               <li><a href="https://t.me/StyxproxyBot" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--primary)] transition-colors duration-150">Telegram Bot</a></li>
             </ul>
