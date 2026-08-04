@@ -9,72 +9,113 @@ export const metadata: Metadata = {
 const plans = [
   {
     category: 'ISP Proxies',
-    icon: '🌐',
-    color: 'bg-[#0AD25A]',
+    planType: 'isp',
     plans: [
-      { name: 'United Kingdom', price: '₦6,500', period: '/mo', flag: '🇬🇧' },
-      { name: 'United States', price: '₦6,500', period: '/mo', flag: '🇺🇸' },
-      { name: 'Germany', price: '₦6,500', period: '/mo', flag: '🇩🇪' },
-      { name: 'France', price: '₦6,500', period: '/mo', flag: '🇫🇷' },
-      { name: 'Canada', price: '₦6,500', period: '/mo', flag: '🇨🇦' },
-      { name: 'Japan', price: '₦7,500', period: '/mo', flag: '🇯🇵' },
-      { name: 'Australia', price: '₦7,500', period: '/mo', flag: '🇦🇺' },
-      { name: 'Brazil', price: '₦7,500', period: '/mo', flag: '🇧🇷' },
-      { name: 'Singapore', price: '₦7,500', period: '/mo', flag: '🇸🇬' },
+      { name: 'United Kingdom', price: '₦6,500', period: '/mo', flag: 'GB' },
+      { name: 'United States', price: '₦6,500', period: '/mo', flag: 'US' },
+      { name: 'Germany', price: '₦6,500', period: '/mo', flag: 'DE' },
+      { name: 'France', price: '₦6,500', period: '/mo', flag: 'FR' },
+      { name: 'Canada', price: '₦6,500', period: '/mo', flag: 'CA' },
+      { name: 'Japan', price: '₦7,500', period: '/mo', flag: 'JP' },
+      { name: 'Australia', price: '₦7,500', period: '/mo', flag: 'AU' },
+      { name: 'Brazil', price: '₦7,500', period: '/mo', flag: 'BR' },
+      { name: 'Singapore', price: '₦7,500', period: '/mo', flag: 'SG' },
     ],
   },
   {
     category: 'Residential',
-    icon: '🏠',
-    color: 'bg-[#0AD25A]',
+    planType: 'residential',
     plans: [
-      { name: 'Global 5GB Data', price: '₦5,000', period: '/mo', flag: '🌍' },
-      { name: 'Global 10GB Data', price: '₦9,000', period: '/mo', flag: '🌍' },
+      { name: 'Global 5GB Data', price: '₦5,000', period: '/mo', flag: 'GL' },
+      { name: 'Global 10GB Data', price: '₦9,000', period: '/mo', flag: 'GL' },
     ],
   },
   {
     category: 'Mobile 4G',
-    icon: '📱',
-    color: 'bg-[#0AD25A]',
+    planType: 'mobile',
     plans: [
-      { name: 'Global 5GB 4G Data', price: '₦20,000', period: '/mo', flag: '🌍' },
-      { name: 'Global 10GB 4G Data', price: '₦35,000', period: '/mo', flag: '🌍' },
+      { name: 'Global 5GB 4G Data', price: '₦20,000', period: '/mo', flag: 'GL' },
+      { name: 'Global 10GB 4G Data', price: '₦35,000', period: '/mo', flag: 'GL' },
     ],
   },
   {
     category: 'Datacenter',
-    icon: '🖥️',
-    color: 'bg-[#0AD25A]',
+    planType: 'datacenter',
     plans: [
-      { name: 'Global Datacenter Proxy', price: '₦2,500', period: '/mo', flag: '🌍' },
+      { name: 'Global Datacenter Proxy', price: '₦2,500', period: '/mo', flag: 'GL' },
     ],
   },
 ];
 
+const comparison = [
+  { type: 'ISP Proxies', speed: 'High', detection: 'Low', anonymity: 'High', reliability: 'High', price: '₦6,500' },
+  { type: 'Residential', speed: 'Medium', detection: 'Very Low', anonymity: 'Very High', reliability: 'High', price: '₦5,000' },
+  { type: 'Mobile 4G', speed: 'Medium', detection: 'Extremely Low', anonymity: 'Highest', reliability: 'Medium', price: '₦20,000' },
+  { type: 'Datacenter', speed: 'High', detection: 'High', anonymity: 'Low', reliability: 'High', price: '₦2,500' },
+];
+
+const faqs = [
+  {
+    q: 'How fast is delivery?',
+    a: 'Credentials are delivered instantly after payment confirmation. Usually within 30 seconds.',
+  },
+  {
+    q: 'What payment methods do you accept?',
+    a: 'Card, Bank Transfer, USSD, and QR code via Flutterwave. All major Nigerian banks supported.',
+  },
+  {
+    q: 'Can I get a refund?',
+    a: 'Yes. If your proxy is banned within the first 24 hours and our team cannot replace it, you get a full refund.',
+  },
+  {
+    q: 'What is your ban replacement policy?',
+    a: 'We replace banned ISP and Residential proxies at no cost within your subscription period. Mobile 4G proxies are covered for the first 7 days.',
+  },
+];
+
+function Flag({ code }: { code: string }) {
+  const flags: Record<string, string> = {
+    GB: '🇬🇧', US: '🇺🇸', DE: '🇩🇪', FR: '🇫🇷', CA: '🇨🇦',
+    JP: '🇯🇵', AU: '🇦🇺', BR: '🇧🇷', SG: '🇸🇬', GL: '🌍',
+  };
+  return <span>{flags[code] || '🌍'}</span>;
+}
+
 export default function PricingPage() {
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="min-h-screen text-[var(--foreground)]">
       {/* Header */}
-      <div className="pt-32 pb-16 px-6 text-center">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-[-0.03em]">
-          Simple, transparent pricing.
-        </h1>
-        <p className="text-[var(--muted)] text-lg max-w-xl mx-auto">
-          No hidden fees. No surprises. Pay for what you need.
-        </p>
+      <div className="relative overflow-hidden pt-32 pb-16 px-6">
+        <div className="absolute inset-0 hero-bg-grid" />
+        <div className="absolute inset-0 hero-bg-rings" />
+        <div className="absolute inset-0 hero-bg-vignette" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 hero-orb-1" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 hero-orb-2" />
+
+        <div className="relative text-center">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-[-0.03em]">
+            Simple, transparent pricing.
+          </h1>
+          <p className="text-[var(--muted)] text-lg max-w-xl mx-auto">
+            No hidden fees. No surprises. Pay for what you need.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
+            <Link href="/order" className="min-w-[200px] px-8 py-4 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold text-center transition-all duration-200">
+              Order Now
+            </Link>
+            <Link href="/how-it-works" className="min-w-[200px] px-8 py-4 rounded-xl border border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold text-center card-depth transition-all duration-200">
+              How It Works
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Comparison banner */}
-      <div className="max-w-6xl mx-auto px-6 mb-12">
-        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 md:p-8">
+      <div className="relative max-w-6xl mx-auto px-6 mb-12">
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 md:p-8 card-depth">
           <h2 className="text-lg font-semibold mb-6 text-center">Proxy type comparison</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[
-              { type: 'ISP Proxies', speed: 'High', detection: 'Low', anonymity: 'High', reliability: 'High', price: '₦6,500' },
-              { type: 'Residential', speed: 'Medium', detection: 'Very Low', anonymity: 'Very High', reliability: 'High', price: '₦5,000' },
-              { type: 'Mobile 4G', speed: 'Medium', detection: 'Extremely Low', anonymity: 'Highest', reliability: 'Medium', price: '₦20,000' },
-              { type: 'Datacenter', speed: 'High', detection: 'High', anonymity: 'Low', reliability: 'High', price: '₦2,500' },
-            ].map((row) => (
+            {comparison.map((row) => (
               <div key={row.type} className="space-y-3">
                 <h3 className="font-semibold text-sm">{row.type}</h3>
                 <div>
@@ -82,7 +123,7 @@ export default function PricingPage() {
                     <span>Speed</span>
                   </div>
                   <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${row.speed === 'High' ? 'w-[85%]' : row.speed === 'Medium' ? 'w-[55%]' : 'w-[40%]'} bg-[#0AD25A]`} />
+                    <div className={`h-full rounded-full ${row.speed === 'High' ? 'w-[85%]' : 'w-[55%]'} bg-[var(--primary)]`} />
                   </div>
                 </div>
                 <div>
@@ -90,7 +131,7 @@ export default function PricingPage() {
                     <span>Detection Risk</span>
                   </div>
                   <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${row.detection === 'Very Low' || row.detection === 'Extremely Low' ? 'w-[15%]' : row.detection === 'Low' ? 'w-[30%]' : 'w-[80%]'} bg-[#0AD25A]`} />
+                    <div className={`h-full rounded-full ${row.detection === 'Very Low' || row.detection === 'Extremely Low' ? 'w-[15%]' : row.detection === 'Low' ? 'w-[30%]' : 'w-[80%]'} bg-[var(--primary)]`} />
                   </div>
                 </div>
                 <div>
@@ -98,11 +139,11 @@ export default function PricingPage() {
                     <span>Anonymity</span>
                   </div>
                   <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${row.anonymity === 'Highest' ? 'w-[95%]' : row.anonymity === 'Very High' ? 'w-[80%]' : row.anonymity === 'High' ? 'w-[70%]' : 'w-[25%]'} bg-[#0AD25A]`} />
+                    <div className={`h-full rounded-full ${row.anonymity === 'Highest' ? 'w-[95%]' : row.anonymity === 'Very High' ? 'w-[80%]' : row.anonymity === 'High' ? 'w-[70%]' : 'w-[25%]'} bg-[var(--primary)]`} />
                   </div>
                 </div>
                 <div className="pt-2 border-t border-[var(--border)]">
-                  <span className="text-[#0AD25A] font-bold text-sm">{row.price}</span>
+                  <span className="text-[var(--primary)] font-bold text-sm">{row.price}</span>
                   <span className="text-[var(--muted)] text-xs">/mo</span>
                 </div>
               </div>
@@ -112,28 +153,46 @@ export default function PricingPage() {
       </div>
 
       {/* Plans by category */}
-      <div className="max-w-6xl mx-auto px-6 pb-20 space-y-16">
+      <div className="relative max-w-6xl mx-auto px-6 pb-20 space-y-16">
         {plans.map((section) => (
           <div key={section.category}>
             <div className="flex items-center gap-3 mb-6">
-              <span className="text-2xl">{section.icon}</span>
+              <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)]">
+                {section.planType === 'isp' ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+                  </svg>
+                ) : section.planType === 'residential' ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                  </svg>
+                ) : section.planType === 'mobile' ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                  </svg>
+                )}
+              </div>
               <h2 className="text-2xl font-bold tracking-[-0.02em]">{section.category}</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {section.plans.map((plan) => (
                 <div
                   key={plan.name}
-                  className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 hover:border-[#0AD25A]/40 transition-colors duration-200"
+                  className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 hover:border-[var(--primary)] transition-all duration-200 card-depth"
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <span className="text-2xl">{plan.flag}</span>
-                    <span className="text-[#0AD25A] font-bold text-lg">{plan.price}</span>
+                    <span className="text-2xl"><Flag code={plan.flag} /></span>
+                    <span className="text-[var(--primary)] font-bold text-lg">{plan.price}</span>
                   </div>
                   <p className="font-medium mb-1">{plan.name}</p>
-                  <p className="text-[var(--muted)] text-sm">per month · auto-renews</p>
+                  <p className="text-[var(--muted)] text-sm">per month. Auto-renews.</p>
                   <Link
                     href="/order"
-                    className="mt-4 block w-full py-2.5 px-4 bg-[#0AD25A] text-[#0a0a0a] font-semibold text-sm rounded-lg text-center hover:bg-[#22FF7A] transition-colors duration-200"
+                    className="mt-4 block w-full py-2.5 px-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold text-sm rounded-lg text-center transition-all duration-200"
                   >
                     Order Now →
                   </Link>
@@ -143,31 +202,17 @@ export default function PricingPage() {
           </div>
         ))}
 
+        {/* divider */}
+        <div className="section-divider-glow" />
+
         {/* FAQ */}
         <div className="pt-8">
           <h2 className="text-2xl font-bold mb-6 text-center tracking-[-0.02em]">
             Common questions
           </h2>
           <div className="max-w-2xl mx-auto space-y-3">
-            {[
-              {
-                q: 'How fast is delivery?',
-                a: 'Credentials are delivered instantly after payment confirmation — usually within 30 seconds.',
-              },
-              {
-                q: 'What payment methods do you accept?',
-                a: 'Card, Bank Transfer, USSD, and QR code via Flutterwave. All major Nigerian banks supported.',
-              },
-              {
-                q: 'Can I get a refund?',
-                a: 'Yes. If your proxy is banned within the first 24 hours and our team cannot replace it, you get a full refund.',
-              },
-              {
-                q: 'What is your ban replacement policy?',
-                a: 'We replace banned ISP and Residential proxies at no cost within your subscription period. Mobile 4G proxies are covered for the first 7 days.',
-              },
-            ].map((faq) => (
-              <div key={faq.q} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
+            {faqs.map((faq) => (
+              <div key={faq.q} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 card-depth">
                 <h3 className="font-semibold mb-2">{faq.q}</h3>
                 <p className="text-[var(--muted)] text-sm">{faq.a}</p>
               </div>
@@ -175,10 +220,13 @@ export default function PricingPage() {
           </div>
         </div>
 
+        {/* divider */}
+        <div className="section-divider-glow mt-16" />
+
         {/* CTA */}
         <div className="text-center pt-8">
           <p className="text-[var(--muted)] mb-4">Need something custom?</p>
-          <Link href="/contact" className="inline-block py-3 px-8 border border-[#0AD25A] text-[#0AD25A] rounded-lg font-semibold hover:bg-[#0AD25A] hover:text-[#0a0a0a] transition-colors duration-200">
+          <Link href="/contact" className="inline-block min-w-[200px] py-3 px-8 border border-[var(--primary)] text-[var(--primary)] rounded-xl font-semibold hover:bg-[var(--primary)] hover:text-black transition-all duration-200 text-center">
             Contact us for bulk pricing
           </Link>
         </div>

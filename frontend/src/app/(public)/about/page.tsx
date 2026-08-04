@@ -8,8 +8,16 @@ export const metadata = {
 
 export default function AboutPage() {
   return (
-    <main className="flex-1 px-4 pt-24 pb-16">
-      <article className="max-w-3xl mx-auto">
+    <main className="flex-1 relative overflow-hidden">
+      {/* Hero background layers */}
+      <div className="absolute inset-0 hero-bg-grid" />
+      <div className="absolute inset-0 hero-bg-rings" />
+      <div className="absolute inset-0 hero-bg-vignette" />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 hero-orb-1" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 hero-orb-2" />
+      <div className="absolute top-1/2 right-1/3 w-64 h-64 hero-orb-3" />
+
+      <article className="relative max-w-3xl mx-auto px-4 pt-24 pb-16">
 
         {/* Hero */}
         <div className="text-center mb-12">
@@ -33,16 +41,27 @@ export default function AboutPage() {
           </div>
           <h1 className="text-4xl font-bold mb-4 leading-tight">
             We sell what the rest of the internet<br />
-            <span className="gradient-text">refuses to give you.</span>
+            <span className="text-[var(--primary)]">refuses to give you.</span>
           </h1>
           <p className="text-[var(--muted)] leading-relaxed max-w-xl mx-auto">
             Privacy. Anonymity. The simple, unglamorous right to browse the web without being
             catalogued, fingerprinted, or followed.
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
+            <Link href="/order" className="min-w-[200px] px-8 py-4 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold text-center transition-all duration-200">
+              Order Now
+            </Link>
+            <Link href="/how-it-works" className="min-w-[200px] px-8 py-4 rounded-xl border border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold text-center card-depth transition-all duration-200">
+              How It Works
+            </Link>
+          </div>
         </div>
 
+        {/* divider */}
+        <div className="section-divider-glow my-12" />
+
         {/* Manifesto */}
-        <section className="mb-12 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
+        <section className="mb-12 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 card-depth">
           <h2 className="text-2xl font-bold mb-3">The Manifesto</h2>
           <p className="text-[var(--muted)] leading-relaxed mb-3">
             The modern internet runs on surveillance. Every click, every purchase, every
@@ -56,7 +75,7 @@ export default function AboutPage() {
           </p>
           <p className="text-[var(--muted)] leading-relaxed mb-3">
             No account. No email. No identity. No log of what you do with the proxy you bought
-            from us. The credential you receive is yours the moment we hand it over &mdash; we have
+            from us. The credential you receive is yours the moment we hand it over. We have
             no record of it on our side. If authorities come knocking with a subpoena, we
             literally have nothing to give them about you.
           </p>
@@ -65,12 +84,15 @@ export default function AboutPage() {
           </p>
         </section>
 
+        {/* divider */}
+        <div className="section-divider-glow my-12" />
+
         {/* Brand Story */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-3">Where the name comes from</h2>
           <p className="text-[var(--muted)] leading-relaxed mb-3">
             In Greek mythology, the river Styx separates the world of the living from the
-            underworld. To cross it, you paid Charon &mdash; the ferryman &mdash; in a coin. He ferried
+            underworld. To cross it, you paid Charon. He ferried
             you across without asking your name, your story, or where you were going.
           </p>
           <p className="text-[var(--muted)] leading-relaxed mb-3">
@@ -82,6 +104,9 @@ export default function AboutPage() {
             It&rsquo;s the role the brand is built around: the silent ferryman.
           </p>
         </section>
+
+        {/* divider */}
+        <div className="section-divider-glow my-12" />
 
         {/* What we offer */}
         <section className="mb-12">
@@ -125,7 +150,7 @@ export default function AboutPage() {
                 ),
               },
             ].map((item) => (
-              <div key={item.title} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4">
+              <div key={item.title} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--primary)] transition-all duration-200 card-depth">
                 <div className="w-9 h-9 mb-2 text-[var(--primary)] [&_svg]:w-9 [&_svg]:h-9">
                   {item.icon}
                 </div>
@@ -135,6 +160,9 @@ export default function AboutPage() {
             ))}
           </div>
         </section>
+
+        {/* divider */}
+        <div className="section-divider-glow my-12" />
 
         {/* Promise */}
         <section className="mb-12">
@@ -158,13 +186,16 @@ export default function AboutPage() {
                 body: 'Once we hand over a credential, it\u2019s yours. You don\u2019t depend on our app, our account system, or our infrastructure to use it. The credential works as long as the IP is live.',
               },
             ].map((item) => (
-              <div key={item.title} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5">
+              <div key={item.title} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 hover:border-[var(--primary)] transition-all duration-200 card-depth">
                 <h3 className="font-semibold mb-1 text-[var(--foreground)]">{item.title}</h3>
                 <p className="text-sm text-[var(--muted)] leading-relaxed">{item.body}</p>
               </div>
             ))}
           </div>
         </section>
+
+        {/* divider */}
+        <div className="section-divider-glow my-12" />
 
         {/* FAQ */}
         <section className="mb-12">
@@ -210,9 +241,9 @@ export default function AboutPage() {
             ].map((item, i) => (
               <details
                 key={i}
-                className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 group"
+                className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 group hover:border-[var(--primary)] transition-all duration-200 card-depth"
               >
-                <summary className="cursor-pointer font-medium text-[var(--foreground)] flex items-center justify-between">
+                <summary className="font-medium text-[var(--foreground)] flex items-center justify-between">
                   <span>{item.q}</span>
                   <svg className="w-4 h-4 text-[var(--muted)] transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -225,11 +256,11 @@ export default function AboutPage() {
         </section>
 
         {/* Contact */}
-        <section className="mb-12 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
+        <section className="mb-12 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 card-depth">
           <h2 className="text-2xl font-bold mb-3">Talk to us</h2>
           <p className="text-[var(--muted)] leading-relaxed mb-4">
-            The fastest way to reach us is the in-page chat &mdash; Charon handles most questions automatically
-            and hands off to a human when he can&rsquo;t. If you prefer to write, use the contact form
+            The fastest way to reach us is the in-page chat. Charon handles most questions automatically
+            and hands off to a human when he cannot. If you prefer to write, use the contact form
             or email us directly.
           </p>
           <div className="space-y-2 text-sm">

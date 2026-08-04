@@ -16,11 +16,9 @@ function buildCategories(templates: CatalogTemplate[]) {
     },
     residential: {
       name: 'Residential',
-      description: 'Real residential IPs — harder to detect and block',
+      description: 'Real residential IPs. Harder to detect and block.',
       price: 'From ₦5,000',
     },
-    // Mobile and ISP are kept as placeholders only if they ever ship.
-    // Currently catalog returns only datacenter + residential.
   };
 
   return templates.map((t) => {
@@ -48,21 +46,21 @@ function buildCategories(templates: CatalogTemplate[]) {
 function getIcon(planType: string) {
   if (planType === 'residential') {
     return (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
       </svg>
     );
   }
   if (planType === 'datacenter') {
     return (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
       </svg>
     );
   }
   return (
-    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0 3-4.03 3-9s-1.343-9-3-9m-9 9a9 9 0 019-9" />
+    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0 3-4.03 3-9s-1.343-9-3-9m-9 9a9 9 0 019-9" />
     </svg>
   );
 }
@@ -70,17 +68,17 @@ function getIcon(planType: string) {
 function buildFeatures(t: CatalogTemplate): string[] {
   const features = [`Up to ${t.base_quantity_gb}GB included`];
   if (t.rotation_mode_options.includes('static')) {
-    features.push('Static IP — same address every request');
+    features.push('Static IP. Same address every request.');
   }
   if (t.rotation_mode_options.includes('rotating')) {
-    features.push('Rotating pool — IP changes per request');
+    features.push('Rotating pool. IP changes per request.');
   }
   if (t.plan_type === 'datacenter') {
     features.push('Lightning fast speeds');
     features.push('HTTP/SOCKS5 support');
   } else if (t.plan_type === 'residential') {
     features.push('Highest success rate');
-    features.push('Ideal for sneakers & ticketing');
+    features.push('Ideal for sneakers and ticketing');
   }
   return features;
 }
@@ -101,8 +99,6 @@ export default function ProductsPage() {
     loadCatalog()
       .then((products) => {
         setCatalogProducts(products);
-        // Rebuild categories from the catalog templates
-        // We need full templates, so re-fetch
         return fetch('/api/catalog', { cache: 'no-store' }).then((r) => r.json());
       })
       .then((data) => {
@@ -123,7 +119,7 @@ export default function ProductsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
           <p className="mt-4 text-[var(--muted)]">Loading products...</p>
@@ -134,12 +130,12 @@ export default function ProductsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen pt-24 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-[var(--primary)] text-black rounded-xl font-semibold"
+            className="mt-4 px-4 py-2 bg-[var(--primary)] text-black rounded-xl font-semibold transition-all duration-200 hover:bg-[var(--primary-dark)]"
           >
             Refresh
           </button>
@@ -151,63 +147,75 @@ export default function ProductsPage() {
   const activeCats = categories.length > 0 ? categories : [];
 
   return (
-    <div className="min-h-screen pt-24 pb-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Page Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold mb-4 leading-tight" style={{ color: 'var(--foreground)' }}>
-            Lightning-fast proxies,<br />
-            <span style={{ color: 'var(--primary)' }}>built to scale.</span>
-          </h1>
-          <p className="text-base sm:text-lg mb-6" style={{ color: 'var(--muted)' }}>
-            {activeProduct
-              ? <>Showing coverage for <span className="font-medium" style={{ color: 'var(--foreground)' }}>{activeCats.find(c => c.key === activeProduct)?.name}</span> — click another card to switch.</>
-              : <>{activeCats.map(c => c.name).join(', ')} proxies — available in <span className="font-medium" style={{ color: 'var(--foreground)' }}>{totalCountries}+ countries</span> worldwide.</>
-            }
-          </p>
-        </div>
+    <div className="min-h-screen">
+      {/* Page hero with background */}
+      <div className="relative overflow-hidden pt-24 pb-12 px-4">
+        <div className="absolute inset-0 hero-bg-grid" />
+        <div className="absolute inset-0 hero-bg-rings" />
+        <div className="absolute inset-0 hero-bg-vignette" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 hero-orb-1" />
+        <div className="absolute bottom-1/3 right-1/4 w-80 h-80 hero-orb-2" />
 
-        {/* Stats Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-2xl mx-auto">
-          {[
-            { label: 'Uptime', value: '99.9%', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
-            { label: 'IP Pool', value: '50K+ IPs', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 014 9 15.3 15.3 0 01-4 9 15.3 15.3 0 01-4-9 15.3 15.3 0 014-9z"/></svg> },
-            { label: 'Speed', value: '1 Gbps', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg> },
-            { label: 'Delivery', value: 'Instant', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg> },
-          ].map(({ label, value, icon }) => (
-            <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-3 text-center">
-              <div className="mb-1 flex justify-center">{icon}</div>
-              <div className="text-xl font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
-              <div className="text-xs text-[var(--muted)]">{label}</div>
-            </div>
-          ))}
-        </div>
+        <div className="relative max-w-7xl mx-auto">
+          {/* Page Header */}
+          <div className="text-center mb-12">
+            <h1 className="text-4xl sm:text-5xl font-bold mb-4 leading-tight">
+              Lightning-fast proxies,<br />
+              <span className="text-[var(--primary)]">built to scale.</span>
+            </h1>
+            <p className="text-base sm:text-lg mb-6 text-[var(--muted)]">
+              {activeProduct
+                ? <>Showing coverage for <span className="font-medium text-[var(--foreground)]">{activeCats.find(c => c.key === activeProduct)?.name}</span>. Click another card to switch.</>
+                : <>{activeCats.map(c => c.name).join(', ')} proxies. Available in <span className="font-medium text-[var(--foreground)]">{totalCountries}+ countries</span> worldwide.</>
+              }
+            </p>
+          </div>
 
-        {/* CTA Buttons */}
-        <div className="flex flex-wrap justify-center gap-3 mt-8 mb-6">
-          <Link href="/order" className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors min-w-[160px] text-center">
-            Get Instant Access
-          </Link>
-          {isChannelEnabled('telegram') ? (
-            <a href={getChannelUrl('telegram') || 'https://t.me/StyxproxyBot'} target="_blank" rel="noopener noreferrer" className="px-6 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl transition-colors min-w-[160px] text-center">
-              Start via Telegram
-            </a>
-          ) : (
-            <span className="px-6 py-3 bg-[var(--card)] border border-[var(--border)] text-[var(--muted)] font-semibold rounded-xl min-w-[160px] text-center cursor-not-allowed">
-              Telegram (coming soon)
-            </span>
-          )}
-          {isChannelEnabled('whatsapp') ? (
-            <a href={getChannelUrl('whatsapp') || 'https://wa.me/2347032981049'} target="_blank" rel="noopener noreferrer" className="px-6 py-3 bg-[#25D366] hover:bg-[#1da851] text-white font-semibold rounded-xl transition-colors min-w-[160px] text-center">
-              Chat on WhatsApp
-            </a>
-          ) : (
-            <span className="px-6 py-3 bg-[var(--card)] border border-[var(--border)] text-[var(--muted)] font-semibold rounded-xl min-w-[160px] text-center cursor-not-allowed">
-              WhatsApp (coming soon)
-            </span>
-          )}
-        </div>
+          {/* Stats Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
+            {[
+              { label: 'Uptime', value: '99.9%', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
+              { label: 'IP Pool', value: '50K+ IPs', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 014 9 15.3 15.3 0 01-4 9 15.3 15.3 0 01-4-9 15.3 15.3 0 014-9z"/></svg> },
+              { label: 'Speed', value: '1 Gbps', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg> },
+              { label: 'Delivery', value: 'Instant', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg> },
+            ].map(({ label, value, icon }) => (
+              <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-3 text-center card-depth">
+                <div className="mb-1 flex justify-center">{icon}</div>
+                <div className="text-xl font-bold text-[var(--primary)]">{value}</div>
+                <div className="text-xs text-[var(--muted)]">{label}</div>
+              </div>
+            ))}
+          </div>
 
+          {/* CTA Buttons */}
+          <div className="flex flex-wrap justify-center gap-3 mt-8 mb-6">
+            <Link href="/order" className="min-w-[200px] px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-all duration-200 text-center">
+              Get Instant Access
+            </Link>
+            {isChannelEnabled('telegram') ? (
+              <a href={getChannelUrl('telegram') || 'https://t.me/StyxproxyBot'} target="_blank" rel="noopener noreferrer" className="min-w-[200px] px-6 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl transition-all duration-200 text-center">
+                Start via Telegram
+              </a>
+            ) : (
+              <span className="min-w-[200px] px-6 py-3 bg-[var(--card)] border border-[var(--border)] text-[var(--muted)] font-semibold rounded-xl text-center">
+                Telegram (coming soon)
+              </span>
+            )}
+            {isChannelEnabled('whatsapp') ? (
+              <a href={getChannelUrl('whatsapp') || 'https://wa.me/2347032981049'} target="_blank" rel="noopener noreferrer" className="min-w-[200px] px-6 py-3 bg-[#25D366] hover:bg-[#1da851] text-white font-semibold rounded-xl transition-all duration-200 text-center">
+                Chat on WhatsApp
+              </a>
+            ) : (
+              <span className="min-w-[200px] px-6 py-3 bg-[var(--card)] border border-[var(--border)] text-[var(--muted)] font-semibold rounded-xl text-center">
+                WhatsApp (coming soon)
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="mb-16"></div>
 
         {/* Product Category Cards */}
@@ -220,11 +228,12 @@ export default function ProductsPage() {
                   key={category.key}
                   type="button"
                   onClick={() => setActiveProduct(isActive ? null : category.key)}
-                  className={`text-left bg-[var(--card)] border rounded-2xl p-6 flex flex-col transition-all cursor-pointer ${
+                  className={`text-left bg-[var(--card)] border rounded-2xl p-6 flex flex-col transition-all ${
                     isActive
-                      ? 'border-[var(--primary)] ring-2 ring-[var(--primary)]/30 shadow-lg'
+                      ? 'border-[var(--primary)] ring-2 ring-[var(--primary)]/30'
                       : 'border-[var(--border)] hover:border-[var(--primary)]'
                   }`}
+                  style={{ boxShadow: isActive ? '0 0 0 1px var(--primary), 0 4px 16px rgba(10,210,90,0.1)' : undefined }}
                 >
                   <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] mb-4">
                     {category.icon}
@@ -271,9 +280,9 @@ export default function ProductsPage() {
                   <Link
                     href="/order"
                     onClick={(e) => e.stopPropagation()}
-                    className="w-full px-4 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors text-center"
+                    className="w-full px-4 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-all duration-200 text-center"
                   >
-                    {isActive ? '✓ Showing on globe' : 'Order Now →'}
+                    {isActive ? 'Showing on globe' : 'Order Now →'}
                   </Link>
                 </button>
               );
@@ -288,13 +297,13 @@ export default function ProductsPage() {
             <div className="relative max-w-3xl mx-auto">
               <button
                 onClick={() => setCarouselIdx(i => (i - 1 + activeCats.length) % activeCats.length)}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 sm:-translate-x-16 z-10 w-11 h-11 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] hover:bg-[var(--card-hover)] transition-all active:scale-95"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 sm:-translate-x-16 z-10 w-11 h-11 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] hover:bg-[var(--card-hover)] transition-all duration-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
               </button>
               <button
                 onClick={() => setCarouselIdx(i => (i + 1) % activeCats.length)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 sm:translate-x-16 z-10 w-11 h-11 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] hover:bg-[var(--card-hover)] transition-all active:scale-95"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 sm:translate-x-16 z-10 w-11 h-11 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] hover:bg-[var(--card-hover)] transition-all duration-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
               </button>
@@ -325,6 +334,9 @@ export default function ProductsPage() {
                       opacity: carouselIdx === idx ? 1 : 0.4,
                       pointerEvents: carouselIdx === idx ? 'auto' : 'none',
                       zIndex: carouselIdx === idx ? 4 : 1,
+                      boxShadow: carouselIdx === idx
+                        ? '0 4px 12px rgba(0,0,0,0.6), 0 12px 40px rgba(0,0,0,0.5)'
+                        : '0 1px 3px rgba(0,0,0,0.4)',
                     }}
                   >
                     <div className="flex items-center gap-3 mb-4">
@@ -336,7 +348,7 @@ export default function ProductsPage() {
                         <p className="text-xs text-[var(--muted)]">{cat.description}</p>
                       </div>
                       <div className="ml-auto">
-                        <span className="text-lg font-bold" style={{ color: 'var(--primary)' }}>{cat.price.split(' ')[0]}</span>
+                        <span className="text-lg font-bold text-[var(--primary)]">{cat.price.split(' ')[0]}</span>
                       </div>
                     </div>
                     <div className="flex-1 space-y-2.5">
@@ -347,7 +359,7 @@ export default function ProductsPage() {
                         </div>
                       ))}
                     </div>
-                    <Link href="/order" onClick={e => e.stopPropagation()} className="mt-4 w-full py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-sm text-center transition-colors">
+                    <Link href="/order" onClick={e => e.stopPropagation()} className="mt-4 w-full py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-sm text-center transition-all duration-200">
                       Order {cat.name} →
                     </Link>
                   </div>
@@ -358,7 +370,7 @@ export default function ProductsPage() {
                   <button
                     key={i}
                     onClick={() => setCarouselIdx(i)}
-                    className="h-2 rounded-full transition-all duration-300 cursor-pointer"
+                    className="h-2 rounded-full transition-all duration-300"
                     style={{
                       width: carouselIdx === i ? 24 : 8,
                       background: carouselIdx === i ? 'var(--primary)' : 'var(--border)',
@@ -370,10 +382,10 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {/* All Products & Pricing — driven from catalog */}
+        {/* All Products & Pricing */}
         {catalogProducts.length > 0 && (
           <div className="mb-20">
-            <h2 className="text-2xl font-bold text-center mb-8">All Products &amp; Pricing</h2>
+            <h2 className="text-2xl font-bold text-center mb-8">All Products and Pricing</h2>
             <div className="space-y-10">
               {activeCats.map((cat) => {
                 const catProducts = catalogProducts.filter(
@@ -393,7 +405,7 @@ export default function ProductsPage() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {catProducts.map((product) => (
-                        <div key={product.plan_code} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--primary)] transition-colors">
+                        <div key={product.plan_code} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--primary)] transition-all duration-200 card-depth">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
                               <span className="text-lg">{product.flag}</span>
@@ -408,13 +420,13 @@ export default function ProductsPage() {
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-xs text-[var(--muted)] mb-0.5">Starting from</p>
-                              <p className="text-lg font-bold" style={{ color: 'var(--primary)' }}>
+                              <p className="text-lg font-bold text-[var(--primary)]">
                                 {formatPrice(product.price_ngn)}
                               </p>
                             </div>
                             <Link
                               href={`/order?plan=${product.plan_code}`}
-                              className="px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-xs transition-colors"
+                              className="px-3 py-1.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-xs transition-all duration-200"
                             >
                               Order
                             </Link>
@@ -430,13 +442,13 @@ export default function ProductsPage() {
         )}
 
         {/* CTA Section */}
-        <div className="mt-20 p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)] text-center">
+        <div className="mt-20 p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)] text-center card-depth">
           <h2 className="text-2xl font-bold mb-4">Need Help Choosing?</h2>
           <p className="text-[var(--muted)] mb-6 max-w-xl mx-auto">
-            Tell us what you need and we'll recommend the right proxy type and country mix.
+            Tell us what you need and we will recommend the right proxy type and country mix.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link href="/order" className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors">
+            <Link href="/order" className="min-w-[200px] px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-all duration-200 text-center">
               Start Ordering
             </Link>
           </div>
