@@ -128,6 +128,17 @@ export default function Hero() {
             <GlobeMap />
           </div>
 
+          {/* Featured country callout — positioned BELOW the globe, in the content flow */}
+          <div className="w-full max-w-xl mx-auto mb-8">
+            <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl border bg-[var(--card)]" style={{ borderColor: 'rgba(10,210,90,0.25)' }}>
+              <Globe className="w-8 h-8 text-[var(--primary)]" />
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">120+ countries</p>
+                <p className="text-xs text-[var(--muted)]">ISP, Residential, Mobile &amp; Datacenter</p>
+              </div>
+            </div>
+          </div>
+
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" />
