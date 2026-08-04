@@ -1,54 +1,16 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, Broadcast, House, DeviceMobile, HardDrives } from '@phosphor-icons/react';
-
-const plans = [
-  {
-    category: 'ISP Proxies',
-    planType: 'isp',
-    plans: [
-      { name: 'United Kingdom', price: '₦6,500', period: '/mo', flag: 'GB' },
-      { name: 'United States', price: '₦6,500', period: '/mo', flag: 'US' },
-      { name: 'Germany', price: '₦6,500', period: '/mo', flag: 'DE' },
-      { name: 'France', price: '₦6,500', period: '/mo', flag: 'FR' },
-      { name: 'Canada', price: '₦6,500', period: '/mo', flag: 'CA' },
-      { name: 'Japan', price: '₦7,500', period: '/mo', flag: 'JP' },
-      { name: 'Australia', price: '₦7,500', period: '/mo', flag: 'AU' },
-      { name: 'Brazil', price: '₦7,500', period: '/mo', flag: 'BR' },
-      { name: 'Singapore', price: '₦7,500', period: '/mo', flag: 'SG' },
-    ],
-  },
-  {
-    category: 'Residential',
-    planType: 'residential',
-    plans: [
-      { name: 'Global 5GB Data', price: '₦5,000', period: '/mo', flag: 'GL' },
-      { name: 'Global 10GB Data', price: '₦9,000', period: '/mo', flag: 'GL' },
-    ],
-  },
-  {
-    category: 'Mobile 4G',
-    planType: 'mobile',
-    plans: [
-      { name: 'Global 5GB 4G Data', price: '₦20,000', period: '/mo', flag: 'GL' },
-      { name: 'Global 10GB 4G Data', price: '₦35,000', period: '/mo', flag: 'GL' },
-    ],
-  },
-  {
-    category: 'Datacenter',
-    planType: 'datacenter',
-    plans: [
-      { name: 'Global Datacenter Proxy', price: '₦2,500', period: '/mo', flag: 'GL' },
-    ],
-  },
-];
+import { Check, Broadcast, House, DeviceMobile, HardDrives, Globe, ArrowsClockwise } from '@phosphor-icons/react';
+import { formatPrice, COUNTRIES } from '@/lib/products';
+import type { CatalogResponse, CatalogTemplate, CatalogVariant } from '@/types';
 
 const comparison = [
-  { type: 'ISP Proxies', speed: 'High', detection: 'Low', anonymity: 'High', reliability: 'High', price: '₦6,500' },
-  { type: 'Residential', speed: 'Medium', detection: 'Very Low', anonymity: 'Very High', reliability: 'High', price: '₦5,000' },
-  { type: 'Mobile 4G', speed: 'Medium', detection: 'Extremely Low', anonymity: 'Highest', reliability: 'Medium', price: '₦20,000' },
-  { type: 'Datacenter', speed: 'High', detection: 'High', anonymity: 'Low', reliability: 'High', price: '₦2,500' },
+  { type: 'ISP Proxies', speed: 'High', detection: 'Low', anonymity: 'High', reliability: 'High', price: 'From ₦6,500' },
+  { type: 'Residential', speed: 'Medium', detection: 'Very Low', anonymity: 'Very High', reliability: 'High', price: 'From ₦5,000' },
+  { type: 'Mobile 4G', speed: 'Medium', detection: 'Extremely Low', anonymity: 'Highest', reliability: 'Medium', price: 'From ₦20,000' },
+  { type: 'Datacenter', speed: 'High', detection: 'High', anonymity: 'Low', reliability: 'High', price: 'From ₦2,500' },
 ];
 
 const faqs = [
@@ -70,15 +32,97 @@ const faqs = [
   },
 ];
 
-function Flag({ code }: { code: string }) {
-  const flags: Record<string, string> = {
-    GB: '🇬🇧', US: '🇺🇸', DE: '🇩🇪', FR: '🇫🇷', CA: '🇨🇦',
-    JP: '🇯🇵', AU: '🇦🇺', BR: '🇧🇷', SG: '🇸🇬', GL: '🌍',
-  };
-  return <span>{flags[code] || '🌍'}</span>;
+interface CountryPrice {
+  country: string;
+  countryName: string;
+  flag: string;
+  price: number;
+  inStock: boolean;
+}
+
+function getIconForPlanType(planType: string) {
+  switch (planType.toLowerCase()) {
+    case 'datacenter':
+      return <HardDrives size={20} />;
+    case 'residential':
+      return <House size={20} />;
+    case 'mobile':
+      return <DeviceMobile size={20} />;
+    case 'isp':
+      return <Globe size={20} />;
+    default:
+      return <Globe size={20} />;
+  }
+}
+
+function getLabelForPlanType(planType: string): string {
+  switch (planType.toLowerCase()) {
+    case 'datacenter':
+      return 'Datacenter';
+    case 'residential':
+      return 'Residential';
+    case 'mobile':
+      return 'Mobile 4G';
+    case 'isp':
+      return 'ISP Proxies';
+    default:
+      return planType;
+  }
+}
+
+function extractCountryPrices(variants: CatalogVariant[]): CountryPrice[] {
+  const countryMap = new Map<string, CountryPrice>();
+  
+  for (const variant of variants) {
+    const countryCode = variant.country.toUpperCase();
+    const countryInfo = COUNTRIES[countryCode];
+    const countryName = countryInfo?.name || countryCode;
+    const flag = countryInfo?.flag || '🌍';
+    
+    const existing = countryMap.get(countryCode);
+    if (!existing || variant.price_ngn < existing.price) {
+      countryMap.set(countryCode, {
+        country: countryCode,
+        countryName,
+        flag,
+        price: variant.price_ngn,
+        inStock: variant.is_active,
+      });
+    }
+  }
+  
+  return Array.from(countryMap.values()).sort((a, b) => a.countryName.localeCompare(b.countryName));
 }
 
 export default function PricingClient() {
+  const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchCatalog() {
+      try {
+        const res = await fetch('/api/catalog', { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error(`Failed to fetch catalog: ${res.status}`);
+        }
+        const data: CatalogResponse = await res.json();
+        setCatalog(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load pricing');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCatalog();
+  }, []);
+
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    window.location.reload();
+  };
+
   return (
     <main className="min-h-screen text-[var(--foreground)]">
       {/* Header */}
@@ -149,47 +193,86 @@ export default function PricingClient() {
         </div>
       </div>
 
-      {/* Plans by category */}
+      {/* Plans by category - loaded from API */}
       <div className="relative max-w-6xl mx-auto px-6 pb-20 space-y-16">
-        {plans.map((section) => (
-          <div key={section.category}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)]">
-                {section.planType === 'isp' ? (
-                  <Broadcast size={20} />
-                ) : section.planType === 'residential' ? (
-                  <House size={20} />
-                ) : section.planType === 'mobile' ? (
-                  <DeviceMobile size={20} />
-                ) : (
-                  <HardDrives size={20} />
-                )}
-              </div>
-              <h2 className="text-2xl font-bold tracking-[-0.02em]">{section.category}</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {section.plans.map((plan) => (
-                <div
-                  key={plan.name}
-                  className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 hover:border-[var(--primary)] transition-all duration-200 card-depth"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <span className="text-2xl"><Flag code={plan.flag} /></span>
-                    <span className="text-[var(--primary)] font-bold text-lg">{plan.price}</span>
-                  </div>
-                  <p className="font-medium mb-1">{plan.name}</p>
-                  <p className="text-[var(--muted)] text-sm">per month. Auto-renews.</p>
-                  <Link
-                    href="/order"
-                    className="mt-4 block w-full py-2.5 px-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold text-sm rounded-lg text-center transition-all duration-200"
-                  >
-                    Order Now →
-                  </Link>
-                </div>
-              ))}
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <div className="flex items-center gap-3 text-[var(--muted)]">
+              <ArrowsClockwise className="animate-spin" size={24} />
+              <span>Loading pricing...</span>
             </div>
           </div>
-        ))}
+        )}
+
+        {error && (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <p className="text-red-400">{error}</p>
+            <button
+              onClick={handleRetry}
+              className="px-6 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg transition-all duration-200"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && catalog && catalog.templates.map((template: CatalogTemplate) => {
+          const countryPrices = extractCountryPrices(template.variants);
+          const planLabel = getLabelForPlanType(template.plan_type);
+          
+          return (
+            <div key={template.plan_type}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)]">
+                  {getIconForPlanType(template.plan_type)}
+                </div>
+                <h2 className="text-2xl font-bold tracking-[-0.02em]">{planLabel}</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {countryPrices.map((cp) => (
+                  <div
+                    key={cp.country}
+                    className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 hover:border-[var(--primary)] transition-all duration-200 card-depth"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <span className="text-2xl">{cp.flag}</span>
+                      <div className="text-right">
+                        <span className="text-[var(--primary)] font-bold text-lg">{formatPrice(cp.price)}</span>
+                        <p className="text-[var(--muted)] text-xs">per month</p>
+                      </div>
+                    </div>
+                    <p className="font-medium mb-1">{cp.countryName}</p>
+                    <div className="flex items-center gap-2 mb-3">
+                      {cp.inStock ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-green-400">
+                          <Check size={12} weight="bold" />
+                          In stock
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs text-red-400">
+                          Out of stock
+                        </span>
+                      )}
+                    </div>
+                    <Link
+                      href="/order"
+                      className="mt-4 block w-full py-2.5 px-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold text-sm rounded-lg text-center transition-all duration-200"
+                    >
+                      Order Now
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Fallback: If no catalog loaded, show static placeholder message */}
+        {!loading && !error && !catalog && (
+          <div className="text-center py-12">
+            <p className="text-[var(--muted)]">No pricing data available. Please check back later.</p>
+          </div>
+        )}
 
         {/* divider */}
         <div className="section-divider-glow" />
