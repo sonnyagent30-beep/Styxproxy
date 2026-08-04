@@ -160,6 +160,10 @@ export default function Hero() {
               className="w-full sm:w-auto min-w-[200px] px-8 py-4 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-black text-center transition-all duration-200 hover:shadow-[0_0_30px_rgba(10,210,90,0.3)]">
               Order Now
             </Link>
+            <Link href="/how-it-works"
+              className="w-full sm:w-auto min-w-[200px] px-8 py-4 rounded-xl border border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold text-center card-depth transition-all duration-200">
+              How It Works
+            </Link>
           </div>
 
           {/* WhatsApp + Telegram */}
