@@ -94,7 +94,6 @@ export default function Hero() {
   const [typewriterIdx, setTypewriterIdx] = useState(0);
   const heroRef = useRef<HTMLDivElement>(null);
 
-  // Typewriter
   useEffect(() => {
     const id = setInterval(() => setTypewriterIdx((i) => (i + 1) % TYPEWRITER_WORDS.length), 3000);
     return () => clearInterval(id);
@@ -106,17 +105,19 @@ export default function Hero() {
       {/* ── HERO ── */}
       <section className="relative min-h-screen flex flex-col items-center justify-center pt-20 pb-16">
 
-        {/* Noise texture — works in both light and dark */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.025] dark:opacity-[0.04]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-            backgroundSize: '200px 200px',
-          }}
-        />
+        {/* Layer 1: Dot grid */}
+        <div className="absolute inset-0 hero-bg-grid opacity-100 pointer-events-none" />
 
-        {/* Lime glow aura behind globe */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-[var(--primary)] opacity-[0.05] blur-[150px] pointer-events-none" />
+        {/* Layer 2: Radial depth glow */}
+        <div className="absolute inset-0 hero-bg-rings opacity-100 pointer-events-none" />
+
+        {/* Layer 3: Vignette edges */}
+        <div className="absolute inset-0 hero-bg-vignette opacity-100 pointer-events-none" />
+
+        {/* Layer 4: Ambient orbs — centred behind globe */}
+        <div className="hero-orb hero-orb-1" />
+        <div className="hero-orb hero-orb-2" />
+        <div className="hero-orb hero-orb-3" />
 
         {/* Top accent line */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-20 bg-gradient-to-b from-[var(--primary)] to-transparent opacity-50" />
@@ -124,12 +125,12 @@ export default function Hero() {
         <div className="relative z-10 w-full max-w-5xl mx-auto px-6 flex flex-col items-center">
 
           {/* Globe */}
-          <div className="w-full max-w-xl mx-auto mb-6 ">
+          <div className="w-full max-w-xl mx-auto mb-6">
             <GlobeMap />
           </div>
 
           {/* Badge */}
-          <div className=" opacity-100 inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-8">
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" />
             <span className="text-xs font-medium tracking-widest uppercase text-[var(--muted)]">
               AI-Powered Proxy Intelligence
@@ -137,22 +138,22 @@ export default function Hero() {
           </div>
 
           {/* Headline */}
-          <h1 className=" opacity-100 text-center text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight leading-[1.05] mb-6">
+          <h1 className="text-center text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight leading-[1.05] mb-6">
             <span className="text-[var(--foreground)]">Cross the Styx.</span>
             <br />
             <span className="text-[var(--primary)]">Stay {TYPEWRITER_WORDS[typewriterIdx]}</span>
           </h1>
 
           {/* Sub */}
-          <p className=" opacity-100 text-center text-lg sm:text-xl text-[var(--muted)] max-w-2xl mb-10 leading-relaxed">
+          <p className="text-center text-lg sm:text-xl text-[var(--muted)] max-w-2xl mb-10 leading-relaxed">
             ISP, Residential, Mobile &amp; Datacenter proxies — delivered in seconds.
             <br className="hidden sm:block" />Leave no footprint.
           </p>
 
           {/* CTAs */}
-          <div className=" flex flex-col sm:flex-row items-center gap-3 mb-6 w-full sm:w-auto opacity-100">
+          <div className="flex flex-col sm:flex-row items-center gap-3 mb-6 w-full sm:w-auto">
             <Link href="/products"
-              className="w-full sm:w-auto min-w-[200px] px-8 py-4 rounded-xl border border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold text-center transition-all duration-200">
+              className="w-full sm:w-auto min-w-[200px] px-8 py-4 rounded-xl border border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold text-center card-depth transition-all duration-200">
               View Products
             </Link>
             <Link href="/order"
@@ -162,7 +163,7 @@ export default function Hero() {
           </div>
 
           {/* WhatsApp + Telegram */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 mb-6 w-full sm:w-auto opacity-100">
+          <div className="flex flex-col sm:flex-row items-center gap-3 mb-6 w-full sm:w-auto">
             <a href="https://wa.me/2347032981049" target="_blank" rel="noopener noreferrer"
               className="w-full sm:w-auto min-w-[200px] flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-[#25D366] hover:bg-[#1fb855] text-white font-black text-center text-base transition-all duration-200 shadow-[0_4px_20px_rgba(37,211,102,0.35)] hover:shadow-[0_6px_28px_rgba(37,211,102,0.5)]">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -176,7 +177,7 @@ export default function Hero() {
           </div>
 
           {/* Trust indicators */}
-          <div className=" flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[var(--muted)] text-xs font-medium tracking-wide opacity-100">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[var(--muted)] text-xs font-medium tracking-wide">
             {[
               { icon: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z', t: 'Instant Delivery' },
               { icon: 'M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z', t: 'No Account Needed' },
@@ -192,7 +193,7 @@ export default function Hero() {
 
       </section>
 
-      {/* Scroll indicator — outside absolute zone, between hero and stats */}
+      {/* Scroll indicator */}
       <div className="flex flex-col items-center gap-2 py-8">
         <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
         <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
@@ -216,6 +217,9 @@ export default function Hero() {
         </div>
       </section>
 
+      {/* Section divider */}
+      <div className="section-divider-glow" />
+
       {/* ── FEATURES ── */}
       <section className="py-24 lg:py-32 px-6">
         <div className="max-w-6xl mx-auto">
@@ -230,8 +234,7 @@ export default function Hero() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {FEATURES.map((f, i) => (
               <div key={i}
-                className=" p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]/40 transition-all duration-200"
-              >
+                className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
                 <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center mb-5">
                   <svg className="w-6 h-6 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
                     <path d={f.icon} />
@@ -244,6 +247,9 @@ export default function Hero() {
           </div>
         </div>
       </section>
+
+      {/* Section divider */}
+      <div className="section-divider" />
 
       {/* ── HOW IT WORKS ── */}
       <section className="py-24 lg:py-32 px-6 bg-[var(--surface)]">
@@ -262,7 +268,8 @@ export default function Hero() {
               { step: '02', title: 'Pay & Get Credentials', desc: 'Pay with card or bank transfer. Your proxy details arrive instantly.' },
               { step: '03', title: 'Start Using', desc: 'Configure in your bot, scraper, or browser. Works immediately.' },
             ].map((item, i) => (
-              <div key={i} className=" relative p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]/40 transition-all duration-200">
+              <div key={i}
+                className="relative p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
                 <div className="absolute -top-3 left-8 px-3 py-1 rounded-full bg-[var(--primary)] text-black text-xs font-black tracking-wider">
                   {item.step}
                 </div>
@@ -275,6 +282,9 @@ export default function Hero() {
           </div>
         </div>
       </section>
+
+      {/* Section divider */}
+      <div className="section-divider" />
 
       {/* ── PRODUCTS ── */}
       <section className="py-24 lg:py-32 px-6">
@@ -290,8 +300,7 @@ export default function Hero() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {PRODUCTS.map((p, i) => (
               <div key={i}
-                className=" p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]/40 transition-all duration-200"
-              >
+                className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
                 <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center mb-5">
                   <svg className="w-6 h-6 text-[var(--primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
                     <path d={p.icon} />
@@ -307,6 +316,9 @@ export default function Hero() {
           </div>
         </div>
       </section>
+
+      {/* Section divider */}
+      <div className="section-divider-glow" />
 
       {/* ── SOCIAL PROOF ── */}
       <section className="py-20 px-6 bg-[var(--surface)] border-y border-[var(--border)]">
@@ -325,6 +337,9 @@ export default function Hero() {
         </div>
       </section>
 
+      {/* Section divider */}
+      <div className="section-divider" />
+
       {/* ── FAQ ── */}
       <section className="py-24 lg:py-32 px-6">
         <div className="max-w-3xl mx-auto">
@@ -337,6 +352,9 @@ export default function Hero() {
           </div>
         </div>
       </section>
+
+      {/* Section divider */}
+      <div className="section-divider" />
 
       {/* ── CTA ── */}
       <section className="py-24 px-6">
