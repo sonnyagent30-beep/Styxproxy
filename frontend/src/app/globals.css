@@ -271,67 +271,69 @@ button {
   border: 1px solid var(--border);
 }
 
-/* ── Light mode ──────────────────────────────────────────────── */
+/* ── Light mode — sharp, vibrant, brand green ─────────────────── */
 @media (prefers-color-scheme: light) {
   :root {
-    --background: #f8f8f7;
-    --foreground: #111111;
-    --primary: #059669;
-    --primary-dark: #047857;
-    --primary-light: #10B981;
+    --background: #f9f9f8;
+    --foreground: #0f0f0f;
+    --primary: #0AD25A;
+    --primary-dark: #059669;
+    --primary-light: #22FF7A;
     --accent: #d97706;
     --accent-dark: #b45309;
     --surface: #f0f0ef;
     --card: #ffffff;
     --card-hover: #f5f5f4;
-    --border: #e2e2e0;
-    --border-light: #ebebea;
-    --muted: #737373;
-    --success: #059669;
+    --border: #e0e0de;
+    --border-light: #e8e8e6;
+    --muted: #555555;
+    --success: #0AD25A;
     --warning: #d97706;
     --error: #dc2626;
-    --glow-primary: rgba(5, 150, 105, 0.08);
-    --glow-primary-strong: rgba(5, 150, 105, 0.05);
-    --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
-    --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.1), 0 12px 40px rgba(0,0,0,0.08);
-    --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(5,150,105,0.15);
+    --glow-primary: rgba(10, 210, 90, 0.12);
+    --glow-primary-strong: rgba(10, 210, 90, 0.07);
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
+    --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.08), 0 16px 48px rgba(0,0,0,0.08), 0 0 0 1px rgba(10,210,90,0.1);
+    --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05), 0 0 0 1px rgba(10,210,90,0.2);
   }
 
   .glass-card {
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(12px);
     border: 1px solid var(--border);
   }
 
-  /* Light mode hero background */
+  /* Light mode hero background — crisp dot grid */
   .hero-bg-grid {
-    background-image: radial-gradient(circle, rgba(5,150,105,0.06) 1px, transparent 1px);
+    background-image: radial-gradient(circle, rgba(10,210,90,0.25) 1px, transparent 1px);
+    background-size: 40px 40px;
   }
 
   .hero-bg-rings {
     background:
-      radial-gradient(ellipse 60% 40% at 50% 55%, rgba(5,150,105,0.06) 0%, transparent 70%),
-      radial-gradient(ellipse 80% 60% at 50% 55%, rgba(5,150,105,0.03) 0%, transparent 60%),
-      radial-gradient(ellipse 100% 80% at 50% 55%, rgba(5,150,105,0.015) 0%, transparent 50%);
+      radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.10) 0%, transparent 70%),
+      radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.02) 0%, transparent 50%);
   }
 
+  /* Light mode vignette — subtle depth, not washed out */
   .hero-bg-vignette {
     background:
-      linear-gradient(to bottom, rgba(255,255,255,0.6) 0%, transparent 15%),
-      linear-gradient(to bottom, transparent 80%, rgba(0,0,0,0.05) 100%),
-      linear-gradient(to right, rgba(0,0,0,0.05) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.05) 100%);
+      linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, transparent 12%),
+      linear-gradient(to bottom, transparent 85%, rgba(0,0,0,0.06) 100%),
+      linear-gradient(to right, rgba(0,0,0,0.04) 0%, transparent 15%, transparent 85%, rgba(0,0,0,0.04) 100%);
   }
 
   .hero-orb-1 {
-    background: radial-gradient(circle, rgba(5,150,105,0.07) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(10,210,90,0.12) 0%, transparent 70%);
   }
 
   .hero-orb-2 {
-    background: radial-gradient(circle, rgba(16,185,129,0.04) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(34,255,122,0.07) 0%, transparent 70%);
   }
 
   .hero-orb-3 {
-    background: radial-gradient(circle, rgba(5,150,105,0.05) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(10,173,57,0.08) 0%, transparent 70%);
   }
 
   .section-divider {
@@ -339,7 +341,15 @@ button {
   }
 
   .section-divider-glow::after {
-    background: linear-gradient(to right, transparent, rgba(5,150,105,0.15), transparent);
+    background: linear-gradient(to right, transparent, rgba(10,210,90,0.25), transparent);
+  }
+
+  /* Light mode Charon halo */
+  .charon-halo--1 {
+    border-color: rgba(10, 210, 90, 0.7);
+  }
+  .charon-halo--2 {
+    border-color: rgba(10, 210, 90, 0.4);
   }
 }
 
