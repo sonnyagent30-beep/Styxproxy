@@ -132,11 +132,11 @@ export default function Hero() {
 
         <div className="relative z-10 w-full max-w-5xl mx-auto px-6 flex flex-col items-center">
 
-          {/* Globe */}
-          <div className="w-full max-w-xl mx-auto">
+          {/* Globe + tabs */}
+          <div className="w-full max-w-xl mx-auto mb-6">
             <GlobeMap productType={activeTab === 'ALL' ? undefined : activeTab} />
             {/* Tab switcher — BELOW the globe */}
-            <div className="flex items-center justify-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            <div className="flex items-center justify-center gap-1.5 overflow-x-auto pb-1 md:pb-0 mt-3">
               {PRODUCT_TABS.map(({ key, label, icon: Icon }) => {
                 const isActive = activeTab === key;
                 return (
@@ -158,7 +158,7 @@ export default function Hero() {
           </div>
 
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-8">
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-4">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" />
             <span className="text-xs font-medium tracking-widest uppercase text-[var(--muted)]">
               AI-Powered Proxy Intelligence
