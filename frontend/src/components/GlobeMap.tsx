@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import type { GlobeMethods } from 'react-globe.gl';
 import { feature } from 'topojson-client';
@@ -12,9 +11,9 @@ import { COUNTRIES, PRODUCT_COUNTRIES, type CountryInfo } from '@/lib/products';
 // Load react-globe.gl only on client (SSR disabled)
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
 
-// Brand colors — match Styxproxy globals.css exactly
-const BRAND_GREEN       = '#10B981';   // --primary
-const BRAND_GREEN_LIGHT = '#34D399';   // --primary-light
+// Brand colors — Styxproxy #0AD25A / #2AED6C
+const BRAND_GREEN        = '#0AD25A';
+const BRAND_GREEN_LIGHT  = '#2AED6C';
 
 // Short display names for product types
 const PRODUCT_SHORT_NAMES: Record<string, string> = {
@@ -155,7 +154,7 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
 
   // Continent outlines — subtle brand-aligned in both modes.
   // Dark mode: dim sage green. Light mode: slate gray. Both 25-30% opacity max.
-  const outlineColor    = isDark ? 'rgba(132, 204, 22, 0.25)' : 'rgba(100, 116, 139, 0.30)';
+  const outlineColor    = isDark ? 'rgba(10,210,90,0.25)' : 'rgba(100, 116, 139, 0.30)';
   // Sphere: PhongMaterial with warm brand emissive — satin sheen, not flat-matte.
   const globeMaterial = useMemo(() => {
       return new THREE.MeshPhongMaterial({
@@ -206,7 +205,8 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
           ringPropagationSpeed={1.4}
           ringRepeat={2.2}
           arcsData={[]}
-          autoRotate={false}
+          autoRotate={true}
+          autoRotateSpeed={0.3}
           onGlobeReady={() => {
             setContainerOpacity(1);
             setTimeout(() => setReady(true), 300);
@@ -219,52 +219,12 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
         />
       </div>
 
-      {/* Featured country callout — shows country name + all products available there */}
-      <AnimatePresence mode="wait">
-        {featured && (
-          <motion.div
-            key={`${featuredIdx}-${productType}`}
-            className="absolute pointer-events-none z-20"
-            style={{ right: '4%', top: '8%', minWidth: 165 }}
-            initial={{ opacity: 0, scale: 0.85, y: 6 }}
-            animate={{ opacity: ready ? 1 : 0, scale: ready ? 1 : 0.85, y: 0 }}
-            exit={{ opacity: 0, scale: 0.85, y: 6 }}
-            transition={{ duration: 0.4, ease: 'backOut', delay: 0.1 }}
-          >
-            <div className={`rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md ${isDark ? 'bg-[rgba(10,10,20,0.88)]' : 'bg-white shadow-lg'} ${isDark ? 'border-[rgba(16,185,129,0.3)]' : 'border-[rgba(16,185,129,0.4)]'}`}>
-              <span className="text-3xl">{featured.flag}</span>
-              <div>
-                <p className={`font-bold text-sm ${isDark ? 'text-zinc-100' : 'text-zinc-800'}`}>{featured.name}</p>
-                <p className={`text-xs mt-0.5 flex items-center gap-1 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                  <svg className="w-3 h-3" style={{ color: BRAND_GREEN }} fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
-                  {featured.region}
-                </p>
-                {/* Show only the proxy types actually available in this country */}
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {(getProductsAtCountry(featured.code)).map(pt => (
-                    <span
-                      key={pt}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{ background: 'rgba(16,185,129,0.15)', color: BRAND_GREEN }}
-                    >
-                      {pt}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Coverage badge — shows quick product summary, not just a count */}
+      {/* Coverage badge */}
       <div
         className={`absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border z-20`}
         style={{
           background: isDark ? 'rgba(10,10,20,0.88)' : 'white',
-          borderColor: isDark ? 'rgba(16,185,129,0.3)' : 'rgba(16,185,129,0.4)',
+          borderColor: isDark ? 'rgba(10,210,90,0.3)' : 'rgba(10,210,90,0.4)',
           opacity: ready ? 1 : 0,
           transition: 'opacity 400ms',
         }}

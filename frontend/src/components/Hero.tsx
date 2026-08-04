@@ -132,10 +132,11 @@ export default function Hero() {
 
         <div className="relative z-10 w-full max-w-5xl mx-auto px-6 flex flex-col items-center">
 
-          {/* Globe with product filter tabs */}
-          <div className="w-full max-w-xl mx-auto mb-6">
-            {/* Tab switcher */}
-            <div className="flex items-center justify-center gap-1.5 mb-4 flex-wrap">
+          {/* Globe */}
+          <div className="w-full max-w-xl mx-auto">
+            <GlobeMap productType={activeTab === 'ALL' ? undefined : activeTab} />
+            {/* Tab switcher — BELOW the globe */}
+            <div className="flex items-center justify-center gap-1.5 mt-4 flex-wrap">
               {PRODUCT_TABS.map(({ key, label, icon: Icon }) => {
                 const isActive = activeTab === key;
                 return (
@@ -154,8 +155,6 @@ export default function Hero() {
                 );
               })}
             </div>
-            {/* Globe */}
-            <GlobeMap productType={activeTab === 'ALL' ? undefined : activeTab} />
           </div>
 
           {/* Badge */}
