@@ -219,6 +219,31 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
         />
       </div>
 
+      {/* Featured country callout */}
+      <div
+        className="absolute pointer-events-none z-20"
+        style={{ right: '4%', top: '8%', minWidth: 165, opacity: ready ? 1 : 0, transition: 'opacity 400ms' }}
+      >
+        <div className={`rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md ${isDark ? 'bg-[rgba(10,10,20,0.88)]' : 'bg-white shadow-lg'} ${isDark ? 'border-[rgba(10,210,90,0.3)]' : 'border-[rgba(10,210,90,0.4)]'}`}>
+          <span className="text-3xl">{featured?.flag}</span>
+          <div>
+            <p className={`font-bold text-sm ${isDark ? 'text-zinc-100' : 'text-zinc-800'}`}>{featured?.name}</p>
+            <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{featured?.region}</p>
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {(featured ? getProductsAtCountry(featured.code) : []).map(pt => (
+                <span
+                  key={pt}
+                  className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                  style={{ background: 'rgba(10,210,90,0.15)', color: BRAND_GREEN }}
+                >
+                  {pt}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Coverage badge */}
       <div
         className={`absolute bottom-4 left-4 rounded-xl px-3 py-2 shadow-lg border z-20`}
