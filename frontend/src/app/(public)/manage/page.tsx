@@ -6,7 +6,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/components/Toast';
 import { getOrderHistory, type OrderHistoryEntry, getInflightOrder, clearInflightOrder } from '@/lib/device-id';
-import { Eye, EyeSlash, Copy, Clock, Check, ArrowRight, ArrowClockwise, X, WarningCircle } from '@phosphor-icons/react';
+import { Eye, EyeSlash, Copy, Clock, Check, ArrowRight, ArrowClockwise, X, WarningCircle, MagnifyingGlass } from '@phosphor-icons/react';
 
 // Helper: Copy to clipboard with toast feedback
 function copyToClipboard(text: string, label: string) {
@@ -491,9 +491,7 @@ export default function ManagePage() {
           {!order && !error && !loading && (
             <div className="text-center py-10 animate-fade-in">
               <div className="w-16 h-16 rounded-2xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-[var(--muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803a7.5 7.5 0 0010.607 10.607z" />
-                </svg>
+                <MagnifyingGlass className="w-8 h-8 text-[var(--muted)]" />
               </div>
               <p className="text-sm text-[var(--muted)]">
                 Enter your order ID or tx_ref above to look up your proxy details.
