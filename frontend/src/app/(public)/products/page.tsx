@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { loadCatalog, formatPrice, COUNTRIES, type CountryInfo } from '@/lib/products';
 import { useChannelFlags } from '@/lib/feature-flags';
 import type { Product, CatalogTemplate } from '@/types';
+import { Globe, House, HardDrives, Clock, Lightning, Rocket, Check, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
 // Build dynamic categories from the catalog (BE-driven — no hardcoded ISP/MOBILE)
 function buildCategories(templates: CatalogTemplate[]) {
@@ -45,24 +46,12 @@ function buildCategories(templates: CatalogTemplate[]) {
 
 function getIcon(planType: string) {
   if (planType === 'residential') {
-    return (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    );
+    return <House className="w-8 h-8" weight="regular" />;
   }
   if (planType === 'datacenter') {
-    return (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-      </svg>
-    );
+    return <HardDrives className="w-8 h-8" weight="regular" />;
   }
-  return (
-    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0 3-4.03 3-9s-1.343-9-3-9m-9 9a9 9 0 019-9" />
-    </svg>
-  );
+  return <Globe className="w-8 h-8" weight="regular" />;
 }
 
 function buildFeatures(t: CatalogTemplate): string[] {
@@ -174,10 +163,10 @@ export default function ProductsPage() {
           {/* Stats Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
             {[
-              { label: 'Uptime', value: '99.9%', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
-              { label: 'IP Pool', value: '50K+ IPs', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3a15.3 15.3 0 014 9 15.3 15.3 0 01-4 9 15.3 15.3 0 01-4-9 15.3 15.3 0 014-9z"/></svg> },
-              { label: 'Speed', value: '1 Gbps', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg> },
-              { label: 'Delivery', value: 'Instant', icon: <svg className="w-6 h-6 text-[var(--primary)] mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/></svg> },
+              { label: 'Uptime', value: '99.9%', icon: <Clock className="w-6 h-6 text-[var(--primary)] mx-auto" weight="regular" /> },
+              { label: 'IP Pool', value: '50K+ IPs', icon: <Globe className="w-6 h-6 text-[var(--primary)] mx-auto" weight="regular" /> },
+              { label: 'Speed', value: '1 Gbps', icon: <Lightning className="w-6 h-6 text-[var(--primary)] mx-auto" weight="regular" /> },
+              { label: 'Delivery', value: 'Instant', icon: <Rocket className="w-6 h-6 text-[var(--primary)] mx-auto" weight="regular" /> },
             ].map(({ label, value, icon }) => (
               <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-3 text-center card-depth">
                 <div className="mb-1 flex justify-center">{icon}</div>
@@ -270,9 +259,7 @@ export default function ProductsPage() {
                   <ul className="space-y-2 mb-6 flex-1">
                     {category.features.map((feature, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm text-[var(--muted)]">
-                        <svg className="w-4 h-4 text-[var(--primary)] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
+                        <Check className="w-4 h-4 text-[var(--primary)] mt-0.5 flex-shrink-0" weight="bold" />
                         {feature}
                       </li>
                     ))}
@@ -299,13 +286,13 @@ export default function ProductsPage() {
                 onClick={() => setCarouselIdx(i => (i - 1 + activeCats.length) % activeCats.length)}
                 className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 sm:-translate-x-16 z-10 w-11 h-11 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] hover:bg-[var(--card-hover)] transition-all duration-200"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
+                <CaretLeft className="w-5 h-5" weight="bold" />
               </button>
               <button
                 onClick={() => setCarouselIdx(i => (i + 1) % activeCats.length)}
                 className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 sm:translate-x-16 z-10 w-11 h-11 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] hover:bg-[var(--card-hover)] transition-all duration-200"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+                <CaretRight className="w-5 h-5" weight="bold" />
               </button>
               <div
                 className="relative select-none"
@@ -354,7 +341,7 @@ export default function ProductsPage() {
                     <div className="flex-1 space-y-2.5">
                       {cat.features.slice(0, 4).map((f, i) => (
                         <div key={i} className="flex items-center gap-2 text-sm text-[var(--muted)]">
-                          <svg className="w-3 h-3 text-[var(--primary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          <Check className="w-3 h-3 text-[var(--primary)] flex-shrink-0" weight="bold" />
                           {f}
                         </div>
                       ))}
