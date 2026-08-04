@@ -9,6 +9,14 @@ const GlobeMap = dynamic(() => import('@/components/GlobeMap'), { ssr: false });
 
 const TYPEWRITER_WORDS = ['untraceable', 'unrestricted', 'verified', 'instant', 'anonymous'];
 
+const PRODUCT_TABS: { key: string; label: string; icon: typeof Desktop }[] = [
+  { key: 'ALL',   label: 'All',          icon: Globe },
+  { key: 'ISP',   label: 'ISP Proxy',    icon: Desktop },
+  { key: 'RESIDENTIAL', label: 'Residential', icon: House },
+  { key: 'MOBILE',     label: 'Mobile',        icon: DeviceMobile },
+  { key: 'DC',         label: 'Datacenter',     icon: HardDrives },
+];
+
 const FAQ_DATA = [
   { q: 'How fast is delivery?', a: 'Your proxy credentials are delivered instantly — typically within 3 seconds of payment confirmation. No waiting, no queues.' },
   { q: 'Do I need an account?', a: 'No account required. Simply select your proxy, pay, and receive your credentials immediately via the dashboard or WhatsApp/Telegram.' },
@@ -91,6 +99,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 
 export default function Hero() {
   const [typewriterIdx, setTypewriterIdx] = useState(0);
+  const [activeTab, setActiveTab] = useState('ALL');
   const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -123,9 +132,30 @@ export default function Hero() {
 
         <div className="relative z-10 w-full max-w-5xl mx-auto px-6 flex flex-col items-center">
 
-          {/* Globe */}
+          {/* Globe with product filter tabs */}
           <div className="w-full max-w-xl mx-auto mb-6">
-            <GlobeMap />
+            {/* Tab switcher */}
+            <div className="flex items-center justify-center gap-1.5 mb-4 flex-wrap">
+              {PRODUCT_TABS.map(({ key, label, icon: Icon }) => {
+                const isActive = activeTab === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setActiveTab(key)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border ${
+                      isActive
+                        ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
+                        : 'border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]'
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Globe */}
+            <GlobeMap productType={activeTab === 'ALL' ? undefined : activeTab} />
           </div>
 
           {/* Badge */}
