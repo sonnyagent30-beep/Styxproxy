@@ -89,7 +89,7 @@ class TrialStatusEnum(str, Enum):
 
 # ============== Validators ==============
 
-VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN"}
+VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN", "AE", "MX", "PK", "ID"}
 
 
 def validate_phone(phone: str) -> str:
@@ -1696,3 +1696,63 @@ class MetricsOverviewResponse(BaseModel):
     charon_escalated_replies: int = 0
     charon_llm_errors: int = 0
     charon_tokens_used_total: int = 0
+
+# ============== PlanSettings Schemas ==============
+
+class PlanSettingsCreateRequest(BaseModel):
+    plan_type: Optional[str] = Field(None, max_length=20)
+    country: Optional[str] = Field(None, max_length=10)
+    setting_key: str = Field(..., min_length=1, max_length=50)
+    setting_value: Optional[dict[str, Any]] = None
+    description: Optional[str] = None
+    is_active: bool = True
+    priority: int = Field(default=0)
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+
+    @field_validator("plan_type")
+    @classmethod
+    def validate_plan_type(cls, v):
+        if v is not None:
+            if v.upper() not in {"ISP", "DC", "RESIDENTIAL", "MOBILE"}:
+                raise ValueError(f"Plan type must be one of: ISP, DC, RESIDENTIAL, MOBILE")
+            return v.upper()
+        return v
+
+    @field_validator("country")
+    @classmethod
+    def validate_country_code(cls, v):
+        if v is not None:
+            return v.upper()
+        return v
+
+
+class PlanSettingsUpdateRequest(BaseModel):
+    setting_value: Optional[dict[str, Any]] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    priority: Optional[int] = None
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+
+
+class PlanSettingsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    plan_type: Optional[str] = None
+    country: Optional[str] = None
+    setting_key: str
+    setting_value: Optional[dict[str, Any]] = None
+    description: Optional[str] = None
+    is_active: bool
+    priority: int
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PlanSettingsListResponse(BaseModel):
+    settings: list[PlanSettingsResponse]
+    total: int
