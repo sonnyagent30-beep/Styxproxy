@@ -160,8 +160,11 @@ class ApiClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        return { 
-          error: errorData.detail || `HTTP error ${response.status}` 
+        // Ensure error is always a string — guard against structured objects
+        // (e.g. Pydantic/GraphQL errors like {type, loc, msg, input, ctx})
+        const rawError = errorData.detail || errorData.message || JSON.stringify(errorData);
+        return {
+          error: typeof rawError === 'string' ? rawError : String(rawError)
         };
       }
 
