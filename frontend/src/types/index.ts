@@ -551,12 +551,12 @@ export interface PlanUpdate {
 
 // ============== Plan Settings (Admin) ==============
 export interface PlanSettingValue {
-  price_per_gb?: number;
-  price_per_ip?: number;
+  price_per_gb?: number | null;
+  price_per_ip?: number | null;
   available_countries: string[];
-  gb_tiers?: string[];
-  supports_city: boolean;
-  rotation_modes: string[];
+  gb_tiers?: number[] | null;      // integer array, not string
+  supports_city?: boolean | null;   // null for ISP/DC
+  rotation_modes?: string[] | null; // null for RESIDENTIAL/MOBILE
 }
 
 export interface PlanSetting {

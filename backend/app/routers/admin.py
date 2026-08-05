@@ -21,6 +21,7 @@ from app.models import (
     FeatureFlag,
     Order,
     Plan,
+    PlanSettings,
     ProcessedWebhook,
     StyxproxyCredential,
 )
@@ -61,6 +62,9 @@ from app.schemas import (
     PlanResponse,
     PlansResponse,
     PlanUpdateRequest,
+    PlanSettingsListResponse,
+    PlanSettingsResponse,
+    PlanSettingsUpdateRequest,
     UpdateKnowledgeRequest,
     UpdateKnowledgeResponse,
 )
@@ -922,6 +926,65 @@ async def delete_plan(plan_id: int, session: AsyncSession = Depends(get_session)
     await session.delete(plan)
     await session.commit()
     return {"status": "deleted", "plan_id": plan_id}
+
+# ============== Plan Settings (plan-type level pricing) =============
+
+@router.get(
+    "/plan-settings",
+    response_model=PlanSettingsListResponse,
+    dependencies=[Depends(require_permission("admin.plans.manage"))],
+)
+async def list_plan_settings(
+    session: AsyncSession = Depends(get_session),
+):
+    """List all plan settings (grouped by plan_type)."""
+    settings_result = await session.execute(
+        select(PlanSettings)
+        .where(PlanSettings.setting_key == "pricing")
+        .order_by(PlanSettings.plan_type)
+    )
+    settings = settings_result.scalars().all()
+    return PlanSettingsListResponse(
+        settings=[PlanSettingsResponse.model_validate(s) for s in settings],
+        total=len(settings),
+    )
+
+
+@router.patch(
+    "/plan-settings/{plan_type}",
+    response_model=PlanSettingsResponse,
+    dependencies=[Depends(require_permission("admin.plans.manage"))],
+)
+async def update_plan_setting(
+    plan_type: str,
+    request: PlanSettingsUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Update a plan setting by plan_type (ISP, DC, RESIDENTIAL, MOBILE)."""
+    setting = (
+        await session.execute(
+            select(PlanSettings).where(
+                func.lower(PlanSettings.plan_type) == plan_type.lower(),
+                PlanSettings.setting_key == "pricing",
+            )
+        )
+    ).scalar_one_or_none()
+
+    if not setting:
+        raise HTTPException(status_code=404, detail=f"No plan setting found for plan_type: {plan_type}")
+
+    if request.setting_value is not None:
+        setting.setting_value = request.setting_value
+    if request.description is not None:
+        setting.description = request.description
+    if request.is_active is not None:
+        setting.is_active = request.is_active
+    if request.priority is not None:
+        setting.priority = request.priority
+
+    await session.commit()
+    await session.refresh(setting)
+    return PlanSettingsResponse.model_validate(setting)
 
 
 # ============== Channel Feature Flags ==============

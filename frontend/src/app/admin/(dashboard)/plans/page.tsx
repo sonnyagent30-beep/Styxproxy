@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { COUNTRIES } from '@/lib/products';
-import type { Plan, PlanCreate, PlanUpdate, PlanSetting } from '@/types';
+import type { Plan, PlanCreate, PlanUpdate, PlanSetting, PlanSettingValue } from '@/types';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -323,6 +323,7 @@ function SettingsCard({ setting, onUpdate }: SettingsCardProps) {
 
   const [form, setForm] = useState({
     price: price ?? 0,
+    setting_value: v as PlanSettingValue,
     countries: v.available_countries ?? [],
   });
 
@@ -342,8 +343,8 @@ function SettingsCard({ setting, onUpdate }: SettingsCardProps) {
       const payload: any = {
         available_countries: form.countries,
       };
-      if (isPerGB) payload.price_per_gb = form.price;
-      else payload.price_per_ip = form.price;
+      if (isPerGB) payload.setting_value = { ...form.setting_value, price_per_gb: form.price };
+      else payload.setting_value = { ...form.setting_value, price_per_ip: form.price };
       await onUpdate(setting.plan_type, payload);
       setEditing(false);
     } catch (e: any) {
@@ -366,7 +367,7 @@ function SettingsCard({ setting, onUpdate }: SettingsCardProps) {
           <div>
             <p className="font-semibold">{setting.plan_type}</p>
             <p className="text-sm text-[var(--muted)]">
-              {form.countries.length} countries &middot; {v.gb_tiers?.length ?? 0} GB tiers
+              {form.countries.length} countries{isPerGB && v.gb_tiers?.length ? ` · ${v.gb_tiers.join(', ')} GB` : ''}
             </p>
           </div>
         </div>
@@ -410,21 +411,19 @@ function SettingsCard({ setting, onUpdate }: SettingsCardProps) {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-[var(--muted)]">Rotation modes</span>
-            <span className="font-medium">{v.rotation_modes?.join(', ')}</span>
+            <span className="font-medium">{v.rotation_modes?.length ? v.rotation_modes.join(', ') : '—'}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-[var(--muted)]">GB tiers</span>
+            <span className="font-medium">{v.gb_tiers?.length ? v.gb_tiers.join(', ') : '—'}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-[var(--muted)]">Supports city</span>
             <span className={v.supports_city ? 'text-green-400' : 'text-gray-500'}>{v.supports_city ? 'Yes' : 'No'}</span>
           </div>
-          <div className="pt-2 border-t border-[var(--border)]">
-            <p className="text-sm text-[var(--muted)] mb-2">Countries</p>
-            <div className="flex flex-wrap gap-1.5">
-              {form.countries.map(c => (
-                <span key={c} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--card-hover)] text-xs">
-                  {getCountryFlag(c)} {c}
-                </span>
-              ))}
-            </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-[var(--muted)]">Countries</span>
+            <span className="font-medium">{form.countries.length}</span>
           </div>
         </div>
       ) : (
