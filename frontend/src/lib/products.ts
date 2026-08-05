@@ -196,7 +196,9 @@ export interface CountryInfo {
 }
 
 export const COUNTRIES: Record<string, CountryInfo> = {
-  UK: { code: 'UK', name: 'United Kingdom',  flag: '🇬🇧', lat: 51.5074,  lng: -0.1278,  region: 'Europe' },
+  // Note: GB and UK both map to United Kingdom — catalog returns GB for res/ISP, DB stores UK
+  GB: { code: 'GB', name: 'United Kingdom',  flag: '🇬🇧', lat: 51.5074,  lng: -0.1278,  region: 'Europe' },
+  UK: { code: 'GB', name: 'United Kingdom',  flag: '🇬🇧', lat: 51.5074,  lng: -0.1278,  region: 'Europe' },
   US: { code: 'US', name: 'United States',   flag: '🇺🇸', lat: 39.8283,  lng: -98.5795, region: 'North America' },
   DE: { code: 'DE', name: 'Germany',         flag: '🇩🇪', lat: 51.1657,  lng: 10.4515,  region: 'Europe' },
   FR: { code: 'FR', name: 'France',          flag: '🇫🇷', lat: 46.6034,  lng: 2.3488,   region: 'Europe' },
