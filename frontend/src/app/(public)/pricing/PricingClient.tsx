@@ -58,6 +58,7 @@ function getIconForPlanType(planType: string) {
 function getLabelForPlanType(planType: string): string {
   switch (planType.toLowerCase()) {
     case 'datacenter':
+    case 'dc':
       return 'Datacenter';
     case 'residential':
       return 'Residential';
@@ -86,7 +87,7 @@ function extractCountryPrices(variants: CatalogVariant[]): CountryPrice[] {
         countryName,
         flag,
         price: variant.price_ngn,
-        inStock: variant.is_active,
+        inStock: variant.in_stock,
       });
     }
   }
