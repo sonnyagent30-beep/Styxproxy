@@ -3,11 +3,12 @@
 import json
 import re
 from datetime import datetime, timezone
+from pydantic import BaseModel
 from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -246,9 +247,9 @@ async def get_order(order_id: str, session: AsyncSession = Depends(get_session))
     dependencies=[Depends(require_permission("admin.orders.list"))]
 )
 async def lookup_order(
-    order_id: Optional[str] = None,
-    tx_ref: Optional[str] = None,
-    phone: Optional[str] = None,
+    order_id: Optional[str] = Body(None),
+    tx_ref: Optional[str] = Body(None),
+    phone: Optional[str] = Body(None),
     session: AsyncSession = Depends(get_session),
 ):
     """Look up an order by order_id, tx_ref, or customer phone."""
