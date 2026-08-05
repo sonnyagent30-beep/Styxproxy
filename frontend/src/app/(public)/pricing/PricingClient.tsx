@@ -8,9 +8,9 @@ import type { CatalogResponse, CatalogTemplate, CatalogVariant } from '@/types';
 
 const comparison = [
   { type: 'ISP Proxies', speed: 'High', detection: 'Low', anonymity: 'High', reliability: 'High', price: 'From ₦6,500' },
-  { type: 'Residential', speed: 'Medium', detection: 'Very Low', anonymity: 'Very High', reliability: 'High', price: 'From ₦5,000' },
+  { type: 'Residential', speed: 'Medium', detection: 'Very Low', anonymity: 'Very High', reliability: 'High', price: 'From ₦15,000' },
   { type: 'Mobile 4G', speed: 'Medium', detection: 'Extremely Low', anonymity: 'Highest', reliability: 'Medium', price: 'From ₦20,000' },
-  { type: 'Datacenter', speed: 'High', detection: 'High', anonymity: 'Low', reliability: 'High', price: 'From ₦2,500' },
+  { type: 'Datacenter', speed: 'High', detection: 'High', anonymity: 'Low', reliability: 'High', price: 'From ₦8,000' },
 ];
 
 const faqs = [

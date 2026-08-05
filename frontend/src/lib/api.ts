@@ -726,7 +726,8 @@ class ApiClient {
 
   // ============== Plan Settings (Admin) ==============
 
-  async getPlanSettings(): Promise<ApiResponse<{ settings: PlanSetting[] }>> {
+  // Returns PlanSettingsDisplay[] directly (no {settings} wrapper)
+  async getPlanSettings(): Promise<ApiResponse<any[]>> {
     return this.request('/api/admin/plan-settings');
   }
 

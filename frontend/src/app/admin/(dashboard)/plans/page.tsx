@@ -72,7 +72,7 @@ export default function PlanSettingsPage() {
     try {
       const res = await api.getPlanSettings();
       if (res.data) {
-        setPlanSettings(res.data.settings as unknown as PlanSettingItem[]);
+        setPlanSettings(res.data as unknown as PlanSettingItem[]);
       }
     } catch (err) {
       console.error('Failed to fetch plan settings:', err);
