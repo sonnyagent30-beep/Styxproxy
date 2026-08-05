@@ -71,27 +71,40 @@ export default function PlanSettingsPage() {
   const fetchPlanSettings = async () => {
     try {
       const res = await api.getPlanSettings();
-      if (res.data) {
-        setPlanSettings(res.data as unknown as PlanSettingItem[]);
+      if (res.error) {
+        setError('Failed to load plan settings: ' + res.error);
+        return;
       }
+      setPlanSettings((res.data ?? []) as unknown as PlanSettingItem[]);
     } catch (err) {
       console.error('Failed to fetch plan settings:', err);
+      setError('Failed to load plan settings. Please refresh.');
     }
   };
 
-  // Fetch all plans
+  // Fetch all plans (paginate through all — BE limits to 100/page)
   const fetchPlans = async () => {
     try {
-      const res = await api.getPlans(1, 500);
-      if (res.data) {
-        const plansWithType: PlanWithType[] = res.data.data.map((p) => ({
-          ...p,
-          plan_type_key: p.plan_type.toLowerCase(),
-        }));
-        setPlans(plansWithType);
+      let allPlans: PlanWithType[] = [];
+      let page = 1;
+      let hasNext = true;
+      while (hasNext && page <= 5) {
+        const res = await api.getPlans(page, 100);
+        if (res.error || !res.data) break;
+        const planList: Plan[] = res.data.data ?? [];
+        allPlans = allPlans.concat(
+          planList.map((p) => ({
+            ...p,
+            plan_type_key: String(p.plan_type).toLowerCase(),
+          }))
+        );
+        hasNext = res.data.pagination?.has_next ?? false;
+        page++;
       }
+      setPlans(allPlans);
     } catch (err) {
       console.error('Failed to fetch plans:', err);
+      setError('Failed to load plans. Please refresh.');
     }
   };
 
@@ -253,7 +266,7 @@ export default function PlanSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 md:px-0">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-[var(--foreground)]">Plan Management</h1>
@@ -305,7 +318,7 @@ export default function PlanSettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {planSettings.map((plan, idx) => {
+              {planSettings && planSettings.length > 0 ? planSettings.map((plan, idx) => {
                 const label = PLAN_TYPE_LABELS[plan.plan_type] ?? plan.plan_type;
                 const isIP = plan.base_pricing.pricing_model === 'per_IP';
                 const price = plan.base_pricing.price_per_ip ?? plan.base_pricing.price_per_gb ?? 0;
@@ -350,7 +363,13 @@ export default function PlanSettingsPage() {
                     </td>
                   </tr>
                 );
-              })}
+              }) : (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-[var(--muted)]">
+                    No plan settings found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
