@@ -65,6 +65,8 @@ from app.schemas import (
     PlanSettingsListResponse,
     PlanSettingsResponse,
     PlanSettingsUpdateRequest,
+    PlanSettingsDisplay,
+    PlanSettingBasePricing,
     UpdateKnowledgeRequest,
     UpdateKnowledgeResponse,
 )
@@ -943,23 +945,57 @@ async def delete_plan(plan_id: int, session: AsyncSession = Depends(get_session)
 
 @router.get(
     "/plan-settings",
-    response_model=PlanSettingsListResponse,
+    response_model=list[PlanSettingsDisplay],
     dependencies=[Depends(require_permission("admin.plans.manage"))],
 )
 async def list_plan_settings(
     session: AsyncSession = Depends(get_session),
 ):
-    """List all plan settings (grouped by plan_type)."""
-    settings_result = await session.execute(
+    """List all plan settings grouped by plan_type with base_pricing and country_overrides."""
+    # Get all base_pricing settings
+    base_result = await session.execute(
         select(PlanSettings)
-        .where(PlanSettings.setting_key == "pricing")
+        .where(PlanSettings.setting_key == "base_pricing")
         .order_by(PlanSettings.plan_type)
     )
-    settings = settings_result.scalars().all()
-    return PlanSettingsListResponse(
-        settings=[PlanSettingsResponse.model_validate(s) for s in settings],
-        total=len(settings),
+    base_settings = base_result.scalars().all()
+    
+    # Get all country_override settings
+    override_result = await session.execute(
+        select(PlanSettings)
+        .where(PlanSettings.setting_key == "country_override")
+        .order_by(PlanSettings.plan_type, PlanSettings.country)
     )
+    override_settings = override_result.scalars().all()
+    
+    # Build result
+    result: list[PlanSettingsDisplay] = []
+    
+    for base in base_settings:
+        plan_type = base.plan_type
+        
+        # Find overrides for this plan_type
+        overrides = {
+            o.country: o.setting_value.get("price_per_ip", 0)
+            for o in override_settings
+            if o.plan_type == plan_type
+        }
+        
+        # Build base_pricing
+        base_pricing = PlanSettingBasePricing(
+            price_per_ip=base.setting_value.get("price_per_ip"),
+            price_per_gb=base.setting_value.get("price_per_gb"),
+            pricing_model=base.setting_value.get("pricing_model", "per_IP"),
+            gb_tiers=base.setting_value.get("gb_tiers"),
+        )
+        
+        result.append(PlanSettingsDisplay(
+            plan_type=plan_type,
+            base_pricing=base_pricing,
+            country_overrides=overrides,
+        ))
+    
+    return result
 
 
 @router.patch(

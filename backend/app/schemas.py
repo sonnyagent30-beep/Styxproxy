@@ -1757,3 +1757,20 @@ class PlanSettingsResponse(BaseModel):
 class PlanSettingsListResponse(BaseModel):
     settings: list[PlanSettingsResponse]
     total: int
+
+
+class PlanSettingBasePricing(BaseModel):
+    price_per_ip: Optional[int] = None
+    price_per_gb: Optional[int] = None
+    pricing_model: str  # "per_IP" or "per_GB"
+    gb_tiers: Optional[list[int]] = None
+
+
+class PlanSettingCountryOverride(BaseModel):
+    price_per_ip: int
+
+
+class PlanSettingsDisplay(BaseModel):
+    plan_type: str
+    base_pricing: PlanSettingBasePricing
+    country_overrides: dict[str, int]  # country_code -> price_per_ip

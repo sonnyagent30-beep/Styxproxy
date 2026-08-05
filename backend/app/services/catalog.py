@@ -133,26 +133,45 @@ async def list_catalog(session: AsyncSession) -> dict:
     """List all plan_type templates with their options.
 
     Countries and rotation modes are loaded from plan_settings (DB).
-    Prices for mobile/residential = price_per_gb × quantity.
+    Prices computed from plan_settings: base_pricing + country_overrides (for ISP).
     """
     global SUPPORTED_COUNTRIES
     templates = []
     all_countries = set()
     all_rotation_modes = set()
 
-    # ── Load plan_settings to get pricing model per plan_type ─────────────
-    settings_result = await session.execute(
+    # ── Load plan_settings: base_pricing per plan_type ───────────────────────
+    base_result = await session.execute(
         select(PlanSettings).where(
-            PlanSettings.setting_key == "pricing",
+            PlanSettings.setting_key == "base_pricing",
             PlanSettings.is_active == True,
         )
     )
-    plan_settings_map: dict = {}
-    for s in settings_result.scalars().all():
+    base_settings_map: dict = {}
+    for s in base_result.scalars().all():
+        pt = (s.plan_type or "").lower()
+        # Normalize datacenter -> dc for consistency with plan plan_type values
+        if pt == "datacenter":
+            pt = "dc"
+        base_settings_map[pt] = s.setting_value or {}
+    
+    # ── Load country_overrides for ISP ──────────────────────────────────────
+    override_result = await session.execute(
+        select(PlanSettings).where(
+            PlanSettings.setting_key == "country_override",
+            PlanSettings.is_active == True,
+        )
+    )
+    country_overrides: dict[str, dict[str, int]] = {}  # plan_type -> {country: price_per_ip}
+    for s in override_result.scalars().all():
         pt = (s.plan_type or "").lower()
         if pt == "datacenter":
             pt = "dc"
-        plan_settings_map[pt] = s.setting_value or {}
+        country = s.country.upper() if s.country else None
+        if pt not in country_overrides:
+            country_overrides[pt] = {}
+        if country:
+            country_overrides[pt][country] = s.setting_value.get("price_per_ip", 0)
     # ─────────────────────────────────────────────────────────────────────
 
     # Pull all active plans
@@ -169,7 +188,7 @@ async def list_catalog(session: AsyncSession) -> dict:
     for plan_type_upper, plan_list in plans_by_type.items():
         plan_type = plan_type_upper.lower()
         template = get_plan_template_for(plan_type)
-        settings = plan_settings_map.get(plan_type, {})
+        settings = base_settings_map.get(plan_type, {})
         is_per_gb = plan_type in ("residential", "mobile")
         base_price_per_gb = float(settings.get("price_per_gb", 0) or 0)
         base_price_per_ip = float(settings.get("price_per_ip", 0) or 0)
@@ -182,23 +201,39 @@ async def list_catalog(session: AsyncSession) -> dict:
         all_rotation_modes.update(rotation_options)
 
         variants = []
-        # Build variants: each plan row = one product (country + quantity = GB tier)
+        # For per_GB plans (Mobile/Residential): only show base tier (min quantity) per country.
+        # Quantity tiers (5/10/20/50 GB) are fulfillment options, not separate products.
+        # For per_IP plans (DC/ISP): show all variants.
+        min_qty_by_country: dict[str, int] = {}
+        if is_per_gb:
+            for plan in plan_list:
+                c = plan.country.upper()
+                qty = plan.quantity or 5
+                if c not in min_qty_by_country or qty < min_qty_by_country[c]:
+                    min_qty_by_country[c] = qty
+
         for plan in plan_list:
             country = plan.country.upper()
             quantity = plan.quantity or 1
             plan_code = plan.plan_code
 
+            # Skip non-base GB tier variants for per_GB plans
+            if is_per_gb and quantity != min_qty_by_country.get(country, quantity):
+                continue
+
             for rotation_mode in rotation_options:
-                # Compute price: use per-plan price when available, else fall back to plan_settings master
-                if is_per_gb:
-                    per_gb = float(plan.price_per_gb or 0)
-                    if per_gb <= 0:
-                        per_gb = base_price_per_gb  # fallback to master
-                    base_price = per_gb * quantity
+                # Compute price: use country_override for ISP, else base_pricing
+                if plan_type == "isp":
+                    # Check country override first
+                    override_map = country_overrides.get(plan_type, {})
+                    per_ip = override_map.get(country, base_price_per_ip)
                 else:
-                    base_price = float(plan.price_ngn or 0)
-                    if base_price <= 0:
-                        base_price = base_price_per_ip * quantity  # fallback to master
+                    per_ip = base_price_per_ip
+                
+                if is_per_gb:
+                    base_price = base_price_per_gb * quantity
+                else:
+                    base_price = per_ip * quantity
 
                 if rotation_mode == "static":
                     base_price = base_price * float(plan.static_price_multiplier or 2.5)
