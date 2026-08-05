@@ -72,13 +72,23 @@ export default function AdminCatalogPage() {
   const loadPlans = useCallback(async () => {
     setLoading(true);
     setError('');
-    const result = await api.getPlans(1, 100);
-    if (result.error) {
-      setError(result.error);
-    } else {
+    // Fetch all plans across pages (104 total > 100 per page)
+    let page = 1;
+    let allPlans: Plan[] = [];
+    while (true) {
+      const result = await api.getPlans(page, 100);
+      if (result.error) { setError(result.error); break; }
       const plans: Plan[] = result.data?.data ?? [];
+      allPlans = allPlans.concat(plans);
+      if (!result.data?.pagination?.has_next) break;
+      page++;
+      if (page > 5) break; // safety cap
+    }
+    if (!allPlans.length && !error) {
+      setPlanGroups([]);
+    } else if (!error) {
       const grouped: Record<string, Plan[]> = {};
-      for (const plan of plans) {
+      for (const plan of allPlans) {
         const key = (plan.plan_type ?? 'unknown').toLowerCase();
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(plan);
@@ -90,11 +100,11 @@ export default function AdminCatalogPage() {
 
       // Init active map
       const map: Record<number, boolean> = {};
-      for (const p of plans) map[p.id] = p.is_active ?? true;
+      for (const p of allPlans) map[p.id] = p.is_active ?? true;
       setActiveMap(map);
     }
     setLoading(false);
-  }, []);
+  }, [error]);
 
   useEffect(() => { loadPlans(); }, [loadPlans]);
 
