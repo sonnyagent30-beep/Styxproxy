@@ -891,10 +891,21 @@ export interface GlobalSearchResponse {
 
 // ============== Metrics Overview ==============
 export interface MetricsOverview {
-  total_customers: number;
-  total_orders: number;
-  total_revenue_usd: number;
-  active_credentials: number;
+  orders_today: number;
+  orders_this_week: number;
+  revenue_today_ngn: number;
+  revenue_this_week_ngn: number;
+  revenue_this_month_ngn: number;
+  active_proxies: number;
+  churned_today: number;
+  escalations_open: number;
+  support_threads_open: number;
+  contact_submissions_open: number;
+  charon_llm_status: string;
+  charon_total_requests: number;
+  charon_escalated_replies: number;
+  charon_llm_errors: number;
+  charon_tokens_used_total: number;
 }
 
 // ============== Catalog (BE-driven) ==============

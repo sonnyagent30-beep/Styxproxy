@@ -8,7 +8,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import and_, func, select, text
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
@@ -238,6 +238,33 @@ async def get_order(order_id: str, session: AsyncSession = Depends(get_session))
     order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    return AdminOrderResponse.model_validate(order)
+
+
+@router.post(
+    "/orders/lookup", response_model=AdminOrderResponse,
+    dependencies=[Depends(require_permission("admin.orders.list"))]
+)
+async def lookup_order(
+    order_id: Optional[str] = None,
+    tx_ref: Optional[str] = None,
+    phone: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Look up an order by order_id, tx_ref, or customer phone."""
+    conditions = []
+    if order_id:
+        conditions.append(Order.order_id == order_id)
+    if tx_ref:
+        conditions.append(Order.tx_ref == tx_ref)
+    if phone:
+        conditions.append(Order.customer_phone.ilike(f"%{phone}%"))
+    if not conditions:
+        raise HTTPException(status_code=400, detail="Provide order_id, tx_ref, or phone")
+    stmt = select(Order).where(or_(*conditions)).limit(1)
+    order = (await session.execute(stmt)).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
     return AdminOrderResponse.model_validate(order)
 
 

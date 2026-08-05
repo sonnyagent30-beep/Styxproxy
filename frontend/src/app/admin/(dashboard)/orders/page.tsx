@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
+import { COUNTRIES } from '@/lib/products';
 import type { Order, OrderStatus, AdminStats, PaginatedResponse, OrderDetail, Plan } from '@/types';
 
 export default function AdminOrdersPage() {
@@ -106,12 +107,12 @@ export default function AdminOrdersPage() {
     setSearchResults(null);
     
     // Try to determine if it's an order_id, tx_ref, or phone
-    const lookupData: {orderId?: string; txRef?: string; phone?: string} = {};
+    const lookupData: {order_id?: string; tx_ref?: string; phone?: string} = {};
     
     if (searchQuery.startsWith('ADMIN-') || searchQuery.length > 10) {
-      lookupData.orderId = searchQuery;
+      lookupData.order_id = searchQuery;
     } else if (searchQuery.includes('-')) {
-      lookupData.txRef = searchQuery;
+      lookupData.tx_ref = searchQuery;
     } else {
       lookupData.phone = searchQuery;
     }
@@ -339,7 +340,7 @@ export default function AdminOrdersPage() {
                     onClick={() => {
                       setSelectedRowOrder(order);
                       // Load full details
-                      api.lookupOrder({ orderId: order.order_id }).then(result => {
+                      api.lookupOrder({ order_id: order.order_id }).then(result => {
                         if (result.data) {
                           setSelectedOrder(result.data);
                         }
@@ -371,7 +372,7 @@ export default function AdminOrdersPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          api.lookupOrder({ orderId: order.order_id }).then(result => {
+                          api.lookupOrder({ order_id: order.order_id }).then(result => {
                             if (result.data) {
                               setSelectedOrder(result.data);
                             }
@@ -842,14 +843,11 @@ function CreateOrderModal({
               onChange={(e) => setForm(f => ({ ...f, country: e.target.value }))}
               className="w-full px-4 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-[var(--primary)]"
             >
-              <option value="NG">Nigeria</option>
-              <option value="US">United States</option>
-              <option value="UK">United Kingdom</option>
-              <option value="DE">Germany</option>
-              <option value="JP">Japan</option>
-              <option value="AU">Australia</option>
-              <option value="SG">Singapore</option>
-              <option value="KR">South Korea</option>
+              {Object.entries(COUNTRIES)
+                .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+                .map(([code, info]) => (
+                  <option key={code} value={code}>{info.flag} {info.name}</option>
+                ))}
             </select>
           </div>
 
