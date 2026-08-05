@@ -56,6 +56,7 @@ import type {
   Plan,
   PlanCreate,
   PlanUpdate,
+  PlanSetting,
   ContactSubmission,
   ContactSubmissionsResponse,
   Escalation,
@@ -717,6 +718,33 @@ class ApiClient {
   async deletePlan(planId: number): Promise<ApiResponse<{ status: string; plan_id: number }>> {
     return this.request(`/api/admin/plans/${planId}`, {
       method: 'DELETE',
+    });
+  }
+
+  // ============== Plan Settings (Admin) ==============
+
+  async getPlanSettings(): Promise<ApiResponse<{ settings: PlanSetting[] }>> {
+    return this.request('/api/admin/plan-settings');
+  }
+
+  async updatePlanSettings(
+    id: number,
+    data: {
+      plan_type: string;
+      setting_value: {
+        price_per_gb?: number;
+        price_per_ip?: number;
+        available_countries: string[];
+        gb_tiers?: string[];
+        supports_city: boolean;
+        rotation_modes: string[];
+      };
+      is_active: boolean;
+    }
+  ): Promise<ApiResponse<PlanSetting>> {
+    return this.request(`/api/admin/plan-settings/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     });
   }
 

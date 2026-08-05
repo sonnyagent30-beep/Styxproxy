@@ -547,6 +547,24 @@ export interface PlanUpdate {
   sort_order?: number;
 }
 
+// ============== Plan Settings (Admin) ==============
+export interface PlanSettingValue {
+  price_per_gb?: number;
+  price_per_ip?: number;
+  available_countries: string[];
+  gb_tiers?: string[];
+  supports_city: boolean;
+  rotation_modes: string[];
+}
+
+export interface PlanSetting {
+  id: number;
+  plan_type: string;
+  setting_key: string;
+  setting_value: PlanSettingValue;
+  is_active: boolean;
+}
+
 // ============== Catalog Templates (Admin) ==============
 export interface CatalogTemplate {
   plan_type: string;
