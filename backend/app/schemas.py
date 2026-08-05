@@ -318,7 +318,7 @@ class PlanResponse(BaseModel):
 class PlansResponse(BaseModel):
     """Plans list response."""
 
-    plans: list[PlanResponse]
+    data: list[PlanResponse]
     pagination: dict[str, Any]
 
 

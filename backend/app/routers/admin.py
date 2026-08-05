@@ -790,7 +790,7 @@ async def list_plans(
     plans = (await session.execute(stmt)).scalars().all()
 
     return PlansResponse(
-        plans=[PlanResponse.model_validate(p) for p in plans],
+        data=[PlanResponse.model_validate(p) for p in plans],
         pagination={
             "page": page,
             "limit": limit,
