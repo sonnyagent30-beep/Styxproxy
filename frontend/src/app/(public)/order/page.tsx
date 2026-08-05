@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { CityPicker } from '@/components/CityPicker';
 import { useRouter } from 'next/navigation';
 import {
   formatPrice,
@@ -9,7 +8,7 @@ import {
   type CountryInfo,
 } from '@/lib/products';
 import type { CartItem, CatalogResponse, CatalogTemplate, CatalogVariant, CatalogPlanType } from '@/types';
-import { Globe, House, DeviceMobile, HardDrives, ArrowRight, X, ArrowsClockwise } from '@phosphor-icons/react';
+import { Globe, House, DeviceMobile, HardDrives, ArrowRight, X, ArrowsClockwise, Plus, Minus, Check } from '@phosphor-icons/react';
 
 // Map catalog plan_type to display icons and labels
 function getTypeCardConfig(planType: CatalogPlanType): {
@@ -63,6 +62,12 @@ function getCheapestPrice(template: CatalogTemplate): number | null {
   return Math.min(...template.variants.map(v => v.price_ngn));
 }
 
+interface CountrySelection {
+  code: string;
+  quantity: number;
+  rotationMode: 'rotating' | 'static';
+}
+
 export default function OrderPage() {
   const router = useRouter();
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
@@ -71,9 +76,15 @@ export default function OrderPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [addedMessage, setAddedMessage] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [pendingCity, setPendingCity] = useState<{ id: number | null; name: string | null }>({ id: null, name: null });
-  const [pendingQtyGb, setPendingQtyGb] = useState<number>(5);
+
+  // Residential/Mobile state
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [selectedCityId, setSelectedCityId] = useState<number | null>(null);
+  const [selectedCityName, setSelectedCityName] = useState<string | null>(null);
+  const [selectedGbTier, setSelectedGbTier] = useState<number | null>(null);
+
+  // ISP/DC state
+  const [selectedCountries, setSelectedCountries] = useState<CountrySelection[]>([]);
 
   // Fetch catalog on mount
   useEffect(() => {
@@ -146,6 +157,8 @@ export default function OrderPage() {
           : 'Check pricing',
         countryCount: template.available_countries?.length || 0,
         hasGeoPlans: template.plan_type === 'isp',
+        supportsCity: template.supports_city,
+        planType: template.plan_type,
       };
     });
   }, [catalog]);
@@ -172,69 +185,105 @@ export default function OrderPage() {
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [currentTemplate]);
 
-  // Get variants filtered by selected country
-  const countryVariants = useMemo(() => {
-    if (!currentTemplate || !selectedCountry || !currentTemplate.variants) return [];
-    
-    return currentTemplate.variants.filter(
-      v => v.country.toUpperCase() === selectedCountry.toUpperCase()
-    );
+  // Get cities for selected country (for res/mobile)
+  const availableCities = useMemo(() => {
+    if (!currentTemplate || !selectedCountry || !currentTemplate.cities) return [];
+    return currentTemplate.cities[selectedCountry] || [];
   }, [currentTemplate, selectedCountry]);
 
+  // Get GB tiers for current template
+  const gbTiers = useMemo(() => {
+    if (!currentTemplate) return [];
+    return currentTemplate.gb_tiers || [];
+  }, [currentTemplate]);
+
+  // Get base price per GB for current template/country
+  const pricePerGb = useMemo(() => {
+    if (!currentTemplate || !selectedCountry || !currentTemplate.variants) return 0;
+    const variant = currentTemplate.variants.find(
+      v => v.country.toUpperCase() === selectedCountry.toUpperCase()
+    );
+    return variant?.price_ngn || 0;
+  }, [currentTemplate, selectedCountry]);
+
+  // Check if current template supports city (residential/mobile)
+  const supportsCity = currentTemplate?.supports_city ?? false;
+
+  // Open modal and reset state
   const openModal = (key: string) => {
     setActiveModal(key);
-    // Set default country to first available
-    const template = catalog?.templates.find(t => 
-      getTypeCardConfig(t.plan_type).key === key
-    );
-    const firstCountry = template?.available_countries?.[0]?.toUpperCase();
-    setSelectedCountry(firstCountry || null);
-    setPendingCity({ id: null, name: null });
-    setPendingQtyGb(5);
+    // Reset state
+    setSelectedCountry('');
+    setSelectedCityId(null);
+    setSelectedCityName(null);
+    setSelectedGbTier(null);
+    setSelectedCountries([]);
   };
 
   const closeModal = () => {
     setActiveModal(null);
-    setSelectedCountry(null);
-    setPendingCity({ id: null, name: null });
-    setPendingQtyGb(5);
+    setSelectedCountry('');
+    setSelectedCityId(null);
+    setSelectedCityName(null);
+    setSelectedGbTier(null);
+    setSelectedCountries([]);
   };
 
-  const addToCart = (variant: CatalogVariant, countryCode: string) => {
-    const country = COUNTRIES[countryCode.toUpperCase()];
-    const isPerGb = currentTemplate?.plan_type === 'residential' || currentTemplate?.plan_type === 'mobile';
-    
-    // Build cart item name
-    const rotationLabel = variant.rotation_mode === 'static' ? 'Static IP' : 'Rotating pool';
-    const name = currentTemplate?.plan_type === 'isp'
-      ? `${country?.name || countryCode} ISP`
-      : `${country?.name || countryCode} · ${rotationLabel}`;
-
-    // Calculate price
-    let itemPrice: number;
-    let quantityGb: number | undefined;
-    let pricePerGb: number | undefined;
-    
-    if (isPerGb) {
-      // Per-GB pricing: price_ngn in cart = variant.price_ngn * quantity_gb
-      quantityGb = pendingQtyGb;
-      pricePerGb = variant.price_ngn;
-      itemPrice = variant.price_ngn * pendingQtyGb;
+  // Toggle country selection for ISP/DC
+  const toggleCountryForIsp = (code: string) => {
+    const existing = selectedCountries.find(c => c.code === code);
+    if (existing) {
+      setSelectedCountries(selectedCountries.filter(c => c.code !== code));
     } else {
-      // Per-IP (ISP/DC): fixed monthly price
-      itemPrice = variant.price_ngn;
+      setSelectedCountries([...selectedCountries, { code, quantity: 1, rotationMode: 'rotating' }]);
     }
+  };
 
-    const planCode = variant.plan_code;
+  // Update quantity for ISP/DC country
+  const updateCountryQuantity = (code: string, quantity: number) => {
+    setSelectedCountries(
+      selectedCountries.map(c => 
+        c.code === code ? { ...c, quantity: Math.max(1, quantity) } : c
+      )
+    );
+  };
+
+  // Update rotation mode for ISP/DC country
+  const updateRotationMode = (code: string, mode: 'rotating' | 'static') => {
+    setSelectedCountries(
+      selectedCountries.map(c => 
+        c.code === code ? { ...c, rotationMode: mode } : c
+      )
+    );
+  };
+
+  // Add to cart for Residential/Mobile
+  const addResidentialToCart = () => {
+    if (!currentTemplate || !selectedCountry || !selectedGbTier) return;
+
+    const country = COUNTRIES[selectedCountry.toUpperCase()];
+    const planCode = `${currentTemplate.plan_type}-${selectedCountry.toUpperCase()}-${selectedGbTier}`;
+    
+    // Find the variant for this country
+    const variant = currentTemplate.variants?.find(
+      v => v.country.toUpperCase() === selectedCountry.toUpperCase()
+    );
+
+    const itemPrice = pricePerGb * selectedGbTier;
+    
+    const rotationLabel = 'Rotating pool';
+    const name = `${country?.name || selectedCountry} ${rotationLabel}, ${selectedGbTier} GB`;
+
     const existing = cart.find(i => i.plan_code === planCode);
     
     if (existing) {
       const updated = cart.map(i => {
         if (i.plan_code === planCode) {
-          if (isPerGb && typeof i.quantity_gb === 'number') {
-            return { ...i, quantity_gb: i.quantity_gb + pendingQtyGb, price_ngn: i.price_ngn + itemPrice };
-          }
-          return { ...i, quantity: i.quantity + 1 };
+          return { 
+            ...i, 
+            quantity_gb: (i.quantity_gb || 0) + selectedGbTier, 
+            price_ngn: i.price_ngn + itemPrice 
+          };
         }
         return i;
       });
@@ -245,21 +294,80 @@ export default function OrderPage() {
         name,
         flag: country?.flag || '🌍',
         price_ngn: itemPrice,
-        quantity: isPerGb ? 1 : variant.quantity,
-        country_code: countryCode.toUpperCase(),
-        plan_type: currentTemplate?.plan_type?.toUpperCase() as CartItem['plan_type'],
-        quantity_gb: quantityGb,
-        city_id: pendingCity.id,
-        city_name: pendingCity.name,
+        quantity: 1,
+        country_code: selectedCountry.toUpperCase(),
+        plan_type: currentTemplate.plan_type.toUpperCase() as CartItem['plan_type'],
+        quantity_gb: selectedGbTier,
+        city_id: selectedCityId,
+        city_name: selectedCityName,
         price_per_gb: pricePerGb,
-        min_gb: currentTemplate?.min_gb ?? undefined,
-        max_gb: currentTemplate?.max_gb ?? undefined,
-        gb_tiers: currentTemplate?.gb_tiers ?? undefined,
-        supports_city: currentTemplate?.supports_city ?? false,
+        min_gb: currentTemplate.min_gb ?? undefined,
+        max_gb: currentTemplate.max_gb ?? undefined,
+        gb_tiers: gbTiers,
+        supports_city: supportsCity,
       };
       saveCart([...cart, newItem]);
     }
     setAddedMessage(`${country?.flag || '🌍'} ${name} added to cart`);
+    setTimeout(() => setAddedMessage(''), 2000);
+  };
+
+  // Add to cart for ISP/DC
+  const addIspDcToCart = () => {
+    if (!currentTemplate || selectedCountries.length === 0) return;
+
+    const newItems: CartItem[] = selectedCountries.map(selection => {
+      const country = COUNTRIES[selection.code.toUpperCase()];
+      
+      // Find the variant for this country and rotation mode
+      const variant = currentTemplate.variants?.find(
+        v => v.country.toUpperCase() === selection.code.toUpperCase() &&
+             v.rotation_mode === selection.rotationMode
+      );
+
+      const itemPrice = (variant?.price_ngn || 0) * selection.quantity;
+      const planCode = `${currentTemplate.plan_type}-${selection.code.toUpperCase()}-${selection.quantity}`;
+      
+      const rotationLabel = selection.rotationMode === 'static' ? 'Static IP' : 'Rotating pool';
+      const name = `${country?.name || selection.code} ${rotationLabel} x${selection.quantity}`;
+
+      return {
+        plan_code: planCode,
+        name,
+        flag: country?.flag || '🌍',
+        price_ngn: itemPrice,
+        quantity: selection.quantity,
+        country_code: selection.code.toUpperCase(),
+        plan_type: currentTemplate.plan_type.toUpperCase() as CartItem['plan_type'],
+        quantity_gb: undefined,
+        city_id: undefined,
+        city_name: undefined,
+        price_per_gb: undefined,
+        supports_city: false,
+      };
+    });
+
+    // Add new items, avoiding duplicates by updating existing
+    const updatedCart = [...cart];
+    for (const newItem of newItems) {
+      const existingIndex = updatedCart.findIndex(i => 
+        i.plan_type === newItem.plan_type && 
+        i.country_code === newItem.country_code
+      );
+      if (existingIndex >= 0) {
+        updatedCart[existingIndex] = {
+          ...updatedCart[existingIndex],
+          quantity: updatedCart[existingIndex].quantity + newItem.quantity,
+          price_ngn: updatedCart[existingIndex].price_ngn + newItem.price_ngn,
+        };
+      } else {
+        updatedCart.push(newItem);
+      }
+    }
+    
+    saveCart(updatedCart);
+    const count = selectedCountries.length;
+    setAddedMessage(`${count} ${count === 1 ? 'country' : 'countries'} added to cart`);
     setTimeout(() => setAddedMessage(''), 2000);
   };
 
@@ -279,7 +387,7 @@ export default function OrderPage() {
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-10">
             <h1 className="text-4xl font-bold mb-3">
-              Choose Your <span className="gradient-text">Proxy Type</span>
+              Choose Your <span className="text-[var(--primary)]">Proxy Type</span>
             </h1>
             <p className="text-[var(--muted)]">
               Pick a proxy type, choose your country, and add to cart
@@ -303,7 +411,7 @@ export default function OrderPage() {
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-10">
             <h1 className="text-4xl font-bold mb-3">
-              Choose Your <span className="gradient-text">Proxy Type</span>
+              Choose Your <span className="text-[var(--primary)]">Proxy Type</span>
             </h1>
             <p className="text-[var(--muted)]">
               Pick a proxy type, choose your country, and add to cart
@@ -329,7 +437,7 @@ export default function OrderPage() {
         {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold mb-3">
-            Choose Your <span className="gradient-text">Proxy Type</span>
+            Choose Your <span className="text-[var(--primary)]">Proxy Type</span>
           </h1>
           <p className="text-[var(--muted)]">
             Pick a proxy type, choose your country, and add to cart
@@ -342,7 +450,7 @@ export default function OrderPage() {
             <button
               key={card.key}
               onClick={() => openModal(card.key)}
-              className="w-full p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] transition-all text-left group"
+              className="w-full p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] transition-all text-left group card-depth"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)]/20 transition-colors">
@@ -377,7 +485,7 @@ export default function OrderPage() {
                   onClick={() => router.push('/order/checkout')}
                   className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors"
                 >
-                  Checkout →
+                  Checkout
                 </button>
               </div>
             </div>
@@ -394,14 +502,15 @@ export default function OrderPage() {
         {/* Added to cart toast */}
         {addedMessage && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 bg-[var(--primary)] text-black font-semibold rounded-lg shadow-lg animate-fade-in z-50">
-            ✓ {addedMessage}
+            <Check className="inline w-4 h-4 mr-1" />
+            {addedMessage}
           </div>
         )}
 
         {/* =============================================================
-            Country + Plan Picker Modal
+            Modal for Residential & Mobile (supports_city = true)
             ============================================================= */}
-        {activeModal && currentTemplate && (
+        {activeModal && currentTemplate && supportsCity && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             onClick={closeModal}
@@ -409,16 +518,16 @@ export default function OrderPage() {
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
             <div
-              className="relative w-full max-w-2xl bg-[var(--card)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden animate-fade-in"
+              className="relative w-full max-w-lg bg-[var(--card)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden animate-fade-in"
               onClick={e => e.stopPropagation()}
             >
               {/* Header */}
               <div className="p-6 border-b border-[var(--border)]">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-4">
                   <div>
                     <h2 className="text-xl font-bold">{getTypeCardConfig(currentTemplate.plan_type).label}</h2>
                     <p className="text-sm text-[var(--muted)] mt-1">
-                      Step 1 — pick your country. Step 2 — pick a plan.
+                      Select country, city, and GB amount
                     </p>
                   </div>
                   <button
@@ -429,204 +538,252 @@ export default function OrderPage() {
                   </button>
                 </div>
 
-                {/* Country Grid */}
-                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
-                  {templateCountries.map(c => {
-                    const isActive = selectedCountry === c.code;
+                {/* Step 2: Country Dropdown */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-2 block">Country</label>
+                  <select
+                    value={selectedCountry}
+                    onChange={(e) => {
+                      setSelectedCountry(e.target.value);
+                      setSelectedCityId(null);
+                      setSelectedCityName(null);
+                    }}
+                    className="w-full px-3 py-2.5 rounded-lg bg-[var(--background)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
+                  >
+                    <option value="">Select a country</option>
+                    {templateCountries.map(c => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.name} ({c.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Step 3: City Dropdown (optional) */}
+                {selectedCountry && availableCities.length > 0 && (
+                  <div className="mb-4">
+                    <label className="text-sm font-medium mb-2 block">City (optional)</label>
+                    <select
+                      value={selectedCityId ?? ''}
+                      onChange={(e) => {
+                        const cityId = e.target.value ? parseInt(e.target.value) : null;
+                        setSelectedCityId(cityId);
+                        const city = availableCities.find(c => c.id === cityId);
+                        setSelectedCityName(city?.city_name || null);
+                      }}
+                      className="w-full px-3 py-2.5 rounded-lg bg-[var(--background)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
+                    >
+                      <option value="">Random (any city)</option>
+                      {availableCities.map(city => (
+                        <option key={city.id} value={city.id}>
+                          {city.city_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Step 4: GB Tier Buttons */}
+                {selectedCountry && gbTiers.length > 0 && (
+                  <div className="mb-4">
+                    <label className="text-sm font-medium mb-2 block">GB Amount</label>
+                    <div className="flex flex-wrap gap-2">
+                      {gbTiers.map(tier => (
+                        <button
+                          key={tier}
+                          onClick={() => setSelectedGbTier(tier)}
+                          className={`px-4 py-2 rounded-lg text-sm border transition-colors ${
+                            selectedGbTier === tier
+                              ? 'bg-[var(--primary)] text-black border-[var(--primary)]'
+                              : 'bg-[var(--background)] border-[var(--border)] hover:border-[var(--primary)]'
+                          }`}
+                        >
+                          {tier} GB
+                        </button>
+                      ))}
+                    </div>
+                    {selectedGbTier && pricePerGb > 0 && (
+                      <p className="text-sm text-[var(--muted)] mt-2">
+                        {selectedGbTier} GB x {formatPrice(pricePerGb)} = {' '}
+                        <span className="font-semibold text-[var(--primary)]">
+                          {formatPrice(pricePerGb * selectedGbTier)}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer: Add to Cart */}
+              <div className="p-4 border-t border-[var(--border)]">
+                <button
+                  onClick={addResidentialToCart}
+                  disabled={!selectedCountry || !selectedGbTier}
+                  className={`w-full py-3 font-semibold rounded-xl transition-colors ${
+                    selectedCountry && selectedGbTier
+                      ? 'bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black'
+                      : 'bg-[var(--border)] text-[var(--muted)] cursor-not-allowed'
+                  }`}
+                >
+                  Add to Cart
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =============================================================
+            Modal for ISP & DC (supports_city = false)
+            ============================================================= */}
+        {activeModal && currentTemplate && !supportsCity && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            onClick={closeModal}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+            <div
+              className="relative w-full max-w-2xl bg-[var(--card)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden animate-fade-in max-h-[90vh] flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-[var(--border)]">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold">{getTypeCardConfig(currentTemplate.plan_type).label}</h2>
+                    <p className="text-sm text-[var(--muted)] mt-1">
+                      Select countries and quantity per country
+                    </p>
+                  </div>
+                  <button
+                    onClick={closeModal}
+                    className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Step 2: Country Flag Grid */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium mb-2 block">Countries (click to select)</label>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
+                    {templateCountries.map(c => {
+                      const isSelected = selectedCountries.some(sc => sc.code === c.code);
+                      return (
+                        <button
+                          key={c.code}
+                          onClick={() => toggleCountryForIsp(c.code)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
+                            isSelected
+                              ? 'border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--foreground)] ring-2 ring-[var(--primary)]/30'
+                              : 'border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted)] hover:text-[var(--foreground)]'
+                          }`}
+                        >
+                          <span className="text-base leading-none">{c.flag}</span>
+                          <span className="font-medium">{c.code}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected Countries with Quantity */}
+              {selectedCountries.length > 0 && (
+                <div className="p-4 border-b border-[var(--border)] max-h-64 overflow-y-auto space-y-3">
+                  <label className="text-sm font-medium mb-2 block">Selected Countries</label>
+                  {selectedCountries.map(selection => {
+                    const country = COUNTRIES[selection.code];
+                    const variant = currentTemplate.variants?.find(
+                      v => v.country.toUpperCase() === selection.code.toUpperCase()
+                    );
+                    const pricePerIp = variant?.price_ngn || 0;
+                    const totalPrice = pricePerIp * selection.quantity;
+
                     return (
-                      <button
-                        key={c.code}
-                        onClick={() => setSelectedCountry(c.code)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all ${
-                          isActive
-                            ? 'border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--foreground)] ring-2 ring-[var(--primary)]/30'
-                            : 'border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted)] hover:text-[var(--foreground)]'
-                        }`}
+                      <div
+                        key={selection.code}
+                        className="flex items-center gap-3 p-3 rounded-lg bg-[var(--background)] border border-[var(--border)]"
                       >
-                        <span className="text-base leading-none">{c.flag}</span>
-                        <span className="font-medium">{c.code}</span>
-                      </button>
+                        <span className="text-2xl">{country?.flag || '🌍'}</span>
+                        <div className="flex-1">
+                          <p className="font-medium">{country?.name || selection.code}</p>
+                          <p className="text-xs text-[var(--muted)]">
+                            {formatPrice(pricePerIp)}/mo each
+                          </p>
+                        </div>
+                        
+                        {/* Quantity Input */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => updateCountryQuantity(selection.code, selection.quantity - 1)}
+                            disabled={selection.quantity <= 1}
+                            className="w-8 h-8 rounded-lg border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={selection.quantity}
+                            onChange={(e) => updateCountryQuantity(selection.code, parseInt(e.target.value) || 1)}
+                            className="w-16 px-2 py-1 text-center rounded-lg bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                          />
+                          <button
+                            onClick={() => updateCountryQuantity(selection.code, selection.quantity + 1)}
+                            className="w-8 h-8 rounded-lg border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)]"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Rotation Mode Toggle */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => updateRotationMode(selection.code, 'rotating')}
+                            className={`px-2 py-1 text-xs rounded ${
+                              selection.rotationMode === 'rotating'
+                                ? 'bg-[var(--primary)] text-black'
+                                : 'bg-[var(--card)] border border-[var(--border)]'
+                            }`}
+                          >
+                            Rotating
+                          </button>
+                          <button
+                            onClick={() => updateRotationMode(selection.code, 'static')}
+                            className={`px-2 py-1 text-xs rounded ${
+                              selection.rotationMode === 'static'
+                                ? 'bg-[var(--primary)] text-black'
+                                : 'bg-[var(--card)] border border-[var(--border)]'
+                            }`}
+                          >
+                            Static
+                          </button>
+                        </div>
+
+                        <span className="text-sm font-semibold text-[var(--primary)] min-w-[80px] text-right">
+                          {formatPrice(totalPrice)}
+                        </span>
+                      </div>
                     );
                   })}
                 </div>
-                {selectedCountry && (
-                  <p className="text-xs text-[var(--muted)] mt-3">
-                    Showing plans for <span className="font-semibold text-[var(--primary)]">
-                      {COUNTRIES[selectedCountry]?.flag} {COUNTRIES[selectedCountry]?.name}
-                    </span>
-                  </p>
-                )}
-
-                {/* City picker + GB quantity for residential/mobile */}
-                {(() => {
-                  const planType = currentTemplate.plan_type;
-                  if (planType !== 'residential' && planType !== 'mobile') return null;
-                  if (!selectedCountry) return null;
-
-                  const pricePerGb = countryVariants[0]?.price_ngn || 0;
-                  const minGb = currentTemplate.min_gb ?? 5;
-                  const maxGb = currentTemplate.max_gb ?? 50;
-                  const gbTiers = currentTemplate.gb_tiers ?? [minGb, 10, 20, 50];
-
-                  return (
-                    <div className="mt-4 p-3 rounded-lg bg-[var(--surface-2)] border border-[var(--border)]">
-                      <CityPicker
-                        planType={planType.toUpperCase()}
-                        country={selectedCountry}
-                        onCountryChange={(c: string) => {
-                          setSelectedCountry(c);
-                          setPendingCity({ id: null, name: null });
-                        }}
-                        onCityChange={(city: { id: number; city_name: string } | null) =>
-                          setPendingCity({ id: city?.id ?? null, name: city?.city_name ?? null })
-                        }
-                        selectedCityId={pendingCity.id}
-                        showLabels={true}
-                        compact={true}
-                      />
-                      <div className="mt-3">
-                        <label className="text-xs text-[var(--muted)] block mb-1">GB amount</label>
-                        <div className="flex flex-wrap gap-2">
-                          {gbTiers.map((tier: number) => (
-                            <button
-                              key={tier}
-                              onClick={() => setPendingQtyGb(tier)}
-                              className={`px-3 py-1 rounded-lg text-sm border transition-colors ${
-                                pendingQtyGb === tier
-                                  ? 'bg-[var(--primary)] text-black border-[var(--primary)]'
-                                  : 'bg-[var(--card)] border-[var(--border)] hover:border-[var(--primary)]'
-                              }`}
-                            >
-                              {tier} GB
-                            </button>
-                          ))}
-                        </div>
-                        {pendingQtyGb < minGb && (
-                          <p className="text-xs text-amber-400 mt-1">Minimum {minGb} GB</p>
-                        )}
-                        {pendingQtyGb > maxGb && (
-                          <p className="text-xs text-amber-400 mt-1">Maximum {maxGb} GB</p>
-                        )}
-                        {pricePerGb > 0 && (
-                          <p className="text-xs text-[var(--muted)] mt-2">
-                            {pendingQtyGb} GB × {formatPrice(pricePerGb)} = {' '}
-                            <span className="font-semibold text-[var(--primary)]">
-                              {formatPrice(pricePerGb * pendingQtyGb)}
-                            </span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Plan List */}
-              <div className="p-4 max-h-72 overflow-y-auto space-y-2">
-                {selectedCountry && (() => {
-                  const isIsp = currentTemplate.plan_type === 'isp';
-
-                  // ISP: one plan per country (quantity handled at cart level)
-                  if (isIsp) {
-                    const countryPlan = countryVariants[0];
-                    if (!countryPlan) return null;
-                    
-                    const cartItem = cart.find(i => i.plan_code === countryPlan.plan_code);
-                    const countryInfo = COUNTRIES[selectedCountry];
-                    
-                    return (
-                      <div
-                        key={countryPlan.plan_code}
-                        className="flex items-center justify-between p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
-                      >
-                        <div>
-                          <p className="font-semibold">
-                            {countryInfo?.flag} {countryInfo?.name || selectedCountry} ISP
-                          </p>
-                          <p className="text-sm text-[var(--muted)]">
-                            {countryPlan.rotation_mode === 'static' ? 'Static IP' : 'Rotating pool'}
-                            {countryPlan.is_active ? ' · In stock' : ' · Out of stock'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-semibold text-[var(--primary)]">
-                            {formatPrice(countryPlan.price_ngn)}/mo
-                          </span>
-                          <button
-                            onClick={() => addToCart(countryPlan, selectedCountry)}
-                            disabled={!countryPlan.is_active}
-                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                              countryPlan.is_active
-                                ? 'bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black'
-                                : 'bg-[var(--border)] text-[var(--muted)] cursor-not-allowed'
-                            }`}
-                          >
-                            {cartItem ? '✓ Added' : '+ Add'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // Non-ISP plans (Residential / Mobile / DC)
-                  return countryVariants.map(variant => {
-                    const cartItem = cart.find(i => i.plan_code === variant.plan_code);
-                    const isPerGb = currentTemplate.plan_type === 'residential' || currentTemplate.plan_type === 'mobile';
-                    const displayPrice = isPerGb 
-                      ? `${formatPrice(variant.price_ngn)}/GB`
-                      : `${formatPrice(variant.price_ngn)}/mo`;
-
-                    return (
-                      <div
-                        key={variant.plan_code}
-                        className="flex items-center justify-between p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
-                      >
-                        <div>
-                          <p className="font-semibold">
-                            {COUNTRIES[selectedCountry]?.flag} {variant.rotation_mode === 'static' ? 'Static' : 'Rotating'}
-                          </p>
-                          <p className="text-sm text-[var(--muted)]">
-                            {variant.quantity} GB{isPerGb ? '' : ' proxy'}
-                            {variant.is_active ? ' · In stock' : ' · Out of stock'}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-semibold text-[var(--primary)]">{displayPrice}</span>
-                          <button
-                            onClick={() => addToCart(variant, selectedCountry)}
-                            disabled={!variant.is_active}
-                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                              variant.is_active
-                                ? 'bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black'
-                                : 'bg-[var(--border)] text-[var(--muted)] cursor-not-allowed'
-                            }`}
-                          >
-                            {cartItem ? '✓ Added' : '+ Add'}
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-
-                {!selectedCountry && (
-                  <p className="text-sm text-[var(--muted)] text-center py-6">
-                    Pick a country above to see plans.
-                  </p>
-                )}
-              </div>
-
-              {/* Footer */}
-              {cart.length > 0 && (
-                <div className="p-4 border-t border-[var(--border)]">
-                  <button
-                    onClick={() => { closeModal(); router.push('/order/checkout'); }}
-                    className="w-full py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors"
-                  >
-                    Checkout → {formatPrice(cartTotal)}
-                  </button>
-                </div>
               )}
+
+              {/* Footer: Add to Cart */}
+              <div className="p-4 border-t border-[var(--border)]">
+                <button
+                  onClick={addIspDcToCart}
+                  disabled={selectedCountries.length === 0}
+                  className={`w-full py-3 font-semibold rounded-xl transition-colors ${
+                    selectedCountries.length > 0
+                      ? 'bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black'
+                      : 'bg-[var(--border)] text-[var(--muted)] cursor-not-allowed'
+                  }`}
+                >
+                  Add to Cart
+                </button>
+              </div>
             </div>
           </div>
         )}
