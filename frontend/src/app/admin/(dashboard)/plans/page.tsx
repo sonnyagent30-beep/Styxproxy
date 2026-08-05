@@ -265,6 +265,15 @@ export default function PlanSettingsPage() {
     );
   }
 
+  if (!planSettings.length && !plans.length) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="text-[var(--muted)]">No data loaded — check API connection.</div>
+        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-[var(--primary)] text-white rounded-lg">Reload</button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 px-4 md:px-0">
       {/* Header */}
