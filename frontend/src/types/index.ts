@@ -531,6 +531,7 @@ export interface PlanCreate {
   plan_type: string;
   country: string;
   price_ngn: number;
+  price_per_gb?: number;
   quantity: number;
   duration_days: number;
   features?: Record<string, unknown>;
@@ -540,6 +541,7 @@ export interface PlanCreate {
 
 export interface PlanUpdate {
   price_ngn?: number;
+  price_per_gb?: number;
   quantity?: number;
   duration_days?: number;
   features?: Record<string, unknown>;
