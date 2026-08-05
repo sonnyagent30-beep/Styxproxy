@@ -517,6 +517,7 @@ export interface Plan {
   plan_type: string;
   country: string;
   price_ngn: number;
+  price_per_gb: number | null;
   quantity: number;
   duration_days: number;
   features: Record<string, unknown> | null;

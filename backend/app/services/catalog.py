@@ -189,11 +189,16 @@ async def list_catalog(session: AsyncSession) -> dict:
             plan_code = plan.plan_code
 
             for rotation_mode in rotation_options:
-                # Compute price
+                # Compute price: use per-plan price when available, else fall back to plan_settings master
                 if is_per_gb:
-                    base_price = base_price_per_gb * quantity
+                    per_gb = float(plan.price_per_gb or 0)
+                    if per_gb <= 0:
+                        per_gb = base_price_per_gb  # fallback to master
+                    base_price = per_gb * quantity
                 else:
-                    base_price = float(plan.price_ngn or 0) or base_price_per_ip * quantity
+                    base_price = float(plan.price_ngn or 0)
+                    if base_price <= 0:
+                        base_price = base_price_per_ip * quantity  # fallback to master
 
                 if rotation_mode == "static":
                     base_price = base_price * float(plan.static_price_multiplier or 2.5)

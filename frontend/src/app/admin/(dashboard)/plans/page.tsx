@@ -52,8 +52,8 @@ function PlanPanel({ plan, onClose, onSaved }: PanelProps) {
     plan_code: plan?.plan_code ?? '',
     plan_type: plan?.plan_type ?? 'ISP',
     country: plan?.country ?? 'US',
-    price_ngn: plan?.price_ngn ?? 5000,
-    price_per_gb: (plan as any)?.price_per_gb ?? undefined,
+    price_ngn: plan?.price_ngn ?? (plan?.plan_type === 'ISP' || plan?.plan_type === 'DC' ? 8000 : 0),
+    price_per_gb: plan?.price_per_gb ?? (plan?.plan_type === 'MOBILE' || plan?.plan_type === 'RESIDENTIAL' ? 3000 : undefined),
     quantity: plan?.quantity ?? 1,
     duration_days: plan?.duration_days ?? 30,
     features: plan?.features ?? { features: [] },
@@ -197,7 +197,7 @@ function PlanPanel({ plan, onClose, onSaved }: PanelProps) {
               />
             </div>
 
-            {/* Price per GB — res/mobile only */}
+            {/* Price per GB — res/mobile always shown */}
             {(form.plan_type === 'RESIDENTIAL' || form.plan_type === 'MOBILE') && (
               <div>
                 <label className="block text-sm font-medium mb-2">
@@ -492,11 +492,15 @@ export default function AdminPlansPage() {
   // Panel state
   const [panel, setPanel] = useState<{ plan: Plan | null } | null>(null);
 
+  // Search + group state
+  const [search, setSearch] = useState('');
+  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set(['ISP','DC','MOBILE','RESIDENTIAL']));
+
   // Settings state
   const [settings, setSettings] = useState<PlanSetting[]>([]);
   const [settingsLoading, setSettingsLoading] = useState(false);
 
-  const limit = 20;
+  const limit = 500;  // load all plans for grouping
 
   const loadPlans = useCallback(async () => {
     setLoading(true);
@@ -591,19 +595,26 @@ export default function AdminPlansPage() {
       {/* ── Plans tab ── */}
       {tab === 'plans' && (
         <>
-          {/* Stats */}
-          <div className="grid sm:grid-cols-3 gap-4 mb-6">
-            <div className="p-5 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-              <p className="text-sm text-[var(--muted)] mb-1">Total Plans</p>
-              <p className="text-2xl font-bold">{total}</p>
+          {/* Search + quick stats */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+            <div className="relative flex-1">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by plan code or country..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:outline-none focus:border-[var(--primary)] text-sm"
+              />
             </div>
-            <div className="p-5 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-              <p className="text-sm text-[var(--muted)] mb-1">Active</p>
-              <p className="text-2xl font-bold text-green-400">{activeCount}</p>
-            </div>
-            <div className="p-5 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-              <p className="text-sm text-[var(--muted)] mb-1">Inactive</p>
-              <p className="text-2xl font-bold text-gray-400">{inactiveCount}</p>
+            <div className="flex gap-2 text-sm text-[var(--muted)] shrink-0">
+              <span>{plans.length} plans</span>
+              <span>&middot;</span>
+              <span className="text-green-400">{activeCount} active</span>
+              <span>&middot;</span>
+              <span className="text-gray-400">{inactiveCount} inactive</span>
             </div>
           </div>
 
@@ -615,106 +626,121 @@ export default function AdminPlansPage() {
             </div>
           )}
 
-          {/* Table */}
-          <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] overflow-hidden">
-            {loading && plans.length === 0 ? (
-              <div className="animate-pulse h-64" />
-            ) : plans.length === 0 ? (
-              <div className="p-12 text-center text-[var(--muted)]">No plans found</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-[var(--border)]">
-                      <th className="text-left p-4 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Plan Code</th>
-                      <th className="text-left p-4 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Type</th>
-                      <th className="text-left p-4 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Country</th>
-                      <th className="text-left p-4 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Price</th>
-                      <th className="text-left p-4 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Details</th>
-                      <th className="text-left p-4 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Status</th>
-                      <th className="text-right p-4 text-xs font-semibold text-[var(--muted)] uppercase tracking-wide">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {plans.map(plan => (
-                      <tr key={plan.id} className="border-b border-[var(--border)] hover:bg-[var(--card-hover)] transition-colors">
-                        <td className="p-4">
-                          <span className="font-mono font-semibold text-sm">{plan.plan_code}</span>
-                        </td>
-                        <td className="p-4"><TypeBadge type={plan.plan_type} /></td>
-                        <td className="p-4">
-                          <span className="text-xl mr-2">{getCountryFlag(plan.country)}</span>
-                          <span className="text-sm">{getCountryName(plan.country)}</span>
-                        </td>
-                        <td className="p-4">
-                          <span className="font-semibold text-[var(--primary)]">{fmt(plan.price_ngn)}</span>
-                        </td>
-                        <td className="p-4">
-                          <span className="text-sm text-[var(--muted)]">
-                            {plan.quantity} units &times; {plan.duration_days}d
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            plan.is_active
-                              ? 'bg-green-500/20 text-green-400'
-                              : 'bg-gray-500/20 text-gray-400'
-                          }`}>
-                            {plan.is_active ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => setPanel({ plan })}
-                              className="p-2 rounded-lg hover:bg-[var(--card-hover)] transition-colors"
-                              title="Edit"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
-                              onClick={() => handleDelete(plan.id)}
-                              className="p-2 rounded-lg hover:bg-red-500/10 transition-colors text-red-400"
-                              title="Delete"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-[var(--muted)]">Page {page} of {totalPages}</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-4 py-2 rounded-xl bg-[var(--card)] border border-[var(--border)] disabled:opacity-40 hover:bg-[var(--card-hover)] transition-colors text-sm"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="px-4 py-2 rounded-xl bg-[var(--card)] border border-[var(--border)] disabled:opacity-40 hover:bg-[var(--card-hover)] transition-colors text-sm"
-                >
-                  Next
-                </button>
-              </div>
+          {/* Grouped plans by type */}
+          {loading && plans.length === 0 ? (
+            <div className="space-y-4">
+              {[1,2,3,4].map(i => <div key={i} className="h-24 rounded-2xl animate-pulse bg-[var(--card)]" />)}
             </div>
-          )}
+          ) : (() => {
+            const PLAN_TYPES = ['ISP', 'DC', 'MOBILE', 'RESIDENTIAL'];
+            // Group plans
+            const grouped: Record<string, Plan[]> = {};
+            for (const pt of PLAN_TYPES) grouped[pt] = [];
+            for (const p of plans) {
+              const key = p.plan_type.toUpperCase();
+              if (grouped[key]) grouped[key].push(p);
+              else grouped['RESIDENTIAL'].push(p); // fallback
+            }
+            // Filter by search
+            const q = search.toLowerCase();
+            const filtered = (plans: Plan[]) => q
+              ? plans.filter(p => p.plan_code.toLowerCase().includes(q) || p.country.toLowerCase().includes(q))
+              : plans;
+            const toggleType = (pt: string) => setExpandedTypes(prev => {
+              const next = new Set(prev);
+              next.has(pt) ? next.delete(pt) : next.add(pt);
+              return next;
+            });
+            return (
+              <div className="space-y-3">
+                {PLAN_TYPES.map(pt => {
+                  const typePlans = filtered(grouped[pt] || []);
+                  const isExpanded = expandedTypes.has(pt);
+                  const active = typePlans.filter(p => p.is_active).length;
+                  const isPerGb = pt === 'MOBILE' || pt === 'RESIDENTIAL';
+                  if (q && typePlans.length === 0) return null;
+                  return (
+                    <div key={pt} className="rounded-2xl border border-[var(--border)] overflow-hidden bg-[var(--card)]">
+                      {/* Section header */}
+                      <button
+                        onClick={() => toggleType(pt)}
+                        className="w-full flex items-center justify-between px-5 py-3 hover:bg-[var(--card-hover)] transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <TypeBadge type={pt} />
+                          <span className="text-sm font-medium">{typePlans.length} products</span>
+                          <span className="text-xs text-[var(--muted)]">&middot;</span>
+                          <span className="text-xs text-green-400">{active} active</span>
+                          {isPerGb && <span className="text-xs text-[var(--muted)]">&middot; per-GB pricing</span>}
+                        </div>
+                        <svg className={`w-4 h-4 text-[var(--muted)] transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {/* Plans list */}
+                      {isExpanded && (
+                        <div className="border-t border-[var(--border)]">
+                          {typePlans.length === 0 ? (
+                            <div className="p-6 text-center text-[var(--muted)] text-sm">No products in this group</div>
+                          ) : (
+                            <table className="w-full">
+                              <thead>
+                                <tr className="border-b border-[var(--border)]">
+                                  <th className="text-left p-3 pl-5 text-xs font-semibold text-[var(--muted)]">Plan Code</th>
+                                  <th className="text-left p-3 text-xs font-semibold text-[var(--muted)]">Country</th>
+                                  <th className="text-left p-3 text-xs font-semibold text-[var(--muted)]">Price</th>
+                                  <th className="text-left p-3 text-xs font-semibold text-[var(--muted)]">GB Tier</th>
+                                  <th className="text-left p-3 text-xs font-semibold text-[var(--muted)]">Status</th>
+                                  <th className="text-right p-3 pr-5 text-xs font-semibold text-[var(--muted)]">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {typePlans.map(plan => (
+                                  <tr key={plan.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--card-hover)] transition-colors">
+                                    <td className="p-3 pl-5">
+                                      <span className="font-mono text-sm">{plan.plan_code}</span>
+                                    </td>
+                                    <td className="p-3">
+                                      <span className="mr-2">{getCountryFlag(plan.country)}</span>
+                                      <span className="text-sm">{getCountryName(plan.country)}</span>
+                                    </td>
+                                    <td className="p-3">
+                                      {isPerGb ? (
+                                        <div>
+                                          <span className="font-semibold text-[var(--primary)]">₦{Number(plan.price_per_gb || 0).toLocaleString()}/GB</span>
+                                          <span className="text-xs text-[var(--muted)] ml-1">× {plan.quantity} GB</span>
+                                        </div>
+                                      ) : (
+                                        <span className="font-semibold text-[var(--primary)]">{fmt(plan.price_ngn)}</span>
+                                      )}
+                                    </td>
+                                    <td className="p-3 text-sm text-[var(--muted)]">{plan.quantity} GB</td>
+                                    <td className="p-3">
+                                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${plan.is_active ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                                        {plan.is_active ? 'Active' : 'Inactive'}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 pr-5 text-right">
+                                      <button
+                                        onClick={() => setPanel({ plan })}
+                                        className="px-3 py-1 rounded-lg text-xs font-medium bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
+                                      >
+                                        Edit
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </>
       )}
 
