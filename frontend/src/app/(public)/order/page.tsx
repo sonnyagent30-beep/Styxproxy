@@ -1,76 +1,98 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { CityPicker } from '@/components/CityPicker';
 import { useRouter } from 'next/navigation';
-import { products, getProductsByGroup, formatPrice } from '@/lib/products';
 import {
+  formatPrice,
   COUNTRIES,
-  PRODUCT_COUNTRIES,
   type CountryInfo,
 } from '@/lib/products';
-import { getAvailableCountries, formatPlanName } from '@/lib/products_page';
-import type { CartItem, Product } from '@/types';
-import api from '@/lib/api';
-import { Globe, House, DeviceMobile, HardDrives, ArrowRight, X } from '@phosphor-icons/react';
+import type { CartItem, CatalogResponse, CatalogTemplate, CatalogVariant, CatalogPlanType } from '@/types';
+import { Globe, House, DeviceMobile, HardDrives, ArrowRight, X, ArrowsClockwise } from '@phosphor-icons/react';
 
-// Type card metadata
-const typeCards = [
-  {
-    key: 'ISP',
-    label: 'ISP Proxies',
-    icon: <Globe className="w-8 h-8" />,
-    description: 'High-speed ISP IPs, ideal for web scraping and automation',
-    price: 'From ₦6,500/mo',
-    hasGeoPlans: true,
-  },
-  {
-    key: 'RESIDENTIAL',
-    label: 'Residential',
-    icon: <House className="w-8 h-8" />,
-    description: 'Real residential IPs, harder to detect and block',
-    price: 'From ₦5,000',
-    hasGeoPlans: false,
-  },
-  {
-    key: 'MOBILE',
-    label: 'Mobile 4G',
-    icon: <DeviceMobile className="w-8 h-8" />,
-    description: 'Mobile carrier IPs, perfect for social media and ad verification',
-    price: 'From ₦20,000',
-    hasGeoPlans: false,
-  },
-  {
-    key: 'DC',
-    label: 'Datacenter',
-    icon: <HardDrives className="w-8 h-8" />,
-    description: 'Fast datacenter proxies for general purpose use',
-    price: 'From ₦2,500/mo',
-    hasGeoPlans: false,
-  },
-];
-
-// Build synthetic plan_code for a GLOBAL plan + selected country
-function makePlanCode(planType: string, countryCode: string, baseCode: string) {
-  // If the country matches an existing ISP-{COUNTRY}-1 plan, prefer that real code
-  if (planType === 'ISP') {
-    const realPlan = products.find(p => p.plan_code === `ISP-${countryCode}-1`);
-    if (realPlan) return realPlan.plan_code;
+// Map catalog plan_type to display icons and labels
+function getTypeCardConfig(planType: CatalogPlanType): {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  description: string;
+} {
+  switch (planType) {
+    case 'isp':
+      return {
+        key: 'ISP',
+        label: 'ISP Proxies',
+        icon: <Globe className="w-8 h-8" />,
+        description: 'High-speed ISP IPs, ideal for web scraping and automation',
+      };
+    case 'residential':
+      return {
+        key: 'RESIDENTIAL',
+        label: 'Residential',
+        icon: <House className="w-8 h-8" />,
+        description: 'Real residential IPs, harder to detect and block',
+      };
+    case 'mobile':
+      return {
+        key: 'MOBILE',
+        label: 'Mobile 4G',
+        icon: <DeviceMobile className="w-8 h-8" />,
+        description: 'Mobile carrier IPs, perfect for social media and ad verification',
+      };
+    case 'datacenter':
+      return {
+        key: 'DC',
+        label: 'Datacenter',
+        icon: <HardDrives className="w-8 h-8" />,
+        description: 'Fast datacenter proxies for general purpose use',
+      };
+    default:
+      return {
+        key: planType.toUpperCase(),
+        label: planType,
+        icon: <Globe className="w-8 h-8" />,
+        description: '',
+      };
   }
-  // Otherwise use a synthetic composite code so the cart and checkout can resolve uniquely
-  return `${planType}-${countryCode}-${baseCode}`;
+}
+
+// Extract cheapest price for a template
+function getCheapestPrice(template: CatalogTemplate): number | null {
+  if (!template.variants || template.variants.length === 0) return null;
+  return Math.min(...template.variants.map(v => v.price_ngn));
 }
 
 export default function OrderPage() {
   const router = useRouter();
+  const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [addedMessage, setAddedMessage] = useState('');
-  // Country selected in the active modal — used to scope the plan list
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  // Sprint 13: city picker + GB quantity for residential/mobile add-to-cart
   const [pendingCity, setPendingCity] = useState<{ id: number | null; name: string | null }>({ id: null, name: null });
   const [pendingQtyGb, setPendingQtyGb] = useState<number>(5);
+
+  // Fetch catalog on mount
+  useEffect(() => {
+    async function fetchCatalog() {
+      try {
+        const res = await fetch('/api/catalog', { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error(`Failed to fetch catalog: ${res.status}`);
+        }
+        const data: CatalogResponse = await res.json();
+        setCatalog(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load catalog');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCatalog();
+  }, []);
 
   // Load cart from sessionStorage
   useEffect(() => {
@@ -83,15 +105,89 @@ export default function OrderPage() {
     }
   }, []);
 
-  const saveCart = (newCart: CartItem[]) => {
+  // Stale cart fix: verify cart items still exist in catalog
+  useEffect(() => {
+    if (!catalog || catalog.templates.length === 0) return;
+    
+    // Build set of valid plan_codes from catalog
+    const validPlanCodes = new Set<string>();
+    for (const template of catalog.templates) {
+      for (const variant of template.variants) {
+        validPlanCodes.add(variant.plan_code);
+      }
+    }
+    
+    // Remove items whose plan_codes no longer exist
+    const validCart = cart.filter(item => validPlanCodes.has(item.plan_code));
+    if (validCart.length !== cart.length) {
+      setCart(validCart);
+      sessionStorage.setItem('styxproxy_cart', JSON.stringify(validCart));
+    }
+  }, [catalog]);
+
+  const saveCart = useCallback((newCart: CartItem[]) => {
     setCart(newCart);
     sessionStorage.setItem('styxproxy_cart', JSON.stringify(newCart));
-  };
+  }, []);
 
-  // Open the modal and default the country selector to the first available country
+  // Build typeCards from catalog
+  const typeCards = useMemo(() => {
+    if (!catalog || !catalog.templates) return [];
+    
+    return catalog.templates.map(template => {
+      const config = getTypeCardConfig(template.plan_type);
+      const cheapestPrice = getCheapestPrice(template);
+      const isPerIp = template.plan_type === 'isp' || template.plan_type === 'datacenter';
+      
+      return {
+        ...config,
+        price: cheapestPrice !== null 
+          ? `From ${formatPrice(cheapestPrice)}${isPerIp ? '/mo' : ''}`
+          : 'Check pricing',
+        countryCount: template.available_countries?.length || 0,
+        hasGeoPlans: template.plan_type === 'isp',
+      };
+    });
+  }, [catalog]);
+
+  // Get current template from active modal
+  const currentTemplate = useMemo(() => {
+    if (!activeModal || !catalog) return null;
+    return catalog.templates.find(t => 
+      getTypeCardConfig(t.plan_type).key === activeModal
+    ) || null;
+  }, [activeModal, catalog]);
+
+  // Get countries for current template
+  const templateCountries = useMemo(() => {
+    if (!currentTemplate || !currentTemplate.available_countries) return [];
+    
+    return currentTemplate.available_countries.map(code => {
+      const country = COUNTRIES[code.toUpperCase()];
+      return {
+        code: code.toUpperCase(),
+        name: country?.name || code,
+        flag: country?.flag || '🌍',
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [currentTemplate]);
+
+  // Get variants filtered by selected country
+  const countryVariants = useMemo(() => {
+    if (!currentTemplate || !selectedCountry || !currentTemplate.variants) return [];
+    
+    return currentTemplate.variants.filter(
+      v => v.country.toUpperCase() === selectedCountry.toUpperCase()
+    );
+  }, [currentTemplate, selectedCountry]);
+
   const openModal = (key: string) => {
     setActiveModal(key);
-    const firstCountry = (PRODUCT_COUNTRIES[key] || [])[0];
+    // Set default country to first available
+    const template = catalog?.templates.find(t => 
+      getTypeCardConfig(t.plan_type).key === key
+    );
+    const firstCountry = template?.available_countries?.[0]?.toUpperCase();
     setSelectedCountry(firstCountry || null);
     setPendingCity({ id: null, name: null });
     setPendingQtyGb(5);
@@ -104,26 +200,39 @@ export default function OrderPage() {
     setPendingQtyGb(5);
   };
 
-  const addToCart = (product: Product, countryCode: string, options?: { quantity_gb?: number; city_id?: number | null; city_name?: string | null }) => {
-    const country = COUNTRIES[countryCode];
-    const planCode = makePlanCode(product.plan_type, countryCode, product.plan_code);
-    const name =
-      product.plan_type === 'ISP'
-        ? `${country.name} ISP`
-        : `${country.name} · ${product.features[0] || ''}`;
+  const addToCart = (variant: CatalogVariant, countryCode: string) => {
+    const country = COUNTRIES[countryCode.toUpperCase()];
+    const isPerGb = currentTemplate?.plan_type === 'residential' || currentTemplate?.plan_type === 'mobile';
+    
+    // Build cart item name
+    const rotationLabel = variant.rotation_mode === 'static' ? 'Static IP' : 'Rotating pool';
+    const name = currentTemplate?.plan_type === 'isp'
+      ? `${country?.name || countryCode} ISP`
+      : `${country?.name || countryCode} · ${rotationLabel}`;
 
-    // Sprint 13: per-GB plans start with quantity_gb; per-IP plans start with quantity 1
-    const isPerGb = (product.plan_type === 'RESIDENTIAL' || product.plan_type === 'MOBILE')
-      && typeof product.price_per_gb === 'number';
-    const defaultQty = isPerGb ? (product.min_gb ?? 5) : 1;
-    const startingQty = options?.quantity_gb ?? defaultQty;
+    // Calculate price
+    let itemPrice: number;
+    let quantityGb: number | undefined;
+    let pricePerGb: number | undefined;
+    
+    if (isPerGb) {
+      // Per-GB pricing: price_ngn in cart = variant.price_ngn * quantity_gb
+      quantityGb = pendingQtyGb;
+      pricePerGb = variant.price_ngn;
+      itemPrice = variant.price_ngn * pendingQtyGb;
+    } else {
+      // Per-IP (ISP/DC): fixed monthly price
+      itemPrice = variant.price_ngn;
+    }
 
+    const planCode = variant.plan_code;
     const existing = cart.find(i => i.plan_code === planCode);
+    
     if (existing) {
       const updated = cart.map(i => {
         if (i.plan_code === planCode) {
           if (isPerGb && typeof i.quantity_gb === 'number') {
-            return { ...i, quantity_gb: i.quantity_gb + startingQty };
+            return { ...i, quantity_gb: i.quantity_gb + pendingQtyGb, price_ngn: i.price_ngn + itemPrice };
           }
           return { ...i, quantity: i.quantity + 1 };
         }
@@ -131,41 +240,88 @@ export default function OrderPage() {
       });
       saveCart(updated);
     } else {
-      const newItem: import('@/types').CartItem = {
+      const newItem: CartItem = {
         plan_code: planCode,
         name,
-        flag: country.flag,
-        price_ngn: product.price_ngn,
-        quantity: isPerGb ? 1 : 1,
-        country_code: countryCode,
-        plan_type: product.plan_type,
-        // Sprint 13: per-GB pricing + city picker
-        quantity_gb: isPerGb ? startingQty : undefined,
-        city_id: options?.city_id ?? null,
-        city_name: options?.city_name ?? null,
-        price_per_gb: product.price_per_gb ?? undefined,
-        min_gb: product.min_gb ?? undefined,
-        max_gb: product.max_gb ?? undefined,
-        gb_tiers: product.gb_tiers ?? undefined,
-        supports_city: product.supports_city ?? false,
+        flag: country?.flag || '🌍',
+        price_ngn: itemPrice,
+        quantity: isPerGb ? 1 : variant.quantity,
+        country_code: countryCode.toUpperCase(),
+        plan_type: currentTemplate?.plan_type?.toUpperCase() as CartItem['plan_type'],
+        quantity_gb: quantityGb,
+        city_id: pendingCity.id,
+        city_name: pendingCity.name,
+        price_per_gb: pricePerGb,
+        min_gb: currentTemplate?.min_gb ?? undefined,
+        max_gb: currentTemplate?.max_gb ?? undefined,
+        gb_tiers: currentTemplate?.gb_tiers ?? undefined,
+        supports_city: currentTemplate?.supports_city ?? false,
       };
       saveCart([...cart, newItem]);
     }
-    setAddedMessage(`${country.flag} ${name} added to cart`);
+    setAddedMessage(`${country?.flag || '🌍'} ${name} added to cart`);
     setTimeout(() => setAddedMessage(''), 2000);
   };
 
-  const cartTotal = cart.reduce((sum, i) => sum + i.price_ngn * i.quantity, 0);
-  const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
+  const cartTotal = cart.reduce((sum, i) => sum + i.price_ngn, 0);
+  const cartCount = cart.length;
 
-  // For the active modal: the variants filtered by selectedCountry (when applicable) and the country list
-  const modalData = useMemo(() => {
-    if (!activeModal) return null;
-    const card = typeCards.find(c => c.key === activeModal);
-    const variants = getProductsByGroup(activeModal);
-    const countries = getAvailableCountries(activeModal);
-    return { card, variants, countries };
-  }, [activeModal]);
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    window.location.reload();
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-24 pb-32">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-bold mb-3">
+              Choose Your <span className="gradient-text">Proxy Type</span>
+            </h1>
+            <p className="text-[var(--muted)]">
+              Pick a proxy type, choose your country, and add to cart
+            </p>
+          </div>
+          <div className="flex items-center justify-center py-20">
+            <div className="flex items-center gap-3 text-[var(--muted)]">
+              <ArrowsClockwise className="animate-spin" size={24} />
+              <span>Loading catalog...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen pt-24 pb-32">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-bold mb-3">
+              Choose Your <span className="gradient-text">Proxy Type</span>
+            </h1>
+            <p className="text-[var(--muted)]">
+              Pick a proxy type, choose your country, and add to cart
+            </p>
+          </div>
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <p className="text-red-400">{error}</p>
+            <button
+              onClick={handleRetry}
+              className="px-6 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg transition-all duration-200"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pt-24 pb-32">
@@ -199,7 +355,7 @@ export default function OrderPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-[var(--primary)]">{card.price}</span>
                 <span className="text-xs text-[var(--muted)]">
-                  {(PRODUCT_COUNTRIES[card.key] || []).length} countries
+                  {card.countryCount} countries
                 </span>
               </div>
             </button>
@@ -244,9 +400,8 @@ export default function OrderPage() {
 
         {/* =============================================================
             Country + Plan Picker Modal
-            Renders: country grid, plan list filtered by selected country
             ============================================================= */}
-        {modalData && (
+        {activeModal && currentTemplate && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             onClick={closeModal}
@@ -261,7 +416,7 @@ export default function OrderPage() {
               <div className="p-6 border-b border-[var(--border)]">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h2 className="text-xl font-bold">{modalData.card?.label}</h2>
+                    <h2 className="text-xl font-bold">{getTypeCardConfig(currentTemplate.plan_type).label}</h2>
                     <p className="text-sm text-[var(--muted)] mt-1">
                       Step 1 — pick your country. Step 2 — pick a plan.
                     </p>
@@ -276,7 +431,7 @@ export default function OrderPage() {
 
                 {/* Country Grid */}
                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
-                  {modalData.countries.map(c => {
+                  {templateCountries.map(c => {
                     const isActive = selectedCountry === c.code;
                     return (
                       <button
@@ -302,21 +457,21 @@ export default function OrderPage() {
                   </p>
                 )}
 
-                {/* Sprint 13: city picker + GB quantity for residential/mobile plans */}
+                {/* City picker + GB quantity for residential/mobile */}
                 {(() => {
-                  if (!selectedCountry || !modalData?.card) return null;
-                  const cardKey = modalData.card.key as string;
-                  if (cardKey !== 'RESIDENTIAL' && cardKey !== 'MOBILE') return null;
-                  // Find the displayed product to read pricing
-                  const firstProduct = modalData.variants?.[0];
-                  const pricePerGb = (firstProduct?.price_per_gb ?? null) as number | null;
-                  const minGb = (firstProduct?.min_gb ?? 5) as number;
-                  const maxGb = (firstProduct?.max_gb ?? 50) as number;
-                  const gbTiers = (firstProduct?.gb_tiers ?? [minGb, 10, 20, 50]) as number[];
+                  const planType = currentTemplate.plan_type;
+                  if (planType !== 'residential' && planType !== 'mobile') return null;
+                  if (!selectedCountry) return null;
+
+                  const pricePerGb = countryVariants[0]?.price_ngn || 0;
+                  const minGb = currentTemplate.min_gb ?? 5;
+                  const maxGb = currentTemplate.max_gb ?? 50;
+                  const gbTiers = currentTemplate.gb_tiers ?? [minGb, 10, 20, 50];
+
                   return (
                     <div className="mt-4 p-3 rounded-lg bg-[var(--surface-2)] border border-[var(--border)]">
                       <CityPicker
-                        planType={cardKey}
+                        planType={planType.toUpperCase()}
                         country={selectedCountry}
                         onCountryChange={(c: string) => {
                           setSelectedCountry(c);
@@ -352,7 +507,7 @@ export default function OrderPage() {
                         {pendingQtyGb > maxGb && (
                           <p className="text-xs text-amber-400 mt-1">Maximum {maxGb} GB</p>
                         )}
-                        {pricePerGb && (
+                        {pricePerGb > 0 && (
                           <p className="text-xs text-[var(--muted)] mt-2">
                             {pendingQtyGb} GB × {formatPrice(pricePerGb)} = {' '}
                             <span className="font-semibold text-[var(--primary)]">
@@ -366,19 +521,19 @@ export default function OrderPage() {
                 })()}
               </div>
 
-              {/* Plan List — one card per country (deduplicated by country code) */}
+              {/* Plan List */}
               <div className="p-4 max-h-72 overflow-y-auto space-y-2">
                 {selectedCountry && (() => {
-                  // ISP has hasGeoPlans=true → one plan per country (quantity is handled at cart level)
-                  if (modalData.card?.hasGeoPlans) {
-                    // Find the country-specific ISP plan; fall back to first ISP product if not found
-                    const countryPlan = products.find(
-                      p => p.plan_code === `ISP-${selectedCountry}-1`
-                    ) || products.find(p => p.plan_type === 'ISP');
+                  const isIsp = currentTemplate.plan_type === 'isp';
+
+                  // ISP: one plan per country (quantity handled at cart level)
+                  if (isIsp) {
+                    const countryPlan = countryVariants[0];
                     if (!countryPlan) return null;
-                    const cartItem = cart.find(
-                      i => i.plan_code === makePlanCode(countryPlan.plan_type, selectedCountry, countryPlan.plan_code)
-                    );
+                    
+                    const cartItem = cart.find(i => i.plan_code === countryPlan.plan_code);
+                    const countryInfo = COUNTRIES[selectedCountry];
+                    
                     return (
                       <div
                         key={countryPlan.plan_code}
@@ -386,15 +541,25 @@ export default function OrderPage() {
                       >
                         <div>
                           <p className="font-semibold">
-                            {COUNTRIES[selectedCountry]?.flag} {countryPlan.country} ISP
+                            {countryInfo?.flag} {countryInfo?.name || selectedCountry} ISP
                           </p>
-                          <p className="text-sm text-[var(--muted)]">{countryPlan.features[0]}</p>
+                          <p className="text-sm text-[var(--muted)]">
+                            {countryPlan.rotation_mode === 'static' ? 'Static IP' : 'Rotating pool'}
+                            {countryPlan.is_active ? ' · In stock' : ' · Out of stock'}
+                          </p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-semibold text-[var(--primary)]">{formatPrice(countryPlan.price_ngn)}</span>
+                          <span className="font-semibold text-[var(--primary)]">
+                            {formatPrice(countryPlan.price_ngn)}/mo
+                          </span>
                           <button
                             onClick={() => addToCart(countryPlan, selectedCountry)}
-                            className="px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium text-sm transition-colors"
+                            disabled={!countryPlan.is_active}
+                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                              countryPlan.is_active
+                                ? 'bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black'
+                                : 'bg-[var(--border)] text-[var(--muted)] cursor-not-allowed'
+                            }`}
                           >
                             {cartItem ? '✓ Added' : '+ Add'}
                           </button>
@@ -403,39 +568,38 @@ export default function OrderPage() {
                     );
                   }
 
-                  // Non-Geo plans (Residential / Mobile / DC) — show GLOBAL plans
-                  return modalData.variants.map(product => {
-                    const cartItem = cart.find(
-                      i => i.plan_code === makePlanCode(product.plan_type, selectedCountry, product.plan_code)
-                    );
+                  // Non-ISP plans (Residential / Mobile / DC)
+                  return countryVariants.map(variant => {
+                    const cartItem = cart.find(i => i.plan_code === variant.plan_code);
+                    const isPerGb = currentTemplate.plan_type === 'residential' || currentTemplate.plan_type === 'mobile';
+                    const displayPrice = isPerGb 
+                      ? `${formatPrice(variant.price_ngn)}/GB`
+                      : `${formatPrice(variant.price_ngn)}/mo`;
+
                     return (
                       <div
-                        key={product.plan_code}
+                        key={variant.plan_code}
                         className="flex items-center justify-between p-4 rounded-xl bg-[var(--background)] border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
                       >
                         <div>
                           <p className="font-semibold">
-                            {COUNTRIES[selectedCountry]?.flag} {formatPlanName(product)}
+                            {COUNTRIES[selectedCountry]?.flag} {variant.rotation_mode === 'static' ? 'Static' : 'Rotating'}
                           </p>
-                          <p className="text-sm text-[var(--muted)]">{product.features[0]}</p>
+                          <p className="text-sm text-[var(--muted)]">
+                            {variant.quantity} GB{isPerGb ? '' : ' proxy'}
+                            {variant.is_active ? ' · In stock' : ' · Out of stock'}
+                          </p>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="font-semibold text-[var(--primary)]">{formatPrice(product.price_ngn)}</span>
+                          <span className="font-semibold text-[var(--primary)]">{displayPrice}</span>
                           <button
-                            onClick={() => {
-                              const isPerGb = (product.plan_type === 'RESIDENTIAL' || product.plan_type === 'MOBILE')
-                                && typeof product.price_per_gb === 'number';
-                              if (isPerGb) {
-                                addToCart(product, selectedCountry, {
-                                  quantity_gb: pendingQtyGb,
-                                  city_id: pendingCity.id,
-                                  city_name: pendingCity.name,
-                                });
-                              } else {
-                                addToCart(product, selectedCountry);
-                              }
-                            }}
-                            className="px-4 py-2 rounded-lg bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium text-sm transition-colors"
+                            onClick={() => addToCart(variant, selectedCountry)}
+                            disabled={!variant.is_active}
+                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                              variant.is_active
+                                ? 'bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black'
+                                : 'bg-[var(--border)] text-[var(--muted)] cursor-not-allowed'
+                            }`}
                           >
                             {cartItem ? '✓ Added' : '+ Add'}
                           </button>
