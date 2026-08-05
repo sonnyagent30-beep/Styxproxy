@@ -104,12 +104,24 @@ async def get_stats(session: AsyncSession = Depends(get_session)):
             select(func.count()).select_from(StyxproxyCredential).where(StyxproxyCredential.status == "active")
         )
     ).scalar() or 0
+
+    # Count plans per type
+    plan_counts: dict[str, int] = {}
+    for plan_type in ["ISP", "DC", "MOBILE", "RESIDENTIAL"]:
+        count = (
+            await session.execute(
+                select(func.count()).select_from(Plan).where(Plan.plan_type == plan_type)
+            )
+        ).scalar() or 0
+        plan_counts[plan_type] = count
+
     return AdminStatsResponse(
         total_customers=total_customers,
         active_orders=active_orders,
         total_revenue_ngn=float(total_revenue or 0),
         free_trials_today=free_trials_today,
         active_credentials=active_credentials,
+        plan_counts=plan_counts,
     )
 
 

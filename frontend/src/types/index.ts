@@ -93,6 +93,7 @@ export interface AdminStats {
   total_revenue_ngn: number;
   free_trials_today: number;
   active_credentials: number;
+  plan_counts: Record<string, number>;
 }
 
 // Cart item — represents a single line in the buyer's cart.

@@ -225,6 +225,29 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
+      {/* Plan Stock Overview */}
+      {stats?.plan_counts && Object.keys(stats.plan_counts).length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Plan Stock Overview</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { key: 'ISP', label: 'ISP Proxies', color: 'text-blue-400', bg: 'bg-blue-500/20' },
+              { key: 'DC', label: 'Datacenter', color: 'text-purple-400', bg: 'bg-purple-500/20' },
+              { key: 'MOBILE', label: 'Mobile 4G', color: 'text-orange-400', bg: 'bg-orange-500/20' },
+              { key: 'RESIDENTIAL', label: 'Residential', color: 'text-green-400', bg: 'bg-green-500/20' },
+            ].map(({ key, label, color, bg }) => (
+              <div key={key} className={`p-4 rounded-xl border border-[var(--border)] ${bg}`}>
+                <p className={`text-sm font-medium ${color}`}>{label}</p>
+                <p className={`text-3xl font-bold mt-1 ${color}`}>
+                  {stats.plan_counts[key] ?? 0}
+                </p>
+                <p className="text-xs text-[var(--muted)] mt-1">active plans</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* System Health Detail */}
       <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] mb-8">
         <div className="flex items-center justify-between mb-4">

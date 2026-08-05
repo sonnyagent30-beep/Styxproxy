@@ -629,6 +629,7 @@ class AdminStatsResponse(BaseModel):
     total_revenue_ngn: float
     free_trials_today: int
     active_credentials: int
+    plan_counts: dict[str, int]  # e.g. {"ISP": 6, "DC": 2, "MOBILE": 48, "RESIDENTIAL": 48}
 
 
 class AdminCustomerResponse(BaseModel):
