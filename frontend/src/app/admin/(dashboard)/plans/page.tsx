@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import type { Plan, PlanCreate, PlanUpdate, PaginatedResponse } from '@/types';
+import { COUNTRIES } from '@/lib/products';
+import type { Plan, PlanCreate, PlanUpdate } from '@/types';
 
 export default function AdminPlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -218,7 +219,7 @@ export default function AdminPlansPage() {
                     <td className="p-4">{getTypeBadge(plan.plan_type)}</td>
                     <td className="p-4">
                       <span className="text-2xl mr-2">{getCountryFlag(plan.country)}</span>
-                      {plan.country}
+                      {COUNTRIES[plan.country]?.name ?? plan.country}
                     </td>
                     <td className="p-4 font-medium text-[var(--primary)]">
                       {formatCurrency(plan.price_ngn)}
@@ -314,18 +315,7 @@ export default function AdminPlansPage() {
 }
 
 function getCountryFlag(country: string): string {
-  const flags: Record<string, string> = {
-    NG: '🇳🇬',
-    UK: '🇬🇧',
-    US: '🇺🇸',
-    DE: '🇩🇪',
-    JP: '🇯🇵',
-    AU: '🇦🇺',
-    BR: '🇧🇷',
-    SG: '🇸🇬',
-    KR: '🇰🇷',
-  };
-  return flags[country] || '🌍';
+  return COUNTRIES[country]?.flag ?? '🌍';
 }
 
 function PlanModal({ 
@@ -445,15 +435,14 @@ function PlanModal({
                     onChange={(e) => setForm(f => ({ ...f, country: e.target.value }))}
                     className="w-full px-4 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-[var(--primary)]"
                   >
-                    <option value="NG">Nigeria</option>
-                    <option value="UK">UK</option>
-                    <option value="US">US</option>
-                    <option value="DE">Germany</option>
-                    <option value="JP">Japan</option>
-                    <option value="AU">Australia</option>
-                    <option value="BR">Brazil</option>
-                    <option value="SG">Singapore</option>
-                    <option value="KR">South Korea</option>
+                    <option value="">Select country</option>
+                    {Object.entries(COUNTRIES)
+                      .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+                      .map(([code, info]) => (
+                        <option key={code} value={code}>
+                          {info.flag} {info.name} ({code})
+                        </option>
+                      ))}
                   </select>
                 </div>
               </div>
