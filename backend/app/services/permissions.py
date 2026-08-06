@@ -105,6 +105,8 @@ def require_permission(code: str, totp_required: bool = False):
     async def _dep(
         current_admin: dict = Depends(__import__("app.routers.auth", fromlist=["require_viewer"]).require_viewer),
         session: AsyncSession = Depends(get_session),
+        x_totp_code: Optional[str] = Header(None, alias="X-TOTP-Code"),
+        x_totp_session: Optional[str] = Header(None, alias="X-TOTP-Session"),
     ) -> dict:
         admin: AdminAuth = current_admin["admin"]
         if not await has_permission(session, admin, code):
@@ -113,7 +115,7 @@ def require_permission(code: str, totp_required: bool = False):
                 detail=f"Permission '{code}' required",
             )
         if totp_required:
-            await _check_totp_step_up(session, admin)
+            await _check_totp_step_up(session, admin, x_totp_code, x_totp_session)
         return current_admin
 
     return _dep

@@ -9,6 +9,7 @@ import type {
   RlsSafeStatus,
   RlsRolloutPlanResponse,
 } from '@/types';
+import AdminTotpStepUpModal from '@/components/AdminTotpStepUpModal';
 
 export default function AdminRlsPage() {
   const [admin, setAdmin] = useState<AdminMeResponse | null>(null);
@@ -18,6 +19,8 @@ export default function AdminRlsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [needsStepUp, setNeedsStepUp] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{tableName: string; currentEnabled: boolean} | null>(null);
   const [filter, setFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
 
   const loadData = async () => {
@@ -60,9 +63,37 @@ export default function AdminRlsPage() {
     );
     setActionInProgress(null);
     if (result.error) {
+      // If TOTP step-up required, prompt for code and retry
+      if (result.error.includes('TOTP') || result.error.includes('step-up') || result.error.includes('403')) {
+        setPendingAction({ tableName, currentEnabled });
+        setNeedsStepUp(true);
+        return;
+      }
       setError(result.error);
     } else {
       await loadData();
+    }
+  };
+
+  const handleTotpSuccess = async () => {
+    setNeedsStepUp(false);
+    if (pendingAction) {
+      const { tableName, currentEnabled } = pendingAction;
+      setPendingAction(null);
+      // Retry the toggle now that TOTP step-up session is active
+      setActionInProgress(tableName);
+      const newState = !currentEnabled;
+      const result = await api.toggleRlsPolicy(
+        tableName,
+        newState,
+        newState ? `enabled via /admin/rls by ${admin?.email}` : 'disabled via /admin/rls',
+      );
+      setActionInProgress(null);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        await loadData();
+      }
     }
   };
 
