@@ -197,7 +197,7 @@ async def list_admins(
 @router.post("/admins", response_model=SuperadminCreateAdminResponse)
 async def create_admin(
     request: SuperadminCreateAdminRequest,
-    current_admin: dict = Depends(require_permission("admin.auth.invite.create")),
+    current_admin: dict = Depends(require_permission("admin.auth.invite.create", totp_required=True)),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):
@@ -258,7 +258,7 @@ async def create_admin(
 async def update_admin_role(
     admin_email: str,
     request: SuperadminUpdateRoleRequest,
-    current_admin: dict = Depends(require_permission("admin.auth.role.update")),
+    current_admin: dict = Depends(require_permission("admin.auth.role.update", totp_required=True)),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):
@@ -307,7 +307,7 @@ async def update_admin_role(
 @router.delete("/admins/{admin_email}")
 async def delete_admin(
     admin_email: str,
-    current_admin: dict = Depends(require_permission("admin.auth.invite.delete")),
+    current_admin: dict = Depends(require_permission("admin.auth.invite.delete", totp_required=True)),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):
@@ -364,7 +364,7 @@ async def delete_admin(
 @router.post("/admins/{admin_email}/lock", response_model=dict)
 async def lock_admin(
     admin_email: str,
-    current_admin: dict = Depends(require_permission("admin.auth.lock_admin")),
+    current_admin: dict = Depends(require_permission("admin.auth.lock_admin", totp_required=True)),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):
@@ -402,7 +402,7 @@ async def lock_admin(
 @router.post("/admins/{admin_email}/unlock", response_model=dict)
 async def unlock_admin(
     admin_email: str,
-    current_admin: dict = Depends(require_permission("admin.auth.lock_admin")),
+    current_admin: dict = Depends(require_permission("admin.auth.lock_admin", totp_required=True)),
     session: AsyncSession = Depends(get_session),
     http_request: Request = None,
 ):

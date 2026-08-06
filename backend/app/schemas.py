@@ -1774,3 +1774,52 @@ class PlanSettingsDisplay(BaseModel):
     plan_type: str
     base_pricing: PlanSettingBasePricing
     country_overrides: dict[str, int]  # country_code -> price_per_ip
+
+
+# ============== Permission Change Request Schemas ==============
+
+from uuid import UUID
+
+
+class PermissionChangeRequestCreate(BaseModel):
+    """Request to change a permission for self or another admin."""
+
+    target_email: Optional[str] = Field(None, description="Target admin email. If empty, applies to self.")
+    permission_code: str = Field(..., min_length=1, max_length=64)
+    desired_state: bool = Field(..., description="True = grant, False = revoke")
+    justification: str = Field(..., min_length=10, max_length=1000)
+
+
+class PermissionChangeRequestResponse(BaseModel):
+    """Response for a permission change request."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    requested_by: str
+    target_email: Optional[str]
+    target_role: Optional[str]
+    permission_code: str
+    desired_state: bool
+    justification: str
+    status: str
+    reviewed_by: Optional[str]
+    reviewed_at: Optional[datetime]
+    reviewer_notes: Optional[str]
+    created_at: datetime
+    expires_at: datetime
+
+
+class PermissionChangeRequestListResponse(BaseModel):
+    """List of permission change requests."""
+
+    requests: list[PermissionChangeRequestResponse]
+    total: int
+    pending_count: int
+
+
+class PermissionChangeRequestAction(BaseModel):
+    """Action on a permission change request (approve/reject)."""
+
+    action: str = Field(..., pattern="^(approve|reject)$")
+    reviewer_notes: Optional[str] = Field(None, max_length=500)

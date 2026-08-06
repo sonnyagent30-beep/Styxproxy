@@ -181,7 +181,7 @@ async def get_customer(customer_id: UUID, session: AsyncSession = Depends(get_se
 
 
 @router.post(
-    "/customers/{customer_id}/block", dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+    "/customers/{customer_id}/block", dependencies=[Depends(require_permission("admin.customers.escalations.handle", totp_required=True))]
 )
 async def block_customer(customer_id: UUID, request: AdminBlockRequest, session: AsyncSession = Depends(get_session)):
     customer = (await session.execute(select(Customer).where(Customer.id == customer_id))).scalar_one_or_none()
@@ -194,7 +194,7 @@ async def block_customer(customer_id: UUID, request: AdminBlockRequest, session:
 
 
 @router.post(
-    "/customers/{customer_id}/unblock", dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+    "/customers/{customer_id}/unblock", dependencies=[Depends(require_permission("admin.customers.escalations.handle", totp_required=True))]
 )
 async def unblock_customer(customer_id: UUID, session: AsyncSession = Depends(get_session)):
     customer = (await session.execute(select(Customer).where(Customer.id == customer_id))).scalar_one_or_none()
@@ -287,12 +287,12 @@ async def lookup_order(
     return AdminOrderResponse.model_validate(order)
 
 
-@router.patch("/orders/{order_id}", dependencies=[Depends(require_permission("admin.orders.refund"))])
+@router.patch("/orders/{order_id}", dependencies=[Depends(require_permission("admin.orders.refund", totp_required=True))])
 async def update_order(
     order_id: str,
     body: AdminOrderUpdateRequest,
     http_request: Request,
-    current_admin: dict = Depends(require_permission("admin.orders.refund")),
+    current_admin: dict = Depends(require_permission("admin.orders.refund", totp_required=True)),
     session: AsyncSession = Depends(get_session),
 ):
     admin_email = current_admin["admin"].email
@@ -326,12 +326,12 @@ async def update_order(
     return {"status": "updated", "order_id": order_id}
 
 
-@router.post("/orders/{order_id}/refund", dependencies=[Depends(require_permission("admin.orders.refund"))])
+@router.post("/orders/{order_id}/refund", dependencies=[Depends(require_permission("admin.orders.refund", totp_required=True))])
 async def refund_order(
     order_id: str,
     body: AdminRefundRequest,
     http_request: Request,
-    current_admin: dict = Depends(require_permission("admin.orders.refund")),
+    current_admin: dict = Depends(require_permission("admin.orders.refund", totp_required=True)),
     session: AsyncSession = Depends(get_session),
 ):
     admin_email = current_admin["admin"].email
@@ -398,7 +398,7 @@ async def refund_order(
 
 
 @router.post(
-    "/credentials/{credential_id}/replace", dependencies=[Depends(require_permission("admin.monitor.providers.read"))]
+    "/credentials/{credential_id}/replace", dependencies=[Depends(require_permission("admin.monitor.providers.read", totp_required=True))]
 )
 async def replace_credential_endpoint(credential_id: int, session: AsyncSession = Depends(get_session)):
     new_credential = await replace_credential(session, credential_id, "admin_replacement")
@@ -601,7 +601,7 @@ async def get_learned_file_content(filename: str):
 
 @router.delete(
     "/charon/learned", response_model=DeleteLearnedFileResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    dependencies=[Depends(require_permission("admin.monitor.logs.read", totp_required=True))]
 )
 async def delete_learned_file(request: DeleteLearnedFileRequest):
     """Delete a learned file from the RAG knowledge base."""
@@ -687,7 +687,7 @@ async def get_knowledge_file_content(filename: str):
 
 @router.put(
     "/charon/knowledge/{filename}", response_model=UpdateKnowledgeResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    dependencies=[Depends(require_permission("admin.monitor.logs.read", totp_required=True))]
 )
 async def update_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
     """Update an existing knowledge/ file (replaces content with title + body as markdown)."""
@@ -718,7 +718,7 @@ async def update_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
 
 @router.post(
     "/charon/knowledge/{filename}", response_model=UpdateKnowledgeResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    dependencies=[Depends(require_permission("admin.monitor.logs.read", totp_required=True))]
 )
 async def create_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
     """Create a new file in knowledge/."""
@@ -930,7 +930,7 @@ async def update_plan(plan_id: int, request: PlanUpdateRequest, session: AsyncSe
     return PlanResponse.model_validate(plan)
 
 
-@router.delete("/plans/{plan_id}", dependencies=[Depends(require_permission("admin.system.maintenance.read"))])
+@router.delete("/plans/{plan_id}", dependencies=[Depends(require_permission("admin.system.maintenance.read", totp_required=True))])
 async def delete_plan(plan_id: int, session: AsyncSession = Depends(get_session)):
     """Delete a plan."""
     plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
