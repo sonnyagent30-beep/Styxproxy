@@ -25,18 +25,16 @@ from app.routers import (
     charon,
     contact,
     credentials,
-    customers,
     health,
     inbound,
     maintenance,
-    ops,
+    costs,
     orders,
     payment_status,
     payments,
     permissions,
     platform,
     products,
-    proxy_stats,
     proxies,
     rls,
     session,
@@ -361,30 +359,28 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # Include routers
-app.include_router(health.router)
-app.include_router(platform.router)
-app.include_router(proxies.router)
-app.include_router(products.router)
-app.include_router(proxy_stats.router)
-app.include_router(orders.router)
-app.include_router(payments.router)
-app.include_router(webhooks.router)
-app.include_router(credentials.router)
-app.include_router(trials.router)
-app.include_router(admin.router)
-app.include_router(admin_proxies.router)
-app.include_router(admin_support.router)
-app.include_router(session.router)
-app.include_router(charon.router)
-app.include_router(contact.router)
-app.include_router(auth.router)
-app.include_router(catalog.router)
-app.include_router(payment_status.router)
-app.include_router(permissions.router)
-app.include_router(rls.router)
-app.include_router(blog.router)
-app.include_router(customers.router)
-app.include_router(inbound.router)
-app.include_router(superadmin.router)
-app.include_router(maintenance.router)
-app.include_router(ops.router)
+app.include_router(health)
+app.include_router(platform)
+app.include_router(proxies)
+app.include_router(products)
+app.include_router(orders)
+app.include_router(payments)
+app.include_router(webhooks)
+app.include_router(credentials)
+app.include_router(trials)
+app.include_router(admin)
+app.include_router(admin_proxies)
+app.include_router(admin_support)
+app.include_router(session)
+app.include_router(charon)
+app.include_router(contact)
+app.include_router(auth)
+app.include_router(catalog)
+app.include_router(payment_status)
+app.include_router(permissions)
+app.include_router(rls)
+app.include_router(blog)
+app.include_router(inbound)
+app.include_router(superadmin)
+app.include_router(maintenance)
+app.include_router(costs)
