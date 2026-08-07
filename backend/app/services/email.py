@@ -712,15 +712,19 @@ async def send_email(
             if reply_to:
                 payload["reply_to"] = reply_to
 
-            # Resend supports custom headers for threading
-            custom_headers = {}
+            # Threading + List-Unsubscribe headers
+            import hashlib
+            unsub_token = hashlib.sha1((to + ":styxproxy_unsubscribe_v1").encode()).hexdigest()
+            unsub_url = f"https://styxproxy.com/unsubscribe?email={to}&token={unsub_token}"
+            custom_headers = {
+                "List-Unsubscribe": f"<{unsub_url}>",
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            }
             if in_reply_to:
                 custom_headers["In-Reply-To"] = in_reply_to
             if references:
                 custom_headers["References"] = references
-
-            if custom_headers:
-                payload["headers"] = custom_headers
+            payload["headers"] = custom_headers
 
             response = await client.post(
                 "https://api.resend.com/emails",

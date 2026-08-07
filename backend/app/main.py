@@ -28,6 +28,7 @@ from app.routers import (
     health,
     inbound,
     maintenance,
+    unsubscribe,
     costs,
     orders,
     payment_status,
@@ -383,4 +384,5 @@ app.include_router(blog)
 app.include_router(inbound)
 app.include_router(superadmin)
 app.include_router(maintenance)
+app.include_router(unsubscribe)
 app.include_router(costs)
