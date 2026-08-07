@@ -12,6 +12,8 @@ owns the boolean state.
 """
 
 from typing import Optional
+import asyncio
+import json
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -25,6 +27,7 @@ from app.routers.auth import require_admin, require_superadmin
 router = APIRouter(tags=["maintenance"])
 
 MAINTENANCE_FLAG = "maintenance_mode"
+BS_INCIDENT_FLAG = "betterstack_incident_id"
 READY_AT_FLAG = "maintenance_ready_at"
 MESSAGE_FLAG = "maintenance_message"
 
@@ -86,6 +89,9 @@ async def toggle_maintenance(
     admin: dict = Depends(require_superadmin),
 ):
     """Superadmin sets maintenance state. Any field may be omitted to keep current value."""
+    prev_flag = await _get_flag(session, MAINTENANCE_FLAG)
+    was_enabled = prev_flag.enabled if prev_flag else False
+
     on = await _ensure_flag(session, MAINTENANCE_FLAG)
 
     if body.enabled is not None:
@@ -101,22 +107,64 @@ async def toggle_maintenance(
 
     await session.commit()
 
+    # Betterstack: post or clear status-page announcement when state changes
+    if body.enabled is not None and body.enabled != was_enabled:
+        await _call_betterstack(
+            maintenance_enabled=body.enabled,
+            message=body.message,
+        )
+
     # Audit log entry
     from app.models import AdminAuditLog
 
     audit = AdminAuditLog(
-        admin_email=admin.get("email", "unknown"),
+        admin_phone=admin.get("email", "unknown"),
         action="maintenance_toggle",
-        details={
+        details=json.dumps({
             "enabled": on.enabled,
             "ready_at": body.ready_at,
             "message_set": body.message is not None,
-        },
+        }),
     )
     session.add(audit)
     await session.commit()
 
     return await read_maintenance(session, _admin=admin)
+
+
+async def _call_betterstack(
+    maintenance_enabled: bool, message: str | None = None,
+):
+    """Post or clear the status-page announcement when maintenance mode flips.
+
+    Called synchronously so the Betterstack PATCH completes before we return
+    to the client. The status page (styxproxy-status.upstatus.io) is the
+    source of truth — no DB tracking needed.
+    """
+    from app.config import get_settings
+    settings = get_settings()
+
+    api_key = getattr(settings, "betterstack_api_key", None)
+    page_id = getattr(settings, "betterstack_status_page_id", None)
+    if not api_key or not page_id:
+        return  # Not configured
+
+    from app.services.betterstack_service import (
+        post_maintenance_announcement,
+        clear_maintenance_announcement,
+    )
+
+    if maintenance_enabled:
+        await post_maintenance_announcement(
+            page_id=page_id,
+            api_key=api_key,
+            message=message,
+        )
+    else:
+        await clear_maintenance_announcement(
+            page_id=page_id,
+            api_key=api_key,
+        )
 
 
 # Public endpoint — no auth, used by the maintenance page itself
