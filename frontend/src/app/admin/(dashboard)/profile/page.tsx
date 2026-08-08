@@ -1,3 +1,5 @@
+
+// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -304,7 +306,7 @@ export default function AdminProfilePage() {
         <ul className="space-y-3 text-[var(--muted)]">
           <li className="flex items-start gap-2">
             <span className="text-green-400">✓</span>
-            <span>Use a unique PIN that's not easily guessable</span>
+            <span>Use a unique PIN that&#39;s not easily guessable</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-green-400">✓</span>

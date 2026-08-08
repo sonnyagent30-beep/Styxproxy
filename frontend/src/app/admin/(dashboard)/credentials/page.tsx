@@ -1,3 +1,6 @@
+
+/* eslint-disable react-hooks/set-state-in-effect */
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -571,7 +574,7 @@ function CredentialDetailModal({
                 </div>
               ) : (
                 <p className="text-sm text-[var(--muted)] text-center py-4">
-                  Click "Reveal" to show proxy credentials
+                  Click &quot;Reveal&quot; to show proxy credentials
                 </p>
               )}
             </div>

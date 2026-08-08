@@ -168,7 +168,7 @@ export default function AdminSetupPage() {
                 />
                 <p className="text-xs text-[var(--muted)] mt-2">
                   This code was emailed to the future admin. We never show the
-                  email field until we've verified it.
+                  email field until we&#39;ve verified it.
                 </p>
               </div>
 
@@ -341,7 +341,7 @@ export default function AdminSetupPage() {
                 {loading ? 'Verifying…' : 'Complete Setup'}
               </button>
               <p className="text-xs text-center text-[var(--muted)]">
-                You'll be redirected to the login page after setup.
+                You&#39;ll be redirected to the login page after setup.
               </p>
             </form>
           )}
