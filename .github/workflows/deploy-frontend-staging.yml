@@ -38,6 +38,6 @@ jobs:
           npx vercel --prod=false --token "${{ secrets.VERCEL_TOKEN }}" --yes
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          # Staging backend — port 8001 on VPS (no HTTPS, direct IP)
+          # Staging backend — port 8001 on VPS
           NEXT_PUBLIC_API_URL: http://162.35.184.69:8001
         working-directory: frontend
