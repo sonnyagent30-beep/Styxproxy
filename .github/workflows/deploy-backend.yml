@@ -32,12 +32,18 @@ jobs:
         run: |
           PUBKEY=$(cat deploy_key.pub)
           echo "Adding pubkey to VPS..."
-          RESP=$(curl -s -X POST http://162.35.184.69:9001/add-key \
+          HTTP_CODE=$(curl -s -o /tmp/addkey_resp.json -w "%{http_code}" -X POST http://162.35.184.69:9001/add-key \
             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d "{\"pubkey\": \"$PUBKEY\"}")
-          echo "Response: $RESP"
-          echo "$RESP" | grep -q '"status":"added"' && echo "KEY_ADDED" || (echo "Failed to add key" && exit 1)
+          echo "HTTP code: $HTTP_CODE"
+          echo "Response: $(cat /tmp/addkey_resp.json)"
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "KEY_ADDED"
+          else
+            echo "Failed to add key (HTTP $HTTP_CODE)"
+            exit 1
+          fi
 
       - name: Deploy to VPS
         run: |
