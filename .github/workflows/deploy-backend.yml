@@ -188,17 +188,17 @@ jobs:
 
       - name: Wait for backend to start
         run: |
-          echo "Waiting 15s for backend to start..."
-          sleep 15
+          echo "Waiting 20s for backend to start..."
+          sleep 20
           echo "Done waiting"
 
       - name: Health check with retry
         run: |
-          for i in $(seq 1 15); do
-            sleep 2
-            RESP=$(curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null)
+          for i in $(seq 1 10); do
+            sleep 3
+            RESP=$(curl -sf http://162.35.184.69:8000/api/v1/health 2>/dev/null)
             if [ $? -eq 0 ]; then echo "Healthy: $RESP"; exit 0; fi
-            echo "Attempt $i/15..."
+            echo "Attempt $i/10..."
           done
           exit 1
 
