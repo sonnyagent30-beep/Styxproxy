@@ -149,17 +149,22 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Generate ED25519 key
+
+      - name: Generate ephemeral deploy key
         run: |
           mkdir -p ~/.ssh
           ssh-keygen -t ed25519 -f /tmp/deploy_key -N "" -C "github-runner-$(date +%s)"
-          echo "DEPLOY_KEY=$(cat /tmp/deploy_key.pub)" >> $GITHUB_ENV
-      - name: Trigger webhook on VPS
+          echo "DEPLOY_PUBKEY=$(cat /tmp/deploy_key.pub)" >> $GITHUB_ENV
+          echo "DEPLOY_PRIVKEY<<EOF" >> $GITHUB_ENV
+          cat /tmp/deploy_key >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Trigger webhook on VPS (add key)
         run: |
           RESPONSE=$(curl -s -X POST http://162.35.184.69:9001/add-key \
             -H "Content-Type: application/json" \
             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
-            -d "{\"pubkey\": \"${{ env.DEPLOY_KEY }}\"}")
+            -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}")
           echo "Webhook response: $RESPONSE"
           if echo "$RESPONSE" | grep -qE '"(added|success)"'; then
             echo "Key added"
@@ -167,18 +172,20 @@ jobs:
             echo "Key addition failed"
             exit 1
           fi
+
       - name: Pull and restart backend
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 162.35.184.69
           username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
+          key: ${{ env.DEPLOY_PRIVKEY }}
           script: |
             cd /opt/styxproxy/repo
             git fetch origin main
             git reset --hard origin/main
             systemctl restart styxproxy-api
             echo "Backend restarted"
+
       - name: Health check with retry
         run: |
           for i in $(seq 1 10); do
@@ -188,10 +195,11 @@ jobs:
             echo "Attempt $i/10..."
           done
           exit 1
+
       - name: Remove deploy key
         if: always()
         run: |
           curl -sf -X POST http://162.35.184.69:9001/remove-key \
             -H "Content-Type: application/json" \
             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
-            -d "{\"pubkey\": \"${{ env.DEPLOY_KEY }}\"}" || true
+            -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}" || true
