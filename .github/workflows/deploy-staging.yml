@@ -165,13 +165,14 @@ jobs:
           host: 162.35.184.69
           username: root
           key: ${{ env.DEPLOY_PRIVKEY }}
+          timeout: 120s
           script: |
             cd /opt/styxproxy/staging-repo
             git fetch origin develop
             git reset --hard origin/develop
             systemctl restart styxproxy-staging-api
             echo "Staging backend restarted from staging-repo/develop"
-            # Do health check internally via SSH (bypass Azure→public-IP firewall)
+            # Health check locally via SSH (bypass Azure→public-IP networking)
             for i in $(seq 1 10); do
               sleep 3
               HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/docs)
@@ -187,7 +188,7 @@ jobs:
       - name: Remove deploy key
         if: always()
         run: |
-          curl -sf -X POST http://162.35.184.69:9001/remove-key \
+          curl -s -X POST http://162.35.184.69:9001/remove-key \
             -H "Content-Type: application/json" \
             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
             -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}" || true
