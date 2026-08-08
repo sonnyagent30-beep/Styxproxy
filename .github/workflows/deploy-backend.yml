@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - ackend/**      - \.github/workflows/deploy-backend.yml  workflow_dispatch:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
 
 concurrency:
   group: backend-deploy
@@ -19,8 +21,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: .11      - name: Install ruff
-        run: pip install uff==0.8.4      - name: Lint check
+          python-version: '3.11'
+      - name: Install ruff
+        run: pip install "ruff==0.8.4"
+      - name: Lint check
         run: ruff check backend/app/ --select=E,F,I
       - name: Format check
         run: ruff format --check backend/app/
@@ -33,13 +37,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: .11      - name: Install bandit
+          python-version: '3.11'
+      - name: Install bandit
         run: pip install bandit
       - name: Bandit security scan
         run: bandit -r backend/app/ -ll -f json -o bandit.json || true
       - name: Check bandit results
         run: |
-          python3 << PYEOF
+          python3 << 'PYEOF'
 import json, sys
 with open("bandit.json") as f:
     d = json.load(f)
@@ -66,7 +71,8 @@ PYEOF
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: .11      - name: Install pip-audit
+          python-version: '3.11'
+      - name: Install pip-audit
         run: pip install pip-audit
       - name: pip-audit dependency check
         run: pip-audit --requirement backend/requirements.txt -f json 2>/dev/null || true
@@ -103,11 +109,12 @@ PYEOF
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: .11      - name: Cache pip
+          python-version: '3.11'
+      - name: Cache pip
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles("backend/pyproject.toml") }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/pyproject.toml') }}
           restore-keys: ${{ runner.os }}-pip-
       - name: Install dependencies
         run: |
@@ -117,7 +124,8 @@ PYEOF
       - name: Run database migrations
         env:
           DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
-          TESTING:           JWT_SECRET: test-jwt-secret-not-real-32chars-long
+          TESTING: "1"
+          JWT_SECRET: test-jwt-secret-not-real-32chars-long
           ADMIN_TOKEN: test-admin-token-not-real
           FLUTTERWAVE_SECRET_KEY: test-flw-key
           FLUTTERWAVE_PUBLIC_KEY: test-flw-pub
@@ -126,14 +134,15 @@ PYEOF
           WHATSAPP_PHONE_NUMBER_ID: test-phone-id
           MINIMAX_API_KEY: test-minimax-key
           REDIS_URL: redis://localhost:6379/0
-          SENTRY_DSN: \
+          SENTRY_DSN: ""
         run: |
           cd backend
           alembic upgrade head || true
       - name: Run pytest
         env:
           DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
-          TESTING:           JWT_SECRET: test-jwt-secret-not-real-32chars-long
+          TESTING: "1"
+          JWT_SECRET: test-jwt-secret-not-real-32chars-long
           ADMIN_TOKEN: test-admin-token-not-real
           FLUTTERWAVE_SECRET_KEY: test-flw-key
           FLUTTERWAVE_PUBLIC_KEY: test-flw-pub
@@ -142,7 +151,7 @@ PYEOF
           WHATSAPP_PHONE_NUMBER_ID: test-phone-id
           MINIMAX_API_KEY: test-minimax-key
           REDIS_URL: redis://localhost:6379/0
-          SENTRY_DSN: \
+          SENTRY_DSN: ""
         run: |
           cd backend
           pytest tests/ -v --tb=short || true
@@ -166,7 +175,10 @@ PYEOF
           echo "DEPLOY_KEY=$(cat /tmp/deploy_key.pub)" >> $GITHUB_ENV
       - name: Trigger webhook on VPS
         run: |
-          RESPONSE=$(curl -s -X POST http://162.35.184.69:9001/add-key             -H "Content-Type: application/json"             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}"             -d "{\"pubkey\": \"${{ env.DEPLOY_KEY }}\"}")
+          RESPONSE=$(curl -s -X POST http://162.35.184.69:9001/add-key \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
+            -d "{\"pubkey\": \"${{ env.DEPLOY_KEY }}\"}")
           echo "Webhook response: $RESPONSE"
           if echo "$RESPONSE" | grep -q "success"; then echo "Key added"; else exit 1; fi
       - name: Pull and restart backend
@@ -193,4 +205,7 @@ PYEOF
       - name: Remove deploy key
         if: always()
         run: |
-          curl -sf -X POST http://162.35.184.69:9001/remove-key             -H "Content-Type: application/json"             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}"             -d "{\"pubkey\": \"${{ env.DEPLOY_KEY }}\"}" || true
+          curl -sf -X POST http://162.35.184.69:9001/remove-key \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
+            -d "{\"pubkey\": \"${{ env.DEPLOY_KEY }}\"}" || true
