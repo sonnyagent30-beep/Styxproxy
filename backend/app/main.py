@@ -16,6 +16,7 @@ from app.database import engine
 from app.limiter import limiter
 from app.models import Base
 from app.routers import (
+    charon_ab,
     admin,
     admin_proxies,
     admin_support,
@@ -386,3 +387,5 @@ app.include_router(superadmin)
 app.include_router(maintenance)
 app.include_router(unsubscribe)
 app.include_router(costs)
+app.include_router(charon_ab.router)
+app.include_router(charon_ab.admin_router)

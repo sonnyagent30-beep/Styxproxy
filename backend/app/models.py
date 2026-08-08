@@ -340,22 +340,6 @@ class PendingTrialSurvey(Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class ConsentEvent(Base):
-    """Consent events — immutable log of every consent interaction."""
-
-    __tablename__ = "consent_events"
-    __table_args__ = (Index("idx_consent_customer", "customer_id"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    customer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
-    consent_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    consent_version: Mapped[str] = mapped_column(String(20), nullable=False)
-    granted: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
-    user_agent: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-
 class CustomerAuditLog(Base):
     """Customer audit log table - Immutable audit trail."""
 
@@ -1144,3 +1128,52 @@ class DanteUser(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+class PlanSettings(Base):
+    """Plan settings table - Global and country-specific pricing rules."""
+
+    __tablename__ = "plan_settings"
+    __table_args__ = (
+        Index("idx_plan_settings_type_country", "plan_type", "country"),
+        Index("idx_plan_settings_active", "is_active"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    plan_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    setting_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    setting_value: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    valid_from: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    valid_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class CharonAbAssignment(Base):
+    """A/B test assignment for Charon conversations."""
+
+    __tablename__ = "charon_ab_assignments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    variant: Mapped[str] = mapped_column(String(1), nullable=False)
+    assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class CharonAbOutcome(Base):
+    """A/B test outcome per conversation session."""
+
+    __tablename__ = "charon_ab_outcomes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    variant: Mapped[str] = mapped_column(String(1), nullable=False)
+    conversation_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(20), nullable=False)
+    concluded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

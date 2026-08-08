@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_account
+from app.dependencies.idempotency import check_idempotency
 from app.database import get_session
 from app.limiter import limiter
 from app.models import Customer, Order, Plan, StyxproxyCredential
@@ -177,6 +178,7 @@ async def create_order(
     body: OrderCreateRequest,  # Sprint 5: renamed from 'request' to avoid shadowing
     session: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_account),
+    idempotency_key: Optional[str] = Depends(check_idempotency),
 ):
     # Get the JWT-resolved customer (existing customers keep their phone)
     customer = current_user.get("customer")
