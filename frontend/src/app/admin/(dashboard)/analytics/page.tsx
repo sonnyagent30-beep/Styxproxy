@@ -68,12 +68,7 @@ export default function AdminAnalyticsPage() {
   }, []);
 
   const loadEvents = useCallback(async () => {
-    const params = new URLSearchParams({
-      page: String(page),
-      limit: String(limit),
-    });
-    if (eventFilter !== 'all') params.set('event_name', eventFilter);
-    const res = await api.getAnalyticsEvents(params.toString()) as ApiResponse<{ events: AnalyticsEvent[]; total: number }>;
+    const res = await api.getAnalyticsEvents(page, limit, eventFilter) as ApiResponse<{ events: AnalyticsEvent[]; total: number }>;
     if (!res.error) {
       setEvents(res.data?.events || []);
       setTotalEvents(res.data?.total || 0);

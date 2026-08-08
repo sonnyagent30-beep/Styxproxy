@@ -302,9 +302,12 @@ class ApiClient {
     return this.request<FunnelData>('/api/v1/admin/analytics/funnel');
   }
 
-  async getAnalyticsEvents(queryString: string = ''): Promise<ApiResponse<{ events: AnalyticsEvent[]; total: number }>> {
+  async getAnalyticsEvents(page: number = 1, limit: number = 30, eventName?: string): Promise<ApiResponse<{ events: AnalyticsEvent[]; total: number }>> {
+    const offset = (page - 1) * limit;
+    const params = new URLSearchParams(`limit=${limit}&offset=${offset}`);
+    if (eventName && eventName !== 'all') params.set('event_name', eventName);
     return this.request<{ events: AnalyticsEvent[]; total: number }>(
-      `/api/v1/admin/analytics/events${queryString ? `?${queryString}` : ''}`
+      `/api/v1/admin/analytics/events?${params.toString()}`
     );
   }
 
