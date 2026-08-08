@@ -60,6 +60,87 @@ async def _check_redis() -> str:
         return "disconnected"
 
 
+
+async def _check_dante() -> dict[str, Any]:
+    """Check if Dante SOCKS proxy is healthy on each configured server.
+
+    P0-5 (Aug 08 2026): Dante runs on Interserver and Contabo as the
+    DC/ISP proxy source + free trial provider. This check probes each
+    server's SOCKS5 port and returns connection count + memory.
+    """
+    servers = getattr(settings, "dante_servers", [
+        {"name": "interserver", "host": "162.35.184.69", "port": 1080},
+    ])
+    results = []
+    all_up = True
+
+    for srv in servers:
+        name = srv.get("name", srv["host"])
+        host = srv["host"]
+        port = srv.get("port", 1080)
+        try:
+            # SOCKS5 greeting — write version 5 + 1 auth method + null auth
+            r, w = None, None
+            import asyncio
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port),
+                timeout=3.0,
+            )
+            writer.write(b"\x05\x01\x00")  # SOCKS5, no auth
+            await writer.drain()
+            resp = await asyncio.wait_for(reader.read(2), timeout=3.0)
+            writer.close()
+            await writer.wait_closed()
+
+            if len(resp) == 2 and resp[0] == 5:  # SOCKS5 greeting accepted
+                # Get connection count from ss
+                import subprocess
+                try:
+                    cp = subprocess.run(
+                        ["ss", "-tnp"],
+                        capture_output=True, text=True, timeout=2,
+                    )
+                    conns = sum(
+                        1 for line in cp.stdout.splitlines()
+                        if f":{port}" in line and "ESTAB" in line
+                    )
+                except Exception:
+                    conns = None
+
+                results.append({
+                    "name": name,
+                    "host": host,
+                    "port": port,
+                    "status": "up",
+                    "connections": conns,
+                    "error": None,
+                })
+            else:
+                all_up = False
+                results.append({
+                    "name": name, "host": host, "port": port,
+                    "status": "degraded",
+                    "connections": None,
+                    "error": "unexpected SOCKS response",
+                })
+        except asyncio.TimeoutError:
+            all_up = False
+            results.append({
+                "name": name, "host": host, "port": port,
+                "status": "down", "connections": None,
+                "error": "connection timeout",
+            })
+        except Exception as e:
+            all_up = False
+            results.append({
+                "name": name, "host": host, "port": port,
+                "status": "down", "connections": None,
+                "error": str(e)[:100],
+            })
+
+    return {"status": "up" if all_up else "degraded", "servers": results}
+
+
 async def _check_litellm() -> dict[str, Any]:
     """Check if LiteLLM proxy is alive on the expected port.
 
@@ -166,6 +247,7 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
     """
     db = await _check_db(session)
     redis = await _check_redis()
+    dante = await _check_dante()
     litellm = await _check_litellm()
     ollama = await _check_ollama()
     m2 = await _check_m2_cloud()
@@ -194,6 +276,7 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
         "services": {
             "database": db,
             "redis": redis,
+            "dante": dante,
             "litellm": litellm,
             "ollama": ollama,
             "m2_cloud": m2,
