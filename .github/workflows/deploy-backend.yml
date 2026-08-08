@@ -1,4 +1,4 @@
-name: Deploy Backend (v2)
+name: Deploy Backend
 
 on:
   push:
@@ -25,40 +25,26 @@ jobs:
       contents: read
 
     steps:
-      - name: Deploy via SSH
+      - name: Debug SSH key
+        run: |
+          echo '=== Key length ==='
+          echo ${{ secrets.INTERSERVER_SSH_KEY }} | wc -c
+          echo '=== Key start ==='
+          echo ${{ secrets.INTERSERVER_SSH_KEY }} | head -c 80
+
+      - name: Debug SSH connection
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ env.VPS_HOST }}
           username: ${{ env.VPS_USER }}
           key: ${{ secrets.INTERSERVER_SSH_KEY }}
-          script: |
-            set -e
-            echo '=== Pulling latest code from repo ==='
-            cd ${{ env.VPS_REPO }}
-            git stash || true
-            git pull origin main
-
-            echo '=== Installing/updating Python dependencies ==='
-            ${{ env.VPS_BACKEND_CODE }}/venv/bin/pip install -q -r ${{ env.VPS_REPO }}/backend/requirements.txt 2>/dev/null || true
-
-            echo '=== Syncing backend app code ==='
-            cp -r ${{ env.VPS_REPO }}/backend/app ${{ env.VPS_BACKEND_CODE }}/app
-            cp -r ${{ env.VPS_REPO }}/backend/alembic ${{ env.VPS_BACKEND_CODE }}/alembic 2>/dev/null || true
-
-            echo '=== Restarting styxproxy-api ==='
-            systemctl restart styxproxy-api
-
-            echo '=== Waiting for startup ==='
-            sleep 8
-
-            HEALTH=$(curl -sf https://api.styxproxy.com/api/v1/health 2>/dev/null || curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo 'no-response')
-            echo "Health: $HEALTH"
-
-            if echo "$HEALTH" | grep -q 'healthy'; then
-              echo 'Deploy successful'
-            else
-              echo 'WARNING: health check did not return healthy'
-              journalctl -u styxproxy-api --no-pager -n 20 || true
-              tail -30 /var/log/styxproxy-api.log 2>/dev/null || true
-              exit 1
-            fi
+          debug: true
+          command: |
+            echo '=== Testing basic SSH ==='
+            whoami
+            pwd
+            echo '=== Git version ==='
+            git --version
+            echo '=== Systemctl ==='
+            systemctl is-active styxproxy-api || echo 'service not active'
+            echo '=== Done debug ==='
