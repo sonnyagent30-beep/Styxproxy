@@ -40,73 +40,39 @@ jobs:
 
       - name: Deploy to Vercel Production
         run: |
-          python3 << 'PYEOF'
-          import json, subprocess, sys, os
+          cd frontend
 
-          token = os.environ['VERCEL_TOKEN']
-          headers = {'Authorization': f'Bearer {token}'}
+          # Create zip
+          zip -r deploy.zip .next public package.json package-lock.json next.config.ts 2>/dev/null
 
-          # --- Find project ID ---
-          result = subprocess.run(
-              ['curl', '-s', 'https://api.vercel.com/v2/projects?search=bunche-api-push',
-               '-H', f'Authorization: Bearer {token}'],
-              capture_output=True, text=True
-          )
-          projects = json.loads(result.stdout)
-          project_id = projects[0]['id']
-          print(f'Project ID: {project_id}')
+          # Base64-encode (Vercel expects inline base64, not separate file upload)
+          ZIP_B64=$(base64 -w 0 deploy.zip)
 
-          # --- Zip .next + public + config ---
-          os.chdir('/home/runner/work/Styxproxy/Styxproxy/frontend')
-          result = subprocess.run(['zip', '-r', 'deploy.zip', '.next', 'public',
-                                  'package.json', 'package-lock.json', 'next.config.ts'],
-                                 capture_output=True, text=True)
-          print(f'Zip: {result.stdout.strip()}')
+          # Get project ID
+          PROJECT_ID=$(curl -s "https://api.vercel.com/v2/projects?search=bunche-api-push" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" | \
+            python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['id'])")
+          echo "Project: $PROJECT_ID"
 
-          # --- Upload file via Vercel API ---
-          with open('deploy.zip', 'rb') as f:
-              import urllib.request
-              req = urllib.request.Request(
-                  'https://api.vercel.com/v2/files',
-                  data=f.read(),
-                  headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/octet-stream'},
-                  method='POST'
-              )
-              with urllib.request.urlopen(req) as resp:
-                  file_resp = json.loads(resp.read())
-          file_id = file_resp['uid']
-          print(f'File ID: {file_id}')
-
-          # --- Deploy ---
-          deploy_payload = json.dumps({
-              'projectId': project_id,
-              'files': [{'file': 'deploy.zip', 'data': file_id, 'encoding': 1}],
-              'projectSettings': {
-                  'framework': 'nextjs',
-                  'buildCommand': '',
-                  'outputDirectory': '.next',
-                  'installCommand': ''
+          # Deploy with inline base64 file
+          RESP=$(curl -s -X POST \
+            "https://api.vercel.com/v13/deployments" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"projectId\": \"$PROJECT_ID\",
+              \"files\": [{\"file\": \"deploy.zip\", \"data\": \"$ZIP_B64\", \"encoding\": \"base64\"}],
+              \"projectSettings\": {
+                \"framework\": \"nextjs\",
+                \"buildCommand\": \"\",
+                \"outputDirectory\": \".next\",
+                \"installCommand\": \"\"
               }
-          }).encode()
+            }")
 
-          req = urllib.request.Request(
-              'https://api.vercel.com/v13/deployments',
-              data=deploy_payload,
-              headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
-              method='POST'
-          )
-          with urllib.request.urlopen(req) as resp:
-              deploy_resp = json.loads(resp.read())
+          echo "Response: $RESP"
+          URL=$(echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('url','FAILED: '+str(d.get('error',d))))")
+          echo "Deployed: $URL"
+          echo "deploy-url=$URL" >> $GITHUB_OUTPUT
 
-          url = deploy_resp.get('url', 'UNKNOWN')
-          print(f'Deployed: {url}')
-
-          if not url or url == 'UNKNOWN':
-              print('ERROR: Deployment failed - no URL returned')
-              print(json.dumps(deploy_resp)[:500])
-              sys.exit(1)
-          else:
-              print(f'SUCCESS: {url}')
-          PYEOF
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          if echo "$URL" | grep -q "FAILED"; then exit 1; fi
