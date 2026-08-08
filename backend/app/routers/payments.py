@@ -46,9 +46,7 @@ async def initiate_payment(
     # the admin dashboard. Site stays up (so customers can still view
     # orders, contact support, etc.) — only the buy path is blocked.
     kill_switch = (
-        await session.execute(
-            select(FeatureFlag).where(FeatureFlag.name == "checkout_disabled")
-        )
+        await session.execute(select(FeatureFlag).where(FeatureFlag.name == "checkout_disabled"))
     ).scalar_one_or_none()
     if kill_switch and kill_switch.enabled:
         raise HTTPException(

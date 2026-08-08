@@ -245,9 +245,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                         order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
                         await db_session.commit()
                     except Exception as refund_error:
-                        logger.warning(
-                            "Flutterwave refund call failed for tx_ref=%s: %s", tx_ref, refund_error
-                        )
+                        logger.warning("Flutterwave refund call failed for tx_ref=%s: %s", tx_ref, refund_error)
             else:
                 await log_audit_event(
                     db_session,

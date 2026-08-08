@@ -32,7 +32,7 @@ from app.models import City, Order, Plan, StyxproxyCredential
 SUPPORTED_COUNTRIES = {
     # Customer sees GB; catalog translates to UK for DB lookup
     "residential": ["US", "GB", "DE", "CA", "AU", "FR", "BR", "IN"],
-    "datacenter":  ["US", "UK"],
+    "datacenter": ["US", "UK"],
 }
 
 # When looking up plans in DB, translate customer-facing code → DB code
@@ -46,7 +46,7 @@ COUNTRY_TRANSLATION = {
 # datacenter:  static only (DC IPs are inherently static)
 SUPPORTED_ROTATION_MODES = {
     "residential": ["rotating", "static"],
-    "datacenter":  ["static"],
+    "datacenter": ["static"],
 }
 
 
@@ -140,9 +140,7 @@ async def list_catalog(session: AsyncSession) -> dict:
     all_rotation_modes = set()
 
     # Pull all active plans
-    plans_result = await session.execute(
-        select(Plan).where(Plan.is_active).order_by(Plan.sort_order, Plan.plan_code)
-    )
+    plans_result = await session.execute(select(Plan).where(Plan.is_active).order_by(Plan.sort_order, Plan.plan_code))
     plans = plans_result.scalars().all()
 
     # Group by plan_type
@@ -174,17 +172,19 @@ async def list_catalog(session: AsyncSession) -> dict:
                 else:
                     variant_features.append("Rotating pool — new IP per request")
 
-                variants.append({
-                    "plan_code": base_plan.plan_code,
-                    "plan_type": plan_type,
-                    "country": country.upper(),
-                    "rotation_mode": rotation_mode,
-                    "price_ngn": round(base_price, 2),
-                    "quantity": base_plan.quantity,
-                    "duration_days": base_plan.duration_days,
-                    "features": variant_features,
-                    "in_stock": True,
-                })
+                variants.append(
+                    {
+                        "plan_code": base_plan.plan_code,
+                        "plan_type": plan_type,
+                        "country": country.upper(),
+                        "rotation_mode": rotation_mode,
+                        "price_ngn": round(base_price, 2),
+                        "quantity": base_plan.quantity,
+                        "duration_days": base_plan.duration_days,
+                        "features": variant_features,
+                        "in_stock": True,
+                    }
+                )
 
         if not variants:
             continue
@@ -221,9 +221,7 @@ async def list_catalog(session: AsyncSession) -> dict:
         if plan_type in ("residential", "mobile"):
             country_codes = [c.upper() for c in template["available_countries"]]
             # Translate GB→UK for the city lookup
-            db_country_codes = list(set(
-                COUNTRY_TRANSLATION.get(c, c) for c in country_codes
-            ))
+            db_country_codes = list(set(COUNTRY_TRANSLATION.get(c, c) for c in country_codes))
             cities_result = await session.execute(
                 select(City)
                 .where(City.country_code.in_(db_country_codes), City.is_active)
@@ -232,18 +230,17 @@ async def list_catalog(session: AsyncSession) -> dict:
             cities = cities_result.scalars().all()
             for city in cities:
                 # Translate back: if DB has UK, customer sees GB
-                customer_country = (
-                    "GB" if city.country_code == "UK" and "GB" in country_codes
-                    else city.country_code
+                customer_country = "GB" if city.country_code == "UK" and "GB" in country_codes else city.country_code
+                cities_map.setdefault(customer_country, []).append(
+                    {
+                        "id": city.id,
+                        "city_name": city.city_name,
+                        "state_code": city.state_code,
+                        "isp_name": city.isp_name,
+                        "latitude": float(city.latitude) if city.latitude else None,
+                        "longitude": float(city.longitude) if city.longitude else None,
+                    }
                 )
-                cities_map.setdefault(customer_country, []).append({
-                    "id": city.id,
-                    "city_name": city.city_name,
-                    "state_code": city.state_code,
-                    "isp_name": city.isp_name,
-                    "latitude": float(city.latitude) if city.latitude else None,
-                    "longitude": float(city.longitude) if city.longitude else None,
-                })
 
         # ─── Compute the right pricing for this template ─────────────
         # residential/mobile: customer picks GB tier, price_per_gb × quantity
@@ -254,25 +251,27 @@ async def list_catalog(session: AsyncSession) -> dict:
         max_gb = int(default_plan.max_gb or 50)
         gb_tiers = list(default_plan.gb_tiers or [5, 10, 20, 50])
 
-        templates.append({
-            "plan_type": plan_type,
-            "rotation_mode_options": template["rotation_mode_options"],
-            "available_countries": template["available_countries"],
-            "base_quantity_gb": default_quantity,
-            "base_price_ngn": default_price,
-            "base_price_per_gb": base_price_per_gb,
-            "base_price_per_ip": base_price_per_ip,
-            "min_gb": min_gb,
-            "max_gb": max_gb,
-            "gb_tiers": gb_tiers,
-            "supports_city": plan_type in ("residential", "mobile"),
-            "cities": cities_map,
-            "duration_days": default_duration,
-            "static_price_multiplier": float(default_plan.static_price_multiplier),
-            "supports_country_change": template["supports_country_change"],
-            "description": description_map.get(plan_type, ""),
-            "variants": variants,
-        })
+        templates.append(
+            {
+                "plan_type": plan_type,
+                "rotation_mode_options": template["rotation_mode_options"],
+                "available_countries": template["available_countries"],
+                "base_quantity_gb": default_quantity,
+                "base_price_ngn": default_price,
+                "base_price_per_gb": base_price_per_gb,
+                "base_price_per_ip": base_price_per_ip,
+                "min_gb": min_gb,
+                "max_gb": max_gb,
+                "gb_tiers": gb_tiers,
+                "supports_city": plan_type in ("residential", "mobile"),
+                "cities": cities_map,
+                "duration_days": default_duration,
+                "static_price_multiplier": float(default_plan.static_price_multiplier),
+                "supports_country_change": template["supports_country_change"],
+                "description": description_map.get(plan_type, ""),
+                "variants": variants,
+            }
+        )
 
     return {
         "templates": templates,
@@ -315,11 +314,13 @@ async def create_order_with_credential(
 
     # Find a matching plan (use the first one with matching plan_type + country)
     plan_result = await session.execute(
-        select(Plan).where(
+        select(Plan)
+        .where(
             Plan.plan_type == plan_type,
             Plan.country == db_country,
             Plan.is_active,
-        ).order_by(Plan.price_ngn)
+        )
+        .order_by(Plan.price_ngn)
     )
     plan = plan_result.scalars().first()
     if not plan:
@@ -363,6 +364,7 @@ async def create_order_with_credential(
 
     # Create order
     import uuid as uuid_module
+
     order_id = f"ord_{uuid_module.uuid4().hex[:12]}"
     order = Order(
         order_id=order_id,
@@ -418,6 +420,7 @@ async def create_order_with_credential(
 
     # Create relay entry (so the relay picks it up within 30s)
     from sqlalchemy import text
+
     await session.execute(
         text("""
             INSERT INTO styxproxy_relay_entries

@@ -133,7 +133,6 @@ async def public_maintenance(session: AsyncSession = Depends(get_session)):
     )
 
 
-
 # ─── Public status endpoint (Betterstack-compatible) ──────────────────────────
 # Theme A: small public status endpoint that returns overall service health.
 # Suitable for:
@@ -155,6 +154,7 @@ async def public_maintenance(session: AsyncSession = Depends(get_session)):
 # Caching: no cache headers by default. For Betterstack webhooks, the
 # recommendation is to cache for ~60s to avoid hammering. Add
 # Cache-Control header here if needed.
+
 
 @router.get("/api/public/status")
 async def public_status(session: AsyncSession = Depends(get_session)) -> dict:
@@ -213,9 +213,7 @@ async def public_status(session: AsyncSession = Depends(get_session)) -> dict:
         "degraded": ("minor", "Some non-core components are degraded"),
         "unhealthy": ("major", "Core systems are down — service degraded"),
     }
-    indicator, description = indicator_map.get(
-        snap.overall_status, ("unknown", f"Status: {snap.overall_status}")
-    )
+    indicator, description = indicator_map.get(snap.overall_status, ("unknown", f"Status: {snap.overall_status}"))
 
     return {
         "status": {"indicator": indicator, "description": description},

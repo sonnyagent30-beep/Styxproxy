@@ -5,7 +5,6 @@ GET    /api/catalog          - list plan_type templates with country + rotation 
 POST   /api/orders           - create order + provision credential (customer picks location + rotation_mode)
 """
 
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
