@@ -174,8 +174,6 @@ jobs:
     name: Deploy to Interserver
     runs-on: ubuntu-latest
     needs: [backend-lint, backend-security, backend-deps-audit, backend-test]
-    if: |
-      github.event.head_commit.diff_exists('backend/**')
     permissions:
       contents: read
 
