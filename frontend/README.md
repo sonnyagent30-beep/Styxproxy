@@ -1,7 +1,7 @@
 # Styxproxy Frontend
 
-Next.js frontend for Styxproxy.
+Next.js 16 frontend for Styxproxy proxy management platform.
 
-## Environment Variables
+## Environment
 
-- `NEXT_PUBLIC_API_URL` — backend API URL (set via Vercel environment variables)
+- `NEXT_PUBLIC_API_URL` — backend API URL (production: `https://api.styxproxy.com`)
