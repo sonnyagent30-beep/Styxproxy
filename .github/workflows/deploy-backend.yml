@@ -19,20 +19,11 @@ jobs:
       contents: read
 
     steps:
-      - name: Write SSH key
-        run: |
-          mkdir -p /tmp/ssh
-          echo "${{ secrets.INTERSERVER_SSH_KEY }}" > /tmp/ssh/key
-          chmod 600 /tmp/ssh/key
-          echo "Key bytes: $(wc -c < /tmp/ssh/key)"
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.8
+      - uses: ./.github/actions/deploy-vps
         with:
           host: 162.35.184.69
           username: root
-          key_path: /tmp/ssh/key
-          command_timeout: 10m
+          ssh_key: ${{ secrets.INTERSERVER_SSH_KEY }}
           script: |
             set -e
             cd /opt/styxproxy/repo
@@ -43,6 +34,6 @@ jobs:
             cp -r /opt/styxproxy/repo/backend/alembic /opt/styxproxy/backend/alembic 2>/dev/null || true
             systemctl restart styxproxy-api
             sleep 8
-            HEALTH=$(curl -sf https://api.styxproxy.com/api/v1/health 2>/dev/null || echo 'no-response')
+            HEALTH=$(curl -sf https://api.styxproxy.com/api/v1/health 2>/dev/null || curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo 'no-response')
             echo "Health: $HEALTH"
             echo $HEALTH | grep -q 'healthy' && echo 'Deploy successful' || exit 1

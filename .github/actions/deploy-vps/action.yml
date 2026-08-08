@@ -1,0 +1,15 @@
+name: Deploy to VPS via SSH
+description: Writes SSH key then runs deploy commands on the VPS
+runs:
+  using: composite
+  steps:
+    - name: Write SSH key
+      shell: bash
+      run: |
+        printf '%s' "${{ inputs.ssh_key }}" > ${{ github.action_path }}/gh_key
+        chmod 600 ${{ github.action_path }}/gh_key
+        echo "Key: $(wc -c < ${{ github.action_path }}/gh_key) bytes"
+    - name: Deploy via SSH
+      shell: bash
+      run: |
+        ssh -i ${{ github.action_path }}/gh_key -o StrictHostKeyChecking=no ${{ inputs.username }}@${{ inputs.host }} '${{ inputs.script }}'
