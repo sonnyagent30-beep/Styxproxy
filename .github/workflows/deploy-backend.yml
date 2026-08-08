@@ -22,21 +22,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - uses: ./.github/actions/deploy-vps
-        with:
-          host: 162.35.184.69
-          username: root
-          ssh_key: ${{ secrets.INTERSERVER_SSH_KEY }}
-          script: |
-            set -e
-            cd /opt/styxproxy/repo
-            git stash || true
-            git pull origin main
-            /opt/styxproxy/backend/venv/bin/pip install -q -r /opt/styxproxy/repo/backend/requirements.txt 2>/dev/null || true
-            cp -r /opt/styxproxy/repo/backend/app /opt/styxproxy/backend/app
-            cp -r /opt/styxproxy/repo/backend/alembic /opt/styxproxy/backend/alembic 2>/dev/null || true
-            systemctl restart styxproxy-api
-            sleep 8
-            HEALTH=$(curl -sf https://api.styxproxy.com/api/v1/health 2>/dev/null || curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo 'no-response')
-            echo "Health: $HEALTH"
-            echo $HEALTH | grep -q 'healthy' && echo 'Deploy successful' || exit 1
+      - name: Setup SSH key for runner to VPS
+        run: |
+          ssh-keygen -t rsa -b 2048 -f ${{ github.action_path }}/deploy_key -N '' -C 'gh-runner-deployed'
+          chmod 600 ${{ github.action_path }}/deploy_key
+          echo "Generated: $(wc -c < ${{ github.action_path }}/deploy_key) bytes"
+
+      - name: Add runner public key to VPS
+        run: |
+          cat ${{ github.action_path }}/deploy_key.pub |           ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10             root@${{ vars.VPS_HOST }}             'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && echo VPS_KEY_ADDED'
+
+      - name: Deploy to VPS
+        run: |
+          ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=30             -i ${{ github.action_path }}/deploy_key             root@${{ vars.VPS_HOST }} "set -e && \
+            cd /opt/styxproxy/repo && \
+            git stash 2>/dev/null || true && \
+            git pull origin main && \
+            /opt/styxproxy/backend/venv/bin/pip install -q -r /opt/styxproxy/repo/backend/requirements.txt 2>/dev/null || true && \
+            cp -r /opt/styxproxy/repo/backend/app /opt/styxproxy/backend/app && \
+            cp -r /opt/styxproxy/repo/backend/alembic /opt/styxproxy/backend/alembic 2>/dev/null || true && \
+            systemctl restart styxproxy-api && \
+            sleep 8 && \
+            HEALTH=$(curl -sf https://api.styxproxy.com/api/v1/health 2>/dev/null || curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo no-response) && \
+            echo Health: $HEALTH && \
+            echo $HEALTH | grep -q healthy && echo Deploy successful || exit 1"
+
+      - name: Remove runner public key from VPS
+        if: always()
+        run: |
+          ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10             -i ${{ github.action_path }}/deploy_key             root@${{ vars.VPS_HOST }}             'grep -v "gh-runner-deployed" ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys && echo KEY_REVOKED'             || echo "Revoke failed (non-critical)"
