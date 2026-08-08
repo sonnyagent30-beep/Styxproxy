@@ -8,6 +8,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
 from sqlalchemy import and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -82,8 +83,9 @@ async def admin_health():
 
 
 @router.get(
-    "/stats", response_model=AdminStatsResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.metrics.read"))]
+    "/stats",
+    response_model=AdminStatsResponse,
+    dependencies=[Depends(require_permission("admin.monitor.metrics.read"))],
 )
 async def get_stats(session: AsyncSession = Depends(get_session)):
     total_customers = (await session.execute(select(func.count()).select_from(Customer))).scalar() or 0
@@ -109,8 +111,9 @@ async def get_stats(session: AsyncSession = Depends(get_session)):
 
 
 @router.get(
-    "/customers", response_model=AdminCustomersResponse, 
-    dependencies=[Depends(require_permission("admin.customers.list"))]
+    "/customers",
+    response_model=AdminCustomersResponse,
+    dependencies=[Depends(require_permission("admin.customers.list"))],
 )
 async def list_customers(
     page: int = Query(1, ge=1),
@@ -151,8 +154,9 @@ async def list_customers(
 
 
 @router.get(
-    "/customers/{customer_id}", response_model=AdminCustomerResponse, 
-    dependencies=[Depends(require_permission("admin.customers.list"))]
+    "/customers/{customer_id}",
+    response_model=AdminCustomerResponse,
+    dependencies=[Depends(require_permission("admin.customers.list"))],
 )
 async def get_customer(customer_id: UUID, session: AsyncSession = Depends(get_session)):
     customer = (await session.execute(select(Customer).where(Customer.id == customer_id))).scalar_one_or_none()
@@ -231,8 +235,9 @@ async def list_orders(
 
 
 @router.get(
-    "/orders/{order_id}", response_model=AdminOrderResponse, 
-    dependencies=[Depends(require_permission("admin.orders.list"))]
+    "/orders/{order_id}",
+    response_model=AdminOrderResponse,
+    dependencies=[Depends(require_permission("admin.orders.list"))],
 )
 async def get_order(order_id: str, session: AsyncSession = Depends(get_session)):
     order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
@@ -362,8 +367,9 @@ async def replace_credential_endpoint(credential_id: int, session: AsyncSession 
 
 
 @router.get(
-    "/credentials", response_model=AdminCredentialsResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.providers.read"))]
+    "/credentials",
+    response_model=AdminCredentialsResponse,
+    dependencies=[Depends(require_permission("admin.monitor.providers.read"))],
 )
 async def list_credentials(
     page: int = Query(1, ge=1),
@@ -442,8 +448,9 @@ async def get_email_delivery_log(
 
 
 @router.get(
-    "/audit", response_model=AdminAuditLogsResponse, 
-    dependencies=[Depends(require_permission("admin.system.audit_log.read"))]
+    "/audit",
+    response_model=AdminAuditLogsResponse,
+    dependencies=[Depends(require_permission("admin.system.audit_log.read"))],
 )
 async def list_audit_logs(
     page: int = Query(1, ge=1),
@@ -477,8 +484,9 @@ async def list_audit_logs(
 
 
 @router.get(
-    "/webhooks", response_model=AdminWebhookLogsResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.webhooks.read"))]
+    "/webhooks",
+    response_model=AdminWebhookLogsResponse,
+    dependencies=[Depends(require_permission("admin.monitor.webhooks.read"))],
 )
 async def list_webhook_logs(
     page: int = Query(1, ge=1),
@@ -507,8 +515,9 @@ LEARNED_DIR = Path(__file__).parents[3] / "data" / "charon" / "learned"
 
 
 @router.get(
-    "/charon/learned", response_model=LearnedFilesResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    "/charon/learned",
+    response_model=LearnedFilesResponse,
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
 )
 async def list_learned_files():
     """List all learned files in the RAG knowledge base."""
@@ -530,8 +539,9 @@ async def list_learned_files():
 
 
 @router.get(
-    "/charon/learned/{filename}", response_model=LearnContentResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    "/charon/learned/{filename}",
+    response_model=LearnContentResponse,
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
 )
 async def get_learned_file_content(filename: str):
     """Get the content of a specific learned file."""
@@ -554,8 +564,9 @@ async def get_learned_file_content(filename: str):
 
 
 @router.delete(
-    "/charon/learned", response_model=DeleteLearnedFileResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    "/charon/learned",
+    response_model=DeleteLearnedFileResponse,
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
 )
 async def delete_learned_file(request: DeleteLearnedFileRequest):
     """Delete a learned file from the RAG knowledge base."""
@@ -607,8 +618,9 @@ def _list_md_files(directory: Path, source_label: str, editable: bool) -> list:
 
 
 @router.get(
-    "/charon/knowledge", response_model=AllKnowledgeFilesResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    "/charon/knowledge",
+    response_model=AllKnowledgeFilesResponse,
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
 )
 async def list_all_knowledge_files():
     """List both knowledge/ (read-only seeded) and learned/ (admin-editable) files."""
@@ -619,8 +631,9 @@ async def list_all_knowledge_files():
 
 
 @router.get(
-    "/charon/knowledge/{filename}", response_model=LearnContentResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    "/charon/knowledge/{filename}",
+    response_model=LearnContentResponse,
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
 )
 async def get_knowledge_file_content(filename: str):
     """Read the content of a knowledge/ file (read-only seeded knowledge)."""
@@ -640,8 +653,9 @@ async def get_knowledge_file_content(filename: str):
 
 
 @router.put(
-    "/charon/knowledge/{filename}", response_model=UpdateKnowledgeResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    "/charon/knowledge/{filename}",
+    response_model=UpdateKnowledgeResponse,
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
 )
 async def update_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
     """Update an existing knowledge/ file (replaces content with title + body as markdown)."""
@@ -671,8 +685,9 @@ async def update_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
 
 
 @router.post(
-    "/charon/knowledge/{filename}", response_model=UpdateKnowledgeResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    "/charon/knowledge/{filename}",
+    response_model=UpdateKnowledgeResponse,
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
 )
 async def create_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
     """Create a new file in knowledge/."""
@@ -706,8 +721,9 @@ from app.services.charon.eval import get_eval_set, run_eval_set  # noqa: E402
 
 
 @router.get(
-    "/charon/eval", response_model=EvalSetResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    "/charon/eval",
+    response_model=EvalSetResponse,
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
 )
 async def get_eval_questions():
     """Return the Q/A eval set derived from Scenarios."""
@@ -715,8 +731,9 @@ async def get_eval_questions():
 
 
 @router.post(
-    "/charon/eval/run", response_model=EvalRunResponse, 
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))]
+    "/charon/eval/run",
+    response_model=EvalRunResponse,
+    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
 )
 async def run_eval_questions():
     """Run the eval set against the live Charon pipeline and report pass/fail per question."""
@@ -771,8 +788,9 @@ async def list_plans(
 
 
 @router.get(
-    "/plans/{plan_id}", response_model=PlanResponse, 
-    dependencies=[Depends(require_permission("admin.system.maintenance.read"))]
+    "/plans/{plan_id}",
+    response_model=PlanResponse,
+    dependencies=[Depends(require_permission("admin.system.maintenance.read"))],
 )
 async def get_plan(plan_id: int, session: AsyncSession = Depends(get_session)):
     """Get a single plan by ID."""
@@ -842,8 +860,9 @@ async def create_plan(request: PlanCreateRequest, session: AsyncSession = Depend
 
 
 @router.patch(
-    "/plans/{plan_id}", response_model=PlanResponse, 
-    dependencies=[Depends(require_permission("admin.system.maintenance.read"))]
+    "/plans/{plan_id}",
+    response_model=PlanResponse,
+    dependencies=[Depends(require_permission("admin.system.maintenance.read"))],
 )
 async def update_plan(plan_id: int, request: PlanUpdateRequest, session: AsyncSession = Depends(get_session)):
     """Update a plan. Admin can edit price_per_gb, gb_tiers, min/max_gb,
@@ -933,8 +952,9 @@ async def get_channel_feature_flags(session: AsyncSession = Depends(get_session)
 
 
 @router.put(
-    "/features/channels", response_model=ChannelFeatureFlagsResponse, 
-    dependencies=[Depends(require_permission("admin.feature_flags.update"))]
+    "/features/channels",
+    response_model=ChannelFeatureFlagsResponse,
+    dependencies=[Depends(require_permission("admin.feature_flags.update"))],
 )
 async def update_channel_feature_flags(
     request: ChannelFeatureFlagsUpdate,
@@ -983,7 +1003,7 @@ class FeatureFlagResponse(BaseModel):
 @router.get(
     "/features/flags/{flag_name}",
     response_model=FeatureFlagResponse,
-    dependencies=[Depends(require_permission("admin.feature_flags.read"))]
+    dependencies=[Depends(require_permission("admin.feature_flags.read"))],
 )
 async def get_feature_flag(
     flag_name: str,
@@ -1007,7 +1027,7 @@ async def get_feature_flag(
 @router.patch(
     "/features/flags/{flag_name}",
     response_model=FeatureFlagResponse,
-    dependencies=[Depends(require_permission("admin.feature_flags.update"))]
+    dependencies=[Depends(require_permission("admin.feature_flags.update"))],
 )
 async def update_feature_flag(
     flag_name: str,
@@ -1033,6 +1053,7 @@ async def update_feature_flag(
 
     # Audit log
     from app.models import AdminAuditLog
+
     audit = AdminAuditLog(
         admin_email="unknown",  # Will be filled by auth dependency
         action=f"feature_flag_update_{flag_name}",
@@ -1048,8 +1069,9 @@ async def update_feature_flag(
 
 
 @router.get(
-    "/contact-submissions", response_model=ContactSubmissionsResponse, 
-    dependencies=[Depends(require_permission("admin.customers.support.respond"))]
+    "/contact-submissions",
+    response_model=ContactSubmissionsResponse,
+    dependencies=[Depends(require_permission("admin.customers.support.respond"))],
 )
 async def list_contact_submissions(
     status: Optional[str] = None,
@@ -1077,8 +1099,8 @@ async def list_contact_submissions(
 
 
 @router.post(
-    "/contact-submissions/{submission_id}/reply", 
-    dependencies=[Depends(require_permission("admin.customers.support.respond"))]
+    "/contact-submissions/{submission_id}/reply",
+    dependencies=[Depends(require_permission("admin.customers.support.respond"))],
 )
 async def reply_contact_submission(
     submission_id: UUID,
@@ -1098,8 +1120,8 @@ async def reply_contact_submission(
 
 
 @router.patch(
-    "/contact-submissions/{submission_id}", 
-    dependencies=[Depends(require_permission("admin.customers.support.respond"))]
+    "/contact-submissions/{submission_id}",
+    dependencies=[Depends(require_permission("admin.customers.support.respond"))],
 )
 async def update_contact_submission(
     submission_id: UUID,
@@ -1121,8 +1143,9 @@ async def update_contact_submission(
 
 
 @router.get(
-    "/escalations", response_model=EscalationsResponse, 
-    dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+    "/escalations",
+    response_model=EscalationsResponse,
+    dependencies=[Depends(require_permission("admin.customers.escalations.handle"))],
 )
 async def list_escalations(
     status: Optional[str] = None,
@@ -1148,8 +1171,8 @@ async def list_escalations(
 
 
 @router.post(
-    "/escalations/{escalation_id}/respond", 
-    dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+    "/escalations/{escalation_id}/respond",
+    dependencies=[Depends(require_permission("admin.customers.escalations.handle"))],
 )
 async def respond_escalation(
     escalation_id: UUID,
@@ -1185,7 +1208,6 @@ async def update_escalation(
     escalation.status = status
     await session.commit()
     return {"success": True}
-
 
 
 @router.get("/n8n/failures", dependencies=[Depends(require_permission("admin.monitor.webhooks.read"))])
@@ -1224,7 +1246,6 @@ async def clear_n8n_webhook_failures() -> dict:
     """
     cleared = await clear_failures()
     return {"cleared": cleared}
-
 
 
 # ─── §14 Monitor & Regulate API — M2/M3 endpoints ────────────────────────────
@@ -1411,8 +1432,7 @@ async def cache_stats() -> dict:
             "hits": info.get("keyspace_hits", 0),
             "misses": info.get("keyspace_misses", 0),
             "hit_rate": (
-                info.get("keyspace_hits", 0)
-                / max(1, info.get("keyspace_hits", 0) + info.get("keyspace_misses", 0))
+                info.get("keyspace_hits", 0) / max(1, info.get("keyspace_hits", 0) + info.get("keyspace_misses", 0))
             ),
             "total_keys": sum(int(v.get("keys", 0)) for v in keyspace.values() if isinstance(v, dict)),
             "memory_used_bytes": info.get("used_memory", 0),
@@ -1462,6 +1482,7 @@ async def providers_health() -> dict:
     dashboard.
     """
     from app.services.providers import PROVIDER_COSTS
+
     return {
         "providers_configured": list(PROVIDER_COSTS.keys()),
         "note": "For live availability benchmarks use /api/admin/providers/test (Theme B+).",
@@ -1481,7 +1502,7 @@ async def test_provider_proxy(
     Returns ProxyTestResult with speed/strength/quality grades + PASS/FAIL verdict.
     Requires: ip (string) and port (int) query params.
     """
-    from app.services.provider import ProviderProxy, test_proxy
+    from app.services.provider import ProviderProxy
     from app.services.provider_test import benchmark_tiers, test_proxy_full
 
     proxy = ProviderProxy(
@@ -1517,6 +1538,7 @@ async def charon_health() -> dict:
     """
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=5.0) as client:
             r = await client.get("http://127.0.0.1:8000/api/v1/health")
             if r.status_code == 200:
@@ -1537,7 +1559,6 @@ async def charon_health() -> dict:
         return {"charon_available": False, "error": "health_endpoint_unreachable"}
     except Exception as e:
         return {"charon_available": False, "error": str(e)[:200]}
-
 
 
 # ─── §14 Monitor & Regulate API — M4 endpoints ────────────────────────────────
@@ -1571,9 +1592,7 @@ async def re_fulfill_order(
     """
     from app.services.credential import create_credential
 
-    order = (
-        await session.execute(select(Order).where(Order.order_id == order_id))
-    ).scalar_one_or_none()
+    order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     if order.status in ("refunded", "cancelled"):
@@ -1587,9 +1606,7 @@ async def re_fulfill_order(
         if order.styxproxy_credential_id:
             old_cred = (
                 await session.execute(
-                    select(StyxproxyCredential).where(
-                        StyxproxyCredential.id == order.styxproxy_credential_id
-                    )
+                    select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
                 )
             ).scalar_one_or_none()
             if old_cred:
@@ -1696,18 +1713,22 @@ async def self_test(
         await session.execute(text("SELECT 1"))
         customers = (await session.execute(text("SELECT count(*) FROM customers"))).scalar() or 0
         orders = (await session.execute(text("SELECT count(*) FROM orders"))).scalar() or 0
-        results.append({
-            "check": "database",
-            "pass": True,
-            "latency_ms": round((time.time() - t0) * 1000, 1),
-            "details": {"customers": customers, "orders": orders},
-        })
+        results.append(
+            {
+                "check": "database",
+                "pass": True,
+                "latency_ms": round((time.time() - t0) * 1000, 1),
+                "details": {"customers": customers, "orders": orders},
+            }
+        )
     except Exception as e:
-        results.append({
-            "check": "database",
-            "pass": False,
-            "error": str(e)[:200],
-        })
+        results.append(
+            {
+                "check": "database",
+                "pass": False,
+                "error": str(e)[:200],
+            }
+        )
 
     # Redis check
     t0 = time.time()
@@ -1717,11 +1738,13 @@ async def self_test(
             results.append({"check": "redis", "pass": False, "error": "redis_unavailable"})
         else:
             await client.ping()
-            results.append({
-                "check": "redis",
-                "pass": True,
-                "latency_ms": round((time.time() - t0) * 1000, 1),
-            })
+            results.append(
+                {
+                    "check": "redis",
+                    "pass": True,
+                    "latency_ms": round((time.time() - t0) * 1000, 1),
+                }
+            )
     except Exception as e:
         results.append({"check": "redis", "pass": False, "error": str(e)[:200]})
 
@@ -1736,46 +1759,52 @@ async def self_test(
             proxy_type="isp",
             quantity=1,
         )
-        results.append({
-            "check": "provider_availability",
-            "pass": bool(result.get("available")),
-            "latency_ms": round((time.time() - t0) * 1000, 1),
-            "details": result,
-        })
+        results.append(
+            {
+                "check": "provider_availability",
+                "pass": bool(result.get("available")),
+                "latency_ms": round((time.time() - t0) * 1000, 1),
+                "details": result,
+            }
+        )
     except Exception as e:
         results.append({"check": "provider_availability", "pass": False, "error": str(e)[:200]})
 
     # Flutterwave configured (env var present, no API call)
-    results.append({
-        "check": "flutterwave_configured",
-        "pass": bool(settings.flutterwave_secret_key),
-        "details": {
-            "secret_key_set": bool(settings.flutterwave_secret_key),
-            "public_key_set": bool(getattr(settings, "flutterwave_public_key", "")),
-        },
-    })
+    results.append(
+        {
+            "check": "flutterwave_configured",
+            "pass": bool(settings.flutterwave_secret_key),
+            "details": {
+                "secret_key_set": bool(settings.flutterwave_secret_key),
+                "public_key_set": bool(getattr(settings, "flutterwave_public_key", "")),
+            },
+        }
+    )
 
     # n8n webhook configured (URL present, no API call)
-    results.append({
-        "check": "n8n_configured",
-        "pass": bool(settings.n8n_webhook_url),
-        "details": {"url_set": bool(settings.n8n_webhook_url)},
-    })
+    results.append(
+        {
+            "check": "n8n_configured",
+            "pass": bool(settings.n8n_webhook_url),
+            "details": {"url_set": bool(settings.n8n_webhook_url)},
+        }
+    )
 
     # Feature flag infra check
     t0 = time.time()
     try:
         flag = (
-            await session.execute(
-                select(FeatureFlag).where(FeatureFlag.name == "maintenance_mode")
-            )
+            await session.execute(select(FeatureFlag).where(FeatureFlag.name == "maintenance_mode"))
         ).scalar_one_or_none()
-        results.append({
-            "check": "feature_flags",
-            "pass": flag is not None,
-            "latency_ms": round((time.time() - t0) * 1000, 1),
-            "details": {"maintenance_mode_flag_exists": flag is not None},
-        })
+        results.append(
+            {
+                "check": "feature_flags",
+                "pass": flag is not None,
+                "latency_ms": round((time.time() - t0) * 1000, 1),
+                "details": {"maintenance_mode_flag_exists": flag is not None},
+            }
+        )
     except Exception as e:
         results.append({"check": "feature_flags", "pass": False, "error": str(e)[:200]})
 
@@ -1802,7 +1831,6 @@ async def self_test(
             "failed": sum(1 for r in results if not r["pass"]),
         },
     }
-
 
 
 @router.get("/health/history", dependencies=[Depends(require_permission("admin.monitor.health.read"))])

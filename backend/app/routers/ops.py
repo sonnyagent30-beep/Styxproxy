@@ -5,16 +5,15 @@ Base URL: /_ops/v1/  (mounted at /ops/v1/ in main.py)
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Any, Optional
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_session
 from app.models import (
-    AdminAuditLog,
     Customer,
     HealthSnapshot,
     Order,
@@ -40,7 +39,7 @@ async def ops_health(session: AsyncSession = Depends(get_session)) -> dict[str, 
     last-24h uptime percentage from the health_snapshots table.
     """
     # Import helpers from health.py at call time to avoid circular imports
-    from app.routers.health import _check_db, _check_redis, _check_litellm, _check_ollama, _check_m2_cloud
+    from app.routers.health import _check_db, _check_litellm, _check_m2_cloud, _check_ollama, _check_redis
 
     db = await _check_db(session)
     redis = await _check_redis()
@@ -103,37 +102,25 @@ async def ops_health(session: AsyncSession = Depends(get_session)) -> dict[str, 
 async def ops_metrics(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
     """Platform metrics summary — all from async DB queries."""
     # Total customers
-    total_customers = (
-        await session.execute(select(func.count()).select_from(Customer))
-    ).scalar() or 0
+    total_customers = (await session.execute(select(func.count()).select_from(Customer))).scalar() or 0
 
     # Total orders
-    total_orders = (
-        await session.execute(select(func.count()).select_from(Order))
-    ).scalar() or 0
+    total_orders = (await session.execute(select(func.count()).select_from(Order))).scalar() or 0
 
     # Order status counts
     paid_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "paid")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "paid"))
     ).scalar() or 0
     fulfilled_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "fulfilled")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "fulfilled"))
     ).scalar() or 0
     refunded_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "refunded")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "refunded"))
     ).scalar() or 0
 
     # Revenue (paid + fulfilled orders)
     revenue_ngn = (
-        await session.execute(
-            select(func.sum(Order.amount_paid_ngn)).where(Order.status.in_(["paid", "fulfilled"]))
-        )
+        await session.execute(select(func.sum(Order.amount_paid_ngn)).where(Order.status.in_(["paid", "fulfilled"])))
     ).scalar() or 0.0
 
     # Active credentials
@@ -145,9 +132,7 @@ async def ops_metrics(session: AsyncSession = Depends(get_session)) -> dict[str,
 
     # Trial orders
     trial_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "trial")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "trial"))
     ).scalar() or 0
 
     return {
@@ -195,10 +180,9 @@ async def ops_refund_order(
     # Call Flutterwave refund
     tx_ref = order.payment_reference or ""
     amount = float(order.amount_paid_ngn or 0)
-    refund_result: dict[str, Any] = {}
     try:
         if tx_ref and amount > 0:
-            refund_result = await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
+            _ = await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
         else:
             raise ValueError("No payment reference or amount to refund")
     except Exception as e:
@@ -255,9 +239,7 @@ async def ops_reprocess_order(
         raise HTTPException(status_code=404, detail="Order not found")
 
     if order.status != "failed_unfulfilled":
-        raise HTTPException(
-            status_code=400, detail=f"Cannot reprocess order with status '{order.status}'"
-        )
+        raise HTTPException(status_code=400, detail=f"Cannot reprocess order with status '{order.status}'")
 
     admin_email = jwt_payload.get("sub", "ops-service")
 
