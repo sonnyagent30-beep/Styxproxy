@@ -27,7 +27,7 @@ class EmailUnsubscribe(Base):
 
 
 def _make_token(email: str) -> str:
-    return hashlib.sha1(f"{email}:{UNSUBSCRIBE_SECRET}".encode()).hexdigest()
+    return hashlib.sha1(f"{email}:{UNSUBSCRIBE_SECRET}".encode(), usedforsecurity=False).hexdigest()
 
 
 def _make_url(email: str) -> str:

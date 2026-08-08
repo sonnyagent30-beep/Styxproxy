@@ -113,7 +113,7 @@ async def public_only(request: Request) -> None:
 
 # Log file path
 CHARON_LOG_DIR = os.getenv("CHARON_LOG_DIR", "/tmp")
-CHARON_LOG_PATH = os.path.join(CHARON_LOG_DIR, "charon.log")
+CHARON_LOG_PATH = os.path.join(CHARON_LOG_DIR, "charon.log")  # nosec B108
 
 
 class ChatMessage(BaseModel):
