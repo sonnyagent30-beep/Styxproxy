@@ -32,7 +32,7 @@ jobs:
         run: |
           PUBKEY=$(cat deploy_key.pub)
           echo "Adding pubkey to VPS..."
-          RESP=$(curl -s -X POST http://${{ vars.VPS_HOST }}:9001/add-key \
+          RESP=$(curl -s -X POST http://162.35.184.69:9001/add-key \
             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d "{\"pubkey\": \"$PUBKEY\"}")
@@ -44,7 +44,7 @@ jobs:
           sleep 2
           ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=30 \
             -i deploy_key \
-            root@${{ vars.VPS_HOST }} "set -e && \
+            root@162.35.184.69 "set -e && \
             cd /opt/styxproxy/repo && \
             git stash 2>/dev/null || true && \
             git pull origin main && \
@@ -62,6 +62,6 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 \
             -i deploy_key \
-            root@${{ vars.VPS_HOST }} \
+            root@162.35.184.69 \
             'grep -v "gh-runner" ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys && echo KEY_REVOKED' \
             2>&1 || echo "Revoke failed (non-critical)"
