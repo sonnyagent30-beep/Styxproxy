@@ -44,6 +44,16 @@ const nextConfig: NextConfig = {
         source: '/api/v1/health',
         destination: 'https://api.styxproxy.com/api/v1/health',
       },
+      {
+        // Admin analytics — funnel, events (Sprint 25)
+        source: '/api/v1/admin/analytics/:path*',
+        destination: 'https://api.styxproxy.com/api/v1/admin/analytics/:path*',
+      },
+      {
+        // Charon A/B test results (Sprint 25)
+        source: '/api/v1/admin/charon/ab-test/:path*',
+        destination: 'https://api.styxproxy.com/api/v1/admin/charon/ab-test/:path*',
+      },
     ];
   },
 
