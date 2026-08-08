@@ -8,6 +8,8 @@ import type {
   Customer,
   ApiResponse,
   PaginatedResponse,
+  FunnelData,
+  AnalyticsEvent,
   StyxproxyCredential,
   CharonConversation,
   CharonLogEntry,
@@ -293,6 +295,17 @@ class ApiClient {
   // Admin
   async getAdminStats(): Promise<ApiResponse<AdminStats>> {
     return this.request<AdminStats>('/api/admin/stats');
+  }
+
+  // Analytics
+  async getAnalyticsFunnel(): Promise<ApiResponse<FunnelData>> {
+    return this.request<FunnelData>('/api/v1/admin/analytics/funnel');
+  }
+
+  async getAnalyticsEvents(queryString: string = ''): Promise<ApiResponse<{ events: AnalyticsEvent[]; total: number }>> {
+    return this.request<{ events: AnalyticsEvent[]; total: number }>(
+      `/api/v1/admin/analytics/events${queryString ? `?${queryString}` : ''}`
+    );
   }
 
   async getOrders(page: number = 1, limit: number = 20): Promise<ApiResponse<PaginatedResponse<Order>>> {

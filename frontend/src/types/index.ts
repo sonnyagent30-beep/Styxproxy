@@ -1006,3 +1006,28 @@ export interface OrderPaymentStatus {
   user_message: string;
   credential?: PaymentStatusCredential | null;
 }
+
+// Analytics types
+export interface FunnelStage {
+  stage: string;
+  count: number;
+  conversion_rate: number | null;
+}
+
+export interface FunnelData {
+  total_events: number;
+  stages: FunnelStage[];
+  period_days: number;
+}
+
+export interface AnalyticsEvent {
+  id: number;
+  event_name: string;
+  session_id: string | null;
+  customer_phone: string | null;
+  country: string | null;
+  plan_code: string | null;
+  channel: string;
+  meta: Record<string, unknown>;
+  created_at: string;
+}
