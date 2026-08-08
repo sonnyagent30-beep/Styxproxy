@@ -186,13 +186,19 @@ jobs:
             systemctl restart styxproxy-api
             echo "Backend restarted"
 
+      - name: Wait for backend to start
+        run: |
+          echo "Waiting 15s for backend to start..."
+          sleep 15
+          echo "Done waiting"
+
       - name: Health check with retry
         run: |
-          for i in $(seq 1 10); do
+          for i in $(seq 1 15); do
             sleep 2
             RESP=$(curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null)
             if [ $? -eq 0 ]; then echo "Healthy: $RESP"; exit 0; fi
-            echo "Attempt $i/10..."
+            echo "Attempt $i/15..."
           done
           exit 1
 
