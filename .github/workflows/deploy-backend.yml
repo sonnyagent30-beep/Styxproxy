@@ -1,4 +1,4 @@
-name: Deploy Backend (live)
+name: Deploy Backend
 
 on:
   push:
@@ -14,7 +14,8 @@ concurrency:
 env:
   VPS_HOST: 162.35.184.69
   VPS_USER: root
-  REPO_DIR: /opt/styxproxy/repo
+  VPS_REPO: /opt/styxproxy/repo
+  VPS_BACKEND_CODE: /opt/styxproxy/backend
 
 jobs:
   deploy-backend:
@@ -24,9 +25,6 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.8
         with:
@@ -35,19 +33,32 @@ jobs:
           key: ${{ secrets.INTERSERVER_SSH_KEY }}
           script: |
             set -e
-            cd ${{ env.REPO_DIR }}
+            echo '=== Pulling latest code from repo ==='
+            cd ${{ env.VPS_REPO }}
             git stash || true
             git pull origin main
-            pip install -q -r backend/requirements.txt 2>/dev/null || true
-            cp -r backend/app /opt/styxproxy/backend/app
-            cp -r backend/alembic /opt/styxproxy/backend/alembic 2>/dev/null || true
+
+            echo '=== Installing/updating Python dependencies ==='
+            ${{ env.VPS_BACKEND_CODE }}/venv/bin/pip install -q -r ${{ env.VPS_REPO }}/backend/requirements.txt 2>/dev/null || true
+
+            echo '=== Syncing backend app code ==='
+            cp -r ${{ env.VPS_REPO }}/backend/app ${{ env.VPS_BACKEND_CODE }}/app
+            cp -r ${{ env.VPS_REPO }}/backend/alembic ${{ env.VPS_BACKEND_CODE }}/alembic 2>/dev/null || true
+
+            echo '=== Restarting styxproxy-api ==='
             systemctl restart styxproxy-api
-            sleep 6
+
+            echo '=== Waiting for startup ==='
+            sleep 8
+
             HEALTH=$(curl -sf https://api.styxproxy.com/api/v1/health 2>/dev/null || curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo 'no-response')
             echo "Health: $HEALTH"
+
             if echo "$HEALTH" | grep -q 'healthy'; then
               echo 'Deploy successful'
             else
               echo 'WARNING: health check did not return healthy'
+              journalctl -u styxproxy-api --no-pager -n 20 || true
+              tail -30 /var/log/styxproxy-api.log 2>/dev/null || true
               exit 1
             fi
