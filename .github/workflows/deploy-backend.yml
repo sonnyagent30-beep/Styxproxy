@@ -11,8 +11,6 @@ concurrency:
   group: backend-deploy
   cancel-in-progress: false
 
-env:
-  PYTHON_VERSION: '3.11'
 
 jobs:
   # ── Layer 1: Lint ──────────────────────────────────────────────────────────
@@ -25,7 +23,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@0c9a5b19a9a079c01c1b93e1c5f5e2b7e3a3f52
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: '3.11'
 
       - name: Install ruff
         run: pip install "ruff==0.8.4"
@@ -46,7 +44,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@0c9a5b19a9a079c01c1b93e1c5f5e2b7e3a3f52
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: '3.11'
 
       - name: Install bandit
         run: pip install bandit
@@ -75,7 +73,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@0c9a5b19a9a079c01c1b93e1c5f5e2b7e3a3f52
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: '3.11'
 
       - name: Install pip-audit
         run: pip install pip-audit
@@ -119,7 +117,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@0c9a5b19a9a079c01c1b93e1c5f5e2b7e3a3f52
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: '3.11'
 
       - name: Cache pip
         uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
