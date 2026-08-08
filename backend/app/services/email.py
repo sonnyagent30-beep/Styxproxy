@@ -714,6 +714,7 @@ async def send_email(
 
             # Threading + List-Unsubscribe headers
             import hashlib
+
             unsub_token = hashlib.sha1((to + ":styxproxy_unsubscribe_v1").encode()).hexdigest()
             unsub_url = f"https://styxproxy.com/unsubscribe?email={to}&token={unsub_token}"
             custom_headers = {

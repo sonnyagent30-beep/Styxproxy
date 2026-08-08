@@ -24,6 +24,7 @@ router = APIRouter(prefix="/api", tags=["customers"])
 
 # ─── Auth dependency ──────────────────────────────────────────────────────────
 
+
 async def get_current_customer(
     request: Request,
     session: AsyncSession = Depends(get_session),
@@ -111,9 +112,7 @@ async def get_me(
 ):
     """Return the current customer's profile."""
     # Count orders
-    orders_result = await session.execute(
-        select(Order).where(Order.customer_id == customer.id)
-    )
+    orders_result = await session.execute(select(Order).where(Order.customer_id == customer.id))
     orders = orders_result.scalars().all()
 
     # Derive email from orders if available
@@ -149,9 +148,7 @@ async def data_export(
     }
 
     # Orders
-    orders_result = await session.execute(
-        select(Order).where(Order.customer_id == customer.id)
-    )
+    orders_result = await session.execute(select(Order).where(Order.customer_id == customer.id))
     orders = orders_result.scalars().all()
     orders_data = [
         {
@@ -183,9 +180,7 @@ async def data_export(
     ]
 
     # Trials
-    trials_result = await session.execute(
-        select(FreeTrial).where(FreeTrial.phone == customer.phone)
-    )
+    trials_result = await session.execute(select(FreeTrial).where(FreeTrial.phone == customer.phone))
     trials = trials_result.scalars().all()
     trials_data = [
         {
@@ -233,11 +228,7 @@ async def delete_me(
     )
 
     # Unlink customer from orders (retain order records for tax compliance)
-    await session.execute(
-        update(Order)
-        .where(Order.customer_id == customer.id)
-        .values(customer_id=None)
-    )
+    await session.execute(update(Order).where(Order.customer_id == customer.id).values(customer_id=None))
 
     await session.commit()
 

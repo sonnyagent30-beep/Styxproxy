@@ -9,6 +9,7 @@ matching, no merge logic. Each unique email becomes its own Customer row.
 A returning email-only customer who forgets their original email silently
 ends up with a second account (acceptable per product decision).
 """
+
 import hashlib
 
 from sqlalchemy import select
@@ -56,9 +57,7 @@ async def get_or_create_customer(
         return None
 
     if phone:
-        existing = (
-            await session.execute(select(Customer).where(Customer.phone == phone))
-        ).scalar_one_or_none()
+        existing = (await session.execute(select(Customer).where(Customer.phone == phone))).scalar_one_or_none()
         if existing:
             if platform_account and platform_account.customer_id is None:
                 platform_account.customer_id = existing.id
@@ -68,9 +67,7 @@ async def get_or_create_customer(
     if not email:
         return None
     placeholder = placeholder_phone_from_email(email)
-    existing = (
-        await session.execute(select(Customer).where(Customer.phone == placeholder))
-    ).scalar_one_or_none()
+    existing = (await session.execute(select(Customer).where(Customer.phone == placeholder))).scalar_one_or_none()
     if existing:
         if platform_account and platform_account.customer_id is None:
             platform_account.customer_id = existing.id

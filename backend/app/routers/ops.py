@@ -102,37 +102,25 @@ async def ops_health(session: AsyncSession = Depends(get_session)) -> dict[str, 
 async def ops_metrics(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
     """Platform metrics summary — all from async DB queries."""
     # Total customers
-    total_customers = (
-        await session.execute(select(func.count()).select_from(Customer))
-    ).scalar() or 0
+    total_customers = (await session.execute(select(func.count()).select_from(Customer))).scalar() or 0
 
     # Total orders
-    total_orders = (
-        await session.execute(select(func.count()).select_from(Order))
-    ).scalar() or 0
+    total_orders = (await session.execute(select(func.count()).select_from(Order))).scalar() or 0
 
     # Order status counts
     paid_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "paid")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "paid"))
     ).scalar() or 0
     fulfilled_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "fulfilled")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "fulfilled"))
     ).scalar() or 0
     refunded_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "refunded")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "refunded"))
     ).scalar() or 0
 
     # Revenue (paid + fulfilled orders)
     revenue_ngn = (
-        await session.execute(
-            select(func.sum(Order.amount_paid_ngn)).where(Order.status.in_(["paid", "fulfilled"]))
-        )
+        await session.execute(select(func.sum(Order.amount_paid_ngn)).where(Order.status.in_(["paid", "fulfilled"])))
     ).scalar() or 0.0
 
     # Active credentials
@@ -144,9 +132,7 @@ async def ops_metrics(session: AsyncSession = Depends(get_session)) -> dict[str,
 
     # Trial orders
     trial_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "trial")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "trial"))
     ).scalar() or 0
 
     return {
@@ -254,9 +240,7 @@ async def ops_reprocess_order(
         raise HTTPException(status_code=404, detail="Order not found")
 
     if order.status != "failed_unfulfilled":
-        raise HTTPException(
-            status_code=400, detail=f"Cannot reprocess order with status '{order.status}'"
-        )
+        raise HTTPException(status_code=400, detail=f"Cannot reprocess order with status '{order.status}'")
 
     admin_email = jwt_payload.get("sub", "ops-service")
 

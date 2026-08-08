@@ -1,4 +1,5 @@
 """Routers package."""
+
 from app.routers.admin import router as admin
 from app.routers.admin_proxies import router as admin_proxies
 from app.routers.admin_support import router as admin_support
@@ -25,4 +26,3 @@ from app.routers.superadmin import router as superadmin
 from app.routers.trials import router as trials
 from app.routers.unsubscribe import router as unsubscribe
 from app.routers.webhooks import router as webhooks
-

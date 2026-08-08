@@ -296,9 +296,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                             fingerprint=f"auto-refund-{tx_ref}",
                         )
                     except Exception as refund_error:
-                        logger.warning(
-                            "Flutterwave refund call failed for tx_ref=%s: %s", tx_ref, refund_error
-                        )
+                        logger.warning("Flutterwave refund call failed for tx_ref=%s: %s", tx_ref, refund_error)
                         _capture_money_event(
                             level="error",
                             title=f"MONEY BUG: auto-refund FAILED for {tx_ref}",
@@ -344,9 +342,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
 
         from app.models import Order
 
-        order = (
-            await db_session.execute(select(Order).where(Order.payment_reference == tx_ref))
-        ).scalar_one_or_none()
+        order = (await db_session.execute(select(Order).where(Order.payment_reference == tx_ref))).scalar_one_or_none()
 
         if not order:
             logger.warning("payment.expired: no order found for tx_ref=%s", tx_ref)
@@ -361,6 +357,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
         await db_session.commit()
 
         from app.services.audit import log_audit_event
+
         await log_audit_event(
             db_session,
             event_type="payment_expired",
@@ -384,7 +381,11 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
     if event_type == "charge.failed":
         tx_ref = data.get("tx_ref")
         status = data.get("status")
-        failure_message = data.get("processor_response", {}).get("remark", "") if isinstance(data.get("processor_response"), dict) else str(data.get("processor_response", ""))
+        failure_message = (
+            data.get("processor_response", {}).get("remark", "")
+            if isinstance(data.get("processor_response"), dict)
+            else str(data.get("processor_response", ""))
+        )
 
         if not tx_ref:
             return {"status": "ignored"}
@@ -393,9 +394,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
 
         from app.models import Order
 
-        order = (
-            await db_session.execute(select(Order).where(Order.payment_reference == tx_ref))
-        ).scalar_one_or_none()
+        order = (await db_session.execute(select(Order).where(Order.payment_reference == tx_ref))).scalar_one_or_none()
 
         if not order:
             logger.warning("charge.failed: no order found for tx_ref=%s", tx_ref)
@@ -409,6 +408,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
         await db_session.commit()
 
         from app.services.audit import log_audit_event
+
         await log_audit_event(
             db_session,
             event_type="payment_charge_failed",

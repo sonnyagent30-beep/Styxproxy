@@ -552,10 +552,9 @@ async def login_admin_email(
     role = admin.role or "admin"
     if role == "admin":
         # Check invite for elevated role
-        stmt = select(AdminInvite).where(
-            (AdminInvite.used_by == body.email) |
-            (AdminInvite.email == body.email)
-        ).limit(1)
+        stmt = (
+            select(AdminInvite).where((AdminInvite.used_by == body.email) | (AdminInvite.email == body.email)).limit(1)
+        )
         result = await session.execute(stmt)
         invite = result.scalar_one_or_none()
         if invite:
@@ -715,6 +714,7 @@ async def create_invite(
             )
         except Exception as e:
             import logger
+
             logger.warning(f"Failed to send invite email to {body.email}: {e}")
 
     # Audit log

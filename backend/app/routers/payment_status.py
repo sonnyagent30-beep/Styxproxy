@@ -56,9 +56,8 @@ async def poll_payment_status(
 
         from app.models import Order
         from app.services.flutterwave import verify_flutterwave_payment
-        order_result = await session.execute(
-            select(Order).where(Order.order_id == order_id)
-        )
+
+        order_result = await session.execute(select(Order).where(Order.order_id == order_id))
         order = order_result.scalar_one_or_none()
         if order and order.tx_ref:
             try:

@@ -238,11 +238,7 @@ class CharonMetrics:
             s.daily_spend_usd += spend
 
             # Alert once at threshold
-            if (
-                _BUDGET_USD > 0
-                and not s._at_alert_sent
-                and s.daily_spend_usd >= _BUDGET_USD * (_ALERT_THRESHOLD / 100)
-            ):
+            if _BUDGET_USD > 0 and not s._at_alert_sent and s.daily_spend_usd >= _BUDGET_USD * (_ALERT_THRESHOLD / 100):
                 s._at_alert_sent = True
                 logger.warning(
                     "charon_cost_alert: %.2f/%.2f USD (%.0f%% of daily budget)",

@@ -6,6 +6,7 @@ Theme C: unified cost dashboard for ops visibility.
 
 Owner: Operations / Sonny
 """
+
 from __future__ import annotations
 
 import json
@@ -21,6 +22,7 @@ from app.services.permissions import require_permission
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 # ── Schemas ────────────────────────────────────────────────────────────
+
 
 class LLM_cost(BaseModel):
     tokens_used_total: int
@@ -46,9 +48,11 @@ class CostsResponse(BaseModel):
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
+
 def _llm_cost() -> LLM_cost:
     try:
         from app.services.charon.stats import CharonMetrics
+
         stats = CharonMetrics.get()
         budget = float(os.environ.get("CHARON_DAILY_BUDGET_USD", "0"))
         daily = stats.daily_spend_usd
@@ -103,11 +107,7 @@ def _resend_cost() -> ResendCost:
         except Exception:
             pass
 
-    bounce_rate = (
-        round((bounces_today / max(1, emails_today)) * 100, 2)
-        if emails_today > 0
-        else 0.0
-    )
+    bounce_rate = round((bounces_today / max(1, emails_today)) * 100, 2) if emails_today > 0 else 0.0
     return ResendCost(
         emails_today=emails_today,
         emails_total=emails_total,
@@ -117,6 +117,7 @@ def _resend_cost() -> ResendCost:
 
 
 # ── Endpoint ────────────────────────────────────────────────────────────
+
 
 @router.get("/costs", response_model=CostsResponse)
 async def get_costs(

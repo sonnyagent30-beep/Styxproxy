@@ -116,9 +116,7 @@ async def get_credential_for_customer(
     return result.scalar_one_or_none()
 
 
-async def get_credential_usage(
-    session: AsyncSession, credential_id: int, customer_phone: str
-) -> dict:
+async def get_credential_usage(session: AsyncSession, credential_id: int, customer_phone: str) -> dict:
     """Get bandwidth usage + recent activity for a customer's credential."""
     cred = await get_credential_for_customer(session, credential_id, customer_phone)
     if not cred:
@@ -126,10 +124,7 @@ async def get_credential_usage(
 
     # Get the most recent active order for this credential
     order_stmt = (
-        select(Order)
-        .where(Order.styxproxy_credential_id == credential_id)
-        .order_by(Order.created_at.desc())
-        .limit(1)
+        select(Order).where(Order.styxproxy_credential_id == credential_id).order_by(Order.created_at.desc()).limit(1)
     )
     order = (await session.execute(order_stmt)).scalar_one_or_none()
 
@@ -191,6 +186,7 @@ async def rotate_credential_password(
 
     # Audit log entry (insert separately via raw SQL since we don't have a model for it)
     from sqlalchemy import text
+
     await session.execute(
         text("""
             INSERT INTO credential_password_rotations
@@ -302,6 +298,7 @@ async def update_credential_settings(
     # ─── Rebuild upstream password if location or rotation changed ─────────
     if (country_target is not None and country_target.upper() != (cred.country_target or "")) or rotation_changed:
         from app.services.catalog import build_upstream_password
+
         upstream_user = cred.provider_username or "styx_t1"
         new_upstream_pass = build_upstream_password(
             cred.pool_type,
@@ -358,9 +355,9 @@ async def suspend_credential(
     session: AsyncSession, credential_id: int, reason: str, actor: str = "admin"
 ) -> StyxproxyCredential:
     """Suspend a credential (relay stops serving within 30s on next refresh)."""
-    cred = (await session.execute(
-        select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id)
-    )).scalar_one_or_none()
+    cred = (
+        await session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id))
+    ).scalar_one_or_none()
     if not cred:
         raise ValueError("credential_not_found")
     if cred.status == "suspended":
@@ -375,9 +372,9 @@ async def suspend_credential(
 
 async def unsuspend_credential(session: AsyncSession, credential_id: int) -> StyxproxyCredential:
     """Re-activate a suspended credential."""
-    cred = (await session.execute(
-        select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id)
-    )).scalar_one_or_none()
+    cred = (
+        await session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id))
+    ).scalar_one_or_none()
     if not cred:
         raise ValueError("credential_not_found")
     if cred.status != "suspended":
@@ -392,9 +389,9 @@ async def unsuspend_credential(session: AsyncSession, credential_id: int) -> Sty
 
 async def reset_credential_usage(session: AsyncSession, credential_id: int, actor: str = "admin") -> dict:
     """Zero out the bandwidth counter on a credential (admin escape hatch)."""
-    cred = (await session.execute(
-        select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id)
-    )).scalar_one_or_none()
+    cred = (
+        await session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id))
+    ).scalar_one_or_none()
     if not cred:
         raise ValueError("credential_not_found")
 
@@ -413,9 +410,9 @@ async def reset_credential_usage(session: AsyncSession, credential_id: int, acto
 
 async def force_password_rotation_admin(session: AsyncSession, credential_id: int, actor: str = "admin") -> dict:
     """Admin-initiated password rotation (bypasses the 3/day customer limit)."""
-    cred = (await session.execute(
-        select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id)
-    )).scalar_one_or_none()
+    cred = (
+        await session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id))
+    ).scalar_one_or_none()
     if not cred:
         raise ValueError("credential_not_found")
 
@@ -425,6 +422,7 @@ async def force_password_rotation_admin(session: AsyncSession, credential_id: in
     # NOTE: do NOT increment password_rotations_today — admin rotation is unlimited
 
     from sqlalchemy import text
+
     await session.execute(
         text("""
             INSERT INTO credential_password_rotations

@@ -21,6 +21,7 @@ class ProductVariant(BaseModel):
 
 class ProductCity(BaseModel):
     """City picker item for residential/mobile plans."""
+
     id: int
     city_name: str
     state_code: Optional[str] = None

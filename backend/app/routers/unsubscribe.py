@@ -1,4 +1,5 @@
 """Email unsubscribe router — public, no auth."""
+
 import hashlib
 from datetime import datetime, timezone
 

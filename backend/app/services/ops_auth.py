@@ -1,4 +1,5 @@
 """Ops service JWT auth — verifies _ops/v1/ requests."""
+
 import os
 from typing import Annotated
 

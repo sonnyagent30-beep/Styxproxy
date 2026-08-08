@@ -103,19 +103,13 @@ async def list_my_proxies(
     order_map = {}
     if creds:
         ids = [c.id for c in creds]
-        stmt = (
-            select(Order)
-            .where(Order.styxproxy_credential_id.in_(ids))
-            .order_by(Order.created_at.desc())
-        )
+        stmt = select(Order).where(Order.styxproxy_credential_id.in_(ids)).order_by(Order.created_at.desc())
         orders = (await session.execute(stmt)).scalars().all()
         for o in orders:
             if o.styxproxy_credential_id not in order_map:
                 order_map[o.styxproxy_credential_id] = float(o.data_total_gb) if o.data_total_gb else 0.0
 
-    return ProxiesListResponse(
-        proxies=[_to_summary(c, order_map.get(c.id, 0.0)) for c in creds]
-    )
+    return ProxiesListResponse(proxies=[_to_summary(c, order_map.get(c.id, 0.0)) for c in creds])
 
 
 @router.get("/{proxy_id}", response_model=ProxyFullDetails)
@@ -140,7 +134,11 @@ async def get_proxy_details(
     # Decode password from bytea
     password = ""
     if cred.styxproxy_password:
-        password = cred.styxproxy_password.decode("utf-8", errors="replace") if isinstance(cred.styxproxy_password, bytes) else str(cred.styxproxy_password)  # noqa: E501
+        password = (
+            cred.styxproxy_password.decode("utf-8", errors="replace")
+            if isinstance(cred.styxproxy_password, bytes)
+            else str(cred.styxproxy_password)
+        )  # noqa: E501
 
     return ProxyFullDetails(
         id=cred.id,

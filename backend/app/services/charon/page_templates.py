@@ -6,7 +6,7 @@ more relevant, contextual responses.
 
 Usage:
     from app.services.charon.page_templates import get_page_prompt_addition
-    
+
     prompt_addition = get_page_prompt_addition(page_context)
     # Append to existing system prompt
 """
@@ -62,20 +62,20 @@ PLAN_DETAILS = {
 
 def get_page_prompt_addition(page_context: dict[str, Any] | None) -> str:
     """Get the appropriate system prompt addition based on page context.
-    
+
     Args:
         page_context: Dictionary containing page_type and any relevant context
                      like plan_code, post_title, etc.
-    
+
     Returns:
         A string to append to the system prompt, or empty string if no
         page context is provided.
     """
     if not page_context:
         return ""
-    
+
     page_type = page_context.get("page_type")
-    
+
     if page_type == "pricing":
         return _get_pricing_template()
     elif page_type == "product_detail":
@@ -84,7 +84,7 @@ def get_page_prompt_addition(page_context: dict[str, Any] | None) -> str:
         return _get_blog_post_template(page_context)
     elif page_type in ("checkout", "receipt"):
         return _get_checkout_template()
-    
+
     return ""
 
 
@@ -105,10 +105,10 @@ def _get_product_detail_template(page_context: dict[str, Any]) -> str:
     """System prompt addition for product detail page visitors."""
     plan_code = page_context.get("plan_code", "")
     details = PLAN_DETAILS.get(plan_code, {})
-    
+
     if not details:
         return ""
-    
+
     return (
         "[System prompt addition for product detail page]\n"
         f"Customer is viewing {plan_code}. Key facts to reference:\n"
@@ -124,7 +124,7 @@ def _get_blog_post_template(page_context: dict[str, Any]) -> str:
     """System prompt addition for blog post readers."""
     post_title = page_context.get("post_title", "Untitled Post")
     topics = page_context.get("topics", "general topics")
-    
+
     return (
         "[System prompt addition for blog readers]\n"
         f'Customer is reading our blog post "{post_title}". This post covers: {topics}.\n'

@@ -113,9 +113,7 @@ async def get_order_payment_status(
     Returns:
         OrderPaymentStatus or None if the order doesn't exist / isn't owned by this customer
     """
-    order_result = await session.execute(
-        select(Order).where(Order.order_id == order_id)
-    )
+    order_result = await session.execute(select(Order).where(Order.order_id == order_id))
     order = order_result.scalar_one_or_none()
     if not order:
         return None
@@ -142,9 +140,7 @@ async def get_order_payment_status(
     credential_payload: Optional[PaymentStatusCredential] = None
     if order.status in ("active", "fulfilled") and order.styxproxy_credential_id:
         cred_result = await session.execute(
-            select(StyxproxyCredential).where(
-                StyxproxyCredential.id == order.styxproxy_credential_id
-            )
+            select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         )
         cred = cred_result.scalar_one_or_none()
         if cred:

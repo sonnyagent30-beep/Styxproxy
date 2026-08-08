@@ -359,11 +359,14 @@ async def receive_resend_webhook(
         "thread_id": str(thread.id),
     }
 
+
 # ── Bounce / Complaint handlers ─────────────────────────────────────────────────
+
 
 async def _handle_bounce(session, data: dict):
     """Record hard bounce → mark user as unsubscribed."""
     import time as _time
+
     bounced_emails = data.get("emails", [])
     reason = data.get("reason", {}).get("bounce_classification", "unknown")
     logger.warning("email_bounced", emails=bounced_emails, reason=reason)
@@ -373,6 +376,7 @@ async def _handle_bounce(session, data: dict):
             from sqlalchemy import select
 
             from app.models import PlatformAccount, ProcessedWebhook
+
             stmt = select(PlatformAccount).where(PlatformAccount.email == email.lower())
             result = await session.execute(stmt)
             user = result.scalar_one_or_none()
@@ -395,6 +399,7 @@ async def _handle_bounce(session, data: dict):
 async def _handle_complaint(session, data: dict):
     """Record spam complaint → mark user as unsubscribed."""
     import time as _time
+
     complained_emails = data.get("emails", [])
     logger.warning("email_complained", emails=complained_emails)
 
@@ -403,6 +408,7 @@ async def _handle_complaint(session, data: dict):
             from sqlalchemy import select
 
             from app.models import PlatformAccount, ProcessedWebhook
+
             stmt = select(PlatformAccount).where(PlatformAccount.email == email.lower())
             result = await session.execute(stmt)
             user = result.scalar_one_or_none()
@@ -424,6 +430,7 @@ async def _handle_complaint(session, data: dict):
 
 # ── Unsubscribe endpoint ────────────────────────────────────────────────────────
 
+
 @router.get("/api/v1/unsubscribe")
 async def unsubscribe(
     email: str,
@@ -436,21 +443,21 @@ async def unsubscribe(
     """
     import hashlib
 
-    expected = hashlib.sha256(
-        f"{email}:styxproxy_unsubscribe_secret_v1".encode()
-    ).hexdigest()[:16]
+    expected = hashlib.sha256(f"{email}:styxproxy_unsubscribe_secret_v1".encode()).hexdigest()[:16]
     if token != expected:
         return {"ok": False, "message": "Invalid unsubscribe link."}
 
     from sqlalchemy import select
 
     from app.models import PlatformAccount
+
     stmt = select(PlatformAccount).where(PlatformAccount.email == email.lower())
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
     if user:
         user.unsubscribed = True
         import time as _time
+
         user.unsubscribed_at = _time.time()
         await session.commit()
 
@@ -464,13 +471,11 @@ async def unsubscribe(
 async def unsubscribe_preview(email: str):
     """Preview page for unsubscribe shown before one-click confirm."""
     import hashlib
-    token = hashlib.sha256(
-        f"{email}:styxproxy_unsubscribe_secret_v1".encode()
-    ).hexdigest()[:16]
+
+    token = hashlib.sha256(f"{email}:styxproxy_unsubscribe_secret_v1".encode()).hexdigest()[:16]
     confirm_url = f"https://styxproxy.com/api/v1/unsubscribe?email={email}&token={token}"
     return {
         "email": email,
         "confirm_url": confirm_url,
         "message": "Click confirm_url to unsubscribe.",
     }
-
