@@ -1,15 +1,21 @@
 name: Deploy to VPS via SSH
-description: Writes SSH key then runs deploy commands on the VPS
+description: Writes SSH key to action dir then runs SSH on the runner itself
 runs:
   using: composite
   steps:
-    - name: Write SSH key
+    - name: Write SSH key to action dir
       shell: bash
       run: |
-        printf '%s' "${{ inputs.ssh_key }}" > ${{ github.action_path }}/gh_key
-        chmod 600 ${{ github.action_path }}/gh_key
-        echo "Key: $(wc -c < ${{ github.action_path }}/gh_key) bytes"
+        KEY_FILE=${{ github.action_path }}/gh_key
+        printf '%s' "${{ inputs.ssh_key }}" > "$KEY_FILE"
+        chmod 600 "$KEY_FILE"
+        echo "Key file: $KEY_FILE"
+        ls -la "$KEY_FILE"
+        wc -c < "$KEY_FILE"
     - name: Deploy via SSH
       shell: bash
       run: |
-        ssh -i ${{ github.action_path }}/gh_key -o StrictHostKeyChecking=no ${{ inputs.username }}@${{ inputs.host }} '${{ inputs.script }}'
+        KEY_FILE=${{ github.action_path }}/gh_key
+        echo "Using key: $KEY_FILE"
+        ls -la "$KEY_FILE" 2>&1 || echo 'KEY FILE MISSING'
+        ssh -i "$KEY_FILE" -o StrictHostKeyChecking=no -o LogLevel=ERROR ${{ inputs.username }}@${{ inputs.host }} 'whoami; echo OK'
