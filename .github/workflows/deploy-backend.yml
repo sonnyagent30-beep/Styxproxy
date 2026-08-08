@@ -54,7 +54,7 @@ jobs:
           # Ignore B108 (temp file in charon.py - acceptable for AI agent temp storage)
           # Ignore B110 (assert in trials.py - test/dev context)
           bandit -r backend/app/ -ll -f json -o bandit.json \
-            --ignore B303,B313,B108,B110 \
+            -x B303,B313,B108,B110 \
             || true
 
       - name: Check bandit results
