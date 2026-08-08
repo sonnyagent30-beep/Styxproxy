@@ -129,7 +129,8 @@ jobs:
       - name: Install dependencies
         run: |
           cd backend
-          pip install -e ".[dev]"
+          pip install pytest pytest-asyncio httpx
+          pip install -r requirements.txt
 
       - name: Run database migrations
         env:
