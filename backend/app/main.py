@@ -1,3 +1,4 @@
+
 """Styxproxy Backend API"""
 
 import logging
@@ -18,7 +19,7 @@ from app.limiter import limiter
 logger = logging.getLogger("app.main")
 
 # ─── Observability ───────────────────────────────────────────────────────────
-from app import observability
+from app.services import observability
 
 
 @asynccontextmanager
