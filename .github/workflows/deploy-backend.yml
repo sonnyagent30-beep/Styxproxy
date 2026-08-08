@@ -25,12 +25,18 @@ jobs:
       contents: read
 
     steps:
+      - name: Write SSH key to file
+        run: |
+          echo "${{ secrets.INTERSERVER_SSH_KEY }}" > /tmp/github_key
+          chmod 600 /tmp/github_key
+          echo "Key written: $(wc -c < /tmp/github_key) bytes"
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ env.VPS_HOST }}
           username: ${{ env.VPS_USER }}
-          key: ${{ secrets.INTERSERVER_SSH_KEY }}
+          key_path: /tmp/github_key
           script: |
             set -e
             echo '=== Pulling latest code ==='
