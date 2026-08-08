@@ -11,9 +11,8 @@ The maintenance page itself is rendered client-side; this router just
 owns the boolean state.
 """
 
-from typing import Optional
-import asyncio
 import json
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -150,8 +149,8 @@ async def _call_betterstack(
         return  # Not configured
 
     from app.services.betterstack_service import (
-        post_maintenance_announcement,
         clear_maintenance_announcement,
+        post_maintenance_announcement,
     )
 
     if maintenance_enabled:

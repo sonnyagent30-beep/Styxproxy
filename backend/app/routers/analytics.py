@@ -4,9 +4,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, func, select, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import verify_admin_token
 from app.database import get_session
 from app.schemas import (
     AnalyticsEventCreate,
@@ -15,7 +16,6 @@ from app.schemas import (
     AnalyticsFunnelResponse,
     FunnelStage,
 )
-from app.services.permissions import require_permission
 
 router = APIRouter(prefix="/api/v1/admin/analytics", tags=["admin-analytics"])
 

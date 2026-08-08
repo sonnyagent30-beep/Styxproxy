@@ -5,16 +5,15 @@ Base URL: /_ops/v1/  (mounted at /ops/v1/ in main.py)
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Any, Optional
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_session
 from app.models import (
-    AdminAuditLog,
     Customer,
     HealthSnapshot,
     Order,
@@ -40,7 +39,7 @@ async def ops_health(session: AsyncSession = Depends(get_session)) -> dict[str, 
     last-24h uptime percentage from the health_snapshots table.
     """
     # Import helpers from health.py at call time to avoid circular imports
-    from app.routers.health import _check_db, _check_redis, _check_litellm, _check_ollama, _check_m2_cloud
+    from app.routers.health import _check_db, _check_litellm, _check_m2_cloud, _check_ollama, _check_redis
 
     db = await _check_db(session)
     redis = await _check_redis()
@@ -198,7 +197,7 @@ async def ops_refund_order(
     refund_result: dict[str, Any] = {}
     try:
         if tx_ref and amount > 0:
-            refund_result = await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
+            await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
         else:
             raise ValueError("No payment reference or amount to refund")
     except Exception as e:

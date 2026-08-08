@@ -4,7 +4,6 @@ import logging
 import re
 from datetime import datetime
 from typing import Optional
-import json
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -371,7 +370,8 @@ async def _handle_bounce(session, data: dict):
 
     for email in bounced_emails:
         try:
-            from sqlalchemy import select, func
+            from sqlalchemy import select
+
             from app.models import PlatformAccount, ProcessedWebhook
             stmt = select(PlatformAccount).where(PlatformAccount.email == email.lower())
             result = await session.execute(stmt)
@@ -400,7 +400,8 @@ async def _handle_complaint(session, data: dict):
 
     for email in complained_emails:
         try:
-            from sqlalchemy import select, func
+            from sqlalchemy import select
+
             from app.models import PlatformAccount, ProcessedWebhook
             stmt = select(PlatformAccount).where(PlatformAccount.email == email.lower())
             result = await session.execute(stmt)
@@ -442,6 +443,7 @@ async def unsubscribe(
         return {"ok": False, "message": "Invalid unsubscribe link."}
 
     from sqlalchemy import select
+
     from app.models import PlatformAccount
     stmt = select(PlatformAccount).where(PlatformAccount.email == email.lower())
     result = await session.execute(stmt)

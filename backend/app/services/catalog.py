@@ -144,7 +144,7 @@ async def list_catalog(session: AsyncSession) -> dict:
     base_result = await session.execute(
         select(PlanSettings).where(
             PlanSettings.setting_key == "base_pricing",
-            PlanSettings.is_active == True,
+            PlanSettings.is_active,
         )
     )
     base_settings_map: dict = {}
@@ -159,7 +159,7 @@ async def list_catalog(session: AsyncSession) -> dict:
     override_result = await session.execute(
         select(PlanSettings).where(
             PlanSettings.setting_key == "country_override",
-            PlanSettings.is_active == True,
+            PlanSettings.is_active,
         )
     )
     country_overrides: dict[str, dict[str, int]] = {}  # plan_type -> {country: price_per_ip}

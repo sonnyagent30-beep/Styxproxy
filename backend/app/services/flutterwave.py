@@ -341,6 +341,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
             return {"status": "ignored"}
 
         from sqlalchemy import select
+
         from app.models import Order
 
         order = (
@@ -389,6 +390,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
             return {"status": "ignored"}
 
         from sqlalchemy import select
+
         from app.models import Order
 
         order = (

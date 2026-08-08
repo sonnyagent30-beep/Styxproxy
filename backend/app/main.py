@@ -16,22 +16,21 @@ from app.database import engine
 from app.limiter import limiter
 from app.models import Base
 from app.routers import (
-    analytics,
-    charon_ab,
     admin,
     admin_proxies,
     admin_support,
+    analytics,
     auth,
     blog,
     catalog,
     charon,
+    charon_ab,
     contact,
+    costs,
     credentials,
     health,
     inbound,
     maintenance,
-    unsubscribe,
-    costs,
     orders,
     payment_status,
     payments,
@@ -43,6 +42,7 @@ from app.routers import (
     session,
     superadmin,
     trials,
+    unsubscribe,
     webhooks,
 )
 

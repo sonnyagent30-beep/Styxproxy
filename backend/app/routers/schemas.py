@@ -1716,7 +1716,7 @@ class PlanSettingsCreateRequest(BaseModel):
     def validate_plan_type(cls, v):
         if v is not None:
             if v.upper() not in {"ISP", "DC", "RESIDENTIAL", "MOBILE"}:
-                raise ValueError(f"Plan type must be one of: ISP, DC, RESIDENTIAL, MOBILE")
+                raise ValueError("Plan type must be one of: ISP, DC, RESIDENTIAL, MOBILE")
             return v.upper()
         return v
 

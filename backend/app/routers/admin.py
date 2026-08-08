@@ -3,12 +3,12 @@
 import json
 import re
 from datetime import datetime, timezone
-from pydantic import BaseModel
 from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,13 +60,12 @@ from app.schemas import (
     LearnedFilesResponse,
     PlanCreateRequest,
     PlanResponse,
-    PlansResponse,
-    PlanUpdateRequest,
-    PlanSettingsListResponse,
+    PlanSettingBasePricing,
+    PlanSettingsDisplay,
     PlanSettingsResponse,
     PlanSettingsUpdateRequest,
-    PlanSettingsDisplay,
-    PlanSettingBasePricing,
+    PlansResponse,
+    PlanUpdateRequest,
     UpdateKnowledgeRequest,
     UpdateKnowledgeResponse,
 )
@@ -1620,7 +1619,7 @@ async def test_provider_proxy(
     Returns ProxyTestResult with speed/strength/quality grades + PASS/FAIL verdict.
     Requires: ip (string) and port (int) query params.
     """
-    from app.services.provider import ProviderProxy, test_proxy
+    from app.services.provider import ProviderProxy
     from app.services.provider_test import benchmark_tiers, test_proxy_full
 
     proxy = ProviderProxy(

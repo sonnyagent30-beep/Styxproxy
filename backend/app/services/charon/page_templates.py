@@ -13,7 +13,6 @@ Usage:
 
 from typing import Any
 
-
 # Plan details mapping for product detail pages
 PLAN_DETAILS = {
     "ISP-UK": {

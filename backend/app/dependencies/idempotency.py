@@ -16,13 +16,10 @@ Cleanup: cron DELETE WHERE created_at < NOW() - INTERVAL '25 hours'
 
 import hashlib
 import json
-import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import Header, HTTPException
-from sqlalchemy import Column, String, DateTime, Text, Integer
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import engine
