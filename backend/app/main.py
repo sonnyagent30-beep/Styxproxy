@@ -17,7 +17,6 @@ from app.limiter import limiter
 from app.models import Base
 from app.routers import (
     admin,
-    admin_proxies,
     admin_support,
     auth,
     blog,
@@ -37,7 +36,6 @@ from app.routers import (
     platform,
     products,
     proxies,
-    proxy_stats,
     rls,
     session,
     superadmin,
@@ -365,14 +363,12 @@ app.include_router(health.router)
 app.include_router(platform.router)
 app.include_router(proxies.router)
 app.include_router(products.router)
-app.include_router(proxy_stats.router)
 app.include_router(orders.router)
 app.include_router(payments.router)
 app.include_router(webhooks.router)
 app.include_router(credentials.router)
 app.include_router(trials.router)
 app.include_router(admin.router)
-app.include_router(admin_proxies.router)
 app.include_router(admin_support.router)
 app.include_router(session.router)
 app.include_router(charon.router)
