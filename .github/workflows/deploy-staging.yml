@@ -55,7 +55,7 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: styxproxy
+          POSTGRES_USER: styzproxy
           POSTGRES_PASSWORD: styxproxy
           POSTGRES_DB: styxproxy_test
         options: >-
@@ -172,15 +172,15 @@ jobs:
             git reset --hard origin/develop
             systemctl restart styxproxy-staging-api
             echo "Staging backend restarted from staging-repo/develop"
-            # Health check locally via SSH (bypass Azure→public-IP networking)
-            for i in $(seq 1 10); do
+            # Wait for app startup then health check via localhost
+            for i in $(seq 1 20); do
               sleep 3
-              HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/docs)
+              HTTP_CODE=$(curl -so /dev/null -w "%{http_code}" http://127.0.0.1:8001/openapi.json)
               if [ "$HTTP_CODE" = "200" ]; then
                 echo "Staging healthy: HTTP $HTTP_CODE"
                 exit 0
               fi
-              echo "Attempt $i/10: HTTP $HTTP_CODE..."
+              echo "Attempt $i/20: HTTP $HTTP_CODE..."
             done
             echo "Health check failed"
             exit 1
