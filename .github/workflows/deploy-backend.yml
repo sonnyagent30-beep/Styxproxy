@@ -1,0 +1,53 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+concurrency:
+  group: backend-deploy
+  cancel-in-progress: false
+
+env:
+  VPS_HOST: 162.35.184.69
+  VPS_USER: root
+  REPO_DIR: /opt/styxproxy/repo
+
+jobs:
+  deploy-backend:
+    name: Deploy to Interserver
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ env.VPS_USER }}
+          key: ${{ secrets.INTERSERVER_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ env.REPO_DIR }}
+            git stash || true
+            git pull origin main
+            pip install -q -r backend/requirements.txt 2>/dev/null || true
+            cp -r backend/app /opt/styxproxy/backend/app
+            cp -r backend/alembic /opt/styxproxy/backend/alembic 2>/dev/null || true
+            systemctl restart styxproxy-api
+            sleep 6
+            HEALTH=$(curl -sf https://api.styxproxy.com/api/v1/health 2>/dev/null || curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo 'no-response')
+            echo "Health: $HEALTH"
+            if echo "$HEALTH" | grep -q 'healthy'; then
+              echo 'Deploy successful'
+            else
+              echo 'WARNING: health check did not return healthy'
+              exit 1
+            fi
