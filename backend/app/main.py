@@ -396,3 +396,4 @@ app.include_router(charon_ab.admin_router)
 # setup-python fix
 # ci trigger
 # workflow
+# bandit fix
