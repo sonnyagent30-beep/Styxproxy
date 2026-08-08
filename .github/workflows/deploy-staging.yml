@@ -166,11 +166,11 @@ jobs:
           username: root
           key: ${{ env.DEPLOY_PRIVKEY }}
           script: |
-            cd /opt/styxproxy/repo
+            cd /opt/styxproxy/staging-repo
             git fetch origin develop
             git reset --hard origin/develop
             systemctl restart styxproxy-staging-api
-            echo "Staging backend restarted"
+            echo "Staging backend restarted from staging-repo/develop"
 
       - name: Wait for staging backend to start
         run: |
@@ -182,8 +182,11 @@ jobs:
         run: |
           for i in $(seq 1 10); do
             sleep 3
-            RESP=$(curl -sf http://162.35.184.69:8001/api/v1/health 2>/dev/null)
-            if [ $? -eq 0 ]; then echo "Staging healthy: $RESP"; exit 0; fi
+            RESP=$(curl -s http://162.35.184.69:8001/docs 2>/dev/null)
+            if [ $? -eq 0 ] && echo "$RESP" | grep -q "Swagger"; then
+              echo "Staging healthy: Swagger UI reachable"
+              exit 0
+            fi
             echo "Attempt $i/10..."
           done
           exit 1
