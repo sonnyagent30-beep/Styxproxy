@@ -57,10 +57,14 @@ jobs:
             cp -r /opt/styxproxy/repo/backend/app /opt/styxproxy/backend/app && \
             cp -r /opt/styxproxy/repo/backend/alembic /opt/styxproxy/repo/backend/alembic 2>/dev/null || true && \
             systemctl restart styxproxy-api && \
-            sleep 8 && \
-            HEALTH=\$(curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo '{"status":"unknown"}') && \
-            echo "Health: \$HEALTH" && \
-            echo \$HEALTH | grep -q healthy && echo Deploy successful || exit 1"
+            echo 'Waiting for backend to start...' && \
+            for i in \$(seq 1 20); do \
+              sleep 1 && \
+              HEALTH=\$(curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null) && \
+              echo "Check \$i: \$HEALTH" && \
+              echo "\$HEALTH" | grep -q healthy && echo 'Deploy successful' && exit 0 || true; \
+            done && \
+            echo 'Backend did not become healthy in 20s' && exit 1"
 
       - name: Remove runner public key from VPS
         if: always()
