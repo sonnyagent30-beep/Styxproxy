@@ -31,7 +31,6 @@ jobs:
       - name: Add runner public key to VPS via webhook
         run: |
           PUBKEY=$(cat deploy_key.pub)
-          echo "Adding pubkey to VPS..."
           HTTP_CODE=$(curl -s -o /tmp/addkey_resp.json -w "%{http_code}" -X POST http://162.35.184.69:9001/add-key \
             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
             -H "Content-Type: application/json" \
@@ -56,12 +55,12 @@ jobs:
             git pull origin main && \
             /opt/styxproxy/backend/venv/bin/pip install -q -r /opt/styxproxy/repo/backend/requirements.txt 2>/dev/null || true && \
             cp -r /opt/styxproxy/repo/backend/app /opt/styxproxy/backend/app && \
-            cp -r /opt/styxproxy/repo/backend/alembic /opt/styxproxy/backend/alembic 2>/dev/null || true && \
+            cp -r /opt/styxproxy/repo/backend/alembic /opt/styxproxy/repo/backend/alembic 2>/dev/null || true && \
             systemctl restart styxproxy-api && \
             sleep 8 && \
-            HEALTH=$(curl -sf https://api.styxproxy.com/api/v1/health 2>/dev/null || curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo no-response) && \
-            echo Health: $HEALTH && \
-            echo $HEALTH | grep -q healthy && echo Deploy successful || exit 1"
+            HEALTH=\$(curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo '{"status":"unknown"}') && \
+            echo "Health: \$HEALTH" && \
+            echo \$HEALTH | grep -q healthy && echo Deploy successful || exit 1"
 
       - name: Remove runner public key from VPS
         if: always()
