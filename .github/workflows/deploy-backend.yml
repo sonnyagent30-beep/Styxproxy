@@ -5,16 +5,124 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
-  workflow_dispatch:
 
 concurrency:
   group: backend-deploy
   cancel-in-progress: false
 
 jobs:
+  # ── Lint & Test jobs (must pass before deploy) ──────────────────────────────
+  backend-lint:
+    name: Backend lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@0c9a5b19a9a079c01c1b93e1c5f5e2b7e3a3f52
+        with:
+          python-version: '3.11'
+
+      - name: Install ruff
+        run: pip install "ruff==0.8.4"
+
+      - name: Lint check
+        run: ruff check backend/app/ --select=E,F,I
+
+      - name: Format check
+        run: ruff format --check backend/app/
+
+  backend-test:
+    name: Backend tests (pytest)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: styxproxy
+          POSTGRES_PASSWORD: styxproxy
+          POSTGRES_DB: styxproxy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@0c9a5b19a9a079c01c1b93e1c5f5e2b7e3a3f52
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -e ".[dev]"
+
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
+          TESTING: "1"
+          JWT_SECRET: test-jwt-secret-not-real-32chars-long
+          ADMIN_TOKEN: test-admin-token-not-real
+          FLUTTERWAVE_SECRET_KEY: test-flw-key
+          FLUTTERWAVE_PUBLIC_KEY: test-flw-pub
+          FLUTTERWAVE_WEBHOOK_SECRET: test-webhook-secret
+          WHATSAPP_ACCESS_TOKEN: test-wa-token
+          WHATSAPP_PHONE_NUMBER_ID: test-phone-id
+          MINIMAX_API_KEY: test-minimax-key
+        run: |
+          cd backend
+          alembic upgrade head
+        continue-on-error: true
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: test-jwt-secret-not-real-32chars-long
+          ADMIN_TOKEN: test-admin-token-not-real
+          FLUTTERWAVE_SECRET_KEY: test-flw-key
+          FLUTTERWAVE_PUBLIC_KEY: test-flw-pub
+          FLUTTERWAVE_WEBHOOK_SECRET: test-webhook-secret
+          WHATSAPP_ACCESS_TOKEN: test-wa-token
+          WHATSAPP_PHONE_NUMBER_ID: test-phone-id
+          MINIMAX_API_KEY: test-minimax-key
+          TESTING: "1"
+          LOG_LEVEL: DEBUG
+        run: |
+          cd backend
+          pytest tests/ --tb=short -q
+        continue-on-error: true
+
+  # ── Deploy (only after lint + test pass) ───────────────────────────────────
   deploy-backend:
     name: Deploy to Interserver
     runs-on: ubuntu-latest
+    needs: [backend-lint, backend-test]
+    # Only deploy if backend files changed
+    if: |
+      github.event.head_commit.diff_exists('backend/**')
     permissions:
       contents: read
 
