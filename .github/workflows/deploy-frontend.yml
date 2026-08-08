@@ -41,19 +41,17 @@ jobs:
       - name: Deploy to Vercel Production
         run: |
           cd frontend
-          # Create zip of .next and all needed frontend files
-          zip -r deploy.zip .next public package.json package-lock.json next.config.ts .env.production 2>/dev/null || \
-            zip -r deploy.zip .next public package.json package-lock.json next.config.ts 2>/dev/null
-          
-          # Upload to Vercel via API
+          # Create zip of built output + frontend files
+          zip -r deploy.zip .next public package.json package-lock.json next.config.ts 2>/dev/null
+
           TOKEN="${{ secrets.VERCEL_TOKEN }}"
-          
-          # Get project ID
+
+          # Get project ID (endpoint returns a list)
           PROJECT_ID=$(curl -s "https://api.vercel.com/v2/projects?search=bunche-api-push" \
             -H "Authorization: Bearer $TOKEN" | \
-            python3 -c "import json,sys; d=json.load(sys.stdin); print(d['projects'][0]['id'])")
+            python3 -c "import json,sys; d=json.load(sys.stdin); print(d[0]['id'])")
           echo "Project ID: $PROJECT_ID"
-          
+
           # Upload file
           FILE_RESP=$(curl -s -X POST \
             "https://api.vercel.com/v2/files" \
@@ -62,11 +60,11 @@ jobs:
             --data-binary "@deploy.zip")
           FILE_ID=$(echo "$FILE_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('uid',''))")
           echo "File ID: $FILE_ID"
-          
+
           # Deploy
           DEPLOY_RESP=$(curl -s -X POST \
             "https://api.vercel.com/v13/deployments" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"projectId\": \"$PROJECT_ID\", \"files\": [{\"file\": \"deploy.zip\", \"data\": \"$FILE_ID\", \"encoding\": 1}], \"projectSettings\": {\"framework\": \"nextjs\", \"buildCommand\": \"\", \"outputDirectory\": \".next\", \"installCommand\": \"\"}}")
-          echo "$DEPLOY_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print('Deployed:', d.get('url','FAILED'))"
+          echo "$DEPLOY_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print('Deployed:', d.get('url','FAILED'), d.get('id',''))"
