@@ -69,60 +69,87 @@ async def _check_dante() -> dict[str, Any]:
     server's SOCKS5 port and returns connection count + memory.
     """
     servers = getattr(settings, "dante_servers", [
-        {"name": "interserver", "host": "162.35.184.69", "port": 1080},
+        {"name": "us-interserver", "host": "162.35.184.69", "port": 1080},
+        {"name": "uk-contabo",     "host": "84.247.132.12", "port": 9000, "type": "control_api"},
     ])
     results = []
     all_up = True
 
     for srv in servers:
+        srv_type = srv.get("type", "socks5")
         name = srv.get("name", srv["host"])
         host = srv["host"]
         port = srv.get("port", 1080)
+
         try:
-            # SOCKS5 greeting — write version 5 + 1 auth method + null auth
-            r, w = None, None
-            import asyncio
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host, port),
-                timeout=3.0,
-            )
-            writer.write(b"\x05\x01\x00")  # SOCKS5, no auth
-            await writer.drain()
-            resp = await asyncio.wait_for(reader.read(2), timeout=3.0)
-            writer.close()
-            await writer.wait_closed()
-
-            if len(resp) == 2 and resp[0] == 5:  # SOCKS5 greeting accepted
-                # Get connection count from ss
-                import subprocess
-                try:
-                    cp = subprocess.run(
-                        ["ss", "-tnp"],
-                        capture_output=True, text=True, timeout=2,
-                    )
-                    conns = sum(
-                        1 for line in cp.stdout.splitlines()
-                        if f":{port}" in line and "ESTAB" in line
-                    )
-                except Exception:
-                    conns = None
-
-                results.append({
-                    "name": name,
-                    "host": host,
-                    "port": port,
-                    "status": "up",
-                    "connections": conns,
-                    "error": None,
-                })
+            if srv_type == "control_api":
+                # HTTP health check against the Dante control API
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    r = await client.get(f"http://{host}:{port}/health")
+                    if r.status_code == 200:
+                        data = r.json()
+                        results.append({
+                            "name": name,
+                            "host": host,
+                            "port": port,
+                            "type": "control_api",
+                            "status": "up",
+                            "users": data.get("users"),
+                            "version": data.get("version"),
+                            "vps_label": data.get("vps_label"),
+                            "error": None,
+                        })
+                    else:
+                        all_up = False
+                        results.append({
+                            "name": name, "host": host, "port": port,
+                            "type": "control_api",
+                            "status": "degraded",
+                            "error": f"HTTP {r.status_code}",
+                        })
             else:
-                all_up = False
-                results.append({
-                    "name": name, "host": host, "port": port,
-                    "status": "degraded",
-                    "connections": None,
-                    "error": "unexpected SOCKS response",
-                })
+                import asyncio
+                # SOCKS5 greeting
+                reader, writer = await asyncio.wait_for(
+                    asyncio.open_connection(host, port),
+                    timeout=3.0,
+                )
+                writer.write(b"\x05\x01\x00")  # SOCKS5, no auth
+                await writer.drain()
+                resp = await asyncio.wait_for(reader.read(2), timeout=3.0)
+                writer.close()
+                await writer.wait_closed()
+
+                if len(resp) == 2 and resp[0] == 5:
+                    import subprocess
+                    try:
+                        cp = subprocess.run(
+                            ["ss", "-tnp"],
+                            capture_output=True, text=True, timeout=2,
+                        )
+                        conns = sum(
+                            1 for line in cp.stdout.splitlines()
+                            if f":{port}" in line and "ESTAB" in line
+                        )
+                    except Exception:
+                        conns = None
+
+                    results.append({
+                        "name": name, "host": host, "port": port,
+                        "type": "socks5",
+                        "status": "up",
+                        "connections": conns,
+                        "error": None,
+                    })
+                else:
+                    all_up = False
+                    results.append({
+                        "name": name, "host": host, "port": port,
+                        "type": "socks5",
+                        "status": "degraded",
+                        "connections": None,
+                        "error": "unexpected SOCKS response",
+                    })
         except asyncio.TimeoutError:
             all_up = False
             results.append({
