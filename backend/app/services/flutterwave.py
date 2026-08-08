@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import logging
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -14,6 +14,35 @@ from app.services.n8n import trigger_credentials_delivered_webhook
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+_sentry_dsn = str(getattr(settings, "sentry_dsn", "") or "").strip()
+
+
+def _capture_money_event(
+    level: str,
+    title: str,
+    extra: dict[str, Any],
+    fingerprint: Optional[str] = None,
+) -> None:
+    """Capture a money-path event in Sentry if configured.
+
+    Safe to call even when Sentry DSN is not set — no-op in that case.
+    """
+    if not _sentry_dsn:
+        return
+    try:
+        import sentry_sdk
+
+        with sentry_sdk.push_scope() as scope:
+            scope.set_level(level)  # type: ignore[arg-type]
+            scope.set_tag("domain", "money")
+            for k, v in extra.items():
+                scope.set_extra(k, v)
+            if fingerprint:
+                scope.fingerprint = [fingerprint]
+            sentry_sdk.capture_message(title)  # type: ignore[arg-type]
+    except Exception:
+        pass  # Never let observability crash the payment path
 
 
 def verify_flutterwave_signature(payload: bytes, signature: str, secret: str) -> bool:
@@ -215,6 +244,17 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                 fulfillment_error = str(e)
                 order.status = "failed_manual_review"
                 await db_session.commit()
+                _capture_money_event(
+                    level="error",
+                    title=f"Payment succeeded but fulfillment FAILED — manual review needed: {tx_ref}",
+                    extra={
+                        "tx_ref": tx_ref,
+                        "order_id": order.order_id,
+                        "amount": data.get("amount", 0),
+                        "error": fulfillment_error,
+                    },
+                    fingerprint=f"manual-review-{tx_ref}",
+                )
 
             # ── Step 4: Audit log (after all state mutations) ─────────────────
             from app.services.audit import log_audit_event
@@ -244,9 +284,32 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                         order.refund_requested = True
                         order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
                         await db_session.commit()
+                        _capture_money_event(
+                            level="warning",
+                            title=f"Auto-refund triggered for {tx_ref}",
+                            extra={
+                                "tx_ref": tx_ref,
+                                "order_id": order.order_id,
+                                "amount": data.get("amount", 0),
+                                "reason": fulfillment_error,
+                            },
+                            fingerprint=f"auto-refund-{tx_ref}",
+                        )
                     except Exception as refund_error:
                         logger.warning(
                             "Flutterwave refund call failed for tx_ref=%s: %s", tx_ref, refund_error
+                        )
+                        _capture_money_event(
+                            level="error",
+                            title=f"MONEY BUG: auto-refund FAILED for {tx_ref}",
+                            extra={
+                                "tx_ref": tx_ref,
+                                "order_id": order.order_id,
+                                "amount": data.get("amount", 0),
+                                "refund_error": str(refund_error),
+                                "fulfillment_error": fulfillment_error,
+                            },
+                            fingerprint=f"refund-failed-{tx_ref}",
                         )
             else:
                 await log_audit_event(
