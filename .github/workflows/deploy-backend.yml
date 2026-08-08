@@ -22,19 +22,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup SSH key for runner to VPS
+      - name: Generate Ed25519 SSH key on runner
         run: |
-          ssh-keygen -t rsa -b 2048 -f ${{ github.action_path }}/deploy_key -N '' -C 'gh-runner-deployed'
-          chmod 600 ${{ github.action_path }}/deploy_key
-          echo "Generated: $(wc -c < ${{ github.action_path }}/deploy_key) bytes"
+          ssh-keygen -t ed25519 -f deploy_key -N '' -C 'gh-runner'
+          chmod 600 deploy_key
+          echo "Generated: $(ssh-keygen -lf deploy_key 2>&1 | awk '{print $2}')"
 
-      - name: Add runner public key to VPS
+      - name: Add runner public key to VPS via webhook
         run: |
-          cat ${{ github.action_path }}/deploy_key.pub |           ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10             root@${{ vars.VPS_HOST }}             'mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && echo VPS_KEY_ADDED'
+          PUBKEY=$(cat deploy_key.pub)
+          echo "Adding pubkey to VPS..."
+          RESP=$(curl -s -X POST http://${{ vars.VPS_HOST }}:9001/add-key \
+            -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"pubkey\": \"$PUBKEY\"}")
+          echo "Response: $RESP"
+          echo "$RESP" | grep -q '"status":"added"' && echo "KEY_ADDED" || (echo "Failed to add key" && exit 1)
 
       - name: Deploy to VPS
         run: |
-          ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=30             -i ${{ github.action_path }}/deploy_key             root@${{ vars.VPS_HOST }} "set -e && \
+          sleep 2
+          ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=30 \
+            -i deploy_key \
+            root@${{ vars.VPS_HOST }} "set -e && \
             cd /opt/styxproxy/repo && \
             git stash 2>/dev/null || true && \
             git pull origin main && \
@@ -50,4 +60,8 @@ jobs:
       - name: Remove runner public key from VPS
         if: always()
         run: |
-          ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10             -i ${{ github.action_path }}/deploy_key             root@${{ vars.VPS_HOST }}             'grep -v "gh-runner-deployed" ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys && echo KEY_REVOKED'             || echo "Revoke failed (non-critical)"
+          ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 \
+            -i deploy_key \
+            root@${{ vars.VPS_HOST }} \
+            'grep -v "gh-runner" ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys && echo KEY_REVOKED' \
+            2>&1 || echo "Revoke failed (non-critical)"
