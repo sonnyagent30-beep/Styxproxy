@@ -11,12 +11,6 @@ concurrency:
   group: backend-deploy
   cancel-in-progress: false
 
-env:
-  VPS_HOST: 162.35.184.69
-  VPS_USER: root
-  VPS_REPO: /opt/styxproxy/repo
-  VPS_BACKEND_CODE: /opt/styxproxy/backend
-
 jobs:
   deploy-backend:
     name: Deploy to Interserver
@@ -25,44 +19,30 @@ jobs:
       contents: read
 
     steps:
-      - name: Write SSH key to file
+      - name: Write SSH key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.INTERSERVER_SSH_KEY }}" > ~/.ssh/gh_key
-          chmod 600 ~/.ssh/gh_key
-          echo "Key written: $(wc -c < ~/.ssh/gh_key) bytes"
+          mkdir -p /tmp/ssh
+          echo "${{ secrets.INTERSERVER_SSH_KEY }}" > /tmp/ssh/key
+          chmod 600 /tmp/ssh/key
+          echo "Key bytes: $(wc -c < /tmp/ssh/key)"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.8
         with:
-          host: ${{ env.VPS_HOST }}
-          username: ${{ env.VPS_USER }}
-          key_path: ~/.ssh/gh_key
+          host: 162.35.184.69
+          username: root
+          key_path: /tmp/ssh/key
           command_timeout: 10m
           script: |
             set -e
-            echo '=== Pulling latest code ==='
-            cd ${{ env.VPS_REPO }}
+            cd /opt/styxproxy/repo
             git stash || true
             git pull origin main
-
-            echo '=== Installing dependencies ==='
-            ${{ env.VPS_BACKEND_CODE }}/venv/bin/pip install -q -r ${{ env.VPS_REPO }}/backend/requirements.txt 2>/dev/null || true
-
-            echo '=== Syncing code ==='
-            cp -r ${{ env.VPS_REPO }}/backend/app ${{ env.VPS_BACKEND_CODE }}/app
-            cp -r ${{ env.VPS_REPO }}/backend/alembic ${{ env.VPS_BACKEND_CODE }}/alembic 2>/dev/null || true
-
-            echo '=== Restarting service ==='
+            /opt/styxproxy/backend/venv/bin/pip install -q -r /opt/styxproxy/repo/backend/requirements.txt 2>/dev/null || true
+            cp -r /opt/styxproxy/repo/backend/app /opt/styxproxy/backend/app
+            cp -r /opt/styxproxy/repo/backend/alembic /opt/styxproxy/backend/alembic 2>/dev/null || true
             systemctl restart styxproxy-api
-
-            echo '=== Health check ==='
             sleep 8
-            HEALTH=$(curl -sf https://api.styxproxy.com/api/v1/health 2>/dev/null || curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null || echo 'no-response')
+            HEALTH=$(curl -sf https://api.styxproxy.com/api/v1/health 2>/dev/null || echo 'no-response')
             echo "Health: $HEALTH"
-            if echo "$HEALTH" | grep -q 'healthy'; then
-              echo 'Deploy successful'
-            else
-              echo 'WARNING: health check did not return healthy'
-              exit 1
-            fi
+            echo $HEALTH | grep -q 'healthy' && echo 'Deploy successful' || exit 1
