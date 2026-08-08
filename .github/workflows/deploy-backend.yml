@@ -11,7 +11,6 @@ concurrency:
   group: backend-deploy
   cancel-in-progress: false
 
-
 jobs:
   # ── Layer 1: Lint ──────────────────────────────────────────────────────────
   backend-lint:
@@ -50,18 +49,31 @@ jobs:
         run: pip install bandit
 
       - name: Bandit security scan
-        run: bandit -r backend/app/ -f json -o bandit.json || true
+        run: bandit -r backend/app/ -ll -f json -o bandit.json || true
 
       - name: Check bandit results
         run: |
-          CRITICAL=$(cat bandit.json | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for r in d.get('results',[]) if r.get('issue_severity') in ('HIGH','MEDIUM') and r.get('issue_confidence') in ('HIGH','MEDIUM')))")
-          echo "High/Medium severity+confidence issues: $CRITICAL"
-          if [ "$CRITICAL" -gt 0 ]; then
-            echo "Issues found:"
-            cat bandit.json | python3 -c "import json,sys; d=json.load(sys.stdin); [print(f"  {r['filename']}:{r['line']} [{r['issue_severity']}] {r['issue_text']}") for r in d.get('results',[]) if r.get('issue_severity') in ('HIGH','MEDIUM') and r.get('issue_confidence') in ('HIGH','MEDIUM')]"
-            exit 1
-          fi
-          echo "Bandit scan passed — no high/medium security issues"
+          python3 << 'PYEOF'
+          import json, sys
+          with open("bandit.json") as f:
+              d = json.load(f)
+          results = [
+              r for r in d.get("results", [])
+              if r.get("issue_severity") in ("HIGH", "MEDIUM")
+              and r.get("issue_confidence") in ("HIGH", "MEDIUM")
+          ]
+          print(f"High/Medium severity+confidence issues: {len(results)}")
+          if results:
+              print("Issues found:")
+              for r in results:
+                  sev = r["issue_severity"]
+                  conf = r["issue_confidence"]
+                  text = r["issue_text"][:80]
+                  fname = r["filename"].split("/")[-1]
+                  print(f"  {fname}:{r['line']} [{sev}/{conf}] {text}")
+              sys.exit(1)
+          print("Bandit scan passed -- no high/medium security issues")
+          PYEOF
 
   # ── Layer 3: Dependency audit ────────────────────────────────────────────────
   backend-deps-audit:
@@ -94,22 +106,23 @@ jobs:
           POSTGRES_USER: styxproxy
           POSTGRES_PASSWORD: styxproxy
           POSTGRES_DB: styxproxy_test
-        ports:
-          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+        ports:
+          - 5432:5432
+
       redis:
         image: redis:7
-        ports:
-          - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+        ports:
+          - 6379:6379
 
     steps:
       - uses: actions/checkout@v4
@@ -120,7 +133,7 @@ jobs:
           python-version: '3.11'
 
       - name: Cache pip
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('backend/pyproject.toml') }}
@@ -144,15 +157,16 @@ jobs:
           WHATSAPP_ACCESS_TOKEN: test-wa-token
           WHATSAPP_PHONE_NUMBER_ID: test-phone-id
           MINIMAX_API_KEY: test-minimax-key
+          REDIS_URL: redis://localhost:6379/0
+          SENTRY_DSN: ""
         run: |
           cd backend
-          alembic upgrade head
-        continue-on-error: true
+          alembic upgrade head || true
 
-      - name: Run tests
+      - name: Run pytest
         env:
           DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
-          REDIS_URL: redis://localhost:6379/0
+          TESTING: "1"
           JWT_SECRET: test-jwt-secret-not-real-32chars-long
           ADMIN_TOKEN: test-admin-token-not-real
           FLUTTERWAVE_SECRET_KEY: test-flw-key
@@ -161,64 +175,73 @@ jobs:
           WHATSAPP_ACCESS_TOKEN: test-wa-token
           WHATSAPP_PHONE_NUMBER_ID: test-phone-id
           MINIMAX_API_KEY: test-minimax-key
-          TESTING: "1"
-          LOG_LEVEL: DEBUG
+          REDIS_URL: redis://localhost:6379/0
+          SENTRY_DSN: ""
         run: |
           cd backend
-          pytest tests/ --tb=short -q
-        continue-on-error: true
+          pytest tests/ -v --tb=short || true
 
-  # ── Deploy (only after ALL gates pass) ────────────────────────────────────
+  # ── Deploy ──────────────────────────────────────────────────────────────────
   deploy-backend:
     name: Deploy to Interserver
     runs-on: ubuntu-latest
     needs: [backend-lint, backend-security, backend-deps-audit, backend-test]
+    environment: production
     permissions:
       contents: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Generate Ed25519 SSH key on runner
+      - name: Generate ED25519 key
         run: |
-          ssh-keygen -t ed25519 -f deploy_key -N '' -C 'gh-runner'
-          chmod 600 deploy_key
+          mkdir -p ~/.ssh
+          ssh-keygen -t ed25519 -f /tmp/deploy_key -N "" -C "github-runner-$(date +%s)"
+          echo "DEPLOY_KEY=$(cat /tmp/deploy_key.pub)" >> $GITHUB_ENV
 
-      - name: Add runner public key to VPS via webhook
+      - name: Trigger webhook on VPS
         run: |
-          PUBKEY=$(cat deploy_key.pub)
-          HTTP_CODE=$(curl -s -o /tmp/addkey_resp.json -w "%{http_code}" -X POST http://162.35.184.69:9001/add-key \
-            -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"pubkey\": \"$PUBKEY\"}")
-          if [ "$HTTP_CODE" = "200" ]; then echo "KEY_ADDED"; else exit 1; fi
+          RESPONSE=$(curl -s -X POST http://162.35.184.69:9001/add-key             -H "Content-Type: application/json"             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}"             -d "{\"pubkey\": \"${{ env.DEPLOY_KEY }}"}")
+          echo "Webhook response: $RESPONSE"
+          if echo "$RESPONSE" | grep -q "success"; then
+            echo "Key added successfully"
+          else
+            echo "Key addition failed"
+            exit 1
+          fi
 
-      - name: Deploy to VPS
+      - name: Pull and restart backend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 162.35.184.69
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/styxproxy/repo
+            git fetch origin main
+            git reset --hard origin/main
+            systemctl restart styxproxy-api
+            echo "Backend restarted"
+
+      - name: Health check with retry
         run: |
-          sleep 2
-          ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=30 \
-            -i deploy_key \
-            root@162.35.184.69 "set -e && \
-            cd /opt/styxproxy/repo && \
-            git stash 2>/dev/null || true && \
-            git pull origin main && \
-            /opt/styxproxy/backend/venv/bin/pip install -q -r /opt/styxproxy/repo/backend/requirements.txt 2>/dev/null || true && \
-            cp -r /opt/styxproxy/repo/backend/app /opt/styxproxy/backend/app && \
-            cp -r /opt/styxproxy/repo/backend/alembic /opt/styxproxy/repo/backend/alembic 2>/dev/null || true && \
-            systemctl restart styxproxy-api && \
-            for i in \$(seq 1 20); do \
-              sleep 1 && \
-              HEALTH=\$(curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null) && \
-              echo "Check \$i: \$HEALTH" && \
-              echo "\$HEALTH" | grep -q healthy && echo 'Deploy successful' && exit 0 || true; \
-            done && exit 1"
+          echo "Waiting for backend to start..."
+          for i in $(seq 1 10); do
+            sleep 2
+            RESP=$(curl -sf http://127.0.0.1:8000/api/v1/health 2>/dev/null)
+            if [ $? -eq 0 ]; then
+              echo "Backend is healthy: $RESP"
+              exit 0
+            fi
+            echo "Attempt $i/10 failed, retrying..."
+          done
+          echo "Backend health check failed after 10 attempts"
+          exit 1
 
-      - name: Remove runner public key from VPS
+      - name: Remove deploy key
         if: always()
         run: |
-          ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10 \
-            -i deploy_key \
-            root@162.35.184.69 \
-            'grep -v "gh-runner" ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys && echo KEY_REVOKED' \
-            2>&1 || echo "Revoke failed (non-critical)"
+          curl -sf -X POST http://162.35.184.69:9001/remove-key             -H "Content-Type: application/json"             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}"             -d "{\"pubkey\": \"${{ env.DEPLOY_KEY }}"}" || true
