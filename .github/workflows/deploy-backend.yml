@@ -19,6 +19,9 @@ jobs:
       contents: read
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - uses: ./.github/actions/deploy-vps
         with:
           host: 162.35.184.69
