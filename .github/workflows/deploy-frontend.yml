@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy-frontend:
-    name: Deploy Frontend to Production
+  build:
+    name: Build Frontend
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -32,26 +32,67 @@ jobs:
         run: npm ci
         working-directory: frontend
 
-      - name: Inspect vercel project
-        run: |
-          echo "=== vercel.json ==="
-          cat vercel.json
-          echo ""
-          echo "=== Vercel CLI version ==="
-          npx vercel --version
-          echo ""
-          echo "=== Login status ==="
-          npx vercel whoami --token "${{ secrets.VERCEL_TOKEN }}" 2>&1 || true
-          echo ""
-          echo "=== Try pulling project config ==="
-          npx vercel project ls --token "${{ secrets.VERCEL_TOKEN }}" 2>&1 | head -10 || true
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      - name: Build
+        run: npm run build
         working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://api.styxproxy.com
 
-      - name: Deploy to Vercel Production
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/.next
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Vercel Production
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/.next
+
+      - name: Deploy via Vercel API
         run: |
-          npx vercel --prod --token "${{ secrets.VERCEL_TOKEN }}" --yes --debug 2>&1 | tail -20
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        working-directory: frontend
+          cd frontend
+          
+          # Get project ID
+          PROJECT_ID=$(curl -s "https://api.vercel.com/v2/projects?search=bunche-api-push" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" | \
+            python3 -c "import json,sys; d=json.load(sys.stdin); print(d['projects'][0]['id'])")
+          echo "Project ID: $PROJECT_ID"
+          
+          # Create zip of .next directory
+          cd .next
+          zip -r ../deploy.zip . -q
+          cd ..
+          
+          # Upload
+          FILE_ID=$(curl -s -X POST \
+            "https://api.vercel.com/v2/files" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary "@deploy.zip" | \
+            python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('uid',''))")
+          echo "File ID: $FILE_ID"
+          
+          # Deploy
+          DEPLOY_RESP=$(curl -s -X POST \
+            "https://api.vercel.com/v13/deployments" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"projectId\": \"$PROJECT_ID\", \"files\": [{\"file\": \"deploy.zip\", \"data\": \"$FILE_ID\", \"encoding\": 1}], \"projectSettings\": {\"framework\": \"nextjs\", \"buildCommand\": \"\", \"outputDirectory\": \".next\", \"installCommand\": \"\"}}")
+          echo "Deploy response: $DEPLOY_RESP"
+          DEPLOY_URL=$(echo "$DEPLOY_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('url',''))")
+          echo "deploy-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+
+      - name: Output result
+        run: |
+          echo "Deployed to: ${{ steps.deploy.outputs.deploy-url }}"
