@@ -161,7 +161,12 @@ jobs:
             -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
             -d "{\"pubkey\": \"${{ env.DEPLOY_KEY }}\"}")
           echo "Webhook response: $RESPONSE"
-          if echo "$RESPONSE" | grep -q "success"; then echo "Key added"; else exit 1; fi
+          if echo "$RESPONSE" | grep -qE '"(added|success)"'; then
+            echo "Key added"
+          else
+            echo "Key addition failed"
+            exit 1
+          fi
       - name: Pull and restart backend
         uses: appleboy/ssh-action@v1.0.3
         with:
