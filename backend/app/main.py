@@ -399,3 +399,4 @@ app.include_router(charon_ab.admin_router)
 # bandit fix
 # trigger
 # skip fix
+# bandit warning
