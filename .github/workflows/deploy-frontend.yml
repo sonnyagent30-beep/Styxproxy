@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build Frontend
+  deploy-frontend:
+    name: Deploy Frontend to Production
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -38,61 +38,35 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: https://api.styxproxy.com
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/.next
-          retention-days: 1
-
-  deploy:
-    name: Deploy to Vercel Production
-    runs-on: ubuntu-latest
-    environment: production
-    needs: [build]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/.next
-
-      - name: Deploy via Vercel API
+      - name: Deploy to Vercel Production
         run: |
           cd frontend
+          # Create zip of .next and all needed frontend files
+          zip -r deploy.zip .next public package.json package-lock.json next.config.ts .env.production 2>/dev/null || \
+            zip -r deploy.zip .next public package.json package-lock.json next.config.ts 2>/dev/null
+          
+          # Upload to Vercel via API
+          TOKEN="${{ secrets.VERCEL_TOKEN }}"
           
           # Get project ID
           PROJECT_ID=$(curl -s "https://api.vercel.com/v2/projects?search=bunche-api-push" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" | \
+            -H "Authorization: Bearer $TOKEN" | \
             python3 -c "import json,sys; d=json.load(sys.stdin); print(d['projects'][0]['id'])")
           echo "Project ID: $PROJECT_ID"
           
-          # Create zip of .next directory
-          cd .next
-          zip -r ../deploy.zip . -q
-          cd ..
-          
-          # Upload
-          FILE_ID=$(curl -s -X POST \
+          # Upload file
+          FILE_RESP=$(curl -s -X POST \
             "https://api.vercel.com/v2/files" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/octet-stream" \
-            --data-binary "@deploy.zip" | \
-            python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('uid',''))")
+            --data-binary "@deploy.zip")
+          FILE_ID=$(echo "$FILE_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('uid',''))")
           echo "File ID: $FILE_ID"
           
           # Deploy
           DEPLOY_RESP=$(curl -s -X POST \
             "https://api.vercel.com/v13/deployments" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"projectId\": \"$PROJECT_ID\", \"files\": [{\"file\": \"deploy.zip\", \"data\": \"$FILE_ID\", \"encoding\": 1}], \"projectSettings\": {\"framework\": \"nextjs\", \"buildCommand\": \"\", \"outputDirectory\": \".next\", \"installCommand\": \"\"}}")
-          echo "Deploy response: $DEPLOY_RESP"
-          DEPLOY_URL=$(echo "$DEPLOY_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('url',''))")
-          echo "deploy-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
-
-      - name: Output result
-        run: |
-          echo "Deployed to: ${{ steps.deploy.outputs.deploy-url }}"
+          echo "$DEPLOY_RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print('Deployed:', d.get('url','FAILED'))"
