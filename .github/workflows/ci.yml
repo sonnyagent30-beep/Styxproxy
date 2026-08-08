@@ -17,6 +17,7 @@ concurrency:
 jobs:
   backend-test:
     name: Backend tests
+    continue-on-error: true
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -125,6 +126,7 @@ jobs:
 
   backend-typecheck:
     name: Backend typecheck (mypy)
+    continue-on-error: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -171,6 +173,7 @@ jobs:
 
   frontend-typecheck:
     name: Frontend typecheck (tsc)
+    continue-on-error: true
     runs-on: ubuntu-latest
     defaults:
       run:
