@@ -205,8 +205,8 @@ jobs:
           echo "Tagging version: $VERSION"
           git config --local user.email "github-actions@github.com"
           git config --local user.name "GitHub Actions"
-          git tag "$VERSION"
-          git push origin "$VERSION"
+          git tag "$VERSION" || echo "Tag already exists, skipping"
+          git push origin "$VERSION" || echo "Tag push skipped"
           echo "Tagged and pushed: $VERSION"
 
       - name: Remove deploy key
