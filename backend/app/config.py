@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     proxy_seller_base_url: str = "https://api.proxy-seller.com"
     proxy_seller_balance_alert_threshold_usd: float = 10.0
 
+    # ── IPQualityScore (proxy IP screening) ───────────────────────────────────
+    # Sign up free at https://www.ipqualityscore.com — 5,000 lookups/month.
+    # Set IPQUALITYSCORE_API_KEY in .env to enable screening.
+    ipqualityscore_api_key: str = ""
+
     # ── Dante (branding gateway — runs on VPS) ───────────────────────────────
     dante_api_url: str = "http://localhost:9000"
     dante_api_key: str = ""
