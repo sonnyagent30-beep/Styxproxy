@@ -141,7 +141,7 @@ class IPQResult:
 
 # ─── Screen a single IP ───────────────────────────────────────────────────────
 
-SCORE_URL = "https://ipqualityscore.com/api/json/ip/{ip}"
+SCORE_URL = "https://ipqualityscore.com/api/json/ip/{key}/{ip}"
 
 
 async def screen_ip(ip: str) -> IPQResult:
@@ -157,27 +157,30 @@ async def screen_ip(ip: str) -> IPQResult:
         logger.debug(f"IPQUALITYSCORE_API_KEY not set; skipping screening for {ip}")
         return IPQResult.stub(ip)
 
-    params = {
-        "strictness": 0,
-        "allow_public_access": "true",
-        "lighter_penalties": "true",
-    }
-
-    url = SCORE_URL.format(ip=ip)
+    # strictness=0 (light check), lighter_penalties=true (avoid false positives on free tier)
+    params = {"strictness": "0", "allow_public_access": "true", "lighter_penalties": "true"}
+    url = SCORE_URL.format(key=key, ip=ip)
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
-            resp = await client.get(url, params=params, headers={"API-KEY": key})
-
-            if resp.status_code == 429:
-                raise IPQualityError(f"IPQS rate limit hit (429); retry later for {ip}")
-
-            if resp.status_code == 401 or resp.status_code == 403:
-                logger.error(f"IPQS auth failure ({resp.status_code}); check IPQUALITYSCORE_API_KEY")
-                return IPQResult.stub(ip)  # fail open on bad creds
-
+            resp = await client.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
+
+            # Handle IPQS-level errors (success=false in response body)
+            if not data.get("success", True):
+                msg = data.get("message", "")
+                if "unauthorized" in msg.lower() or "invalid" in msg.lower():
+                    # Bad credentials — fail open, don't retry
+                    logger.error(f"IPQS key invalid/unauthorized: {msg}. Check IPQUALITYSCORE_API_KEY.")
+                    return IPQResult.stub(ip)
+                elif "insufficient credits" in msg.lower():
+                    logger.warning("IPQS out of credits. Screening skipped.")
+                    return IPQResult.stub(ip)
+                elif "rate limit" in msg.lower():
+                    raise IPQualityError(f"IPQS rate limit hit (429); retry later for {ip}")
+                else:
+                    raise IPQualityError(f"IPQS error: {msg}")
 
     except httpx.TimeoutException:
         raise IPQualityError(f"IPQS timeout screening {ip}")
