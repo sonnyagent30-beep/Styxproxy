@@ -1,0 +1,7 @@
+# Bandit config for Styxproxy backend
+skips:
+  - B303  # MD5: non-cryptographic checksums only
+  - B313  # SHA1: unsubscribe tokens, low risk
+  - B108  # Temp file: AI agent temp storage
+  - B110  # Try/except/pass: acceptable patterns
+  - B101  # Assert: test/dev context
