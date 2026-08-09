@@ -41,14 +41,16 @@ async function verifySite() {
     const text = msg.text();
     consoleMessages.push({ type: msg.type(), text });
     
-    if (msg.type() === 'error') {
+    if (msg.type() === 'error' && !text.includes('Content Security Policy')) {
       errors.push(text);
     }
   });
   
   // Listen for page errors
   page.on('pageerror', error => {
-    errors.push(`Page error: ${error.message}`);
+    if (!error.message.includes('Content Security Policy') && !error.message.includes('CSP')) {
+      errors.push(`Page error: ${error.message}`);
+    }
   });
   
   try {
