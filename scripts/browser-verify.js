@@ -23,7 +23,6 @@ async function verifySite() {
   console.log('Starting browser...');
 
   const browser = await chromium.launch({
-    executablePath: '/snap/bin/chromium',
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
   });
