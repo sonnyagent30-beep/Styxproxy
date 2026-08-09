@@ -299,6 +299,14 @@ class ApiClient {
     return this.request<AdminStats>('/api/admin/stats');
   }
 
+  async getAdminHealth(): Promise<ApiResponse<{
+    status: string;
+    admin: boolean;
+    circuit_breakers: Record<string, { failures: number; state: string; tripped_at: string | null }>;
+  }>> {
+    return this.request('/api/admin/health');
+  }
+
   // Analytics
   async getAnalyticsFunnel(): Promise<ApiResponse<FunnelData>> {
     return this.request<FunnelData>('/api/v1/admin/analytics/funnel');
