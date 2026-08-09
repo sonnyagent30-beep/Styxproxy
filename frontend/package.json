@@ -29,6 +29,7 @@
     "three": "0.180.0",
     "three-globe": "2.45.2",
     "topojson-client": "3.1.0",
+    "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
