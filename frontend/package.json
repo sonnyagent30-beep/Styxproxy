@@ -28,7 +28,8 @@
     "remark-gfm": "4.0.1",
     "three": "0.180.0",
     "three-globe": "2.45.2",
-    "topojson-client": "3.1.0"
+    "topojson-client": "3.1.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4",
@@ -37,9 +38,9 @@
     "@types/react-dom": "19",
     "eslint": "9",
     "eslint-config-next": "16.2.10",
+    "playwright": "^1.50.0",
     "tailwindcss": "4",
-    "typescript": "5",
-    "playwright": "^1.50.0"
+    "typescript": "5"
   },
   "ignoreScripts": [
     "sharp",

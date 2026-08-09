@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { useAuthStore } from '@/store/auth-store';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -34,6 +35,11 @@ export default function AdminLoginPage() {
         }
       } else if (result.data) {
         api.setAdminToken(result.data.access_token);
+        useAuthStore.getState().setAuth(
+          result.data.access_token,
+          result.data.email,  // use email as adminId
+          result.data.email,  // use email as adminName
+        );
         router.push('/admin/dashboard');
       }
     } catch {
