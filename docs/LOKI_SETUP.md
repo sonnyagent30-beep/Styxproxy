@@ -1,81 +1,73 @@
 # Grafana Loki — Centralised Logging
 
-> Architecture: Grafana Alloy log shipper on Interserver → Grafana Cloud Loki → Grafana dashboards
+> Architecture: Grafana Alloy (Interserver) → Loki (Contabo:84.247.132.12:3100) → Grafana (Contabo:84.247.132.12:3000)
 
-## Overview
+## Live Endpoints
 
-All Styxproxy service logs are written as JSON to /var/log/styxproxy-*.log. A Grafana Alloy log shipper tails these files and streams to Grafana Cloud Loki in real time.
+- **Grafana**: http://84.247.132.12:3000 (admin / styxgrafana)
+- **Loki API**: http://84.247.132.12:3100
 
-Why Alloy? Single static binary, no Docker, ~100MB RAM, binary+config in /opt/styxproxy/alloy/ (persists across container restarts).
+## Grafana Queries (LogQL)
 
-## Prerequisites
+```logql
+// All API errors
+{service="styxproxy-api"} |= "ERROR"
 
-- Grafana Cloud account (free tier: 50GB/month ingestion)
-- Loki data source enabled in Grafana Cloud
+// Charon escalations
+{service="styxproxy-api"} |= "charon.escalation"
 
-## Step 1 — Grafana Cloud: Create Loki Data Source
+// Slow requests (>1000ms)
+{service="styxproxy-api"} | json | elapsed_ms > 1000
 
-1. Go to grafana.com → Cloud → your Stack → Connections → Data Sources → Add new → Loki
-2. Copy the HTTP URL (e.g. https://logs-prod-XXXX.grafana.net)
-3. Create an API key with MetricsPublisher role
+// Dante auth failures
+{service="dante-auth"} |= "error"
 
-Loki push endpoint format:
-https://<user>:<api-key>@logs-prod-<instance>.grafana.net/loki/api/v1/push
+// Container logs (all)
+{container=~"styxproxy-.*"}
 
-## Step 2 — Configure Credentials
+// Charon A/B experiment results
+{experiment_variant=~"control|treatment"}
+```
 
-Add to /opt/styxproxy/.env:
-LOKI_URL=https://<user>:<api-key>@logs-prod-XXXX.grafana.net/loki/api/v1/push
-LOKI_USERNAME=your-grafana-email
-LOKI_PASSWORD=your-api-key
+## Dashboards to Create
 
-## Step 3 — Install Alloy (already done)
+1. **API Health** — ERROR rate, slow requests, 5xx/minute
+2. **Charon Performance** — escalation rate, resolution rate by A/B variant
+3. **Dante SOCKS** — auth failures, connections, bandwidth
+4. **Container Overview** — all styxproxy containers
 
-Binary: /opt/styxproxy/alloy/alloy (v1.3.0)
-Config: /opt/styxproxy/alloy/config.alloy
+## Interserver: Start Alloy Log Shipper
 
-Reinstall if needed:
+After Interserver container restart:
+
+```bash
+# Download Alloy
 ALLOY_VERSION="1.3.0"
 curl -sL "https://github.com/grafana/alloy/releases/download/v${ALLOY_VERSION}/alloy-linux-amd64.zip" -o /tmp/alloy.zip
-unzip -q /tmp/alloy.zip -d /tmp/alloy-unpack/
-mv /tmp/alloy-unpack/alloy-linux-amd64 /opt/styxproxy/alloy/alloy
+unzip -q /tmp/alloy.zip -d /tmp/
+mv /tmp/alloy-linux-amd64 /opt/styxproxy/alloy/alloy
 chmod +x /opt/styxproxy/alloy/alloy
 
-## Step 4 — Start the Shipper
+# Start service
+ln -sf /opt/styxproxy/repo/backend/systemd/styxproxy-alloy.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable styxproxy-alloy && systemctl start styxproxy-alloy
 
-# After container restart (ephemeral /etc), restore unit:
-ln -sf /opt/styxproxy/repo/backend/systemd/styxproxy-alloy.service /etc/systemd/system/styxproxy-alloy.service
-systemctl daemon-reload
-systemctl enable styxproxy-alloy
-systemctl start styxproxy-alloy
+# Verify
+curl -s localhost:12345/api/v1/status/config | head -5
+```
 
-Verify:
-curl -s localhost:12345/api/v1/status/config | python3 -m json.tool | head -10
+## Contabo: Loki + Grafana (already running)
 
-## Step 5 — Grafana Queries
+- Loki: http://84.247.132.12:3100 (Docker container styxproxy-loki)
+- Grafana: http://84.247.132.12:3000 (admin / styxgrafana)
+- Promtail: /usr/local/bin/promtail (Docker logs + cron logs)
 
-API Errors: {service="styxproxy-api"} |= "ERROR"
-Charon Escalations: {service="styxproxy-api"} |= "charon.escalation"
-Slow Requests: {service="styxproxy-api"} | json | unwrap elapsed_ms
+## Key Files
 
-## Log Files Shipped
-
-- /var/log/styxproxy-api.log — FastAPI backend (JSON)
-- /var/log/styxproxy-dante-auth.err.log — Dante auth failures
-- /var/log/styxproxy-nginx-access.log — HTTP access
-- /var/log/styxproxy-fulfillment-worker.err.log — Proxy provisioning errors
-
-## Alerting
-
-Set up Grafana-managed alerts:
-- API Error Spike: >5 ERROR logs in 1 min
-- Dante Auth Failure Rate: >10 failures in 5 min
-- Charon Escalation Rate: >3 escalations in 10 min
-
-## Troubleshooting
-
-systemctl status styxproxy-alloy
-journalctl -u styxproxy-alloy -f --no-pager
-
-# If log inode changes (rotation), restart:
-systemctl restart styxproxy-alloy
+| File | Host | Purpose |
+|---|---|---|
+| /opt/styxproxy/alloy/alloy | Interserver | Alloy binary |
+| /opt/styxproxy/alloy/config.alloy | Interserver | Loki push config (→ Contabo) |
+| /opt/styxproxy/loki-data/ | Contabo | Loki chunks + index |
+| /opt/styxproxy/grafana-data/ | Contabo | Grafana dashboards |
+| /tmp/promtail-config.yaml | Contabo | Promtail (Docker logs) |
