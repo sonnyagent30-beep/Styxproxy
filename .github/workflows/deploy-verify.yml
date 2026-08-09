@@ -33,8 +33,8 @@ jobs:
       - name: Install dependencies
         run: cd frontend && npm ci
 
-      - name: Install Playwright browsers
-        run: cd frontend && npx playwright install chromium
+      - name: Install Playwright globally
+        run: npm install -g playwright && npx playwright install chromium --with-deps
 
       - name: Determine environment
         id: env
@@ -50,7 +50,7 @@ jobs:
       - name: Run browser verification
         env:
           STAGING_URL: ${{ steps.env.outputs.url }}
-        run: cd frontend && node ../scripts/browser-verify.js
+        run: node scripts/browser-verify.js
 
       - name: Upload verification screenshot
         if: always()
