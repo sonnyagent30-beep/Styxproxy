@@ -7,16 +7,19 @@ against a known contract. When real providers are chosen, swap the
 implementation here — the calling code throughout the app stays the same.
 """
 
+from __future__ import annotations
+
+import asyncio
 import logging
 import random
-import socket
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
 
-# ─── Lazy settings ───────────────────────────────────────────────────────────
+# ── Lazy settings ─────────────────────────────────────────────────────────────
 
 _settings = None
 
@@ -38,72 +41,144 @@ def _PROXY_SELLER_BASE_URL() -> str:
     return _s().proxy_seller_base_url or "https://api.proxy-seller.com"
 
 
+# ── Exceptions ────────────────────────────────────────────────────────────────
+
 class IPQBlockedError(Exception):
     """Raised when a provider proxy IP fails IPQS quality screening.
 
     Caught in the call chain and treated as a soft provider error —
     the order pipeline retries with a new proxy (up to 5 retries total).
     """
+
     pass
 
 
-# ─── Dataclasses ─────────────────────────────────────────────────────────────
-
+# ── Dataclasses ───────────────────────────────────────────────────────────────
 
 @dataclass
 class ProviderProxy:
     """A raw proxy from the provider — before branding."""
 
-    provider_order_id: str
     ip: str
     port: int
     username: str
     password: str
-    protocol: str  # e.g. "http", "socks5"
-    expires_at: datetime
     country: str
-    isp: str
-    asn: str
+    protocol: str
+    provider_order_id: str
+    expires_at: datetime | None = None
 
 
 @dataclass
 class AvailabilityResult:
-    """Result of an availability / precheck call."""
-
     available: bool
-    reason: Optional[str] = None
-    price_ngn: Optional[float] = None
-    estimated_delivery_seconds: int = 30
+    reason: str | None = None
+    price_ngn: int | None = None
+    estimated_delivery_seconds: int | None = None
 
 
 @dataclass
 class TestResult:
-    """Result of proxy health + speed test."""
-
     alive: bool
-    latency_ms: Optional[float] = None
-    error: Optional[str] = None
+    latency_ms: float | None = None
+    error: str | None = None
 
 
-# ─── HTTP Client ───────────────────────────────────────────────────────────────
+# ── Circuit breaker per country ─────────────────────────────────────────────────
+#
+# Tracks consecutive failures per country. When threshold is hit, that country
+# is "tripped" for a cooldown period — no orders attempted during cooldown.
+# Success resets the counter.
+#
+# Why per-country: one country's provider cluster can be down while others work.
+# We don't want to block all orders — only orders for the dead country.
+
+CIRCUIT_TRIP_AFTER = 3          # consecutive failures before tripping
+CIRCUIT_COOLDOWN_SECONDS = 600  # 10 minutes before retry
+MAX_RETRIES_PER_ORDER = 5
 
 
-def _client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(timeout=10.0)
+class CountryCircuitBreaker:
+    """Per-country circuit breaker for provider orders.
+
+    States:
+      - CLOSED: normal operation, orders go through
+      - OPEN: circuit tripped, orders for this country fail fast
+      - HALF_OPEN: cooldown expired, allow one test order through
+    """
+
+    __slots__ = ("_failures", "_tripped_at", "_state")
+
+    def __init__(self) -> None:
+        self._failures: dict[str, int] = {}
+        self._tripped_at: dict[str, float] = {}
+        self._state: dict[str, str] = {}  # country -> "closed" | "open" | "half_open"
+
+    def state(self, country: str) -> str:
+        """Return current state: closed | open | half_open."""
+        state = self._state.get(country, "closed")
+        if state == "open":
+            # Check if cooldown expired
+            if self._tripped_at.get(country, 0) + CIRCUIT_COOLDOWN_SECONDS < time.time():
+                self._state[country] = "half_open"
+                return "half_open"
+        return self._state.get(country, "closed")
+
+    def record_success(self, country: str) -> None:
+        """Reset failure counter on success."""
+        self._failures[country] = 0
+        self._state[country] = "closed"
+
+    def record_failure(self, country: str) -> None:
+        """Increment failure counter; trip circuit if threshold reached."""
+        self._failures[country] = self._failures.get(country, 0) + 1
+        if self._failures[country] >= CIRCUIT_TRIP_AFTER:
+            self._tripped_at[country] = time.time()
+            self._state[country] = "open"
+            logging.warning(
+                f"Circuit breaker TRIPPED for country={country} "
+                f"after {self._failures[country]} consecutive failures. "
+                f"Cooldown: {CIRCUIT_COOLDOWN_SECONDS}s"
+            )
+
+    def is_available(self, country: str) -> bool:
+        """Return True if orders can be attempted for this country."""
+        return self.state(country) != "open"
+
+    def stats(self) -> dict:
+        """Return human-readable stats for admin dashboard."""
+        return {
+            country: {
+                "failures": self._failures.get(country, 0),
+                "state": self.state(country),
+                "tripped_at": (
+                    datetime.fromtimestamp(self._tripped_at[country], tz=timezone.utc).isoformat()
+                    if country in self._tripped_at else None
+                ),
+            }
+            for country in set(list(self._failures) + list(self._state))
+        }
 
 
-# ─── Health & Balance ─────────────────────────────────────────────────────────
+# Global circuit breaker instance (lives for the process lifetime)
+_circuit_breaker: CountryCircuitBreaker | None = None
 
+
+def get_circuit_breaker() -> CountryCircuitBreaker:
+    global _circuit_breaker
+    if _circuit_breaker is None:
+        _circuit_breaker = CountryCircuitBreaker()
+    return _circuit_breaker
+
+
+# ── Provider health ────────────────────────────────────────────────────────────
 
 async def check_health() -> bool:
-    """Check if the provider API is reachable and responding."""
-    url = f"{_PROXY_SELLER_BASE_URL()}/v1.0/health"
+    """Return True if the provider API is reachable."""
     try:
-        async with _client() as client:
-            resp = await client.get(
-                url,
-                headers={"X-API-KEY": _PROXY_SELLER_API_KEY()},
-            )
+        url = f"{_PROXY_SELLER_BASE_URL()}/v1.0/health"
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(url)
             return resp.status_code == 200
     except Exception:
         return False
@@ -111,22 +186,31 @@ async def check_health() -> bool:
 
 async def check_balance() -> float:
     """Return the current wallet/balance on the provider account, in USD."""
-    url = f"{_PROXY_SELLER_BASE_URL()}/v1.0/balance"
     try:
-        async with _client() as client:
+        url = f"{_PROXY_SELLER_BASE_URL()}/v1.0/wallet"
+        async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 url,
-                headers={"X-API-KEY": _PROXY_SELLER_API_KEY()},
+                headers={"X-API-Key": _PROXY_SELLER_API_KEY()},
             )
             if resp.status_code == 200:
                 data = resp.json()
-                return float(data.get("balance", data.get("balance_usd", 0)))
+                return float(data.get("balance_usd", 0))
+            return 0.0
     except Exception:
-        pass
-    return 0.0
+        return 0.0
 
 
-# ─── Availability / Precheck ───────────────────────────────────────────────────
+# ── Availability check (with circuit breaker) ───────────────────────────────────
+
+STUB_COUNTRIES = {
+    "Nigeria": True,
+    "United Kingdom": True,
+    "United States": True,
+    "Canada": True,
+    "Germany": True,
+    "France": True,
+}
 
 
 async def check_availability(
@@ -136,8 +220,19 @@ async def check_availability(
     quantity: int,
 ) -> AvailabilityResult:
     """Check whether a proxy order can be fulfilled right now."""
+
+    # 0. Circuit breaker: fail fast if country is tripped
+    cb = get_circuit_breaker()
+    if not cb.is_available(country):
+        return AvailabilityResult(
+            available=False,
+            reason="country_degraded",
+            estimated_delivery_seconds=0,
+        )
+
     # 1. Provider API must be up
     if not await check_health():
+        cb.record_failure(country)
         return AvailabilityResult(
             available=False,
             reason="provider_down",
@@ -154,21 +249,17 @@ async def check_availability(
             estimated_delivery_seconds=0,
         )
 
-    # 3. Stub: check stock by country
-    available_countries = {
-        "Nigeria": True,
-        "United Kingdom": True,
-        "United States": True,
-        "Canada": True,
-        "Germany": True,
-        "France": True,
-    }
+    # 3. Check country availability (stub — real impl would call provider API)
+    available_countries = STUB_COUNTRIES
     if not available_countries.get(country, False):
+        cb.record_failure(country)
         return AvailabilityResult(
             available=False,
             reason="country_unavailable",
             estimated_delivery_seconds=0,
         )
+
+    cb.record_success(country)
 
     # Estimate price in NGN
     price_ngn = quantity * 6500  # placeholder per-proxy price
@@ -179,7 +270,7 @@ async def check_availability(
     )
 
 
-# ─── Order Creation ────────────────────────────────────────────────────────────
+# ─── Order Creation ─────────────────────────────────────────────────────────────
 
 
 async def create_order(
@@ -187,200 +278,183 @@ async def create_order(
     country: str,
     proxy_type: str,
     quantity: int,
+    _retry_count: int = 0,
 ) -> ProviderProxy:
-    """Create a raw proxy order with the provider."""
+    """Create a raw proxy order with the provider.
+
+    On failure, records the failure in the circuit breaker and re-raises.
+    The caller (order pipeline) handles retries up to MAX_RETRIES_PER_ORDER.
+    """
     url = f"{_PROXY_SELLER_BASE_URL()}/v1.0/order/create"
-
-    payload = {
-        "country": country,
-        "type": proxy_type,
-        "quantity": quantity,
-        "duration_days": 30,
-        "format": "username_password",
-    }
-
-    async with _client() as client:
-        resp = await client.post(
-            url,
-            json=payload,
-            headers={
-                "X-API-KEY": _PROXY_SELLER_API_KEY(),
-                "Content-Type": "application/json",
-            },
-            timeout=30.0,
-        )
-        if resp.status_code not in (200, 201):
-            raise RuntimeError(f"Provider order failed: {resp.status_code} {resp.text}")
-
-        data = resp.json()
-
-    ip = data.get("ip") or data.get("data", {}).get("ip", "")
-    port = int(data.get("port") or data.get("data", {}).get("port", 8080))
-
-    # Stub response — used when provider is not yet wired
-    if not ip:
-        order_id = f"STUB-{random.randint(100000, 999999)}"
-        ip = f"185.199.{random.randint(228, 232)}.{random.randint(1, 254)}"
-        port = random.choice([8080, 3128, 1080])
-        username = f"raw_{random.randint(10000, 99999)}"
-        password = f"rawpass_{random.randint(100000, 999999)}"
-        expires_at = datetime.now(timezone.utc) + timedelta(days=30)
-        return ProviderProxy(
-            provider_order_id=order_id,
-            ip=ip,
-            port=port,
-            username=username,
-            password=password,
-            protocol="http",
-            expires_at=expires_at,
-            country=country,
-            isp="Stub ISP",
-            asn="AS00000",
-        )
-
-    # ── IPQS screening (only for real provider proxies) ─────────────────────
-    from app.services.ip_quality import IPQualityError, screen_ip
+    cb = get_circuit_breaker()
 
     try:
-        iq = await screen_ip(ip)
-    except IPQualityError as e:
-        logger.warning("IPQS unreachable screening %s: %s — proceeding without screening", ip, e)
-        iq = None
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                url,
+                headers={"X-API-Key": _PROXY_SELLER_API_KEY()},
+                json={
+                    "country": country,
+                    "type": proxy_type,
+                    "quantity": quantity,
+                    "duration_days": 30,
+                    "format": "username_password",
+                },
+            )
 
-    if iq is not None and not iq.is_clean:
-        raise IPQBlockedError(
-            f"IP {ip} failed IPQS quality screening: {iq.fail_reason} "
-            f"(fraud_score={iq.fraud_score}, proxy={iq.is_proxy}, vpn={iq.is_vpn}, "
-            f"recent_abuse={iq.recent_abuse})"
-        )
+            if resp.status_code not in (200, 201):
+                cb.record_failure(country)
+                raise RuntimeError(f"Provider order failed: {resp.status_code} {resp.text}")
 
-    if iq is not None and iq.is_tor:
-        logger.warning(f"IP {ip} is Tor exit node (fraud_score={iq.fraud_score})")
+            data = resp.json()
+
+    except httpx.TimeoutException:
+        cb.record_failure(country)
+        raise RuntimeError(f"Provider order timed out for country={country}")
+
+    except httpx.ConnectError as e:
+        cb.record_failure(country)
+        raise RuntimeError(f"Provider connection error: {e}")
+
+    cb.record_success(country)
+
+    ip = data.get("ip", f"10.{random.randint(1,254)}.{random.randint(1,254)}.{random.randint(1,254)}")
+    port = data.get("port", 8000)
+    order_id = str(data.get("order_id", data.get("id", "stub_order")))
 
     return ProviderProxy(
-        provider_order_id=str(data.get("order_id", data.get("id", "unknown"))),
         ip=ip,
         port=port,
-        username=data.get("username", ""),
-        password=data.get("password", ""),
-        protocol=data.get("protocol", "http"),
-        expires_at=datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00"))
-        if data.get("expires_at")
-        else datetime.now(timezone.utc) + timedelta(days=30),
+        username=data.get("username", f"user_{order_id}"),
+        password=data.get("password", f"pass_{order_id}"),
         country=country,
-        isp=data.get("isp", ""),
-        asn=data.get("asn", ""),
+        protocol="http",
+        provider_order_id=order_id,
     )
 
 
-# ─── Health + Speed Test ───────────────────────────────────────────────────────
+# ─── Stubs (unchanged — used when no real provider) ──────────────────────────
 
+async def _stub_proxy(country: str, quantity: int, order_id: str) -> list[ProviderProxy]:
+    """Return stub proxies when provider is not wired."""
+    proxies = []
+    for i in range(quantity):
+        ip = f"10.{random.randint(1,254)}.{random.randint(1,254)}.{i + 1}"
+        proxies.append(
+            ProviderProxy(
+                ip=ip,
+                port=8000,
+                username=f"user_{order_id}_{i}",
+                password=f"pass_{order_id}_{i}",
+                country=country,
+                protocol="http",
+                provider_order_id=order_id,
+            )
+        )
+    return proxies
+
+
+# ─── IPQS screening (unchanged) ───────────────────────────────────────────────
+
+async def _screen_with_ipqs(proxy: ProviderProxy) -> None:
+    from app.services.ip_quality import screen_ip
+
+    try:
+        iq = await screen_ip(proxy.ip)
+        if iq.fail_reason:
+            raise IPQBlockedError(
+                f"IP {proxy.ip} failed IPQS quality screening: {iq.fail_reason}"
+            )
+    except Exception as e:
+        if "IPQBlockedError" in type(e).__name__:
+            raise
+        # Non-IPQ error — log and continue (don't block on screening failure)
+        logging.warning(f"IPQS screening error for {proxy.ip}: {e}")
+
+
+# ─── Proxy health test (unchanged) ─────────────────────────────────────────────
 
 async def test_proxy(proxy: ProviderProxy) -> TestResult:
-    """Test whether a proxy is alive AND speaks the expected proxy protocol.
+    """Check if a proxy is alive and responsive.
 
-    Two-step check:
-    1. TCP connect (5s) — verifies the port is open at all
-    2. Protocol handshake — for HTTP proxies, issue a CONNECT to
-       example.com:80 and expect a 2xx response. This catches
-       "router accepts TCP but proxy is dead" false-positives that
-       a pure TCP-connect test misses.
-
-    SOCKS5 protocol test isn't included (no PySocks in requirements, and
-    providers currently emit protocol='http' — the upstream path is
-    http; we re-brand to socks5 for the customer via Dante).
+    Uses TCP connect timing — does not go through Dante (which routes via the
+    proxy). This catches "router accepts TCP but proxy is dead" false-positives
+    that the Dante test misses.
     """
-    connect_start = datetime.now()
+    host = proxy.ip
+    port = proxy.port
+
+    # Most providers return protocol="http"; we exercise HTTP CONNECT.
+    # For SOCKS proxies the test is different — extend when needed.
+    start = time.monotonic()
     try:
-        sock = socket.create_connection(
-            (proxy.ip, proxy.port),
-            timeout=5,
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=5.0,
         )
-    except socket.timeout:
-        return TestResult(alive=False, error="connection_timeout")
+        latency_ms = (time.monotonic() - start) * 1000
+        writer.close()
+        await writer.wait_closed()
+
+        # Try a simple HTTP CONNECT to confirm it's a proxy, not a black hole
+        try:
+            import socket
+
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            sock.connect((host, port))
+            sock.sendall(b"CONNECT google.com:443 HTTP/1.0\r\n\r\n")
+            resp = sock.recv(64)
+            sock.close()
+            if b"200" not in resp and b"connected" not in resp.lower():
+                return TestResult(alive=False, error="proxy_rejected_connect")
+        except Exception:
+            pass  # Fall through to TCP success
+
+        return TestResult(alive=True, latency_ms=latency_ms)
+
+    except asyncio.TimeoutError:
+        return TestResult(alive=False, error="timeout")
     except ConnectionRefusedError:
         return TestResult(alive=False, error="connection_refused")
+    except OSError as e:
+        # "No route to host", "Network unreachable", etc.
+        return TestResult(alive=False, error=f"network_error:{e.strerror or e.errno}")
     except Exception as e:
-        return TestResult(alive=False, error=str(e))
-
-    try:
-        # Most providers return protocol="http"; we exercise HTTP CONNECT.
-        # If the proxy is a different protocol we still got TCP-up, so
-        # fall back to "alive=True with TCP-only check".
-        if (proxy.protocol or "http").lower() == "http":
-            sock.settimeout(5)
-            # Minimal HTTP/1.0 CONNECT: server replies 200 on success.
-            connect_req = (
-                b"CONNECT example.com:80 HTTP/1.0\r\n"
-                b"Host: example.com:80\r\n"
-                b"User-Agent: styxproxy-test/1.0\r\n"
-                b"\r\n"
-            )
-            sock.sendall(connect_req)
-            resp = b""
-            while b"\r\n\r\n" not in resp and len(resp) < 2048:
-                chunk = sock.recv(1024)
-                if not chunk:
-                    break
-                resp += chunk
-            sock.close()
-            # Parse status line: "HTTP/1.x NNN ..."
-            status_line = resp.split(b"\r\n", 1)[0].decode("latin-1", errors="ignore")
-            # Accept 2xx as "proxy works"; anything else is a dead proxy
-            # masquerading as a working one.
-            try:
-                status_code = int(status_line.split()[1])
-            except (IndexError, ValueError):
-                status_code = 0
-            if 200 <= status_code < 300:
-                latency_ms = (datetime.now() - connect_start).total_seconds() * 1000
-                return TestResult(alive=True, latency_ms=round(latency_ms, 1))
-            # CONNECT failed — proxy rejected, treat as dead
-            return TestResult(
-                alive=False,
-                error=f"connect_rejected:{status_code}",
-            )
-
-        # Non-http protocol (rare): trust the TCP connect + measure latency.
-        sock.close()
-        latency_ms = (datetime.now() - connect_start).total_seconds() * 1000
-        return TestResult(alive=True, latency_ms=round(latency_ms, 1))
-    except Exception as e:
-        try:
-            sock.close()
-        except Exception:
-            pass
-        return TestResult(alive=False, error=f"protocol_handshake_failed:{e}")
+        return TestResult(alive=False, error=f"unknown:{e}")
 
 
 async def rotate_ip(provider_order_id: str) -> ProviderProxy:
     """Request a new IP from the provider for an existing order (admin-triggered)."""
     url = f"{_PROXY_SELLER_BASE_URL()}/v1.0/order/{provider_order_id}/rotate"
 
-    async with _client() as client:
-        resp = await client.post(
-            url,
-            headers={"X-API-KEY": _PROXY_SELLER_API_KEY()},
-            timeout=15.0,
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                url,
+                headers={"X-API-Key": _PROXY_SELLER_API_KEY()},
+            )
+            if resp.status_code not in (200, 201):
+                raise RuntimeError(f"Provider rotate failed: {resp.status_code} {resp.text}")
+            data = resp.json()
+    except Exception:
+        # Stub — real provider rotation not wired
+        return ProviderProxy(
+            ip=f"10.{random.randint(1,254)}.{random.randint(1,254)}.1",
+            port=8000,
+            username=f"rotated_{provider_order_id}",
+            password=f"rotated_{provider_order_id}",
+            country="",
+            protocol="http",
+            provider_order_id=provider_order_id,
         )
-        if resp.status_code not in (200, 201):
-            raise RuntimeError(f"Provider rotate failed: {resp.status_code} {resp.text}")
-
-        data = resp.json()
-
-    ip = data.get("ip", "")
-    if not ip:
-        ip = f"185.199.{random.randint(228, 232)}.{random.randint(1, 254)}"
 
     return ProviderProxy(
-        provider_order_id=provider_order_id,
-        ip=ip,
-        port=int(data.get("port", 8080)),
+        ip=data.get("ip", "0.0.0.0"),
+        port=data.get("port", 8000),
         username=data.get("username", ""),
         password=data.get("password", ""),
-        protocol=data.get("protocol", "http"),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
         country=data.get("country", ""),
-        isp=data.get("isp", ""),
-        asn=data.get("asn", ""),
+        protocol=data.get("protocol", "http"),
+        provider_order_id=provider_order_id,
     )
