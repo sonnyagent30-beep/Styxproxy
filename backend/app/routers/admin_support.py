@@ -360,6 +360,8 @@ async def reopen_support_thread(
         "status": "reopened",
         "thread_id": str(thread.id),
     }
+
+
 """Add test-email endpoint to admin_support.py on develop branch."""
 ENDPOINT = '''
 
@@ -388,7 +390,7 @@ async def send_test_email(
     <div style="max-width: 500px; margin: 0 auto;">
         <div style="height: 4px; background: #00D060; border-radius: 2px; margin-bottom: 24px;"></div>
         <h1 style="color: #00D060; font-size: 24px; margin-bottom: 8px;">Styxproxy Email Test</h1>
-        <p style="color: #9ca3af; margin-bottom: 16px;">If you see this email, the Styxproxy email sender is working correctly.</p>
+        <p style="color: #9ca3af; margin-bottom: 16px;">If you see this, the Styxproxy email sender is working.</p>
         <div style="background: #1a1a1a; border-radius: 4px; padding: 16px; margin: 16px 0;">
             <p style="color: #00D060; margin: 0; font-size: 14px;">
                 Green color check - should be vivid bright green<br>
