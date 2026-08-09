@@ -33,8 +33,10 @@ jobs:
       - name: Install frontend dependencies
         run: cd frontend && npm ci
 
-      - name: Install Playwright in frontend
-        run: cd frontend && npm install playwright && npx playwright install chromium --with-deps
+      - name: Install Playwright browsers
+        uses: menski/gha-playwright-browser@v2
+        with:
+          browsers: chromium
 
       - name: Determine environment
         id: env
