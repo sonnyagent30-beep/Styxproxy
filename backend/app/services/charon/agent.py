@@ -1,4 +1,6 @@
 """Charon agent orchestrator.
+from app.services.charon.page_templates import get_page_prompt_addition
+from app.services.charon.ab_framework import get_variant, get_page_context_variant, record_outcome
 from app.services.charon.escalation_persist import persist_escalation_sync
 
 Glues together: scenario matcher → RAG → LLM (with tools) → response.
@@ -48,6 +50,7 @@ class Reply:
     error: str | None = None
     tokens_used: int = 0
     raw: dict | None = None
+    experiment_variant: str | None = None
 
 
 @dataclass
@@ -163,6 +166,7 @@ async def reply(
     user_message: str,
     *,
     history: list[Message] | None = None,
+    page_context: dict | None = None,
 ) -> Reply:
     """End-to-end Charon reply.
 
@@ -171,10 +175,13 @@ async def reply(
     2. Try LLM with knowledge context + tool definitions.
     3. Fall back to "I am having trouble; escalate" if LLM fails.
     """
+    conversation_id = conversation_id or str(uuid.uuid4())
+    variant = get_variant(conversation_id)
     log_ctx: dict[str, Any] = {
         "channel": channel,
-        "conversation_id": conversation_id or str(uuid.uuid4()),
+        "conversation_id": conversation_id,
         "user_message": user_message[:500],
+        "experiment_variant": variant.value,
     }
 
     messages = list(history or [])
@@ -188,7 +195,7 @@ async def reply(
         log_ctx["response"] = reply_action.text
         log_ctx["escalated"] = escalate
         _persist_log(log_ctx)
-        return Reply(text=reply_action.text, scenario_id=scenario.id, escalated=escalate)
+        return Reply(text=reply_action.text, scenario_id=scenario.id, escalated=escalate, experiment_variant=variant.value)
 
     # ── 2. LLM with knowledge + tools ──────────────────────────────
     context_chunks = knowledge.search(user_message, top_k=4)
@@ -196,6 +203,10 @@ async def reply(
 
     tx_ref = _extract_tx_ref(messages)
     history_dicts = _serialize_history(messages[-8:])  # 8 turns of context is plenty for QA
+
+    # A/B: treatment group gets page context, control gets None
+    filtered_context, _ = get_page_context_variant(conversation_id, page_context)
+    page_prompt = get_page_prompt_addition(filtered_context)
 
     system_block = (
         "You may use these tools if relevant. Call them only when useful; "
@@ -207,6 +218,7 @@ async def reply(
         f"Available tools:\n{json.dumps(tools.registry.list_specs(), indent=2)}\n\n"
         f"Known transaction reference (if any): {tx_ref or 'none mentioned yet'}\n\n"
         f"Knowledge base context:\n{context_text}\n"
+        + (f"\n\n{page_prompt}" if page_prompt else "")
     )
 
     # ── 2a. Try a tool-calling loop. If the LLM doesn't speak tool
@@ -222,6 +234,7 @@ async def reply(
     if tool_call_result is not None:
         log_ctx["response"] = tool_call_result.text
         _persist_log(log_ctx)
+        await record_outcome(conversation_id, "resolved", messages_count=len(messages))
         return tool_call_result
 
     # ── 2b. Plain prompt to LLM (no tool step) ───────────────────────
