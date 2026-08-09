@@ -46,9 +46,9 @@ async def persist_escalation(
                 """
                 INSERT INTO charon_escalations
                     (id, conversation_id, customer_email, customer_phone,
-                     customer_message, history_summary, status, created_at, updated_at)
+                     customer_message, history_summary, status, sla_deadline, created_at, updated_at)
                 VALUES
-                    (gen_random_uuid(), $1, $2, $3, $4, $5, 'pending', NOW(), NOW())
+                    (gen_random_uuid(), $1, $2, $3, $4, $5, 'pending', NOW() + INTERVAL '2 hours', NOW(), NOW())
                 RETURNING id
                 """,
                 conversation_id,
