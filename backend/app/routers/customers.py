@@ -212,7 +212,6 @@ async def delete_me(
     Clears phone, name, and consent fields.
     """
     anon_id = f"DELETED_{uuid.uuid4().hex[:12]}"
-    now = datetime.now(timezone.utc)
 
     # Anonymize customer record
     await session.execute(

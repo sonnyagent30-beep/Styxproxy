@@ -180,10 +180,9 @@ async def ops_refund_order(
     # Call Flutterwave refund
     tx_ref = order.payment_reference or ""
     amount = float(order.amount_paid_ngn or 0)
-    refund_result: dict[str, Any] = {}
     try:
         if tx_ref and amount > 0:
-            await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
+            _ = await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
         else:
             raise ValueError("No payment reference or amount to refund")
     except Exception as e:

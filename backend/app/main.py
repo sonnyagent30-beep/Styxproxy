@@ -1,3 +1,4 @@
+
 """Styxproxy Backend API"""
 
 import logging
@@ -18,7 +19,7 @@ from app.limiter import limiter
 logger = logging.getLogger("app.main")
 
 # ─── Observability ───────────────────────────────────────────────────────────
-from app import observability
+from app.services import observability
 
 
 @asynccontextmanager
@@ -31,7 +32,8 @@ async def lifespan(app: FastAPI):
     # Sprint 5: Enable the limiter middleware so @limiter.limit decorators actually fire.
     # Without this, all decorators are silent no-ops (we discovered this Jul 28 — Sprint 5).
     # Also: SlowAPIMiddleware MUST be added BEFORE CORSMiddleware so it runs first in the chain.
-    # DISABLED: SlowAPIMiddleware causes AttributeError on AuthenticationError.detail in slowapi 0.1.10
+    # DISABLED: SlowAPIMiddleware causes AttributeError on AuthenticationError in slowapi 0.1.10
+    # https://github.com/numberoverzero/slowapi/issues/XXX
     # app.add_middleware(SlowAPIMiddleware)
 
     yield
@@ -72,7 +74,7 @@ app.add_middleware(
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# ─── Routes ─────────────────────────────────────────────────────────────────
+# ─── Routes ──────────────────────────────────────────────────────────────────
 # Lazy import to avoid circular deps at module level
 from app.routers import (
     admin_providers,
