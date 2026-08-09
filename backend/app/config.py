@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     betterstack_status_page_id: str = ""
     betterstack_monitor_id: str = ""
     betterstack_status_page_url: str = ""
+    # Incident notification webhooks
+    incident_slack_webhook_url: str = ""
+    incident_discord_webhook_url: str = ""
     from_email: str = "Styxproxy <noreply@styxproxy.com>"
     support_email: str = "support@styxproxy.com"
     admin_email: str = "support@styxproxy.com"

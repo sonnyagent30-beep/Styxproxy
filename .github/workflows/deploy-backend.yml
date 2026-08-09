@@ -175,9 +175,18 @@ jobs:
           key: ${{ env.DEPLOY_PRIVKEY }}
           timeout: 120s
           script: |
+            set -e
             cd /opt/styxproxy/repo
             git fetch origin main
             git reset --hard origin/main
+
+            # Restore systemd service file if missing (container /etc is ephemeral)
+            if [ ! -f /etc/systemd/system/styxproxy-api.service ]; then
+              echo "styxproxy-api.service missing — restoring from git..."
+              cp /opt/styxproxy/repo/backend/systemd/styxproxy-api.service /etc/systemd/system/
+              systemctl daemon-reload
+            fi
+
             systemctl restart styxproxy-api
             echo "Backend restarted"
 

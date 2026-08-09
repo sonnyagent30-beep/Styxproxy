@@ -1,5 +1,4 @@
 """Routers package."""
-
 from app.routers.admin import router as admin
 from app.routers.admin_proxies import router as admin_proxies
 from app.routers.admin_support import router as admin_support
@@ -12,6 +11,7 @@ from app.routers.costs import router as costs
 from app.routers.credentials import router as credentials
 from app.routers.health import router as health
 from app.routers.inbound import router as inbound
+from app.routers.incident_notification import router as incident_notification
 from app.routers.maintenance import router as maintenance
 from app.routers.orders import router as orders
 from app.routers.payment_status import router as payment_status
@@ -26,3 +26,4 @@ from app.routers.superadmin import router as superadmin
 from app.routers.trials import router as trials
 from app.routers.unsubscribe import router as unsubscribe
 from app.routers.webhooks import router as webhooks
+

@@ -1,0 +1,22 @@
+[Unit]
+Description=Styxproxy Backend API
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/styxproxy/backend
+Environment="PYTHONUNBUFFERED=1"
+EnvironmentFile=/opt/styxproxy/.env
+ExecStart=/opt/styxproxy/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 30
+Restart=always
+RestartSec=5
+# Allow 60s for graceful shutdown drain before SIGKILL
+TimeoutStopSec=60
+StandardOutput=append:/var/log/styxproxy-api.log
+StandardError=append:/var/log/styxproxy-api.err.log
+
+[Install]
+WantedBy=multi-user.target
