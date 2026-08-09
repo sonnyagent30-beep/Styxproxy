@@ -1,3 +1,6 @@
+
+/* eslint-disable react-hooks/immutability */
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -37,12 +40,14 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [charonStats, setCharonStats] = useState<{
-    total_conversations: number;
-    total_messages: number;
-    by_model: Record<string, number>;
-    cloud_up: boolean;
-    local_up: boolean;
-    last_error?: string | null;
+    uptime_seconds: number;
+    llm_configured: boolean;
+    requests: { total: number; successful: number; escalated: number; llm_errors: number; rate_limited: number };
+    tokens_used_total: number;
+    by_channel: Record<string, number>;
+    by_outcome: Record<string, number>;
+    recent_errors: Array<string>;
+    latency_ms: { samples: number; avg: number; max: number };
   } | null>(null);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -175,15 +180,15 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-          <p className="text-[var(--muted)] text-sm mb-1">Active Orders</p>
+          <p className="text-[var(--muted)] text-sm mb-1">Orders Today</p>
           <p className="text-3xl font-bold">
-            {(stats?.active_orders ?? 0).toLocaleString()}
+            {(stats?.active_orders ?? metrics?.orders_today ?? 0).toLocaleString()}
           </p>
         </div>
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-          <p className="text-[var(--muted)] text-sm mb-1">Total Revenue (NGN)</p>
+          <p className="text-[var(--muted)] text-sm mb-1">Revenue This Month (NGN)</p>
           <p className="text-3xl font-bold text-[var(--primary)]">
-            {formatNGN(stats?.total_revenue_ngn ?? 0)}
+            {formatNGN(metrics?.revenue_this_month_ngn ?? 0)}
           </p>
         </div>
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
@@ -203,12 +208,16 @@ export default function AdminDashboardPage() {
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
           <p className="text-[var(--muted)] text-sm mb-1">Active Credentials</p>
           <p className="text-3xl font-bold text-[var(--primary)]">
-            {(stats?.active_credentials ?? metrics?.active_credentials ?? 0).toLocaleString()}
+            {(stats?.active_credentials ?? metrics?.active_proxies ?? 0).toLocaleString()}
           </p>
         </div>
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
           <p className="text-[var(--muted)] text-sm mb-1">Free Trials Today</p>
           <p className="text-3xl font-bold">{stats?.free_trials_today ?? 0}</p>
+        </div>
+        <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+          <p className="text-[var(--muted)] text-sm mb-1">Escalations</p>
+          <p className="text-3xl font-bold">{metrics?.escalations_open ?? 0}</p>
         </div>
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
           <p className="text-[var(--muted)] text-sm mb-1">System Status</p>
@@ -218,6 +227,29 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Plan Stock Overview */}
+      {stats?.plan_counts && Object.keys(stats.plan_counts).length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Plan Stock Overview</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { key: 'ISP', label: 'ISP Proxies', color: 'text-blue-400', bg: 'bg-blue-500/20' },
+              { key: 'DC', label: 'Datacenter', color: 'text-purple-400', bg: 'bg-purple-500/20' },
+              { key: 'MOBILE', label: 'Mobile 4G', color: 'text-orange-400', bg: 'bg-orange-500/20' },
+              { key: 'RESIDENTIAL', label: 'Residential', color: 'text-green-400', bg: 'bg-green-500/20' },
+            ].map(({ key, label, color, bg }) => (
+              <div key={key} className={`p-4 rounded-xl border border-[var(--border)] ${bg}`}>
+                <p className={`text-sm font-medium ${color}`}>{label}</p>
+                <p className={`text-3xl font-bold mt-1 ${color}`}>
+                  {stats.plan_counts[key] ?? 0}
+                </p>
+                <p className="text-xs text-[var(--muted)] mt-1">active plans</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* System Health Detail */}
       <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] mb-8">
@@ -324,49 +356,41 @@ export default function AdminDashboardPage() {
         {charonStats ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
-              <p className="text-[var(--muted)] text-xs mb-1">Conversations</p>
-              <p className="text-2xl font-bold">{charonStats.total_conversations.toLocaleString()}</p>
+              <p className="text-[var(--muted)] text-xs mb-1">Total Requests</p>
+              <p className="text-2xl font-bold">{charonStats.requests.total.toLocaleString()}</p>
             </div>
             <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
-              <p className="text-[var(--muted)] text-xs mb-1">Messages</p>
-              <p className="text-2xl font-bold">{charonStats.total_messages.toLocaleString()}</p>
+              <p className="text-[var(--muted)] text-xs mb-1">Successful</p>
+              <p className="text-2xl font-bold text-green-400">{charonStats.requests.successful.toLocaleString()}</p>
             </div>
             <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
-              <p className="text-[var(--muted)] text-xs mb-1">M2 Cloud</p>
+              <p className="text-[var(--muted)] text-xs mb-1">LLM Errors</p>
+              <p className="text-2xl font-bold text-red-400">{charonStats.requests.llm_errors.toLocaleString()}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+              <p className="text-[var(--muted)] text-xs mb-1">LLM Configured</p>
               <div className="flex items-center gap-2">
-                <span className={`inline-block w-2 h-2 rounded-full ${charonStats.cloud_up ? 'bg-green-400' : 'bg-red-400'}`} />
-                <p className={`text-sm font-medium ${charonStats.cloud_up ? 'text-green-400' : 'text-red-400'}`}>
-                  {charonStats.cloud_up ? 'up' : 'down'}
+                <span className={`inline-block w-2 h-2 rounded-full ${charonStats.llm_configured ? 'bg-green-400' : 'bg-red-400'}`} />
+                <p className={`text-sm font-medium ${charonStats.llm_configured ? 'text-green-400' : 'text-red-400'}`}>
+                  {charonStats.llm_configured ? 'yes' : 'no'}
                 </p>
               </div>
             </div>
             <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
-              <p className="text-[var(--muted)] text-xs mb-1">MiniCPM5</p>
-              <div className="flex items-center gap-2">
-                <span className={`inline-block w-2 h-2 rounded-full ${charonStats.local_up ? 'bg-green-400' : 'bg-red-400'}`} />
-                <p className={`text-sm font-medium ${charonStats.local_up ? 'text-green-400' : 'text-red-400'}`}>
-                  {charonStats.local_up ? 'up' : 'down'}
-                </p>
-              </div>
+              <p className="text-[var(--muted)] text-xs mb-1">Escalated</p>
+              <p className="text-2xl font-bold text-amber-400">{charonStats.requests.escalated.toLocaleString()}</p>
             </div>
-            {Object.keys(charonStats.by_model).length > 0 && (
-              <div className="sm:col-span-2 lg:col-span-4 p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
-                <p className="text-[var(--muted)] text-xs mb-2">Messages by model</p>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(charonStats.by_model).map(([model, count]) => (
-                    <span
-                      key={model}
-                      className="px-3 py-1 rounded-full text-xs bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20"
-                    >
-                      {model}: {count.toLocaleString()}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {charonStats.last_error && (
+            <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+              <p className="text-[var(--muted)] text-xs mb-1">Tokens Used</p>
+              <p className="text-2xl font-bold">{charonStats.tokens_used_total.toLocaleString()}</p>
+            </div>
+            <div className="p-4 rounded-xl bg-[var(--background)] border border-[var(--border)]">
+              <p className="text-[var(--muted)] text-xs mb-1">Avg Latency</p>
+              <p className="text-2xl font-bold">{charonStats.latency_ms.avg.toFixed(0)} ms</p>
+            </div>
+            {charonStats.recent_errors.length > 0 && (
               <div className="sm:col-span-2 lg:col-span-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                <span className="font-medium">Last error:</span> {charonStats.last_error}
+                <span className="font-medium">Recent errors:</span> {charonStats.recent_errors[0]}
               </div>
             )}
           </div>

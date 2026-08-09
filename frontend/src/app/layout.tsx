@@ -42,6 +42,10 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
     creator: "@styxproxy",
   },
+  icons: {
+    icon: '/favicon.png',
+    apple: '/favicon-180.png',
+  },
   alternates: {
     canonical: "https://styxproxy.com",
     types: {

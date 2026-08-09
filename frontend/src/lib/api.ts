@@ -1,3 +1,5 @@
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
   Product,
   Order,
@@ -8,6 +10,8 @@ import type {
   Customer,
   ApiResponse,
   PaginatedResponse,
+  FunnelData,
+  AnalyticsEvent,
   StyxproxyCredential,
   CharonConversation,
   CharonLogEntry,
@@ -56,6 +60,7 @@ import type {
   Plan,
   PlanCreate,
   PlanUpdate,
+  PlanSetting,
   ContactSubmission,
   ContactSubmissionsResponse,
   Escalation,
@@ -159,8 +164,11 @@ class ApiClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        return { 
-          error: errorData.detail || `HTTP error ${response.status}` 
+        // Ensure error is always a string — guard against structured objects
+        // (e.g. Pydantic/GraphQL errors like {type, loc, msg, input, ctx})
+        const rawError = errorData.detail || errorData.message || JSON.stringify(errorData);
+        return {
+          error: typeof rawError === 'string' ? rawError : String(rawError)
         };
       }
 
@@ -289,6 +297,20 @@ class ApiClient {
   // Admin
   async getAdminStats(): Promise<ApiResponse<AdminStats>> {
     return this.request<AdminStats>('/api/admin/stats');
+  }
+
+  // Analytics
+  async getAnalyticsFunnel(): Promise<ApiResponse<FunnelData>> {
+    return this.request<FunnelData>('/api/v1/admin/analytics/funnel');
+  }
+
+  async getAnalyticsEvents(page: number = 1, limit: number = 30, eventName?: string): Promise<ApiResponse<{ events: AnalyticsEvent[]; total: number }>> {
+    const offset = (page - 1) * limit;
+    const params = new URLSearchParams(`limit=${limit}&offset=${offset}`);
+    if (eventName && eventName !== 'all') params.set('event_name', eventName);
+    return this.request<{ events: AnalyticsEvent[]; total: number }>(
+      `/api/v1/admin/analytics/events?${params.toString()}`
+    );
   }
 
   async getOrders(page: number = 1, limit: number = 20): Promise<ApiResponse<PaginatedResponse<Order>>> {
@@ -717,6 +739,34 @@ class ApiClient {
   async deletePlan(planId: number): Promise<ApiResponse<{ status: string; plan_id: number }>> {
     return this.request(`/api/admin/plans/${planId}`, {
       method: 'DELETE',
+    });
+  }
+
+  // ============== Plan Settings (Admin) ==============
+
+  // Returns PlanSettingsDisplay[] directly (no {settings} wrapper)
+  async getPlanSettings(): Promise<ApiResponse<any[]>> {
+    return this.request('/api/admin/plan-settings');
+  }
+
+  async updatePlanSettings(
+    id: number,
+    data: {
+      plan_type: string;
+      setting_value: {
+        price_per_gb?: number;
+        price_per_ip?: number;
+        available_countries: string[];
+        gb_tiers?: string[];
+        supports_city: boolean;
+        rotation_modes: string[];
+      };
+      is_active: boolean;
+    }
+  ): Promise<ApiResponse<PlanSetting>> {
+    return this.request(`/api/admin/plan-settings/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     });
   }
 

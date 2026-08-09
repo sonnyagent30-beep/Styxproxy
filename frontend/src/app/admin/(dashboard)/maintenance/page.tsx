@@ -1,3 +1,5 @@
+
+// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';

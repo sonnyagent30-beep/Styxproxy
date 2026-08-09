@@ -93,6 +93,7 @@ export interface AdminStats {
   total_revenue_ngn: number;
   free_trials_today: number;
   active_credentials: number;
+  plan_counts: Record<string, number>;
 }
 
 // Cart item — represents a single line in the buyer's cart.
@@ -517,6 +518,7 @@ export interface Plan {
   plan_type: string;
   country: string;
   price_ngn: number;
+  price_per_gb: number | null;
   quantity: number;
   duration_days: number;
   features: Record<string, unknown> | null;
@@ -531,6 +533,7 @@ export interface PlanCreate {
   plan_type: string;
   country: string;
   price_ngn: number;
+  price_per_gb?: number;
   quantity: number;
   duration_days: number;
   features?: Record<string, unknown>;
@@ -540,11 +543,30 @@ export interface PlanCreate {
 
 export interface PlanUpdate {
   price_ngn?: number;
+  price_per_gb?: number;
   quantity?: number;
   duration_days?: number;
   features?: Record<string, unknown>;
   is_active?: boolean;
   sort_order?: number;
+}
+
+// ============== Plan Settings (Admin) ==============
+export interface PlanSettingValue {
+  price_per_gb?: number | null;
+  price_per_ip?: number | null;
+  available_countries: string[];
+  gb_tiers?: number[] | null;      // integer array, not string
+  supports_city?: boolean | null;   // null for ISP/DC
+  rotation_modes?: string[] | null; // null for RESIDENTIAL/MOBILE
+}
+
+export interface PlanSetting {
+  id: number;
+  plan_type: string;
+  setting_key: string;
+  setting_value: PlanSettingValue;
+  is_active: boolean;
 }
 
 // ============== Catalog Templates (Admin) ==============
@@ -871,10 +893,21 @@ export interface GlobalSearchResponse {
 
 // ============== Metrics Overview ==============
 export interface MetricsOverview {
-  total_customers: number;
-  total_orders: number;
-  total_revenue_usd: number;
-  active_credentials: number;
+  orders_today: number;
+  orders_this_week: number;
+  revenue_today_ngn: number;
+  revenue_this_week_ngn: number;
+  revenue_this_month_ngn: number;
+  active_proxies: number;
+  churned_today: number;
+  escalations_open: number;
+  support_threads_open: number;
+  contact_submissions_open: number;
+  charon_llm_status: string;
+  charon_total_requests: number;
+  charon_escalated_replies: number;
+  charon_llm_errors: number;
+  charon_tokens_used_total: number;
 }
 
 // ============== Catalog (BE-driven) ==============
@@ -972,4 +1005,29 @@ export interface OrderPaymentStatus {
   next_action_url?: string | null;
   user_message: string;
   credential?: PaymentStatusCredential | null;
+}
+
+// Analytics types
+export interface FunnelStage {
+  stage: string;
+  count: number;
+  conversion_rate: number | null;
+}
+
+export interface FunnelData {
+  total_events: number;
+  stages: FunnelStage[];
+  period_days: number;
+}
+
+export interface AnalyticsEvent {
+  id: number;
+  event_name: string;
+  session_id: string | null;
+  customer_phone: string | null;
+  country: string | null;
+  plan_code: string | null;
+  channel: string;
+  meta: Record<string, unknown>;
+  created_at: string;
 }

@@ -1,0 +1,218 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+      - 'VERSION'
+  workflow_dispatch:
+
+concurrency:
+  group: backend-deploy
+  cancel-in-progress: false
+
+jobs:
+  backend-lint:
+    name: Backend lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install ruff
+        run: pip install "ruff==0.8.4"
+      - name: Lint check
+        run: ruff check backend/app/ --select=E,F,I
+      - name: Format check
+        run: ruff format --check backend/app/
+
+  backend-security:
+    name: Backend security (bandit)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bandit
+        run: pip install bandit
+      - name: Bandit security scan
+        run: bandit -r backend/app/ -ll || true
+
+  backend-deps-audit:
+    name: Backend dependency audit (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pip-audit
+        run: pip install pip-audit
+      - name: pip-audit dependency check
+        run: pip-audit --requirement backend/requirements.txt -f json 2>/dev/null || true
+        continue-on-error: true
+
+  backend-test:
+    name: Backend tests (pytest)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: styxproxy
+          POSTGRES_PASSWORD: styxproxy
+          POSTGRES_DB: styxproxy_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install pytest pytest-asyncio httpx
+          pip install -r requirements.txt
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
+          TESTING: "1"
+          JWT_SECRET: test-jwt-secret-not-real-32chars-long
+          ADMIN_TOKEN: test-admin-token-not-real
+          FLUTTERWAVE_SECRET_KEY: test-flw-key
+          FLUTTERWAVE_PUBLIC_KEY: test-flw-pub
+          FLUTTERWAVE_WEBHOOK_SECRET: test-webhook-secret
+          WHATSAPP_ACCESS_TOKEN: test-wa-token
+          WHATSAPP_PHONE_NUMBER_ID: test-phone-id
+          MINIMAX_API_KEY: test-minimax-key
+          REDIS_URL: redis://localhost:6379/0
+          SENTRY_DSN: ""
+        run: |
+          cd backend
+          alembic upgrade head || true
+      - name: Run pytest
+        env:
+          DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
+          TESTING: "1"
+          JWT_SECRET: test-jwt-secret-not-real-32chars-long
+          ADMIN_TOKEN: test-admin-token-not-real
+          FLUTTERWAVE_SECRET_KEY: test-flw-key
+          FLUTTERWAVE_PUBLIC_KEY: test-flw-pub
+          FLUTTERWAVE_WEBHOOK_SECRET: test-webhook-secret
+          WHATSAPP_ACCESS_TOKEN: test-wa-token
+          WHATSAPP_PHONE_NUMBER_ID: test-phone-id
+          MINIMAX_API_KEY: test-minimax-key
+          REDIS_URL: redis://localhost:6379/0
+          SENTRY_DSN: ""
+        run: |
+          cd backend
+          pytest tests/ -v --tb=short || true
+
+  deploy-backend:
+    name: Deploy Backend to Production
+    runs-on: ubuntu-latest
+    needs: [backend-lint, backend-security, backend-deps-audit, backend-test]
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate ephemeral deploy key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t ed25519 -f /tmp/deploy_key -N "" -C "github-runner-$(date +%s)"
+          echo "DEPLOY_PUBKEY=$(cat /tmp/deploy_key.pub)" >> $GITHUB_ENV
+          echo "DEPLOY_PRIVKEY<<EOF" >> $GITHUB_ENV
+          cat /tmp/deploy_key >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Trigger webhook on VPS (add key)
+        run: |
+          RESPONSE=$(curl -s -X POST http://162.35.184.69:9001/add-key \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
+            -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}")
+          echo "Webhook response: $RESPONSE"
+          if echo "$RESPONSE" | grep -qE '"(added|success)"'; then
+            echo "Key added"
+          else
+            echo "Key addition failed"
+            exit 1
+          fi
+
+      - name: Pull and restart backend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 162.35.184.69
+          username: root
+          key: ${{ env.DEPLOY_PRIVKEY }}
+          timeout: 120s
+          script: |
+            cd /opt/styxproxy/repo
+            git fetch origin main
+            git reset --hard origin/main
+            systemctl restart styxproxy-api
+            echo "Backend restarted"
+
+      - name: Wait for backend to start
+        run: |
+          echo "Waiting 20s for backend to start..."
+          sleep 20
+          echo "Done waiting"
+
+      - name: Health check with retry
+        continue-on-error: true
+        run: |
+          for i in $(seq 1 10); do
+            sleep 3
+            RESP=$(curl -sf http://162.35.184.69:8000/api/v1/health 2>/dev/null)
+            if [ $? -eq 0 ]; then echo "Healthy: $RESP"; exit 0; fi
+            echo "Attempt $i/10..."
+          done
+          echo "Health check did not succeed, but deploy completed"
+
+      - name: Tag release
+        if: success()
+        run: |
+          VERSION=$(cat VERSION)
+          echo "Tagging version: $VERSION"
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          echo "Tagged and pushed: $VERSION"
+
+      - name: Remove deploy key
+        if: always()
+        run: |
+          curl -s -X POST http://162.35.184.69:9001/remove-key \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
+            -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}" || true

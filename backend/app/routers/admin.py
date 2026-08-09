@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
-from sqlalchemy import and_, func, select, text
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
@@ -21,6 +21,7 @@ from app.models import (
     FeatureFlag,
     Order,
     Plan,
+    PlanSettings,
     ProcessedWebhook,
     StyxproxyCredential,
 )
@@ -59,6 +60,10 @@ from app.schemas import (
     LearnedFilesResponse,
     PlanCreateRequest,
     PlanResponse,
+    PlanSettingBasePricing,
+    PlanSettingsDisplay,
+    PlanSettingsResponse,
+    PlanSettingsUpdateRequest,
     PlansResponse,
     PlanUpdateRequest,
     UpdateKnowledgeRequest,
@@ -101,12 +106,22 @@ async def get_stats(session: AsyncSession = Depends(get_session)):
             select(func.count()).select_from(StyxproxyCredential).where(StyxproxyCredential.status == "active")
         )
     ).scalar() or 0
+
+    # Count plans per type
+    plan_counts: dict[str, int] = {}
+    for plan_type in ["ISP", "DC", "MOBILE", "RESIDENTIAL"]:
+        count = (
+            await session.execute(select(func.count()).select_from(Plan).where(Plan.plan_type == plan_type))
+        ).scalar() or 0
+        plan_counts[plan_type] = count
+
     return AdminStatsResponse(
         total_customers=total_customers,
         active_orders=active_orders,
         total_revenue_ngn=float(total_revenue or 0),
         free_trials_today=free_trials_today,
         active_credentials=active_credentials,
+        plan_counts=plan_counts,
     )
 
 
@@ -166,7 +181,8 @@ async def get_customer(customer_id: UUID, session: AsyncSession = Depends(get_se
 
 
 @router.post(
-    "/customers/{customer_id}/block", dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+    "/customers/{customer_id}/block",
+    dependencies=[Depends(require_permission("admin.customers.escalations.handle", totp_required=True))],
 )
 async def block_customer(customer_id: UUID, request: AdminBlockRequest, session: AsyncSession = Depends(get_session)):
     customer = (await session.execute(select(Customer).where(Customer.id == customer_id))).scalar_one_or_none()
@@ -179,7 +195,8 @@ async def block_customer(customer_id: UUID, request: AdminBlockRequest, session:
 
 
 @router.post(
-    "/customers/{customer_id}/unblock", dependencies=[Depends(require_permission("admin.customers.escalations.handle"))]
+    "/customers/{customer_id}/unblock",
+    dependencies=[Depends(require_permission("admin.customers.escalations.handle", totp_required=True))],
 )
 async def unblock_customer(customer_id: UUID, session: AsyncSession = Depends(get_session)):
     customer = (await session.execute(select(Customer).where(Customer.id == customer_id))).scalar_one_or_none()
@@ -246,12 +263,40 @@ async def get_order(order_id: str, session: AsyncSession = Depends(get_session))
     return AdminOrderResponse.model_validate(order)
 
 
-@router.patch("/orders/{order_id}", dependencies=[Depends(require_permission("admin.orders.refund"))])
+@router.post(
+    "/orders/lookup", response_model=AdminOrderResponse, dependencies=[Depends(require_permission("admin.orders.list"))]
+)
+async def lookup_order(
+    order_id: Optional[str] = Body(None),
+    tx_ref: Optional[str] = Body(None),
+    phone: Optional[str] = Body(None),
+    session: AsyncSession = Depends(get_session),
+):
+    """Look up an order by order_id, tx_ref, or customer phone."""
+    conditions = []
+    if order_id:
+        conditions.append(Order.order_id == order_id)
+    if tx_ref:
+        conditions.append(Order.tx_ref == tx_ref)
+    if phone:
+        conditions.append(Order.customer_phone.ilike(f"%{phone}%"))
+    if not conditions:
+        raise HTTPException(status_code=400, detail="Provide order_id, tx_ref, or phone")
+    stmt = select(Order).where(or_(*conditions)).limit(1)
+    order = (await session.execute(stmt)).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return AdminOrderResponse.model_validate(order)
+
+
+@router.patch(
+    "/orders/{order_id}", dependencies=[Depends(require_permission("admin.orders.refund", totp_required=True))]
+)
 async def update_order(
     order_id: str,
     body: AdminOrderUpdateRequest,
     http_request: Request,
-    current_admin: dict = Depends(require_permission("admin.orders.refund")),
+    current_admin: dict = Depends(require_permission("admin.orders.refund", totp_required=True)),
     session: AsyncSession = Depends(get_session),
 ):
     admin_email = current_admin["admin"].email
@@ -285,12 +330,14 @@ async def update_order(
     return {"status": "updated", "order_id": order_id}
 
 
-@router.post("/orders/{order_id}/refund", dependencies=[Depends(require_permission("admin.orders.refund"))])
+@router.post(
+    "/orders/{order_id}/refund", dependencies=[Depends(require_permission("admin.orders.refund", totp_required=True))]
+)
 async def refund_order(
     order_id: str,
     body: AdminRefundRequest,
     http_request: Request,
-    current_admin: dict = Depends(require_permission("admin.orders.refund")),
+    current_admin: dict = Depends(require_permission("admin.orders.refund", totp_required=True)),
     session: AsyncSession = Depends(get_session),
 ):
     admin_email = current_admin["admin"].email
@@ -357,7 +404,8 @@ async def refund_order(
 
 
 @router.post(
-    "/credentials/{credential_id}/replace", dependencies=[Depends(require_permission("admin.monitor.providers.read"))]
+    "/credentials/{credential_id}/replace",
+    dependencies=[Depends(require_permission("admin.monitor.providers.read", totp_required=True))],
 )
 async def replace_credential_endpoint(credential_id: int, session: AsyncSession = Depends(get_session)):
     new_credential = await replace_credential(session, credential_id, "admin_replacement")
@@ -566,7 +614,7 @@ async def get_learned_file_content(filename: str):
 @router.delete(
     "/charon/learned",
     response_model=DeleteLearnedFileResponse,
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
+    dependencies=[Depends(require_permission("admin.monitor.logs.read", totp_required=True))],
 )
 async def delete_learned_file(request: DeleteLearnedFileRequest):
     """Delete a learned file from the RAG knowledge base."""
@@ -655,7 +703,7 @@ async def get_knowledge_file_content(filename: str):
 @router.put(
     "/charon/knowledge/{filename}",
     response_model=UpdateKnowledgeResponse,
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
+    dependencies=[Depends(require_permission("admin.monitor.logs.read", totp_required=True))],
 )
 async def update_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
     """Update an existing knowledge/ file (replaces content with title + body as markdown)."""
@@ -687,7 +735,7 @@ async def update_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
 @router.post(
     "/charon/knowledge/{filename}",
     response_model=UpdateKnowledgeResponse,
-    dependencies=[Depends(require_permission("admin.monitor.logs.read"))],
+    dependencies=[Depends(require_permission("admin.monitor.logs.read", totp_required=True))],
 )
 async def create_knowledge_file(filename: str, payload: UpdateKnowledgeRequest):
     """Create a new file in knowledge/."""
@@ -775,7 +823,7 @@ async def list_plans(
     plans = (await session.execute(stmt)).scalars().all()
 
     return PlansResponse(
-        plans=[PlanResponse.model_validate(p) for p in plans],
+        data=[PlanResponse.model_validate(p) for p in plans],
         pagination={
             "page": page,
             "limit": limit,
@@ -903,7 +951,9 @@ async def update_plan(plan_id: int, request: PlanUpdateRequest, session: AsyncSe
     return PlanResponse.model_validate(plan)
 
 
-@router.delete("/plans/{plan_id}", dependencies=[Depends(require_permission("admin.system.maintenance.read"))])
+@router.delete(
+    "/plans/{plan_id}", dependencies=[Depends(require_permission("admin.system.maintenance.read", totp_required=True))]
+)
 async def delete_plan(plan_id: int, session: AsyncSession = Depends(get_session)):
     """Delete a plan."""
     plan = (await session.execute(select(Plan).where(Plan.id == plan_id))).scalar_one_or_none()
@@ -913,6 +963,99 @@ async def delete_plan(plan_id: int, session: AsyncSession = Depends(get_session)
     await session.delete(plan)
     await session.commit()
     return {"status": "deleted", "plan_id": plan_id}
+
+
+# ============== Plan Settings (plan-type level pricing) =============
+
+
+@router.get(
+    "/plan-settings",
+    response_model=list[PlanSettingsDisplay],
+    dependencies=[Depends(require_permission("admin.plans.manage"))],
+)
+async def list_plan_settings(
+    session: AsyncSession = Depends(get_session),
+):
+    """List all plan settings grouped by plan_type with base_pricing and country_overrides."""
+    # Get all base_pricing settings
+    base_result = await session.execute(
+        select(PlanSettings).where(PlanSettings.setting_key == "base_pricing").order_by(PlanSettings.plan_type)
+    )
+    base_settings = base_result.scalars().all()
+
+    # Get all country_override settings
+    override_result = await session.execute(
+        select(PlanSettings)
+        .where(PlanSettings.setting_key == "country_override")
+        .order_by(PlanSettings.plan_type, PlanSettings.country)
+    )
+    override_settings = override_result.scalars().all()
+
+    # Build result
+    result: list[PlanSettingsDisplay] = []
+
+    for base in base_settings:
+        plan_type = base.plan_type
+
+        # Find overrides for this plan_type
+        overrides = {
+            o.country: o.setting_value.get("price_per_ip", 0) for o in override_settings if o.plan_type == plan_type
+        }
+
+        # Build base_pricing
+        base_pricing = PlanSettingBasePricing(
+            price_per_ip=base.setting_value.get("price_per_ip"),
+            price_per_gb=base.setting_value.get("price_per_gb"),
+            pricing_model=base.setting_value.get("pricing_model", "per_IP"),
+            gb_tiers=base.setting_value.get("gb_tiers"),
+        )
+
+        result.append(
+            PlanSettingsDisplay(
+                plan_type=plan_type,
+                base_pricing=base_pricing,
+                country_overrides=overrides,
+            )
+        )
+
+    return result
+
+
+@router.patch(
+    "/plan-settings/{plan_type}",
+    response_model=PlanSettingsResponse,
+    dependencies=[Depends(require_permission("admin.plans.manage"))],
+)
+async def update_plan_setting(
+    plan_type: str,
+    request: PlanSettingsUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Update a plan setting by plan_type (ISP, DC, RESIDENTIAL, MOBILE)."""
+    setting = (
+        await session.execute(
+            select(PlanSettings).where(
+                func.lower(PlanSettings.plan_type) == plan_type.lower(),
+                PlanSettings.setting_key == "pricing",
+            )
+        )
+    ).scalar_one_or_none()
+
+    if not setting:
+        raise HTTPException(status_code=404, detail=f"No plan setting found for plan_type: {plan_type}")
+
+    if request.setting_value is not None:
+        setting.setting_value = request.setting_value
+    if request.description is not None:
+        setting.description = request.description
+    if request.is_active is not None:
+        setting.is_active = request.is_active
+    if request.priority is not None:
+        setting.priority = request.priority
+
+    await session.commit()
+    await session.refresh(setting)
+    return PlanSettingsResponse.model_validate(setting)
 
 
 # ============== Channel Feature Flags ==============

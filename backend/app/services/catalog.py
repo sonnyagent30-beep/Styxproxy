@@ -19,7 +19,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import City, Order, Plan, StyxproxyCredential
+from app.models import City, Order, Plan, PlanSettings, StyxproxyCredential
 
 # ─── Plan catalog (what we actually sell) ─────────────────────────────────────
 
@@ -29,11 +29,7 @@ from app.models import City, Order, Plan, StyxproxyCredential
 #   datacenter:  US + UK ONLY (other DCs not yet provisioned)
 #   mobile:      COMING SOON (not yet available — Rayobyte mobile gateway pending Hakan)
 #   isp:         COMING SOON (not yet available — ISP IPs pending Hakan provisioning)
-SUPPORTED_COUNTRIES = {
-    # Customer sees GB; catalog translates to UK for DB lookup
-    "residential": ["US", "GB", "DE", "CA", "AU", "FR", "BR", "IN"],
-    "datacenter": ["US", "UK"],
-}
+SUPPORTED_COUNTRIES: dict[str, list[str]] = {}  # loaded dynamically from plan_settings
 
 # When looking up plans in DB, translate customer-facing code → DB code
 COUNTRY_TRANSLATION = {
@@ -134,10 +130,49 @@ def build_upstream_password(
 
 
 async def list_catalog(session: AsyncSession) -> dict:
-    """List all plan_type templates with their options."""
+    """List all plan_type templates with their options.
+
+    Countries and rotation modes are loaded from plan_settings (DB).
+    Prices computed from plan_settings: base_pricing + country_overrides (for ISP).
+    """
+    global SUPPORTED_COUNTRIES
     templates = []
     all_countries = set()
     all_rotation_modes = set()
+
+    # ── Load plan_settings: base_pricing per plan_type ───────────────────────
+    base_result = await session.execute(
+        select(PlanSettings).where(
+            PlanSettings.setting_key == "base_pricing",
+            PlanSettings.is_active,
+        )
+    )
+    base_settings_map: dict = {}
+    for s in base_result.scalars().all():
+        pt = (s.plan_type or "").lower()
+        # Normalize datacenter -> dc for consistency with plan plan_type values
+        if pt == "datacenter":
+            pt = "dc"
+        base_settings_map[pt] = s.setting_value or {}
+
+    # ── Load country_overrides for ISP ──────────────────────────────────────
+    override_result = await session.execute(
+        select(PlanSettings).where(
+            PlanSettings.setting_key == "country_override",
+            PlanSettings.is_active,
+        )
+    )
+    country_overrides: dict[str, dict[str, int]] = {}  # plan_type -> {country: price_per_ip}
+    for s in override_result.scalars().all():
+        pt = (s.plan_type or "").lower()
+        if pt == "datacenter":
+            pt = "dc"
+        country = s.country.upper() if s.country else None
+        if pt not in country_overrides:
+            country_overrides[pt] = {}
+        if country:
+            country_overrides[pt][country] = s.setting_value.get("price_per_ip", 0)
+    # ─────────────────────────────────────────────────────────────────────
 
     # Pull all active plans
     plans_result = await session.execute(select(Plan).where(Plan.is_active).order_by(Plan.sort_order, Plan.plan_code))
@@ -146,27 +181,62 @@ async def list_catalog(session: AsyncSession) -> dict:
     # Group by plan_type
     plans_by_type: dict = {}
     for p in plans:
-        plans_by_type.setdefault(p.plan_type, []).append(p)
+        plans_by_type.setdefault(p.plan_type.upper(), []).append(p)
 
-    for plan_type, plan_list in plans_by_type.items():
+    for plan_type_upper, plan_list in plans_by_type.items():
+        plan_type = plan_type_upper.lower()
         template = get_plan_template_for(plan_type)
-        all_countries.update(template["available_countries"])
-        all_rotation_modes.update(template["rotation_mode_options"])
+        settings = base_settings_map.get(plan_type, {})
+        is_per_gb = plan_type in ("residential", "mobile")
+        base_price_per_gb = float(settings.get("price_per_gb", 0) or 0)
+        base_price_per_ip = float(settings.get("price_per_ip", 0) or 0)
+        rotation_options = settings.get("rotation_modes", template.get("rotation_mode_options", ["rotating"]))
+
+        # Countries come from actual plan rows (not plan_settings)
+        countries_in_db = sorted(set(p.country.upper() for p in plan_list))
+        # Countries from actual plan rows
+        all_countries.update(countries_in_db)
+        all_rotation_modes.update(rotation_options)
 
         variants = []
-        # Build variants for each (country, rotation_mode) combination
-        for country in template["available_countries"]:
-            for rotation_mode in template["rotation_mode_options"]:
-                # Find the cheapest plan that matches
-                matching = [p for p in plan_list if p.country.upper() == country.upper()]
-                if not matching:
-                    continue
-                base_plan = matching[0]
-                base_price = float(base_plan.price_ngn)
-                if rotation_mode == "static":
-                    base_price = base_price * float(base_plan.static_price_multiplier)
+        # For per_GB plans (Mobile/Residential): only show base tier (min quantity) per country.
+        # Quantity tiers (5/10/20/50 GB) are fulfillment options, not separate products.
+        # For per_IP plans (DC/ISP): show all variants.
+        min_qty_by_country: dict[str, int] = {}
+        if is_per_gb:
+            for plan in plan_list:
+                c = plan.country.upper()
+                qty = plan.quantity or 5
+                if c not in min_qty_by_country or qty < min_qty_by_country[c]:
+                    min_qty_by_country[c] = qty
 
-                variant_features = list(base_plan.features.get("features", [])) if base_plan.features else []
+        for plan in plan_list:
+            country = plan.country.upper()
+            quantity = plan.quantity or 1
+            plan_code = plan.plan_code
+
+            # Skip non-base GB tier variants for per_GB plans
+            if is_per_gb and quantity != min_qty_by_country.get(country, quantity):
+                continue
+
+            for rotation_mode in rotation_options:
+                # Compute price: use country_override for ISP, else base_pricing
+                if plan_type == "isp":
+                    # Check country override first
+                    override_map = country_overrides.get(plan_type, {})
+                    per_ip = override_map.get(country, base_price_per_ip)
+                else:
+                    per_ip = base_price_per_ip
+
+                if is_per_gb:
+                    base_price = base_price_per_gb * quantity
+                else:
+                    base_price = per_ip * quantity
+
+                if rotation_mode == "static":
+                    base_price = base_price * float(plan.static_price_multiplier or 2.5)
+
+                variant_features = list(plan.features.get("features", [])) if plan.features else []
                 if rotation_mode == "static":
                     variant_features.append("Pinned IP — same address for the lifetime of the session")
                 else:
@@ -174,13 +244,13 @@ async def list_catalog(session: AsyncSession) -> dict:
 
                 variants.append(
                     {
-                        "plan_code": base_plan.plan_code,
+                        "plan_code": plan_code,
                         "plan_type": plan_type,
-                        "country": country.upper(),
+                        "country": country,
                         "rotation_mode": rotation_mode,
                         "price_ngn": round(base_price, 2),
-                        "quantity": base_plan.quantity,
-                        "duration_days": base_plan.duration_days,
+                        "quantity": quantity,
+                        "duration_days": plan.duration_days,
                         "features": variant_features,
                         "in_stock": True,
                     }
@@ -203,23 +273,21 @@ async def list_catalog(session: AsyncSession) -> dict:
         description_map = {
             "residential": (
                 "Real home Wi-Fi connections from a rotating pool of consumer devices. "
-                "Pick from US, GB, DE, CA, AU, FR, BR, IN. Switch countries anytime via /manage. "
+                "Switch countries anytime via /manage. "
                 "Best for scraping, sneaker bots, ad verification."
             ),
             "datacenter": (
-                "Fast, low-cost static IPs in cloud data centers (US or UK). "
-                "Same IP every request. Best for high-volume non-sensitive workloads. "
-                "Switch between US and UK via /manage."
+                "Fast, low-cost static IPs in cloud data centers. "
+                "Same IP every request. Best for high-volume non-sensitive workloads."
             ),
-            # mobile and isp are coming soon — UI hides them, this just prevents crashes
-            "mobile": "3G/4G mobile carrier IPs. Coming soon — not yet available for purchase.",
-            "isp": "Real residential IPs hosted at ISPs but sold as static. Coming soon — not yet available.",
+            "mobile": "3G/4G mobile carrier IPs with rotating and static options. Wide country coverage.",
+            "isp": "Real residential IPs hosted at ISPs — static, fast, and reliable.",
         }
 
         # ─── Cities per country (for residential/mobile city picker) ─────
         cities_map = {}
         if plan_type in ("residential", "mobile"):
-            country_codes = [c.upper() for c in template["available_countries"]]
+            country_codes = [c.upper() for c in countries_in_db]
             # Translate GB→UK for the city lookup
             db_country_codes = list(set(COUNTRY_TRANSLATION.get(c, c) for c in country_codes))
             cities_result = await session.execute(
@@ -246,7 +314,7 @@ async def list_catalog(session: AsyncSession) -> dict:
         # residential/mobile: customer picks GB tier, price_per_gb × quantity
         # datacenter: per-IP at price_ngn
         base_price_per_gb = float(default_plan.price_per_gb or 0)
-        base_price_per_ip = float(default_plan.price_ngn or 0)
+        base_price_per_ip = float(settings.get("price_per_ip", 0) or 0)
         min_gb = int(default_plan.min_gb or 5)
         max_gb = int(default_plan.max_gb or 50)
         gb_tiers = list(default_plan.gb_tiers or [5, 10, 20, 50])
@@ -254,8 +322,8 @@ async def list_catalog(session: AsyncSession) -> dict:
         templates.append(
             {
                 "plan_type": plan_type,
-                "rotation_mode_options": template["rotation_mode_options"],
-                "available_countries": template["available_countries"],
+                "rotation_mode_options": rotation_options,
+                "available_countries": countries_in_db,
                 "base_quantity_gb": default_quantity,
                 "base_price_ngn": default_price,
                 "base_price_per_gb": base_price_per_gb,

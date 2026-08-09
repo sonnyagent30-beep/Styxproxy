@@ -89,7 +89,7 @@ class TrialStatusEnum(str, Enum):
 
 # ============== Validators ==============
 
-VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN"}
+VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN", "AE", "MX", "PK", "ID"}
 
 
 def validate_phone(phone: str) -> str:
@@ -318,7 +318,7 @@ class PlanResponse(BaseModel):
 class PlansResponse(BaseModel):
     """Plans list response."""
 
-    plans: list[PlanResponse]
+    data: list[PlanResponse]
     pagination: dict[str, Any]
 
 
@@ -629,6 +629,7 @@ class AdminStatsResponse(BaseModel):
     total_revenue_ngn: float
     free_trials_today: int
     active_credentials: int
+    plan_counts: dict[str, int]  # e.g. {"ISP": 6, "DC": 2, "MOBILE": 48, "RESIDENTIAL": 48}
 
 
 class AdminCustomerResponse(BaseModel):
@@ -1696,3 +1697,190 @@ class MetricsOverviewResponse(BaseModel):
     charon_escalated_replies: int = 0
     charon_llm_errors: int = 0
     charon_tokens_used_total: int = 0
+
+
+# ============== PlanSettings Schemas ==============
+
+
+class PlanSettingsCreateRequest(BaseModel):
+    plan_type: Optional[str] = Field(None, max_length=20)
+    country: Optional[str] = Field(None, max_length=10)
+    setting_key: str = Field(..., min_length=1, max_length=50)
+    setting_value: Optional[dict[str, Any]] = None
+    description: Optional[str] = None
+    is_active: bool = True
+    priority: int = Field(default=0)
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+
+    @field_validator("plan_type")
+    @classmethod
+    def validate_plan_type(cls, v):
+        if v is not None:
+            if v.upper() not in {"ISP", "DC", "RESIDENTIAL", "MOBILE"}:
+                raise ValueError("Plan type must be one of: ISP, DC, RESIDENTIAL, MOBILE")
+            return v.upper()
+        return v
+
+    @field_validator("country")
+    @classmethod
+    def validate_country_code(cls, v):
+        if v is not None:
+            return v.upper()
+        return v
+
+
+class PlanSettingsUpdateRequest(BaseModel):
+    setting_value: Optional[dict[str, Any]] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    priority: Optional[int] = None
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+
+
+class PlanSettingsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    plan_type: Optional[str] = None
+    country: Optional[str] = None
+    setting_key: str
+    setting_value: Optional[dict[str, Any]] = None
+    description: Optional[str] = None
+    is_active: bool
+    priority: int
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PlanSettingsListResponse(BaseModel):
+    settings: list[PlanSettingsResponse]
+    total: int
+
+
+class PlanSettingBasePricing(BaseModel):
+    price_per_ip: Optional[int] = None
+    price_per_gb: Optional[int] = None
+    pricing_model: str  # "per_IP" or "per_GB"
+    gb_tiers: Optional[list[int]] = None
+
+
+class PlanSettingCountryOverride(BaseModel):
+    price_per_ip: int
+
+
+class PlanSettingsDisplay(BaseModel):
+    plan_type: str
+    base_pricing: PlanSettingBasePricing
+    country_overrides: dict[str, int]  # country_code -> price_per_ip
+
+
+# ============== Permission Change Request Schemas ==============
+
+from uuid import UUID
+
+
+class PermissionChangeRequestCreate(BaseModel):
+    """Request to change a permission for self or another admin."""
+
+    target_email: Optional[str] = Field(None, description="Target admin email. If empty, applies to self.")
+    permission_code: str = Field(..., min_length=1, max_length=64)
+    desired_state: bool = Field(..., description="True = grant, False = revoke")
+    justification: str = Field(..., min_length=10, max_length=1000)
+
+
+class PermissionChangeRequestResponse(BaseModel):
+    """Response for a permission change request."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    requested_by: str
+    target_email: Optional[str]
+    target_role: Optional[str]
+    permission_code: str
+    desired_state: bool
+    justification: str
+    status: str
+    reviewed_by: Optional[str]
+    reviewed_at: Optional[datetime]
+    reviewer_notes: Optional[str]
+    created_at: datetime
+    expires_at: datetime
+
+
+class PermissionChangeRequestListResponse(BaseModel):
+    """List of permission change requests."""
+
+    requests: list[PermissionChangeRequestResponse]
+    total: int
+    pending_count: int
+
+
+class PermissionChangeRequestAction(BaseModel):
+    """Action on a permission change request (approve/reject)."""
+
+    action: str = Field(..., pattern="^(approve|reject)$")
+    reviewer_notes: Optional[str] = Field(None, max_length=500)
+
+
+# ============== Analytics Event Schemas ==============
+
+
+class AnalyticsEventCreate(BaseModel):
+    """Request to create an analytics event."""
+
+    event_name: str = Field(..., min_length=1, max_length=50)
+    session_id: Optional[str] = Field(None, max_length=64)
+    customer_phone: Optional[str] = Field(None, max_length=20)
+    tx_ref: Optional[str] = Field(None, max_length=50)
+    country: Optional[str] = Field(None, max_length=2)
+    plan_code: Optional[str] = Field(None, max_length=20)
+    channel: str = Field(default="website", max_length=20)
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
+class AnalyticsEventResponse(BaseModel):
+    """Response for a single analytics event."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    event_name: str
+    session_id: Optional[str]
+    customer_phone: Optional[str]
+    tx_ref: Optional[str]
+    country: Optional[str]
+    plan_code: Optional[str]
+    channel: str
+    meta: dict[str, Any]
+    created_at: datetime
+
+
+class AnalyticsEventsListResponse(BaseModel):
+    """Response for listing analytics events."""
+
+    events: list[AnalyticsEventResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class FunnelStage(BaseModel):
+    """A single stage in the funnel with count and conversion rate."""
+
+    event_name: str
+    count: int
+    conversion_rate: Optional[float] = None  # Percentage relative to previous stage
+
+
+class AnalyticsFunnelResponse(BaseModel):
+    """Response for funnel analytics."""
+
+    stages: list[FunnelStage]
+    total_events: int
+    period_start: datetime
+    period_end: datetime

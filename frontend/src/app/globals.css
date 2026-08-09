@@ -8,14 +8,20 @@
   --primary-light: #22FF7A;
   --accent: #f59e0b;
   --accent-dark: #d97706;
-  --surface: #111111;
-  --card: #1a1a1a;
-  --card-hover: #252525;
-  --border: #2a2a2a;
+  --surface: #0d0d0d;
+  --card: #141414;
+  --card-hover: #1c1c1c;
+  --border: #252525;
+  --border-light: #2f2f2f;
   --muted: #737373;
   --success: #22c55e;
   --warning: #f59e0b;
   --error: #ef4444;
+  --glow-primary: rgba(10, 210, 90, 0.12);
+  --glow-primary-strong: rgba(10, 210, 90, 0.06);
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.4);
+  --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.6), 0 12px 40px rgba(0,0,0,0.5);
+  --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(10,210,90,0.15);
 }
 
 @theme inline {
@@ -59,7 +65,106 @@ button {
   font-family: inherit;
 }
 
-/* ── Charon FAB breathing halo ──────────────────────────────────── */
+/* ── Hero background: dot grid ─────────────────────────────────── */
+.hero-bg-grid {
+  background-image: radial-gradient(circle, rgba(10,210,90,0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── Hero background: radial depth rings ──────────────────────── */
+.hero-bg-rings {
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.02) 0%, transparent 50%);
+}
+
+/* ── Hero background: edge vignette ───────────────────────────── */
+.hero-bg-vignette {
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 15%),
+    linear-gradient(to bottom, transparent 80%, rgba(0,0,0,0.4) 100%),
+    linear-gradient(to right, rgba(0,0,0,0.3) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.3) 100%);
+}
+
+/* ── Ambient glow orbs ────────────────────────────────────────── */
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(80px);
+}
+
+.hero-orb-1 {
+  width: 500px;
+  height: 400px;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(10,210,90,0.08) 0%, transparent 70%);
+}
+
+.hero-orb-2 {
+  width: 300px;
+  height: 300px;
+  top: 35%;
+  left: 25%;
+  background: radial-gradient(circle, rgba(34,255,122,0.05) 0%, transparent 70%);
+}
+
+.hero-orb-3 {
+  width: 300px;
+  height: 300px;
+  top: 35%;
+  right: 25%;
+  background: radial-gradient(circle, rgba(10,173,57,0.06) 0%, transparent 70%);
+}
+
+/* ── Premium card depth ───────────────────────────────────────── */
+.card-depth {
+  box-shadow: var(--card-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card-depth:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
+  border-color: rgba(10,210,90,0.25);
+}
+
+.card-depth-primary {
+  box-shadow: var(--card-shadow-primary);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card-depth-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6), 0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(10,210,90,0.35);
+  border-color: rgba(10,210,90,0.3);
+}
+
+/* ── Section divider ──────────────────────────────────────────── */
+.section-divider {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border), transparent);
+}
+
+.section-divider-glow {
+  position: relative;
+  height: 1px;
+}
+
+.section-divider-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, transparent, rgba(10,210,90,0.2), transparent);
+  height: 1px;
+  top: 0;
+}
+
+/* ── Charon FAB breathing halo ─────────────────────────────────── */
 .charon-fab {
   box-shadow:
     0 0 0 0 rgba(10, 210, 90, 0.5),
@@ -67,7 +172,7 @@ button {
   animation: charon-glow 3s ease-in-out infinite;
 }
 
-/* Outer ring — slower, softer */
+/* Outer ring */
 .charon-halo--1 {
   animation: charon-ring 3s ease-in-out infinite;
   background: transparent;
@@ -75,7 +180,7 @@ button {
   transform-origin: center;
 }
 
-/* Inner ring — slightly faster, brighter */
+/* Inner ring */
 .charon-halo--2 {
   animation: charon-ring 3s ease-in-out infinite;
   animation-delay: 1.5s;
@@ -108,7 +213,7 @@ button {
   }
 }
 
-/* ── Reach-out bubble ──────────────────────────────────────────── */
+/* ── Reach-out bubble ─────────────────────────────────────────── */
 @keyframes reachOut {
   0% {
     opacity: 0;
@@ -128,7 +233,7 @@ button {
   pointer-events: all;
 }
 
-/* ── Fade in ───────────────────────────────────────────────────── */
+/* ── Fade in ──────────────────────────────────────────────────── */
 .animate-fade-in {
   animation: fadeIn 0.5s ease-out forwards;
 }
@@ -159,45 +264,96 @@ button {
   }
 }
 
-.gradient-text {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
+/* ── Glass card ───────────────────────────────────────────────── */
 .glass-card {
-  background: rgba(26, 26, 26, 0.8);
+  background: rgba(20, 20, 20, 0.85);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border);
 }
 
+/* ── Light mode — sharp, vibrant, brand green ─────────────────── */
 @media (prefers-color-scheme: light) {
   :root {
-    --background: #fafafa;
-    --foreground: #111111;
+    --background: #f9f9f8;
+    --foreground: #0f0f0f;
     --primary: #0AD25A;
     --primary-dark: #059669;
     --primary-light: #22FF7A;
-    --accent: #f59e0b;
-    --accent-dark: #d97706;
-    --surface: #f5f5f5;
-    --card: #f5f5f5;
-    --card-hover: #e5e5e5;
-    --border: #e5e5e5;
-    --muted: #737373;
-    --success: #22c55e;
-    --warning: #f59e0b;
-    --error: #ef4444;
+    --accent: #d97706;
+    --accent-dark: #b45309;
+    --surface: #f0f0ef;
+    --card: #ffffff;
+    --card-hover: #f5f5f4;
+    --border: #e0e0de;
+    --border-light: #e8e8e6;
+    --muted: #555555;
+    --success: #0AD25A;
+    --warning: #d97706;
+    --error: #dc2626;
+    --glow-primary: rgba(10, 210, 90, 0.12);
+    --glow-primary-strong: rgba(10, 210, 90, 0.07);
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
+    --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.08), 0 16px 48px rgba(0,0,0,0.08), 0 0 0 1px rgba(10,210,90,0.1);
+    --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05), 0 0 0 1px rgba(10,210,90,0.2);
   }
+
   .glass-card {
-    background: rgba(245, 245, 245, 0.8);
+    background: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(12px);
     border: 1px solid var(--border);
   }
+
+  /* Light mode hero background — crisp dot grid */
+  .hero-bg-grid {
+    background-image: radial-gradient(circle, rgba(10,210,90,0.25) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .hero-bg-rings {
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.10) 0%, transparent 70%),
+      radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.02) 0%, transparent 50%);
+  }
+
+  /* Light mode vignette — subtle depth, not washed out */
+  .hero-bg-vignette {
+    background:
+      linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, transparent 12%),
+      linear-gradient(to bottom, transparent 85%, rgba(0,0,0,0.06) 100%),
+      linear-gradient(to right, rgba(0,0,0,0.04) 0%, transparent 15%, transparent 85%, rgba(0,0,0,0.04) 100%);
+  }
+
+  .hero-orb-1 {
+    background: radial-gradient(circle, rgba(10,210,90,0.12) 0%, transparent 70%);
+  }
+
+  .hero-orb-2 {
+    background: radial-gradient(circle, rgba(34,255,122,0.07) 0%, transparent 70%);
+  }
+
+  .hero-orb-3 {
+    background: radial-gradient(circle, rgba(10,173,57,0.08) 0%, transparent 70%);
+  }
+
+  .section-divider {
+    background: linear-gradient(to right, transparent, var(--border), transparent);
+  }
+
+  .section-divider-glow::after {
+    background: linear-gradient(to right, transparent, rgba(10,210,90,0.25), transparent);
+  }
+
+  /* Light mode Charon halo */
+  .charon-halo--1 {
+    border-color: rgba(10, 210, 90, 0.7);
+  }
+  .charon-halo--2 {
+    border-color: rgba(10, 210, 90, 0.4);
+  }
 }
 
-/* Blog article content styles */
+/* ── Blog content styles ──────────────────────────────────────── */
 .blog-content {
   color: var(--foreground);
   font-size: 1.0625rem;
@@ -217,35 +373,21 @@ button {
   margin-bottom: 0.75rem;
   color: var(--foreground);
 }
-.blog-content p {
-  margin-bottom: 1.25rem;
-}
+.blog-content p { margin-bottom: 1.25rem; }
 .blog-content ul, .blog-content ol {
   margin-bottom: 1.25rem;
   padding-left: 1.5rem;
 }
-.blog-content li {
-  margin-bottom: 0.5rem;
-}
-.blog-content ul li::marker {
-  color: var(--primary);
-}
-.blog-content ol li::marker {
-  color: var(--primary);
-  font-weight: 600;
-}
-.blog-content strong {
-  font-weight: 600;
-  color: var(--foreground);
-}
+.blog-content li { margin-bottom: 0.5rem; }
+.blog-content ul li::marker { color: var(--primary); }
+.blog-content ol li::marker { color: var(--primary); font-weight: 600; }
+.blog-content strong { font-weight: 600; color: var(--foreground); }
 .blog-content a {
   color: var(--primary);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.blog-content a:hover {
-  color: var(--primary-light);
-}
+.blog-content a:hover { color: var(--primary-light); }
 .blog-content pre {
   background: var(--card);
   border: 1px solid var(--border);
@@ -260,10 +402,7 @@ button {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.875em;
 }
-.blog-content pre code {
-  background: none;
-  padding: 0;
-}
+.blog-content pre code { background: none; padding: 0; }
 .blog-content blockquote {
   border-left: 3px solid var(--primary);
   padding-left: 1rem;
@@ -272,20 +411,18 @@ button {
   color: var(--muted);
 }
 
-/* Styxproxy article prose — used by individual blog post pages */
+/* ── Styxproxy prose ──────────────────────────────────────────── */
 .prose-styx {
   color: var(--foreground);
   font-size: 1.0625rem;
   line-height: 1.75;
 }
-.prose-styx > * + * {
-  margin-top: 1.25rem;
-}
+.prose-styx > * + * { margin-top: 1.25rem; }
 .prose-styx h2 {
   font-size: 1.75rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--foreground);
   margin-top: 2.5rem;
   margin-bottom: 1rem;
   line-height: 1.25;
@@ -293,42 +430,28 @@ button {
 .prose-styx h3 {
   font-size: 1.375rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--foreground);
   margin-top: 2rem;
   margin-bottom: 0.75rem;
   line-height: 1.3;
 }
-.prose-styx p {
-  color: var(--foreground);
-}
-.prose-styx strong {
-  color: #fff;
-  font-weight: 600;
-}
+.prose-styx p { color: var(--foreground); }
+.prose-styx strong { color: var(--foreground); font-weight: 600; }
 .prose-styx a {
   color: var(--primary);
   text-decoration: underline;
   text-underline-offset: 3px;
   transition: color 0.2s;
 }
-.prose-styx a:hover {
-  color: var(--primary-light);
-}
-.prose-styx ul,
-.prose-styx ol {
+.prose-styx a:hover { color: var(--primary-light); }
+.prose-styx ul, .prose-styx ol {
   padding-left: 1.5rem;
   margin-top: 1rem;
   margin-bottom: 1rem;
 }
-.prose-styx ul {
-  list-style: disc;
-}
-.prose-styx ol {
-  list-style: decimal;
-}
-.prose-styx li {
-  margin-top: 0.5rem;
-}
+.prose-styx ul { list-style: disc; }
+.prose-styx ol { list-style: decimal; }
+.prose-styx li { margin-top: 0.5rem; }
 .prose-styx code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.875em;
@@ -346,11 +469,7 @@ button {
   font-size: 0.875rem;
   line-height: 1.6;
 }
-.prose-styx pre code {
-  background: transparent;
-  padding: 0;
-  color: var(--foreground);
-}
+.prose-styx pre code { background: transparent; padding: 0; color: var(--foreground); }
 .prose-styx blockquote {
   border-left: 3px solid var(--primary);
   padding-left: 1rem;
@@ -363,8 +482,7 @@ button {
   border-collapse: collapse;
   font-size: 0.9375rem;
 }
-.prose-styx th,
-.prose-styx td {
+.prose-styx th, .prose-styx td {
   border: 1px solid var(--border);
   padding: 0.5rem 0.75rem;
   text-align: left;
@@ -372,5 +490,14 @@ button {
 .prose-styx th {
   background: var(--surface);
   font-weight: 600;
-  color: #fff;
+  color: var(--foreground);
+}
+
+/* ── prefers-reduced-motion ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

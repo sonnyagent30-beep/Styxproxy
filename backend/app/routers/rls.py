@@ -92,15 +92,27 @@ async def rollout_plan_endpoint(
     )
 
 
+# HIGH_RISK tables — toggling RLS on these requires TOTP step-up
+HIGH_RISK_TABLES = {"orders", "styxproxy_credentials", "customers", "admin_auth"}
+
+
+def _toggle_auth() -> Depends:
+    """RLS toggle always requires TOTP step-up (security-critical operation)."""
+    from app.services.permissions import require_permission
+
+    return Depends(require_permission("admin.system.maintenance.read", totp_required=True))
+
+
 @router.post("/policies/toggle", response_model=RlsPolicyToggleResponse)
 async def toggle_policy_endpoint(
     body: RlsPolicyToggleRequest,
-    current_admin: dict = Depends(require_permission("admin.system.maintenance.read")),
+    current_admin: dict = _toggle_auth(),
     session: AsyncSession = Depends(get_session),
 ) -> RlsPolicyToggleResponse:
     """Enable or disable RLS on a single table.
 
-    SuperAdmin / admin only. Idempotent. Audit-logged.
+    SuperAdmin / admin only. TOTP step-up always required for this operation.
+    Idempotent. Audit-logged.
     """
     admin_email = current_admin["admin"].email
 
