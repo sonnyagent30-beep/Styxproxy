@@ -43,6 +43,7 @@ from app.routers import (
     session,
     superadmin,
     trials,
+    incident_notification,
     webhooks,
 )
 
@@ -392,6 +393,7 @@ app.include_router(inbound)
 app.include_router(superadmin)
 app.include_router(maintenance)
 app.include_router(unsubscribe)
+app.include_router(incident_notification)
 app.include_router(costs)
 app.include_router(analytics.router)
 app.include_router(charon_ab.router)
