@@ -30,11 +30,11 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         run: cd frontend && npm ci
 
-      - name: Install Playwright globally
-        run: npm install -g playwright && npx playwright install chromium --with-deps
+      - name: Install Playwright in frontend
+        run: cd frontend && npm install playwright && npx playwright install chromium --with-deps
 
       - name: Determine environment
         id: env
@@ -50,7 +50,7 @@ jobs:
       - name: Run browser verification
         env:
           STAGING_URL: ${{ steps.env.outputs.url }}
-        run: node scripts/browser-verify.js
+        run: cd frontend && node ../scripts/browser-verify.js
 
       - name: Upload verification screenshot
         if: always()
