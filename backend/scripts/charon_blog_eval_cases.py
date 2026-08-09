@@ -333,7 +333,7 @@ def print_results(results: dict) -> None:
             print(f"  Topics found: {topic_check['found']}")
             print(f"  Topics missing: {topic_check['missing']}")
             if result.get("escalated"):
-                print(f"  NOTE: Response was escalated")
+                print("  NOTE: Response was escalated")
 
 
 def main():
