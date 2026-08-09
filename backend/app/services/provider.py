@@ -7,6 +7,7 @@ against a known contract. When real providers are chosen, swap the
 implementation here — the calling code throughout the app stays the same.
 """
 
+import logging
 import random
 import socket
 from dataclasses import dataclass
@@ -35,6 +36,15 @@ def _PROXY_SELLER_API_KEY() -> str:
 
 def _PROXY_SELLER_BASE_URL() -> str:
     return _s().proxy_seller_base_url or "https://api.proxy-seller.com"
+
+
+class IPQBlockedError(Exception):
+    """Raised when a provider proxy IP fails IPQS quality screening.
+
+    Caught in the call chain and treated as a soft provider error —
+    the order pipeline retries with a new proxy (up to 5 retries total).
+    """
+    pass
 
 
 # ─── Dataclasses ─────────────────────────────────────────────────────────────
@@ -227,6 +237,25 @@ async def create_order(
             isp="Stub ISP",
             asn="AS00000",
         )
+
+    # ── IPQS screening (only for real provider proxies) ─────────────────────
+    from app.services.ip_quality import IPQualityError, screen_ip
+
+    try:
+        iq = await screen_ip(ip)
+    except IPQualityError as e:
+        logger.warning("IPQS unreachable screening %s: %s — proceeding without screening", ip, e)
+        iq = None
+
+    if iq is not None and not iq.is_clean:
+        raise IPQBlockedError(
+            f"IP {ip} failed IPQS quality screening: {iq.fail_reason} "
+            f"(fraud_score={iq.fraud_score}, proxy={iq.is_proxy}, vpn={iq.is_vpn}, "
+            f"recent_abuse={iq.recent_abuse})"
+        )
+
+    if iq is not None and iq.is_tor:
+        logger.warning(f"IP {ip} is Tor exit node (fraud_score={iq.fraud_score})")
 
     return ProviderProxy(
         provider_order_id=str(data.get("order_id", data.get("id", "unknown"))),
