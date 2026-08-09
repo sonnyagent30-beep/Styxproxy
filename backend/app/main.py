@@ -1,17 +1,13 @@
-
 """Styxproxy Backend API"""
 
 import logging
-import os
 from contextlib import asynccontextmanager
 
-import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import get_settings
 from app.limiter import limiter
@@ -19,7 +15,7 @@ from app.limiter import limiter
 logger = logging.getLogger("app.main")
 
 # ─── Observability ───────────────────────────────────────────────────────────
-from app.services import observability
+from app.services import observability  # noqa: E402
 
 
 @asynccontextmanager
@@ -52,6 +48,7 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+
 # Rate limit exception handler
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
@@ -63,6 +60,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
             "error_code": "RATE_LIMIT_EXCEEDED",
         },
     )
+
 
 # ─── Middleware stack ─────────────────────────────────────────────────────────
 app.add_middleware(
@@ -76,7 +74,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ─── Routes ──────────────────────────────────────────────────────────────────
 # Lazy import to avoid circular deps at module level
-from app.routers import (
+from app.routers import (  # noqa: E402
     admin_providers,
     admin_proxy_stats,
     admin_users,
@@ -91,8 +89,8 @@ from app.routers import (
     plan_settings,
     plans,
     platform_accounts,
-    proxy_stats,
     providers,
+    proxy_stats,
     rotation,
     styxproxy_credentials,
     user_accounts,
