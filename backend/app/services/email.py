@@ -10,7 +10,7 @@ Provides transactional email functionality with Styxproxy brand design language:
 Design language matches the receipt PDF:
 - Dark theme by default (#0f0f0f background)
 - Light theme via prefers-color-scheme
-- Green accent (#0AD25A / #10B981)
+- Green accent (#00D060 / #00D060)
 - Card-based layout with dividers
 - Credentials with green border
 """
@@ -75,7 +75,7 @@ settings = get_settings()
 
 def _get_logo_b64_dark() -> str:
     """Process and return the dark mode Styxproxy logo as base64 PNG."""
-    logo = Image.open(get_logo_path("dark"))
+    logo = Image.open(get_logo_path("dark")).convert("RGB")
     # The image is already cropped to just the logo (icon + wordmark)
     # Resize for email header — 480px wide, aspect ratio preserved
     target_w = 480
@@ -83,20 +83,20 @@ def _get_logo_b64_dark() -> str:
     target_h = int(logo.size[1] * ratio)
     resized = logo.resize((target_w, target_h), Image.LANCZOS)
     buf = io.BytesIO()
-    resized.save(buf, format="PNG", optimize=True)
+    resized.save(buf, format="JPEG", quality=85)
     return base64.b64encode(buf.getvalue()).decode()
 
 
 def _get_logo_b64_light() -> str:
     """Process and return the light mode Styxproxy logo as base64 PNG."""
-    logo = Image.open(get_logo_path("light"))
+    logo = Image.open(get_logo_path("light")).convert("RGB")
     # The image is already cropped to just the logo (icon + wordmark)
     target_w = 480
     ratio = target_w / logo.size[0]
     target_h = int(logo.size[1] * ratio)
     resized = logo.resize((target_w, target_h), Image.LANCZOS)
     buf = io.BytesIO()
-    resized.save(buf, format="PNG", optimize=True)
+    resized.save(buf, format="JPEG", quality=85)
     return base64.b64encode(buf.getvalue()).decode()
 
 
@@ -116,8 +116,8 @@ def _get_base_styles() -> str:
         
         /* Styxproxy Brand Colors - matches receipt PDF */
         :root {
-            --brand-primary: #10B981;
-            --brand-primary-brighter: #0AD25A;
+            --brand-primary: #00D060;
+            --brand-primary-brighter: #00D060;
             --brand-accent: #f59e0b;
             --brand-bg: #0f0f0f;
             --brand-card: #1a1a1a;
@@ -163,13 +163,13 @@ def _get_base_styles() -> str:
         /* Top accent bar - 4mm thin green bar */
         .accent-bar-top {
             height: 4px;
-            background: linear-gradient(90deg, #10B981 0%, #0AD25A 50%, #22FF7A 100%);
+            background: linear-gradient(90deg, #00D060 0%, #00D060 50%, #00D060 100%);
         }
         
         /* Bottom accent bar */
         .accent-bar-bottom {
             height: 4px;
-            background: linear-gradient(90deg, #22FF7A 0%, #0AD25A 50%, #10B981 100%);
+            background: linear-gradient(90deg, #00D060 0%, #00D060 50%, #00D060 100%);
         }
         
         /* Header section */
@@ -265,7 +265,7 @@ def _get_base_styles() -> str:
         }
         
         .pill-green {
-            background-color: #10B981;
+            background-color: #00D060;
             color: #000000;
         }
         
@@ -354,7 +354,7 @@ def _get_base_styles() -> str:
         
         /* Total paid pill */
         .total-pill {
-            background-color: #10B981;
+            background-color: #00D060;
             color: #000000;
             padding: 10px 16px;
             border-radius: 2px;
@@ -459,7 +459,7 @@ def _get_base_styles() -> str:
         /* CTA Button */
         .cta-button {
             display: inline-block;
-            background: #10B981;
+            background: #00D060;
             color: #000000;
             font-weight: 700;
             padding: 14px 28px;
@@ -469,7 +469,7 @@ def _get_base_styles() -> str:
         }
         
         .cta-button:hover {
-            background: #0AD25A;
+            background: #00D060;
         }
         
         /* Warning box */
@@ -771,7 +771,7 @@ def _render_header(right_label: str, right_sublabel: str = "") -> str:
             <div class="logo-section">
                 <img
     class="logo-dark"
-    src="data:image/png;base64,{LOGO_DARK_B64}"
+    src="data:image/jpeg;base64,{LOGO_DARK_B64}"
     alt="Styxproxy"
     width="200"
     height="58"
@@ -779,7 +779,7 @@ def _render_header(right_label: str, right_sublabel: str = "") -> str:
 >
                 <img
     class="logo-light"
-    src="data:image/png;base64,{LOGO_LIGHT_B64}"
+    src="data:image/jpeg;base64,{LOGO_LIGHT_B64}"
     alt="Styxproxy"
     width="200"
     height="58"
@@ -877,7 +877,7 @@ def _render_support_reply_email(
                 <div class="logo-section">
                     <img
     class="logo-dark"
-    src="data:image/png;base64,{LOGO_DARK_B64}"
+    src="data:image/jpeg;base64,{LOGO_DARK_B64}"
     alt="Styxproxy"
     width="200"
     height="58"
@@ -885,7 +885,7 @@ def _render_support_reply_email(
 >
                     <img
     class="logo-light"
-    src="data:image/png;base64,{LOGO_LIGHT_B64}"
+    src="data:image/jpeg;base64,{LOGO_LIGHT_B64}"
     alt="Styxproxy"
     width="200"
     height="58"
