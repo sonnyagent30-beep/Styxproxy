@@ -62,7 +62,8 @@ jobs:
       - name: Run browser verification
         env:
           STAGING_URL: ${{ steps.env.outputs.url }}
-        run: cd frontend && node ../scripts/browser-verify.js
+          NODE_PATH: ${{ github.workspace }}/frontend/node_modules
+        run: node scripts/browser-verify.js
 
       - name: Upload verification screenshot
         if: always()
