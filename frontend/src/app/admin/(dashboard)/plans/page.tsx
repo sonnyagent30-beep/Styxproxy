@@ -206,7 +206,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
             >
               {showCountryPicker ? 'Done' : 'Add Countries'}
             </button>
-            {product.pricing_model === 'per_IP' && (
+            {(product.plan_type === 'DC' || product.plan_type === 'ISP') && (
               <button
                 type="button"
                 onClick={() => { setShowSpecialPricePicker(true); setSpecialPriceSelection(new Set()); }}
@@ -267,7 +267,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                 <div>
                   <p className="text-sm font-medium text-yellow-400">Set Special Price</p>
                   <p className="text-xs text-[var(--muted)] mt-0.5">
-                    Select countries from this product to move to special pricing, then click Done
+                    Select countries to set individual special prices, then click Done
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -278,14 +278,16 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                   <button
                     onClick={() => {
                       // Move selected countries to special price section
-                      // Set value to null (pending — user must enter a price)
-                      setCountryPrefs((prev) => {
+                      setSpecialCountries((prev) => {
                         const next = new Map(prev);
                         specialPriceSelection.forEach((code) => {
-                          if (!next.has(code)) {
-                            next.set(code, null); // null = special price pending
-                          }
+                          if (!next.has(code)) next.set(code, null);
                         });
+                        return next;
+                      });
+                      setBaseCountries((prev) => {
+                        const next = new Set(prev);
+                        specialPriceSelection.forEach((code) => next.delete(code));
                         return next;
                       });
                       setShowSpecialPricePicker(false);
