@@ -569,6 +569,38 @@ export interface PlanSetting {
   is_active: boolean;
 }
 
+// ============== Country Plan Types (Sprint 27) ==============
+// GET /api/admin/countries → { countries: CountryCPT[], total: number }
+export interface CPTPlanTypeStatus {
+  plan_type: string;
+  enabled: boolean;
+  price_per_ip: number | null;
+  price_per_gb: number | null;
+  provider_id: number | null;
+}
+
+export interface CountryCPT {
+  code: string;
+  name: string;
+  flag_emoji: string;
+  region: string;
+  enabled_plan_types: string[]; // simplified list from GET /countries
+  plan_types?: Record<string, CPTPlanTypeStatus>; // full detail from GET /countries/:code
+}
+
+export interface CountryCPTDetail extends CountryCPT {
+  plan_types: Record<string, CPTPlanTypeStatus>;
+}
+
+export interface CPTUpdateResult {
+  country_code: string;
+  plan_type: string;
+  enabled: boolean;
+  price_per_ip: number | null;
+  price_per_gb: number | null;
+  provider_id: number | null;
+}
+
 // ============== Catalog Templates (Admin) ==============
 export interface CatalogTemplate {
   plan_type: string;

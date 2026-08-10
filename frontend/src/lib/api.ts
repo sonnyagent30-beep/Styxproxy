@@ -747,6 +747,29 @@ class ApiClient {
     return this.request('/api/admin/plan-settings');
   }
 
+  // ── Country Plan Types (Sprint 27) ─────────────────────────────────────
+  // GET /api/admin/countries → { countries: CountryCPT[], total: number }
+  async getAdminCountries(): Promise<ApiResponse<{ countries: CountryCPT[]; total: number }>> {
+    return this.request('/api/admin/countries');
+  }
+
+  // GET /api/admin/countries/:code → CountryCPTDetail
+  async getAdminCountry(code: string): Promise<ApiResponse<CountryCPTDetail>> {
+    return this.request(`/api/admin/countries/${code}`);
+  }
+
+  // PATCH /api/admin/countries/:code/:plan_type
+  async updateCountryPlanType(
+    code: string,
+    planType: string,
+    data: { enabled?: boolean; price_per_gb?: number | null; price_per_ip?: number | null }
+  ): Promise<ApiResponse<CPTUpdateResult>> {
+    return this.request(`/api/admin/countries/${code}/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   async updatePlanSettings(
     id: number,
     data: {
@@ -787,8 +810,7 @@ class ApiClient {
   // ============== Support Threads =============
 
   async getSupportThreads(status?: string, page = 1, limit = 20): Promise<ApiResponse<SupportThreadsResponse>> {
-    let url = `/api/admin/support/threads?page=${page}&limit=${limit}`;
-    if (status && status !== 'all') url += `&status=${status}`;
+    const url = `/api/admin/support/threads?page=${page}&limit=${limit}` + (status && status !== 'all' ? `&status=${status}` : '');
     return this.request<SupportThreadsResponse>(url);
   }
 
@@ -837,8 +859,7 @@ class ApiClient {
   // ============== Charon Escalations =============
 
   async getEscalations(status?: string, page = 1, limit = 20): Promise<ApiResponse<EscalationsResponse>> {
-    let url = `/api/admin/escalations?page=${page}&limit=${limit}`;
-    if (status) url += `&status=${status}`;
+    const url = `/api/admin/escalations?page=${page}&limit=${limit}` + (status ? `&status=${status}` : '');
     return this.request<EscalationsResponse>(url);
   }
 
