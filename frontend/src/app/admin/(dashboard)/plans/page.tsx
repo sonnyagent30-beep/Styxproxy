@@ -27,7 +27,8 @@ interface ProductCard {
 
 interface CountryPref {
   code: string;
-  override_price: number | null; // null = use base price
+  is_special: boolean; // true = special price, false = base price
+  override_price: number | null; // the actual price
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -66,8 +67,9 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     new Set(product.countries.map((c) => c.code))
   );
   // specialCountries = Map<code, price> for countries with override
-  // Initialize with null — section shows countries in special but with empty inputs
+  // Prices and is_special are fetched from API when modal opens
   const [specialCountries, setSpecialCountries] = useState<Map<string, number | null>>(new Map());
+  const [pricesLoaded, setPricesLoaded] = useState(false);
   const [isActive, setIsActive] = useState(product.is_active);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +77,38 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [showSpecialPricePicker, setShowSpecialPricePicker] = useState(false);
   const [specialPriceSelection, setSpecialPriceSelection] = useState<Set<string>>(new Set());
   const [countrySearch, setCountrySearch] = useState('');
+  // Fetch is_special + price for each country when modal opens
+  useEffect(() => {
+    if (pricesLoaded) return; // already loaded
+    const loadPrices = async () => {
+      const codes = [...baseCountries];
+      if (codes.length === 0) { setPricesLoaded(true); return; }
+      const newSpecial = new Map<string, number | null>();
+      const newBase = new Set<string>();
+      await Promise.all(
+        codes.map(async (code) => {
+          try {
+            const res = await api.getAdminCountry(code);
+            if (res.error) return;
+            const data = res.data as any;
+            const ptData = data?.plan_types?.[product.plan_type];
+            if (ptData?.is_special) {
+              // Country is special — use its stored price
+              const price = isIP ? ptData.price_per_ip : ptData.price_per_gb;
+              newSpecial.set(code, price ?? null);
+            } else {
+              // Country is base
+              newBase.add(code);
+            }
+          } catch {}
+        })
+      );
+      setSpecialCountries(newSpecial);
+      setBaseCountries(newBase);
+      setPricesLoaded(true);
+    };
+    loadPrices();
+  }, [pricesLoaded]);
 
   // Only show globally active countries in the picker ( Countries tab gate )
   const pickerCountries = allCountries.filter((c) => c.is_enabled);
@@ -143,6 +177,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
       [...specialCountries.entries()].map(([code, override]) => {
         return api.updateCountryPlanType(code, product.plan_type, {
           enabled: true,
+          is_special: true,
           price_per_ip: isIP ? override : undefined,
           price_per_gb: !isIP ? override : undefined,
         });
@@ -471,17 +506,13 @@ export default function PlanSettingsPage() {
         PRODUCTS.map(async (p) => {
           const enabledCountries = allCountries.filter((c: CountryItem) => c.enabled_plan_types.map(t => t.toUpperCase()).includes(p.plan_type));
           // Get per-country override prices
-          const countryPrefs: CountryPref[] = await Promise.all(
-            enabledCountries.map(async (c: CountryItem) => {
-              try {
-                // Always set override_price to null on load — FE can't distinguish
-                // base price from special price, so admin must re-set specials explicitly
-                return { code: c.code, override_price: null };
-              } catch {
-                return { code: c.code, override_price: null };
-              }
-            })
-          );
+          // Note: is_special and actual prices are loaded per-country in the modal
+          // Here we just show which countries are in the product
+          const countryPrefs: CountryPref[] = enabledCountries.map((c: CountryItem) => ({
+            code: c.code,
+            is_special: false,
+            override_price: null,
+          }));
           return {
             plan_type: p.plan_type,
             label: p.label,
