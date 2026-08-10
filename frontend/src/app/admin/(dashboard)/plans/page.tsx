@@ -61,8 +61,13 @@ interface EditProductModalProps {
 function EditProductModal({ product, allCountries, onSaved, onClose }: EditProductModalProps) {
   const isIP = product.pricing_model === 'per_IP';
   const [basePrice, setBasePrice] = useState(String(product.base_price ?? ''));
-  const [countryPrefs, setCountryPrefs] = useState<Map<string, number | null>>(
-    new Map(product.countries.map((c) => [c.code, c.override_price]))
+  // baseCountries = countries in product using base price
+  const [baseCountries, setBaseCountries] = useState<Set<string>>(
+    new Set(product.countries.filter((c) => c.override_price == null).map((c) => c.code))
+  );
+  // specialCountries = Map<code, price> for countries with override
+  const [specialCountries, setSpecialCountries] = useState<Map<string, number>>(
+    new Map(product.countries.filter((c) => c.override_price != null).map((c) => [c.code, c.override_price]))
   );
   const [isActive, setIsActive] = useState(product.is_active);
   const [saving, setSaving] = useState(false);
@@ -80,29 +85,39 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   );
 
   const toggleCountry = (code: string) => {
-    setCountryPrefs((prev) => {
-      const next = new Map(prev);
+    // Add to base price section
+    setBaseCountries((prev) => {
+      const next = new Set(prev);
       if (next.has(code)) next.delete(code);
-      else next.set(code, null); // null = use base price
+      else next.add(code);
+      return next;
+    });
+    // Remove from special if it was there
+    setSpecialCountries((prev) => {
+      const next = new Map(prev);
+      next.delete(code);
       return next;
     });
   };
 
   const setOverride = (code: string, value: string) => {
-    setCountryPrefs((prev) => {
-      const next = new Map(prev);
-      next.set(code, value === '' ? null : parseFloat(value));
-      return next;
-    });
+    const num = value === '' ? null : parseFloat(value);
+    if (num == null) {
+      // Reset: move back to base
+      setSpecialCountries((prev) => { const n = new Map(prev); n.delete(code); return n; });
+      setBaseCountries((prev) => new Set([...prev, code]));
+    } else {
+      // Set special price
+      setSpecialCountries((prev) => new Map(prev).set(code, num));
+      // Remove from base
+      setBaseCountries((prev) => { const n = new Set(prev); n.delete(code); return n; });
+    }
   };
 
   const handleRemoveCountry = async (code: string) => {
     await api.removeCountryFromProduct(code, product.plan_type);
-    setCountryPrefs((prev) => {
-      const next = new Map(prev);
-      next.delete(code);
-      return next;
-    });
+    setBaseCountries((prev) => { const n = new Set(prev); n.delete(code); return n; });
+    setSpecialCountries((prev) => { const n = new Map(prev); n.delete(code); return n; });
   };
 
   const handleSave = async () => {
@@ -110,7 +125,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     setSaving(true);
     setError(null);
 
-    const selectedCodes = [...countryPrefs.keys()];
+    const selectedCodes = [...baseCountries, ...specialCountries.keys()];
     const res = await api.createProductsBulk({
       plan_type: product.plan_type,
       pricing_model: product.pricing_model,
@@ -124,7 +139,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     // Update override prices for each selected country
     await Promise.all(
       selectedCodes.map((code) => {
-        const override = countryPrefs.get(code);
+        const override = specialCountries.get(code);
         if (override == null) return Promise.resolve(); // null = use base price, skip
         return api.updateCountryPlanType(code, product.plan_type, {
           enabled: true,
@@ -139,9 +154,9 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     setSaving(false);
   };
 
-  const selectedCountries = allCountries.filter((c) => countryPrefs.has(c.code));
-  const countriesWithOverrides = selectedCountries.filter((c) => countryPrefs.has(c.code));
-  const countriesWithBase = selectedCountries.filter((c) => !countryPrefs.has(c.code));
+  const selectedCountries = allCountries.filter((c) => baseCountries.has(c.code) || specialCountries.has(c.code));
+  const countriesWithOverrides = allCountries.filter((c) => specialCountries.has(c.code));
+  const countriesWithBase = allCountries.filter((c) => baseCountries.has(c.code));
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-8">
@@ -183,7 +198,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
         <div className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <label className="text-sm font-medium text-[var(--muted)]">
-              Countries ({countryPrefs.size} selected)
+              Countries ({baseCountries.size + specialCountries.size} selected)
             </label>
             <button
               type="button"
@@ -222,7 +237,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                   </p>
                 )}
                 {filtered.map((c) => {
-                  const selected = countryPrefs.has(c.code);
+                  const selected = baseCountries.has(c.code) || specialCountries.has(c.code);
                   return (
                     <label
                       key={c.code}
@@ -288,7 +303,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                 )}
                 {selectedCountries.map((c) => {
                   const isSelected = specialPriceSelection.has(c.code);
-                  const hasSpecial = countryPrefs.get(c.code) != null;
+                  const hasSpecial = specialCountries.has(c.code);
                   return (
                     <label
                       key={c.code}
@@ -353,7 +368,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
               </p>
               <div className="space-y-2">
                 {countriesWithOverrides.map((c) => {
-                  const val = countryPrefs.get(c.code);
+                  const val = specialCountries.get(c.code);
                   return (
                     <div key={c.code} className="flex items-center gap-3">
                       <span className="flex items-center gap-1.5 text-sm text-[var(--foreground)] w-40 shrink-0">
@@ -393,7 +408,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
             </div>
           )}
 
-          {countryPrefs.size === 0 && (
+          {(baseCountries.size === 0 && specialCountries.size === 0) && (
             <p className="text-sm text-[var(--muted)] text-center py-4">
               No countries selected. Click "Add Countries" to choose which countries this product is available in.
             </p>
@@ -407,7 +422,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || countryPrefs.size === 0}
+            disabled={saving || (baseCountries.size + specialCountries.size === 0)}
             className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:opacity-90 disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save Changes'}
