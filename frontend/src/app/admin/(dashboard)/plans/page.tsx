@@ -13,6 +13,7 @@ interface CountryItem {
   flag_emoji: string;
   region: string;
   enabled_plan_types: string[];
+  is_enabled: boolean;
 }
 
 interface ProductCard {
@@ -70,7 +71,8 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [countrySearch, setCountrySearch] = useState('');
 
   // Only show globally active countries in the picker ( Countries tab gate )
-  const filtered = allCountries.filter((c) =>
+  const pickerCountries = allCountries.filter((c) => c.is_enabled);
+  const filtered = pickerCountries.filter((c) =>
     getCountryName(c.code).toLowerCase().includes(countrySearch.toLowerCase()) ||
     c.code.toLowerCase().includes(countrySearch.toLowerCase())
   );
@@ -405,14 +407,12 @@ export default function PlanSettingsPage() {
   const handleToggleCountry = async (code: string, currentEnabled: boolean) => {
     setSavingCodes((prev) => new Set(prev).add(code));
     const planTypes = ['DC', 'ISP', 'RESIDENTIAL', 'MOBILE'];
-    await Promise.all(
-      planTypes.map((pt) => api.updateCountryPlanType(code, pt, { enabled: !currentEnabled }))
-    );
+    await api.toggleCountry(code, !currentEnabled);
     setCountries((prev) =>
       prev.map((c) =>
         c.code !== code
           ? c
-          : { ...c, enabled_plan_types: currentEnabled ? [] : planTypes }
+          : { ...c, is_enabled: !currentEnabled, enabled_plan_types: currentEnabled ? [] : c.enabled_plan_types }
       )
     );
     setSavingCodes((prev) => { const n = new Set(prev); n.delete(code); return n; });
@@ -552,7 +552,7 @@ export default function PlanSettingsPage() {
                 </thead>
                 <tbody>
                   {[...countries].sort((a, b) => getCountryName(a.code).localeCompare(getCountryName(b.code))).map((country) => {
-                    const isActive = country.enabled_plan_types.length > 0;
+                    const isActive = country.is_enabled;
                     const saving = savingCodes.has(country.code);
                     return (
                       <tr key={country.code} className="border-b border-[var(--border)] hover:bg-[var(--background)]/50">

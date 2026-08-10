@@ -784,6 +784,16 @@ class ApiClient {
     });
   }
 
+  async toggleCountry(
+    code: string,
+    is_enabled: boolean
+  ): Promise<ApiResponse<{ code: string; is_enabled: boolean }>> {
+    return this.request(`/api/admin/countries/${code}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_enabled }),
+    });
+  }
+
   async updatePlanSettings(
     id: number,
     data: {
