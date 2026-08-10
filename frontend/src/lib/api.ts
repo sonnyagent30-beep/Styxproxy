@@ -747,6 +747,27 @@ class ApiClient {
     return this.request('/api/admin/plan-settings');
   }
 
+  // POST /api/admin/products/bulk — Product Builder
+  async createProductsBulk(data: {
+    plan_type: string;
+    pricing_model: string;
+    price: number;
+    countries: string[];
+    is_active?: boolean;
+    sort_order?: number;
+  }): Promise<ApiResponse<{
+    plans_created: number;
+    cpt_rows_created: number;
+    cpt_rows_updated: number;
+    plans: { plan_code: string; plan_type: string; country: string; is_active: boolean }[];
+    cpt_entries: { country_code: string; plan_type: string; enabled: boolean }[];
+  }>> {
+    return this.request('/api/admin/products/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // ── Country Plan Types (Sprint 27) ─────────────────────────────────────
   // GET /api/admin/countries → { countries: CountryCPT[], total: number }
   async getAdminCountries(): Promise<ApiResponse<{ countries: CountryCPT[]; total: number }>> {
