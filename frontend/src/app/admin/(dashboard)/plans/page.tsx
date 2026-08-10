@@ -124,22 +124,23 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     setSaving(true);
     setError(null);
 
-    const selectedCodes = [...baseCountries, ...specialCountries.keys()];
-    const res = await api.createProductsBulk({
-      plan_type: product.plan_type,
-      pricing_model: product.pricing_model,
-      price: parseFloat(basePrice),
-      countries: selectedCodes,
-      is_active: isActive,
-    });
+    // Bulk: only countries in baseCountries — sending special countries here
+    // overwrites their special prices with base price
+    const baseCodes = [...baseCountries];
+    if (baseCodes.length > 0) {
+      const res = await api.createProductsBulk({
+        plan_type: product.plan_type,
+        pricing_model: product.pricing_model,
+        price: parseFloat(basePrice),
+        countries: baseCodes,
+        is_active: isActive,
+      });
+      if (res.error) { setError('Failed: ' + res.error); setSaving(false); return; }
+    }
 
-    if (res.error) { setError('Failed: ' + res.error); setSaving(false); return; }
-
-    // Update override prices for each selected country
+    // Update special prices individually
     await Promise.all(
-      selectedCodes.map((code) => {
-        const override = specialCountries.get(code);
-        if (override == null) return Promise.resolve(); // null = use base price, skip
+      [...specialCountries.entries()].map(([code, override]) => {
         return api.updateCountryPlanType(code, product.plan_type, {
           enabled: true,
           price_per_ip: isIP ? override : undefined,
