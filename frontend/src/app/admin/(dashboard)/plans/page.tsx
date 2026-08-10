@@ -69,7 +69,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   // specialCountries = Map<code, price> for countries with override
   // Prices and is_special are fetched from API when modal opens
   const [specialCountries, setSpecialCountries] = useState<Map<string, number | null>>(new Map());
-  const [pricesLoaded, setPricesLoaded] = useState(false);
+
   const [isActive, setIsActive] = useState(product.is_active);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,11 +78,13 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [specialPriceSelection, setSpecialPriceSelection] = useState<Set<string>>(new Set());
   const [countrySearch, setCountrySearch] = useState('');
   // Fetch is_special + price for each country when modal opens
+  const loadRan = useRef(false);
   useEffect(() => {
-    if (pricesLoaded) return; // already loaded
+    if (loadRan.current) return; // only run once per modal open
+    loadRan.current = true;
     const loadPrices = async () => {
       const codes = [...baseCountries];
-      if (codes.length === 0) { setPricesLoaded(true); return; }
+      if (codes.length === 0) return;
       const newSpecial = new Map<string, number | null>();
       const newBase = new Set<string>();
       await Promise.all(
@@ -105,10 +107,9 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
       );
       setSpecialCountries(newSpecial);
       setBaseCountries(newBase);
-      setPricesLoaded(true);
     };
     loadPrices();
-  }, [pricesLoaded]);
+  }, []); // empty = only on mount
 
   // Only show globally active countries in the picker ( Countries tab gate )
   const pickerCountries = allCountries.filter((c) => c.is_enabled);
