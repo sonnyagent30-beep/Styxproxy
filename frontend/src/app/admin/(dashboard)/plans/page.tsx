@@ -76,7 +76,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showSpecialPricePicker, setShowSpecialPricePicker] = useState(false);
   const [specialPriceSelection, setSpecialPriceSelection] = useState<Set<string>>(new Set());
-  const [countrySearch, setCountrySearch] = useState('');  // Fetch is_special + price for each country when modal opens
+  const [countrySearch, setCountrySearch] = useState('');  // Fetch is_special + price for each country + base price when modal opens
   const loadPrices = useCallback(async () => {
     const codes = [...new Set([...baseCountries, ...specialCountries.keys()])];
     if (codes.length === 0) return;
@@ -100,7 +100,21 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     );
     setSpecialCountries(newSpecial);
     setBaseCountries(newBase);
-  }, [product.plan_type, isIP]);
+    // Also load base price from DB if product has countries
+    if (codes.length > 0 && !basePrice) {
+      try {
+        const res = await api.getAdminCountry(codes[0]);
+        if (!res.error) {
+          const data = res.data as any;
+          const ptData = data?.plan_types?.[product.plan_type];
+          if (ptData && !ptData.is_special) {
+            const bp = isIP ? ptData.price_per_ip : ptData.price_per_gb;
+            if (bp) setBasePrice(String(bp));
+          }
+        }
+      } catch {}
+    }
+  }, [product.plan_type, isIP, basePrice]);
 
   useEffect(() => { loadPrices(); }, [loadPrices]);
 
