@@ -125,10 +125,11 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     await Promise.all(
       selectedCodes.map((code) => {
         const override = countryPrefs.get(code);
+        if (override == null) return Promise.resolve(); // null = use base price, skip
         return api.updateCountryPlanType(code, product.plan_type, {
           enabled: true,
-          price_per_ip: isIP ? (override ?? parseFloat(basePrice)) : undefined,
-          price_per_gb: !isIP ? (override ?? parseFloat(basePrice)) : undefined,
+          price_per_ip: isIP ? override : undefined,
+          price_per_gb: !isIP ? override : undefined,
         });
       })
     );
@@ -139,8 +140,8 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   };
 
   const selectedCountries = allCountries.filter((c) => countryPrefs.has(c.code));
-  const countriesWithOverrides = selectedCountries.filter((c) => countryPrefs.get(c.code) != null);
-  const countriesWithBase = selectedCountries.filter((c) => countryPrefs.get(c.code) == null);
+  const countriesWithOverrides = selectedCountries.filter((c) => countryPrefs.has(c.code));
+  const countriesWithBase = selectedCountries.filter((c) => !countryPrefs.has(c.code));
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-8">
@@ -262,7 +263,17 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                   >Cancel</button>
                   <button
                     onClick={() => {
-                      // Only add selected countries to special price — nothing auto-added
+                      // Move selected countries to special price section
+                      // Set value to null (pending — user must enter a price)
+                      setCountryPrefs((prev) => {
+                        const next = new Map(prev);
+                        specialPriceSelection.forEach((code) => {
+                          if (!next.has(code)) {
+                            next.set(code, null); // null = special price pending
+                          }
+                        });
+                        return next;
+                      });
                       setShowSpecialPricePicker(false);
                     }}
                     className="px-3 py-1 rounded text-xs bg-yellow-500 text-black font-medium hover:bg-yellow-400"
