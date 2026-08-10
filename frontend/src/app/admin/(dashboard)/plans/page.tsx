@@ -68,6 +68,8 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [showSpecialPricePicker, setShowSpecialPricePicker] = useState(false);
+  const [specialPriceSelection, setSpecialPriceSelection] = useState<Set<string>>(new Set());
   const [countrySearch, setCountrySearch] = useState('');
 
   // Only show globally active countries in the picker ( Countries tab gate )
@@ -144,7 +146,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-8">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-2xl p-6 rounded-xl bg-[var(--card)] border border-[var(--border)] shadow-xl my-4">
-        <h2 className="text-lg font-bold text-[var(--foreground)] mb-1">Edit: {product.label}</h2>
+        <h2 className="text-lg font-bold text-[var(--foreground)] mb-1">Edit: {product.plan_type}</h2>
         <p className="text-sm text-[var(--muted)] mb-5">
           Set base price — then optionally set special prices for specific countries
         </p>
@@ -189,6 +191,15 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
             >
               {showCountryPicker ? 'Done' : 'Add Countries'}
             </button>
+            {product.pricing_model === 'per_IP' && (
+              <button
+                type="button"
+                onClick={() => { setShowSpecialPricePicker(true); setSpecialPriceSelection(new Set()); }}
+                className="text-sm text-yellow-400 hover:underline"
+              >
+                Set Special Price
+              </button>
+            )}
           </div>
 
           {showCountryPicker && (
@@ -234,6 +245,82 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
             </div>
           )}
 
+          {/* Special Price Picker — DC/ISP only */}
+          {showSpecialPricePicker && (
+            <div className="mb-4 border-2 border-yellow-500/40 rounded-lg bg-yellow-500/5 overflow-hidden">
+              <div className="p-3 border-b border-yellow-500/20 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-yellow-400">Set Special Price</p>
+                  <p className="text-xs text-[var(--muted)] mt-0.5">
+                    Select countries already in this product, then click Done
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowSpecialPricePicker(false)}
+                    className="px-3 py-1 rounded text-xs border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                  >Cancel</button>
+                  <button
+                    onClick={() => {
+                      // Move selected countries to special price section
+                      setCountryPrefs((prev) => {
+                        const next = new Map(prev);
+                        specialPriceSelection.forEach((code) => {
+                          if (next.has(code)) {
+                            // Already in product — keep value but ensure it's treated as special
+                            next.set(code, next.get(code) ?? null);
+                          }
+                        });
+                        return next;
+                      });
+                      setShowSpecialPricePicker(false);
+                    }}
+                    className="px-3 py-1 rounded text-xs bg-yellow-500 text-black font-medium hover:bg-yellow-400"
+                  >Done ({specialPriceSelection.size})</button>
+                </div>
+              </div>
+              <div className="max-h-48 overflow-y-auto divide-y divide-[var(--border)]">
+                {selectedCountries.length === 0 && (
+                  <p className="p-3 text-sm text-[var(--muted)] text-center">
+                    No countries in this product yet — add countries first
+                  </p>
+                )}
+                {selectedCountries.map((c) => {
+                  const isSelected = specialPriceSelection.has(c.code);
+                  const hasSpecial = countryPrefs.get(c.code) != null;
+                  return (
+                    <label
+                      key={c.code}
+                      className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${isSelected ? 'bg-yellow-500/10' : 'hover:bg-[var(--card)]'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          setSpecialPriceSelection((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(c.code)) next.delete(c.code);
+                            else next.add(c.code);
+                            return next;
+                          });
+                        }}
+                        className="w-4 h-4 rounded accent-yellow-500"
+                      />
+                      <span className="text-lg">{c.flag_emoji}</span>
+                      <div className="flex-1">
+                        <div className="text-sm text-[var(--foreground)]">{c.name}</div>
+                        <div className="text-xs text-[var(--muted)]">{c.code}</div>
+                      </div>
+                      {hasSpecial && (
+                        <span className="text-xs text-yellow-400">already special</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Countries using base price */}
           {countriesWithBase.length > 0 && (
             <div className="mb-3">
@@ -261,7 +348,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
           {countriesWithOverrides.length > 0 && (
             <div>
               <p className="text-xs text-[var(--muted)] mb-2 font-medium uppercase tracking-wide">
-                Special Prices
+                Special Prices — Custom rate per country
               </p>
               <div className="space-y-2">
                 {countriesWithOverrides.map((c) => {
