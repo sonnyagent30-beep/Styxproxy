@@ -63,12 +63,11 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [basePrice, setBasePrice] = useState(String(product.base_price ?? ''));
   // baseCountries = countries in product using base price
   const [baseCountries, setBaseCountries] = useState<Set<string>>(
-    new Set(product.countries.filter((c) => c.override_price == null).map((c) => c.code))
+    new Set(product.countries.map((c) => c.code))
   );
   // specialCountries = Map<code, price> for countries with override
-  const [specialCountries, setSpecialCountries] = useState<Map<string, number>>(
-    new Map(product.countries.filter((c) => c.override_price != null).map((c) => [c.code, c.override_price]))
-  );
+  // Initialize with null — section shows countries in special but with empty inputs
+  const [specialCountries, setSpecialCountries] = useState<Map<string, number | null>>(new Map());
   const [isActive, setIsActive] = useState(product.is_active);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -472,12 +471,9 @@ export default function PlanSettingsPage() {
           const countryPrefs: CountryPref[] = await Promise.all(
             enabledCountries.map(async (c: CountryItem) => {
               try {
-                const detail = await api.getAdminCountry(c.code) as any;
-                const ptData = detail.data?.plan_types?.[p.plan_type];
-                return {
-                  code: c.code,
-                  override_price: ptData?.price_per_ip ?? ptData?.price_per_gb ?? null,
-                };
+                // Always set override_price to null on load — FE can't distinguish
+                // base price from special price, so admin must re-set specials explicitly
+                return { code: c.code, override_price: null };
               } catch {
                 return { code: c.code, override_price: null };
               }
