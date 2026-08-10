@@ -449,20 +449,6 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
       </div>
     </div>
   );
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--background)]">
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || (baseCountries.size + specialCountries.size === 0)}
-            className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
