@@ -476,7 +476,7 @@ export default function PlanSettingsPage() {
                         <td className="px-4 py-3 text-right text-sm text-[var(--foreground)]">
                           {fmt(product.price_per_ip ?? product.price_per_gb ?? product.price_ngn)}
                           {(product.price_per_gb != null) && <span className="text-[var(--muted)]">/GB</span>}
-                          {(product.price_per_ip != null) && <span className="text-[var(--muted)]>/IP</span>}
+                          {(product.price_per_ip != null) && <span className="text-[var(--muted)]">/IP</span>}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
