@@ -252,7 +252,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                 <div>
                   <p className="text-sm font-medium text-yellow-400">Set Special Price</p>
                   <p className="text-xs text-[var(--muted)] mt-0.5">
-                    Select countries already in this product, then click Done
+                    Select countries from this product to move to special pricing, then click Done
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -262,21 +262,11 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                   >Cancel</button>
                   <button
                     onClick={() => {
-                      // Move selected countries to special price section
-                      setCountryPrefs((prev) => {
-                        const next = new Map(prev);
-                        specialPriceSelection.forEach((code) => {
-                          if (next.has(code)) {
-                            // Already in product — keep value but ensure it's treated as special
-                            next.set(code, next.get(code) ?? null);
-                          }
-                        });
-                        return next;
-                      });
+                      // Only add selected countries to special price — nothing auto-added
                       setShowSpecialPricePicker(false);
                     }}
                     className="px-3 py-1 rounded text-xs bg-yellow-500 text-black font-medium hover:bg-yellow-400"
-                  >Done ({specialPriceSelection.size})</button>
+                  >{specialPriceSelection.size > 0 ? `Done (${specialPriceSelection.size})` : 'Done'}</button>
                 </div>
               </div>
               <div className="max-h-48 overflow-y-auto divide-y divide-[var(--border)]">
