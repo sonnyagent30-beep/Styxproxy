@@ -76,34 +76,46 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showSpecialPricePicker, setShowSpecialPricePicker] = useState(false);
   const [specialPriceSelection, setSpecialPriceSelection] = useState<Set<string>>(new Set());
-  const [countrySearch, setCountrySearch] = useState('');  // Fetch is_special + price for each country + base price when modal opens
+  const [countrySearch, setCountrySearch] = useState('');  // Fetch is_special + price for ALL enabled countries when modal opens
+  // We don't know which countries are in the product, so we check all globally-enabled ones
   const loadPrices = useCallback(async () => {
-    const codes = [...new Set([...baseCountries, ...specialCountries.keys()])];
-    if (codes.length === 0) return;
+    // Get all globally-enabled country codes for this plan_type
+    const enabledCodes = allCountries
+      .filter((c) => c.enabled_plan_types.map((t) => t.toUpperCase()).includes(product.plan_type))
+      .map((c) => c.code);
+
+    if (enabledCodes.length === 0) return;
+
     const newSpecial = new Map<string, number | null>();
     const newBase = new Set<string>();
+
     await Promise.all(
-      codes.map(async (code) => {
+      enabledCodes.map(async (code) => {
         try {
           const res = await api.getAdminCountry(code);
           if (res.error) return;
           const data = res.data as any;
           const ptData = data?.plan_types?.[product.plan_type];
           if (ptData?.is_special) {
+            // Country is special — use its stored price
             const price = isIP ? ptData.price_per_ip : ptData.price_per_gb;
             newSpecial.set(code, price ?? null);
           } else {
+            // Country is in the product at base price
             newBase.add(code);
           }
         } catch {}
       })
     );
+
     setSpecialCountries(newSpecial);
     setBaseCountries(newBase);
-    // Also load base price from DB if product has countries
-    if (codes.length > 0 && !basePrice) {
+
+    // Load base price from any base country
+    if (newBase.size > 0 && !basePrice) {
+      const firstBase = [...newBase][0];
       try {
-        const res = await api.getAdminCountry(codes[0]);
+        const res = await api.getAdminCountry(firstBase);
         if (!res.error) {
           const data = res.data as any;
           const ptData = data?.plan_types?.[product.plan_type];
@@ -125,20 +137,27 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     c.code.toLowerCase().includes(countrySearch.toLowerCase())
   );
 
-  const toggleCountry = (code: string) => {
-    // Add to base price section
-    setBaseCountries((prev) => {
-      const next = new Set(prev);
-      if (next.has(code)) next.delete(code);
-      else next.add(code);
-      return next;
-    });
-    // Remove from special if it was there
-    setSpecialCountries((prev) => {
-      const next = new Map(prev);
-      next.delete(code);
-      return next;
-    });
+  const toggleCountry = async (code: string) => {
+    const isAdding = !baseCountries.has(code) && !specialCountries.has(code);
+    if (isAdding) {
+      // Add: save to DB at base price, show in base section
+      if (basePrice && parseFloat(basePrice) > 0) {
+        await api.createProductsBulk({
+          plan_type: product.plan_type,
+          pricing_model: product.pricing_model,
+          price: parseFloat(basePrice),
+          countries: [code],
+          is_active: true,
+        });
+      }
+      setBaseCountries((prev) => new Set([...prev, code]));
+      setSpecialCountries((prev) => { const n = new Map(prev); n.delete(code); return n; });
+    } else {
+      // Remove: delete from DB, remove from state
+      await api.removeCountryFromProduct(code, product.plan_type);
+      setBaseCountries((prev) => { const n = new Set(prev); n.delete(code); return n; });
+      setSpecialCountries((prev) => { const n = new Map(prev); n.delete(code); return n; });
+    }
   };
 
   const setOverride = async (code: string, value: string) => {
