@@ -69,13 +69,11 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
 
-  const ALL_CODES = Object.keys(COUNTRIES).sort((a, b) =>
-    getCountryName(a).localeCompare(getCountryName(b))
-  );
-
-  const filtered = ALL_CODES.filter((code) =>
-    getCountryName(code).toLowerCase().includes(countrySearch.toLowerCase()) ||
-    code.toLowerCase().includes(countrySearch.toLowerCase())
+  // Only show globally active countries in the picker ( Countries tab gate )
+  const activeCountries = allCountries.filter((c) => c.enabled_plan_types.length > 0);
+  const filtered = activeCountries.filter((c) =>
+    getCountryName(c.code).toLowerCase().includes(countrySearch.toLowerCase()) ||
+    c.code.toLowerCase().includes(countrySearch.toLowerCase())
   );
 
   const toggleCountry = (code: string) => {
@@ -196,23 +194,28 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                 />
               </div>
               <div className="max-h-48 overflow-y-auto divide-y divide-[var(--border)]">
-                {filtered.map((code) => {
-                  const selected = countryPrefs.has(code);
+                {filtered.length === 0 && (
+                  <p className="p-3 text-sm text-[var(--muted)] text-center">
+                    No active countries — enable countries in the Countries tab first
+                  </p>
+                )}
+                {filtered.map((c) => {
+                  const selected = countryPrefs.has(c.code);
                   return (
                     <label
-                      key={code}
+                      key={c.code}
                       className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-[var(--card)] transition-colors"
                     >
                       <input
                         type="checkbox"
                         checked={selected}
-                        onChange={() => toggleCountry(code)}
+                        onChange={() => toggleCountry(c.code)}
                         className="w-4 h-4 rounded accent-[var(--primary)]"
                       />
-                      <span className="text-lg">{getCountryFlag(code)}</span>
+                      <span className="text-lg">{c.flag_emoji}</span>
                       <div>
-                        <div className="text-sm text-[var(--foreground)]">{getCountryName(code)}</div>
-                        <div className="text-xs text-[var(--muted)]">{code}</div>
+                        <div className="text-sm text-[var(--foreground)]">{c.name}</div>
+                        <div className="text-xs text-[var(--muted)]">{c.code}</div>
                       </div>
                     </label>
                   );
