@@ -70,8 +70,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [countrySearch, setCountrySearch] = useState('');
 
   // Only show globally active countries in the picker ( Countries tab gate )
-  const activeCountries = allCountries.filter((c) => c.enabled_plan_types.length > 0);
-  const filtered = activeCountries.filter((c) =>
+  const filtered = allCountries.filter((c) =>
     getCountryName(c.code).toLowerCase().includes(countrySearch.toLowerCase()) ||
     c.code.toLowerCase().includes(countrySearch.toLowerCase())
   );
@@ -89,6 +88,15 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     setCountryPrefs((prev) => {
       const next = new Map(prev);
       next.set(code, value === '' ? null : parseFloat(value));
+      return next;
+    });
+  };
+
+  const handleRemoveCountry = async (code: string) => {
+    await api.removeCountryFromProduct(code, product.plan_type);
+    setCountryPrefs((prev) => {
+      const next = new Map(prev);
+      next.delete(code);
       return next;
     });
   };
@@ -238,7 +246,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                   >
                     {getCountryFlag(c.code)} {c.code}
                     <button
-                      onClick={() => toggleCountry(c.code)}
+                      onClick={() => handleRemoveCountry(c.code)}
                       className="ml-1 text-[var(--muted)] hover:text-red-400"
                     >✕</button>
                   </span>
@@ -285,7 +293,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                         title="Use base price"
                       >Reset</button>
                       <button
-                        onClick={() => toggleCountry(c.code)}
+                        onClick={() => handleRemoveCountry(c.code)}
                         className="text-[var(--muted)] hover:text-red-400 shrink-0"
                       >✕</button>
                     </div>
@@ -354,7 +362,7 @@ export default function PlanSettingsPage() {
       // Also fetch CPT details to get per-country prices
       const cards: ProductCard[] = await Promise.all(
         PRODUCTS.map(async (p) => {
-          const enabledCountries = allCountries.filter((c: CountryItem) => c.enabled_plan_types.includes(p.plan_type));
+          const enabledCountries = allCountries.filter((c: CountryItem) => c.enabled_plan_types.map(t => t.toUpperCase()).includes(p.plan_type));
           // Get per-country override prices
           const countryPrefs: CountryPref[] = await Promise.all(
             enabledCountries.map(async (c: CountryItem) => {
