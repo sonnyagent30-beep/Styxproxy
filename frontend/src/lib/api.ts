@@ -776,7 +776,7 @@ class ApiClient {
   async updateCountryPlanType(
     code: string,
     planType: string,
-    data: { enabled?: boolean; price_per_gb?: number | null; price_per_ip?: number | null }
+    data: { enabled?: boolean; price_per_gb?: number | null; price_per_ip?: number | null; is_special?: boolean }
   ): Promise<ApiResponse<CPTUpdateResult>> {
     return this.request(`/api/admin/countries/${code}/${planType}`, {
       method: 'PATCH',
