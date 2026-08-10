@@ -734,20 +734,7 @@ class ApiClient {
     });
   }
 
-  async deletePlan(planId: number): Promise<ApiResponse<{ status: string; plan_id: number }>> {
-    return this.request(`/api/admin/plans/${planId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  // ============== Plan Settings (Admin) ==============
-
-  // Returns PlanSettingsDisplay[] directly (no {settings} wrapper)
-  async getPlanSettings(): Promise<ApiResponse<any[]>> {
-    return this.request('/api/admin/plan-settings');
-  }
-
-  // POST /api/admin/products/bulk — Product Builder
+  // POST /api/admin/products/bulk — Product Builder (creates plans + CPT rows in one shot)
   async createProductsBulk(data: {
     plan_type: string;
     pricing_model: string;
@@ -765,6 +752,12 @@ class ApiClient {
     return this.request('/api/admin/products/bulk', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async deletePlan(planId: number): Promise<ApiResponse<{ status: string; plan_id: number }>> {
+    return this.request(`/api/admin/plans/${planId}`, {
+      method: 'DELETE',
     });
   }
 
