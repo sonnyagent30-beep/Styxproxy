@@ -76,7 +76,9 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showSpecialPricePicker, setShowSpecialPricePicker] = useState(false);
   const [specialPriceSelection, setSpecialPriceSelection] = useState<Set<string>>(new Set());
-  const [countrySearch, setCountrySearch] = useState('');  // Fetch is_special + price for ONLY countries that actually belong to this product
+  const [countrySearch, setCountrySearch] = useState('');
+  // Track which countries were removed from base (via ✕ button) — saved on Save Changes
+  const [removedCountries, setRemovedCountries] = useState<Set<string>>(new Set());  // Fetch is_special + price for ONLY countries that actually belong to this product
   // product.countries is the source of truth for which countries are in this product
   // GET /country/:code tells us if that country is base (is_special=false) or special (is_special=true)
   // Track whether we have fetched from API yet — prevents stale data overwrites
@@ -85,6 +87,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   useEffect(() => {
     // Reset load flag when product changes (e.g. user closes and re-opens modal)
     setPricesLoaded(false);
+    setRemovedCountries(new Set());
   }, [product.countries, product.plan_type]);
 
   useEffect(() => {
@@ -142,68 +145,44 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     c.code.toLowerCase().includes(countrySearch.toLowerCase())
   );
 
-  const toggleCountry = async (code: string) => {
+  // ─── LOCAL-STATE-ONLY toggles (no immediate API calls) ────────────────────────
+  // All API writes happen ONLY from "Save Changes" button
+
+  const toggleCountry = (code: string) => {
     const isAdding = !baseCountries.has(code) && !specialCountries.has(code);
     if (isAdding) {
-      // Add: save to DB at base price, show in base section
-      if (basePrice && parseFloat(basePrice) > 0) {
-        await api.createProductsBulk({
-          plan_type: product.plan_type,
-          pricing_model: product.pricing_model,
-          price: parseFloat(basePrice),
-          countries: [code],
-          is_active: true,
-        });
-      }
+      // Add to local base list — Save Changes will persist via createProductsBulk
       setBaseCountries((prev) => new Set([...prev, code]));
       setSpecialCountries((prev) => { const n = new Map(prev); n.delete(code); return n; });
     } else {
-      // Remove: delete from DB, remove from state
-      await api.removeCountryFromProduct(code, product.plan_type);
+      // Remove from local state — Save Changes will persist via removeCountryFromProduct
       setBaseCountries((prev) => { const n = new Set(prev); n.delete(code); return n; });
       setSpecialCountries((prev) => { const n = new Map(prev); n.delete(code); return n; });
     }
   };
 
-  const setOverride = async (code: string, value: string) => {
+  // ─── Local-only: update special price in state (no auto-save) ──────────────────
+  // Per-row Save button fires the actual API call
+
+  const setOverride = (code: string, value: string) => {
     const num = value === '' ? null : parseFloat(value);
     if (num == null) {
-      // Reset: move back to base — remove from special, add to base, save
+      // Reset: move back to base (local state only — Save Changes will persist)
       setSpecialCountries((prev) => { const n = new Map(prev); n.delete(code); return n; });
       setBaseCountries((prev) => new Set([...prev, code]));
-      // Save as base price via bulk create
-      if (basePrice && parseFloat(basePrice) > 0) {
-        await api.createProductsBulk({
-          plan_type: product.plan_type,
-          pricing_model: product.pricing_model,
-          price: parseFloat(basePrice),
-          countries: [code],
-          is_active: true,
-        });
-      }
     } else {
-      // Set special price
+      // Set special price in local state
       setSpecialCountries((prev) => new Map(prev).set(code, num));
       setBaseCountries((prev) => { const n = new Set(prev); n.delete(code); return n; });
-      // Save immediately
-      setSaveStatus((prev) => new Map(prev).set(code, 'saving'));
-      const res = await api.updateCountryPlanType(code, product.plan_type, {
-        enabled: true,
-        is_special: true,
-        price_per_ip: isIP ? num : undefined,
-        price_per_gb: !isIP ? num : undefined,
-      });
-      setSaveStatus((prev) => {
-        const next = new Map(prev);
-        next.set(code, res.error ? 'idle' : 'saved');
-        setTimeout(() => setSaveStatus((s) => { const n = new Map(s); n.delete(code); return n; }), 2000);
-        return next;
-      });
     }
   };
 
-  const handleRemoveCountry = async (code: string) => {
-    await api.removeCountryFromProduct(code, product.plan_type);
+  // ✕ on base chip: local state only, Save Changes will remove from DB
+  const handleRemoveCountry = (code: string) => {
+    // If country was in base list, mark it as removed
+    if (baseCountries.has(code)) {
+      setRemovedCountries((prev) => new Set([...prev, code]));
+    }
     setBaseCountries((prev) => { const n = new Set(prev); n.delete(code); return n; });
     setSpecialCountries((prev) => { const n = new Map(prev); n.delete(code); return n; });
   };
@@ -213,34 +192,44 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     setSaving(true);
     setError(null);
 
-    // Bulk create/update base countries
-    const baseCodes = [...baseCountries];
-    if (baseCodes.length > 0) {
-      const res = await api.createProductsBulk({
-        plan_type: product.plan_type,
-        pricing_model: product.pricing_model,
-        price: parseFloat(basePrice),
-        countries: baseCodes,
-        is_active: isActive,
-      });
-      if (res.error) { setError('Failed: ' + res.error); setSaving(false); return; }
-    }
+    try {
+      // 1. Remove countries that were marked for removal
+      const removed = [...removedCountries];
+      for (const code of removed) {
+        const res = await api.removeCountryFromProduct(code, product.plan_type);
+        if (res.error) { setError('Failed to remove ' + code + ': ' + res.error); setSaving(false); return; }
+      }
 
-    // Save each special country individually
-    for (const [code, price] of specialCountries) {
-      if (price == null || price <= 0) continue;
-      const res = await api.updateCountryPlanType(code, product.plan_type, {
-        enabled: true,
-        is_special: true,
-        price_per_ip: isIP ? price : undefined,
-        price_per_gb: !isIP ? price : undefined,
-      });
-      if (res.error) { setError('Failed to save ' + code + ': ' + res.error); setSaving(false); return; }
+      // 2. Bulk create/update base countries
+      const baseCodes = [...baseCountries];
+      if (baseCodes.length > 0) {
+        const res = await api.createProductsBulk({
+          plan_type: product.plan_type,
+          pricing_model: product.pricing_model,
+          price: parseFloat(basePrice),
+          countries: baseCodes,
+          is_active: isActive,
+        });
+        if (res.error) { setError('Failed: ' + res.error); setSaving(false); return; }
+      }
+
+      // 3. Save each special country individually
+      for (const [code, price] of specialCountries) {
+        if (price == null || price <= 0) continue;
+        const res = await api.updateCountryPlanType(code, product.plan_type, {
+          enabled: true,
+          is_special: true,
+          price_per_ip: isIP ? price : undefined,
+          price_per_gb: !isIP ? price : undefined,
+        });
+        if (res.error) { setError('Failed to save ' + code + ': ' + res.error); setSaving(false); return; }
+      }
+    } finally {
+      setSaving(false);
     }
 
     onSaved();
     onClose();
-    setSaving(false);
   };
 
   const selectedCountries = allCountries.filter((c) => baseCountries.has(c.code) || specialCountries.has(c.code));
@@ -366,30 +355,20 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                     className="px-3 py-1 rounded text-xs border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
                   >Cancel</button>
                   <button
-                    onClick={async () => {
+                    onClick={() => {
+                      // Local state only — Save Changes will persist all changes
                       const toMove = [...specialPriceSelection];
-                      // Save is_special=true for each selected country immediately
-                      await Promise.all(
-                        toMove.map(async (code) => {
-                          setSaveStatus((prev) => new Map(prev).set(code, 'saving'));
-                          const res = await api.updateCountryPlanType(code, product.plan_type, {
-                            enabled: true,
-                            is_special: true,
-                          });
-                          setSaveStatus((prev) => {
-                            const next = new Map(prev);
-                            next.set(code, res.error ? 'idle' : 'saved');
-                            setTimeout(() => {
-                              setSaveStatus((s) => { const n = new Map(s); n.delete(code); return n; });
-                            }, 2000);
-                            return next;
-                          });
-                          if (!res.error) {
-                            setSpecialCountries((prev) => new Map(prev).set(code, null));
-                            setBaseCountries((prev) => { const n = new Set(prev); n.delete(code); return n; });
-                          }
-                        })
-                      );
+                      setSpecialCountries((prev) => {
+                        const n = new Map(prev);
+                        for (const code of toMove) n.set(code, null);
+                        return n;
+                      });
+                      setBaseCountries((prev) => {
+                        const n = new Set(prev);
+                        for (const code of toMove) n.delete(code);
+                        return n;
+                      });
+                      setSpecialPriceSelection(new Set());
                       setShowSpecialPricePicker(false);
                     }}
                     className="px-3 py-1 rounded text-xs bg-yellow-500 text-black font-medium hover:bg-yellow-400"
@@ -397,14 +376,14 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                 </div>
               </div>
               <div className="max-h-48 overflow-y-auto divide-y divide-[var(--border)]">
-                {selectedCountries.length === 0 && (
+                {/* Only show base countries that aren't already special */}
+                {countriesWithBase.length === 0 && (
                   <p className="p-3 text-sm text-[var(--muted)] text-center">
-                    No countries in this product yet — add countries first
+                    No countries in the base list — add countries first before setting special prices
                   </p>
                 )}
-                {selectedCountries.map((c) => {
+                {countriesWithBase.map((c) => {
                   const isSelected = specialPriceSelection.has(c.code);
-                  const hasSpecial = specialCountries.has(c.code);
                   return (
                     <label
                       key={c.code}
@@ -428,9 +407,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                         <div className="text-sm text-[var(--foreground)]">{c.name}</div>
                         <div className="text-xs text-[var(--muted)]">{c.code}</div>
                       </div>
-                      {hasSpecial && (
-                        <span className="text-xs text-yellow-400">already special</span>
-                      )}
+                      <span className="text-xs text-[var(--muted)]">base</span>
                     </label>
                   );
                 })}
@@ -486,16 +463,14 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                           min={1}
                           step={100}
                           value={val ?? ''}
-                          onChange={(e) => {
-                            const num = e.target.value === '' ? null : parseFloat(e.target.value);
-                            setSpecialCountries((prev) => new Map(prev).set(c.code, num));
-                          }}
+                          onChange={(e) => setOverride(c.code, e.target.value)}
                           placeholder={basePrice || '0'}
                           className="w-20 px-2 py-1.5 rounded bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] text-xs focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                         <span className="text-[10px] text-[var(--muted)] shrink-0">
                           ₦/{isIP ? 'IP' : 'GB'}
                         </span>
+                        {/* Save: update DB with new special price */}
                         <button
                           onClick={async () => {
                             const price = specialCountries.get(c.code);
@@ -510,9 +485,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                             setSaveStatus((prev) => {
                               const next = new Map(prev);
                               next.set(c.code, res.error ? 'idle' : 'saved');
-                              setTimeout(() => {
-                                setSaveStatus((s) => { const n = new Map(s); n.delete(c.code); return n; });
-                              }, 2000);
+                              setTimeout(() => setSaveStatus((s) => { const n = new Map(s); n.delete(c.code); return n; }), 2000);
                               return next;
                             });
                           }}
@@ -521,40 +494,23 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                         >
                           {status === 'saving' ? '...' : status === 'saved' ? '✓ Saved' : 'Save'}
                         </button>
-                        <button
-                          onClick={async () => {
-                            setSaveStatus((prev) => new Map(prev).set(c.code, 'saving'));
-                            const res = await api.updateCountryPlanType(c.code, product.plan_type, {
-                              enabled: true,
-                              is_special: false,
-                              price_per_ip: isIP ? parseFloat(basePrice) : undefined,
-                              price_per_gb: !isIP ? parseFloat(basePrice) : undefined,
-                            });
-                            setSaveStatus((prev) => {
-                              const next = new Map(prev);
-                              next.set(c.code, res.error ? 'idle' : 'saved');
-                              setTimeout(() => {
-                                setSaveStatus((s) => { const n = new Map(s); n.delete(c.code); return n; });
-                              }, 2000);
-                              return next;
-                            });
-                            if (!res.error) {
-                              setSpecialCountries((prev) => { const n = new Map(prev); n.delete(c.code); return n; });
-                              setBaseCountries((prev) => new Set([...prev, c.code]));
-                            }
-                          }}
-                          className="px-2 py-1 rounded text-xs text-[var(--muted)] hover:text-orange-400 shrink-0 border border-[var(--border)]"
-                          title="Reset to base price"
-                        >Reset</button>
+                        {/* Reset: clear special, move country back to base */}
                         <button
                           onClick={async () => {
                             setSaveStatus((prev) => new Map(prev).set(c.code, 'saving'));
                             await api.removeCountryFromProduct(c.code, product.plan_type);
-                            setSaveStatus((prev) => {
-                              const next = new Map(prev);
-                              next.delete(c.code);
-                              return next;
-                            });
+                            // Local state: move back to base
+                            setSpecialCountries((prev) => { const n = new Map(prev); n.delete(c.code); return n; });
+                            setBaseCountries((prev) => new Set([...prev, c.code]));
+                            setSaveStatus((prev) => { const n = new Map(prev); n.delete(c.code); return n; });
+                          }}
+                          className="px-2 py-1 rounded text-xs text-[var(--muted)] hover:text-orange-400 shrink-0 border border-[var(--border)]"
+                          title="Reset to base price"
+                        >Reset</button>
+                        {/* Delete: remove country from product entirely */}
+                        <button
+                          onClick={async () => {
+                            await api.removeCountryFromProduct(c.code, product.plan_type);
                             setSpecialCountries((prev) => { const n = new Map(prev); n.delete(c.code); return n; });
                             setBaseCountries((prev) => { const n = new Set(prev); n.delete(c.code); return n; });
                           }}
