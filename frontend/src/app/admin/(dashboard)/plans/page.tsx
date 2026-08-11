@@ -203,8 +203,43 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     setSpecialCountries((prev) => { const n = new Map(prev); n.delete(code); return n; });
   };
 
-  const handleSave = () => {
-    // All saves are per-item now; this just closes the modal
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      // Save base countries to DB
+      const baseCodes = [...baseCountries].filter((c) => !specialCountries.has(c));
+      if (baseCodes.length > 0 && basePrice && parseFloat(basePrice) > 0) {
+        const res = await api.createProductsBulk({
+          plan_type: product.plan_type,
+          pricing_model: product.pricing_model,
+          price: parseFloat(basePrice),
+          countries: baseCodes,
+          is_active: isActive,
+        });
+        if (res.error) {
+          setError('Save failed: ' + res.error);
+          setSaving(false);
+          return;
+        }
+      }
+      // Also update is_special=false for any base countries that may have been saved differently
+      await Promise.all(
+        baseCodes.map(async (code) => {
+          await api.updateCountryPlanType(code, product.plan_type, {
+            enabled: true,
+            is_special: false,
+            price_per_ip: isIP ? parseFloat(basePrice) : undefined,
+            price_per_gb: !isIP ? parseFloat(basePrice) : undefined,
+          });
+        })
+      );
+    } catch (e) {
+      setError('Save failed: ' + String(e));
+      setSaving(false);
+      return;
+    }
+    setSaving(false);
     onSaved();
     onClose();
   };
