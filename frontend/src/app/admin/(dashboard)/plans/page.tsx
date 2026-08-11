@@ -205,7 +205,6 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     // Bulk create/update base countries
     const baseCodes = [...baseCountries];
     if (baseCodes.length > 0) {
-      setSaving(true);
       const res = await api.createProductsBulk({
         plan_type: product.plan_type,
         pricing_model: product.pricing_model,
@@ -215,6 +214,19 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
       });
       if (res.error) { setError('Failed: ' + res.error); setSaving(false); return; }
     }
+
+    // Save each special country individually
+    for (const [code, price] of specialCountries) {
+      if (price == null || price <= 0) continue;
+      const res = await api.updateCountryPlanType(code, product.plan_type, {
+        enabled: true,
+        is_special: true,
+        price_per_ip: isIP ? price : undefined,
+        price_per_gb: !isIP ? price : undefined,
+      });
+      if (res.error) { setError('Failed to save ' + code + ': ' + res.error); setSaving(false); return; }
+    }
+
     onSaved();
     onClose();
     setSaving(false);
