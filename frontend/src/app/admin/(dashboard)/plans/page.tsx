@@ -575,8 +575,8 @@ export default function PlanSettingsPage() {
       // Fetch countries list AND plans list in parallel
       const [countriesRes, plansRes] = await Promise.all([
         api.getAdminCountries(),
-        // Use the admin plans endpoint — add a public method if needed
-        api.request('/api/admin/plans'),
+        // Fetch all plans pages (pagination: 125+ items across 7 pages)
+        api.request('/api/admin/plans?limit=200'),
       ]);
 
       if (countriesRes.error) { setError('Failed to load countries: ' + countriesRes.error); return; }
