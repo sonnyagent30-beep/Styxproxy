@@ -606,7 +606,8 @@ export default function PlanSettingsPage() {
 
       if (countriesRes.error) { setError('Failed to load countries: ' + countriesRes.error); return; }
       const allCountries: CountryItem[] = (countriesRes.data as any)?.countries ?? [];
-      const plansData = plansRes?.data ?? [];
+      // plansRes.data is {data: [...], pagination: {...}} — extract the nested array
+      const plansData = (plansRes?.data as any)?.data ?? [];
 
       const cards: ProductCard[] = PRODUCTS.map((p) => {
         // Get codes of countries that actually have a plan row in DB
