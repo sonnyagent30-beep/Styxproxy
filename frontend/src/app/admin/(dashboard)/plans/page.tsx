@@ -76,59 +76,53 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showSpecialPricePicker, setShowSpecialPricePicker] = useState(false);
   const [specialPriceSelection, setSpecialPriceSelection] = useState<Set<string>>(new Set());
-  const [countrySearch, setCountrySearch] = useState('');  // Fetch is_special + price for ALL enabled countries when modal opens
-  // We don't know which countries are in the product, so we check all globally-enabled ones
-  const loadPrices = useCallback(async () => {
-    // Get all globally-enabled country codes for this plan_type
-    const enabledCodes = allCountries
-      .filter((c) => c.enabled_plan_types.map((t) => t.toUpperCase()).includes(product.plan_type))
-      .map((c) => c.code);
-
-    if (enabledCodes.length === 0) return;
+  const [countrySearch, setCountrySearch] = useState('');  // Fetch is_special + price for ONLY countries that actually belong to this product
+  // product.countries is the source of truth for which countries are in this product
+  // GET /country/:code tells us if that country is base (is_special=false) or special (is_special=true)
+  useEffect(() => {
+    const productCodes = product.countries.map((c) => c.code);
+    if (productCodes.length === 0) return;
 
     const newSpecial = new Map<string, number | null>();
     const newBase = new Set<string>();
 
-    await Promise.all(
-      enabledCodes.map(async (code) => {
+    // Fetch each country individually — only those with a DB row are in the product
+    Promise.all(
+      productCodes.map(async (code) => {
         try {
           const res = await api.getAdminCountry(code);
           if (res.error) return;
           const data = res.data as any;
           const ptData = data?.plan_types?.[product.plan_type];
-          if (ptData?.is_special) {
-            // Country is special — use its stored price
+          if (!ptData) return; // No row for this plan_type — country not in product
+
+          if (ptData.is_special) {
             const price = isIP ? ptData.price_per_ip : ptData.price_per_gb;
             newSpecial.set(code, price ?? null);
           } else {
-            // Country is in the product at base price
             newBase.add(code);
           }
         } catch {}
       })
-    );
+    ).then(() => {
+      setSpecialCountries(newSpecial);
+      setBaseCountries(newBase);
 
-    setSpecialCountries(newSpecial);
-    setBaseCountries(newBase);
-
-    // Load base price from any base country
-    if (newBase.size > 0 && !basePrice) {
-      const firstBase = [...newBase][0];
-      try {
-        const res = await api.getAdminCountry(firstBase);
-        if (!res.error) {
+      // Load base price from the first base country
+      if (newBase.size > 0 && !basePrice) {
+        const firstBase = [...newBase][0];
+        api.getAdminCountry(firstBase).then((res) => {
+          if (res.error) return;
           const data = res.data as any;
           const ptData = data?.plan_types?.[product.plan_type];
           if (ptData && !ptData.is_special) {
             const bp = isIP ? ptData.price_per_ip : ptData.price_per_gb;
             if (bp) setBasePrice(String(bp));
           }
-        }
-      } catch {}
-    }
-  }, [product.plan_type, isIP]);
-
-  useEffect(() => { loadPrices(); }, [loadPrices]);
+        });
+      }
+    });
+  }, [product.countries, product.plan_type]);
 
   // Only show globally active countries in the picker ( Countries tab gate )
   const pickerCountries = allCountries.filter((c) => c.is_enabled);
