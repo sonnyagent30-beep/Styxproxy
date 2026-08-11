@@ -79,14 +79,24 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [countrySearch, setCountrySearch] = useState('');  // Fetch is_special + price for ONLY countries that actually belong to this product
   // product.countries is the source of truth for which countries are in this product
   // GET /country/:code tells us if that country is base (is_special=false) or special (is_special=true)
+  // Track whether we have fetched from API yet — prevents stale data overwrites
+  const [pricesLoaded, setPricesLoaded] = useState(false);
+
+  useEffect(() => {
+    // Reset load flag when product changes (e.g. user closes and re-opens modal)
+    setPricesLoaded(false);
+  }, [product.countries, product.plan_type]);
+
   useEffect(() => {
     const productCodes = product.countries.map((c) => c.code);
-    if (productCodes.length === 0) return;
+    if (productCodes.length === 0) { setPricesLoaded(true); return; }
+
+    // Skip if already loaded — prevents overwriting fetched data on every basePrice keystroke
+    if (pricesLoaded) return;
 
     const newSpecial = new Map<string, number | null>();
     const newBase = new Set<string>();
 
-    // Fetch each country individually — only those with a DB row are in the product
     Promise.all(
       productCodes.map(async (code) => {
         try {
@@ -94,7 +104,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
           if (res.error) return;
           const data = res.data as any;
           const ptData = data?.plan_types?.[product.plan_type];
-          if (!ptData) return; // No row for this plan_type — country not in product
+          if (!ptData) return;
 
           if (ptData.is_special) {
             const price = isIP ? ptData.price_per_ip : ptData.price_per_gb;
@@ -108,8 +118,8 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
       setSpecialCountries(newSpecial);
       setBaseCountries(newBase);
 
-      // Load base price from the first base country
-      if (newBase.size > 0 && !basePrice) {
+      // Load base price from the first base country (use basePriceRef to avoid stale closure)
+      if (newBase.size > 0) {
         const firstBase = [...newBase][0];
         api.getAdminCountry(firstBase).then((res) => {
           if (res.error) return;
@@ -121,8 +131,9 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
           }
         });
       }
+      setPricesLoaded(true);
     });
-  }, [product.countries, product.plan_type]);
+  }, [product.countries, product.plan_type, pricesLoaded]);
 
   // Only show globally active countries in the picker ( Countries tab gate )
   const pickerCountries = allCountries.filter((c) => c.is_enabled);

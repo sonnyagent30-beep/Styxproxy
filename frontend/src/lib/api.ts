@@ -55,6 +55,9 @@ import type {
   BlogCategory,
   BlogCategoriesResponse,
   ChannelFeatureFlags,
+  CountryCPT,
+  CountryCPTDetail,
+  CPTUpdateResult,
   Plan,
   PlanCreate,
   PlanUpdate,
@@ -781,6 +784,14 @@ class ApiClient {
     return this.request(`/api/admin/countries/${code}/${planType}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Remove a country from a product: disables the CPT row via updateCountryPlanType
+  async removeCountryFromProduct(code: string, planType: string): Promise<ApiResponse<CPTUpdateResult>> {
+    return this.request(`/api/admin/countries/${code}/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: false }),
     });
   }
 
