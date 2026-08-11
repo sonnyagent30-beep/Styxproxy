@@ -457,7 +457,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                           className="text-[var(--muted)] hover:text-red-400 text-xs"
                         >✕</button>
                       </div>
-                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <div className="flex flex-wrap items-center gap-1.5 w-full">
                         <input
                           type="number"
                           min={1}
@@ -468,9 +468,9 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                             setSpecialCountries((prev) => new Map(prev).set(c.code, num));
                           }}
                           placeholder={basePrice || '0'}
-                          className="flex-1 sm:w-28 px-2 py-1.5 rounded bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                          className="w-20 px-2 py-1.5 rounded bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] text-xs focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
-                        <span className="text-xs text-[var(--muted)] shrink-0">
+                        <span className="text-[10px] text-[var(--muted)] shrink-0">
                           ₦/{isIP ? 'IP' : 'GB'}
                         </span>
                         <button
@@ -497,31 +497,6 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                           className="px-3 py-1 rounded text-xs font-medium shrink-0 bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-40"
                         >
                           {status === 'saving' ? '...' : status === 'saved' ? '✓ Saved' : 'Save'}
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const price = specialCountries.get(c.code);
-                            if (price == null || price <= 0) return;
-                            setSaveStatus((prev) => new Map(prev).set(c.code, 'saving'));
-                            const res = await api.updateCountryPlanType(c.code, product.plan_type, {
-                              enabled: true,
-                              is_special: true,
-                              price_per_ip: isIP ? price : undefined,
-                              price_per_gb: !isIP ? price : undefined,
-                            });
-                            setSaveStatus((prev) => {
-                              const next = new Map(prev);
-                              next.set(c.code, res.error ? 'idle' : 'saved');
-                              setTimeout(() => {
-                                setSaveStatus((s) => { const n = new Map(s); n.delete(c.code); return n; });
-                              }, 2000);
-                              return next;
-                            });
-                          }}
-                          disabled={status === 'saving' || val == null || val <= 0}
-                          className="px-2 py-1 rounded text-xs font-medium shrink-0 bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-40"
-                        >
-                          {status === 'saving' ? '...' : status === 'saved' ? '✓' : 'Save'}
                         </button>
                         <button
                           onClick={async () => {
@@ -622,36 +597,40 @@ export default function PlanSettingsPage() {
   const fetchProductCards = useCallback(async () => {
     setProductsLoading(true);
     try {
-      const res = await api.getAdminCountries();
-      if (res.error) { setError('Failed: ' + res.error); return; }
-      const data = res.data as any;
-      const allCountries: CountryItem[] = data?.countries ?? [];
+      // Fetch countries list AND plans list in parallel
+      const [countriesRes, plansRes] = await Promise.all([
+        api.getAdminCountries(),
+        // Use the admin plans endpoint — add a public method if needed
+        api.request('/api/admin/plans'),
+      ]);
 
-      // Also fetch CPT details to get per-country prices
-      const cards: ProductCard[] = await Promise.all(
-        PRODUCTS.map(async (p) => {
-          const enabledCountries = allCountries.filter((c: CountryItem) => c.enabled_plan_types.map(t => t.toUpperCase()).includes(p.plan_type));
-          // Get per-country override prices
-          // Get actual countries from the DB plans — NOT all enabled countries
-          const productRes = await api.request('/api/admin/plans?plan_type=' + p.plan_type);
-          const plansData = productRes?.data ?? [];
-          const productCountryCodes = new Set(plansData.map((plan: any) => plan.country));
-          const countryPrefs: CountryPref[] = enabledCountries
-            .filter((c: CountryItem) => productCountryCodes.has(c.code))
-            .map((c: CountryItem) => ({ code: c.code, is_special: false, override_price: null }));
-          return {
-            plan_type: p.plan_type,
-            label: p.label,
-            pricing_model: p.pricing_model,
-            base_price: null,
-            countries: countryPrefs,
-            is_active: countryPrefs.length > 0,
-          };
-        })
-      );
+      if (countriesRes.error) { setError('Failed to load countries: ' + countriesRes.error); return; }
+      const allCountries: CountryItem[] = (countriesRes.data as any)?.countries ?? [];
+      const plansData = plansRes?.data ?? [];
+
+      const cards: ProductCard[] = PRODUCTS.map((p) => {
+        // Get codes of countries that actually have a plan row in DB
+        const productCountryCodes = new Set(
+          plansData
+            .filter((plan: any) => plan.plan_type === p.plan_type)
+            .map((plan: any) => plan.country)
+        );
+        // Only include countries that are globally enabled AND have a plan row
+        const countryPrefs: CountryPref[] = allCountries
+          .filter((c: CountryItem) => c.is_enabled && productCountryCodes.has(c.code))
+          .map((c: CountryItem) => ({ code: c.code, is_special: false, override_price: null }));
+        return {
+          plan_type: p.plan_type,
+          label: p.label,
+          pricing_model: p.pricing_model,
+          base_price: null,
+          countries: countryPrefs,
+          is_active: countryPrefs.length > 0,
+        };
+      });
 
       setProductCards(cards);
-    } catch { setError('Failed to load products.'); }
+    } catch (e) { setError('Failed to load products: ' + String(e)); }
     finally { setProductsLoading(false); }
   }, []);
 
