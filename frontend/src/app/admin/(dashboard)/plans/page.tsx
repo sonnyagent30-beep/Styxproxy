@@ -92,48 +92,48 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   }, [product.plan_type]);
 
   useEffect(() => {
-    // Skip if no countries or already loaded
-    if (product.countries.length === 0) { setPricesLoaded(true); return; }
-    if (pricesLoaded) return;
+    // Always fetch fresh data when modal opens — don't trust product prop
+    // This fetches: (1) all plan rows for this product (for country list)
+    //               (2) plan-settings (for base price + overrides)
+    Promise.all([
+      api.getAllPlans(),
+      api.getPlanSettings(),
+    ]).then(([plansRes, settingsRes]) => {
+      const allPlans: any[] = plansRes.data ?? [];
+      const myPlans = allPlans.filter((p) => p.plan_type === product.plan_type);
+      const myCountryCodes = new Set(myPlans.map((p) => p.country));
 
-    // Use plan-settings endpoint which has base_pricing + country_overrides in one call
-    api.getPlanSettings().then((res) => {
-      if (res.error) { setPricesLoaded(true); return; }
-      const allSettings: any[] = res.data ?? [];
-      // Find the setting for this plan_type (normalize case)
+      // Split countries into base vs special using plan-settings overrides
+      const settings: any[] = settingsRes.data ?? [];
       const planTypeUpper = product.plan_type.toUpperCase();
       const planTypeMap: Record<string, string> = { DC: 'datacenter', ISP: 'isp', RESIDENTIAL: 'residential', MOBILE: 'mobile' };
       const normalized = planTypeMap[planTypeUpper] ?? product.plan_type.toLowerCase();
-      const setting = allSettings.find((s: any) => s.plan_type?.toLowerCase() === normalized);
-      if (!setting) { setPricesLoaded(true); return; }
+      const setting = settings.find((s: any) => s.plan_type?.toLowerCase() === normalized);
+      const overrides: Record<string, number> = setting?.country_overrides ?? {};
+      const overrideCodes = new Set(Object.keys(overrides));
 
-      const { base_pricing, country_overrides } = setting;
-      const newSpecial = new Map<string, number | null>();
       const newBase = new Set<string>();
-
-      // country_overrides: {GB: 9500, US: 8000} — these are the special countries
-      const overrideCodes = new Set(Object.keys(country_overrides ?? {}));
-
-      for (const c of product.countries) {
-        if (overrideCodes.has(c.code)) {
-          // This country has a special price
-          newSpecial.set(c.code, country_overrides[c.code] ?? null);
+      const newSpecial = new Map<string, number | null>();
+      for (const code of myCountryCodes) {
+        if (overrideCodes.has(code)) {
+          newSpecial.set(code, overrides[code] ?? null);
         } else {
-          // This country uses base price
-          newBase.add(c.code);
+          newBase.add(code);
         }
       }
 
-      setSpecialCountries(newSpecial);
-      setBaseCountries(newBase);
-
       // Set base price from plan-settings
-      const bp = isIP ? base_pricing?.price_per_ip : base_pricing?.price_per_gb;
+      const basePricing = setting?.base_pricing ?? {};
+      const bp = isIP ? basePricing?.price_per_ip : basePricing?.price_per_gb;
       if (bp) setBasePrice(String(bp));
 
+      setBaseCountries(newBase);
+      setSpecialCountries(newSpecial);
+      setPricesLoaded(true);
+    }).catch(() => {
       setPricesLoaded(true);
     });
-  }, [product.countries, product.plan_type, pricesLoaded]);
+  }, [product.plan_type]);
 
   // Only show globally active countries in the picker ( Countries tab gate )
   const pickerCountries = allCountries.filter((c) => c.is_enabled);
