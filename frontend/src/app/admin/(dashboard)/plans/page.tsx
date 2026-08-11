@@ -61,12 +61,10 @@ interface EditProductModalProps {
 
 function EditProductModal({ product, allCountries, onSaved, onClose }: EditProductModalProps) {
   const isIP = product.pricing_model === 'per_IP';
-  const [basePrice, setBasePrice] = useState(String(product.base_price ?? ''));
-  // baseCountries = countries in product using base price
-  const [baseCountries, setBaseCountries] = useState<Set<string>>(
-    new Set(product.countries.map((c) => c.code))
-  );
-  // specialCountries = Map<code, price> for countries with override (set per-item)
+  const [basePrice, setBasePrice] = useState('');
+  // Base and special countries start EMPTY — API fetch populates them after mount
+  // Do NOT initialize from product prop (stale until API call returns)
+  const [baseCountries, setBaseCountries] = useState<Set<string>>(new Set());
   const [specialCountries, setSpecialCountries] = useState<Map<string, number | null>>(new Map());
 
   const [isActive, setIsActive] = useState(product.is_active);
@@ -84,11 +82,14 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   // Track whether we have fetched from API yet — prevents stale data overwrites
   const [pricesLoaded, setPricesLoaded] = useState(false);
 
+  // Reset ALL local state when product changes (e.g. user closes and re-opens modal)
   useEffect(() => {
-    // Reset load flag when product changes (e.g. user closes and re-opens modal)
-    setPricesLoaded(false);
+    setBasePrice('');
+    setBaseCountries(new Set());
+    setSpecialCountries(new Map());
     setRemovedCountries(new Set());
-  }, [product.countries, product.plan_type]);
+    setPricesLoaded(false);
+  }, [product.plan_type]);
 
   useEffect(() => {
     // Skip if no countries or already loaded
@@ -521,7 +522,13 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
             </div>
           )}
 
-          {(baseCountries.size === 0 && specialCountries.size === 0) && (
+          {!pricesLoaded && (
+            <div className="flex items-center justify-center py-6">
+              <span className="text-sm text-[var(--muted)] animate-pulse">Loading countries…</span>
+            </div>
+          )}
+
+          {pricesLoaded && (baseCountries.size === 0 && specialCountries.size === 0) && (
             <p className="text-sm text-[var(--muted)] text-center py-4">
               No countries selected. Click "Add Countries" to choose which countries this product is available in.
             </p>
