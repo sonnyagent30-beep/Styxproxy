@@ -573,16 +573,14 @@ export default function PlanSettingsPage() {
     setProductsLoading(true);
     try {
       // Fetch countries list AND plans list in parallel
-      const [countriesRes, plansRes] = await Promise.all([
+      const [countriesRes, allPlansRes] = await Promise.all([
         api.getAdminCountries(),
-        // Fetch all plans pages (pagination: 125+ items across 7 pages)
-        api.request('/api/admin/plans?limit=200'),
+        api.getAllPlans(),
       ]);
 
       if (countriesRes.error) { setError('Failed to load countries: ' + countriesRes.error); return; }
       const allCountries: CountryItem[] = (countriesRes.data as any)?.countries ?? [];
-      // plansRes.data is {data: [...], pagination: {...}} — extract the nested array
-      const plansData = (plansRes?.data as any)?.data ?? [];
+      const plansData = (allPlansRes?.data as any) ?? [];
 
       const cards: ProductCard[] = PRODUCTS.map((p) => {
         // Get codes of countries that actually have a plan row in DB

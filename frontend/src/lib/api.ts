@@ -719,8 +719,20 @@ class ApiClient {
     return this.request<PaginatedResponse<Plan>>(`/api/admin/plans?${params.toString()}`);
   }
 
-  async getPlan(planId: number): Promise<ApiResponse<Plan>> {
-    return this.request<Plan>(`/api/admin/plans/${planId}`);
+  // Fetch all plans across all pages (use for plan cards that need complete country lists)
+  async getAllPlans(): Promise<ApiResponse<Plan[]>> {
+    const allPlans: Plan[] = [];
+    let page = 1;
+    let hasNext = true;
+    while (hasNext) {
+      const params = new URLSearchParams({ page: String(page), limit: '20' });
+      const res = await this.request<PaginatedResponse<Plan>>(`/api/admin/plans?${params.toString()}`);
+      if (res.error || !res.data?.data) break;
+      allPlans.push(...res.data.data);
+      hasNext = res.data.pagination?.has_next ?? false;
+      page++;
+    }
+    return { data: allPlans, error: undefined };
   }
 
   async createPlan(data: PlanCreate): Promise<ApiResponse<Plan>> {
