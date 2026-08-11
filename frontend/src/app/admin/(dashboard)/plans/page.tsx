@@ -463,31 +463,49 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                           min={1}
                           step={100}
                           value={val ?? ''}
-                          onChange={(e) => setOverride(c.code, e.target.value)}
-                          onBlur={() => { if (val != null) setOverride(c.code, String(val)); }}
-                          placeholder={basePrice || 'Enter price'}
+                          onChange={(e) => {
+                            const num = e.target.value === '' ? null : parseFloat(e.target.value);
+                            setSpecialCountries((prev) => new Map(prev).set(c.code, num));
+                          }}
+                          placeholder={basePrice || '0'}
                           className="flex-1 sm:w-28 px-2 py-1.5 rounded bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
                         <span className="text-xs text-[var(--muted)] shrink-0">
                           ₦/{isIP ? 'IP' : 'GB'}
-                          {basePrice && val != null && parseFloat(String(val)) !== parseFloat(basePrice) && (
-                            <span className="ml-1 text-green-400">
-                              ({parseFloat(String(val)) > parseFloat(basePrice) ? '+' : ''}
-                              {fmt(parseFloat(String(val)) - parseFloat(basePrice))})
-                            </span>
-                          )}
                         </span>
-                        <span className="text-xs w-10 shrink-0 text-center font-medium">
-                          {status === 'saving' && <span className="text-yellow-400">...</span>}
-                          {status === 'saved' && <span className="text-green-400">✓</span>}
-                          {status !== 'saving' && status !== 'saved' && <span className="text-[var(--muted)]">—</span>}
-                        </span>
+                        <button
+                          onClick={async () => {
+                            const price = specialCountries.get(c.code);
+                            if (price == null || price <= 0) return;
+                            setSaveStatus((prev) => new Map(prev).set(c.code, 'saving'));
+                            const res = await api.updateCountryPlanType(c.code, product.plan_type, {
+                              enabled: true,
+                              is_special: true,
+                              price_per_ip: isIP ? price : undefined,
+                              price_per_gb: !isIP ? price : undefined,
+                            });
+                            setSaveStatus((prev) => {
+                              const next = new Map(prev);
+                              next.set(c.code, res.error ? 'idle' : 'saved');
+                              setTimeout(() => {
+                                setSaveStatus((s) => { const n = new Map(s); n.delete(c.code); return n; });
+                              }, 2000);
+                              return next;
+                            });
+                          }}
+                          disabled={status === 'saving' || val == null || val <= 0}
+                          className="px-3 py-1 rounded text-xs font-medium shrink-0 bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-40"
+                        >
+                          {status === 'saving' ? '...' : status === 'saved' ? '✓ Saved' : 'Save'}
+                        </button>
                         <button
                           onClick={async () => {
                             setSaveStatus((prev) => new Map(prev).set(c.code, 'saving'));
                             const res = await api.updateCountryPlanType(c.code, product.plan_type, {
                               enabled: true,
                               is_special: false,
+                              price_per_ip: isIP ? parseFloat(basePrice) : undefined,
+                              price_per_gb: !isIP ? parseFloat(basePrice) : undefined,
                             });
                             setSaveStatus((prev) => {
                               const next = new Map(prev);
@@ -574,13 +592,13 @@ export default function PlanSettingsPage() {
         PRODUCTS.map(async (p) => {
           const enabledCountries = allCountries.filter((c: CountryItem) => c.enabled_plan_types.map(t => t.toUpperCase()).includes(p.plan_type));
           // Get per-country override prices
-          // Note: is_special and actual prices are loaded per-country in the modal
-          // Here we just show which countries are in the product
-          const countryPrefs: CountryPref[] = enabledCountries.map((c: CountryItem) => ({
-            code: c.code,
-            is_special: false,
-            override_price: null,
-          }));
+          // Get actual countries from the DB plans — NOT all enabled countries
+          const productRes = await api.request('/api/admin/plans?plan_type=' + p.plan_type);
+          const plansData = productRes?.data ?? [];
+          const productCountryCodes = new Set(plansData.map((plan: any) => plan.country));
+          const countryPrefs: CountryPref[] = enabledCountries
+            .filter((c: CountryItem) => productCountryCodes.has(c.code))
+            .map((c: CountryItem) => ({ code: c.code, is_special: false, override_price: null }));
           return {
             plan_type: p.plan_type,
             label: p.label,
