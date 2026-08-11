@@ -500,6 +500,31 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                         </button>
                         <button
                           onClick={async () => {
+                            const price = specialCountries.get(c.code);
+                            if (price == null || price <= 0) return;
+                            setSaveStatus((prev) => new Map(prev).set(c.code, 'saving'));
+                            const res = await api.updateCountryPlanType(c.code, product.plan_type, {
+                              enabled: true,
+                              is_special: true,
+                              price_per_ip: isIP ? price : undefined,
+                              price_per_gb: !isIP ? price : undefined,
+                            });
+                            setSaveStatus((prev) => {
+                              const next = new Map(prev);
+                              next.set(c.code, res.error ? 'idle' : 'saved');
+                              setTimeout(() => {
+                                setSaveStatus((s) => { const n = new Map(s); n.delete(c.code); return n; });
+                              }, 2000);
+                              return next;
+                            });
+                          }}
+                          disabled={status === 'saving' || val == null || val <= 0}
+                          className="px-2 py-1 rounded text-xs font-medium shrink-0 bg-yellow-500 text-black hover:bg-yellow-400 disabled:opacity-40"
+                        >
+                          {status === 'saving' ? '...' : status === 'saved' ? '✓' : 'Save'}
+                        </button>
+                        <button
+                          onClick={async () => {
                             setSaveStatus((prev) => new Map(prev).set(c.code, 'saving'));
                             const res = await api.updateCountryPlanType(c.code, product.plan_type, {
                               enabled: true,
@@ -520,9 +545,24 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                               setBaseCountries((prev) => new Set([...prev, c.code]));
                             }
                           }}
-                          className="text-xs text-[var(--muted)] hover:text-red-400 shrink-0"
-                          title="Move back to base price"
+                          className="px-2 py-1 rounded text-xs text-[var(--muted)] hover:text-orange-400 shrink-0 border border-[var(--border)]"
+                          title="Reset to base price"
                         >Reset</button>
+                        <button
+                          onClick={async () => {
+                            setSaveStatus((prev) => new Map(prev).set(c.code, 'saving'));
+                            await api.removeCountryFromProduct(c.code, product.plan_type);
+                            setSaveStatus((prev) => {
+                              const next = new Map(prev);
+                              next.delete(c.code);
+                              return next;
+                            });
+                            setSpecialCountries((prev) => { const n = new Map(prev); n.delete(c.code); return n; });
+                            setBaseCountries((prev) => { const n = new Set(prev); n.delete(c.code); return n; });
+                          }}
+                          className="px-2 py-1 rounded text-xs text-red-400/60 hover:text-red-400 shrink-0 border border-red-400/30 hover:border-red-400"
+                          title="Delete from product"
+                        >Delete</button>
                       </div>
                     </div>
                   );
