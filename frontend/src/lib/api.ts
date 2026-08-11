@@ -795,6 +795,11 @@ class ApiClient {
     });
   }
 
+  // GET /api/admin/plan-settings — returns base_pricing + country_overrides per plan_type
+  async getPlanSettings(): Promise<ApiResponse<any[]>> {
+    return this.request(`/api/admin/plan-settings`);
+  }
+
   async toggleCountry(
     code: string,
     is_enabled: boolean

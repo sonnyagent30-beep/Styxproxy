@@ -91,49 +91,45 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   }, [product.countries, product.plan_type]);
 
   useEffect(() => {
-    const productCodes = product.countries.map((c) => c.code);
-    if (productCodes.length === 0) { setPricesLoaded(true); return; }
-
-    // Skip if already loaded — prevents overwriting fetched data on every basePrice keystroke
+    // Skip if no countries or already loaded
+    if (product.countries.length === 0) { setPricesLoaded(true); return; }
     if (pricesLoaded) return;
 
-    const newSpecial = new Map<string, number | null>();
-    const newBase = new Set<string>();
+    // Use plan-settings endpoint which has base_pricing + country_overrides in one call
+    api.getPlanSettings().then((res) => {
+      if (res.error) { setPricesLoaded(true); return; }
+      const allSettings: any[] = res.data ?? [];
+      // Find the setting for this plan_type (normalize case)
+      const planTypeUpper = product.plan_type.toUpperCase();
+      const planTypeMap: Record<string, string> = { DC: 'datacenter', ISP: 'isp', RESIDENTIAL: 'residential', MOBILE: 'mobile' };
+      const normalized = planTypeMap[planTypeUpper] ?? product.plan_type.toLowerCase();
+      const setting = allSettings.find((s: any) => s.plan_type?.toLowerCase() === normalized);
+      if (!setting) { setPricesLoaded(true); return; }
 
-    Promise.all(
-      productCodes.map(async (code) => {
-        try {
-          const res = await api.getAdminCountry(code);
-          if (res.error) return;
-          const data = res.data as any;
-          const ptData = data?.plan_types?.[product.plan_type];
-          if (!ptData) return;
+      const { base_pricing, country_overrides } = setting;
+      const newSpecial = new Map<string, number | null>();
+      const newBase = new Set<string>();
 
-          if (ptData.is_special) {
-            const price = isIP ? ptData.price_per_ip : ptData.price_per_gb;
-            newSpecial.set(code, price ?? null);
-          } else {
-            newBase.add(code);
-          }
-        } catch {}
-      })
-    ).then(() => {
+      // country_overrides: {GB: 9500, US: 8000} — these are the special countries
+      const overrideCodes = new Set(Object.keys(country_overrides ?? {}));
+
+      for (const c of product.countries) {
+        if (overrideCodes.has(c.code)) {
+          // This country has a special price
+          newSpecial.set(c.code, country_overrides[c.code] ?? null);
+        } else {
+          // This country uses base price
+          newBase.add(c.code);
+        }
+      }
+
       setSpecialCountries(newSpecial);
       setBaseCountries(newBase);
 
-      // Load base price from the first base country (use basePriceRef to avoid stale closure)
-      if (newBase.size > 0) {
-        const firstBase = [...newBase][0];
-        api.getAdminCountry(firstBase).then((res) => {
-          if (res.error) return;
-          const data = res.data as any;
-          const ptData = data?.plan_types?.[product.plan_type];
-          if (ptData && !ptData.is_special) {
-            const bp = isIP ? ptData.price_per_ip : ptData.price_per_gb;
-            if (bp) setBasePrice(String(bp));
-          }
-        });
-      }
+      // Set base price from plan-settings
+      const bp = isIP ? base_pricing?.price_per_ip : base_pricing?.price_per_gb;
+      if (bp) setBasePrice(String(bp));
+
       setPricesLoaded(true);
     });
   }, [product.countries, product.plan_type, pricesLoaded]);
