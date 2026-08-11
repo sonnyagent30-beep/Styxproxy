@@ -204,281 +204,339 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   };
 
   const handleSave = async () => {
+    if (!basePrice || parseFloat(basePrice) <= 0) { setError('Enter a base price'); return; }
     setSaving(true);
     setError(null);
-    try {
-      // Save base countries to DB
-      const baseCodes = [...baseCountries].filter((c) => !specialCountries.has(c));
-      if (baseCodes.length > 0 && basePrice && parseFloat(basePrice) > 0) {
-        const res = await api.createProductsBulk({
-          plan_type: product.plan_type,
-          pricing_model: product.pricing_model,
-          price: parseFloat(basePrice),
-          countries: baseCodes,
-          is_active: isActive,
-        });
-        if (res.error) {
-          setError('Save failed: ' + res.error);
-          setSaving(false);
-          return;
-        }
-      }
-      // Also update is_special=false for any base countries that may have been saved differently
-      await Promise.all(
-        baseCodes.map(async (code) => {
-          await api.updateCountryPlanType(code, product.plan_type, {
-            enabled: true,
-            is_special: false,
-            price_per_ip: isIP ? parseFloat(basePrice) : undefined,
-            price_per_gb: !isIP ? parseFloat(basePrice) : undefined,
-          });
-        })
-      );
-    } catch (e) {
-      setError('Save failed: ' + String(e));
-      setSaving(false);
-      return;
+
+    // Bulk create/update base countries
+    const baseCodes = [...baseCountries];
+    if (baseCodes.length > 0) {
+      setSaving(true);
+      const res = await api.createProductsBulk({
+        plan_type: product.plan_type,
+        pricing_model: product.pricing_model,
+        price: parseFloat(basePrice),
+        countries: baseCodes,
+        is_active: isActive,
+      });
+      if (res.error) { setError('Failed: ' + res.error); setSaving(false); return; }
     }
-    setSaving(false);
     onSaved();
     onClose();
+    setSaving(false);
   };
 
-
-
-  // All countries in this product (base + special combined)
-  const allProductCountries = allCountries.filter(
-    (c) => baseCountries.has(c.code) || specialCountries.has(c.code)
-  );
-  const specialCount = specialCountries.size;
+  const selectedCountries = allCountries.filter((c) => baseCountries.has(c.code) || specialCountries.has(c.code));
+  const countriesWithOverrides = allCountries.filter((c) => specialCountries.has(c.code));
+  const countriesWithBase = allCountries.filter((c) => baseCountries.has(c.code));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-8 px-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-8">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-xl bg-[var(--card)] border border-[var(--border)] shadow-xl my-4">
+      <div className="relative z-10 w-full max-w-2xl p-6 rounded-xl bg-[var(--card)] border border-[var(--border)] shadow-xl my-4">
+        <h2 className="text-lg font-bold text-[var(--foreground)] mb-1">Edit: {product.plan_type}</h2>
+        <p className="text-sm text-[var(--muted)] mb-5">
+          Set base price — then optionally set special prices for specific countries
+        </p>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-[var(--border)]">
-          <div>
-            <h2 className="text-base font-bold text-[var(--foreground)]">{product.label}</h2>
-            <p className="text-xs text-[var(--muted)] mt-0.5">
-              {allProductCountries.length} country{allProductCountries.length !== 1 ? 'ies' : 'y'} · {isIP ? 'per IP/month' : 'per GB'}
-            </p>
-          </div>
-          <button onClick={onClose} className="text-[var(--muted)] hover:text-[var(--foreground)] p-1">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+        {error && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500 text-red-500 text-sm">{error}</div>}
+
+        {/* Base price */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-[var(--muted)] mb-2">
+            Base Price (₦ {isIP ? 'per IP/month' : 'per GB'}) — used unless overridden below
+          </label>
+          <input
+            type="number" min={1} step={100}
+            value={basePrice}
+            onChange={(e) => setBasePrice(e.target.value)}
+            placeholder="e.g. 8000"
+            className="w-full px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+          />
         </div>
 
-        <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+        {/* Active toggle */}
+        <div className="mb-5 flex items-center gap-3">
+          <div
+            onClick={() => setIsActive(!isActive)}
+            className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${isActive ? 'bg-green-500' : 'bg-gray-600'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${isActive ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+          <span className="text-sm text-[var(--foreground)]">{isActive ? 'Active' : 'Inactive'}</span>
+        </div>
 
-          {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500 text-red-500 text-xs">{error}</div>
-          )}
-
-          {/* Base Price — the template */}
-          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--background)]">
-            <label className="block text-xs font-medium text-[var(--muted)] mb-1.5">
-              Base Price — applies to all countries
+        {/* Countries section */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-sm font-medium text-[var(--muted)]">
+              Countries ({baseCountries.size + specialCountries.size} selected)
             </label>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-[var(--muted)]">₦</span>
-              <input
-                type="number"
-                min={1}
-                step={100}
-                value={basePrice}
-                onChange={(e) => setBasePrice(e.target.value)}
-                placeholder="Enter base price"
-                className="flex-1 px-2 py-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
-              />
-              <span className="text-xs text-[var(--muted)]">/{isIP ? 'IP' : 'GB'}/mo</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowCountryPicker((v) => !v)}
+              className="text-sm text-[var(--primary)] hover:underline"
+            >
+              {showCountryPicker ? 'Done' : 'Add Countries'}
+            </button>
+            {(product.plan_type === 'DC' || product.plan_type === 'ISP') && (
+              <button
+                type="button"
+                onClick={() => { setShowSpecialPricePicker(true); setSpecialPriceSelection(new Set()); }}
+                className="text-sm text-yellow-400 hover:underline"
+              >
+                Set Special Price
+              </button>
+            )}
           </div>
 
-          {/* Countries Section */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-[var(--muted)]">
-                Countries {allProductCountries.length > 0 && `(${allProductCountries.length})`}
-              </span>
-              <div className="flex gap-3">
-                {product.plan_type === 'DC' || product.plan_type === 'ISP' ? (
-                  <button
-                    onClick={() => { setShowCountryPicker((v) => !v); setShowSpecialPricePicker(false); }}
-                    className="text-xs text-[var(--primary)] hover:underline"
-                  >
-                    {showCountryPicker ? 'Done' : '+ Add Country'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => { setShowCountryPicker((v) => !v); setShowSpecialPricePicker(false); }}
-                    className="text-xs text-[var(--primary)] hover:underline"
-                  >
-                    {showCountryPicker ? 'Done' : '+ Add Country'}
-                  </button>
+          {showCountryPicker && (
+            <div className="mb-4 border border-[var(--border)] rounded-lg bg-[var(--background)] overflow-hidden">
+              <div className="p-2 border-b border-[var(--border)]">
+                <input
+                  type="text"
+                  value={countrySearch}
+                  onChange={(e) => setCountrySearch(e.target.value)}
+                  placeholder="Search countries..."
+                  className="w-full px-3 py-1.5 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                  autoFocus
+                />
+              </div>
+              <div className="max-h-48 overflow-y-auto divide-y divide-[var(--border)]">
+                {filtered.length === 0 && (
+                  <p className="p-3 text-sm text-[var(--muted)] text-center">
+                    No active countries — enable countries in the Countries tab first
+                  </p>
                 )}
+                {filtered.map((c) => {
+                  const selected = baseCountries.has(c.code) || specialCountries.has(c.code);
+                  return (
+                    <label
+                      key={c.code}
+                      className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-[var(--card)] transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggleCountry(c.code)}
+                        className="w-4 h-4 rounded accent-[var(--primary)]"
+                      />
+                      <span className="text-lg">{c.flag_emoji}</span>
+                      <div>
+                        <div className="text-sm text-[var(--foreground)]">{c.name}</div>
+                        <div className="text-xs text-[var(--muted)]">{c.code}</div>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </div>
+          )}
 
-            {/* Country Picker */}
-            {showCountryPicker && (
-              <div className="mb-3 border border-[var(--border)] rounded-lg bg-[var(--background)] overflow-hidden">
-                <div className="p-2 border-b border-[var(--border)]">
-                  <input
-                    type="text"
-                    value={countrySearch}
-                    onChange={(e) => setCountrySearch(e.target.value)}
-                    placeholder="Search..."
-                    className="w-full px-2 py-1 rounded bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] text-xs focus:outline-none"
-                    autoFocus
-                  />
+          {/* Special Price Picker — DC/ISP only */}
+          {showSpecialPricePicker && (
+            <div className="mb-4 border-2 border-yellow-500/40 rounded-lg bg-yellow-500/5 overflow-hidden">
+              <div className="p-3 border-b border-yellow-500/20 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-yellow-400">Set Special Price</p>
+                  <p className="text-xs text-[var(--muted)] mt-0.5">
+                    Select countries to set individual special prices, then click Done
+                  </p>
                 </div>
-                <div className="max-h-40 overflow-y-auto">
-                  {filtered.length === 0 ? (
-                    <p className="p-3 text-xs text-[var(--muted)] text-center">
-                      No countries found
-                    </p>
-                  ) : (
-                    filtered.map((c) => {
-                      const inProduct = baseCountries.has(c.code) || specialCountries.has(c.code);
-                      return (
-                        <label
-                          key={c.code}
-                          className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-[var(--card)]"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={inProduct}
-                            onChange={() => toggleCountry(c.code)}
-                            className="w-3.5 h-3.5 rounded accent-[var(--primary)]"
-                          />
-                          <span className="text-base">{c.flag_emoji}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs text-[var(--foreground)] truncate">{c.name}</div>
-                          </div>
-                          <div className="text-xs text-[var(--muted)]">{c.code}</div>
-                        </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowSpecialPricePicker(false)}
+                    className="px-3 py-1 rounded text-xs border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+                  >Cancel</button>
+                  <button
+                    onClick={async () => {
+                      const toMove = [...specialPriceSelection];
+                      // Save is_special=true for each selected country immediately
+                      await Promise.all(
+                        toMove.map(async (code) => {
+                          setSaveStatus((prev) => new Map(prev).set(code, 'saving'));
+                          const res = await api.updateCountryPlanType(code, product.plan_type, {
+                            enabled: true,
+                            is_special: true,
+                          });
+                          setSaveStatus((prev) => {
+                            const next = new Map(prev);
+                            next.set(code, res.error ? 'idle' : 'saved');
+                            setTimeout(() => {
+                              setSaveStatus((s) => { const n = new Map(s); n.delete(code); return n; });
+                            }, 2000);
+                            return next;
+                          });
+                          if (!res.error) {
+                            setSpecialCountries((prev) => new Map(prev).set(code, null));
+                            setBaseCountries((prev) => { const n = new Set(prev); n.delete(code); return n; });
+                          }
+                        })
                       );
-                    })
-                  )}
+                      setShowSpecialPricePicker(false);
+                    }}
+                    className="px-3 py-1 rounded text-xs bg-yellow-500 text-black font-medium hover:bg-yellow-400"
+                  >{specialPriceSelection.size > 0 ? `Done (${specialPriceSelection.size})` : 'Done'}</button>
                 </div>
               </div>
-            )}
-
-            {/* Country Price Rows */}
-            {allProductCountries.length === 0 ? (
-              <div className="text-center py-6 text-xs text-[var(--muted)] border border-dashed border-[var(--border)] rounded-lg">
-                No countries yet. Click "+ Add Country" above.
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {allProductCountries.map((c) => {
-                  const isSpecial = specialCountries.has(c.code);
-                  const price = specialCountries.get(c.code) ?? (basePrice ? parseFloat(basePrice) : null);
-                  const status = saveStatus.get(c.code);
-                  const diff = price != null && basePrice && parseFloat(basePrice) !== price
-                    ? price - parseFloat(basePrice)
-                    : null;
+              <div className="max-h-48 overflow-y-auto divide-y divide-[var(--border)]">
+                {selectedCountries.length === 0 && (
+                  <p className="p-3 text-sm text-[var(--muted)] text-center">
+                    No countries in this product yet — add countries first
+                  </p>
+                )}
+                {selectedCountries.map((c) => {
+                  const isSelected = specialPriceSelection.has(c.code);
+                  const hasSpecial = specialCountries.has(c.code);
                   return (
-                    <div key={c.code} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs ${isSpecial ? 'bg-amber-500/5 border-amber-500/30' : 'bg-[var(--background)] border-[var(--border)]'}`}>
-                      {/* Country */}
-                      <span className="text-base shrink-0">{c.flag_emoji}</span>
-                      <span className="text-[var(--foreground)] font-medium w-6 shrink-0">{c.code}</span>
-                      {/* Price Input */}
-                      <div className="flex-1 min-w-0">
+                    <label
+                      key={c.code}
+                      className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${isSelected ? 'bg-yellow-500/10' : 'hover:bg-[var(--card)]'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {
+                          setSpecialPriceSelection((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(c.code)) next.delete(c.code);
+                            else next.add(c.code);
+                            return next;
+                          });
+                        }}
+                        className="w-4 h-4 rounded accent-yellow-500"
+                      />
+                      <span className="text-lg">{c.flag_emoji}</span>
+                      <div className="flex-1">
+                        <div className="text-sm text-[var(--foreground)]">{c.name}</div>
+                        <div className="text-xs text-[var(--muted)]">{c.code}</div>
+                      </div>
+                      {hasSpecial && (
+                        <span className="text-xs text-yellow-400">already special</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Countries using base price */}
+          {countriesWithBase.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs text-[var(--muted)] mb-2 font-medium uppercase tracking-wide">
+                Using Base Price — {fmt(parseFloat(basePrice) || 0)}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {countriesWithBase.map((c) => (
+                  <span
+                    key={c.code}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)]"
+                  >
+                    {getCountryFlag(c.code)} {c.code}
+                    <button
+                      onClick={() => handleRemoveCountry(c.code)}
+                      className="ml-1 text-[var(--muted)] hover:text-red-400"
+                    >✕</button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Countries with special price */}
+          {countriesWithOverrides.length > 0 && (
+            <div>
+              <p className="text-xs text-yellow-400 mb-2 font-medium uppercase tracking-wide">
+                Special Prices — Custom rate per country
+              </p>
+              <div className="space-y-2">
+                {countriesWithOverrides.map((c) => {
+                  const val = specialCountries.get(c.code);
+                  const status = saveStatus.get(c.code);
+                  return (
+                    <div key={c.code} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg bg-yellow-500/5 border border-yellow-500/30">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm">{getCountryFlag(c.code)} {c.code}</span>
+                        <button
+                          onClick={() => handleRemoveCountry(c.code)}
+                          className="text-[var(--muted)] hover:text-red-400 text-xs"
+                        >✕</button>
+                      </div>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
                         <input
                           type="number"
                           min={1}
                           step={100}
-                          value={price ?? ''}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            const num = v === '' ? null : parseFloat(v);
-                            if (num != null) {
-                              setSpecialCountries((prev) => new Map(prev).set(c.code, num));
-                              setBaseCountries((prev) => { const n = new Set(prev); n.delete(c.code); return n; });
+                          value={val ?? ''}
+                          onChange={(e) => setOverride(c.code, e.target.value)}
+                          onBlur={() => { if (val != null) setOverride(c.code, String(val)); }}
+                          placeholder={basePrice || 'Enter price'}
+                          className="flex-1 sm:w-28 px-2 py-1.5 rounded bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] text-sm focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                        />
+                        <span className="text-xs text-[var(--muted)] shrink-0">
+                          ₦/{isIP ? 'IP' : 'GB'}
+                          {basePrice && val != null && parseFloat(String(val)) !== parseFloat(basePrice) && (
+                            <span className="ml-1 text-green-400">
+                              ({parseFloat(String(val)) > parseFloat(basePrice) ? '+' : ''}
+                              {fmt(parseFloat(String(val)) - parseFloat(basePrice))})
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-xs w-10 shrink-0 text-center font-medium">
+                          {status === 'saving' && <span className="text-yellow-400">...</span>}
+                          {status === 'saved' && <span className="text-green-400">✓</span>}
+                          {status !== 'saving' && status !== 'saved' && <span className="text-[var(--muted)]">—</span>}
+                        </span>
+                        <button
+                          onClick={async () => {
+                            setSaveStatus((prev) => new Map(prev).set(c.code, 'saving'));
+                            const res = await api.updateCountryPlanType(c.code, product.plan_type, {
+                              enabled: true,
+                              is_special: false,
+                            });
+                            setSaveStatus((prev) => {
+                              const next = new Map(prev);
+                              next.set(c.code, res.error ? 'idle' : 'saved');
+                              setTimeout(() => {
+                                setSaveStatus((s) => { const n = new Map(s); n.delete(c.code); return n; });
+                              }, 2000);
+                              return next;
+                            });
+                            if (!res.error) {
+                              setSpecialCountries((prev) => { const n = new Map(prev); n.delete(c.code); return n; });
+                              setBaseCountries((prev) => new Set([...prev, c.code]));
                             }
                           }}
-                          onBlur={() => {
-                            const p = price ?? (basePrice ? parseFloat(basePrice) : null);
-                            if (p == null) return;
-                            setSaveStatus((prev) => new Map(prev).set(c.code, 'saving'));
-                            const isSpec = !baseCountries.has(c.code) && specialCountries.has(c.code);
-                            api.updateCountryPlanType(c.code, product.plan_type, {
-                              enabled: true,
-                              is_special: isSpec,
-                              price_per_ip: isIP ? p : undefined,
-                              price_per_gb: !isIP ? p : undefined,
-                            }).then((res) => {
-                              setSaveStatus((prev) => {
-                                const next = new Map(prev);
-                                next.set(c.code, res.error ? 'idle' : 'saved');
-                                setTimeout(() => setSaveStatus((s) => { const n = new Map(s); n.delete(c.code); return n; }), 2000);
-                                return next;
-                              });
-                            });
-                          }}
-                          placeholder={basePrice || '—'}
-                          className={`w-full px-2 py-1 rounded text-xs focus:outline-none focus:ring-1 ${isSpecial ? 'bg-[var(--background)] border border-amber-500/50 text-[var(--foreground)] focus:ring-amber-500' : 'bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] focus:ring-[var(--primary)]'}`}
-                        />
+                          className="text-xs text-[var(--muted)] hover:text-red-400 shrink-0"
+                          title="Move back to base price"
+                        >Reset</button>
                       </div>
-                      {/* Diff indicator */}
-                      <span className="text-[10px] shrink-0 w-12 text-right">
-                        {diff != null ? (
-                          <span className={diff > 0 ? 'text-green-400' : 'text-red-400'}>
-                            {diff > 0 ? '+' : ''}{fmt(diff)}
-                          </span>
-                        ) : baseCountries.has(c.code) ? (
-                          <span className="text-[var(--muted)]">base</span>
-                        ) : null}
-                      </span>
-                      {/* Status */}
-                      <span className="w-5 shrink-0 text-center">
-                        {status === 'saving' && <span className="text-yellow-400">·</span>}
-                        {status === 'saved' && <span className="text-green-400">✓</span>}
-                      </span>
-                      {/* Remove */}
-                      <button
-                        onClick={() => handleRemoveCountry(c.code)}
-                        className="text-[var(--muted)] hover:text-red-400 shrink-0"
-                        title="Remove"
-                      >✕</button>
                     </div>
                   );
                 })}
               </div>
-            )}
-          </div>
-
-          {/* Active toggle */}
-          <div className="flex items-center gap-3">
-            <div
-              onClick={() => setIsActive(!isActive)}
-              className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${isActive ? 'bg-green-500' : 'bg-gray-600'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${isActive ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
-            <span className="text-xs text-[var(--foreground)]">{isActive ? 'Active' : 'Inactive'}</span>
-          </div>
+          )}
+
+          {(baseCountries.size === 0 && specialCountries.size === 0) && (
+            <p className="text-sm text-[var(--muted)] text-center py-4">
+              No countries selected. Click "Add Countries" to choose which countries this product is available in.
+            </p>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="px-5 pb-5 flex gap-3 justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-xs border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
-          >
-            Close
+        {/* Actions */}
+        <div className="flex gap-3 justify-end pt-4 border-t border-[var(--border)]">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--background)]">
+            Cancel
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || allProductCountries.length === 0}
-            className="px-4 py-2 rounded-lg text-xs bg-[var(--primary)] text-white font-medium hover:opacity-90 disabled:opacity-50"
+            disabled={saving || (baseCountries.size + specialCountries.size === 0)}
+            className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:opacity-90 disabled:opacity-50"
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
       </div>
