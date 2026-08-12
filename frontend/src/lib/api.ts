@@ -587,7 +587,7 @@ class ApiClient {
   async getPermissionRequests(
     status?: 'pending' | 'approved' | 'rejected' | 'expired',
   ): Promise<ApiResponse<{ requests: any[]; total: number }>> {
-    const params = status ?  : '';
+    const params = status ? `status=${status}` : '';
     return this.request();
   }
 
