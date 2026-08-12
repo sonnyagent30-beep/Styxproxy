@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@sentry/nextjs": "10.68.0",
     "next": "16.2.10"
   },
   "devDependencies": {
