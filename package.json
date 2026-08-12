@@ -3,9 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "devDependencies": {
-    "@sentry/nextjs": "10.68.0",
-    "@tailwindcss/postcss": "^4",
-    "playwright": "^1.62.1"
+    "@tailwindcss/postcss": "^4"
   },
   "scripts": {
     "build": "cd frontend && npm install && NEXT_TELEMETRY_DISABLED=1 npx next build"
