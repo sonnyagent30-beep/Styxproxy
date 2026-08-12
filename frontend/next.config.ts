@@ -121,14 +121,20 @@ const nextConfig: NextConfig = {
 // - hideSourceMaps: true prevents source maps from being deployed to Vercel
 // Note: @sentry/nextjs@10 handles its own tunnel via the SDK's `tunnel` option
 // (set automatically from `tunnelRoute`). No custom route handler needed.
-export default withSentryConfig(nextConfig, {
-  org: "dannion-creative-hub",
-  project: "styxproxy-frontend",
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  silent: !process.env.CI,
-  hideSourceMaps: true,
-  disableLogger: true,
-  widenClientFileUpload: true,
-  transpileClientSDK: true,
-  telemetry: false,
-});
+// CONDITIONAL: Only activate Sentry when SENTRY_AUTH_TOKEN is present.
+// This prevents post-compile SIGSEGV on Vercel builds without a token.
+const config = process.env.SENTRY_AUTH_TOKEN
+  ? withSentryConfig(nextConfig, {
+      org: "dannion-creative-hub",
+      project: "styxproxy-frontend",
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      silent: !process.env.CI,
+      hideSourceMaps: true,
+      disableLogger: true,
+      widenClientFileUpload: true,
+      transpileClientSDK: true,
+      telemetry: false,
+    })
+  : nextConfig;
+
+export default config;
