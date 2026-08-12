@@ -8,6 +8,6 @@
     "playwright": "^1.62.1"
   },
   "scripts": {
-    "build": "cd frontend && npm install && npx next build"
+    "build": "cd frontend && npm install && TURBOPACK=0 npx next build"
   }
 }
