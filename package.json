@@ -6,6 +6,6 @@
     "next": "16.2.10"
   },
   "scripts": {
-    "build": "cd frontend && npm run build && mv .next ../.next"
+    "build": "cd frontend && npm run build"
   }
 }
