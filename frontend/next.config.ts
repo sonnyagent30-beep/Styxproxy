@@ -7,15 +7,6 @@ const nextConfig: NextConfig = {
     // Pre-existing TS errors in admin pages — don't block deploys while we fix them iteratively
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  // Disable Turbopack — use Webpack for compatibility with Tailwind CSS v4 PostCSS
-  experimental: {
-    turbo: undefined,
-  },
-  // Force Webpack
-  webpack: (config) => config,
   async rewrites() {
     // Proxy /api/admin calls to the backend — browser never talks to api.styxproxy.com directly
     // This eliminates CORS issues entirely for admin API calls
