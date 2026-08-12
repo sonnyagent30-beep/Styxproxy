@@ -10,6 +10,6 @@
     "@tailwindcss/postcss": "^4"
   },
   "scripts": {
-    "build": "npm ci && cp -r node_modules/@sentry frontend/node_modules/ && cd frontend && next build"
+    "build": "cp -r node_modules/@sentry frontend/node_modules/ 2>/dev/null; cd frontend && next build"
   }
 }
