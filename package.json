@@ -6,8 +6,5 @@
     "@sentry/nextjs": "10.68.0",
     "@tailwindcss/postcss": "^4",
     "playwright": "^1.62.1"
-  },
-  "scripts": {
-    "build": "echo 'Vercel handles frontend build via rootDirectory'"
   }
 }
