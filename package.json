@@ -2,15 +2,12 @@
   "name": "styxproxy",
   "version": "1.0.0",
   "private": true,
-  "dependencies": {
-    "next": "latest"
-  },
   "devDependencies": {
     "@sentry/nextjs": "10.68.0",
     "@tailwindcss/postcss": "^4",
     "playwright": "^1.62.1"
   },
   "scripts": {
-    "build": "NODE_OPTIONS='--max-old-space-size=2048' npm run build --prefix frontend"
+    "build": "echo 'Vercel handles frontend build via rootDirectory'"
   }
 }
