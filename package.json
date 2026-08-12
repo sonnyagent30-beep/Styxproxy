@@ -3,13 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@sentry/nextjs": "10.68.0",
-    "next": "16.2.10"
+    "next": "15.5.23"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4"
   },
   "scripts": {
-    "build": "cp -r node_modules/@sentry frontend/node_modules/ 2>/dev/null; cd frontend && next build"
+    "build": "cd frontend && npm install && next build && mv .next ../.next"
   }
 }
