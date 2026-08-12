@@ -77,15 +77,6 @@ export default function AdminDashboardPage() {
     latency_ms: { samples: number; avg: number; max: number };
   } | null>(null);
   const [circuitBreakers, setCircuitBreakers] = useState<CircuitBreakerState>({});
-    uptime_seconds: number;
-    llm_configured: boolean;
-    requests: { total: number; successful: number; escalated: number; llm_errors: number; rate_limited: number };
-    tokens_used_total: number;
-    by_channel: Record<string, number>;
-    by_outcome: Record<string, number>;
-    recent_errors: Array<string>;
-    latency_ms: { samples: number; avg: number; max: number };
-  } | null>(null);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
