@@ -10,6 +10,6 @@
     "playwright": "^1.62.1"
   },
   "scripts": {
-    "build": "npm install --prefix frontend && npm run build --prefix frontend"
+    "build": "NODE_OPTIONS='--max-old-space-size=2048' npm run build --prefix frontend"
   }
 }
