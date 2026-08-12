@@ -578,7 +578,6 @@ class ApiClient {
       body: JSON.stringify({ action, reviewer_notes }),
     });
   }
-  }
 
   // ============== Blog ==============
 
