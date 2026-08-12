@@ -7,7 +7,6 @@ const nextConfig: NextConfig = {
     // Pre-existing TS errors in admin pages — don't block deploys while we fix them iteratively
     ignoreBuildErrors: true,
   },
-  output: 'standalone',
   async rewrites() {
     // Proxy /api/admin calls to the backend — browser never talks to api.styxproxy.com directly
     // This eliminates CORS issues entirely for admin API calls
@@ -130,11 +129,8 @@ const config = process.env.SENTRY_AUTH_TOKEN
       project: "styxproxy-frontend",
       authToken: process.env.SENTRY_AUTH_TOKEN,
       silent: !process.env.CI,
-      hideSourceMaps: true,
+      sourcemaps: { disable: true },
       disableLogger: true,
-      widenClientFileUpload: true,
-      transpileClientSDK: true,
-      telemetry: false,
     })
   : nextConfig;
 
