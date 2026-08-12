@@ -4,5 +4,8 @@
   "private": true,
   "dependencies": {
     "next": "16.2.10"
+  },
+  "scripts": {
+    "build": "echo 'Vercel uses project buildCommand (cd frontend && npm run build)'"
   }
 }
