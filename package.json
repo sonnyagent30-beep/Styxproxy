@@ -8,6 +8,6 @@
     "playwright": "^1.62.1"
   },
   "scripts": {
-    "build": "cd frontend && npm install && NEXT_DISABLE_TURBOPACK=1 npm run build"
+    "build": "cd frontend && npm install && next build --no-lint"
   }
 }
