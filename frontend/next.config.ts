@@ -130,4 +130,5 @@ export default withSentryConfig(nextConfig, {
   disableLogger: true,
   widenClientFileUpload: true,
   transpileClientSDK: true,
+  telemetry: false,
 });

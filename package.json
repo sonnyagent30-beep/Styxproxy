@@ -8,6 +8,6 @@
     "playwright": "^1.62.1"
   },
   "scripts": {
-    "build": "npm run build --prefix frontend"
+    "build": "cd frontend && npm install && npm run build"
   }
 }
