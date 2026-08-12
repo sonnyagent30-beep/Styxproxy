@@ -35,8 +35,7 @@ async def post_maintenance_announcement(
     Called when maintenance mode is ENABLED.
     """
     body = message or (
-        "Styxproxy is currently undergoing scheduled maintenance. "
-        "Proxy provisioning is temporarily unavailable."
+        "Styxproxy is currently undergoing scheduled maintenance. " "Proxy provisioning is temporarily unavailable."
     )
     payload = {
         "announcement": body,

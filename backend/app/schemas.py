@@ -238,9 +238,9 @@ class PlanCreateRequest(BaseModel):
     plan_code: str = Field(..., min_length=1, max_length=50)
     plan_type: str = Field(..., min_length=1, max_length=20)
     country: str = Field(..., min_length=2, max_length=10)
-    price_ngn: Optional[float] = Field(None, ge=0)        # per-IP (DC/ISP)
-    price_per_gb: Optional[float] = Field(None, ge=0)     # per-GB (residential/mobile)
-    quantity: int = Field(default=1, ge=1)                # GB included (residential/mobile)
+    price_ngn: Optional[float] = Field(None, ge=0)  # per-IP (DC/ISP)
+    price_per_gb: Optional[float] = Field(None, ge=0)  # per-GB (residential/mobile)
+    quantity: int = Field(default=1, ge=1)  # GB included (residential/mobile)
     duration_days: int = Field(default=30, ge=1)
     features: Optional[dict[str, Any]] = None
     is_active: bool = True
@@ -1698,7 +1698,9 @@ class MetricsOverviewResponse(BaseModel):
     charon_llm_errors: int = 0
     charon_tokens_used_total: int = 0
 
+
 # ============== PlanSettings Schemas ==============
+
 
 class PlanSettingsCreateRequest(BaseModel):
     plan_type: Optional[str] = Field(None, max_length=20)

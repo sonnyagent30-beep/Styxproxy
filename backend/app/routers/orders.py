@@ -79,9 +79,9 @@ async def resolve_plan(
 # window we accept the legacy codes and translate to the real DB plans.
 # After /admin/plans is the primary UI, this can be removed in a follow-up.
 LEGACY_PLAN_TRANSLATION = {
-    "ISP-NG-1": "RESI-NG-5GB",       # legacy ISP code → residential NG
+    "ISP-NG-1": "RESI-NG-5GB",  # legacy ISP code → residential NG
     "ISP-NG-2": "RESI-NG-10GB",
-    "DC-NG-1": "DC-US-5GB",          # legacy DC NG → DC US (closest)
+    "DC-NG-1": "DC-US-5GB",  # legacy DC NG → DC US (closest)
     "RESIDENTIAL-UK-1": "RESI-UK-5GB",
     "RESIDENTIAL-US-1": "RESI-US-5GB",
     "MOBILE-DE-1": "MOB-US-5GB",
@@ -524,10 +524,7 @@ async def get_order_by_payment_reference(
     """
     stmt = (
         select(Order)
-        .where(
-            (Order.payment_reference == payment_reference)
-            | (Order.tx_ref == payment_reference)
-        )
+        .where((Order.payment_reference == payment_reference) | (Order.tx_ref == payment_reference))
         .order_by(Order.created_at.desc())
         .limit(1)
     )
@@ -538,9 +535,7 @@ async def get_order_by_payment_reference(
 
     cred_brief = None
     if order.styxproxy_credential_id:
-        cred_stmt = select(StyxproxyCredential).where(
-            StyxproxyCredential.id == order.styxproxy_credential_id
-        )
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
         if cred:

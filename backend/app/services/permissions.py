@@ -44,9 +44,7 @@ TOTP_STEP_UP_WINDOW = timedelta(minutes=5)
 # ============================================================
 
 
-async def get_effective_permissions(
-    session: AsyncSession, admin: AdminAuth
-) -> set[str]:
+async def get_effective_permissions(session: AsyncSession, admin: AdminAuth) -> set[str]:
     """Return the set of permission codes granted to the given admin.
 
     Resolution order:
@@ -79,9 +77,7 @@ async def get_effective_permissions(
     return role_perms
 
 
-async def has_permission(
-    session: AsyncSession, admin: AdminAuth, code: str
-) -> bool:
+async def has_permission(session: AsyncSession, admin: AdminAuth, code: str) -> bool:
     """Check if admin has a specific permission code."""
     perms = await get_effective_permissions(session, admin)
     return code in perms
@@ -193,9 +189,7 @@ async def _check_totp_step_up(
 # ============================================================
 
 
-async def get_effective_permissions_payload(
-    session: AsyncSession, admin: AdminAuth
-) -> dict:
+async def get_effective_permissions_payload(session: AsyncSession, admin: AdminAuth) -> dict:
     """Build the payload for /api/me/permissions — categories + codes."""
     from app.models import AdminPermission
 

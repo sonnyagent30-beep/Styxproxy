@@ -31,6 +31,7 @@ def _hash(key: str) -> str:
 
 class IdempotencyRecord:
     """Nominal class — actual table created via raw SQL on startup."""
+
     pass
 
 
@@ -64,10 +65,9 @@ async def check_idempotency(
 
         # Find existing record
         row = await session.execute(
-            select(
-                text("key_hash, status_code, response_body, response_headers")
-            ).select_from(text("idempotency_responses")
-            ).where(text(f"key_hash = '{key_hash}' AND expires_at > '{now.isoformat()}'"))
+            select(text("key_hash, status_code, response_body, response_headers"))
+            .select_from(text("idempotency_responses"))
+            .where(text(f"key_hash = '{key_hash}' AND expires_at > '{now.isoformat()}'"))
         )
         existing = row.first()
 
@@ -83,7 +83,9 @@ async def check_idempotency(
                 )
             else:
                 # In-flight
-                raise HTTPException(status_code=409, detail={"error": {"code": "IN_PROGRESS", "message": "Request already in progress"}})
+                raise HTTPException(
+                    status_code=409, detail={"error": {"code": "IN_PROGRESS", "message": "Request already in progress"}}
+                )
 
         # New key — insert in-flight record
         await session.execute(
@@ -114,6 +116,7 @@ async def store_idempotent_response(
 
     async with AsyncSession(engine) as session:
         from sqlalchemy import text
+
         await session.execute(
             text("""
                 UPDATE idempotency_responses

@@ -511,6 +511,7 @@ class City(Base):
     Customers can pick a city for exact targeting or skip (="random") to get
     a pool IP from the country.
     """
+
     __tablename__ = "cities"
     __table_args__ = (
         Index("idx_cities_country", "country_code"),
@@ -533,6 +534,7 @@ class City(Base):
 
 class PlanCity(Base):
     """Plan <-> City mapping (admin can restrict cities per plan)."""
+
     __tablename__ = "plan_cities"
     plan_id: Mapped[int] = mapped_column(Integer, ForeignKey("plans.id", ondelete="CASCADE"), primary_key=True)
     city_id: Mapped[int] = mapped_column(Integer, ForeignKey("cities.id", ondelete="CASCADE"), primary_key=True)
@@ -669,13 +671,13 @@ class CharonContext(Base):
     message_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_intent: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     last_topics: Mapped[Optional[list[str]]] = mapped_column(ARRAY(String(100)), nullable=True)
-    received_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class Country(Base):
     """ISO 3166-1 country reference table.
 
@@ -708,9 +710,7 @@ class Country(Base):
     is_supported: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     proxy_pool: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -836,7 +836,6 @@ class SupportMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
-
 class HealthSnapshot(Base):
     """Health history table — Time-series of system health probes.
 
@@ -870,9 +869,7 @@ class HealthSnapshot(Base):
     # Source
     source: Mapped[str] = mapped_column(String(20), nullable=False, default="cron")
     # Timestamp
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class AdminPermission(Base):
@@ -894,35 +891,27 @@ class AdminPermission(Base):
     """
 
     __tablename__ = "admin_permissions"
-    __table_args__ = (
-        Index("idx_admin_permissions_category", "category"),
-    )
+    __table_args__ = (Index("idx_admin_permissions_category", "category"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     category: Mapped[str] = mapped_column(String(50), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     is_sensitive: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class AdminRolePermission(Base):
     """Role → permission defaults (Theme C)."""
 
     __tablename__ = "admin_role_permissions"
-    __table_args__ = (
-        Index("idx_admin_role_permissions_role", "role"),
-    )
+    __table_args__ = (Index("idx_admin_role_permissions_role", "role"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     permission_code: Mapped[str] = mapped_column(String(64), nullable=False)
     granted: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -932,18 +921,14 @@ class AdminUserPermission(Base):
     """Per-admin permission overrides (Theme C)."""
 
     __tablename__ = "admin_user_permissions"
-    __table_args__ = (
-        Index("idx_admin_user_permissions_email", "admin_email"),
-    )
+    __table_args__ = (Index("idx_admin_user_permissions_email", "admin_email"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     admin_email: Mapped[str] = mapped_column(String(255), nullable=False)
     permission_code: Mapped[str] = mapped_column(String(64), nullable=False)
     granted: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     granted_by: Mapped[str] = mapped_column(String(255), nullable=False)
-    granted_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
@@ -974,9 +959,7 @@ class PermissionChangeRequest(Base):
     reviewed_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     reviewer_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
@@ -994,9 +977,7 @@ class RlsPolicy(Base):
     """
 
     __tablename__ = "rls_policy"
-    __table_args__ = (
-        Index("idx_rls_policy_enabled", "policy_enabled"),
-    )
+    __table_args__ = (Index("idx_rls_policy_enabled", "policy_enabled"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     table_name: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
@@ -1013,9 +994,7 @@ class RlsPolicy(Base):
     role_name: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, server_default="styxproxy_app")
     policy_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, server_default="not_started")
     created_by: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -1043,9 +1022,7 @@ class AdminTotpSession(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     admin_email: Mapped[str] = mapped_column(String(255), nullable=False)
     session_token_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    granted_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    granted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     device_fingerprint: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -1053,9 +1030,7 @@ class AdminTotpSession(Base):
     user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class CharonBlogChunk(Base):
@@ -1073,9 +1048,7 @@ class CharonBlogChunk(Base):
     """
 
     __tablename__ = "charon_blog_chunks"
-    __table_args__ = (
-        Index("idx_charon_blog_chunks_post", "post_id"),
-    )
+    __table_args__ = (Index("idx_charon_blog_chunks_post", "post_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     post_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
@@ -1084,9 +1057,7 @@ class CharonBlogChunk(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     word_count: Mapped[int] = mapped_column(Integer, nullable=False)
     embedding: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -1122,12 +1093,11 @@ class DanteUser(Base):
     bytes_used: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
 
 class PlanSettings(Base):
     """Plan settings table - Global and country-specific pricing rules."""

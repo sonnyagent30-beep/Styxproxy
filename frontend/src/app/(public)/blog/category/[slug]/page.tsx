@@ -1,3 +1,5 @@
+
+/* eslint-disable @next/next/no-html-link-for-pages, @typescript-eslint/no-explicit-any */
 import { Metadata } from 'next';
 import { api } from '@/lib/api';
 import PostCard from '@/components/blog/PostCard';

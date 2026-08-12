@@ -95,7 +95,9 @@ class ProxyUsageResponse(BaseModel):
 class UpdateProxySettingsRequest(BaseModel):
     """Update mutable proxy settings (location, sticky session, rotation mode, alert threshold)."""
 
-    country_target: Optional[str] = Field(None, min_length=2, max_length=2, description="ISO 3166-1 alpha-2 (US, GB, etc.)")  # noqa: E501
+    country_target: Optional[str] = Field(
+        None, min_length=2, max_length=2, description="ISO 3166-1 alpha-2 (US, GB, etc.)"
+    )  # noqa: E501
     sticky_session_minutes: Optional[int] = Field(None, ge=0, le=60, description="0 = rotate per request")
     bandwidth_alert_pct: Optional[int] = Field(None, ge=50, le=99)
     rotation_mode: Optional[str] = Field(None, description="rotating | static — switch between pool and pinned IP")

@@ -1,0 +1,52 @@
+// Grafana Alloy — log shipper to Contabo Loki
+// Ships logs from Interserver to Loki on Contabo (84.247.132.12:3100)
+
+logging {
+  level = "info"
+}
+
+local.file_match("api_logs") {
+  targets = [{
+    __path__ = "/var/log/styxproxy-api.log",
+    service = "styxproxy-api",
+    host = "interserver",
+  }]
+  loki.write "contabo" {}
+}
+
+local.file_match("dante_logs") {
+  targets = [{
+    __path__ = "/var/log/styxproxy-dante-auth.err.log",
+    service = "dante-auth",
+    host = "interserver",
+  }]
+  loki.write "contabo" {}
+}
+
+local.file_match("nginx_logs") {
+  targets = [{
+    __path__ = "/var/log/styxproxy-nginx-access.log",
+    service = "nginx-access",
+    host = "interserver",
+  }]
+  loki.write "contabo" {}
+}
+
+local.file_match("fulfillment_logs") {
+  targets = [{
+    __path__ = "/var/log/styxproxy-fulfillment-worker.err.log",
+    service = "fulfillment-worker",
+    host = "interserver",
+  }]
+  loki.write "contabo" {}
+}
+
+loki.write "contabo" {
+  client {
+    endpoint = "http://84.247.132.12:3100/loki/api/v1/push"
+    external_labels = {
+      environment = "production",
+      service = "styxproxy",
+    }
+  }
+}

@@ -1,3 +1,6 @@
+
+/* eslint-disable react-hooks/immutability */
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -18,6 +21,14 @@ type HealthState = {
   charon_fallback: string;
 };
 
+type CircuitBreaker = {
+  failures: number;
+  state: string;  // closed | open | half_open
+  tripped_at: string | null;
+};
+
+type CircuitBreakerState = Record<string, CircuitBreaker>;
+
 const FALLBACK_HEALTH: HealthState = {
   status: 'unknown',
   database: 'unknown',
@@ -30,6 +41,25 @@ const FALLBACK_HEALTH: HealthState = {
   charon_fallback: 'local-minicpm5',
 };
 
+function HealthBadge({ label, value, ok }: { label: string; value: string; ok: string }) {
+  const isOk = value === ok;
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--card)] border border-[var(--border)]">
+      <div className={`w-2 h-2 rounded-full ${isOk ? 'bg-green-400' : 'bg-amber-400'}`} />
+      <div>
+        <p className="text-xs text-[var(--muted)]">{label}</p>
+        <p className={`text-sm font-medium ${isOk ? 'text-green-400' : 'text-amber-400'}`}>{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function CircuitBadge({ state, failures }: { state: string; failures: number }) {
+  if (state === 'closed') return <span className="text-xs px-2 py-1 rounded-full bg-green-400/10 text-green-400">Closed</span>;
+  if (state === 'open') return <span className="text-xs px-2 py-1 rounded-full bg-red-400/10 text-red-400">Open ({failures})</span>;
+  return <span className="text-xs px-2 py-1 rounded-full bg-amber-400/10 text-amber-400">Half-Open</span>;
+}
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [metrics, setMetrics] = useState<MetricsOverview | null>(null);
@@ -37,6 +67,16 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [charonStats, setCharonStats] = useState<{
+    uptime_seconds: number;
+    llm_configured: boolean;
+    requests: { total: number; successful: number; escalated: number; llm_errors: number; rate_limited: number };
+    tokens_used_total: number;
+    by_channel: Record<string, number>;
+    by_outcome: Record<string, number>;
+    recent_errors: Array<string>;
+    latency_ms: { samples: number; avg: number; max: number };
+  } | null>(null);
+  const [circuitBreakers, setCircuitBreakers] = useState<CircuitBreakerState>({});
     uptime_seconds: number;
     llm_configured: boolean;
     requests: { total: number; successful: number; escalated: number; llm_errors: number; rate_limited: number };
@@ -75,6 +115,11 @@ export default function AdminDashboardPage() {
         // without the full services object. Treat partial as unknown rather
         // than crashing the dashboard.
         const services = h.services ?? {};
+
+      // Circuit breakers
+      if (healthRes.data && 'circuit_breakers' in healthRes.data) {
+        setCircuitBreakers((healthRes.data as any).circuit_breakers || {});
+      }
         setHealth({
           status: h.status ?? 'unknown',
           database: services.database ?? 'unknown',

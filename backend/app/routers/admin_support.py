@@ -360,3 +360,62 @@ async def reopen_support_thread(
         "status": "reopened",
         "thread_id": str(thread.id),
     }
+
+
+"""Add test-email endpoint to admin_support.py on develop branch."""
+ENDPOINT = '''
+
+@router.post("/test-email", dependencies=[Depends(admin_only)])
+async def send_test_email(
+    to_email: str = Query(..., description="Email address to send test to"),
+) -> dict[str, Any]:
+    """Send a test email to verify the email sender is working.
+
+    Requires admin JWT authentication.
+    Returns the Resend delivery result including message ID and status.
+    """
+    from typing import Any
+    from app.services.email import _send_via_resend, EmailContent, EmailRecipient
+    from app.config import get_settings
+
+    settings = get_settings()
+
+    test_html = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Styxproxy Email Test</title>
+</head>
+<body style="font-family: sans-serif; background: #0f0f0f; color: #f5f5f5; padding: 40px;">
+    <div style="max-width: 500px; margin: 0 auto;">
+        <div style="height: 4px; background: #00D060; border-radius: 2px; margin-bottom: 24px;"></div>
+        <h1 style="color: #00D060; font-size: 24px; margin-bottom: 8px;">Styxproxy Email Test</h1>
+<<<<<<< HEAD
+        <p style="color: #9ca3af; margin-bottom: 16px;">If you see this, the email sender is working.</p>
+        <div style="background: #1a1a1a; border-radius: 4px; padding: 16px; margin: 16px 0;">
+            <p style="color: #00D060; margin: 0; font-size: 14px;">
+                Green color check - should be vivid bright green<br>
+                Logo should appear above<br>
+                Dark theme renders correctly
+            </p>
+        </div>
+        <p style="color: #6b7280; font-size: 12px;">Sent via Resend at styxproxy.com</p>
+    </div>
+</body>
+</html>"""
+
+    content = EmailContent(
+        subject="Styxproxy Email Test",
+        html=test_html,
+        text="This is a test email from Styxproxy. If you received this, the email sender is working.",
+    )
+    recipient = EmailRecipient(email=to_email, name="Test Recipient")
+    result = await _send_via_resend(recipient, content.subject, content.html, content.text)
+    return {
+        "sent_to": to_email,
+        "success": result.success,
+        "message_id": result.message_id,
+        "error": result.error,
+        "from_email": settings.from_email,
+    }
+'''

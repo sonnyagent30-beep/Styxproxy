@@ -1063,3 +1063,19 @@ export interface AnalyticsEvent {
   meta: Record<string, unknown>;
   created_at: string;
 }
+
+export interface PermissionChangeRequestResponse {
+  id: string;
+  requested_by: string;
+  target_email: string | null;
+  target_role: string | null;
+  permission_code: string;
+  desired_state: boolean;
+  justification: string;
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  reviewer_notes: string | null;
+  created_at: string;
+  expires_at: string;
+}

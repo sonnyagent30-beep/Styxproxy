@@ -27,13 +27,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: deps-nextjs-${{ hashFiles('frontend/package-lock.json') }}
 
-      - name: Install Playwright browsers
-        run: npx playwright install chromium
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pb-chromium-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            pb-chromium-
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm ci
+
+      - name: Install Playwright browser
+        run: cd frontend && npx playwright install chromium
 
       - name: Determine environment
         id: env
@@ -49,6 +62,7 @@ jobs:
       - name: Run browser verification
         env:
           STAGING_URL: ${{ steps.env.outputs.url }}
+          NODE_PATH: ${{ github.workspace }}/frontend/node_modules
         run: node scripts/browser-verify.js
 
       - name: Upload verification screenshot

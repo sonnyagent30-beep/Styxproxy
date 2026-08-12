@@ -1,124 +1,103 @@
 # Data Retention Policy
 
-**Owner:** Operations  
-**Last updated:** 2026-08-03
+**Owner:** Styxproxy Operations
+**Effective:** 2026-08-09
+**Review:** Quarterly
 
 ---
 
-## Overview
+## Why This Exists
 
-This document defines retention periods for all data stored in the Styxproxy system. Retention periods are driven by:
-- **Business requirements** (accounting, legal)
-- **Operational needs** (debugging, replay)
-- **Compliance** (privacy, PCI-DSS for payments)
-- **Cost** (storage optimization)
+Data retention keeps the database lean, reduces storage costs, and limits GDPR/NDPR liability by not holding data longer than necessary. Different data types have different lifespans.
 
 ---
 
 ## Retention Schedule
 
-| Data Type | Retention | Rationale | Cleanup Mechanism |
-|-----------|-----------|-----------|------------------|
-| **Orders** | Indefinite | Business records, tax/accounting | None (permanent) |
-| **Customers** | Indefinite | Business records, support history | None (permanent) |
-| **Credentials** | Indefinite | Active proxy access | Manual revocation only |
-| **Payments (Flutterwave)** | 7 years | Nigerian tax law requirement | None (permanent) |
-| **Processed Webhooks** | 90 days | Debug replay, duplicate prevention | `cleanup_webhooks.py` cron (03:30 UTC) |
-| **Charon Context** | 24 hours | Cost control, privacy | `cleanup_charon_context` cron |
-| **Health Snapshots** | 7 days | Monitoring dashboards | Cron prunes older rows |
-| **Admin TOTP Sessions** | 5 minutes TTL | Security | Expiry check on read |
-| **JSON Access Logs** | 30 days | Debugging, security audit | Log rotation (nginx/docker) |
-| **Error Logs** | 30 days | Debugging | Log rotation |
-| **Blog Posts** | Indefinite | Content library | None (permanent) |
-| **Free Trials** | 90 days | Abuse prevention | Auto-expire via query filter |
+| Table / Data Type | Retention | Rationale |
+|---|---|---|
+| `analytics_events` | **30 days** raw → summarise to monthly | Raw events grow fast; monthly summaries preserve trends |
+| `health_snapshots` | **30 days** | Operational health data; 30 days covers most debugging windows |
+| `admin_audit_log` | **2 years** | Security audit trail; sensitive |
+| `charon_ab_assignments` | **90 days** | A/B test data; 90 days enough for analysis |
+| `charon_ab_outcomes` | **90 days** | A/B test outcomes; linked to assignments |
+| `charon_escalations` | **90 days** | Chat escalation logs |
+| `charon_context` | **7 days** | Temporary conversation context |
+| `charon_blog_chunks` | **180 days** | Blog cache; refreshes on crawl |
+| `contact_submissions` | **2 years** | Customer enquiries (NDPR) |
+| `support_messages` | **2 years** | Support thread history |
+| `customers` | **Until deletion** | Customer account; deleted on request |
+| `orders` | **7 years** | Financial records (Nigeria FIRS requirement) |
+| `posts`, `post_categories` | **Until unpublished** | Blog content; removed when post deleted |
+| `email_unsubscribes` | **Permanent** | Suppression list; re-subscribes allowed |
+| `processed_webhooks` | **30 days** | Idempotency cache; not needed beyond 30 days |
+| `idempotency_responses` | **7 days** | Short-lived deduplication |
+| `pending_trial_surveys` | **30 days** | Incomplete survey data |
 
 ---
 
-## Details
+## Cron Jobs
 
-### Processed Webhooks
+All jobs run at **03:00 UTC** daily via `cronjob` tool.
 
-**Retention:** 90 days  
-**Location:** `processed_webhooks` table  
-**Cleanup:** Daily cron at 03:30 UTC
+### 1. analytics_events — summarise & trim (daily 03:00)
 
-```bash
-# Manual trigger (if needed)
-python3 /opt/styxproxy/backend/scripts/cleanup_webhooks.py
-```
+Summarise yesterday's events into a `monthly_analytics` table, then delete raw rows older than 30 days.
 
-**Rationale:** Webhook payloads are needed only for debugging duplicate payments during the replay window (300 seconds). After 90 days, the probability of needing to replay a webhook is negligible, and storing them indefinitely creates unnecessary storage cost.
+### 2. health_snapshots — trim (daily 03:15)
 
-**Script:** `/opt/styxproxy/backend/scripts/cleanup_webhooks.py`
+Delete snapshots older than 30 days.
 
----
+### 3. admin_audit_log — archive & trim (daily 03:30)
 
-### Charon Context
+Archive rows older than 1 year to JSON file in `/opt/styxproxy/backups/audit/`, then delete from DB. Keep 2 years online.
 
-**Retention:** 24 hours  
-**Location:** `charon_context` table  
-**Cleanup:** `cleanup_charon_context` cron job
+### 4. charon context/chunks — purge (daily 04:00)
 
-**Rationale:** Charon conversation history is only useful for ongoing sessions. Retaining longer increases cost (MiniMax API calls) and creates privacy concerns. After 24 hours, the context is cleared and Charon starts fresh.
+Delete `charon_context` entries older than 7 days. Delete `charon_blog_chunks` older than 180 days.
 
----
+### 5. contact_submissions — purge (monthly)
 
-### Health Snapshots
+Delete `contact_submissions` older than 2 years (after annual review).
 
-**Retention:** 7 days  
-**Location:** `health_snapshots` table  
-**Cleanup:** Caller should implement cron to prune rows older than 7 days
+### 6. processed_webhooks / idempotency — purge (daily 03:05)
 
-**Rationale:** Health snapshots are used for monitoring dashboards and incident post-mortems. 7 days is sufficient to detect patterns and correlate with incidents.
+Delete `processed_webhooks` older than 30 days, `idempotency_responses` older than 7 days.
 
 ---
 
-### Admin TOTP Sessions
+## Cron Job Files
 
-**Retention:** 5 minutes TTL  
-**Location:** `admin_totp_sessions` table  
-**Cleanup:** Automatic expiry check on read
-
-**Rationale:** Short TTL limits the window of opportunity for session hijacking. Sessions are not stored long-term.
-
----
-
-### JSON Access Logs
-
-**Retention:** 30 days  
-**Location:** `/var/log/styxproxy/access.json` (container logs)  
-**Cleanup:** Docker log rotation (via `docker-compose.yml`)
-
-**Rationale:** Access logs are needed for:
-- Security incident investigation
-- Debugging customer issues
-- Usage analytics
-
-After 30 days, logs are rotated and archived (if needed) or discarded.
+- `/opt/styxproxy/backend/scripts/retention_analytics.py` — analytics summarise + trim
+- `/opt/styxproxy/backend/scripts/retention_health.py` — health snapshots trim
+- `/opt/styxproxy/backend/scripts/retention_audit.py` — audit log archive + trim
+- `/opt/styxproxy/backend/scripts/retention_cleanup.py` — context, webhooks, etc.
 
 ---
 
-## Compliance Notes
+## Customer Deletion
 
-- **PCI-DSS:** Payment data (card numbers, CVV) is never stored — all payment processing is delegated to Flutterwave
-- **GDPR:** Customers can request data deletion — contact Dannion (`oyebiyiayomide30@gmail.com`)
-- **Nigerian Tax:** Payment records retained for 7 years per FIRS requirements
+When a customer requests account deletion (GDPR Article 17 / NDPR):
 
----
+1. Delete all `customers` rows (cascade deletes `orders`, `styxproxy_credentials`, `contact_submissions`)
+2. Delete `support_messages` where `customer_id` matches
+3. Delete `analytics_events` where `customer_id` matches
+4. Log the deletion in `admin_audit_log`
 
-## Updating Retention Periods
-
-To change a retention period:
-
-1. Update the relevant constant in the cleanup script (e.g., `RETENTION_DAYS` in `cleanup_webhooks.py`)
-2. Update this document
-3. Deploy and verify the new cleanup runs correctly
-4. Manually delete existing rows outside the new window (if reducing retention)
+**Script:** `/opt/styxproxy/backend/scripts/gdpr_delete_customer.py <customer_id>`
 
 ---
 
-## Related Docs
+## Review Schedule
 
-- [BACKUP_STRATEGY.md](./BACKUP_STRATEGY.md) — Backup procedures
-- [SECURITY_RUNBOOK.md](./SECURITY_RUNBOOK.md) — Incident response
-- [INCIDENT_RESPONSE.md](./INCIDENT_RESPONSE.md) — Customer communication during outages
+- **Quarterly:** Review retention periods — adjust if regulations change
+- **After any new table:** Assign a retention period before it accumulates data
+- **Annual:** Audit log of all retention jobs (runs/failures/errors)
+
+---
+
+## Notes
+
+- NDPR (Nigeria Data Protection Regulation, 2020) requires data minimisation and purpose limitation.
+- FIRS (Federal Inland Revenue Service) requires financial records for 7 years minimum.
+- All deletion is **soft** unless explicitly hard-deleted (customer request = hard delete).

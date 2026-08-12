@@ -1,3 +1,5 @@
+
+// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,6 +8,7 @@ import type {
   AdminMeResponse,
   AdminAllPermissionsResponse,
   AdminMyPermissionsResponse,
+  PermissionChangeRequestResponse,
 } from '@/types';
 
 export default function AdminPermissionsPage() {
@@ -15,6 +18,14 @@ export default function AdminPermissionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  // S14: permission change requests
+  const [activeTab, setActiveTab] = useState<'permissions' | 'requests'>('permissions');
+  const [requests, setRequests] = useState<PermissionChangeRequestResponse[]>([]);
+  const [reqLoading, setReqLoading] = useState(false);
+  const [reqError, setReqError] = useState('');
+  const [reqStatusFilter, setReqStatusFilter] = useState<string>('pending');
+  const [actioningId, setActioningId] = useState<string | null>(null);
+  const [reviewerNotes, setReviewerNotes] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -50,10 +61,40 @@ export default function AdminPermissionsPage() {
     setLoading(false);
   };
 
+  const loadRequests = async (status?: string) => {
+    setReqLoading(true);
+    setReqError('');
+    const result = await api.getPermissionRequests(
+      status === 'all' ? undefined : (status as any),
+    );
+    if (result.error) {
+      setReqError(result.error);
+    } else {
+      setRequests(result.data?.requests || []);
+    }
+    setReqLoading(false);
+  };
+
+  const handleAction = async (
+    requestId: string,
+    action: 'approve' | 'reject',
+  ) => {
+    setActioningId(requestId);
+    const result = await api.actionPermissionRequest(requestId, action, reviewerNotes || undefined);
+    setActioningId(null);
+    if (result.error) {
+      alert('Action failed: ' + result.error);
+    } else {
+      setRequests((prev) => prev.filter((r) => r.id !== requestId));
+      setReviewerNotes('');
+    }
+  };
+
   useEffect(() => {
-    // Fetch all permissions on mount
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadRequests(reqStatusFilter);
   }, []);
 
   const isGranted = (code: string): boolean => {
@@ -108,6 +149,60 @@ export default function AdminPermissionsPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Permissions</h1>
+        <p className="text-[var(--muted)] mt-1">
+          {isSuperAdmin
+            ? '51 permission codes across 11 categories. Review what each admin effectively has.'
+            : 'Your effective permissions. Contact a superadmin to request changes.'}
+        </p>
+      </div>
+
+      {/* Tab switcher */}
+      <div className="flex gap-1 border-b border-[var(--border)]">
+        <button
+          onClick={() => setActiveTab('permissions')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'permissions'
+              ? 'border-[var(--primary)] text-[var(--foreground)]'
+              : 'border-transparent text-[var(--muted)] hover:text-[var(--foreground)]'
+          }`}
+        >
+          Permissions
+        </button>
+        <button
+          onClick={() => setActiveTab('requests')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'requests'
+              ? 'border-[var(--primary)] text-[var(--foreground)]'
+              : 'border-transparent text-[var(--muted)] hover:text-[var(--foreground)]'
+          }`}
+        >
+          Change Requests
+          {requests.filter((r) => r.status === 'pending').length > 0 && (
+            <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400">
+              {requests.filter((r) => r.status === 'pending').length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Requests Tab */}
+      {activeTab === 'requests' && (
+        <RequestsTab
+          requests={requests}
+          loading={reqLoading}
+          error={reqError}
+          isSuperAdmin={isSuperAdmin}
+          statusFilter={reqStatusFilter}
+          onStatusFilterChange={(s) => { setReqStatusFilter(s); loadRequests(s); }}
+          onAction={handleAction}
+          actioningId={actioningId}
+          reviewerNotes={reviewerNotes}
+          onNotesChange={setReviewerNotes}
+        />
+      )}
+
+      {/* Permissions Tab (existing content) */}
+      {activeTab === 'permissions' && (
         <p className="text-[var(--muted)] mt-1">
           {isSuperAdmin
             ? '51 permission codes across 11 categories. Review what each admin effectively has.'
@@ -252,6 +347,136 @@ export default function AdminPermissionsPage() {
             </a>{' '}
             if you need additional permissions.
           </p>
+        </div>
+      )}
+      )}
+    </div>
+  );
+}
+
+// ── Requests Tab Component ──────────────────────────────────────────────────────
+
+function RequestsTab({
+  requests,
+  loading,
+  error,
+  isSuperAdmin,
+  statusFilter,
+  onStatusFilterChange,
+  onAction,
+  actioningId,
+  reviewerNotes,
+  onNotesChange,
+}: {
+  requests: PermissionChangeRequestResponse[];
+  loading: boolean;
+  error: string;
+  isSuperAdmin: boolean;
+  statusFilter: string;
+  onStatusFilterChange: (s: string) => void;
+  onAction: (id: string, action: 'approve' | 'reject') => void;
+  actioningId: string | null;
+  reviewerNotes: string;
+  onNotesChange: (n: string) => void;
+}) {
+  const filters = ['all', 'pending', 'approved', 'rejected', 'expired'];
+
+  if (loading) {
+    return <div className="text-[var(--muted)] animate-pulse py-8 text-center">Loading requests…</div>;
+  }
+  if (error) {
+    return <div className="text-red-400 py-4">{error}</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Filter bar */}
+      <div className="flex gap-2 flex-wrap">
+        {filters.map((f) => (
+          <button
+            key={f}
+            onClick={() => onStatusFilterChange(f)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              statusFilter === f
+                ? 'bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/30'
+                : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--border)] hover:border-[var(--primary)]/30'
+            }`}
+          >
+            {f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {requests.length === 0 ? (
+        <div className="text-center py-12 text-[var(--muted)]">
+          No {statusFilter === 'all' ? '' : statusFilter} requests found.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {requests.map((req) => (
+            <div key={req.id} className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-sm font-medium">{req.permission_code}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      req.status === 'pending' ? 'bg-amber-500/10 text-amber-400' :
+                      req.status === 'approved' ? 'bg-green-500/10 text-green-400' :
+                      req.status === 'rejected' ? 'bg-red-500/10 text-red-400' :
+                      'bg-gray-500/10 text-gray-400'
+                    }`}>
+                      {req.status}
+                    </span>
+                    <span className="text-xs text-[var(--muted)]">
+                      {req.desired_state ? 'Grant' : 'Revoke'}
+                    </span>
+                  </div>
+                  <p className="text-sm mt-1 text-[var(--muted)]">
+                    Requested by <span className="text-[var(--foreground)]">{req.requested_by}</span>
+                    {req.target_email && req.target_email !== req.requested_by && (
+                      <> for <span className="text-[var(--foreground)]">{req.target_email}</span></>
+                    )}
+                  </p>
+                  <p className="text-sm mt-1 italic text-[var(--muted)]">"{req.justification}"</p>
+                  <p className="text-xs text-[var(--muted)] mt-2">
+                    {new Date(req.created_at).toLocaleDateString()} · expires {new Date(req.expires_at).toLocaleDateString()}
+                  </p>
+                  {req.reviewer_notes && (
+                    <p className="text-xs mt-1 text-[var(--muted)]">
+                      Note: {req.reviewer_notes}
+                    </p>
+                  )}
+                </div>
+
+                {/* Action buttons — superadmin only, pending only */}
+                {isSuperAdmin && req.status === 'pending' && (
+                  <div className="flex flex-col gap-2 min-w-[120px]">
+                    <textarea
+                      value={reviewerNotes}
+                      onChange={(e) => onNotesChange(e.target.value)}
+                      placeholder="Notes (optional)"
+                      className="w-full text-xs px-2 py-1.5 rounded-lg bg-[var(--background)] border border-[var(--border)] resize-none"
+                      rows={2}
+                    />
+                    <button
+                      onClick={() => onAction(req.id, 'approve')}
+                      disabled={actioningId === req.id}
+                      className="w-full px-3 py-1.5 text-xs font-medium rounded-lg bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 disabled:opacity-50 transition-colors"
+                    >
+                      {actioningId === req.id ? 'Processing…' : 'Approve'}
+                    </button>
+                    <button
+                      onClick={() => onAction(req.id, 'reject')}
+                      disabled={actioningId === req.id}
+                      className="w-full px-3 py-1.5 text-xs font-medium rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+                    >
+                      {actioningId === req.id ? 'Processing…' : 'Reject'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

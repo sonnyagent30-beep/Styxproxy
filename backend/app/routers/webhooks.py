@@ -1,5 +1,10 @@
 """Webhooks router."""
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 import json
 from typing import Any, Optional
 
@@ -121,19 +126,52 @@ async def flutterwave_webhook(
     if webhook_id and await is_webhook_processed(session, webhook_id):
         return {"status": "already_processed", "webhook_id": webhook_id}
 
-    # Process the webhook
-    try:
-        await process_payment_webhook(session, payload)
-    except Exception as e:
-        await log_audit_event(
-            session,
-            event_type="webhook_processing_error",
-            details={"error": str(e), "event": event_type, "tx_ref": tx_ref},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Webhook processing failed: {e}",
-        )
+    # ── charge.completed (successful) → enqueue fulfillment, return immediately ──
+    # This moves slow work (provider API, n8n webhook, auto-refund) off the
+    # request path so Flutterwave gets a fast 200 and retries don't pile up.
+    if event_type == "charge.completed" and (event_data.get("status") == "successful"):
+        from sqlalchemy import select
+
+        from app.models import Order
+
+        order = (
+            await session.execute(select(Order).where(Order.payment_reference == tx_ref))
+        ).scalar_one_or_none()
+
+        if order and order.status not in ("fulfilled", "active"):
+            order.status = "paid"
+            order.amount_paid_ngn = event_data.get("amount")
+            await session.commit()
+
+            # Enqueue fulfillment job (non-blocking)
+            try:
+                from app.routers._webhook_queue import enqueue_fulfillment
+                job_id = await enqueue_fulfillment(tx_ref, order.order_id, payload)
+                await log_audit_event(
+                    session,
+                    event_type="webhook_fulfillment_enqueued",
+                    details={"tx_ref": tx_ref, "order_id": order.order_id, "job_id": job_id},
+                )
+            except Exception as eq_err:
+                # Queue unavailable — fall back to inline processing
+                logger.warning(f"RQ enqueue failed, falling back to inline: {eq_err}")
+                await process_payment_webhook(session, payload)
+        # else: order not found or already fulfilled — acknowledge silently
+
+    else:
+        # All other events (refunds, disputes, etc.) — process inline (fast)
+        try:
+            await process_payment_webhook(session, payload)
+        except Exception as e:
+            await log_audit_event(
+                session,
+                event_type="webhook_processing_error",
+                details={"error": str(e), "event": event_type, "tx_ref": tx_ref},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Webhook processing failed: {e}",
+            )
 
     # Mark as processed
     await mark_webhook_processed(

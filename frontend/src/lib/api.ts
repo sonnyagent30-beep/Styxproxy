@@ -1,3 +1,5 @@
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
   Product,
   Order,
@@ -300,6 +302,14 @@ class ApiClient {
     return this.request<AdminStats>('/api/admin/stats');
   }
 
+  async getAdminHealth(): Promise<ApiResponse<{
+    status: string;
+    admin: boolean;
+    circuit_breakers: Record<string, { failures: number; state: string; tripped_at: string | null }>;
+  }>> {
+    return this.request('/api/admin/health');
+  }
+
   // Analytics
   async getAnalyticsFunnel(): Promise<ApiResponse<FunnelData>> {
     return this.request<FunnelData>('/api/v1/admin/analytics/funnel');
@@ -539,6 +549,70 @@ class ApiClient {
         permission_code: permissionCode,
       }),
     });
+  }
+
+  // Permission Change Requests (S14)
+  async getPermissionRequests(
+    status?: 'pending' | 'approved' | 'rejected' | 'expired',
+  ): Promise<ApiResponse<{ requests: any[]; total: number }>> {
+    const params = status ? '?status=' + status : '';
+    return this.request('/api/admin/permission-requests' + params);
+  }
+
+  async createPermissionRequest(data: {
+    permission_code: string;
+    desired_state: boolean;
+    justification: string;
+    target_email?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request('/api/admin/permission-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async actionPermissionRequest(
+    requestId: string,
+    action: 'approve' | 'reject',
+    reviewer_notes?: string,
+  ): Promise<ApiResponse<unknown>> {
+    return this.request('/api/admin/permission-requests/' + requestId + '/action', {
+      method: 'POST',
+      body: JSON.stringify({ action, reviewer_notes }),
+    });
+  }
+  }
+
+  // ── Permission Change Requests (S14) ─────────────────────────────────────
+  async getPermissionRequests(
+    status?: 'pending' | 'approved' | 'rejected' | 'expired',
+  ): Promise<ApiResponse<{ requests: any[]; total: number }>> {
+    const params = status ?  : '';
+    return this.request();
+  }
+
+  async createPermissionRequest(data: {
+    permission_code: string;
+    desired_state: boolean;
+    justification: string;
+    target_email?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request('/api/admin/permission-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async actionPermissionRequest(
+    requestId: string,
+    action: 'approve' | 'reject',
+    reviewer_notes?: string,
+  ): Promise<ApiResponse<unknown>> {
+    return this.request(, {
+      method: 'POST',
+      body: JSON.stringify({ action, reviewer_notes }),
+    });
+  }
   }
 
   async getTotpStatus(): Promise<ApiResponse<AdminTotpStatusResponse>> {

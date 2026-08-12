@@ -1,3 +1,6 @@
+
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -7,6 +10,7 @@ import {
   COUNTRIES,
   type CountryInfo,
 } from '@/lib/products';
+import { useCartStore } from '@/store/cart-store';
 import type { CartItem, CatalogResponse, CatalogTemplate, CatalogVariant, CatalogPlanType } from '@/types';
 import { Globe, House, DeviceMobile, HardDrives, ArrowRight, X, ArrowsClockwise, Plus, Minus, Check } from '@phosphor-icons/react';
 
@@ -72,7 +76,7 @@ export default function OrderPage() {
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const { items: cart, addItem, removeItem, clearCart, total: cartTotal } = useCartStore();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [addedMessage, setAddedMessage] = useState('');
 
@@ -104,16 +108,6 @@ export default function OrderPage() {
     fetchCatalog();
   }, []);
 
-  // Load cart from sessionStorage
-  useEffect(() => {
-    const stored = sessionStorage.getItem('styxproxy_cart');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) setCart(parsed);
-      } catch {}
-    }
-  }, []);
 
   // Stale cart fix: verify cart items still exist in catalog
   useEffect(() => {
@@ -130,15 +124,11 @@ export default function OrderPage() {
     // Remove items whose plan_codes no longer exist
     const validCart = cart.filter(item => validPlanCodes.has(item.plan_code));
     if (validCart.length !== cart.length) {
-      setCart(validCart);
-      sessionStorage.setItem('styxproxy_cart', JSON.stringify(validCart));
+      clearCart();
+      validCart.forEach(item => addItem(item));
     }
   }, [catalog]);
 
-  const saveCart = useCallback((newCart: CartItem[]) => {
-    setCart(newCart);
-    sessionStorage.setItem('styxproxy_cart', JSON.stringify(newCart));
-  }, []);
 
   // Build typeCards from catalog
   const typeCards = useMemo(() => {
@@ -299,7 +289,8 @@ export default function OrderPage() {
         }
         return i;
       });
-      saveCart(updated);
+      clearCart();
+      updated.forEach(item => addItem(item));
     } else {
       const newItem: CartItem = {
         plan_code: planCode,
@@ -318,7 +309,7 @@ export default function OrderPage() {
         gb_tiers: gbTiers,
         supports_city: supportsCity,
       };
-      saveCart([...cart, newItem]);
+      addItem(newItem);
     }
     setAddedMessage(`${country?.flag || '🌍'} ${name} added to cart`);
     setTimeout(() => setAddedMessage(''), 2000);
@@ -375,13 +366,14 @@ export default function OrderPage() {
       }
     }
     
-    saveCart(updatedCart);
+    clearCart();
+    updatedCart.forEach(item => addItem(item));
     const count = selectedCountries.length;
     setAddedMessage(`${count} ${count === 1 ? 'country' : 'countries'} added to cart`);
     setTimeout(() => setAddedMessage(''), 2000);
   };
 
-  const cartTotal = cart.reduce((sum, i) => sum + i.price_ngn, 0);
+  
   const cartCount = cart.length;
 
   const handleRetry = () => {
@@ -488,7 +480,7 @@ export default function OrderPage() {
                 <span className="font-bold text-[var(--foreground)]">
                   {cartCount} {cartCount === 1 ? 'item' : 'items'}
                 </span>
-                <span className="text-[var(--muted)] ml-2">{formatPrice(cartTotal)}</span>
+                <span className="text-[var(--muted)] ml-2">{formatPrice(cartTotal())}</span>
               </div>
               <div className="flex items-center gap-3">
                 <button

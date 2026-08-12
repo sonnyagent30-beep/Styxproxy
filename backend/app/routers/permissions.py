@@ -333,25 +333,25 @@ async def create_permission_request(
     session: AsyncSession = Depends(get_session),
 ):
     """Create a permission change request.
-    
+
     Admins can request:
     - Permission for themselves (target_email empty)
     - Permission for another admin (target_email specified)
-    
+
     Requires justification (min 10 chars). Auto-expires in 7 days.
     """
     admin = current_admin["admin"]
-    
+
     # Validate permission code exists
     stmt = select(AdminPermission).where(AdminPermission.code == body.permission_code)
     result = await session.execute(stmt)
     perm = result.scalar_one_or_none()
     if not perm:
         raise HTTPException(status_code=404, detail=f"Permission '{body.permission_code}' not found")
-    
+
     # Determine target email
     target_email = body.target_email if body.target_email else admin.email
-    
+
     # If target is another admin, verify they exist
     if body.target_email:
         stmt = select(AdminAuth).where(AdminAuth.email == body.target_email)
@@ -359,7 +359,7 @@ async def create_permission_request(
         target = result.scalar_one_or_none()
         if not target:
             raise HTTPException(status_code=404, detail=f"Admin '{body.target_email}' not found")
-    
+
     # Create the request
     now = datetime.now(timezone.utc)
     pcr = PermissionChangeRequest(
@@ -376,7 +376,7 @@ async def create_permission_request(
     session.add(pcr)
     await session.commit()
     await session.refresh(pcr)
-    
+
     # Send admin notification to superadmins
     try:
         await send_admin_notification(
@@ -386,14 +386,16 @@ async def create_permission_request(
                 "target_email": target_email,
                 "permission_code": body.permission_code,
                 "desired_state": "grant" if body.desired_state else "revoke",
-                "justification": body.justification[:100] + "..." if len(body.justification) > 100 else body.justification,
+                "justification": body.justification[:100] + "..."
+                if len(body.justification) > 100
+                else body.justification,
                 "request_id": str(pcr.id),
             },
             pill_type="yellow",
         )
     except Exception:
         pass  # Non-blocking
-    
+
     return PermissionChangeRequestResponse.model_validate(pcr)
 
 
@@ -406,43 +408,43 @@ async def list_permission_requests(
     session: AsyncSession = Depends(get_session),
 ):
     """List permission change requests.
-    
+
     Admins can see their own requests. Superadmins see all requests.
     """
     admin = current_admin["admin"]
     is_superadmin = admin.role == "superadmin"
-    
+
     # Build conditions
     conditions = []
     if not is_superadmin:
         # Non-superadmins only see their own requests
         conditions.append(PermissionChangeRequest.requested_by == admin.email)
-    
+
     if status_filter:
         conditions.append(PermissionChangeRequest.status == status_filter.lower())
-    
+
     # Count total and pending
     count_stmt = select(func.count()).select_from(PermissionChangeRequest)
     if conditions:
         count_stmt = count_stmt.where(*conditions)
     total = (await session.execute(count_stmt)).scalar() or 0
-    
-    pending_stmt = select(func.count()).select_from(PermissionChangeRequest).where(
-        PermissionChangeRequest.status == "pending"
+
+    pending_stmt = (
+        select(func.count()).select_from(PermissionChangeRequest).where(PermissionChangeRequest.status == "pending")
     )
     pending_count = (await session.execute(pending_stmt)).scalar() or 0
-    
+
     # Paginated query
     offset = (page - 1) * limit
-    stmt = select(PermissionChangeRequest).order_by(
-        PermissionChangeRequest.created_at.desc()
-    ).offset(offset).limit(limit)
+    stmt = (
+        select(PermissionChangeRequest).order_by(PermissionChangeRequest.created_at.desc()).offset(offset).limit(limit)
+    )
     if conditions:
         stmt = stmt.where(*conditions)
-    
+
     result = await session.execute(stmt)
     requests = result.scalars().all()
-    
+
     return PermissionChangeRequestListResponse(
         requests=[PermissionChangeRequestResponse.model_validate(r) for r in requests],
         total=total,
@@ -458,26 +460,26 @@ async def get_permission_request(
 ):
     """Get a specific permission change request."""
     from uuid import UUID
-    
+
     try:
         uuid_id = UUID(request_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid request ID format")
-    
+
     admin = current_admin["admin"]
     is_superadmin = admin.role == "superadmin"
-    
+
     stmt = select(PermissionChangeRequest).where(PermissionChangeRequest.id == uuid_id)
     result = await session.execute(stmt)
     pcr = result.scalar_one_or_none()
-    
+
     if not pcr:
         raise HTTPException(status_code=404, detail="Request not found")
-    
+
     # Non-superadmins can only see their own requests
     if not is_superadmin and pcr.requested_by != admin.email:
         raise HTTPException(status_code=403, detail="Not authorized to view this request")
-    
+
     return PermissionChangeRequestResponse.model_validate(pcr)
 
 
@@ -489,41 +491,41 @@ async def act_on_permission_request(
     session: AsyncSession = Depends(get_session),
 ):
     """Approve or reject a permission change request (superadmin only).
-    
+
     On approval, the permission is automatically granted/revoked.
     On rejection, the request is marked as rejected.
     """
     from uuid import UUID
-    
+
     try:
         uuid_id = UUID(request_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid request ID format")
-    
+
     admin = current_admin["admin"]
-    
+
     # Get the request
     stmt = select(PermissionChangeRequest).where(PermissionChangeRequest.id == uuid_id)
     result = await session.execute(stmt)
     pcr = result.scalar_one_or_none()
-    
+
     if not pcr:
         raise HTTPException(status_code=404, detail="Request not found")
-    
+
     if pcr.status != "pending":
         raise HTTPException(status_code=400, detail=f"Request already {pcr.status}")
-    
+
     now = datetime.now(timezone.utc)
     pcr.reviewed_by = admin.email
     pcr.reviewed_at = now
     pcr.reviewer_notes = body.reviewer_notes
-    
+
     if body.action == "approve":
         pcr.status = "approved"
-        
+
         # Apply the permission change
         target_email = pcr.target_email or pcr.requested_by
-        
+
         # Upsert user-level override
         stmt = select(AdminUserPermission).where(
             AdminUserPermission.admin_email == target_email,
@@ -531,7 +533,7 @@ async def act_on_permission_request(
         )
         result = await session.execute(stmt)
         existing = result.scalar_one_or_none()
-        
+
         if existing:
             existing.granted = pcr.desired_state
             existing.granted_at = now
@@ -544,7 +546,7 @@ async def act_on_permission_request(
                     granted_by=admin.email,
                 )
             )
-        
+
         # Audit log
         await write_audit_log(
             db_session=session,
@@ -558,10 +560,10 @@ async def act_on_permission_request(
                 "desired_state": pcr.desired_state,
             },
         )
-        
+
     else:  # reject
         pcr.status = "rejected"
-        
+
         # Audit log
         await write_audit_log(
             db_session=session,
@@ -575,9 +577,9 @@ async def act_on_permission_request(
                 "reason": body.reviewer_notes,
             },
         )
-    
+
     await session.commit()
-    
+
     # Send notification to requester
     try:
         action_text = "approved" if body.action == "approve" else "rejected"
@@ -594,7 +596,7 @@ async def act_on_permission_request(
         )
     except Exception:
         pass  # Non-blocking
-    
+
     return {
         "request_id": str(pcr.id),
         "status": pcr.status,

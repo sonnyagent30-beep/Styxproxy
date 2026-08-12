@@ -30,6 +30,7 @@ from app.routers import (
     credentials,
     health,
     inbound,
+    incident_notification,
     maintenance,
     orders,
     payment_status,
@@ -150,8 +151,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
-    # Shutdown
-    logger.info("Shutting down Styxproxy Backend")
+    # Shutdown: drain in-flight requests before closing connections.
+    # Systemd sends SIGTERM on restart. Uvicorn's --timeout-graceful-shutdown
+    # (30s) handles the HTTP drain. We add a small async sleep so the lifespan
+    # shutdown handler completes cleanly before engine dispose.
+    logger.info("Shutting down Styxproxy Backend — draining connections")
+    import asyncio
+    await asyncio.sleep(0.5)  # allow pending tasks to complete
     await engine.dispose()
 
 
@@ -387,6 +393,7 @@ app.include_router(inbound)
 app.include_router(superadmin)
 app.include_router(maintenance)
 app.include_router(unsubscribe)
+app.include_router(incident_notification)
 app.include_router(costs)
 app.include_router(analytics.router)
 app.include_router(charon_ab.router)
