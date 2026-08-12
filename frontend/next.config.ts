@@ -10,7 +10,6 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  output: 'standalone',
   async rewrites() {
     // Proxy /api/admin calls to the backend — browser never talks to api.styxproxy.com directly
     // This eliminates CORS issues entirely for admin API calls
