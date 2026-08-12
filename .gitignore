@@ -32,4 +32,7 @@ package-lock.json
 
 # Postman test reports (may contain admin JWTs and tokens) - never commit
 postman/reports/
+
+# Netlify
 frontend/.netlify/
+.netlify

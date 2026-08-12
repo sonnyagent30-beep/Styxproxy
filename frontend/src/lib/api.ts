@@ -584,7 +584,7 @@ class ApiClient {
   async getPermissionRequests(
     status?: 'pending' | 'approved' | 'rejected' | 'expired',
   ): Promise<ApiResponse<{ requests: any[]; total: number }>> {
-    const params = status ?  : '';
+    const params = status ? `status=${status}` : '';
     return this.request();
   }
 
@@ -1265,7 +1265,7 @@ class ApiClient {
 
   async updateCountryPlanType(
     code: string,
-    planType: string,
+    planType: 'ISP' | 'Residential' | 'Mobile' | 'DC',
     data: { enabled?: boolean; price_per_gb?: number; price_per_ip?: number; is_special?: boolean }
   ): Promise<ApiResponse<any>> {
     return this.request(`/api/admin/countries/${code}/${planType}`, {
@@ -1274,14 +1274,20 @@ class ApiClient {
     });
   }
 
-  async removeCountryFromProduct(code: string, planType: string): Promise<ApiResponse<any>> {
+  async removeCountryFromProduct(
+    code: string,
+    planType: 'ISP' | 'Residential' | 'Mobile' | 'DC'
+  ): Promise<ApiResponse<any>> {
     return this.request(`/api/admin/countries/${code}/${planType}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ enabled: false, is_special: false }),
+      method: 'DELETE',
     });
   }
 
-  async toggleCountry(code: string, planType: string, enabled: boolean): Promise<ApiResponse<any>> {
+  async toggleCountry(
+    code: string,
+    planType: 'ISP' | 'Residential' | 'Mobile' | 'DC',
+    enabled: boolean
+  ): Promise<ApiResponse<any>> {
     return this.request(`/api/admin/countries/${code}/${planType}`, {
       method: 'PATCH',
       body: JSON.stringify({ enabled }),

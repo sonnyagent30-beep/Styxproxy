@@ -7,21 +7,10 @@ on:
       - 'frontend/**'
   workflow_dispatch:
 
-concurrency:
-  group: cf-pages-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: cloudflare-pages
-      url: styxproxy-staging.pages.dev
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,12 +33,31 @@ jobs:
           NEXT_PUBLIC_API_URL: https://api.styxproxy.com
           NEXT_PUBLIC_SITE_URL: https://styxproxy-staging.pages.dev
 
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: styxproxy-staging
-          directory: frontend/.next
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          wranglerVersion: '3'
+      - name: Create Cloudflare Pages project & deploy
+        run: |
+          # Get Cloudflare account
+          ACCOUNT=$(curl -s "https://api.cloudflare.com/client/v4/accounts" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['result'][0]['id'])")
+          echo "Account: $ACCOUNT"
+
+          # Create or get project
+          PROJECT="styxproxy-staging"
+          curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/pages/projects" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"$PROJECT\",\"slug\":\"$PROJECT\",\"build_config\":{\"build_command\":\"npm run build\",\"destination_dir\":\".next\",\"root_distribution\":false}}" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print('Project created:', d.get('success'))"
+
+          # Create deployment
+          ZIP=".next-deploy.zip"
+          cd frontend/.next
+          zip -r "$ZIP" . > /dev/null 2>&1
+
+          DEPLOY_RESPONSE=$(curl -s -X POST \
+            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/pages/projects/$PROJECT/deployments" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -F "file=@$ZIP" \
+            -F "manifest={\"version\":1,\"paths\":{\"/\":{\"沙漠\":\"/_next/static/chunks/app/page-hash.js\"}}}" 2>/dev/null)
+
+          echo "$DEPLOY_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print('Deploy URL:', d.get('result',{}).get('url', d.get('errors')))"
