@@ -190,36 +190,26 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     setError(null);
 
     try {
-      // 1. Remove countries that were marked for removal
-      const removed = [...removedCountries];
-      for (const code of removed) {
-        const res = await api.removeCountryFromProduct(code, product.plan_type);
-        if (res.error) { setError('Failed to remove ' + code + ': ' + res.error); setSaving(false); return; }
-      }
-
-      // 2. Bulk create/update base countries
-      const baseCodes = [...baseCountries];
-      if (baseCodes.length > 0) {
-        const res = await api.createProductsBulk({
-          plan_type: product.plan_type,
-          pricing_model: product.pricing_model,
-          price: parseFloat(basePrice),
-          countries: baseCodes,
-          is_active: isActive,
-        });
-        if (res.error) { setError('Failed: ' + res.error); setSaving(false); return; }
-      }
-
-      // 3. Save each special country individually
-      for (const [code, price] of specialCountries) {
-        if (price == null || price <= 0) continue;
+      // Save each country individually — no bulk endpoint (which resets is_special)
+      const allCodes = [...baseCountries, ...specialCountries.keys()];
+      for (const code of allCodes) {
+        const isSpecial = specialCountries.has(code);
+        const price = isSpecial ? specialCountries.get(code) : parseFloat(basePrice);
+        if (price == null || price <= 0) { setError('Invalid price for ' + code); setSaving(false); return; }
         const res = await api.updateCountryPlanType(code, product.plan_type, {
           enabled: true,
-          is_special: true,
+          is_special: isSpecial,
           price_per_ip: isIP ? price : undefined,
           price_per_gb: !isIP ? price : undefined,
         });
         if (res.error) { setError('Failed to save ' + code + ': ' + res.error); setSaving(false); return; }
+      }
+
+      // Handle removed countries
+      for (const code of [...removedCountries]) {
+        if (allCodes.includes(code)) continue; // skip if re-added
+        const res = await api.removeCountryFromProduct(code, product.plan_type);
+        if (res.error) { setError('Failed to remove ' + code + ': ' + res.error); setSaving(false); return; }
       }
     } finally {
       setSaving(false);
