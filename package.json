@@ -6,6 +6,7 @@
     "next": "latest"
   },
   "devDependencies": {
+    "@sentry/nextjs": "10.68.0",
     "@tailwindcss/postcss": "^4",
     "playwright": "^1.62.1"
   },
