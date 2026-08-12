@@ -1,11 +1,5 @@
 {
   "name": "styxproxy",
   "version": "1.0.0",
-  "private": true,
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4"
-  },
-  "scripts": {
-    "build": "cd frontend && npm install && NEXT_TELEMETRY_DISABLED=1 npx next build"
-  }
+  "private": true
 }
