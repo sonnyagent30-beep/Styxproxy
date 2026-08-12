@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 /**
- * Edge middleware for Styxproxy frontend.
+ * Edge proxy for Styxproxy frontend (Next.js 16).
  *
  * 1. Proxies /api/admin/* requests to the backend (no CORS).
  * 2. When maintenance mode is on, rewrites public pages to /maintenance
@@ -34,10 +34,10 @@ const ALWAYS_AVAILABLE_PREFIXES = [
   '/refund-policy',
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // 1. /api/admin support proxy
+  // 1. /api/admin/support proxy
   if (path.startsWith('/api/admin/support/')) {
     const url = request.nextUrl.clone();
     url.pathname = '/api/v1/admin/support' + path.slice('/api/admin/support'.length);
@@ -56,8 +56,8 @@ export async function middleware(request: NextRequest) {
 
   // 3. Maintenance mode — only for public pages.
   // Note: Vercel serves static prerendered pages directly from edge cache,
-  // skipping middleware. We use a Cache-Control header to opt pages out of
-  // CDN cache (configured in next.config headers), so the middleware runs
+  // skipping proxy. We use a Cache-Control header to opt pages out of
+  // CDN cache (configured in next.config headers), so the proxy runs
   // on every request and can rewrite when maintenance is on.
   if (request.method === 'GET' && !ALWAYS_AVAILABLE_PREFIXES.some((p) => path.startsWith(p))) {
     try {
