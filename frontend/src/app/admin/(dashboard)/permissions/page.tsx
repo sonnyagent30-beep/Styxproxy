@@ -208,7 +208,7 @@ export default function AdminPermissionsPage() {
             ? '51 permission codes across 11 categories. Review what each admin effectively has.'
             : 'Your effective permissions. Contact a superadmin to request changes.'}
         </p>
-      )}
+      </div>
 
       {/* Summary card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -57,9 +57,6 @@ import type {
   BlogCategory,
   BlogCategoriesResponse,
   ChannelFeatureFlags,
-  CountryCPT,
-  CountryCPTDetail,
-  CPTUpdateResult,
   Plan,
   PlanCreate,
   PlanUpdate,
@@ -587,7 +584,7 @@ class ApiClient {
   async getPermissionRequests(
     status?: 'pending' | 'approved' | 'rejected' | 'expired',
   ): Promise<ApiResponse<{ requests: any[]; total: number }>> {
-    const params = status ? `status=${status}` : '';
+    const params = status ?  : '';
     return this.request();
   }
 
@@ -793,20 +790,8 @@ class ApiClient {
     return this.request<PaginatedResponse<Plan>>(`/api/admin/plans?${params.toString()}`);
   }
 
-  // Fetch all plans across all pages (use for plan cards that need complete country lists)
-  async getAllPlans(): Promise<ApiResponse<Plan[]>> {
-    const allPlans: Plan[] = [];
-    let page = 1;
-    let hasNext = true;
-    while (hasNext) {
-      const params = new URLSearchParams({ page: String(page), limit: '20' });
-      const res = await this.request<PaginatedResponse<Plan>>(`/api/admin/plans?${params.toString()}`);
-      if (res.error || !res.data?.data) break;
-      allPlans.push(...res.data.data);
-      hasNext = res.data.pagination?.has_next ?? false;
-      page++;
-    }
-    return { data: allPlans, error: undefined };
+  async getPlan(planId: number): Promise<ApiResponse<Plan>> {
+    return this.request<Plan>(`/api/admin/plans/${planId}`);
   }
 
   async createPlan(data: PlanCreate): Promise<ApiResponse<Plan>> {
@@ -823,77 +808,17 @@ class ApiClient {
     });
   }
 
-  // POST /api/admin/products/bulk — Product Builder (creates plans + CPT rows in one shot)
-  async createProductsBulk(data: {
-    plan_type: string;
-    pricing_model: string;
-    price: number;
-    countries: string[];
-    is_active?: boolean;
-    sort_order?: number;
-  }): Promise<ApiResponse<{
-    plans_created: number;
-    cpt_rows_created: number;
-    cpt_rows_updated: number;
-    plans: { plan_code: string; plan_type: string; country: string; is_active: boolean }[];
-    cpt_entries: { country_code: string; plan_type: string; enabled: boolean }[];
-  }>> {
-    return this.request('/api/admin/products/bulk', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
   async deletePlan(planId: number): Promise<ApiResponse<{ status: string; plan_id: number }>> {
     return this.request(`/api/admin/plans/${planId}`, {
       method: 'DELETE',
     });
   }
 
-  // ── Country Plan Types (Sprint 27) ─────────────────────────────────────
-  // GET /api/admin/countries → { countries: CountryCPT[], total: number }
-  async getAdminCountries(): Promise<ApiResponse<{ countries: CountryCPT[]; total: number }>> {
-    return this.request('/api/admin/countries');
-  }
+  // ============== Plan Settings (Admin) ==============
 
-  // GET /api/admin/countries/:code → CountryCPTDetail
-  async getAdminCountry(code: string): Promise<ApiResponse<CountryCPTDetail>> {
-    return this.request(`/api/admin/countries/${code}`);
-  }
-
-  // PATCH /api/admin/countries/:code/:plan_type
-  async updateCountryPlanType(
-    code: string,
-    planType: string,
-    data: { enabled?: boolean; price_per_gb?: number | null; price_per_ip?: number | null; is_special?: boolean }
-  ): Promise<ApiResponse<CPTUpdateResult>> {
-    return this.request(`/api/admin/countries/${code}/${planType}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  }
-
-  // Remove a country from a product: disables the CPT row via updateCountryPlanType
-  async removeCountryFromProduct(code: string, planType: string): Promise<ApiResponse<CPTUpdateResult>> {
-    return this.request(`/api/admin/countries/${code}/${planType}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ enabled: false }),
-    });
-  }
-
-  // GET /api/admin/plan-settings — returns base_pricing + country_overrides per plan_type
+  // Returns PlanSettingsDisplay[] directly (no {settings} wrapper)
   async getPlanSettings(): Promise<ApiResponse<any[]>> {
-    return this.request(`/api/admin/plan-settings`);
-  }
-
-  async toggleCountry(
-    code: string,
-    is_enabled: boolean
-  ): Promise<ApiResponse<{ code: string; is_enabled: boolean }>> {
-    return this.request(`/api/admin/countries/${code}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ is_enabled }),
-    });
+    return this.request('/api/admin/plan-settings');
   }
 
   async updatePlanSettings(
@@ -936,7 +861,8 @@ class ApiClient {
   // ============== Support Threads =============
 
   async getSupportThreads(status?: string, page = 1, limit = 20): Promise<ApiResponse<SupportThreadsResponse>> {
-    const url = `/api/admin/support/threads?page=${page}&limit=${limit}` + (status && status !== 'all' ? `&status=${status}` : '');
+    let url = `/api/admin/support/threads?page=${page}&limit=${limit}`;
+    if (status && status !== 'all') url += `&status=${status}`;
     return this.request<SupportThreadsResponse>(url);
   }
 
@@ -985,7 +911,8 @@ class ApiClient {
   // ============== Charon Escalations =============
 
   async getEscalations(status?: string, page = 1, limit = 20): Promise<ApiResponse<EscalationsResponse>> {
-    const url = `/api/admin/escalations?page=${page}&limit=${limit}` + (status ? `&status=${status}` : '');
+    let url = `/api/admin/escalations?page=${page}&limit=${limit}`;
+    if (status) url += `&status=${status}`;
     return this.request<EscalationsResponse>(url);
   }
 
@@ -1285,6 +1212,80 @@ class ApiClient {
 
   async refreshRlsPolicies(): Promise<ApiResponse<{ added: Array<{ table: string; now_enabled: boolean }>; count_added: number }>> {
     return this.request('/api/admin/rls/policies/refresh', { method: 'POST' });
+  }
+
+  // ============== CPT / Plan Settings (Admin) ==============
+
+  async getAllPlans(): Promise<ApiResponse<any>> {
+    const all: any[] = [];
+    let page = 1;
+    let hasNext = true;
+    while (hasNext) {
+      const params = new URLSearchParams({ page: String(page), limit: '20' });
+      const res = await this.request<any>(`/api/admin/plans?${params.toString()}`);
+      if (res.error || !res.data?.data) break;
+      all.push(...res.data.data);
+      hasNext = res.data.pagination?.has_next ?? false;
+      page++;
+    }
+    return { data: all, error: null };
+  }
+
+  async getPlanSettings(): Promise<ApiResponse<any[]>> {
+    return this.request('/api/admin/plan-settings');
+  }
+
+  async updatePlanSettings(
+    id: number,
+    data: {
+      plan_type: string;
+      setting_value: {
+        price_per_gb?: number;
+        price_per_ip?: number;
+        available_countries: string[];
+        gb_tiers?: string[];
+        supports_city: boolean;
+        rotation_modes: string[];
+      };
+    }
+  ): Promise<ApiResponse<any>> {
+    return this.request(`/api/admin/plan-settings/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminCountries(): Promise<ApiResponse<any>> {
+    return this.request('/api/admin/countries');
+  }
+
+  async getAdminCountry(code: string): Promise<ApiResponse<any>> {
+    return this.request(`/api/admin/countries/${code}`);
+  }
+
+  async updateCountryPlanType(
+    code: string,
+    planType: string,
+    data: { enabled?: boolean; price_per_gb?: number; price_per_ip?: number; is_special?: boolean }
+  ): Promise<ApiResponse<any>> {
+    return this.request(`/api/admin/countries/${code}/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async removeCountryFromProduct(code: string, planType: string): Promise<ApiResponse<any>> {
+    return this.request(`/api/admin/countries/${code}/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: false, is_special: false }),
+    });
+  }
+
+  async toggleCountry(code: string, planType: string, enabled: boolean): Promise<ApiResponse<any>> {
+    return this.request(`/api/admin/countries/${code}/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled }),
+    });
   }
 
   // ============== Local token clear ==============
