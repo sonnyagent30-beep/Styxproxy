@@ -349,7 +349,6 @@ export default function AdminPermissionsPage() {
           </p>
         </div>
       )}
-      )}
     </div>
   );
 }
