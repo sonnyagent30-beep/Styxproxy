@@ -9,6 +9,6 @@
     "@tailwindcss/postcss": "^4"
   },
   "scripts": {
-    "build": "cd frontend && npm install && next build && mv .next ../.next"
+    "build": "cd frontend && npm install --include=dev && next build && mv .next ../.next"
   }
 }
