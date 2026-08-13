@@ -2,18 +2,22 @@
 
 import { useEffect, useState } from 'react';
 
+const GUARDED_PATHS = ['/admin', '/superadmin', '/manage', '/login', '/admin-setup'];
+
 export default function ConsentGate() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     const accepted = sessionStorage.getItem('styxproxy_consent');
-    const isLegalPage =
-      window.location.pathname.startsWith('/legal') ||
-      window.location.pathname === '/refund-policy';
+    const path = window.location.pathname;
 
-    if (!accepted && !isLegalPage) {
-      // Show after a brief delay so users see the page first
-      const timer = setTimeout(() => setVisible(true), 2000);
+    // Never show on admin, manage, or auth pages
+    const isProtectedPage = GUARDED_PATHS.some((p) => path.startsWith(p));
+    // Skip on legal pages (user is already reading the policies)
+    const isLegalPage = path.startsWith('/legal') || path === '/refund-policy';
+
+    if (!accepted && !isProtectedPage && !isLegalPage) {
+      const timer = setTimeout(() => setVisible(true), 500);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -23,118 +27,149 @@ export default function ConsentGate() {
     setVisible(false);
   };
 
-  const handleLeave = () => {
-    // Just close the banner — don't redirect away
-    setVisible(false);
-  };
-
   if (!visible) return null;
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 99998,
-        background: 'var(--background)',
-        borderTop: '1px solid var(--border)',
-        padding: '1rem 1.5rem',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '720px',
-          margin: '0 auto',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1.25rem',
-          flexWrap: 'wrap',
-        }}
-      >
-        {/* Text */}
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <p
-            style={{
-              color: 'var(--muted)',
-              fontSize: '0.8rem',
-              lineHeight: 1.5,
-            }}
-          >
-            We use cookies to deliver a smooth, anonymous browsing experience.{' '}
-            <a
-              href="/cookie-policy"
-              style={{ color: 'var(--primary)', textDecoration: 'underline' }}
-            >
-              Learn more
+    <>
+      {/* Keyframe animation — defined once, referenced by the overlay */}
+      <style>{`
+        @keyframes cg-fade-in {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes cg-scale-in {
+          from { opacity: 0; transform: translateY(16px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
+        .cg-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 99998;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1rem;
+          background: rgba(0, 0, 0, 0.65);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          animation: cg-fade-in 0.3s ease;
+          /* Block everything behind */
+          pointer-events: all;
+        }
+        .cg-modal {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 1rem;
+          padding: 2rem 2.25rem;
+          max-width: 560px;
+          width: 100%;
+          box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+          animation: cg-scale-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .cg-heading {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: var(--foreground);
+          margin-bottom: 0.5rem;
+          line-height: 1.3;
+        }
+        .cg-sub {
+          font-size: 0.825rem;
+          color: var(--muted);
+          line-height: 1.6;
+          margin-bottom: 1.25rem;
+        }
+        .cg-links {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          margin-bottom: 1.5rem;
+        }
+        .cg-links a {
+          font-size: 0.8rem;
+          color: var(--primary);
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          transition: opacity 0.15s;
+        }
+        .cg-links a:hover { opacity: 0.75; }
+        .cg-actions {
+          display: flex;
+          gap: 0.625rem;
+          flex-wrap: wrap;
+        }
+        .cg-btn-accept {
+          padding: 0.6rem 1.5rem;
+          background: var(--primary);
+          color: #000;
+          font-weight: 700;
+          font-size: 0.85rem;
+          border: none;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          transition: opacity 0.15s, transform 0.1s;
+          flex: 1;
+        }
+        .cg-btn-accept:hover { opacity: 0.9; transform: translateY(-1px); }
+        .cg-btn-accept:active { transform: translateY(0); }
+        .cg-btn-leave {
+          padding: 0.6rem 1.25rem;
+          background: transparent;
+          color: var(--muted);
+          font-weight: 600;
+          font-size: 0.8rem;
+          border: 1px solid var(--border);
+          border-radius: 0.5rem;
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s;
+        }
+        .cg-btn-leave:hover { border-color: var(--muted); color: var(--foreground); }
+      `}</style>
+
+      <div className="cg-overlay" role="dialog" aria-modal="true" aria-labelledby="cg-title">
+        <div className="cg-modal">
+          {/* Ferry crossing icon — Styx brand */}
+          <div style={{ marginBottom: '1rem' }}>
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="18" cy="18" r="17" stroke="var(--primary)" strokeWidth="1.5" fill="none" />
+              <path d="M10 22 Q18 10 26 22" stroke="var(--primary)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+              <circle cx="18" cy="22" r="2" fill="var(--primary)" />
+            </svg>
+          </div>
+
+          <h2 className="cg-heading" id="cg-title">
+            Before you cross the Styx…
+          </h2>
+          <p className="cg-sub">
+            We keep your browsing private and anonymous. To make this work, we use
+            cookies and similar technologies. Continuing means you agree to our policies below.
+          </p>
+
+          <div className="cg-links">
+            <a href="/cookie-policy" target="_blank" rel="noopener noreferrer">
+              Cookie Policy
             </a>
-            . By continuing, you agree to our{' '}
-            <a
-              href="/legal/terms"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'var(--primary)', textDecoration: 'underline' }}
-            >
-              Terms
+            <a href="/legal/terms" target="_blank" rel="noopener noreferrer">
+              Terms of Service
             </a>
-            ,{' '}
-            <a
-              href="/legal/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'var(--primary)', textDecoration: 'underline' }}
-            >
+            <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">
               Privacy Policy
             </a>
-            , and{' '}
-            <a
-              href="/legal/aup"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'var(--primary)', textDecoration: 'underline' }}
-            >
+            <a href="/legal/aup" target="_blank" rel="noopener noreferrer">
               Acceptable Use Policy
             </a>
-            .
-          </p>
-        </div>
+          </div>
 
-        {/* Buttons */}
-        <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-          <button
-            onClick={handleAccept}
-            style={{
-              padding: '0.5rem 1.25rem',
-              background: 'var(--primary)',
-              color: '#000',
-              fontWeight: 700,
-              fontSize: '0.8rem',
-              border: 'none',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-            }}
-          >
-            Accept &amp; Continue
-          </button>
-
-          <button
-            onClick={handleLeave}
-            style={{
-              padding: '0.5rem 1.25rem',
-              background: 'transparent',
-              color: 'var(--muted)',
-              fontWeight: 600,
-              fontSize: '0.8rem',
-              border: '1px solid var(--border)',
-              borderRadius: '0.5rem',
-              cursor: 'pointer',
-            }}
-          >
-            No thanks
-          </button>
+          <div className="cg-actions">
+            <button className="cg-btn-accept" onClick={handleAccept}>
+              Accept &amp; Continue
+            </button>
+            <button className="cg-btn-leave" onClick={() => window.location.href = 'https://google.com'}>
+              Leave site
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
