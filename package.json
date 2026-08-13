@@ -1,0 +1,7 @@
+{
+  "name": "styxproxy",
+  "version": "1.0.0",
+  "dependencies": {
+    "next": "15.3.0"
+  }
+}
