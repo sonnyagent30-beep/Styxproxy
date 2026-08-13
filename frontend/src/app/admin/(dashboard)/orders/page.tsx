@@ -849,7 +849,7 @@ function CreateOrderModal({
               {Object.entries(COUNTRIES)
                 .sort(([, a], [, b]) => a.name.localeCompare(b.name))
                 .map(([code, info]) => (
-                  <option key={code} value={code}>{info.flag} {info.name}</option>
+                  <option key={code} value={code}>{info.name} ({code})</option>
                 ))}
             </select>
           </div>

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { generateReceiptPDF } from '@/lib/pdf-receipt';
 import { useToast } from '@/components/Toast';
 import { formatPrice } from '@/lib/products';
+import { Flag } from '@/components/ui/Flag';
 // ─── Mock data ────────────────────────────────────────────────────
 
 const MOCK_ORDER = {
@@ -30,7 +31,7 @@ const MOCK_ORDER = {
 };
 
 const MOCK_CART = [
-  { plan_code: 'ISP-UK-1', name: 'UK ISP Proxy', flag: '🇬🇧', price_ngn: 6500, quantity: 1 },
+  { plan_code: 'ISP-UK-1', name: 'UK ISP Proxy', code: 'GB', price_ngn: 6500, quantity: 1 },
 ];
 
 // ─── PDF download ─────────────────────────────────────────────────
@@ -282,7 +283,7 @@ function CheckoutPreview() {
           <div className="space-y-3">
             {MOCK_CART.map((item) => (
               <div key={item.plan_code} className="flex items-center justify-between py-2 border-b border-[var(--border)]">
-                <span className="text-sm">{item.flag} {item.name} × {item.quantity}</span>
+                <span className="text-sm"><Flag countryCode={item.code} size={18} /> {item.name} × {item.quantity}</span>
                 <span className="font-mono text-sm">N{item.price_ngn.toLocaleString('en-NG')}</span>
               </div>
             ))}

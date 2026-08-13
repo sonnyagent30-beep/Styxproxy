@@ -10,6 +10,7 @@ import {
   COUNTRIES,
   type CountryInfo,
 } from '@/lib/products';
+import { Flag } from '@/components/ui/Flag';
 import { useCartStore } from '@/store/cart-store';
 import type { CartItem, CatalogResponse, CatalogTemplate, CatalogVariant, CatalogPlanType } from '@/types';
 import { Globe, House, DeviceMobile, HardDrives, ArrowRight, X, ArrowsClockwise, Plus, Minus, Check } from '@phosphor-icons/react';
@@ -169,7 +170,7 @@ export default function OrderPage() {
       return {
         code: code.toUpperCase(),
         name: country?.name || code,
-        flag: country?.flag || '🌍',
+        countryCode: code.toUpperCase(),
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [currentTemplate]);
@@ -311,7 +312,7 @@ export default function OrderPage() {
       };
       addItem(newItem);
     }
-    setAddedMessage(`${country?.flag || '🌍'} ${name} added to cart`);
+    setAddedMessage(`${country?.name || selectedCountry?.toUpperCase() || ''} added to cart`);
     setTimeout(() => setAddedMessage(''), 2000);
   };
 
@@ -587,7 +588,7 @@ export default function OrderPage() {
                     <option value="">Select a country</option>
                     {templateCountries.map(c => (
                       <option key={c.code} value={c.code}>
-                        {c.flag} {c.name} ({c.code})
+                        {c.name} ({c.code})
                       </option>
                     ))}
                   </select>
@@ -684,7 +685,7 @@ export default function OrderPage() {
                               : 'border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted)] hover:text-[var(--foreground)]'
                           }`}
                         >
-                          <span className="text-base leading-none">{c.flag}</span>
+                          <Flag countryCode={c.code} size={18} />
                           <span className="font-medium">{c.code}</span>
                         </button>
                       );
@@ -710,7 +711,7 @@ export default function OrderPage() {
                         key={selection.code}
                         className="flex items-center gap-3 p-3 rounded-lg bg-[var(--background)] border border-[var(--border)]"
                       >
-                        <span className="text-2xl">{country?.flag || '🌍'}</span>
+                        <Flag countryCode={selection.code} size={28} />
                         <div className="flex-1">
                           <p className="font-medium">{country?.name || selection.code}</p>
                           <p className="text-xs text-[var(--muted)]">

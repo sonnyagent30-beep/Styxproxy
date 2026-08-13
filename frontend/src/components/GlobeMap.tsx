@@ -11,6 +11,7 @@ import type { GlobeMethods } from 'react-globe.gl';
 import { feature } from 'topojson-client';
 import * as THREE from 'three';
 import { COUNTRIES, PRODUCT_COUNTRIES, type CountryInfo } from '@/lib/products';
+import { Flag } from '@/components/ui/Flag';
 
 // Load react-globe.gl only on client (SSR disabled)
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
@@ -229,7 +230,7 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
         style={{ right: '4%', top: '8%', minWidth: 165, opacity: ready ? 1 : 0, transition: 'opacity 400ms' }}
       >
         <div className={`rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md ${isDark ? 'bg-[rgba(10,10,20,0.88)]' : 'bg-white shadow-lg'} ${isDark ? 'border-[rgba(10,210,90,0.3)]' : 'border-[rgba(10,210,90,0.4)]'}`}>
-          <span className="text-3xl">{featured?.flag}</span>
+          {featured && <Flag countryCode={featured.code} size={36} />}
           <div>
             <p className={`font-bold text-sm ${isDark ? 'text-zinc-100' : 'text-zinc-800'}`}>{featured?.name}</p>
             <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{featured?.region}</p>

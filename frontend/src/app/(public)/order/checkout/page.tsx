@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatPrice, COUNTRIES } from '@/lib/products';
+import { Flag } from '@/components/ui/Flag';
 import type { CartItem } from '@/types';
 import api from '@/lib/api';
 import { tryStartOrder, setInflightOrder, getDeviceId, addToOrderHistory } from '@/lib/device-id';
@@ -310,12 +311,12 @@ export default function CheckoutPage() {
               return (
                 <div key={item.plan_code} className="flex items-center justify-between p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{item.flag}</span>
+                    <Flag countryCode={item.country_code} size={28} />
                     <div>
                       <p className="font-semibold">{item.name}</p>
                       {country && (
                         <p className="text-xs text-[var(--muted)]">
-                          {country.flag} {country.name} · {country.region}
+                          <Flag countryCode={item.country_code} size={14} /> {country.name} · {country.region}
                           {item.city_name ? ` · ${item.city_name}` : ''}
                         </p>
                       )}

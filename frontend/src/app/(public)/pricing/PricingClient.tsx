@@ -14,6 +14,7 @@ import {
   CaretDown
 } from '@phosphor-icons/react';
 import { formatPrice, COUNTRIES } from '@/lib/products';
+import { Flag } from '@/components/ui/Flag';
 import type { CatalogResponse, CatalogTemplate, CatalogVariant } from '@/types';
 
 // FAQ data (kept from original)
@@ -92,7 +93,7 @@ const productTypeInfo: Record<ProductType, { label: string; icon: React.ReactNod
 interface CountryVariant {
   country: string;
   countryName: string;
-  flag: string;
+  countryCode: string;
   region: Region;
   planType: ProductType;
   price: number;
@@ -144,7 +145,7 @@ export default function PricingClient() {
         variants.push({
           country: countryCode,
           countryName: countryInfo?.name || countryCode,
-          flag: countryInfo?.flag || '🌍',
+          countryCode,
           region: getDisplayRegion(countryRegion),
           planType,
           price: variant.price_ngn,
@@ -383,7 +384,7 @@ export default function PricingClient() {
                           <div className="flex items-center justify-between flex-wrap gap-4">
                             {/* Country Info */}
                             <div className="flex items-center gap-3">
-                              <span className="text-2xl">{variant.flag}</span>
+                              <Flag countryCode={variant.country} size={32} />
                               <div>
                                 <p className="font-semibold">{variant.countryName}</p>
                                 <p className="text-xs text-[var(--muted)]">{variant.country}</p>

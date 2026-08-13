@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { COUNTRIES } from '@/lib/products';
+import { Flag } from '@/components/ui/Flag';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = 'settings' | 'countries';
@@ -45,7 +46,7 @@ const fmt = (n: number | null | undefined) =>
     : new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(n);
 
 function getCountryFlag(code: string) {
-  return COUNTRIES[code]?.flag ?? '🌍';
+  return COUNTRIES[code]?.code ?? code;
 }
 function getCountryName(code: string) {
   return COUNTRIES[code]?.name ?? code;
@@ -314,7 +315,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                         onChange={() => toggleCountry(c.code)}
                         className="w-4 h-4 rounded accent-[var(--primary)]"
                       />
-                      <span className="text-lg">{c.flag_emoji}</span>
+                      <Flag countryCode={c.code} size={22} />
                       <div>
                         <div className="text-sm text-[var(--foreground)]">{c.name}</div>
                         <div className="text-xs text-[var(--muted)]">{c.code}</div>
@@ -389,7 +390,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                         }}
                         className="w-4 h-4 rounded accent-yellow-500"
                       />
-                      <span className="text-lg">{c.flag_emoji}</span>
+                      <Flag countryCode={c.code} size={22} />
                       <div className="flex-1">
                         <div className="text-sm text-[var(--foreground)]">{c.name}</div>
                         <div className="text-xs text-[var(--muted)]">{c.code}</div>
@@ -414,7 +415,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                     key={c.code}
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)]"
                   >
-                    {getCountryFlag(c.code)} {c.code}
+                    <Flag countryCode={c.code} size={16} /> {c.code}
                     <button
                       onClick={() => handleRemoveCountry(c.code)}
                       className="ml-1 text-[var(--muted)] hover:text-red-400"
@@ -438,7 +439,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                   return (
                     <div key={c.code} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg bg-yellow-500/5 border border-yellow-500/30">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm">{getCountryFlag(c.code)} {c.code}</span>
+                        <Flag countryCode={c.code} size={16} /> {c.code}
                         <button
                           onClick={() => handleRemoveCountry(c.code)}
                           className="text-[var(--muted)] hover:text-red-400 text-xs"
@@ -718,7 +719,7 @@ export default function PlanSettingsPage() {
                               : 'bg-[var(--background)] border-[var(--border)] text-[var(--foreground)]'
                           }`}
                         >
-                          <span>{getCountryFlag(c.code)}</span>
+                          <Flag countryCode={c.code} size={18} />
                           <span>{c.code}</span>
                           {hasOverride && (
                             <span className="text-xs ml-1 opacity-75">
@@ -767,7 +768,7 @@ export default function PlanSettingsPage() {
                       <tr key={country.code} className="border-b border-[var(--border)] hover:bg-[var(--background)]/50">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-lg">{country.flag_emoji}</span>
+                            <Flag countryCode={country.code} size={22} />
                             <div>
                               <div className="font-medium text-[var(--foreground)]">{country.name}</div>
                               <div className="text-xs text-[var(--muted)]">{country.code}</div>
