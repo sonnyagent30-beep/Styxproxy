@@ -57,6 +57,46 @@ const nextConfig: NextConfig = {
         source: '/api/v1/admin/charon/ab-test/:path*',
         destination: 'https://api.styxproxy.com/api/v1/admin/charon/ab-test/:path*',
       },
+      // ── Public API routes (frontend calls these without /api prefix) ──
+      // Orders
+      {
+        source: '/orders/:path*',
+        destination: 'https://api.styxproxy.com/api/orders/:path*',
+      },
+      // Payments
+      {
+        source: '/payments/initiate',
+        destination: 'https://api.styxproxy.com/api/payments/initiate',
+      },
+      {
+        source: '/payments/:tx_ref/status',
+        destination: 'https://api.styxproxy.com/api/payments/:tx_ref/status',
+      },
+      // Credentials
+      {
+        source: '/credentials/:order_id',
+        destination: 'https://api.styxproxy.com/api/credentials/:order_id',
+      },
+      // Public checkout status
+      {
+        source: '/public/checkout-status',
+        destination: 'https://api.styxproxy.com/api/public/checkout-status',
+      },
+      // Blog admin sub-path (frontend uses /api/blog/admin/... but rewrite only covers /api/blog/:path*)
+      {
+        source: '/api/blog/admin/:path*',
+        destination: 'https://api.styxproxy.com/api/blog/admin/:path*',
+      },
+      // Public order status (called directly in thank-you page as /api/orders/:id/status)
+      {
+        source: '/api/orders/:path*',
+        destination: 'https://api.styxproxy.com/api/orders/:path*',
+      },
+      // Public receipt/pdf (called directly in receipt page as /api/orders/:tx_ref/...)
+      {
+        source: '/api/orders/:tx_ref/:subpath*',
+        destination: 'https://api.styxproxy.com/api/orders/:tx_ref/:subpath*',
+      },
     ];
   },
 
