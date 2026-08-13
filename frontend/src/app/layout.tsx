@@ -75,6 +75,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased" style={{ fontFamily: "'Poppins', sans-serif" }}>
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         <ToastProvider>
           <ConsentGate />
           {children}

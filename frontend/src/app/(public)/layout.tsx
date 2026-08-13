@@ -24,7 +24,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <Header />
         {/* pt-20 (80px) gives clearance for the fixed h-16 header (64px) plus
             a little breathing room so page titles aren't hidden under it. */}
-        <main className="pt-20">{children}</main>
+        <main id="main-content" className="pt-20">{children}</main>
         <Footer />
         <ChatWidget />
       </SentryBoundary>
