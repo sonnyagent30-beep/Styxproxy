@@ -209,14 +209,25 @@ export default function ChatWidget() {
       // Fire
       trackerRef.current.markTriggerFired(trigger.id);
       setActiveTrigger(trigger);
-      setShowBubble(true);
 
-      // Auto-dismiss after 8s if ignored
-      if (ignoreTimerRef.current) clearTimeout(ignoreTimerRef.current);
-      ignoreTimerRef.current = setTimeout(() => {
-        setShowBubble(false);
-        void reportOutcome(trigger.id, 'ignored');
-      }, 8000);
+      const delayMs = trigger.delayMs ?? 0;
+      const dismissMs = trigger.dismissAfterMs ?? 8000;
+
+      const showAfterDelay = () => {
+        if (isOpenRef.current) return; // user already opened chat
+        setShowBubble(true);
+        if (ignoreTimerRef.current) clearTimeout(ignoreTimerRef.current);
+        ignoreTimerRef.current = setTimeout(() => {
+          setShowBubble(false);
+          void reportOutcome(trigger.id, 'ignored');
+        }, dismissMs);
+      };
+
+      if (delayMs > 0) {
+        setTimeout(showAfterDelay, delayMs);
+      } else {
+        showAfterDelay();
+      }
     }, 5000);
 
     return () => clearInterval(interval);
@@ -311,6 +322,9 @@ export default function ChatWidget() {
         .filter(m => m.id !== 'welcome')
         .map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }));
 
+      // Build page context so Charon knows where the user is
+      const pageContext = trackerRef.current?.getPageContext() ?? {};
+
       const res = await fetch('/api/charon/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -320,6 +334,7 @@ export default function ChatWidget() {
           conversation_id: undefined,
           user_message: trimmed,
           history,
+          page_context: pageContext,
         }),
       });
 
