@@ -108,6 +108,7 @@ export default function AboutClient() {
 
         {/* What we offer */}
         <section className="mb-12">
+          <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">Proxy types</p>
           <h2 className="text-2xl font-bold mb-4">What you get</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
@@ -148,6 +149,7 @@ export default function AboutClient() {
 
         {/* Promise */}
         <section className="mb-12">
+          <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">Our commitment</p>
           <h2 className="text-2xl font-bold mb-4">Our promise to you</h2>
           <div className="space-y-3">
             {[
@@ -181,6 +183,7 @@ export default function AboutClient() {
 
         {/* FAQ */}
         <section className="mb-12">
+          <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">Questions</p>
           <h2 className="text-2xl font-bold mb-4">Frequently asked questions</h2>
           <div className="space-y-3">
             {[

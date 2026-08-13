@@ -88,6 +88,14 @@ button {
   font-family: inherit;
 }
 
+/* ── Utility: gradient text ──────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary) 0%, #22FF7A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* ── Hero background: dot grid ─────────────────────────────────── */
 .hero-bg-grid {
   background-image: radial-gradient(circle, rgba(10,210,90,0.08) 1px, transparent 1px);
