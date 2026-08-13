@@ -16,6 +16,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { SessionTracker } from '@/lib/SessionTracker';
 import { TriggerEngine, Trigger } from '@/lib/TriggerEngine';
 
@@ -603,7 +605,11 @@ function MessageBubble({ msg }: { msg: Message }) {
             : 'bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] rounded-bl-md'
         }`}
       >
-        {msg.content}
+        <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-strong:text-[var(--primary)] prose-a:text-[var(--primary)] prose-a:underline">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {msg.content}
+          </ReactMarkdown>
+        </div>
         {msg.escalated && (
           <p className="mt-2 text-xs text-[var(--muted)]">
             A team member has been notified and will follow up via email.
