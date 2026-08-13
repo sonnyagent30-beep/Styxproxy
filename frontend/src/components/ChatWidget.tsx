@@ -99,7 +99,26 @@ export default function ChatWidget() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const [fabX, setFabX] = useState(-1);
-  const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, startFabX: 0 });
+  const [fabY, setFabY] = useState(-1);
+  const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, startFabX: 0, startFabY: 0 });
+
+  // ── Load/save position from sessionStorage ──────────────────────────
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('charon_widget_pos');
+      if (saved) {
+        const { x, y } = JSON.parse(saved);
+        if (typeof x === 'number' && typeof y === 'number') {
+          setFabX(x);
+          setFabY(y);
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const persistPosition = (x: number, y: number) => {
+    try { sessionStorage.setItem('charon_widget_pos', JSON.stringify({ x, y })); } catch { /* ignore */ }
+  };
 
   // ── Behavioral awareness ───────────────────────────────────────────
   const trackerRef = useRef<SessionTracker | null>(null);
@@ -343,20 +362,31 @@ export default function ChatWidget() {
       startX: e.clientX,
       startY: e.clientY,
       startFabX: fabX === -1 ? window.innerWidth - 80 : fabX,
+      startFabY: fabY === -1 ? window.innerHeight - 80 : fabY,
     };
-  }, [fabX]);
+  }, [fabX, fabY]);
 
   const onMouseMove = useCallback((e: MouseEvent) => {
     if (!dragState.current.dragging) return;
     const dx = e.clientX - dragState.current.startX;
-    if (Math.abs(dx) > 3) dragState.current.moved = true;
-    const newX = Math.max(8, Math.min(window.innerWidth - 64, dragState.current.startFabX + dx));
+    const dy = e.clientY - dragState.current.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragState.current.moved = true;
+
+    const maxX = window.innerWidth - 80;
+    const maxY = window.innerHeight - 80;
+    const newX = Math.max(8, Math.min(maxX, dragState.current.startFabX + dx));
+    const newY = Math.max(8, Math.min(maxY, dragState.current.startFabY + dy));
+
     setFabX(newX);
+    setFabY(newY);
   }, []);
 
   const onMouseUp = useCallback(() => {
+    if (dragState.current.dragging) {
+      persistPosition(fabX, fabY);
+    }
     dragState.current.dragging = false;
-  }, []);
+  }, [fabX, fabY]);
 
   useEffect(() => {
     window.addEventListener('mousemove', onMouseMove);
@@ -374,31 +404,51 @@ export default function ChatWidget() {
   };
 
   // ── Positions ─────────────────────────────────────────────────────
-  const fabStyle: React.CSSProperties = fabX === -1
-    ? { bottom: 24, right: 24 }
-    : { bottom: 24, left: fabX, right: 'auto' };
+  // When user has dragged: use their saved (x, y) for both FAB and chat window.
+  // When not dragged yet (-1): use default bottom-right corner.
+  const hasCustomPos = fabX !== -1 && fabY !== -1;
 
-  const bubbleStyle: React.CSSProperties = fabX === -1
-    ? { bottom: 88, right: 24 }
-    : { bottom: 88, left: fabX, right: 'auto' };
+  const fabStyle: React.CSSProperties = hasCustomPos
+    ? { top: fabY, left: fabX, right: 'auto', bottom: 'auto' }
+    : { bottom: 24, right: 24 };
+
+  // Chat window appears above the FAB when dragged; centered by default
+  const chatStyle: React.CSSProperties = hasCustomPos
+    ? {
+        position: 'fixed' as const,
+        top: Math.max(8, fabY - 520),
+        left: Math.max(8, fabX - 160),
+        right: 'auto',
+        bottom: 'auto',
+        width: 340,
+        maxWidth: `calc(100vw - ${fabX > window.innerWidth - 300 ? window.innerWidth - fabX - 16 : 16}px)`,
+        height: '80vh',
+        maxHeight: 580,
+        zIndex: 9999,
+      }
+    : {
+        insetInline: 8,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        height: '80vh',
+        maxHeight: 580,
+      };
+
+  const bubbleStyle: React.CSSProperties = hasCustomPos
+    ? { top: Math.max(8, fabY - 64), left: fabX, right: 'auto', bottom: 'auto' }
+    : { bottom: 88, right: 24 };
 
   return (
     <>
       {/* ── Chat window ─────────────────────────────────────────── */}
       {isOpen && (
         <div
-          className="fixed z-[9999] flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden"
-          style={{
-            insetInline: 8,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            height: '80vh',
-            maxHeight: 580,
-          }}
+          className="fixed z-[9999] flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden charon-chat-window"
+          style={chatStyle}
         >
-          {/* Header */}
+          {/* Header — draggable */}
           <div
-            className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--card)]"
+            className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--card)] cursor-grab active:cursor-grabbing select-none"
             style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
             onMouseDown={onHeaderMouseDown}
           >
@@ -411,9 +461,20 @@ export default function ChatWidget() {
                 <p className="text-xs text-[var(--muted)]">Online \u00b7 Chat to get started</p>
               </div>
             </div>
+            {/* Drag handle dots */}
+            <div className="flex flex-col gap-1 mr-2 shrink-0" aria-hidden="true">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="flex gap-0.5">
+                  {[0, 1, 2].map(j => (
+                    <div key={j} className="w-1 h-1 rounded-full bg-[var(--muted)] opacity-60" />
+                  ))}
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => toggleOpen(false)}
               className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors shrink-0"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
               aria-label="Close chat"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
