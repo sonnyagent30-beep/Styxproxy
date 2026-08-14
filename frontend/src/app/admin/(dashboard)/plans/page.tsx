@@ -36,8 +36,8 @@ interface CountryPref {
 const PRODUCTS = [
   { plan_type: 'DC', label: 'Datacenter', pricing_model: 'per_IP' as const },
   { plan_type: 'ISP', label: 'ISP Proxies', pricing_model: 'per_IP' as const },
-  { plan_type: 'RESIDENTIAL', label: 'Residential', pricing_model: 'per_GB' as const },
-  { plan_type: 'MOBILE', label: 'Mobile 4G', pricing_model: 'per_GB' as const },
+  { plan_type: 'Residential', label: 'Residential', pricing_model: 'per_GB' as const },
+  { plan_type: 'Mobile', label: 'Mobile 4G', pricing_model: 'per_GB' as const },
 ];
 
 const fmt = (n: number | null | undefined) =>
@@ -62,7 +62,7 @@ interface EditProductModalProps {
 
 function EditProductModal({ product, allCountries, onSaved, onClose }: EditProductModalProps) {
   const isIP = product.pricing_model === 'per_IP';
-  const [basePrice, setBasePrice] = useState('');
+  const [basePrice, setBasePrice] = useState('0');
   // Base and special countries start EMPTY — API fetch populates them after mount
   // Do NOT initialize from product prop (stale until API call returns)
   const [baseCountries, setBaseCountries] = useState<Set<string>>(new Set());
@@ -107,7 +107,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
       // Split countries into base vs special using plan-settings overrides
       const settings: any[] = settingsRes.data ?? [];
       const planTypeUpper = product.plan_type.toUpperCase();
-      const planTypeMap: Record<string, string> = { DC: 'datacenter', ISP: 'isp', RESIDENTIAL: 'residential', MOBILE: 'mobile' };
+      const planTypeMap: Record<string, string> = { DC: 'datacenter', ISP: 'isp', Residential: 'residential', Mobile: 'mobile' };
       const normalized = planTypeMap[planTypeUpper] ?? product.plan_type.toLowerCase();
       const setting = settings.find((s: any) => s.plan_type?.toLowerCase() === normalized);
       const overrides: Record<string, number> = setting?.country_overrides ?? {};
@@ -186,7 +186,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   };
 
   const handleSave = async () => {
-    if (!basePrice || parseFloat(basePrice) <= 0) { setError('Enter a base price'); return; }
+    if (basePrice !== '' && isNaN(parseFloat(basePrice))) { setError('Enter a valid base price'); return; }
     setSaving(true);
     setError(null);
 
