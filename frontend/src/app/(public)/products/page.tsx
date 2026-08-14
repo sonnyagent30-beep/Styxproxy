@@ -587,16 +587,16 @@ export default function ProductsPage() {
               {/* Left: Identity */}
               <div className="flex-1">
                 <div className="flex items-start gap-5 mb-5">
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 bg-green-500/8 border border-green-500/15">
-                    {product.key === 'ISP' && <Desktop weight="fill" className="text-[var(--primary)] w-[26px] h-[26px]" />}
-                    {product.key === 'RESIDENTIAL' && <House weight="fill" className="text-[var(--primary)] w-[26px] h-[26px]" />}
-                    {product.key === 'MOBILE' && <DeviceMobile weight="fill" className="text-[var(--primary)] w-[26px] h-[26px]" />}
-                    {product.key === 'DATACENTER' && <HardDrives weight="fill" className="text-[var(--primary)] w-[26px] h-[26px]" />}
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--primary)]/10">
+                    {product.key === 'ISP' && <Desktop weight="fill" className="text-[var(--primary)] w-6 h-6" />}
+                    {product.key === 'RESIDENTIAL' && <House weight="fill" className="text-[var(--primary)] w-6 h-6" />}
+                    {product.key === 'MOBILE' && <DeviceMobile weight="fill" className="text-[var(--primary)] w-6 h-6" />}
+                    {product.key === 'DATACENTER' && <HardDrives weight="fill" className="text-[var(--primary)] w-6 h-6" />}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <div className={`status-dot ${product.statusDot || ''}`} />
-                      <h3 className="text-2xl font-bold tracking-tight">{product.name}</h3>
+                      <h3 className="text-base font-bold">{product.name}</h3>
                     </div>
                     <span className={`text-xs font-mono uppercase px-3 py-1 rounded-full ${
                       product.statusDot === 'warn'
@@ -605,7 +605,7 @@ export default function ProductsPage() {
                     }`}>
                       {product.coverName}
                     </span>
-                    <p className="text-sm leading-relaxed mt-2 text-gray-300">
+                    <p className="text-xs mt-2 text-[var(--muted)]">
                       {product.tagline}
                     </p>
                   </div>
@@ -659,7 +659,7 @@ export default function ProductsPage() {
               <div className="lg:w-72 flex-shrink-0">
                 <div className="grid grid-cols-2 gap-4">
                   {/* Radar chart */}
-                  <div className="p-4 rounded-xl" style={{ background: 'rgba(10,210,90,0.03)', border: '1px solid var(--border)' }}>
+                  <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
                     <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Anonymity Radar</p>
                     <div className="radar-chart">
                       <svg viewBox="0 0 160 160" className="w-full">
@@ -692,7 +692,7 @@ export default function ProductsPage() {
                   </div>
 
                   {/* Cover life gauge */}
-                  <div className="p-4 rounded-xl" style={{ background: 'rgba(10,210,90,0.03)', border: '1px solid var(--border)' }}>
+                  <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
                     <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Cover Life</p>
                     <div className="gauge-wrap">
                       <svg className="gauge-svg" viewBox="0 0 120 80">
@@ -714,7 +714,7 @@ export default function ProductsPage() {
                         <div className="text-xs" style={{ color: 'var(--muted)' }}>Typical</div>
                       </div>
                       <div>
-                        <div className="text-xs font-bold" style={{ color: product.gauge.color === 'danger' ? 'var(--error)' : 'var(--warning)' }}>{product.gauge.hot}</div>
+                        <div className="text-xs font-bold" style={{ color: product.gauge.color === 'danger' ? 'var(--error)' : product.gauge.color === 'warning' ? 'var(--warning)' : 'var(--primary)' }}>{product.gauge.hot}</div>
                         <div className="text-xs" style={{ color: 'var(--muted)' }}>Hot</div>
                       </div>
                       <div>
@@ -726,7 +726,7 @@ export default function ProductsPage() {
                 </div>
 
                 {/* Loadout stats */}
-                <div className="mt-4 p-4 rounded-xl" style={{ background: 'rgba(10,210,90,0.03)', border: '1px solid var(--border)' }}>
+                <div className="mt-4 p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
                   <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Loadout Stats</p>
                   <div className="space-y-3">
                     <div className="stat-row">
@@ -767,12 +767,12 @@ export default function ProductsPage() {
             </div>
 
             {/* Price row */}
-            <div className="mt-5 pt-5 flex flex-wrap items-center gap-6" style={{ borderTop: '1px solid var(--border)' }}>
+            <div className="mt-4 pt-4 flex flex-wrap items-center gap-6" style={{ borderTop: '1px solid var(--border)' }}>
               <div>
                 <span className="text-xs font-mono uppercase tracking-widest text-gray-500" style={{ letterSpacing: '0.1em' }}>Starting from</span>
-                <div className="text-2xl font-bold mt-1 text-[var(--primary)]">
+                <div className="text-xl font-bold mt-1 text-[var(--primary)]">
                   {product.hasApiData ? product.price : 'Unavailable'}
-                  <span className="text-sm font-normal text-gray-500">/{product.priceUnit === 'per IP/mo' ? 'mo' : 'mo'}</span>
+                  <span className="text-sm font-normal text-gray-500">/mo</span>
                 </div>
               </div>
               <Link href="/order" className="btn-primary">Deploy Cover</Link>
