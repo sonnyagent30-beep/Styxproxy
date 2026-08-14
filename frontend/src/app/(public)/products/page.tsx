@@ -476,91 +476,100 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* Right: Stats */}
-              <div className="lg:w-[320px] flex-shrink-0">
-                {/* Radar chart */}
-                <div className="mb-5">
-                  <div className="radar-chart">
-                    <svg viewBox="0 0 160 160" className="w-full h-full">
-                      {/* Background circles */}
-                      {[40, 60, 80, 100].map((r) => (
-                        <circle key={r} cx="80" cy="80" r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
-                      ))}
-                      {/* Axis lines */}
-                      {RADAR_POINTS.map((p) => (
-                        <line key={`${p.x}-${p.y}`} x1="80" y1="80" x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
-                      ))}
-                      {/* Data polygon */}
-                      <polygon
-                        className="radar-polygon"
-                        points={getRadarPoints(product.radar)}
-                        fill="rgba(10,210,90,0.15)"
-                        stroke="var(--primary)"
-                        strokeWidth="2"
-                      />
-                    </svg>
+              {/* Right: Visual metrics — 2-col grid (radar + gauge) + loadout stats below */}
+              <div className="lg:w-72 flex-shrink-0">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Radar chart */}
+                  <div className="p-4 rounded-xl" style={{ background: 'rgba(10,210,90,0.03)', border: '1px solid var(--border)' }}>
+                    <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Anonymity Radar</p>
+                    <div className="radar-chart">
+                      <svg viewBox="0 0 160 160" className="w-full">
+                        {[40, 60, 80, 100].map((r) => (
+                          <circle key={r} cx="80" cy="80" r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+                        ))}
+                        {RADAR_POINTS.map((p) => (
+                          <line key={`${p.x}-${p.y}`} x1="80" y1="80" x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+                        ))}
+                        <polygon
+                          className="radar-polygon"
+                          points={getRadarPoints(product.radar)}
+                          fill="rgba(10,210,90,0.12)"
+                          stroke={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'}
+                          strokeWidth="1.5"
+                        />
+                      </svg>
+                    </div>
                   </div>
-                </div>
 
-                {/* Cover life gauge */}
-                <div className="mb-5">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs uppercase tracking-widest font-mono text-gray-500">Cover life</p>
-                    <span className={`text-xs font-bold ${
-                      product.gauge.color === 'danger' ? 'text-red-500' : 
-                      product.gauge.color === 'warning' ? 'text-amber-500' : 'text-[var(--primary)]'
-                    }`}>
-                      {product.gauge.value}
-                    </span>
-                  </div>
-                  <div className="gauge-wrap">
-                    <svg viewBox="0 0 200 20" className="gauge-svg">
-                      <rect x="0" y="8" width="200" height="4" rx="2" fill="rgba(255,255,255,0.06)" />
-                      <rect 
-                        x="0" 
-                        y="8" 
-                        width={product.gauge.color === 'danger' ? '14%' : product.gauge.color === 'warning' ? '42%' : '75%'} 
-                        height="4" 
-                        rx="2" 
-                        fill={product.gauge.color === 'danger' ? 'var(--danger)' : product.gauge.color === 'warning' ? 'var(--warning)' : 'var(--primary)'} 
-                      />
-                    </svg>
+                  {/* Cover life gauge */}
+                  <div className="p-4 rounded-xl" style={{ background: 'rgba(10,210,90,0.03)', border: '1px solid var(--border)' }}>
+                    <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Cover Life</p>
+                    <div className="gauge-wrap">
+                      <svg className="gauge-svg" viewBox="0 0 120 80">
+                        <path className="gauge-track" d="M 15 65 A 45 45 0 0 1 105 65" />
+                        <path
+                          className="gauge-fill"
+                          d="M 15 65 A 45 45 0 0 1 105 65"
+                          stroke={product.gauge.color === 'warning' ? 'var(--warning)' : product.gauge.color === 'danger' ? 'var(--error)' : 'var(--primary)'}
+                          strokeDasharray="141"
+                          strokeDashoffset={product.gauge.color === 'danger' ? '113' : product.gauge.color === 'warning' ? '82' : '35'}
+                        />
+                        <text x="60" y="58" textAnchor="middle" style={{ fontSize: '13px', fill: product.gauge.color === 'danger' ? 'var(--error)' : product.gauge.color === 'warning' ? 'var(--warning)' : 'var(--primary)' }}>{product.gauge.value}</text>
+                        <text x="60" y="72" textAnchor="middle" style={{ fontSize: '8px', fill: 'var(--muted)' }}>TYPICAL</text>
+                      </svg>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 mt-3 text-center">
+                      <div>
+                        <div className="text-xs font-bold" style={{ color: product.gauge.color === 'danger' ? 'var(--error)' : product.gauge.color === 'warning' ? 'var(--warning)' : 'var(--primary)' }}>{product.gauge.typical}</div>
+                        <div className="text-xs" style={{ color: 'var(--muted)' }}>Typical</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold" style={{ color: product.gauge.color === 'danger' ? 'var(--error)' : 'var(--warning)' }}>{product.gauge.hot}</div>
+                        <div className="text-xs" style={{ color: 'var(--muted)' }}>Hot</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold" style={{ color: 'var(--primary)' }}>{product.gauge.lowRisk}</div>
+                        <div className="text-xs" style={{ color: 'var(--muted)' }}>Low risk</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {/* Loadout stats */}
-                <div className="p-4 rounded-xl" style={{ background: 'rgba(10,210,90,0.03)', border: '1px solid var(--border)' }}>
+                <div className="mt-4 p-4 rounded-xl" style={{ background: 'rgba(10,210,90,0.03)', border: '1px solid var(--border)' }}>
                   <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Loadout Stats</p>
                   <div className="space-y-3">
                     <div className="stat-row">
                       <span className="stat-label">Detection</span>
                       <div className="stat-bar-wrap">
-                        <div 
-                          className="stat-bar-fill" 
-                          data-w={product.stats.detection}
-                          style={product.key === 'DATACENTER' ? { background: 'linear-gradient(90deg,rgba(239,68,68,0.6),var(--danger))' } : {}}
+                        <div
+                          className="stat-bar-fill"
+                          style={{
+                            width: `${product.stats.detection}%`,
+                            background: product.statusDot === 'warn'
+                              ? 'linear-gradient(90deg,rgba(239,68,68,0.6),var(--error))'
+                              : 'linear-gradient(90deg, rgba(10,210,90,0.6), var(--primary))'
+                          }}
                         />
                       </div>
-                      <span className={`text-xs font-mono min-w-[28px] text-right ${
-                        product.key === 'DATACENTER' ? 'text-red-500' : 'text-[var(--primary)]'
-                      }`}>
+                      <span className="text-xs font-mono min-w-[28px] text-right" style={{ color: product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)' }}>
                         {product.stats.detection}
                       </span>
                     </div>
                     <div className="stat-row">
                       <span className="stat-label">Speed</span>
-                      <div className="stat-bar-wrap"><div className="stat-bar-fill" data-w={product.stats.speed} /></div>
-                      <span className="text-xs font-mono text-[var(--primary)] min-w-[28px] text-right">{product.stats.speed}</span>
+                      <div className="stat-bar-wrap"><div className="stat-bar-fill" style={{ width: `${product.stats.speed}%` }} /></div>
+                      <span className="text-xs font-mono min-w-[28px] text-right" style={{ color: 'var(--primary)' }}>{product.stats.speed}</span>
                     </div>
                     <div className="stat-row">
                       <span className="stat-label">Geo</span>
-                      <div className="stat-bar-wrap"><div className="stat-bar-fill" data-w={product.stats.geo} /></div>
-                      <span className="text-xs font-mono text-[var(--primary)] min-w-[28px] text-right">{product.stats.geo}</span>
+                      <div className="stat-bar-wrap"><div className="stat-bar-fill" style={{ width: `${product.stats.geo}%` }} /></div>
+                      <span className="text-xs font-mono min-w-[28px] text-right" style={{ color: 'var(--primary)' }}>{product.stats.geo}</span>
                     </div>
                     <div className="stat-row">
                       <span className="stat-label">Cost</span>
-                      <div className="stat-bar-wrap"><div className="stat-bar-fill" data-w={product.stats.cost} /></div>
-                      <span className="text-xs font-mono text-[var(--primary)] min-w-[28px] text-right">{product.stats.cost}</span>
+                      <div className="stat-bar-wrap"><div className="stat-bar-fill" style={{ width: `${product.stats.cost}%` }} /></div>
+                      <span className="text-xs font-mono min-w-[28px] text-right" style={{ color: 'var(--primary)' }}>{product.stats.cost}</span>
                     </div>
                   </div>
                 </div>
