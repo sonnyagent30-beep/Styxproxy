@@ -26,7 +26,7 @@ const PRODUCTS = [
     stats: { detection: 70, speed: 80, geo: 65, cost: 85 },
     gauge: { value: '~30d', color: 'warning', typical: '30d', hot: '7d', lowRisk: '90d' },
     radar: [34, 114, 109, 80, 46, 51],
-    polygonPoints: '148.0,80.0 111.0,133.69 50.5,131.1 30.0,80.0 65.5,54.89 111.0,26.31',
+    polygonPoints: '80.0,32.0 116.37,59.0 113.77,99.5 80.0,110.0 72.21,84.5 43.63,59.0',
     threatView: [
       { platform: 'Google', risk: 'Low', segments: 4, desc: 'Real ISP allocation. Usually passes reCAPTCHA. Occasional manual review.' },
       { platform: 'Cloudflare', risk: 'Low', segments: 3, desc: 'Most ISP ranges are whitelisted. Fast passthrough with minimal friction.' },
@@ -49,7 +49,7 @@ const PRODUCTS = [
     stats: { detection: 92, speed: 55, geo: 75, cost: 50 },
     gauge: { value: '~45d', color: 'primary', typical: '45d', hot: '14d', lowRisk: '180d' },
     radar: [76, 117, 106, 80, 40, 49],
-    polygonPoints: '133.0,80.0 117.6,145.13 47.5,136.29 15.0,80.0 55.0,36.7 117.6,14.87',
+    polygonPoints: '80.0,47.0 127.8,52.4 118.97,102.5 80.0,125.0 54.02,95.0 32.2,52.4',
     featured: true,
     threatView: [
       { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Looks like a real home user. Google sees it as genuine traffic. Best reCAPTCHA pass rate of any proxy type.' },
@@ -73,7 +73,7 @@ const PRODUCTS = [
     stats: { detection: 96, speed: 60, geo: 88, cost: 38 },
     gauge: { value: '~60d', color: 'primary', typical: '60d', hot: '21d', lowRisk: '180d' },
     radar: [72, 119, 102, 80, 38, 46],
-    polygonPoints: '136.0,80.0 118.8,147.2 43.6,143.05 0.0,80.0 51.4,30.46 118.8,12.8',
+    polygonPoints: '80.0,44.0 129.88,51.2 125.73,106.4 80.0,140.0 47.78,98.6 30.12,51.2',
     threatView: [
       { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Carrier IPs are rarely flagged. Mobile ASNs have the highest trust score across Google\'s systems.' },
       { platform: 'Cloudflare', risk: 'Low', segments: 4, desc: 'Mobile carrier traffic is indistinguishable from regular mobile browsing. Broad platform acceptance.' },
@@ -96,7 +96,7 @@ const PRODUCTS = [
     stats: { detection: 25, speed: 98, geo: 90, cost: 95 },
     gauge: { value: '~7d', color: 'danger', typical: '7d', hot: '1d', lowRisk: '30d' },
     radar: [92, 130, 130, 92, 66, 66],
-    polygonPoints: '158.8,80.0 97.5,110.31 43.0,144.09 52.8,80.0 68.5,60.08 97.5,49.69',
+    polygonPoints: '80.0,21.2 92.99,72.5 126.77,107.0 80.0,87.2 77.4,81.5 67.01,72.5',
     statusDot: 'warn',
     threatView: [
       { platform: 'Google', risk: 'High', segments: 2, desc: 'Known datacenter ranges are flagged. Expect CAPTCHA failures and manual review triggers.' },
@@ -508,16 +508,9 @@ export default function ProductsPage() {
                           stroke={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'}
                           strokeWidth="1.5"
                         />
-                        {/* Fixed outer-ring endpoint dots (N/NE/SE/S/SW/NW) */}
-                        {[
-                          { label: 'SPD', x: 80.0, y: 0.0 },
-                          { label: 'DET', x: 149.3, y: 40.0 },
-                          { label: 'GEO', x: 149.3, y: 120.0 },
-                          { label: 'BAN', x: 80.0, y: 160.0 },
-                          { label: 'CST', x: 10.7, y: 120.0 },
-                          { label: 'STB', x: 10.7, y: 40.0 },
-                        ].map((pt) => (
-                          <circle key={pt.label} cx={pt.x} cy={pt.y} r="3" fill="rgba(10,210,90,0.5)" />
+                        {/* Endpoint dots — at exact polygon data positions */}
+                        {parsePolygonPoints(product.polygonPoints).map((pt, i) => (
+                          <circle key={i} cx={pt.x} cy={pt.y} r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
                         ))}
                         {/* Axis labels */}
                         <text x="80" y="10" textAnchor="middle" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">SPD</text>
