@@ -1199,7 +1199,7 @@ class ApiClient {
 
   async updateCountryPlanType(
     code: string,
-    planType: 'ISP' | 'Residential' | 'Mobile' | 'DC',
+    planType: 'ISP' | 'DC' | 'RESIDENTIAL' | 'MOBILE',
     data: { enabled?: boolean; price_per_gb?: number; price_per_ip?: number; is_special?: boolean }
   ): Promise<ApiResponse<any>> {
     return this.request(`/api/admin/countries/${code}/${planType}`, {
@@ -1210,7 +1210,7 @@ class ApiClient {
 
   async removeCountryFromProduct(
     code: string,
-    planType: 'ISP' | 'Residential' | 'Mobile' | 'DC'
+    planType: 'ISP' | 'DC' | 'RESIDENTIAL' | 'MOBILE'
   ): Promise<ApiResponse<any>> {
     return this.request(`/api/admin/countries/${code}/${planType}`, {
       method: 'DELETE',
@@ -1219,7 +1219,7 @@ class ApiClient {
 
   async toggleCountry(
     code: string,
-    planType: 'ISP' | 'Residential' | 'Mobile' | 'DC',
+    planType: 'ISP' | 'DC' | 'RESIDENTIAL' | 'MOBILE',
     enabled: boolean
   ): Promise<ApiResponse<any>> {
     return this.request(`/api/admin/countries/${code}/${planType}`, {

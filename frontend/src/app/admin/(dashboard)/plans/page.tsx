@@ -36,8 +36,8 @@ interface CountryPref {
 const PRODUCTS = [
   { plan_type: 'DC', label: 'Datacenter', pricing_model: 'per_IP' as const },
   { plan_type: 'ISP', label: 'ISP Proxies', pricing_model: 'per_IP' as const },
-  { plan_type: 'Residential', label: 'Residential', pricing_model: 'per_GB' as const },
-  { plan_type: 'Mobile', label: 'Mobile 4G', pricing_model: 'per_GB' as const },
+  { plan_type: 'RESIDENTIAL', label: 'Residential', pricing_model: 'per_GB' as const },
+  { plan_type: 'MOBILE', label: 'Mobile 4G', pricing_model: 'per_GB' as const },
 ];
 
 const fmt = (n: number | null | undefined) =>
@@ -72,6 +72,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
   const [saveStatus, setSaveStatus] = useState<Map<string, 'idle' | 'saving' | 'saved'>>(new Map());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showSpecialPricePicker, setShowSpecialPricePicker] = useState(false);
   const [specialPriceSelection, setSpecialPriceSelection] = useState<Set<string>>(new Set());
@@ -85,48 +86,35 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
 
   // Reset ALL local state when product changes (e.g. user closes and re-opens modal)
   useEffect(() => {
-    setBasePrice('');
+    setBasePrice('0');
     setBaseCountries(new Set());
     setSpecialCountries(new Map());
     setRemovedCountries(new Set());
     setPricesLoaded(false);
+    setError(null);
+    setSuccess(null);
   }, [product.plan_type]);
 
   useEffect(() => {
-    // Always fetch fresh data when modal opens — don't trust product prop
-    // This fetches: (1) all plan rows for this product (for country list)
-    //               (2) plan-settings (for base price + overrides)
-    Promise.all([
-      api.getAllPlans(),
-      api.getPlanSettings(),
-    ]).then(([plansRes, settingsRes]) => {
-      const allPlans: any[] = plansRes.data ?? [];
-      const myPlans = allPlans.filter((p) => p.plan_type === product.plan_type);
-      const myCountryCodes = new Set(myPlans.map((p) => p.country));
-
-      // Split countries into base vs special using plan-settings overrides
-      const settings: any[] = settingsRes.data ?? [];
-      const planTypeUpper = product.plan_type.toUpperCase();
-      const planTypeMap: Record<string, string> = { DC: 'datacenter', ISP: 'isp', Residential: 'residential', Mobile: 'mobile' };
-      const normalized = planTypeMap[planTypeUpper] ?? product.plan_type.toLowerCase();
-      const setting = settings.find((s: any) => s.plan_type?.toLowerCase() === normalized);
-      const overrides: Record<string, number> = setting?.country_overrides ?? {};
-      const overrideCodes = new Set(Object.keys(overrides));
+    // Fetch from /api/admin/countries — returns country_plan_types data
+    // Plan_types dict has each plan_type with is_special + price_per_ip/gb
+    api.getAdminCountries().then((res) => {
+      if (res.error) { setPricesLoaded(true); return; }
+      const countries: any[] = res.data?.countries ?? [];
+      const ptUpper = product.plan_type.toUpperCase();
 
       const newBase = new Set<string>();
       const newSpecial = new Map<string, number | null>();
-      for (const code of myCountryCodes) {
-        if (overrideCodes.has(code)) {
-          newSpecial.set(code, overrides[code] ?? null);
+
+      for (const c of countries) {
+        const pt = c.plan_types?.[ptUpper] ?? c.plan_types?.[product.plan_type];
+        if (!pt || !pt.enabled) continue;
+        if (pt.is_special) {
+          newSpecial.set(c.code, pt.price_per_ip ?? pt.price_per_gb ?? null);
         } else {
-          newBase.add(code);
+          newBase.add(c.code);
         }
       }
-
-      // Set base price from plan-settings
-      const basePricing = setting?.base_pricing ?? {};
-      const bp = isIP ? basePricing?.price_per_ip : basePricing?.price_per_gb;
-      if (bp) setBasePrice(String(bp));
 
       setBaseCountries(newBase);
       setSpecialCountries(newSpecial);
@@ -189,14 +177,15 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
     if (basePrice !== '' && isNaN(parseFloat(basePrice))) { setError('Enter a valid base price'); return; }
     setSaving(true);
     setError(null);
+    setSuccess(null);
 
     try {
-      // Save each country individually — no bulk endpoint (which resets is_special)
+      // Save each country — upsert handles both new and existing rows
       const allCodes = [...baseCountries, ...specialCountries.keys()];
       for (const code of allCodes) {
         const isSpecial = specialCountries.has(code);
-        const price = isSpecial ? specialCountries.get(code) : parseFloat(basePrice);
-        if (price == null || price <= 0) { setError('Invalid price for ' + code); setSaving(false); return; }
+        const price = isSpecial ? specialCountries.get(code) : parseFloat(basePrice || '0');
+        if (price == null || isNaN(price)) { setError('Invalid price for ' + code); setSaving(false); return; }
         const res = await api.updateCountryPlanType(code, product.plan_type, {
           enabled: true,
           is_special: isSpecial,
@@ -208,14 +197,14 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
 
       // Handle removed countries
       for (const code of [...removedCountries]) {
-        if (allCodes.includes(code)) continue; // skip if re-added
+        if (allCodes.includes(code)) continue;
         const res = await api.removeCountryFromProduct(code, product.plan_type);
         if (res.error) { setError('Failed to remove ' + code + ': ' + res.error); setSaving(false); return; }
       }
 
       setSaving(false);
-      onSaved();
-      onClose();
+      setSuccess('✓ Saved successfully');
+      setTimeout(() => { setSuccess(null); onSaved(); onClose(); }, 1200);
     } catch {
       setSaving(false);
     }
@@ -527,6 +516,18 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
           )}
         </div>
 
+        {/* Error / Success banners */}
+        {error && (
+          <div className="mb-4 px-4 py-3 rounded-lg bg-red-500/15 border border-red-500/40 text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 px-4 py-3 rounded-lg bg-green-500/15 border border-green-500/40 text-green-400 text-sm font-medium">
+            {success}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex gap-3 justify-end pt-4 border-t border-[var(--border)]">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--background)]">
@@ -534,7 +535,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || (baseCountries.size + specialCountries.size === 0)}
+            disabled={saving}
             className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white hover:opacity-90 disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save Changes'}
@@ -571,27 +572,25 @@ export default function PlanSettingsPage() {
   const fetchProductCards = useCallback(async () => {
     setProductsLoading(true);
     try {
-      // Fetch countries list AND plans list in parallel
-      const [countriesRes, allPlansRes] = await Promise.all([
-        api.getAdminCountries(),
-        api.getAllPlans(),
-      ]);
-
-      if (countriesRes.error) { setError('Failed to load countries: ' + countriesRes.error); return; }
-      const allCountries: CountryItem[] = (countriesRes.data as any)?.countries ?? [];
-      const plansData = (allPlansRes?.data as any) ?? [];
+      const res = await api.getAdminCountries();
+      if (res.error) { setError('Failed to load: ' + res.error); return; }
+      const countries: any[] = res.data?.countries ?? [];
 
       const cards: ProductCard[] = PRODUCTS.map((p) => {
-        // Get codes of countries that actually have a plan row in DB
-        const productCountryCodes = new Set(
-          plansData
-            .filter((plan: any) => plan.plan_type === p.plan_type)
-            .map((plan: any) => plan.country)
-        );
-        // Only include countries that are globally enabled AND have a plan row
-        const countryPrefs: CountryPref[] = allCountries
-          .filter((c: CountryItem) => c.is_enabled && productCountryCodes.has(c.code))
-          .map((c: CountryItem) => ({ code: c.code, is_special: false, override_price: null }));
+        const ptUpper = p.plan_type.toUpperCase();
+        const countryPrefs: CountryPref[] = [];
+
+        for (const c of countries) {
+          const pt = c.plan_types?.[ptUpper];
+          if (pt?.enabled) {
+            countryPrefs.push({
+              code: c.code,
+              is_special: pt.is_special ?? false,
+              override_price: pt.price_per_ip ?? pt.price_per_gb ?? null,
+            });
+          }
+        }
+
         return {
           plan_type: p.plan_type,
           label: p.label,
