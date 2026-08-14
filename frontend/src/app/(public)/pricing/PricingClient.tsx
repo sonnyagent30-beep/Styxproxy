@@ -184,6 +184,24 @@ export default function PricingClient() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Scroll-reveal observer
+  useEffect(() => {
+    const revealEls = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.05 }
+    );
+    revealEls.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
     setShowSuggestions(true);
@@ -218,17 +236,31 @@ export default function PricingClient() {
         <div className="absolute inset-0 hero-bg-vignette" />
         <div className="hero-orb-1" />
         <div className="hero-orb-2" />
+        <div className="hero-orb-3" />
 
         <div className="relative text-center max-w-3xl mx-auto">
-          <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-[-0.03em]">
-              Transparent access. No hidden costs.
-            </h1>
-            <p className="text-[var(--muted)] text-lg max-w-xl mx-auto leading-relaxed">
-              Find a country. See the available proxy types and pricing. Order in seconds.
-            </p>
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-6 mx-auto">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
+            <span className="text-xs font-medium tracking-widest uppercase text-[var(--muted)]">
+              Transparent Pricing
+            </span>
           </div>
+
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight mb-6">
+            Transparent access.<br />
+            <span className="text-[var(--primary)]">No hidden costs.</span>
+          </h1>
+          <p className="text-lg max-w-xl mx-auto leading-relaxed text-[var(--muted)]">
+            Find a country. See the available proxy types and pricing. Order in seconds.
+          </p>
         </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div className="flex flex-col items-center gap-2 py-8">
+        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
       </div>
 
       {/* Country Search */}
@@ -349,7 +381,7 @@ export default function PricingClient() {
           <Link 
             href="#" 
             onClick={(e) => { e.preventDefault(); showCountryGridView(); }}
-            className="btn-primary inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-xl"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-black text-base transition-all duration-200 hover:shadow-[0_0_30px_rgba(10,210,90,0.3)]"
           >
             <Globe size={18} />
             View all countries
@@ -367,32 +399,26 @@ export default function PricingClient() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {PRODUCTS.map(product => (
-            <div key={product.key} className={`plan-card p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth ${product.featured ? 'featured' : ''}`}>
-              <span 
+            <div key={product.key} className={`plan-card p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth reveal ${product.featured ? 'featured' : ''}`}>
+              <span
                 className="plan-badge"
-                style={{ 
-                  background: product.badgeColor, 
-                  border: `1px solid ${product.badgeBorder}`, 
-                  color: product.badgeText 
+                style={{
+                  background: product.badgeColor,
+                  border: `1px solid ${product.badgeBorder}`,
+                  color: product.badgeText
                 }}
               >
                 {product.badge}
               </span>
               <div className="plan-header">
-                <div 
-                  className="plan-icon"
-                  style={{ 
-                    background: product.iconBg, 
-                    border: `1px solid ${product.iconBorder}` 
-                  }}
-                >
-                  {product.key === 'isp' && <Globe size={20} style={{ color: product.iconColor }} />}
-                  {product.key === 'residential' && <House size={20} style={{ color: product.iconColor }} />}
-                  {product.key === 'mobile' && <DeviceMobile size={20} style={{ color: product.iconColor }} />}
-                  {product.key === 'datacenter' && <HardDrives size={20} style={{ color: product.iconColor }} />}
+                <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center flex-shrink-0">
+                  {product.key === 'isp' && <Globe size={20} className="text-[var(--primary)]" />}
+                  {product.key === 'residential' && <House size={20} className="text-[var(--primary)]" />}
+                  {product.key === 'mobile' && <DeviceMobile size={20} className="text-[var(--primary)]" />}
+                  {product.key === 'datacenter' && <HardDrives size={20} className="text-[var(--primary)]" />}
                 </div>
                 <div>
-                  <div className="plan-title">{product.name}</div>
+                  <div className="text-base font-bold">{product.name}</div>
                   <div className="plan-subtitle">{product.type}</div>
                 </div>
               </div>
@@ -403,10 +429,10 @@ export default function PricingClient() {
                   ))}
                 </div>
                 <div>
-                  <span className="font-bold" style={{ color: 'var(--primary)', fontSize: '1.125rem' }}>
+                  <span className="text-xl font-bold text-[var(--primary)]">
                     {product.price}
                   </span>
-                  <span style={{ color: 'var(--muted)', fontSize: '0.75rem' }}>/{product.per}</span>
+                  <span className="text-xs text-[var(--muted)]">/{product.per}</span>
                 </div>
               </div>
               <div className="plan-spec">
@@ -449,7 +475,7 @@ export default function PricingClient() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {faqs.map(faq => (
-            <div key={faq.q} className="faq-item p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
+            <div key={faq.q} className="faq-item p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth reveal">
               <h3>{faq.q}</h3>
               <p>{faq.a}</p>
             </div>
@@ -457,15 +483,17 @@ export default function PricingClient() {
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="max-w-6xl mx-auto px-6 pb-8">
-        <div className="section-divider-glow mt-8 mb-8" />
-        <div className="text-center pb-8">
-          <p className="text-sm mb-4" style={{ color: 'var(--muted)' }}>Need bulk access or a custom jurisdiction?</p>
-          <Link href="/contact" className="btn-outline">
-            Contact Us
-          </Link>
-        </div>
+      {/* CTA */}
+      <div className="max-w-3xl mx-auto text-center px-6 pb-32">
+        <div className="section-divider-glow mb-16" />
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-5">
+          Ready to cross the Styx?
+        </h2>
+        <p className="mb-10 text-lg text-[var(--muted)]">Start in seconds. No signup required.</p>
+        <Link href="/order"
+          className="inline-block px-12 py-5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-black text-lg transition-all duration-200 hover:shadow-[0_0_40px_rgba(10,210,90,0.35)]">
+          Get Instant
+        </Link>
       </div>
     </main>
   );
