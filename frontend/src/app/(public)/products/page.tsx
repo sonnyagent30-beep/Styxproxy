@@ -124,6 +124,13 @@ function getRadarPoints(values: number[]): string {
   }).join(' ');
 }
 
+function parsePolygonPoints(pts: string): { x: number; y: number }[] {
+  return pts.split(' ').map((p) => {
+    const [x, y] = p.split(',').map(Number);
+    return { x, y };
+  });
+}
+
 export default function ProductsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
@@ -501,13 +508,10 @@ export default function ProductsPage() {
                           stroke={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'}
                           strokeWidth="1.5"
                         />
-                        {/* Endpoint dots */}
-                        <circle cx="80" cy="34" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
-                        <circle cx="114" cy="56" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
-                        <circle cx="109" cy="108" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
-                        <circle cx="80" cy="126" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
-                        <circle cx="46" cy="98" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
-                        <circle cx="51" cy="51" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
+                        {/* Endpoint dots — computed from polygonPoints */}
+                        {parsePolygonPoints(product.polygonPoints).map((pt, i) => (
+                          <circle key={i} cx={pt.x} cy={pt.y} r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
+                        ))}
                         {/* Axis labels */}
                         <text x="80" y="10" textAnchor="middle" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">SPD</text>
                         <text x="130" y="44" textAnchor="start" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">DET</text>
