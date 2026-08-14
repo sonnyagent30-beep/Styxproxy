@@ -182,18 +182,18 @@ export default function ProductsPage() {
       </div>
 
       {/* Hero */}
-      <div className="relative overflow-hidden pt-28 pb-20 px-4">
+      <div className="relative overflow-hidden pt-24 pb-12 px-4">
         <div className="absolute inset-0 hero-bg-grid" />
         <div className="absolute inset-0 hero-bg-vignette" />
 
         <div className="relative max-w-7xl mx-auto">
-          <div className="text-center mb-10">
+          <div className="text-center mb-6">
             <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full border border-green-500/25 bg-green-500/4">
               <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
               <span className="text-xs font-mono uppercase tracking-widest text-[var(--primary)]">Disguise Catalog</span>
             </div>
 
-            <h1 className="text-5xl sm:text-6xl font-bold mt-8 mb-5 tracking-tight">
+            <h1 className="text-4xl sm:text-5xl font-bold mt-6 mb-5 tracking-tight">
               Not all disguises<br />
               <span className="text-[var(--primary)]">are equal.</span>
             </h1>
@@ -237,7 +237,7 @@ export default function ProductsPage() {
             key={product.key}
             id={`product-${product.key}`}
             ref={(el) => { if (el) cardRefs.current.set(`product-${product.key}`, el); }}
-            className={`reveal mb-8 p-8 ${product.featured ? 'card-featured' : 'card'} ${
+            className={`reveal mb-8 p-6 ${product.featured ? 'card-depth-primary' : 'card-depth'} ${
               visibleCards.has(`product-${product.key}`) ? 'visible' : ''
             }`}
           >
@@ -326,7 +326,7 @@ export default function ProductsPage() {
                 {/* Best for */}
                 <div>
                   <span className="text-xs font-mono uppercase tracking-widest mb-2 block text-gray-500">Best for</span>
-                  <div className="bestfor-strip">
+                  <div className="bestfor-strip overflow-x-auto">
                     {product.bestFor.map((item) => (
                       <span key={item} className="bestfor-tag">{item}</span>
                     ))}
@@ -335,7 +335,7 @@ export default function ProductsPage() {
               </div>
 
               {/* Right: Visual metrics */}
-              <div className="lg:w-80 flex-shrink-0">
+              <div className="lg:w-72 flex-shrink-0">
                 <div className="grid grid-cols-2 gap-4">
                   {/* Radar */}
                   <div className="p-4 rounded-xl bg-green-500/03 border border-[var(--border)]">
@@ -455,7 +455,7 @@ export default function ProductsPage() {
             </div>
 
             {/* Price row */}
-            <div className="mt-5 pt-5 flex flex-wrap items-center gap-6 border-t border-[var(--border)]">
+            <div className="mt-5 pt-4 flex flex-wrap items-center gap-4 border-t border-[var(--border)]">
               <div>
                 <span className="text-xs font-mono uppercase tracking-widest text-gray-500">Starting from</span>
                 <div className="text-2xl font-bold mt-1 text-[var(--primary)]">
@@ -556,7 +556,7 @@ export default function ProductsPage() {
           {PRODUCTS.map((product, idx) => (
             <div
               key={product.key}
-              className={`card p-6 text-center reveal ${product.featured ? 'card-featured' : ''}`}
+              className={`card-depth p-6 text-center reveal ${product.featured ? 'card-depth-primary' : ''}`}
               style={{ animationDelay: `${idx * 0.05}s` }}
             >
               {product.featured && (
@@ -669,23 +669,24 @@ export default function ProductsPage() {
       </div>
 
       {/* Stats + CTA */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-32">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="section-divider-glow mb-16" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-2xl mx-auto mb-20 reveal">
-          <div className="card p-6 text-center">
+          <div className="card-depth p-6 text-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" className="mx-auto mb-3 text-[var(--primary)]" viewBox="0 0 256 256">
               <path fill="currentColor" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Z"/>
             </svg>
             <p className="text-2xl font-bold leading-none mb-1">120+</p>
             <p className="text-xs text-gray-500">Countries</p>
           </div>
-          <div className="card p-6 text-center">
+          <div className="card-depth p-6 text-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" className="mx-auto mb-3 text-[var(--primary)]" viewBox="0 0 256 256">
               <path fill="currentColor" d="M215.79 118.17a8 8 0 0 0-5-5.66L153.18 90.9l14.66-73.33a8 8 0 0 0-13.69-7l-112 120a8 8 0 0 0 3 13l57.63 21.61-76.8 61.43a8 8 0 0 0 3.63 13.71L128 248l110.21-66.92a8 8 0 0 0 3.58-13.91Z"/>
             </svg>
             <p className="text-2xl font-bold leading-none mb-1">Instant</p>
             <p className="text-xs text-gray-500">Delivery</p>
           </div>
-          <div className="card p-6 text-center">
+          <div className="card-depth p-6 text-center">
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" className="mx-auto mb-3 text-[var(--primary)]" viewBox="0 0 256 256">
               <path fill="currentColor" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm40-88a40 40 0 1 1-40-40 40 40 0 0 1 40 40Z"/>
             </svg>
