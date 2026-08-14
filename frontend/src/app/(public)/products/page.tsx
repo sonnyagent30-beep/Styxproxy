@@ -26,7 +26,7 @@ const PRODUCTS = [
     stats: { detection: 70, speed: 80, geo: 65, cost: 85 },
     gauge: { value: '~30d', color: 'warning', typical: '30d', hot: '7d', lowRisk: '90d' },
     radar: [34, 114, 109, 80, 46, 51],
-    polygonPoints: '80,34 114,56 109,108 80,126 46,98 51,51',
+    polygonPoints: '148.0,80.0 111.0,133.69 50.5,131.1 30.0,80.0 65.5,54.89 111.0,26.31',
     threatView: [
       { platform: 'Google', risk: 'Low', segments: 4, desc: 'Real ISP allocation. Usually passes reCAPTCHA. Occasional manual review.' },
       { platform: 'Cloudflare', risk: 'Low', segments: 3, desc: 'Most ISP ranges are whitelisted. Fast passthrough with minimal friction.' },
@@ -49,7 +49,7 @@ const PRODUCTS = [
     stats: { detection: 92, speed: 55, geo: 75, cost: 50 },
     gauge: { value: '~45d', color: 'primary', typical: '45d', hot: '14d', lowRisk: '180d' },
     radar: [76, 117, 106, 80, 40, 49],
-    polygonPoints: '76,27 117,63 106,116 80,133 40,101 49,42',
+    polygonPoints: '133.0,80.0 117.6,145.13 47.5,136.29 15.0,80.0 55.0,36.7 117.6,14.87',
     featured: true,
     threatView: [
       { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Looks like a real home user. Google sees it as genuine traffic. Best reCAPTCHA pass rate of any proxy type.' },
@@ -73,7 +73,7 @@ const PRODUCTS = [
     stats: { detection: 96, speed: 60, geo: 88, cost: 38 },
     gauge: { value: '~60d', color: 'primary', typical: '60d', hot: '21d', lowRisk: '180d' },
     radar: [72, 119, 102, 80, 38, 46],
-    polygonPoints: '72,20 119,68 102,123 80,137 38,94 46,35',
+    polygonPoints: '136.0,80.0 118.8,147.2 43.6,143.05 0.0,80.0 51.4,30.46 118.8,12.8',
     threatView: [
       { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Carrier IPs are rarely flagged. Mobile ASNs have the highest trust score across Google\'s systems.' },
       { platform: 'Cloudflare', risk: 'Low', segments: 4, desc: 'Mobile carrier traffic is indistinguishable from regular mobile browsing. Broad platform acceptance.' },
@@ -96,7 +96,7 @@ const PRODUCTS = [
     stats: { detection: 25, speed: 98, geo: 90, cost: 95 },
     gauge: { value: '~7d', color: 'danger', typical: '7d', hot: '1d', lowRisk: '30d' },
     radar: [92, 130, 130, 92, 66, 66],
-    polygonPoints: '92,56 130,77 130,83 92,104 66,83 66,77',
+    polygonPoints: '158.8,80.0 97.5,110.31 43.0,144.09 52.8,80.0 68.5,60.08 97.5,49.69',
     statusDot: 'warn',
     threatView: [
       { platform: 'Google', risk: 'High', segments: 2, desc: 'Known datacenter ranges are flagged. Expect CAPTCHA failures and manual review triggers.' },
