@@ -2,11 +2,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { 
+import {
   Globe, House, HardDrives, DeviceMobile, Lightning, Clock, Check, X,
   Desktop, Rocket, Target, CaretDown, ArrowRight, Warning, Heart, Star,
   CurrencyNgn
 } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react';
+
+const ICON_MAP: Record<string, Icon> = {
+  ISP: Desktop,
+  RESIDENTIAL: House,
+  MOBILE: DeviceMobile,
+  DATACENTER: HardDrives,
+};
 
 // Hardcoded fallback product data (used when API unavailable or product type not in DB)
 const FALLBACK_PRODUCTS = [
@@ -288,6 +296,9 @@ export default function ProductsPage() {
   const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
+  // Only show products that have real DB data
+  const dbProducts = products.filter((p) => p.hasApiData);
+
   // Fetch catalog from API on mount
   useEffect(() => {
     fetchCatalog().then((data) => {
@@ -433,28 +444,23 @@ export default function ProductsPage() {
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-              {[
-                { type: 'ISP', label: 'Speed Operations', icon: Desktop, desc: 'Sneaker bots, ticket drops, automation — where latency is the enemy.' },
-                { type: 'RESIDENTIAL', label: 'Identity Operations', icon: House, desc: 'Social media, scraping, brand monitoring — maximum authenticity required.' },
-                { type: 'MOBILE', label: 'Verification Ops', icon: DeviceMobile, desc: 'Ad verification, app testing, mobile campaigns — carrier-level stealth.' },
-                { type: 'DATACENTER', label: 'Bulk Operations', icon: HardDrives, desc: 'SEO tools, traffic routing, data collection — speed over stealth.' },
-              ].map((m) => (
+              {dbProducts.map((p) => (
                 <button
-                  key={m.type}
-                  onClick={() => selectBriefing(m.type)}
+                  key={p.key}
+                  onClick={() => selectBriefing(p.key)}
                   className={`p-4 rounded-xl text-left transition-all duration-200 border ${
-                    briefingProfile?.type === m.type
+                    briefingProfile?.type === p.key
                       ? 'border-[var(--primary)] bg-[var(--primary)]/10'
                       : 'border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)]/40'
                   }`}
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[var(--primary)]/10 flex-shrink-0">
-                      <m.icon weight="fill" className="text-[var(--primary)] w-[18px] h-[18px]" />
+                      {(() => { const Icon = ICON_MAP[p.key]; return <Icon weight="fill" className="text-[var(--primary)] w-[18px] h-[18px]" />; })()}
                     </div>
-                    <div className="font-bold text-sm">{m.label}</div>
+                    <div className="font-bold text-sm">{p.name}</div>
                   </div>
-                  <div className="text-xs leading-relaxed text-gray-400">{m.desc}</div>
+                  <div className="text-xs leading-relaxed text-gray-400">{p.tagline}</div>
                 </button>
               ))}
             </div>
@@ -535,31 +541,29 @@ export default function ProductsPage() {
 
           {/* Mission quick-nav */}
           <div className="flex items-center justify-center gap-2 sm:gap-3">
-            {[
-              { label: 'Speed Ops', key: 'ISP' },
-              { label: 'Identity Ops', key: 'RESIDENTIAL' },
-              { label: 'Verification', key: 'MOBILE' },
-              { label: 'Bulk Ops', key: 'DATACENTER' },
-            ].map((mission) => (
-              <button
-                key={mission.key}
-                onClick={() => handleMissionClick(mission.key)}
-                className={`px-2 sm:px-3 md:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 border whitespace-nowrap ${
-                  selectedMission === mission.key
-                    ? 'bg-[var(--primary)] text-black border-[var(--primary)]'
-                    : 'bg-[var(--card)] border-[var(--border)] text-gray-300 hover:border-[var(--primary)] hover:text-[var(--primary)]'
-                }`}
-              >
-                {mission.label}
-              </button>
-            ))}
+            {dbProducts.map((p) => {
+              const label = p.key === 'ISP' ? 'Speed Ops' : p.key === 'RESIDENTIAL' ? 'Identity Ops' : p.key === 'MOBILE' ? 'Verification' : 'Bulk Ops';
+              return (
+                <button
+                  key={p.key}
+                  onClick={() => handleMissionClick(p.key)}
+                  className={`px-2 sm:px-3 md:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 border whitespace-nowrap ${
+                    selectedMission === p.key
+                      ? 'bg-[var(--primary)] text-black border-[var(--primary)]'
+                      : 'bg-[var(--card)] border-[var(--border)] text-gray-300 hover:border-[var(--primary)] hover:text-[var(--primary)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
 
       {/* Product Cards */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        {products.map((product) => (
+        {dbProducts.map((product) => (
           <div
             key={product.key}
             id={`product-${product.key}`}
@@ -823,65 +827,6 @@ export default function ProductsPage() {
         ))}
       </div>
 
-      {/* Charon's Toll */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
-        <div className="section-divider-glow mb-20"></div>
-
-        {/* Header */}
-        <div className="text-center mb-16 reveal visible">
-          <div className="styx-coin" style={{ margin: '0 auto 1.5rem' }}>
-            <div className="styx-coin-ring"></div>
-            <div className="styx-coin-ring"></div>
-            <HardDrives weight="fill" className="w-7 h-7 text-[var(--primary)]" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-          </div>
-          <p className="text-xs uppercase tracking-widest font-mono mb-4" style={{ color: 'var(--muted)', letterSpacing: '0.15em' }}>The Ferryman&apos;s Price</p>
-          <h2 className="text-4xl font-bold mb-4 leading-tight" style={{ letterSpacing: '-0.03em' }}>Charon&apos;s Toll</h2>
-          <p className="text-base max-w-lg mx-auto leading-relaxed" style={{ color: 'var(--muted-light)' }}>
-            No toll, no passage. Each disguise carries its own price — the cost of crossing unseen.
-          </p>
-        </div>
-
-        {/* Toll cards — mapped from products state */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
-          {products.map((product) => (
-            <div
-              key={product.key}
-              className={`${product.featured ? 'card-depth-primary' : 'card'} p-6 text-center reveal visible`}
-              style={{ animationDelay: '0.05s', position: product.featured ? 'relative' : undefined }}
-            >
-              {product.featured && (
-                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-                  <span className="text-[10px] font-bold px-3 py-0.5 rounded-full" style={{ background: 'var(--primary)', color: '#000', letterSpacing: '0.05em' }}>Most Chosen</span>
-                </div>
-              )}
-              <div className="styx-coin" style={{ width: '52px', height: '52px', margin: product.featured ? '0.5rem auto 1rem' : '0 auto 1rem', position: 'relative' }}>
-                <div className="styx-coin-ring"></div>
-                {product.featured && <div className="styx-coin-ring"></div>}
-                {product.key === 'ISP' && <Desktop weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />}
-                {product.key === 'RESIDENTIAL' && <House weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />}
-                {product.key === 'MOBILE' && <DeviceMobile weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />}
-                {product.key === 'DATACENTER' && <HardDrives weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />}
-              </div>
-              <div className="text-xs uppercase tracking-widest font-mono mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
-                {product.name}
-              </div>
-              <div className="styx-value-badge mb-3">
-                {product.hasApiData ? product.price : 'Unavailable'}
-              </div>
-              <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
-                {product.priceUnit}
-              </div>
-              <div className="text-xs leading-relaxed" style={{ color: 'var(--muted-light)' }}>
-                {product.key === 'ISP' && 'The minimum toll. Fast passage, moderate detection risk. Charon\'s seen these IPs before.'}
-                {product.key === 'RESIDENTIAL' && 'Two coins for true passage. Charon\'s favourite — these IPs belong to real souls.'}
-                {product.key === 'MOBILE' && 'Premium passage. Carrier signals bypass all checkpoints. Charon rarely refuses these.'}
-                {product.key === 'DATACENTER' && 'The cheap toll. Speed over stealth. Charon warns you — risk accepted.'}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Comparison Table */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
         <div className="section-divider-glow mb-16"></div>
@@ -894,17 +839,16 @@ export default function ProductsPage() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <th className="px-5 py-4 text-left text-xs uppercase font-mono" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}></th>
-                <th className="px-5 py-4 text-center text-sm font-semibold">ISP</th>
-                <th className="px-5 py-4 text-center text-sm font-bold" style={{ color: 'var(--primary)' }}>Residential</th>
-                <th className="px-5 py-4 text-center text-sm font-semibold">Mobile 4G</th>
-                <th className="px-5 py-4 text-center text-sm font-semibold">Datacenter</th>
+                {dbProducts.map((p) => (
+                  <th key={p.key} className={`px-5 py-4 text-center text-sm ${p.key === 'RESIDENTIAL' ? 'font-bold' : 'font-semibold'}`} style={{ color: p.key === 'RESIDENTIAL' ? 'var(--primary)' : undefined }}>{p.name}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {/* Anonymity row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Anonymity</td>
-                {products.map((p) => {
+                {dbProducts.map((p) => {
                   const d = p.stats.detection;
                   const label = d >= 90 ? 'Highest' : d >= 75 ? 'Very High' : d >= 50 ? 'High' : 'Low';
                   const color = d >= 75 ? 'var(--primary)' : 'var(--muted-light)';
@@ -915,7 +859,7 @@ export default function ProductsPage() {
               {/* Speed row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Speed</td>
-                {products.map((p) => {
+                {dbProducts.map((p) => {
                   const s = p.stats.speed;
                   const label = s >= 90 ? 'Very Fast' : s >= 65 ? 'Fast' : s >= 45 ? 'Medium' : 'Slow';
                   const color = s >= 90 ? 'var(--primary)' : 'var(--muted-light)';
@@ -926,7 +870,7 @@ export default function ProductsPage() {
               {/* Ban Resistance row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Ban Resistance</td>
-                {products.map((p) => {
+                {dbProducts.map((p) => {
                   const color = p.key === 'DATACENTER' ? 'var(--danger)' : 'var(--primary)';
                   const bold = p.key !== 'DATACENTER' ? 'font-semibold' : '';
                   return <td key={p.key} className={`px-5 py-4 text-center text-sm ${bold}`} style={{ color }}>~{p.gauge.typical}</td>;
@@ -935,7 +879,7 @@ export default function ProductsPage() {
               {/* Countries row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Countries</td>
-                {products.map((p) => {
+                {dbProducts.map((p) => {
                   const val = p.hasApiData ? p.countries : '—';
                   const bold = p.key === 'DATACENTER' && p.hasApiData ? 'font-semibold' : '';
                   const color = p.key === 'DATACENTER' && p.hasApiData ? 'var(--primary)' : 'var(--muted-light)';
@@ -945,7 +889,7 @@ export default function ProductsPage() {
               {/* Starting Price row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Starting Price</td>
-                {products.map((p) => {
+                {dbProducts.map((p) => {
                   const price = p.hasApiData ? `${p.price}/mo` : 'Unavailable';
                   return <td key={p.key} className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>{price}</td>;
                 })}
@@ -953,7 +897,7 @@ export default function ProductsPage() {
               {/* Best For row */}
               <tr>
                 <td className="px-5 py-4 text-sm font-medium">Best For</td>
-                {products.map((p) => (
+                {dbProducts.map((p) => (
                   <td key={p.key} className="px-5 py-4 text-center text-xs" style={{ color: 'var(--muted)' }}>
                     {p.bestFor[0]}, {p.bestFor[1]}
                   </td>
