@@ -238,7 +238,7 @@ async function fetchCatalog(): Promise<typeof FALLBACK_PRODUCTS> {
       const formattedPrice = baseUnitPrice > 0
         ? `₦${baseUnitPrice.toLocaleString('en-NG')}`
         : product.price;
-      const displayPrice = baseUnitPrice > 0 ? `From ₦${baseUnitPrice.toLocaleString('en-NG')}` : product.price;
+      const displayPrice = baseUnitPrice > 0 ? `₦${baseUnitPrice.toLocaleString('en-NG')}` : product.price;
 
       // Use countries from API
       const countries = apiTemplate.available_countries.length;
