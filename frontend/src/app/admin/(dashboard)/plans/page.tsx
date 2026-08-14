@@ -212,12 +212,13 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
         const res = await api.removeCountryFromProduct(code, product.plan_type);
         if (res.error) { setError('Failed to remove ' + code + ': ' + res.error); setSaving(false); return; }
       }
-    } finally {
+
+      setSaving(false);
+      onSaved();
+      onClose();
+    } catch {
       setSaving(false);
     }
-
-    onSaved();
-    onClose();
   };
 
   const selectedCountries = allCountries.filter((c) => baseCountries.has(c.code) || specialCountries.has(c.code));
@@ -694,7 +695,7 @@ export default function PlanSettingsPage() {
                       {card.pricing_model === 'per_IP' ? 'per IP' : 'per GB'}
                     </span>
                     <span className="text-sm text-[var(--muted)]">
-                      {card.countries.length} country{card.countries.length !== 1 ? 'ies' : ''}
+                      {card.countries.length} countr{card.countries.length !== 1 ? 'ies' : 'y'}
                     </span>
                   </div>
                   <button
