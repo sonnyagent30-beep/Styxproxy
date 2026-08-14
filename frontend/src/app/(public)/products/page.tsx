@@ -508,9 +508,16 @@ export default function ProductsPage() {
                           stroke={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'}
                           strokeWidth="1.5"
                         />
-                        {/* Endpoint dots — computed from polygonPoints */}
-                        {parsePolygonPoints(product.polygonPoints).map((pt, i) => (
-                          <circle key={i} cx={pt.x} cy={pt.y} r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
+                        {/* Fixed outer-ring endpoint dots (N/NE/SE/S/SW/NW) */}
+                        {[
+                          { label: 'SPD', x: 80.0, y: 0.0 },
+                          { label: 'DET', x: 149.3, y: 40.0 },
+                          { label: 'GEO', x: 149.3, y: 120.0 },
+                          { label: 'BAN', x: 80.0, y: 160.0 },
+                          { label: 'CST', x: 10.7, y: 120.0 },
+                          { label: 'STB', x: 10.7, y: 40.0 },
+                        ].map((pt) => (
+                          <circle key={pt.label} cx={pt.x} cy={pt.y} r="3" fill="rgba(10,210,90,0.5)" />
                         ))}
                         {/* Axis labels */}
                         <text x="80" y="10" textAnchor="middle" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">SPD</text>
