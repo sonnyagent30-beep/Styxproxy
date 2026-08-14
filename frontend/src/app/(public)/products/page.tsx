@@ -228,13 +228,18 @@ async function fetchCatalog(): Promise<typeof FALLBACK_PRODUCTS> {
         return product;
       }
       
-      // Calculate price from API variants (lowest price)
-      const prices = apiTemplate.variants.map((v) => v.price_ngn);
-      const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
-      const formattedPrice = lowestPrice > 0 
-        ? `₦${lowestPrice.toLocaleString('en-NG')}` 
+      // Calculate price from API
+      // ISP/DC: price is per IP → use base_price_per_ip
+      // Residential/Mobile: price is per GB → use base_price_per_gb
+      const isIpBased = apiTemplate.plan_type === 'isp' || apiTemplate.plan_type === 'dc';
+      const baseUnitPrice = isIpBased
+        ? apiTemplate.base_price_per_ip
+        : apiTemplate.base_price_per_gb;
+      const formattedPrice = baseUnitPrice > 0
+        ? `₦${baseUnitPrice.toLocaleString('en-NG')}`
         : product.price;
-      
+      const displayPrice = baseUnitPrice > 0 ? `From ₦${baseUnitPrice.toLocaleString('en-NG')}` : product.price;
+
       // Use countries from API
       const countries = apiTemplate.available_countries.length;
       
@@ -245,10 +250,14 @@ async function fetchCatalog(): Promise<typeof FALLBACK_PRODUCTS> {
       // Fallback provides uptime, latency, stats, gauge, radar, etc.
       const metrics = HARDOCODED_METRICS[product.key];
 
+      // priceUnit: show per IP or per GB depending on product type
+      const priceUnit = isIpBased ? 'per IP/mo' : 'per GB/mo';
+
       return {
         ...product,
         hasApiData: true,
-        price: formattedPrice,
+        price: displayPrice,
+        priceUnit,
         countries,
         description,
         uptime: metrics?.uptime || product.uptime,
@@ -904,7 +913,7 @@ export default function ProductsPage() {
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Starting Price</td>
                 {dbProducts.map((p) => {
-                  const price = p.hasApiData ? `${p.price}/mo` : 'Unavailable';
+                  const price = p.hasApiData ? p.price : 'Unavailable';
                   return <td key={p.key} className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>{price}</td>;
                 })}
               </tr>
