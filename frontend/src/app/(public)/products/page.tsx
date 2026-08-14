@@ -27,6 +27,7 @@ const FALLBACK_PRODUCTS = [
     gauge: { value: '~30d', color: 'warning', typical: '30d', hot: '7d', lowRisk: '90d' },
     radar: [34, 114, 109, 80, 46, 51],
     polygonPoints: '80.0,32.0 116.37,59.0 113.77,99.5 80.0,110.0 72.21,84.5 43.63,59.0',
+    hasApiData: false,
     threatView: [
       { platform: 'Google', risk: 'Low', segments: 4, desc: 'Real ISP allocation. Usually passes reCAPTCHA. Occasional manual review.' },
       { platform: 'Cloudflare', risk: 'Low', segments: 3, desc: 'Most ISP ranges are whitelisted. Fast passthrough with minimal friction.' },
@@ -50,6 +51,7 @@ const FALLBACK_PRODUCTS = [
     gauge: { value: '~45d', color: 'primary', typical: '45d', hot: '14d', lowRisk: '180d' },
     radar: [76, 117, 106, 80, 40, 49],
     polygonPoints: '80.0,47.0 127.8,52.4 118.97,102.5 80.0,125.0 54.02,95.0 32.2,52.4',
+    hasApiData: false,
     featured: true,
     threatView: [
       { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Looks like a real home user. Google sees it as genuine traffic. Best reCAPTCHA pass rate of any proxy type.' },
@@ -74,6 +76,7 @@ const FALLBACK_PRODUCTS = [
     gauge: { value: '~60d', color: 'primary', typical: '60d', hot: '21d', lowRisk: '180d' },
     radar: [72, 119, 102, 80, 38, 46],
     polygonPoints: '80.0,44.0 129.88,51.2 125.73,106.4 80.0,140.0 47.78,98.6 30.12,51.2',
+    hasApiData: false,
     threatView: [
       { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Carrier IPs are rarely flagged. Mobile ASNs have the highest trust score across Google\'s systems.' },
       { platform: 'Cloudflare', risk: 'Low', segments: 4, desc: 'Mobile carrier traffic is indistinguishable from regular mobile browsing. Broad platform acceptance.' },
@@ -97,6 +100,7 @@ const FALLBACK_PRODUCTS = [
     gauge: { value: '~7d', color: 'danger', typical: '7d', hot: '1d', lowRisk: '30d' },
     radar: [92, 130, 130, 92, 66, 66],
     polygonPoints: '80.0,21.2 92.99,72.5 126.77,107.0 80.0,87.2 77.4,81.5 67.01,72.5',
+    hasApiData: false,
     statusDot: 'warn',
     threatView: [
       { platform: 'Google', risk: 'High', segments: 2, desc: 'Known datacenter ranges are flagged. Expect CAPTCHA failures and manual review triggers.' },
@@ -179,7 +183,7 @@ const HARDOCODED_METRICS: Record<string, { uptime: string; latency: string; stat
 // Fetch catalog from API and merge with fallback data
 async function fetchCatalog(): Promise<typeof FALLBACK_PRODUCTS> {
   try {
-    const response = await fetch('http://162.35.184.69:8000/api/catalog', {
+    const response = await fetch('/api/catalog', {
       signal: AbortSignal.timeout(10000),
     });
     
@@ -227,12 +231,13 @@ async function fetchCatalog(): Promise<typeof FALLBACK_PRODUCTS> {
       // Get description from API (or keep fallback)
       const description = apiTemplate.description || product.description;
       
-      // Merge: API provides price, countries, description
+      // Merge: API provides price, countries, description + mark as DB-sourced
       // Fallback provides uptime, latency, stats, gauge, radar, etc.
       const metrics = HARDOCODED_METRICS[product.key];
-      
+
       return {
         ...product,
+        hasApiData: true,
         price: formattedPrice,
         countries,
         description,
@@ -597,14 +602,16 @@ export default function ProductsPage() {
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0 lg:hidden">
-                    <div className="text-2xl font-bold text-[var(--primary)]">{product.price}</div>
+                    <div className="text-2xl font-bold text-[var(--primary)]">
+                      {product.hasApiData ? product.price : 'Unavailable'}
+                    </div>
                     <div className="text-xs text-gray-500">{product.priceUnit}</div>
                   </div>
                 </div>
 
                 {/* Mini chips */}
                 <div className="mini-chips mb-5">
-                  <div className="mini-chip"><span className="chip-val">{product.countries}</span> Countries</div>
+                  <div className="mini-chip"><span className="chip-val">{product.hasApiData ? product.countries : '—'}</span> Countries</div>
                   <div className="mini-chip"><span className="chip-val">{product.uptime}</span> Uptime</div>
                   <div className="mini-chip"><span className="chip-val">{product.latency}</span> Latency</div>
                 </div>
@@ -756,7 +763,7 @@ export default function ProductsPage() {
               <div>
                 <span className="text-xs font-mono uppercase tracking-widest text-gray-500" style={{ letterSpacing: '0.1em' }}>Starting from</span>
                 <div className="text-2xl font-bold mt-1 text-[var(--primary)]">
-                  {product.price}
+                  {product.hasApiData ? product.price : 'Unavailable'}
                   <span className="text-sm font-normal text-gray-500">/{product.priceUnit === 'per IP/mo' ? 'mo' : 'mo'}</span>
                 </div>
               </div>
@@ -769,7 +776,7 @@ export default function ProductsPage() {
               >
                 What they see <CaretDown weight="bold" className={`expand-icon w-3 h-3 ${expanded === product.key ? 'open' : ''}`} />
               </button>
-              <div className="text-xs ml-auto hidden lg:block text-gray-500">{product.countries} countries available</div>
+              <div className="text-xs ml-auto hidden lg:block text-gray-500">{product.hasApiData ? `${product.countries} countries available` : '— countries available'}</div>
             </div>
 
             {/* Expand section */}
@@ -834,60 +841,44 @@ export default function ProductsPage() {
           </p>
         </div>
 
-        {/* Toll cards */}
+        {/* Toll cards — mapped from products state */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
-          {/* ISP Toll */}
-          <div className="card p-6 text-center reveal visible" style={{ animationDelay: '0.05s' }}>
-            <div className="styx-coin" style={{ width: '52px', height: '52px', margin: '0 auto 1rem', position: 'relative' }}>
-              <div className="styx-coin-ring"></div>
-              <Desktop weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+          {products.map((product) => (
+            <div
+              key={product.key}
+              className={`${product.featured ? 'card-depth-primary' : 'card'} p-6 text-center reveal visible`}
+              style={{ animationDelay: '0.05s', position: product.featured ? 'relative' : undefined }}
+            >
+              {product.featured && (
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+                  <span className="text-[10px] font-bold px-3 py-0.5 rounded-full" style={{ background: 'var(--primary)', color: '#000', letterSpacing: '0.05em' }}>Most Chosen</span>
+                </div>
+              )}
+              <div className="styx-coin" style={{ width: '52px', height: '52px', margin: product.featured ? '0.5rem auto 1rem' : '0 auto 1rem', position: 'relative' }}>
+                <div className="styx-coin-ring"></div>
+                {product.featured && <div className="styx-coin-ring"></div>}
+                {product.key === 'ISP' && <Desktop weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />}
+                {product.key === 'RESIDENTIAL' && <House weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />}
+                {product.key === 'MOBILE' && <DeviceMobile weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />}
+                {product.key === 'DATACENTER' && <HardDrives weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />}
+              </div>
+              <div className="text-xs uppercase tracking-widest font-mono mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
+                {product.name}
+              </div>
+              <div className="styx-value-badge mb-3">
+                {product.hasApiData ? product.price : 'Unavailable'}
+              </div>
+              <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>
+                {product.priceUnit}
+              </div>
+              <div className="text-xs leading-relaxed" style={{ color: 'var(--muted-light)' }}>
+                {product.key === 'ISP' && 'The minimum toll. Fast passage, moderate detection risk. Charon\'s seen these IPs before.'}
+                {product.key === 'RESIDENTIAL' && 'Two coins for true passage. Charon\'s favourite — these IPs belong to real souls.'}
+                {product.key === 'MOBILE' && 'Premium passage. Carrier signals bypass all checkpoints. Charon rarely refuses these.'}
+                {product.key === 'DATACENTER' && 'The cheap toll. Speed over stealth. Charon warns you — risk accepted.'}
+              </div>
             </div>
-            <div className="text-xs uppercase tracking-widest font-mono mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>ISP</div>
-            <div className="styx-value-badge mb-3">₦6,500</div>
-            <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>per IP / month</div>
-            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted-light)' }}>The minimum toll. Fast passage, moderate detection risk. Charon&apos;s seen these IPs before.</div>
-          </div>
-
-          {/* Residential Toll (featured) */}
-          <div className="card-depth-primary p-6 text-center reveal visible" style={{ animationDelay: '0.1s', position: 'relative' }}>
-            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-              <span className="text-[10px] font-bold px-3 py-0.5 rounded-full" style={{ background: 'var(--primary)', color: '#000', letterSpacing: '0.05em' }}>Most Chosen</span>
-            </div>
-            <div className="styx-coin" style={{ width: '52px', height: '52px', margin: '0.5rem auto 1rem', position: 'relative' }}>
-              <div className="styx-coin-ring"></div>
-              <div className="styx-coin-ring"></div>
-              <House weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-            </div>
-            <div className="text-xs uppercase tracking-widest font-mono mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Residential</div>
-            <div className="styx-value-badge mb-3">₦15,000</div>
-            <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>per month</div>
-            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted-light)' }}>Two coins for true passage. Charon&apos;s favourite — these IPs belong to real souls.</div>
-          </div>
-
-          {/* Mobile Toll */}
-          <div className="card p-6 text-center reveal visible" style={{ animationDelay: '0.15s' }}>
-            <div className="styx-coin" style={{ width: '52px', height: '52px', margin: '0 auto 1rem', position: 'relative' }}>
-              <div className="styx-coin-ring"></div>
-              <div className="styx-coin-ring"></div>
-              <DeviceMobile weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-            </div>
-            <div className="text-xs uppercase tracking-widest font-mono mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Mobile 4G</div>
-            <div className="styx-value-badge mb-3">₦20,000</div>
-            <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>per month</div>
-            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted-light)' }}>Premium passage. Carrier signals bypass all checkpoints. Charon rarely refuses these.</div>
-          </div>
-
-          {/* Datacenter Toll */}
-          <div className="card p-6 text-center reveal visible" style={{ animationDelay: '0.2s' }}>
-            <div className="styx-coin" style={{ width: '52px', height: '52px', margin: '0 auto 1rem', position: 'relative' }}>
-              <div className="styx-coin-ring"></div>
-              <HardDrives weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-            </div>
-            <div className="text-xs uppercase tracking-widest font-mono mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Datacenter</div>
-            <div className="styx-value-badge mb-3">₦3,500</div>
-            <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>per month</div>
-            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted-light)' }}>The cheap toll. Speed over stealth. Charon warns you — risk accepted.</div>
-          </div>
+          ))}
         </div>
       </div>
 
@@ -910,47 +901,63 @@ export default function ProductsPage() {
               </tr>
             </thead>
             <tbody>
+              {/* Anonymity row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Anonymity</td>
-                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>High</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>Very High</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>Highest</td>
-                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>Low</td>
+                {products.map((p) => {
+                  const d = p.stats.detection;
+                  const label = d >= 90 ? 'Highest' : d >= 75 ? 'Very High' : d >= 50 ? 'High' : 'Low';
+                  const color = d >= 75 ? 'var(--primary)' : 'var(--muted-light)';
+                  const bold = d >= 75 ? 'font-semibold' : '';
+                  return <td key={p.key} className={`px-5 py-4 text-center text-sm ${bold}`} style={{ color }}>{label}</td>;
+                })}
               </tr>
+              {/* Speed row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Speed</td>
-                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>Fast</td>
-                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>Medium</td>
-                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>Medium</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>Very Fast</td>
+                {products.map((p) => {
+                  const s = p.stats.speed;
+                  const label = s >= 90 ? 'Very Fast' : s >= 65 ? 'Fast' : s >= 45 ? 'Medium' : 'Slow';
+                  const color = s >= 90 ? 'var(--primary)' : 'var(--muted-light)';
+                  const bold = s >= 90 ? 'font-semibold' : '';
+                  return <td key={p.key} className={`px-5 py-4 text-center text-sm ${bold}`} style={{ color }}>{label}</td>;
+                })}
               </tr>
+              {/* Ban Resistance row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Ban Resistance</td>
-                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>~30 days</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>~45 days</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>~60 days</td>
-                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--danger)' }}>~7 days</td>
+                {products.map((p) => {
+                  const color = p.key === 'DATACENTER' ? 'var(--danger)' : 'var(--primary)';
+                  const bold = p.key !== 'DATACENTER' ? 'font-semibold' : '';
+                  return <td key={p.key} className={`px-5 py-4 text-center text-sm ${bold}`} style={{ color }}>~{p.gauge.typical}</td>;
+                })}
               </tr>
+              {/* Countries row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Countries</td>
-                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>45</td>
-                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>90</td>
-                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>30</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>120</td>
+                {products.map((p) => {
+                  const val = p.hasApiData ? p.countries : '—';
+                  const bold = p.key === 'DATACENTER' && p.hasApiData ? 'font-semibold' : '';
+                  const color = p.key === 'DATACENTER' && p.hasApiData ? 'var(--primary)' : 'var(--muted-light)';
+                  return <td key={p.key} className={`px-5 py-4 text-center text-sm ${bold}`} style={{ color }}>{val}</td>;
+                })}
               </tr>
+              {/* Starting Price row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Starting Price</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>₦6,500/mo</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>₦15,000/mo</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>₦20,000/mo</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>₦3,500/mo</td>
+                {products.map((p) => {
+                  const price = p.hasApiData ? `${p.price}/mo` : 'Unavailable';
+                  return <td key={p.key} className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>{price}</td>;
+                })}
               </tr>
+              {/* Best For row */}
               <tr>
                 <td className="px-5 py-4 text-sm font-medium">Best For</td>
-                <td className="px-5 py-4 text-center text-xs" style={{ color: 'var(--muted)' }}>Sneakers, tickets</td>
-                <td className="px-5 py-4 text-center text-xs" style={{ color: 'var(--muted)' }}>Social, scraping</td>
-                <td className="px-5 py-4 text-center text-xs" style={{ color: 'var(--muted)' }}>Ad verification</td>
-                <td className="px-5 py-4 text-center text-xs" style={{ color: 'var(--muted)' }}>Bulk, speed</td>
+                {products.map((p) => (
+                  <td key={p.key} className="px-5 py-4 text-center text-xs" style={{ color: 'var(--muted)' }}>
+                    {p.bestFor[0]}, {p.bestFor[1]}
+                  </td>
+                ))}
               </tr>
             </tbody>
           </table>
