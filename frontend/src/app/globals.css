@@ -153,6 +153,7 @@ button {
 
 /* ── Premium card depth ───────────────────────────────────────── */
 .card-depth {
+  background: var(--card);
   box-shadow: var(--card-shadow);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
@@ -164,6 +165,7 @@ button {
 }
 
 .card-depth-primary {
+  background: var(--card);
   box-shadow: var(--card-shadow-primary);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
