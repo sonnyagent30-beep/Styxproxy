@@ -220,12 +220,14 @@ export default function PricingClient() {
         <div className="hero-orb-2" />
 
         <div className="relative text-center max-w-3xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-[-0.03em]">
-            Transparent access. No hidden costs.
-          </h1>
-          <p className="text-[var(--muted)] text-lg max-w-xl mx-auto leading-relaxed">
-            Find a country. See the available proxy types and pricing. Order in seconds.
-          </p>
+          <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-[-0.03em]">
+              Transparent access. No hidden costs.
+            </h1>
+            <p className="text-[var(--muted)] text-lg max-w-xl mx-auto leading-relaxed">
+              Find a country. See the available proxy types and pricing. Order in seconds.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -269,7 +271,7 @@ export default function PricingClient() {
       {/* Country Detail (shown on selection) */}
       {selectedCountryData && (
         <div className="max-w-6xl mx-auto px-6 pb-16">
-          <div className="country-detail-card">
+          <div className="country-detail-card p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
             <div className="country-detail-header">
               <span className="flag">{selectedCountryData.flag}</span>
               <div>
@@ -326,11 +328,11 @@ export default function PricingClient() {
             Hide countries
           </button>
         </div>
-        <div className="country-grid">
+        <div className="country-grid gap-4">
           {countryData.map(c => (
             <div 
               key={c.code} 
-              className="country-tile"
+              className="country-tile p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth"
               onClick={() => selectCountry(c.code)}
             >
               <span className="flag">{c.flag}</span>
@@ -356,15 +358,16 @@ export default function PricingClient() {
       )}
 
       {/* Plan Overview */}
-      <div className="max-w-6xl mx-auto px-6 pb-12">
+      <div className="max-w-6xl mx-auto px-6 pb-16">
         <div className="section-divider-glow mb-12" />
         <div className="text-center mb-10">
-          <h2 className="text-2xl font-bold tracking-[-0.02em] mb-2">Proxy Plans Overview</h2>
+          <span className="text-xs uppercase tracking-widest text-[var(--primary)]">Plans</span>
+          <h2 className="text-2xl font-bold tracking-[-0.02em] mt-2 mb-2">Proxy Plans Overview</h2>
           <p className="text-sm" style={{ color: 'var(--muted)' }}>All plans include ban replacement. Prices per month.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {PRODUCTS.map(product => (
-            <div key={product.key} className={`plan-card ${product.featured ? 'featured' : ''}`}>
+            <div key={product.key} className={`plan-card p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth ${product.featured ? 'featured' : ''}`}>
               <span 
                 className="plan-badge"
                 style={{ 
@@ -438,14 +441,15 @@ export default function PricingClient() {
       </div>
 
       {/* FAQ Section */}
-      <div className="max-w-6xl mx-auto px-6 pb-12">
+      <div className="max-w-6xl mx-auto px-6 pb-16">
         <div className="section-divider-glow mb-12" />
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold tracking-[-0.02em] mb-2">Common questions</h2>
+          <span className="text-xs uppercase tracking-widest text-[var(--primary)]">FAQ</span>
+          <h2 className="text-2xl font-bold tracking-[-0.02em] mt-2 mb-2">Common questions</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {faqs.map(faq => (
-            <div key={faq.q} className="faq-item">
+            <div key={faq.q} className="faq-item p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
               <h3>{faq.q}</h3>
               <p>{faq.a}</p>
             </div>
