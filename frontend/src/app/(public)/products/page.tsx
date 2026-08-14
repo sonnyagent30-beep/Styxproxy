@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Globe, House, HardDrives, DeviceMobile, Lightning, Clock, Check, X } from '@phosphor-icons/react';
 
@@ -143,6 +143,10 @@ export default function ProductsPage() {
     setExpanded(expanded === key ? null : key);
   };
 
+  const [briefingDone, setBriefingDone] = useState(false);
+  const [showBriefingModal, setShowBriefingModal] = useState(false);
+  const [briefingProfile, setBriefingProfile] = useState<{ type: string; text: string } | null>(null);
+
   const handleMissionClick = (key: string) => {
     setSelectedMission(key);
     const element = document.getElementById(`product-${key}`);
@@ -156,8 +160,160 @@ export default function ProductsPage() {
     }
   };
 
+  const selectBriefing = (type: string) => {
+    const profiles: Record<string, string> = {
+      ISP: '"Baseline Identity." Fast and stable. ISP speed with home-IP credibility. Ideal for sneaker bots, ticket drops, and high-frequency automation where latency is the enemy.',
+      RESIDENTIAL: '"Deep Cover." Real home IPs from actual devices. Maximum authenticity and the highest ban resistance of any cover. Best for social media management, scraping, and anywhere detection is fatal.',
+      MOBILE: '"Ghost Protocol." Carrier-grade anonymity with no device fingerprint. The hardest cover to burn. For high-value operations where every request must look like a genuine mobile user.',
+      DATACENTER: '"Fast Lane." Maximum throughput at minimum cost. Accept the detection tradeoff — these IPs are well-known. For bulk operations, SEO tools, and traffic routing where stealth is not the priority.',
+    };
+    setBriefingProfile({ type, text: profiles[type] || '' });
+  };
+
+  const acceptMission = () => {
+    sessionStorage.setItem('briefingDone', '1');
+    setShowBriefingModal(false);
+    if (briefingProfile) {
+      handleMissionClick(briefingProfile.type);
+    }
+  };
+
+  const skipBriefing = () => {
+    sessionStorage.setItem('briefingDone', '1');
+    setShowBriefingModal(false);
+  };
+
+  // showBriefing fires once on mount if not already done
+  useEffect(() => {
+    if (!sessionStorage.getItem('briefingDone')) {
+      const timer = setTimeout(() => {
+        setShowBriefingModal(true);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Escape key closes modal
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showBriefingModal) skipBriefing();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [showBriefingModal]);
+
   return (
     <div className="min-h-screen">
+      {/* Briefing Modal */}
+      {showBriefingModal && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Choose your proxy cover"
+        >
+          <div className="modal-box">
+            <button
+              className="modal-close"
+              onClick={skipBriefing}
+              aria-label="Close modal"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" fill="currentColor">
+                <path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z"/>
+              </svg>
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0"
+                style={{ boxShadow: '0 0 8px var(--error)' }} />
+              <span className="text-xs uppercase tracking-widest font-mono text-gray-500">
+                Classified // Eyes Only
+              </span>
+            </div>
+
+            <h2 className="text-2xl font-bold mb-3 leading-tight text-[var(--primary-light)] tracking-tight">
+              Choose your cover.
+            </h2>
+            <p className="text-sm mb-6 leading-relaxed text-gray-400">
+              Each disguise has a distinct signature. Pick the one that fits your operation.
+            </p>
+
+            <p className="text-xs uppercase tracking-widest font-mono mb-4 text-gray-500">
+              Primary objective:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+              {[
+                { type: 'ISP', label: 'Speed Operations', icon: 'globe', desc: 'Sneaker bots, ticket drops, automation — where latency is the enemy.' },
+                { type: 'RESIDENTIAL', label: 'Identity Operations', icon: 'house', desc: 'Social media, scraping, brand monitoring — maximum authenticity required.' },
+                { type: 'MOBILE', label: 'Verification Ops', icon: 'mobile', desc: 'Ad verification, app testing, mobile campaigns — carrier-level stealth.' },
+                { type: 'DATACENTER', label: 'Bulk Operations', icon: 'server', desc: 'SEO tools, traffic routing, data collection — speed over stealth.' },
+              ].map((m) => (
+                <button
+                  key={m.type}
+                  onClick={() => selectBriefing(m.type)}
+                  className={`p-4 rounded-xl text-left transition-all duration-200 border ${
+                    briefingProfile?.type === m.type
+                      ? 'border-[var(--primary)] bg-[var(--primary)]/10'
+                      : 'border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)]/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[var(--primary)]/10 flex-shrink-0">
+                      {m.type === 'ISP' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" className="text-[var(--primary)]">
+                          <path fill="currentColor" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm40-88a40 40 0 1 1-40-40 40 40 0 0 1 40 40Zm-64 0a24 24 0 1 0 24-24 24 24 0 0 0-24 24Z"/>
+                        </svg>
+                      )}
+                      {m.type === 'RESIDENTIAL' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" className="text-[var(--primary)]">
+                          <path fill="currentColor" d="M240 208h-24v-56a16 16 0 0 0-16-16h-32V96a16 16 0 0 0-24.53-12.41l-32 24L75.31 82.41 48 95.29V136H24a16 16 0 0 0-16 16v56H16a8 8 0 0 0 0 16h224a8 8 0 0 0 0-16Z"/>
+                        </svg>
+                      )}
+                      {m.type === 'MOBILE' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" className="text-[var(--primary)]">
+                          <path fill="currentColor" d="M176 16H80a24 24 0 0 0-24 24v176a24 24 0 0 0 24 24h96a24 24 0 0 0 24-24V40a24 24 0 0 0-24-24ZM80 32h96a8 8 0 0 1 8 8v128H72V40a8 8 0 0 1 8-8Zm96 192H80a8 8 0 0 1-8-8v-16h112v16a8 8 0 0 1-8 8Z"/>
+                        </svg>
+                      )}
+                      {m.type === 'DATACENTER' && (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" className="text-[var(--primary)]">
+                          <path fill="currentColor" d="M232 96c0-30.88-22.51-56.42-52.07-59.83a8 8 0 0 0-3.86 15.66C194.45 54.06 216 78.34 216 96a60.07 60.07 0 0 1-46.07 57.77A15.92 15.92 0 0 0 176 160v40H96v-40a16 16 0 0 0-6.07-12.23A60.07 60.07 0 0 1 40 96c0-17.66 21.55-41.94 39.93-44.17a8 8 0 0 0-3.86-15.66C47.51 39.58 25 65.12 25 96c0 23.47 11.72 44.26 30 56.68V208H48a16 16 0 0 0-16 16v16a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16v-16a16 16 0 0 0-16-16h-7v-55.32c18.28-12.42 30-33.21 30-56.68Z"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div className="font-bold text-sm">{m.label}</div>
+                  </div>
+                  <div className="text-xs leading-relaxed text-gray-400">{m.desc}</div>
+                </button>
+              ))}
+            </div>
+
+            {briefingProfile && (
+              <div className="mb-5 p-4 rounded-xl bg-[var(--primary)]/05 border border-[var(--primary)]/20">
+                <div className="text-xs uppercase tracking-widest font-mono mb-2 text-[var(--primary)]">Briefing</div>
+                <div className="text-sm leading-relaxed">{briefingProfile.text}</div>
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={acceptMission}
+                disabled={!briefingProfile}
+                className="flex-1 text-center py-3 rounded-xl font-semibold text-black bg-[var(--primary)] hover:bg-[var(--primary-dark)] transition-all duration-200 disabled:opacity-40"
+              >
+                Begin Operation
+              </button>
+              <button
+                onClick={skipBriefing}
+                className="px-6 py-3 rounded-xl border border-[var(--border)] text-gray-300 hover:border-[var(--primary)]/40 transition-all duration-200"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Ticker */}
       <div className="ticker-wrap">
         <div className="ticker-track">
