@@ -105,6 +105,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
 
       const newBase = new Set<string>();
       const newSpecial = new Map<string, number | null>();
+      let firstBasePrice: number | null = null;
 
       for (const c of countries) {
         const pt = c.plan_types?.[ptUpper] ?? c.plan_types?.[product.plan_type];
@@ -113,11 +114,15 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
           newSpecial.set(c.code, pt.price_per_ip ?? pt.price_per_gb ?? null);
         } else {
           newBase.add(c.code);
+          if (firstBasePrice === null) {
+            firstBasePrice = pt.price_per_ip ?? pt.price_per_gb ?? null;
+          }
         }
       }
 
       setBaseCountries(newBase);
       setSpecialCountries(newSpecial);
+      if (firstBasePrice !== null) setBasePrice(String(firstBasePrice));
       setPricesLoaded(true);
     }).catch(() => {
       setPricesLoaded(true);
