@@ -295,7 +295,9 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<typeof FALLBACK_PRODUCTS>(FALLBACK_PRODUCTS);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
-  const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
+  const [visibleCards, setVisibleCards] = useState<Set<string>>(
+    new Set(['product-ISP', 'product-RESIDENTIAL', 'product-MOBILE', 'product-DATACENTER'])
+  );
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   // Only show products that have real DB data
