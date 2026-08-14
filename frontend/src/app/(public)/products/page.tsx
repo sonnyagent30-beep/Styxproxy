@@ -8,8 +8,8 @@ import {
   CurrencyNgn
 } from '@phosphor-icons/react';
 
-// Product data matching the HTML mockup
-const PRODUCTS = [
+// Hardcoded fallback product data (used when API unavailable or product type not in DB)
+const FALLBACK_PRODUCTS = [
   {
     key: 'ISP',
     name: 'ISP Proxy',
@@ -106,6 +106,151 @@ const PRODUCTS = [
   },
 ];
 
+// API types from backend
+interface CatalogVariant {
+  plan_code: string;
+  plan_type: string;
+  country: string;
+  rotation_mode: string;
+  price_ngn: number;
+  quantity: number;
+  duration_days: number;
+  features: string[];
+  in_stock: boolean;
+}
+
+interface CatalogTemplate {
+  plan_type: string;
+  rotation_mode_options: string[];
+  available_countries: string[];
+  base_quantity_gb: number;
+  base_price_ngn: number;
+  base_price_per_gb: number;
+  base_price_per_ip: number;
+  min_gb: number;
+  max_gb: number;
+  gb_tiers: number[];
+  supports_city: boolean;
+  cities: Record<string, unknown>;
+  duration_days: number;
+  static_price_multiplier: number;
+  supports_country_change: boolean;
+  description: string;
+  variants: CatalogVariant[];
+}
+
+interface CatalogResponse {
+  templates: CatalogTemplate[];
+  countries_supported: string[];
+  rotation_modes_supported: string[];
+}
+
+// Default fallback PRODUCTS (used when API unavailable)
+let PRODUCTS = FALLBACK_PRODUCTS;
+
+// Hardcoded metrics per product type (from original hardcoded data)
+const HARDOCODED_METRICS: Record<string, { uptime: string; latency: string; stats: { detection: number; speed: number; geo: number; cost: number }; gauge: { value: string; color: string; typical: string; hot: string; lowRisk: string } }> = {
+  ISP: {
+    uptime: '99.9%',
+    latency: '<50ms',
+    stats: { detection: 70, speed: 80, geo: 65, cost: 85 },
+    gauge: { value: '~30d', color: 'warning', typical: '30d', hot: '7d', lowRisk: '90d' },
+  },
+  RESIDENTIAL: {
+    uptime: '94%',
+    latency: '<100ms',
+    stats: { detection: 92, speed: 55, geo: 75, cost: 50 },
+    gauge: { value: '~45d', color: 'primary', typical: '45d', hot: '14d', lowRisk: '180d' },
+  },
+  MOBILE: {
+    uptime: '96%',
+    latency: '<80ms',
+    stats: { detection: 96, speed: 60, geo: 88, cost: 38 },
+    gauge: { value: '~60d', color: 'primary', typical: '60d', hot: '21d', lowRisk: '180d' },
+  },
+  DATACENTER: {
+    uptime: '99%',
+    latency: '<5ms',
+    stats: { detection: 25, speed: 98, geo: 90, cost: 95 },
+    gauge: { value: '~7d', color: 'danger', typical: '7d', hot: '1d', lowRisk: '30d' },
+  },
+};
+
+// Fetch catalog from API and merge with fallback data
+async function fetchCatalog(): Promise<typeof FALLBACK_PRODUCTS> {
+  try {
+    const response = await fetch('http://162.35.184.69:8000/api/catalog', {
+      signal: AbortSignal.timeout(10000),
+    });
+    
+    if (!response.ok) {
+      console.warn('[Products] API returned non-ok status:', response.status);
+      return FALLBACK_PRODUCTS;
+    }
+    
+    const data: CatalogResponse = await response.json();
+    
+    if (!data.templates || data.templates.length === 0) {
+      console.warn('[Products] No templates in API response');
+      return FALLBACK_PRODUCTS;
+    }
+    
+    // Map DB plan_type to our product key
+    const planTypeToKey: Record<string, string> = {
+      'dc': 'DATACENTER',
+      // 'isp' would map to 'ISP', 'residential' to 'RESIDENTIAL', etc. when DB has them
+    };
+    
+    // Build merged products from API data
+    const mergedProducts = FALLBACK_PRODUCTS.map((product) => {
+      // Find matching template in API
+      const apiTemplate = data.templates.find((t) => {
+        const dbKey = planTypeToKey[t.plan_type];
+        return dbKey === product.key;
+      });
+      
+      if (!apiTemplate) {
+        // No API data for this product type, use full fallback
+        return product;
+      }
+      
+      // Calculate price from API variants (lowest price)
+      const prices = apiTemplate.variants.map((v) => v.price_ngn);
+      const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+      const formattedPrice = lowestPrice > 0 
+        ? `₦${lowestPrice.toLocaleString('en-NG')}` 
+        : product.price;
+      
+      // Use countries from API
+      const countries = apiTemplate.available_countries.length;
+      
+      // Get description from API (or keep fallback)
+      const description = apiTemplate.description || product.description;
+      
+      // Merge: API provides price, countries, description
+      // Fallback provides uptime, latency, stats, gauge, radar, etc.
+      const metrics = HARDOCODED_METRICS[product.key];
+      
+      return {
+        ...product,
+        price: formattedPrice,
+        countries,
+        description,
+        uptime: metrics?.uptime || product.uptime,
+        latency: metrics?.latency || product.latency,
+        stats: metrics?.stats || product.stats,
+        gauge: metrics?.gauge || product.gauge,
+      };
+    });
+    
+    console.log('[Products] Loaded from API:', mergedProducts.length, 'products');
+    return mergedProducts;
+  } catch (error) {
+    console.warn('[Products] Failed to fetch catalog:', error);
+    return FALLBACK_PRODUCTS;
+  }
+}
+
 // Radar chart points for SVG
 const RADAR_POINTS = [
   { x: 80, y: 18 },  // Speed (top)
@@ -132,10 +277,18 @@ function parsePolygonPoints(pts: string): { x: number; y: number }[] {
 }
 
 export default function ProductsPage() {
+  const [products, setProducts] = useState<typeof FALLBACK_PRODUCTS>(FALLBACK_PRODUCTS);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
   const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
+
+  // Fetch catalog from API on mount
+  useEffect(() => {
+    fetchCatalog().then((data) => {
+      setProducts(data);
+    });
+  }, []);
 
   // Product card individual observers
   useEffect(() => {
@@ -401,7 +554,7 @@ export default function ProductsPage() {
 
       {/* Product Cards */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        {PRODUCTS.map((product) => (
+        {products.map((product) => (
           <div
             key={product.key}
             id={`product-${product.key}`}
