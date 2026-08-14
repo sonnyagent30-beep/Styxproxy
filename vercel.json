@@ -1,4 +1,4 @@
 {
   "installCommand": "npm install",
-  "buildCommand": "npm install && ./node_modules/.bin/next build --no-turbopack"
+  "buildCommand": "npm install && TURBOPACK=0 npm run build"
 }
