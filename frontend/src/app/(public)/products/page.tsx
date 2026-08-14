@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Globe, House, HardDrives, DeviceMobile, Lightning, Clock, Check, X } from '@phosphor-icons/react';
+import { 
+  Globe, House, HardDrives, DeviceMobile, Lightning, Clock, Check, X,
+  Desktop, Rocket, Target, CaretDown, ArrowRight, Warning, Heart, Star,
+  CurrencyNgn
+} from '@phosphor-icons/react';
 
 // Product data matching the HTML mockup
 const PRODUCTS = [
@@ -162,7 +166,7 @@ export default function ProductsPage() {
     setExpanded(expanded === key ? null : key);
   };
 
-  const [briefingDone, setBriefingDone] = useState(false);
+  const [briefingDone] = useState(false);
   const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [briefingProfile, setBriefingProfile] = useState<{ type: string; text: string } | null>(null);
 
@@ -237,9 +241,7 @@ export default function ProductsPage() {
               onClick={skipBriefing}
               aria-label="Close modal"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" fill="currentColor">
-                <path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128 50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z"/>
-              </svg>
+              <X weight="bold" className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3 mb-6">
@@ -263,10 +265,10 @@ export default function ProductsPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               {[
-                { type: 'ISP', label: 'Speed Operations', icon: 'globe', desc: 'Sneaker bots, ticket drops, automation — where latency is the enemy.' },
-                { type: 'RESIDENTIAL', label: 'Identity Operations', icon: 'house', desc: 'Social media, scraping, brand monitoring — maximum authenticity required.' },
-                { type: 'MOBILE', label: 'Verification Ops', icon: 'mobile', desc: 'Ad verification, app testing, mobile campaigns — carrier-level stealth.' },
-                { type: 'DATACENTER', label: 'Bulk Operations', icon: 'server', desc: 'SEO tools, traffic routing, data collection — speed over stealth.' },
+                { type: 'ISP', label: 'Speed Operations', icon: Desktop, desc: 'Sneaker bots, ticket drops, automation — where latency is the enemy.' },
+                { type: 'RESIDENTIAL', label: 'Identity Operations', icon: House, desc: 'Social media, scraping, brand monitoring — maximum authenticity required.' },
+                { type: 'MOBILE', label: 'Verification Ops', icon: DeviceMobile, desc: 'Ad verification, app testing, mobile campaigns — carrier-level stealth.' },
+                { type: 'DATACENTER', label: 'Bulk Operations', icon: HardDrives, desc: 'SEO tools, traffic routing, data collection — speed over stealth.' },
               ].map((m) => (
                 <button
                   key={m.type}
@@ -279,26 +281,7 @@ export default function ProductsPage() {
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[var(--primary)]/10 flex-shrink-0">
-                      {m.type === 'ISP' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                          <path fill="currentColor" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm40-88a40 40 0 1 1-40-40 40 40 0 0 1 40 40Zm-64 0a24 24 0 1 0 24-24 24 24 0 0 0-24 24Z"/>
-                        </svg>
-                      )}
-                      {m.type === 'RESIDENTIAL' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                          <path fill="currentColor" d="M240 208h-24v-56a16 16 0 0 0-16-16h-32V96a16 16 0 0 0-24.53-12.41l-32 24L75.31 82.41 48 95.29V136H24a16 16 0 0 0-16 16v56H16a8 8 0 0 0 0 16h224a8 8 0 0 0 0-16Z"/>
-                        </svg>
-                      )}
-                      {m.type === 'MOBILE' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                          <path fill="currentColor" d="M176 16H80a24 24 0 0 0-24 24v176a24 24 0 0 0 24 24h96a24 24 0 0 0 24-24V40a24 24 0 0 0-24-24ZM80 32h96a8 8 0 0 1 8 8v128H72V40a8 8 0 0 1 8-8Zm96 192H80a8 8 0 0 1-8-8v-16h112v16a8 8 0 0 1-8 8Z"/>
-                        </svg>
-                      )}
-                      {m.type === 'DATACENTER' && (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                          <path fill="currentColor" d="M232 96c0-30.88-22.51-56.42-52.07-59.83a8 8 0 0 0-3.86 15.66C194.45 54.06 216 78.34 216 96a60.07 60.07 0 0 1-46.07 57.77A15.92 15.92 0 0 0 176 160v40H96v-40a16 16 0 0 0-6.07-12.23A60.07 60.07 0 0 1 40 96c0-17.66 21.55-41.94 39.93-44.17a8 8 0 0 0-3.86-15.66C47.51 39.58 25 65.12 25 96c0 23.47 11.72 44.26 30 56.68V208H48a16 16 0 0 0-16 16v16a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16v-16a16 16 0 0 0-16-16h-7v-55.32c18.28-12.42 30-33.21 30-56.68Z"/>
-                        </svg>
-                      )}
+                      <m.icon weight="fill" className="text-[var(--primary)] w-[18px] h-[18px]" />
                     </div>
                     <div className="font-bold text-sm">{m.label}</div>
                   </div>
@@ -428,26 +411,10 @@ export default function ProductsPage() {
               <div className="flex-1">
                 <div className="flex items-start gap-5 mb-5">
                   <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 bg-green-500/8 border border-green-500/15">
-                    {product.key === 'ISP' && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                        <path fill="currentColor" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm40-88a40 40 0 1 1-40-40 40 40 0 0 1 40 40Zm-64 0a24 24 0 1 0 24-24 24 24 0 0 0-24 24Z"/>
-                      </svg>
-                    )}
-                    {product.key === 'RESIDENTIAL' && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                        <path fill="currentColor" d="M240 208h-24v-56a16 16 0 0 0-16-16h-32V96a16 16 0 0 0-24.53-12.41l-32 24L75.31 82.41 48 95.29V136H24a16 16 0 0 0-16 16v56H16a8 8 0 0 0 0 16h224a8 8 0 0 0 0-16Z"/>
-                      </svg>
-                    )}
-                    {product.key === 'MOBILE' && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                        <path fill="currentColor" d="M176 16H80a24 24 0 0 0-24 24v176a24 24 0 0 0 24 24h96a24 24 0 0 0 24-24V40a24 24 0 0 0-24-24ZM80 32h96a8 8 0 0 1 8 8v128H72V40a8 8 0 0 1 8-8Zm96 192H80a8 8 0 0 1-8-8v-16h112v16a8 8 0 0 1-8 8Z"/>
-                      </svg>
-                    )}
-                    {product.key === 'DATACENTER' && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                        <path fill="currentColor" d="M232 96c0-30.88-22.51-56.42-52.07-59.83a8 8 0 0 0-3.86 15.66C194.45 54.06 216 78.34 216 96a60.07 60.07 0 0 1-46.07 57.77A15.92 15.92 0 0 0 176 160v40H96v-40a16 16 0 0 0-6.07-12.23A60.07 60.07 0 0 1 40 96c0-17.66 21.55-41.94 39.93-44.17a8 8 0 0 0-3.86-15.66C47.51 39.58 25 65.12 25 96c0 23.47 11.72 44.26 30 56.68V208H48a16 16 0 0 0-16 16v16a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16v-16a16 16 0 0 0-16-16h-7v-55.32c18.28-12.42 30-33.21 30-56.68Z"/>
-                      </svg>
-                    )}
+                    {product.key === 'ISP' && <Desktop weight="fill" className="text-[var(--primary)] w-[26px] h-[26px]" />}
+                    {product.key === 'RESIDENTIAL' && <House weight="fill" className="text-[var(--primary)] w-[26px] h-[26px]" />}
+                    {product.key === 'MOBILE' && <DeviceMobile weight="fill" className="text-[var(--primary)] w-[26px] h-[26px]" />}
+                    {product.key === 'DATACENTER' && <HardDrives weight="fill" className="text-[var(--primary)] w-[26px] h-[26px]" />}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -499,9 +466,9 @@ export default function ProductsPage() {
                 </p>
 
                 {/* Best for */}
-                <div>
-                  <span className="text-xs font-mono uppercase tracking-widest mb-2 block text-gray-500">Best for</span>
-                  <div className="bestfor-strip overflow-x-auto">
+                <div className="mb-5">
+                  <p className="text-xs uppercase tracking-widest font-mono mb-2 text-gray-500">Best for</p>
+                  <div className="bestfor-strip">
                     {product.bestFor.map((item) => (
                       <span key={item} className="bestfor-tag">{item}</span>
                     ))}
@@ -509,120 +476,91 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* Right: Visual metrics */}
-              <div className="lg:w-72 flex-shrink-0">
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Radar */}
-                  <div className="p-4 rounded-xl bg-green-500/03 border border-[var(--border)]">
-                    <p className="text-xs uppercase tracking-widest font-mono mb-3 text-gray-500">Anonymity Radar</p>
-                    <div className="radar-chart">
-                      <svg viewBox="0 0 160 160">
-                        <polygon points="80,18 124,46 124,114 80,142 36,114 36,46" fill="none" stroke="rgba(10,210,90,0.08)" strokeWidth="1"/>
-                        <polygon points="80,34 112,55 112,105 80,126 48,105 48,55" fill="none" stroke="rgba(10,210,90,0.08)" strokeWidth="1"/>
-                        <polygon points="80,50 100,63 100,97 80,110 60,97 60,63" fill="none" stroke="rgba(10,210,90,0.06)" strokeWidth="1"/>
-                        <line x1="80" y1="80" x2="80" y2="18" stroke="rgba(10,210,90,0.08)" strokeWidth="1"/>
-                        <line x1="80" y1="80" x2="124" y2="46" stroke="rgba(10,210,90,0.08)" strokeWidth="1"/>
-                        <line x1="80" y1="80" x2="124" y2="114" stroke="rgba(10,210,90,0.08)" strokeWidth="1"/>
-                        <line x1="80" y1="80" x2="80" y2="142" stroke="rgba(10,210,90,0.08)" strokeWidth="1"/>
-                        <line x1="80" y1="80" x2="36" y2="114" stroke="rgba(10,210,90,0.08)" strokeWidth="1"/>
-                        <line x1="80" y1="80" x2="36" y2="46" stroke="rgba(10,210,90,0.08)" strokeWidth="1"/>
-                        <polygon
-                          className="radar-polygon"
-                          points={getRadarPoints(product.radar)}
-                          fill="rgba(10,210,90,0.12)"
-                          stroke={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'}
-                          strokeWidth="1.5"
-                        />
-                        {product.radar.map((v, i) => {
-                          const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
-                          const radius = (v / 140) * 60 + 20;
-                          const cx = 80 + radius * Math.cos(angle);
-                          const cy = 80 + radius * Math.sin(angle);
-                          return <circle key={i} cx={cx} cy={cy} r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />;
-                        })}
-                        <text x="80" y="10" textAnchor="middle" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">SPD</text>
-                        <text x="130" y="44" textAnchor="start" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">DET</text>
-                        <text x="130" y="118" textAnchor="start" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">GEO</text>
-                        <text x="80" y="158" textAnchor="middle" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">BAN</text>
-                        <text x="26" y="118" textAnchor="end" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">CST</text>
-                        <text x="26" y="44" textAnchor="end" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">STB</text>
-                      </svg>
-                    </div>
+              {/* Right: Stats */}
+              <div className="lg:w-[320px] flex-shrink-0">
+                {/* Radar chart */}
+                <div className="mb-5">
+                  <div className="radar-chart">
+                    <svg viewBox="0 0 160 160" className="w-full h-full">
+                      {/* Background circles */}
+                      {[40, 60, 80, 100].map((r) => (
+                        <circle key={r} cx="80" cy="80" r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+                      ))}
+                      {/* Axis lines */}
+                      {RADAR_POINTS.map((p) => (
+                        <line key={`${p.x}-${p.y}`} x1="80" y1="80" x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+                      ))}
+                      {/* Data polygon */}
+                      <polygon
+                        className="radar-polygon"
+                        points={getRadarPoints(product.radar)}
+                        fill="rgba(10,210,90,0.15)"
+                        stroke="var(--primary)"
+                        strokeWidth="2"
+                      />
+                    </svg>
                   </div>
+                </div>
 
-                  {/* Gauge */}
-                  <div className="p-4 rounded-xl bg-green-500/03 border border-[var(--border)]">
-                    <p className="text-xs uppercase tracking-widest font-mono mb-3 text-gray-500">Cover Life</p>
-                    <div className="gauge-wrap">
-                      <svg className="gauge-svg" viewBox="0 0 120 80">
-                        <path className="gauge-track" d="M 15 65 A 45 45 0 0 1 105 65"/>
-                        <path
-                          className="gauge-fill"
-                          d="M 15 65 A 45 45 0 0 1 105 65"
-                          stroke={product.gauge.color === 'warning' ? 'var(--warning)' : product.gauge.color === 'danger' ? 'var(--error)' : 'var(--primary)'}
-                          strokeDasharray="141"
-                          strokeDashoffset={141 * (1 - (product.gauge.color === 'warning' ? 0.4 : product.gauge.color === 'danger' ? 0.2 : 0.75))}
-                        />
-                        <text x="60" y="58" textAnchor="middle" className="gauge-text" style={{ fontSize: '13px', color: product.gauge.color === 'warning' ? 'var(--warning)' : product.gauge.color === 'danger' ? 'var(--error)' : 'var(--primary-light)' }}>{product.gauge.value}</text>
-                        <text x="60" y="72" textAnchor="middle" className="gauge-text" style={{ fontSize: '8px', fill: 'var(--muted)' }}>TYPICAL</text>
-                      </svg>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1 mt-3 text-center">
-                      <div>
-                        <div className="text-xs font-bold" style={{ color: product.gauge.color === 'warning' ? 'var(--warning)' : product.gauge.color === 'danger' ? 'var(--error)' : 'var(--primary)' }}>{product.gauge.typical}</div>
-                        <div className="text-xs text-gray-500">Typical</div>
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold" style={{ color: product.gauge.color === 'danger' ? 'var(--error)' : 'var(--warning)' }}>{product.gauge.hot}</div>
-                        <div className="text-xs text-gray-500">Hot</div>
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[var(--primary)]">{product.gauge.lowRisk}</div>
-                        <div className="text-xs text-gray-500">Low risk</div>
-                      </div>
-                    </div>
+                {/* Cover life gauge */}
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs uppercase tracking-widest font-mono text-gray-500">Cover life</p>
+                    <span className={`text-xs font-bold ${
+                      product.gauge.color === 'danger' ? 'text-red-500' : 
+                      product.gauge.color === 'warning' ? 'text-amber-500' : 'text-[var(--primary)]'
+                    }`}>
+                      {product.gauge.value}
+                    </span>
+                  </div>
+                  <div className="gauge-wrap">
+                    <svg viewBox="0 0 200 20" className="gauge-svg">
+                      <rect x="0" y="8" width="200" height="4" rx="2" fill="rgba(255,255,255,0.06)" />
+                      <rect 
+                        x="0" 
+                        y="8" 
+                        width={product.gauge.color === 'danger' ? '14%' : product.gauge.color === 'warning' ? '42%' : '75%'} 
+                        height="4" 
+                        rx="2" 
+                        fill={product.gauge.color === 'danger' ? 'var(--danger)' : product.gauge.color === 'warning' ? 'var(--warning)' : 'var(--primary)'} 
+                      />
+                    </svg>
                   </div>
                 </div>
 
                 {/* Loadout stats */}
-                <div className="mt-4 p-4 rounded-xl bg-green-500/03 border border-[var(--border)]">
-                  <p className="text-xs uppercase tracking-widest font-mono mb-3 text-gray-500">Loadout Stats</p>
+                <div className="p-4 rounded-xl" style={{ background: 'rgba(10,210,90,0.03)', border: '1px solid var(--border)' }}>
+                  <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Loadout Stats</p>
                   <div className="space-y-3">
                     <div className="stat-row">
                       <span className="stat-label">Detection</span>
                       <div className="stat-bar-wrap">
-                        <div
-                          className="stat-bar-fill"
-                          style={{
-                            width: `${product.stats.detection}%`,
-                            background: product.statusDot === 'warn'
-                              ? 'linear-gradient(90deg,rgba(239,68,68,0.6),var(--error))'
-                              : 'linear-gradient(90deg, rgba(10,210,90,0.6), var(--primary))'
-                          }}
+                        <div 
+                          className="stat-bar-fill" 
+                          data-w={product.stats.detection}
+                          style={product.key === 'DATACENTER' ? { background: 'linear-gradient(90deg,rgba(239,68,68,0.6),var(--danger))' } : {}}
                         />
                       </div>
-                      <span className="text-xs font-mono" style={{ color: product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)', minWidth: '28px', textAlign: 'right' }}>{product.stats.detection}</span>
+                      <span className={`text-xs font-mono min-w-[28px] text-right ${
+                        product.key === 'DATACENTER' ? 'text-red-500' : 'text-[var(--primary)]'
+                      }`}>
+                        {product.stats.detection}
+                      </span>
                     </div>
                     <div className="stat-row">
                       <span className="stat-label">Speed</span>
-                      <div className="stat-bar-wrap">
-                        <div className="stat-bar-fill" style={{ width: `${product.stats.speed}%` }} />
-                      </div>
-                      <span className="text-xs font-mono text-[var(--primary)]" style={{ minWidth: '28px', textAlign: 'right' }}>{product.stats.speed}</span>
+                      <div className="stat-bar-wrap"><div className="stat-bar-fill" data-w={product.stats.speed} /></div>
+                      <span className="text-xs font-mono text-[var(--primary)] min-w-[28px] text-right">{product.stats.speed}</span>
                     </div>
                     <div className="stat-row">
                       <span className="stat-label">Geo</span>
-                      <div className="stat-bar-wrap">
-                        <div className="stat-bar-fill" style={{ width: `${product.stats.geo}%` }} />
-                      </div>
-                      <span className="text-xs font-mono text-[var(--primary)]" style={{ minWidth: '28px', textAlign: 'right' }}>{product.stats.geo}</span>
+                      <div className="stat-bar-wrap"><div className="stat-bar-fill" data-w={product.stats.geo} /></div>
+                      <span className="text-xs font-mono text-[var(--primary)] min-w-[28px] text-right">{product.stats.geo}</span>
                     </div>
                     <div className="stat-row">
                       <span className="stat-label">Cost</span>
-                      <div className="stat-bar-wrap">
-                        <div className="stat-bar-fill" style={{ width: `${product.stats.cost}%` }} />
-                      </div>
-                      <span className="text-xs font-mono text-[var(--primary)]" style={{ minWidth: '28px', textAlign: 'right' }}>{product.stats.cost}</span>
+                      <div className="stat-bar-wrap"><div className="stat-bar-fill" data-w={product.stats.cost} /></div>
+                      <span className="text-xs font-mono text-[var(--primary)] min-w-[28px] text-right">{product.stats.cost}</span>
                     </div>
                   </div>
                 </div>
@@ -630,73 +568,61 @@ export default function ProductsPage() {
             </div>
 
             {/* Price row */}
-            <div className="mt-5 pt-4 flex flex-wrap items-center gap-4 border-t border-[var(--border)]">
+            <div className="mt-5 pt-5 flex flex-wrap items-center gap-6" style={{ borderTop: '1px solid var(--border)' }}>
               <div>
-                <span className="text-xs font-mono uppercase tracking-widest text-gray-500">Starting from</span>
+                <span className="text-xs font-mono uppercase tracking-widest text-gray-500" style={{ letterSpacing: '0.1em' }}>Starting from</span>
                 <div className="text-2xl font-bold mt-1 text-[var(--primary)]">
                   {product.price}
-                  <span className="text-sm font-normal text-gray-500">/{product.priceUnit.split(' ')[1] || 'mo'}</span>
+                  <span className="text-sm font-normal text-gray-500">/{product.priceUnit === 'per IP/mo' ? 'mo' : 'mo'}</span>
                 </div>
               </div>
-              <Link href="/order" className="inline-block px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-all duration-200">
-                Deploy Cover
-              </Link>
-              <button
+              <Link href="/order" className="btn-primary">Deploy Cover</Link>
+              <button 
                 onClick={() => toggleExpand(product.key)}
-                className="btn-ghost flex items-center gap-2"
+                className="btn-ghost"
                 aria-expanded={expanded === product.key}
                 aria-controls={`expand-${product.key}`}
               >
-                What they see
-                <span className={`expand-icon ${expanded === product.key ? 'open' : ''}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 256 256" fill="currentColor">
-                    <path d="M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32Z"/>
-                  </svg>
-                </span>
+                What they see <CaretDown weight="bold" className={`expand-icon w-3 h-3 ${expanded === product.key ? 'open' : ''}`} />
               </button>
               <div className="text-xs ml-auto hidden lg:block text-gray-500">{product.countries} countries available</div>
             </div>
 
-            {/* Expand: What They See */}
+            {/* Expand section */}
             <div className={`expand-body mt-6 ${expanded === product.key ? 'open' : ''}`} id={`expand-${product.key}`}>
-              <div className="p-6 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
-                <p className="text-xs uppercase tracking-widest font-mono mb-5 text-gray-500">Adversary Detection View</p>
+              <div className="p-6 rounded-xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <p className="text-xs uppercase tracking-widest font-mono mb-5" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Adversary Detection View</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {product.threatView.map((threat, idx) => (
-                    <div
-                      key={idx}
+                  {product.threatView.map((threat) => (
+                    <div 
+                      key={threat.platform}
                       className="p-4 rounded-xl"
-                      style={{
+                      style={{ 
                         background: threat.risk === 'High' ? 'rgba(239,68,68,0.04)' : threat.risk === 'Medium' ? 'rgba(245,158,11,0.04)' : 'rgba(10,210,90,0.04)',
                         border: `1px solid ${threat.risk === 'High' ? 'rgba(239,68,68,0.12)' : threat.risk === 'Medium' ? 'rgba(245,158,11,0.12)' : 'rgba(10,210,90,0.12)'}`
                       }}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-sm font-semibold">{threat.platform}</span>
-                        <span
-                          className="text-xs"
-                          style={{
-                            color: threat.risk === 'High' ? 'var(--error)' : threat.risk === 'Medium' ? 'var(--warning)' : 'var(--primary)'
-                          }}
-                        >
+                        <span className={`text-xs ${
+                          threat.risk === 'High' ? 'text-red-500' : threat.risk === 'Medium' ? 'text-amber-500' : 'text-[var(--primary)]'
+                        }`}>
                           {threat.risk} risk
                         </span>
                       </div>
                       <div className="threat-bar-seg mb-2">
                         {[...Array(5)].map((_, i) => (
-                          <span
-                            key={i}
+                          <span 
+                            key={i} 
                             className={`threat-seg ${
-                              i < threat.segments
-                                ? threat.risk === 'High' ? 'lit-red'
-                                  : threat.risk === 'Medium' ? 'lit-yellow'
-                                  : 'lit-green'
+                              i < threat.segments 
+                                ? threat.risk === 'High' ? 'lit-red' : threat.risk === 'Medium' ? 'lit-yellow' : 'lit-green'
                                 : ''
                             }`}
                           />
                         ))}
                       </div>
-                      <p className="text-xs leading-relaxed text-gray-400">{threat.desc}</p>
+                      <p className="text-xs leading-relaxed text-gray-500">{threat.desc}</p>
                     </div>
                   ))}
                 </div>
@@ -706,91 +632,95 @@ export default function ProductsPage() {
         ))}
       </div>
 
-      {/* Charon's Toll Pricing */}
+      {/* Charon's Toll */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
-        <div className="section-divider-glow mb-20" />
+        <div className="section-divider-glow mb-20"></div>
 
         {/* Header */}
-        <div className="text-center mb-16 reveal">
-          <div className="styx-coin">
-            <div className="styx-coin-ring" />
-            <div className="styx-coin-ring" />
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 256 256" className="text-[var(--primary)]">
-              <path fill="currentColor" d="M232 96c0-30.88-22.51-56.42-52.07-59.83a8 8 0 0 0-3.86 15.66C194.45 54.06 216 78.34 216 96a60.07 60.07 0 0 1-46.07 57.77A15.92 15.92 0 0 0 176 160v40H96v-40a16 16 0 0 0-6.07-12.23A60.07 60.07 0 0 1 40 96c0-17.66 21.55-41.94 39.93-44.17a8 8 0 0 0-3.86-15.66C47.51 39.58 25 65.12 25 96c0 23.47 11.72 44.26 30 56.68V208H48a16 16 0 0 0-16 16v16a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16v-16a16 16 0 0 0-16-16h-7v-55.32c18.28-12.42 30-33.21 30-56.68Z"/>
-            </svg>
+        <div className="text-center mb-16 reveal visible">
+          <div className="styx-coin" style={{ margin: '0 auto 1.5rem' }}>
+            <div className="styx-coin-ring"></div>
+            <div className="styx-coin-ring"></div>
+            <HardDrives weight="fill" className="w-7 h-7 text-[var(--primary)]" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
           </div>
-          <p className="text-xs uppercase tracking-widest font-mono mb-4 text-gray-500">The Ferryman&apos;s Price</p>
-          <h2 className="text-4xl font-bold mb-4 tracking-tight">Charon&apos;s Toll</h2>
-          <p className="text-base max-w-lg mx-auto leading-relaxed text-gray-300">
+          <p className="text-xs uppercase tracking-widest font-mono mb-4" style={{ color: 'var(--muted)', letterSpacing: '0.15em' }}>The Ferryman&apos;s Price</p>
+          <h2 className="text-4xl font-bold mb-4 leading-tight" style={{ letterSpacing: '-0.03em' }}>Charon&apos;s Toll</h2>
+          <p className="text-base max-w-lg mx-auto leading-relaxed" style={{ color: 'var(--muted-light)' }}>
             No toll, no passage. Each disguise carries its own price — the cost of crossing unseen.
           </p>
         </div>
 
         {/* Toll cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-12">
-          {PRODUCTS.map((product, idx) => (
-            <div
-              key={product.key}
-              className={`card-depth p-6 text-center reveal ${product.featured ? 'card-depth-primary' : ''}`}
-              style={{ animationDelay: `${idx * 0.05}s` }}
-            >
-              {product.featured && (
-                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-                  <span className="text-[10px] font-bold px-3 py-0.5 rounded-full bg-[var(--primary)] text-black">Most Chosen</span>
-                </div>
-              )}
-              <div className="styx-coin" style={{ width: '52px', height: '52px', margin: product.featured ? '0.5rem auto 1rem' : '0 auto 1rem' }}>
-                <div className="styx-coin-ring" />
-                {product.featured && <div className="styx-coin-ring" />}
-                {product.key === 'ISP' && (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                    <path fill="currentColor" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm40-88a40 40 0 1 1-40-40 40 40 0 0 1 40 40Zm-64 0a24 24 0 1 0 24-24 24 24 0 0 0-24 24Z"/>
-                  </svg>
-                )}
-                {product.key === 'RESIDENTIAL' && (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                    <path fill="currentColor" d="M240 208h-24v-56a16 16 0 0 0-16-16h-32V96a16 16 0 0 0-24.53-12.41l-32 24L75.31 82.41 48 95.29V136H24a16 16 0 0 0-16 16v56H16a8 8 0 0 0 0 16h224a8 8 0 0 0 0-16Z"/>
-                  </svg>
-                )}
-                {product.key === 'MOBILE' && (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                    <path fill="currentColor" d="M176 16H80a24 24 0 0 0-24 24v176a24 24 0 0 0 24 24h96a24 24 0 0 0 24-24V40a24 24 0 0 0-24-24ZM80 32h96a8 8 0 0 1 8 8v128H72V40a8 8 0 0 1 8-8Zm96 192H80a8 8 0 0 1-8-8v-16h112v16a8 8 0 0 1-8 8Z"/>
-                  </svg>
-                )}
-                {product.key === 'DATACENTER' && (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 256 256" className="text-[var(--primary)]">
-                    <path fill="currentColor" d="M232 96c0-30.88-22.51-56.42-52.07-59.83a8 8 0 0 0-3.86 15.66C194.45 54.06 216 78.34 216 96a60.07 60.07 0 0 1-46.07 57.77A15.92 15.92 0 0 0 176 160v40H96v-40a16 16 0 0 0-6.07-12.23A60.07 60.07 0 0 1 40 96c0-17.66 21.55-41.94 39.93-44.17a8 8 0 0 0-3.86-15.66C47.51 39.58 25 65.12 25 96c0 23.47 11.72 44.26 30 56.68V208H48a16 16 0 0 0-16 16v16a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16v-16a16 16 0 0 0-16-16h-7v-55.32c18.28-12.42 30-33.21 30-56.68Z"/>
-                  </svg>
-                )}
-              </div>
-              <div className="text-xs uppercase tracking-widest font-mono mb-2 text-gray-500">{product.name}</div>
-              <div className="styx-value-badge mb-3">{product.price}</div>
-              <div className="text-xs mb-4 text-gray-500">{product.priceUnit}</div>
-              <div className="text-xs leading-relaxed text-gray-400">
-                {product.key === 'ISP' && 'The minimum toll. Fast passage, moderate detection risk. Charon\'s seen these IPs before.'}
-                {product.key === 'RESIDENTIAL' && 'Two coins for true passage. Charon\'s favourite — these IPs belong to real souls.'}
-                {product.key === 'MOBILE' && 'Premium passage. Carrier signals bypass all checkpoints. Charon rarely refuses these.'}
-                {product.key === 'DATACENTER' && 'The cheap toll. Speed over stealth. Charon warns you — risk accepted.'}
-              </div>
+          {/* ISP Toll */}
+          <div className="card p-6 text-center reveal visible" style={{ animationDelay: '0.05s' }}>
+            <div className="styx-coin" style={{ width: '52px', height: '52px', margin: '0 auto 1rem', position: 'relative' }}>
+              <div className="styx-coin-ring"></div>
+              <Desktop weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
             </div>
-          ))}
+            <div className="text-xs uppercase tracking-widest font-mono mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>ISP</div>
+            <div className="styx-value-badge mb-3">₦6,500</div>
+            <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>per IP / month</div>
+            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted-light)' }}>The minimum toll. Fast passage, moderate detection risk. Charon&apos;s seen these IPs before.</div>
+          </div>
+
+          {/* Residential Toll (featured) */}
+          <div className="card-depth-primary p-6 text-center reveal visible" style={{ animationDelay: '0.1s', position: 'relative' }}>
+            <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+              <span className="text-[10px] font-bold px-3 py-0.5 rounded-full" style={{ background: 'var(--primary)', color: '#000', letterSpacing: '0.05em' }}>Most Chosen</span>
+            </div>
+            <div className="styx-coin" style={{ width: '52px', height: '52px', margin: '0.5rem auto 1rem', position: 'relative' }}>
+              <div className="styx-coin-ring"></div>
+              <div className="styx-coin-ring"></div>
+              <House weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+            </div>
+            <div className="text-xs uppercase tracking-widest font-mono mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Residential</div>
+            <div className="styx-value-badge mb-3">₦15,000</div>
+            <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>per month</div>
+            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted-light)' }}>Two coins for true passage. Charon&apos;s favourite — these IPs belong to real souls.</div>
+          </div>
+
+          {/* Mobile Toll */}
+          <div className="card p-6 text-center reveal visible" style={{ animationDelay: '0.15s' }}>
+            <div className="styx-coin" style={{ width: '52px', height: '52px', margin: '0 auto 1rem', position: 'relative' }}>
+              <div className="styx-coin-ring"></div>
+              <div className="styx-coin-ring"></div>
+              <DeviceMobile weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+            </div>
+            <div className="text-xs uppercase tracking-widest font-mono mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Mobile 4G</div>
+            <div className="styx-value-badge mb-3">₦20,000</div>
+            <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>per month</div>
+            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted-light)' }}>Premium passage. Carrier signals bypass all checkpoints. Charon rarely refuses these.</div>
+          </div>
+
+          {/* Datacenter Toll */}
+          <div className="card p-6 text-center reveal visible" style={{ animationDelay: '0.2s' }}>
+            <div className="styx-coin" style={{ width: '52px', height: '52px', margin: '0 auto 1rem', position: 'relative' }}>
+              <div className="styx-coin-ring"></div>
+              <HardDrives weight="fill" className="text-[var(--primary)] w-5 h-5" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+            </div>
+            <div className="text-xs uppercase tracking-widest font-mono mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Datacenter</div>
+            <div className="styx-value-badge mb-3">₦3,500</div>
+            <div className="text-xs mb-4" style={{ color: 'var(--muted)' }}>per month</div>
+            <div className="text-xs leading-relaxed" style={{ color: 'var(--muted-light)' }}>The cheap toll. Speed over stealth. Charon warns you — risk accepted.</div>
+          </div>
         </div>
       </div>
 
       {/* Comparison Table */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
-        <div className="section-divider-glow mb-16" />
-        <div className="text-center mb-12 reveal">
-          <h2 className="text-3xl font-bold mb-3 tracking-tight">Compare Disguises</h2>
-          <p className="text-sm max-w-md mx-auto text-gray-500">Every cover has trade-offs. Here&apos;s the full breakdown.</p>
+        <div className="section-divider-glow mb-16"></div>
+        <div className="text-center mb-12 reveal visible">
+          <h2 className="text-3xl font-bold mb-3" style={{ letterSpacing: '-0.02em' }}>Compare Disguises</h2>
+          <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--muted)' }}>Every cover has trade-offs. Here&apos;s the full breakdown.</p>
         </div>
-        <div className="overflow-x-auto reveal">
+        <div className="overflow-x-auto reveal visible">
           <table className="w-full" style={{ minWidth: '560px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <th className="px-5 py-4 text-left text-xs uppercase font-mono text-gray-500"></th>
+                <th className="px-5 py-4 text-left text-xs uppercase font-mono" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}></th>
                 <th className="px-5 py-4 text-center text-sm font-semibold">ISP</th>
-                <th className="px-5 py-4 text-center text-sm font-bold text-[var(--primary)]">Residential</th>
+                <th className="px-5 py-4 text-center text-sm font-bold" style={{ color: 'var(--primary)' }}>Residential</th>
                 <th className="px-5 py-4 text-center text-sm font-semibold">Mobile 4G</th>
                 <th className="px-5 py-4 text-center text-sm font-semibold">Datacenter</th>
               </tr>
@@ -798,45 +728,45 @@ export default function ProductsPage() {
             <tbody>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Anonymity</td>
-                <td className="px-5 py-4 text-center text-sm text-gray-400">High</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold text-[var(--primary)]">Very High</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold text-[var(--primary)]">Highest</td>
-                <td className="px-5 py-4 text-center text-sm text-gray-400">Low</td>
+                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>High</td>
+                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>Very High</td>
+                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>Highest</td>
+                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>Low</td>
               </tr>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Speed</td>
-                <td className="px-5 py-4 text-center text-sm text-gray-400">Fast</td>
-                <td className="px-5 py-4 text-center text-sm text-gray-400">Medium</td>
-                <td className="px-5 py-4 text-center text-sm text-gray-400">Medium</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold text-[var(--primary)]">Very Fast</td>
+                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>Fast</td>
+                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>Medium</td>
+                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>Medium</td>
+                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>Very Fast</td>
               </tr>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Ban Resistance</td>
-                <td className="px-5 py-4 text-center text-sm text-gray-400">~30 days</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold text-[var(--primary)]">~45 days</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold text-[var(--primary)]">~60 days</td>
-                <td className="px-5 py-4 text-center text-sm text-red-500">~7 days</td>
+                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>~30 days</td>
+                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>~45 days</td>
+                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>~60 days</td>
+                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--danger)' }}>~7 days</td>
               </tr>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Countries</td>
-                <td className="px-5 py-4 text-center text-sm text-gray-400">45</td>
-                <td className="px-5 py-4 text-center text-sm text-gray-400">90</td>
-                <td className="px-5 py-4 text-center text-sm text-gray-400">30</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold text-[var(--primary)]">120</td>
+                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>45</td>
+                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>90</td>
+                <td className="px-5 py-4 text-center text-sm" style={{ color: 'var(--muted-light)' }}>30</td>
+                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>120</td>
               </tr>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <td className="px-5 py-4 text-sm font-medium">Starting Price</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold text-[var(--primary)]">₦6,500/mo</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold text-[var(--primary)]">₦15,000/mo</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold text-[var(--primary)]">₦20,000/mo</td>
-                <td className="px-5 py-4 text-center text-sm font-semibold text-[var(--primary)]">₦3,500/mo</td>
+                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>₦6,500/mo</td>
+                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>₦15,000/mo</td>
+                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>₦20,000/mo</td>
+                <td className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>₦3,500/mo</td>
               </tr>
               <tr>
                 <td className="px-5 py-4 text-sm font-medium">Best For</td>
-                <td className="px-5 py-4 text-center text-xs text-gray-500">Sneakers, tickets</td>
-                <td className="px-5 py-4 text-center text-xs text-gray-500">Social, scraping</td>
-                <td className="px-5 py-4 text-center text-xs text-gray-500">Ad verification</td>
-                <td className="px-5 py-4 text-center text-xs text-gray-500">Bulk, speed</td>
+                <td className="px-5 py-4 text-center text-xs" style={{ color: 'var(--muted)' }}>Sneakers, tickets</td>
+                <td className="px-5 py-4 text-center text-xs" style={{ color: 'var(--muted)' }}>Social, scraping</td>
+                <td className="px-5 py-4 text-center text-xs" style={{ color: 'var(--muted)' }}>Ad verification</td>
+                <td className="px-5 py-4 text-center text-xs" style={{ color: 'var(--muted)' }}>Bulk, speed</td>
               </tr>
             </tbody>
           </table>
@@ -844,44 +774,33 @@ export default function ProductsPage() {
       </div>
 
       {/* Stats + CTA */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="section-divider-glow mb-16" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-2xl mx-auto mb-20 reveal">
-          <div className="card-depth p-6 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" className="mx-auto mb-3 text-[var(--primary)]" viewBox="0 0 256 256">
-              <path fill="currentColor" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Z"/>
-            </svg>
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-32">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-2xl mx-auto mb-20 reveal visible">
+          <div className="card p-6 text-center">
+            <Globe weight="fill" className="w-[26px] h-[26px] mx-auto mb-3 text-[var(--primary)]" />
             <p className="text-2xl font-bold leading-none mb-1">120+</p>
-            <p className="text-xs text-gray-500">Countries</p>
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>Countries</p>
           </div>
-          <div className="card-depth p-6 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" className="mx-auto mb-3 text-[var(--primary)]" viewBox="0 0 256 256">
-              <path fill="currentColor" d="M215.79 118.17a8 8 0 0 0-5-5.66L153.18 90.9l14.66-73.33a8 8 0 0 0-13.69-7l-112 120a8 8 0 0 0 3 13l57.63 21.61-76.8 61.43a8 8 0 0 0 3.63 13.71L128 248l110.21-66.92a8 8 0 0 0 3.58-13.91Z"/>
-            </svg>
+          <div className="card p-6 text-center">
+            <Rocket weight="fill" className="w-[26px] h-[26px] mx-auto mb-3 text-[var(--primary)]" />
             <p className="text-2xl font-bold leading-none mb-1">Instant</p>
-            <p className="text-xs text-gray-500">Delivery</p>
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>Delivery</p>
           </div>
-          <div className="card-depth p-6 text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" className="mx-auto mb-3 text-[var(--primary)]" viewBox="0 0 256 256">
-              <path fill="currentColor" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm40-88a40 40 0 1 1-40-40 40 40 0 0 1 40 40Z"/>
-            </svg>
+          <div className="card p-6 text-center">
+            <Target weight="fill" className="w-[26px] h-[26px] mx-auto mb-3 text-[var(--primary)]" />
             <p className="text-2xl font-bold leading-none mb-1">99.9%</p>
-            <p className="text-xs text-gray-500">Uptime</p>
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>Uptime</p>
           </div>
         </div>
 
-        <div className="text-center reveal">
-          <h2 className="text-4xl font-bold mb-4 tracking-tight">Ready to cross?</h2>
-          <p className="mb-10 max-w-md mx-auto text-sm leading-relaxed text-gray-300">
+        <div className="text-center reveal visible">
+          <h2 className="text-4xl font-bold mb-4" style={{ letterSpacing: '-0.03em' }}>Ready to cross?</h2>
+          <p className="mb-10 max-w-md mx-auto text-sm leading-relaxed" style={{ color: 'var(--muted-light)' }}>
             Every operation needs the right cover. Choose yours and deploy today.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/order" className="inline-block px-10 py-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-all duration-200 text-base">
-              Get Started
-            </Link>
-            <Link href="/contact" className="inline-block px-10 py-4 border-2 border-[var(--primary)]/40 text-[var(--primary)] font-semibold rounded-xl hover:bg-[var(--primary)]/10 transition-all duration-200 text-base">
-              Talk to an Agent
-            </Link>
+            <Link href="/order" className="btn-primary text-base px-10 py-4">Get Started</Link>
+            <Link href="/contact" className="btn-outline text-base px-10 py-4">Talk to an Agent</Link>
           </div>
         </div>
       </div>
