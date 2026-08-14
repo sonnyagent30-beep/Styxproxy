@@ -26,6 +26,7 @@ const PRODUCTS = [
     stats: { detection: 70, speed: 80, geo: 65, cost: 85 },
     gauge: { value: '~30d', color: 'warning', typical: '30d', hot: '7d', lowRisk: '90d' },
     radar: [34, 114, 109, 80, 46, 51],
+    polygonPoints: '80,34 114,56 109,108 80,126 46,98 51,51',
     threatView: [
       { platform: 'Google', risk: 'Low', segments: 4, desc: 'Real ISP allocation. Usually passes reCAPTCHA. Occasional manual review.' },
       { platform: 'Cloudflare', risk: 'Low', segments: 3, desc: 'Most ISP ranges are whitelisted. Fast passthrough with minimal friction.' },
@@ -48,6 +49,7 @@ const PRODUCTS = [
     stats: { detection: 92, speed: 55, geo: 75, cost: 50 },
     gauge: { value: '~45d', color: 'primary', typical: '45d', hot: '14d', lowRisk: '180d' },
     radar: [76, 117, 106, 80, 40, 49],
+    polygonPoints: '76,27 117,63 106,116 80,133 40,101 49,42',
     featured: true,
     threatView: [
       { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Looks like a real home user. Google sees it as genuine traffic. Best reCAPTCHA pass rate of any proxy type.' },
@@ -71,6 +73,7 @@ const PRODUCTS = [
     stats: { detection: 96, speed: 60, geo: 88, cost: 38 },
     gauge: { value: '~60d', color: 'primary', typical: '60d', hot: '21d', lowRisk: '180d' },
     radar: [72, 119, 102, 80, 38, 46],
+    polygonPoints: '72,20 119,68 102,123 80,137 38,94 46,35',
     threatView: [
       { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Carrier IPs are rarely flagged. Mobile ASNs have the highest trust score across Google\'s systems.' },
       { platform: 'Cloudflare', risk: 'Low', segments: 4, desc: 'Mobile carrier traffic is indistinguishable from regular mobile browsing. Broad platform acceptance.' },
@@ -93,6 +96,7 @@ const PRODUCTS = [
     stats: { detection: 25, speed: 98, geo: 90, cost: 95 },
     gauge: { value: '~7d', color: 'danger', typical: '7d', hot: '1d', lowRisk: '30d' },
     radar: [92, 130, 130, 92, 66, 66],
+    polygonPoints: '92,56 130,77 130,83 92,104 66,83 66,77',
     statusDot: 'warn',
     threatView: [
       { platform: 'Google', risk: 'High', segments: 2, desc: 'Known datacenter ranges are flagged. Expect CAPTCHA failures and manual review triggers.' },
@@ -488,15 +492,29 @@ export default function ProductsPage() {
                           <circle key={r} cx="80" cy="80" r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
                         ))}
                         {RADAR_POINTS.map((p) => (
-                          <line key={`${p.x}-${p.y}`} x1="80" y1="80" x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+                          <line key={`${p.x}-${p.y}`} x1="80" y1="80" x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
                         ))}
                         <polygon
                           className="radar-polygon"
-                          points={getRadarPoints(product.radar)}
+                          points={product.polygonPoints}
                           fill="rgba(10,210,90,0.12)"
                           stroke={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'}
                           strokeWidth="1.5"
                         />
+                        {/* Endpoint dots */}
+                        <circle cx="80" cy="34" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
+                        <circle cx="114" cy="56" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
+                        <circle cx="109" cy="108" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
+                        <circle cx="80" cy="126" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
+                        <circle cx="46" cy="98" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
+                        <circle cx="51" cy="51" r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
+                        {/* Axis labels */}
+                        <text x="80" y="10" textAnchor="middle" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">SPD</text>
+                        <text x="130" y="44" textAnchor="start" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">DET</text>
+                        <text x="130" y="118" textAnchor="start" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">GEO</text>
+                        <text x="80" y="158" textAnchor="middle" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">BAN</text>
+                        <text x="26" y="118" textAnchor="end" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">CST</text>
+                        <text x="26" y="44" textAnchor="end" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">STB</text>
                       </svg>
                     </div>
                   </div>
