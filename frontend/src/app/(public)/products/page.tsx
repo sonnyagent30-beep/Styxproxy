@@ -122,6 +122,7 @@ export default function ProductsPage() {
   const [visibleCards, setVisibleCards] = useState<Set<string>>(new Set());
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
+  // Product card individual observers
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -136,6 +137,24 @@ export default function ProductsPage() {
 
     cardRefs.current.forEach((el) => observer.observe(el));
 
+    return () => observer.disconnect();
+  }, []);
+
+  // Global reveal observer — makes all .reveal elements visible on scroll
+  useEffect(() => {
+    const revealEls = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.05 }
+    );
+    revealEls.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
   }, []);
 

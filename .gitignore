@@ -36,3 +36,4 @@ postman/reports/
 # Netlify
 frontend/.netlify/
 .netlify
+.vercel
