@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   Globe, House, HardDrives, DeviceMobile, Lightning, Clock, Check, X,
-  Desktop, Rocket, Target, CaretDown, ArrowRight, Warning, Heart, Star,
+  Desktop, CaretDown, ArrowRight, Warning, Heart, Star,
   CurrencyNgn
 } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
@@ -522,6 +522,10 @@ export default function ProductsPage() {
       <div className="relative overflow-hidden pt-24 pb-12 px-4">
         <div className="absolute inset-0 hero-bg-grid" />
         <div className="absolute inset-0 hero-bg-vignette" />
+        <div className="absolute inset-0 hero-bg-rings" />
+        <div className="hero-orb hero-orb-1" />
+        <div className="hero-orb hero-orb-2" />
+        <div className="hero-orb hero-orb-3" />
 
         <div className="relative max-w-7xl mx-auto">
           <div className="text-center mb-6">
@@ -563,6 +567,12 @@ export default function ProductsPage() {
             })}
           </div>
         </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div className="flex flex-col items-center gap-2 py-8">
+        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
       </div>
 
       {/* Product Cards */}
@@ -833,12 +843,12 @@ export default function ProductsPage() {
 
       {/* Comparison Table */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
-        <div className="section-divider-glow mb-16"></div>
-        <div className="text-center mb-12 reveal visible">
+        <div className="section-divider-glow mb-16" />
+        <div className="text-center mb-12 reveal">
           <h2 className="text-3xl font-bold mb-3" style={{ letterSpacing: '-0.02em' }}>Compare Disguises</h2>
           <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--muted)' }}>Every cover has trade-offs. Here&apos;s the full breakdown.</p>
         </div>
-        <div className="overflow-x-auto reveal visible">
+        <div className="overflow-x-auto reveal">
           <table className="w-full" style={{ minWidth: '560px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -912,35 +922,18 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Stats + CTA */}
+      {/* CTA */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-32">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-2xl mx-auto mb-20 reveal visible">
-          <div className="card p-6 text-center">
-            <Globe weight="fill" className="w-[26px] h-[26px] mx-auto mb-3 text-[var(--primary)]" />
-            <p className="text-2xl font-bold leading-none mb-1">120+</p>
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>Countries</p>
-          </div>
-          <div className="card p-6 text-center">
-            <Rocket weight="fill" className="w-[26px] h-[26px] mx-auto mb-3 text-[var(--primary)]" />
-            <p className="text-2xl font-bold leading-none mb-1">Instant</p>
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>Delivery</p>
-          </div>
-          <div className="card p-6 text-center">
-            <Target weight="fill" className="w-[26px] h-[26px] mx-auto mb-3 text-[var(--primary)]" />
-            <p className="text-2xl font-bold leading-none mb-1">99.9%</p>
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>Uptime</p>
-          </div>
-        </div>
-
-        <div className="text-center reveal visible">
-          <h2 className="text-4xl font-bold mb-4" style={{ letterSpacing: '-0.03em' }}>Ready to cross?</h2>
-          <p className="mb-10 max-w-md mx-auto text-sm leading-relaxed" style={{ color: 'var(--muted-light)' }}>
-            Every operation needs the right cover. Choose yours and deploy today.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/order" className="btn-primary text-base px-10 py-4">Get Started</Link>
-            <Link href="/contact" className="btn-outline text-base px-10 py-4">Talk to an Agent</Link>
-          </div>
+        <div className="section-divider-glow mb-16" />
+        <div className="text-center">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] mb-5">
+            Ready to cross the Styx?
+          </h2>
+          <p className="mb-10 text-lg" style={{ color: 'var(--muted)' }}>Start in seconds. No signup required.</p>
+          <Link href="/order"
+            className="inline-block px-12 py-5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-black text-lg transition-all duration-200 hover:shadow-[0_0_40px_rgba(10,210,90,0.35)]">
+            Get Instant
+          </Link>
         </div>
       </div>
     </div>
