@@ -365,7 +365,7 @@ export default function ProductsPage() {
           </div>
 
           {/* Mission quick-nav */}
-          <div className="flex flex-wrap justify-center gap-3">
+          <div className="flex flex-nowrap justify-center gap-3 overflow-x-auto pb-2 -mb-2 px-4">
             {[
               { label: 'Speed Ops', key: 'ISP' },
               { label: 'Identity Ops', key: 'RESIDENTIAL' },
@@ -375,7 +375,7 @@ export default function ProductsPage() {
               <button
                 key={mission.key}
                 onClick={() => handleMissionClick(mission.key)}
-                className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 border ${
+                className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 border ${
                   selectedMission === mission.key
                     ? 'bg-[var(--primary)] text-black border-[var(--primary)]'
                     : 'bg-[var(--card)] border-[var(--border)] text-gray-300 hover:border-[var(--primary)] hover:text-[var(--primary)]'
