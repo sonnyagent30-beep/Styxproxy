@@ -163,6 +163,9 @@ export default function ProductsPage() {
 
           {/* What's your mission? */}
           <div className="mb-12">
+            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4 text-center">
+              Choose your cover
+            </p>
             <h2 className="text-lg font-semibold text-center mb-4 text-[var(--foreground)]">
               What&apos;s your mission?
             </h2>

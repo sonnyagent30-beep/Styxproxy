@@ -243,6 +243,9 @@ export default function PricingClient() {
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 hero-orb-2" />
 
         <div className="relative text-center max-w-3xl mx-auto">
+          <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">
+            Pricing
+          </p>
           <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-[-0.03em]">
             Transparent access. No hidden costs.
           </h1>
@@ -497,6 +500,9 @@ export default function PricingClient() {
             <div className="section-divider-glow" />
             
             <div className="pt-8">
+              <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4 text-center">
+                Questions
+              </p>
               <h2 className="text-2xl font-bold mb-6 text-center tracking-[-0.02em]">
                 Common questions
               </h2>
