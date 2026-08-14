@@ -210,7 +210,9 @@ async function fetchCatalog(): Promise<typeof FALLBACK_PRODUCTS> {
     // Map DB plan_type to our product key
     const planTypeToKey: Record<string, string> = {
       'dc': 'DATACENTER',
-      // 'isp' would map to 'ISP', 'residential' to 'RESIDENTIAL', etc. when DB has them
+      'isp': 'ISP',
+      'residential': 'RESIDENTIAL',
+      'mobile': 'MOBILE',
     };
     
     // Build merged products from API data
