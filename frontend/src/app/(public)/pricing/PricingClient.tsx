@@ -240,7 +240,29 @@ export default function PricingClient() {
     });
   }, [catalogTemplates, catalogLoading]);
 
-  // Country data from lib/products
+  // Derive active countries from catalog (only show countries with at least one product)
+  const activeCountryData = useMemo(() => {
+    const activeCodes = new Set<string>();
+    for (const t of catalogTemplates) {
+      for (const v of t.variants) {
+        activeCodes.add(v.country);
+      }
+    }
+    const countries = [];
+    for (const [code, info] of Object.entries(COUNTRIES)) {
+      if (activeCodes.has(code)) {
+        countries.push({
+          code,
+          name: info.name,
+          flag: info.flag || code,
+          region: getDisplayRegion(info.region || 'Americas'),
+        });
+      }
+    }
+    return countries;
+  }, [catalogTemplates]);
+
+  // Country data from lib/products (all)
   const countryData = useMemo(() => {
     const countries = [];
     for (const [code, info] of Object.entries(COUNTRIES)) {
@@ -277,10 +299,10 @@ export default function PricingClient() {
   const filteredCountries = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
-    return countryData
+    return activeCountryData
       .filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
       .slice(0, 5);
-  }, [searchQuery, countryData]);
+  }, [searchQuery, activeCountryData]);
 
   // Click outside handler
   useEffect(() => {
@@ -464,9 +486,9 @@ export default function PricingClient() {
           </button>
         </div>
         <div className="country-grid gap-4">
-          {countryData.map(c => (
-            <div 
-              key={c.code} 
+          {activeCountryData.map(c => (
+            <div
+              key={c.code}
               className="country-tile p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth"
               onClick={() => selectCountry(c.code)}
             >
