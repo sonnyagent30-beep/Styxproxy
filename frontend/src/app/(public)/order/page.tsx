@@ -415,7 +415,7 @@ export default function OrderPage() {
   if (loading) {
     return (
       <div className="min-h-screen pb-32">
-        <div className="max-w-4xl mx-auto px-4 pt-24">
+        <div className="max-w-4xl mx-auto px-4">
           <div className="flex items-center justify-center py-32">
             <div className="flex items-center gap-3 text-[var(--muted)]">
               <ArrowsClockwise className="animate-spin" size={24} />
@@ -431,7 +431,7 @@ export default function OrderPage() {
   if (error) {
     return (
       <div className="min-h-screen pb-32">
-        <div className="max-w-4xl mx-auto px-4 pt-24">
+        <div className="max-w-4xl mx-auto px-4">
           <div className="flex flex-col items-center justify-center py-32 gap-4">
             <p className="text-red-400">{error}</p>
             <button
