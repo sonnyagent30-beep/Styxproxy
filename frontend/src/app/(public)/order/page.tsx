@@ -450,7 +450,7 @@ export default function OrderPage() {
     <div className="min-h-screen pb-32">
       <div className="max-w-4xl mx-auto px-4">
         {/* Hero */}
-        <div className="relative overflow-hidden pt-12 sm:pt-16 pb-12">
+        <div className="relative overflow-hidden pt-16 pb-12">
           <div className="absolute inset-0 hero-bg-grid" />
           <div className="absolute inset-0 hero-bg-rings" />
           <div className="absolute inset-0 hero-bg-vignette" />
