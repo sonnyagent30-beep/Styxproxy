@@ -66,6 +66,11 @@ export default function CheckoutPage() {
     }
   }, [router]);
 
+  // Sync cart changes back to sessionStorage so order page sees them too
+  useEffect(() => {
+    sessionStorage.setItem('styxproxy_cart', JSON.stringify(cart));
+  }, [cart]);
+
   // Bug walk theme-B fix: when cart loads or changes, fire a precheck per item.
   // Precheck tells us if the provider has inventory for that plan+country+qty.
   // Display "Usually delivered in ~Xs" + warn if any item unavailable.

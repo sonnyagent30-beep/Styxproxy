@@ -86,6 +86,11 @@ export default function OrderPage() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [addedMessage, setAddedMessage] = useState('');
 
+  // Sync cart to sessionStorage so checkout page can read it
+  useEffect(() => {
+    sessionStorage.setItem('styxproxy_cart', JSON.stringify(cart));
+  }, [cart]);
+
   // Residential/Mobile state
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [selectedCityId, setSelectedCityId] = useState<number | null>(null);
