@@ -44,7 +44,7 @@ function getTypeCardConfig(planType: CatalogPlanType): {
         icon: <DeviceMobile className="w-8 h-8" />,
         description: 'Mobile carrier IPs, perfect for social media and ad verification',
       };
-    case 'datacenter':
+    case 'dc':
       return {
         key: 'DC',
         label: 'Datacenter',
