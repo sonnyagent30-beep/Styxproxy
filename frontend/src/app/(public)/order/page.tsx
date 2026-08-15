@@ -62,8 +62,13 @@ function getTypeCardConfig(planType: CatalogPlanType): {
 }
 
 // Extract cheapest price for a template
+// DC/ISP: use base_price_per_ip (plan's published rate)
+// Residential/Mobile: use cheapest variant price_ngn (volume tier pricing)
 function getCheapestPrice(template: CatalogTemplate): number | null {
   if (!template.variants || template.variants.length === 0) return null;
+  if (template.plan_type === 'dc' || template.plan_type === 'isp') {
+    return template.base_price_per_ip ?? null;
+  }
   return Math.min(...template.variants.map(v => v.price_ngn));
 }
 
