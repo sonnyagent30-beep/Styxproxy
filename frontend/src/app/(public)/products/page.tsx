@@ -353,7 +353,7 @@ export default function ProductsPage() {
           }
         });
       },
-      { threshold: 0.05 }
+      { threshold: 0.05, rootMargin: '0px 0px -10% 0px' }
     );
     revealEls.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
