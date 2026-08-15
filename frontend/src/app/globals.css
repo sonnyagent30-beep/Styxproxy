@@ -1085,6 +1085,82 @@ button {
   border-color: rgba(10,210,90,0.25);
 }
 
+/* Country detail: product cards grid */
+.country-products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.country-product-card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.country-product-card .product-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 8px;
+}
+
+.country-product-card .product-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.country-product-card .product-type {
+  font-size: 0.65rem;
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+
+.country-product-card .product-price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.country-product-card .product-price span {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.country-product-card .product-avail {
+  font-size: 0.65rem;
+  font-family: ui-monospace, monospace;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.country-product-card .cta-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #000;
+  transition: background 0.15s;
+  display: inline-block;
+}
+
+.country-product-card .cta-btn:hover {
+  background: var(--primary-dark);
+}
+
+@media (max-width: 640px) {
+  .country-products-grid {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+}
+
 .country-detail-header {
   display: flex;
   align-items: center;

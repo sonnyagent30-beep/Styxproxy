@@ -446,30 +446,37 @@ export default function PricingClient() {
                 All countries
               </button>
             </div>
-            {(selectedCountryProducts || products).map(product => (
-              <div key={product.key} className="product-row">
-                <div className="product-icon" style={{ background: 'rgba(10,210,90,0.08)', border: '1px solid rgba(10,210,90,0.15)' }}>
-                  {product.key === 'isp' && <Globe size={18} style={{ color: 'rgba(180,120,80,0.8)' }} />}
-                  {product.key === 'residential' && <House size={18} style={{ color: 'var(--primary)' }} />}
-                  {product.key === 'mobile' && <DeviceMobile size={18} style={{ color: 'rgba(148,163,184,0.8)' }} />}
-                  {product.key === 'datacenter' && <HardDrives size={18} style={{ color: 'rgba(140,100,60,0.6)' }} />}
+            {/* Product cards */}
+            <div className="country-products-grid">
+              {(selectedCountryProducts || products).map(product => (
+                <div key={product.key} className="country-product-card card-depth p-5">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="product-icon" style={{ background: 'rgba(10,210,90,0.08)', border: '1px solid rgba(10,210,90,0.15)' }}>
+                      {product.key === 'isp' && <Globe size={18} style={{ color: 'rgba(180,120,80,0.8)' }} />}
+                      {product.key === 'residential' && <House size={18} style={{ color: 'var(--primary)' }} />}
+                      {product.key === 'mobile' && <DeviceMobile size={18} style={{ color: 'rgba(148,163,184,0.8)' }} />}
+                      {product.key === 'datacenter' && <HardDrives size={18} style={{ color: 'rgba(140,100,60,0.6)' }} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="product-name">{product.name}</div>
+                      <div className="product-type">{product.type}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="product-price">{product.price}<span>/{product.per}</span></div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="product-avail">● Available</span>
+                    <Link
+                      href="/order"
+                      className="cta-btn"
+                    >
+                      Order →
+                    </Link>
+                  </div>
                 </div>
-                <div className="product-info">
-                  <div className="product-name">{product.name}</div>
-                  <div className="product-type">{product.type}</div>
-                </div>
-                <div className="product-price">
-                  {product.price}<span>/{product.per}</span>
-                </div>
-                <div className="product-avail">Available</div>
-                <Link 
-                  href="/order" 
-                  className={`cta-btn ${product.outline ? 'outline' : ''}`}
-                >
-                  Order →
-                </Link>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}
