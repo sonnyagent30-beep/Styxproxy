@@ -130,9 +130,19 @@ export default function OrderPage() {
     }
   }, [catalog]);
 
-  // Scroll reveal
+  // Trigger reveal after catalog loads (cards render async, observer needs a second pass)
   useEffect(() => {
-    const revealEls = document.querySelectorAll('.reveal');
+    if (!loading && catalog) {
+      setTimeout(() => {
+        document.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
+      }, 100);
+    }
+  }, [loading, catalog]);
+
+  // Scroll reveal for elements added later
+  useEffect(() => {
+    const revealEls = document.querySelectorAll('.reveal:not(.visible)');
+    if (revealEls.length === 0) return;
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -146,7 +156,7 @@ export default function OrderPage() {
     );
     revealEls.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+  }, [loading, catalog]);
 
 
   // Build typeCards from catalog
