@@ -251,11 +251,25 @@ export default function PricingClient() {
     const countries = [];
     for (const [code, info] of Object.entries(COUNTRIES)) {
       if (activeCodes.has(code)) {
+        // Find lowest price across all variants for this country
+        let lowestPrice: number | null = null;
+        for (const t of catalogTemplates) {
+          const variant = t.variants.find(v => v.country === code);
+          if (variant && variant.price_ngn > 0) {
+            if (lowestPrice === null || variant.price_ngn < lowestPrice) {
+              lowestPrice = variant.price_ngn;
+            }
+          }
+        }
+        const priceLabel = lowestPrice !== null
+          ? `From ₦${Math.round(lowestPrice).toLocaleString('en-NG')}`
+          : null;
         countries.push({
           code,
           name: info.name,
           flag: info.flag || code,
           region: getDisplayRegion(info.region || 'Americas'),
+          priceLabel,
         });
       }
     }
@@ -418,6 +432,7 @@ export default function PricingClient() {
                   >
                     <span className="flag">{c.flag}</span>
                     <span className="country-name">{c.name}</span>
+                    {c.priceLabel && <span className="country-price">{c.priceLabel}</span>}
                     <span className="country-code">{c.region}</span>
                   </div>
                 ))
@@ -502,6 +517,7 @@ export default function PricingClient() {
               <span className="flag">{c.flag}</span>
               <div className="name">{c.name}</div>
               <div className="region">{c.region}</div>
+              {c.priceLabel && <div className="country-price">{c.priceLabel}</div>}
             </div>
           ))}
         </div>
