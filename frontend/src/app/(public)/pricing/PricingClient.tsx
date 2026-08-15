@@ -2,10 +2,10 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { 
-  Globe, 
-  House, 
-  DeviceMobile, 
+import {
+  Globe,
+  House,
+  DeviceMobile,
   HardDrives,
   MagnifyingGlass,
   ArrowLeft,
@@ -13,6 +13,136 @@ import {
 } from '@phosphor-icons/react';
 import { COUNTRIES } from '@/lib/products';
 import { Flag } from '@/components/ui/Flag';
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface CatalogVariant {
+  plan_code: string;
+  plan_type: string;
+  country: string;
+  rotation_mode: string;
+  price_ngn: number;
+  quantity: number;
+  duration_days: number;
+  features: string[];
+  in_stock: boolean;
+}
+
+interface CatalogTemplate {
+  plan_type: string;
+  rotation_mode_options: string[];
+  available_countries: string[];
+  base_quantity_gb: number;
+  base_price_ngn: number;
+  base_price_per_gb: number;
+  base_price_per_ip: number;
+  min_gb: number;
+  max_gb: number;
+  gb_tiers: number[];
+  supports_city: boolean;
+  cities: Record<string, unknown>;
+  duration_days: number;
+  static_price_multiplier: number;
+  supports_country_change: boolean;
+  description: string;
+  variants: CatalogVariant[];
+}
+
+interface CatalogResponse {
+  templates: CatalogTemplate[];
+  countries_supported: string[];
+  rotation_modes_supported: string[];
+}
+
+// ── Static fallback products (used when API is unavailable) ───────────────────
+
+const FALLBACK_PRODUCTS = [
+  {
+    key: 'isp',
+    name: 'ISP Proxy',
+    type: 'Static IP · Real ISP',
+    price: '₦6,500',
+    per: 'IP/mo',
+    badge: 'Baseline',
+    badgeColor: 'rgba(180,120,80,0.1)',
+    badgeBorder: 'rgba(180,120,80,0.25)',
+    badgeText: 'rgba(180,120,80,0.9)',
+    coverage: 45,
+    banRisk: 'Moderate',
+    banRiskLevel: 'warn',
+    speed: 'High',
+    replacement: 'Included',
+    coins: ['copper', 'copper', 'copper'],
+  },
+  {
+    key: 'residential',
+    name: 'Residential',
+    type: 'Real Home IP · Deep Cover',
+    price: '₦1,000',
+    per: 'GB/mo',
+    badge: 'Top Pick',
+    badgeColor: 'var(--primary)',
+    badgeBorder: 'var(--primary)',
+    badgeText: '#000',
+    coverage: 45,
+    banRisk: 'Low',
+    banRiskLevel: '',
+    speed: 'Good',
+    replacement: '7-day SLA',
+    coins: ['gold'],
+    featured: true,
+  },
+  {
+    key: 'mobile',
+    name: 'Mobile 4G',
+    type: 'Carrier IP · No Fingerprint',
+    price: '₦1,500',
+    per: 'GB/mo',
+    badge: 'Ghost Protocol',
+    badgeColor: 'rgba(148,163,184,0.1)',
+    badgeBorder: 'rgba(148,163,184,0.2)',
+    badgeText: 'rgba(148,163,184,0.9)',
+    coverage: 45,
+    banRisk: 'Very Low',
+    banRiskLevel: '',
+    speed: '4G LTE',
+    replacement: '7-day cover',
+    coins: ['silver', 'gold'],
+  },
+  {
+    key: 'datacenter',
+    name: 'Datacenter',
+    type: 'Cloud IP · Maximum Speed',
+    price: '₦2,500',
+    per: 'IP/mo',
+    badge: 'Fast Lane',
+    badgeColor: 'rgba(239,68,68,0.08)',
+    badgeBorder: 'rgba(239,68,68,0.2)',
+    badgeText: 'var(--error)',
+    coverage: 45,
+    banRisk: 'High',
+    banRiskLevel: 'danger',
+    speed: '10 Gbps',
+    replacement: 'N/A',
+    coins: ['bronze'],
+    outline: true,
+  },
+];
+
+// Map DB plan_type to our product key
+const planTypeToKey: Record<string, string> = {
+  'dc': 'datacenter',
+  'isp': 'isp',
+  'residential': 'residential',
+  'mobile': 'mobile',
+};
+
+const keyToPlanType: Record<string, string> = {
+  'datacenter': 'dc',
+  'isp': 'isp',
+  'residential': 'residential',
+  'mobile': 'mobile',
+};
 
 // FAQ data
 const faqs = [
@@ -55,114 +185,93 @@ function getDisplayRegion(countryRegion: string): Region {
   }
 }
 
-// Product type definitions matching HTML mockup
-const PRODUCTS = [
-  {
-    key: 'isp',
-    name: 'ISP Proxy',
-    type: 'Static IP · Real ISP',
-    price: '₦6,500/IP',
-    per: 'mo',
-    badge: 'Baseline',
-    badgeColor: 'rgba(180,120,80,0.1)',
-    badgeBorder: 'rgba(180,120,80,0.25)',
-    badgeText: 'rgba(180,120,80,0.9)',
-    iconBg: 'rgba(180,120,80,0.1)',
-    iconBorder: 'rgba(180,120,80,0.2)',
-    iconColor: 'rgba(180,120,80,0.8)',
-    coverage: '45 countries',
-    banRisk: 'Moderate',
-    banRiskLevel: 'warn',
-    speed: 'High',
-    replacement: 'Included',
-    coins: ['copper', 'copper', 'copper'],
-  },
-  {
-    key: 'residential',
-    name: 'Residential',
-    type: 'Real Home IP · Deep Cover',
-    price: '₦15,000',
-    per: 'mo',
-    badge: 'Top Pick',
-    badgeColor: 'var(--primary)',
-    badgeBorder: 'var(--primary)',
-    badgeText: '#000',
-    iconBg: 'rgba(251,191,36,0.1)',
-    iconBorder: 'rgba(251,191,36,0.2)',
-    iconColor: 'rgba(251,191,36,0.9)',
-    coverage: '90 countries',
-    banRisk: 'Low',
-    banRiskLevel: '',
-    speed: 'Good',
-    replacement: '7-day SLA',
-    coins: ['gold'],
-    featured: true,
-  },
-  {
-    key: 'mobile',
-    name: 'Mobile 4G',
-    type: 'Carrier IP · No Fingerprint',
-    price: '₦20,000',
-    per: 'mo',
-    badge: 'Ghost Protocol',
-    badgeColor: 'rgba(148,163,184,0.1)',
-    badgeBorder: 'rgba(148,163,184,0.2)',
-    badgeText: 'rgba(148,163,184,0.9)',
-    iconBg: 'rgba(148,163,184,0.08)',
-    iconBorder: 'rgba(148,163,184,0.15)',
-    iconColor: 'rgba(148,163,184,0.8)',
-    coverage: '30 countries',
-    banRisk: 'Very Low',
-    banRiskLevel: '',
-    speed: '4G LTE',
-    replacement: '7-day cover',
-    coins: ['silver', 'gold'],
-  },
-  {
-    key: 'datacenter',
-    name: 'Datacenter',
-    type: 'Cloud IP · Maximum Speed',
-    price: '₦3,500',
-    per: 'mo',
-    badge: 'Fast Lane',
-    badgeColor: 'rgba(239,68,68,0.08)',
-    badgeBorder: 'rgba(239,68,68,0.2)',
-    badgeText: 'var(--error)',
-    iconBg: 'rgba(140,100,60,0.08)',
-    iconBorder: 'rgba(140,100,60,0.2)',
-    iconColor: 'rgba(140,100,60,0.6)',
-    coverage: '120 countries',
-    banRisk: 'High',
-    banRiskLevel: 'danger',
-    speed: '10 Gbps',
-    replacement: 'N/A',
-    coins: ['bronze'],
-    outline: true,
-  },
-];
-
-// Country data from lib/products mapped to our display format
-function getCountryData() {
-  const countries = [];
-  for (const [code, info] of Object.entries(COUNTRIES)) {
-    countries.push({
-      code,
-      name: info.name,
-      flag: info.flag || code,
-      region: getDisplayRegion(info.region || 'Americas'),
-    });
-  }
-  return countries;
-}
-
 export default function PricingClient() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCountryGrid, setShowCountryGrid] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [catalogTemplates, setCatalogTemplates] = useState<CatalogTemplate[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const searchRef = useRef<HTMLDivElement>(null);
-  
-  const countryData = useMemo(() => getCountryData(), []);
+
+  // Fetch catalog from API
+  useEffect(() => {
+    async function fetchCatalog() {
+      try {
+        const response = await fetch('/api/catalog', {
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!response.ok) throw new Error('API error');
+        const data: CatalogResponse = await response.json();
+        setCatalogTemplates(data.templates || []);
+      } catch {
+        // Fall back to empty — FALLBACK_PRODUCTS used
+      } finally {
+        setCatalogLoading(false);
+      }
+    }
+    fetchCatalog();
+  }, []);
+
+  // Derive products from catalog data, merged with fallback metadata
+  const products = useMemo(() => {
+    if (catalogLoading) return FALLBACK_PRODUCTS;
+    if (catalogTemplates.length === 0) return FALLBACK_PRODUCTS;
+
+    return FALLBACK_PRODUCTS.map((fallback) => {
+      const dbPlanType = keyToPlanType[fallback.key];
+      const apiTemplate = catalogTemplates.find(t => t.plan_type === dbPlanType);
+      if (!apiTemplate) return fallback;
+
+      const isIpBased = dbPlanType === 'dc' || dbPlanType === 'isp';
+      const unitPrice = isIpBased
+        ? apiTemplate.base_price_per_ip
+        : apiTemplate.base_price_per_gb;
+
+      const formattedPrice = unitPrice > 0
+        ? `₦${Math.round(unitPrice).toLocaleString('en-NG')}`
+        : fallback.price;
+
+      return {
+        ...fallback,
+        price: formattedPrice,
+        coverage: apiTemplate.available_countries.length,
+      };
+    });
+  }, [catalogTemplates, catalogLoading]);
+
+  // Country data from lib/products
+  const countryData = useMemo(() => {
+    const countries = [];
+    for (const [code, info] of Object.entries(COUNTRIES)) {
+      countries.push({
+        code,
+        name: info.name,
+        flag: info.flag || code,
+        region: getDisplayRegion(info.region || 'Americas'),
+      });
+    }
+    return countries;
+  }, []);
+
+  // Get price for a specific country + product
+  const getCountryPrice = (countryCode: string, planKey: string) => {
+    const dbPlanType = keyToPlanType[planKey];
+    const template = catalogTemplates.find(t => t.plan_type === dbPlanType);
+    if (!template) return null;
+    const variant = template.variants.find(v => v.country === countryCode);
+    if (!variant) return null;
+    return `₦${Math.round(variant.price_ngn).toLocaleString('en-NG')}`;
+  };
+
+  // Country detail: products with per-country prices
+  const selectedCountryProducts = useMemo(() => {
+    if (!selectedCountry || catalogLoading) return null;
+    return products.map(product => {
+      const price = getCountryPrice(selectedCountry, product.key);
+      return { ...product, price: price || product.price };
+    });
+  }, [selectedCountry, catalogTemplates, catalogLoading, products]);
 
   // Filter countries based on search
   const filteredCountries = useMemo(() => {
@@ -315,19 +424,13 @@ export default function PricingClient() {
                 All countries
               </button>
             </div>
-            {PRODUCTS.map(product => (
+            {(selectedCountryProducts || products).map(product => (
               <div key={product.key} className="product-row">
-                <div 
-                  className="product-icon"
-                  style={{ 
-                    background: product.featured ? 'rgba(251,191,36,0.1)' : 'rgba(10,210,90,0.08)',
-                    border: `1px solid ${product.featured ? 'rgba(251,191,36,0.2)' : 'rgba(10,210,90,0.15)'}`
-                  }}
-                >
-                  {product.key === 'isp' && <Globe size={18} style={{ color: product.iconColor }} />}
-                  {product.key === 'residential' && <House size={18} style={{ color: product.iconColor }} />}
-                  {product.key === 'mobile' && <DeviceMobile size={18} style={{ color: product.iconColor }} />}
-                  {product.key === 'datacenter' && <HardDrives size={18} style={{ color: product.iconColor }} />}
+                <div className="product-icon" style={{ background: 'rgba(10,210,90,0.08)', border: '1px solid rgba(10,210,90,0.15)' }}>
+                  {product.key === 'isp' && <Globe size={18} style={{ color: 'rgba(180,120,80,0.8)' }} />}
+                  {product.key === 'residential' && <House size={18} style={{ color: 'var(--primary)' }} />}
+                  {product.key === 'mobile' && <DeviceMobile size={18} style={{ color: 'rgba(148,163,184,0.8)' }} />}
+                  {product.key === 'datacenter' && <HardDrives size={18} style={{ color: 'rgba(140,100,60,0.6)' }} />}
                 </div>
                 <div className="product-info">
                   <div className="product-name">{product.name}</div>
@@ -398,7 +501,7 @@ export default function PricingClient() {
           <p className="text-sm" style={{ color: 'var(--muted)' }}>All plans include ban replacement. Prices per month.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {PRODUCTS.map(product => (
+          {products.map(product => (
             <div key={product.key} className={`plan-card p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth reveal ${product.featured ? 'featured' : ''}`}>
               <span
                 className="plan-badge"
@@ -438,7 +541,7 @@ export default function PricingClient() {
               <div className="plan-spec">
                 <div className="spec-dot" />
                 <span className="spec-label">Coverage</span>
-                <span className="spec-val">{product.coverage}</span>
+                <span className="spec-val">{product.coverage} countries</span>
               </div>
               <div className="plan-spec">
                 <div className={`spec-dot ${product.banRiskLevel}`} />
