@@ -113,7 +113,7 @@ export default function OrderPage() {
   // Stale cart fix: verify cart items still exist in catalog
   useEffect(() => {
     if (!catalog || catalog.templates.length === 0) return;
-    
+
     // Build set of valid plan_codes from catalog
     const validPlanCodes = new Set<string>();
     for (const template of catalog.templates) {
@@ -121,7 +121,7 @@ export default function OrderPage() {
         validPlanCodes.add(variant.plan_code);
       }
     }
-    
+
     // Remove items whose plan_codes no longer exist
     const validCart = cart.filter(item => validPlanCodes.has(item.plan_code));
     if (validCart.length !== cart.length) {
@@ -129,6 +129,24 @@ export default function OrderPage() {
       validCart.forEach(item => addItem(item));
     }
   }, [catalog]);
+
+  // Scroll reveal
+  useEffect(() => {
+    const revealEls = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.05 }
+    );
+    revealEls.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
 
 
   // Build typeCards from catalog
@@ -386,17 +404,9 @@ export default function OrderPage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 pb-32">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <h1 className="text-4xl font-bold mb-3">
-              Choose Your <span className="text-[var(--primary)]">Proxy Type</span>
-            </h1>
-            <p className="text-[var(--muted)]">
-              Pick a proxy type, choose your country, and add to cart
-            </p>
-          </div>
-          <div className="flex items-center justify-center py-20">
+      <div className="min-h-screen pb-32">
+        <div className="max-w-4xl mx-auto px-4 pt-24">
+          <div className="flex items-center justify-center py-32">
             <div className="flex items-center gap-3 text-[var(--muted)]">
               <ArrowsClockwise className="animate-spin" size={24} />
               <span>Loading catalog...</span>
@@ -410,17 +420,9 @@ export default function OrderPage() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen pt-24 pb-32">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <h1 className="text-4xl font-bold mb-3">
-              Choose Your <span className="text-[var(--primary)]">Proxy Type</span>
-            </h1>
-            <p className="text-[var(--muted)]">
-              Pick a proxy type, choose your country, and add to cart
-            </p>
-          </div>
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
+      <div className="min-h-screen pb-32">
+        <div className="max-w-4xl mx-auto px-4 pt-24">
+          <div className="flex flex-col items-center justify-center py-32 gap-4">
             <p className="text-red-400">{error}</p>
             <button
               onClick={handleRetry}
@@ -435,20 +437,41 @@ export default function OrderPage() {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-32">
+    <div className="min-h-screen pb-32">
       <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold mb-3">
-            Choose Your <span className="text-[var(--primary)]">Proxy Type</span>
-          </h1>
-          <p className="text-[var(--muted)]">
-            Pick a proxy type, choose your country, and add to cart
-          </p>
+        {/* Hero */}
+        <div className="relative overflow-hidden sm:pt-16 pb-12">
+          <div className="absolute inset-0 hero-bg-grid" />
+          <div className="absolute inset-0 hero-bg-rings" />
+          <div className="absolute inset-0 hero-bg-vignette" />
+          <div className="hero-orb-1" />
+          <div className="hero-orb-2" />
+          <div className="hero-orb-3" />
+
+          <div className="relative text-center max-w-3xl mx-auto">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-6 mx-auto">
+              <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
+              <span className="text-xs font-bold uppercase tracking-widest text-[var(--primary)]">Order Proxies</span>
+            </div>
+
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mb-4">
+              Get Your <span className="text-[var(--primary)]">Proxies</span> Now
+            </h1>
+            <p className="text-base text-[var(--muted)] max-w-xl mx-auto">
+              Pick a proxy type, choose your country, checkout in seconds. No signup required.
+            </p>
+
+            {/* Scroll indicator */}
+            <div className="flex flex-col items-center gap-2 pt-8">
+              <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+              <div className="w-px h-8 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
+            </div>
+          </div>
         </div>
 
         {/* Type Cards */}
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-2 gap-4 reveal">
           {typeCards.map(card => (
             <button
               key={card.key}
@@ -456,13 +479,13 @@ export default function OrderPage() {
               className="w-full p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] transition-all text-left group card-depth"
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)]/20 transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)]/20 transition-colors">
                   {card.icon}
                 </div>
                 <ArrowRight className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors" />
               </div>
-              <h3 className="text-lg font-bold mb-1">{card.label}</h3>
-              <p className="text-sm text-[var(--muted)] mb-3">{card.description}</p>
+              <h3 className="text-base font-bold mb-1">{card.label}</h3>
+              <p className="text-xs text-[var(--muted)] mb-3">{card.description}</p>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-[var(--primary)]">{card.price}</span>
                 <span className="text-xs text-[var(--muted)]">
@@ -686,7 +709,8 @@ export default function OrderPage() {
                           }`}
                         >
                           <Flag countryCode={c.code} size={18} />
-                          <span className="font-medium">{c.code}</span>
+                          <span className="font-medium">{c.name}</span>
+                          <span className="text-[var(--muted)] text-xs">({c.code})</span>
                         </button>
                       );
                     })}
@@ -709,11 +733,11 @@ export default function OrderPage() {
                     return (
                       <div
                         key={selection.code}
-                        className="flex items-center gap-3 p-3 rounded-lg bg-[var(--background)] border border-[var(--border)]"
+                        className="flex items-center gap-3 p-3 rounded-xl bg-[var(--card)] border border-[var(--border)] card-depth"
                       >
-                        <Flag countryCode={selection.code} size={28} />
+                        <Flag countryCode={selection.code} size={32} />
                         <div className="flex-1">
-                          <p className="font-medium">{country?.name || selection.code}</p>
+                          <p className="font-semibold">{country?.name || selection.code}</p>
                           <p className="text-xs text-[var(--muted)]">
                             {formatPrice(pricePerIp)}/mo each
                           </p>
