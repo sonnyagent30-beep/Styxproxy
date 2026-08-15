@@ -13,7 +13,7 @@ import {
 import { Flag } from '@/components/ui/Flag';
 import { useCartStore } from '@/store/cart-store';
 import type { CartItem, CatalogResponse, CatalogTemplate, CatalogVariant, CatalogPlanType } from '@/types';
-import { Globe, House, DeviceMobile, HardDrives, ArrowRight, X, ArrowsClockwise, Plus, Minus, Check } from '@phosphor-icons/react';
+import { Globe, House, DeviceMobile, HardDrives, Database, ArrowRight, X, ArrowsClockwise, Plus, Minus, Check } from '@phosphor-icons/react';
 
 // Map catalog plan_type to display icons and labels
 function getTypeCardConfig(planType: CatalogPlanType): {
@@ -48,7 +48,7 @@ function getTypeCardConfig(planType: CatalogPlanType): {
       return {
         key: 'DC',
         label: 'Datacenter',
-        icon: <HardDrives className="w-8 h-8" />,
+        icon: <Database className="w-8 h-8" />,
         description: 'Fast datacenter proxies for general purpose use',
       };
     default:
