@@ -448,38 +448,39 @@ export default function OrderPage() {
 
   return (
     <div className="min-h-screen pb-32">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Hero */}
-        <div className="relative overflow-hidden pt-24 pb-12">
-          <div className="absolute inset-0 hero-bg-grid" />
-          <div className="absolute inset-0 hero-bg-rings" />
-          <div className="absolute inset-0 hero-bg-vignette" />
-          <div className="hero-orb-1" />
-          <div className="hero-orb-2" />
-          <div className="hero-orb-3" />
+      {/* Hero — full width, outside the constrained container */}
+      <div className="relative overflow-hidden pt-24 pb-12">
+        <div className="absolute inset-0 hero-bg-grid" />
+        <div className="absolute inset-0 hero-bg-rings" />
+        <div className="absolute inset-0 hero-bg-vignette" />
+        <div className="hero-orb-1" />
+        <div className="hero-orb-2" />
+        <div className="hero-orb-3" />
 
-          <div className="relative text-center max-w-3xl mx-auto">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-6 mx-auto">
-              <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
-              <span className="text-xs font-bold uppercase tracking-widest text-[var(--primary)]">Order Proxies</span>
-            </div>
+        <div className="relative text-center max-w-3xl mx-auto px-4">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-6 mx-auto">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
+            <span className="text-xs font-bold uppercase tracking-widest text-[var(--primary)]">Order Proxies</span>
+          </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mb-4">
-              Get Your <span className="text-[var(--primary)]">Proxies</span> Now
-            </h1>
-            <p className="text-base text-[var(--muted)] max-w-xl mx-auto">
-              Pick a proxy type, choose your country, checkout in seconds. No signup required.
-            </p>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mb-4">
+            Get Your <span className="text-[var(--primary)]">Proxies</span> Now
+          </h1>
+          <p className="text-base text-[var(--muted)] max-w-xl mx-auto">
+            Pick a proxy type, choose your country, checkout in seconds. No signup required.
+          </p>
 
-            {/* Scroll indicator */}
-            <div className="flex flex-col items-center gap-2 pt-8">
-              <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
-              <div className="w-px h-8 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
-            </div>
+          {/* Scroll indicator */}
+          <div className="flex flex-col items-center gap-2 pt-8">
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+            <div className="w-px h-8 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
           </div>
         </div>
+      </div>
 
+      {/* Rest of page — constrained */}
+      <div className="max-w-4xl mx-auto px-4">
         {/* Type Cards */}
         <div className="grid sm:grid-cols-2 gap-4 reveal">
           {typeCards.map(card => (
