@@ -375,7 +375,7 @@ export default function PricingClient() {
   return (
     <main className="min-h-screen text-[var(--foreground)]">
       {/* Hero Section */}
-      <div className="relative overflow-hidden pt-16 pb-16 px-6">
+      <div className="relative overflow-hidden pt-8 sm:pt-16 pb-16 px-6">
         <div className="absolute inset-0 hero-bg-grid" />
         <div className="absolute inset-0 hero-bg-rings" />
         <div className="absolute inset-0 hero-bg-vignette" />
