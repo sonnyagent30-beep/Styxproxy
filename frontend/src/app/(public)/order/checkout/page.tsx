@@ -36,6 +36,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   // Bug walk theme-B fix: precheck state. Map of plan_code → precheck result.
@@ -170,6 +171,10 @@ export default function CheckoutPage() {
 
   const handlePay = async () => {
     if (cart.length === 0) return;
+    if (!phone.trim() || phone.trim().length < 10) {
+      setError('Please enter a valid phone number (10+ digits) to continue.');
+      return;
+    }
     setError('');
     setLoading(true);
 
@@ -191,6 +196,7 @@ export default function CheckoutPage() {
       // model. Per-payment keeps Order.payment_reference consistent and
       // matches the existing webhook lookup logic.
       const trimmedEmail = email.trim();
+      const trimmedPhone = phone.trim();
       if (trimmedEmail) {
         sessionStorage.setItem('styxproxy_email', trimmedEmail);
       }
@@ -240,7 +246,7 @@ export default function CheckoutPage() {
           return api.initiatePayment(
             item.plan_code,
             isPerGb ? 1 : item.quantity,
-            '',
+            trimmedPhone || '',
             trimmedEmail || undefined,
           );
         }),
@@ -445,6 +451,23 @@ export default function CheckoutPage() {
             />
             <p className="text-xs text-[var(--muted)] mt-2">
               We&apos;ll email your receipt after payment. No spam — ever.
+            </p>
+          </div>
+
+          {/* Phone — required by Flutterwave */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Phone number <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="08031234567"
+              className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
+            />
+            <p className="text-xs text-[var(--muted)] mt-2">
+              Required for Flutterwave payment confirmation.
             </p>
           </div>
         </div>

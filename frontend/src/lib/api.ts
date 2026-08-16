@@ -256,10 +256,8 @@ class ApiClient {
       body: JSON.stringify({
         plan_code: planCode,
         quantity,
-        ...(customerPhone && customerPhone.length >= 10
-          ? { customer_phone: customerPhone }
-          : {}),
-        ...(customerEmail ? { customer_email: customerEmail } : {}),
+        customer_phone: customerPhone || undefined,
+        customer_email: customerEmail || undefined,
       }),
     });
   }
