@@ -167,8 +167,13 @@ class ApiClient {
         // Ensure error is always a string — guard against structured objects
         // (e.g. Pydantic/GraphQL errors like {type, loc, msg, input, ctx})
         const rawError = errorData.detail || errorData.message || JSON.stringify(errorData);
+        // FastAPI validation errors return detail as an array (e.g. [{msg, loc, ...}]).
+        // Flatten to a readable string so it doesn't render as [object Object].
+        const flatError = Array.isArray(rawError)
+          ? rawError.map((e: Record<string, unknown>) => e.msg || JSON.stringify(e)).join('; ')
+          : rawError;
         return {
-          error: typeof rawError === 'string' ? rawError : String(rawError)
+          error: typeof flatError === 'string' ? flatError : String(flatError)
         };
       }
 
@@ -251,8 +256,10 @@ class ApiClient {
       body: JSON.stringify({
         plan_code: planCode,
         quantity,
-        customer_phone: customerPhone || undefined,
-        customer_email: customerEmail || undefined,
+        ...(customerPhone && customerPhone.length >= 10
+          ? { customer_phone: customerPhone }
+          : {}),
+        ...(customerEmail ? { customer_email: customerEmail } : {}),
       }),
     });
   }
