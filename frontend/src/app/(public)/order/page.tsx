@@ -293,8 +293,10 @@ export default function OrderPage() {
     const country = selectedCountry ? COUNTRIES[selectedCountry.toUpperCase()] : null;
     // Build plan code: use COUNTRY_CODE if selected, else GENERIC
     const planCode = selectedCountry
-      ? `${currentTemplate.plan_type}-${selectedCountry.toUpperCase()}-${selectedGbTier}`
-      : `${currentTemplate.plan_type}-GENERIC-${selectedGbTier}`;
+      ? (currentTemplate.plan_type === 'dc' || currentTemplate.plan_type === 'isp'
+          ? `${currentTemplate.plan_type.toUpperCase()}-${selectedCountry.toUpperCase()}-${selectedGbTier}IP`
+          : `${currentTemplate.plan_type.toUpperCase().replace('RESIDENTIAL', 'RESI').replace('MOBILE', 'MOB')}-${selectedCountry.toUpperCase()}-${selectedGbTier}GB`)
+      : `${currentTemplate.plan_type.toUpperCase().replace('RESIDENTIAL', 'RESI').replace('MOBILE', 'MOB')}-GENERIC-${selectedGbTier}GB`;
 
     // Find variant for price if country selected
     const variant = selectedCountry
@@ -367,7 +369,7 @@ export default function OrderPage() {
       );
 
       const itemPrice = (variant?.price_ngn || 0) * selection.quantity;
-      const planCode = `${currentTemplate.plan_type}-${selection.code.toUpperCase()}-${selection.quantity}`;
+      const planCode = `${currentTemplate.plan_type.toUpperCase()}-${selection.code.toUpperCase()}-${selection.quantity}IP`;
 
       const name = `${country?.name || selection.code} x${selection.quantity} IPs`;
 
