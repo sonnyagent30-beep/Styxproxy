@@ -49,21 +49,25 @@ export default function CheckoutPage() {
   }>>({});
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('styxproxy_cart');
+    // Read cart from sessionStorage (set by order page navigation) or
+    // localStorage (Zustand persist) — cart must survive page navigation.
+    const stored =
+      sessionStorage.getItem('styxproxy_cart') ||
+      localStorage.getItem('styxproxy_cart');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setCart(parsed);
-        } else {
-          router.replace('/order');
+          // Keep sessionStorage in sync so back-navigation also works
+          sessionStorage.setItem('styxproxy_cart', stored);
+          return;
         }
       } catch {
-        router.replace('/order');
+        // malformed — fall through to redirect
       }
-    } else {
-      router.replace('/order');
     }
+    router.replace('/order');
   }, [router]);
 
   // Sync cart changes back to sessionStorage so order page sees them too
