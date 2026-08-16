@@ -65,6 +65,10 @@ const nextConfig: NextConfig = {
       },
       // Payments
       {
+        source: '/api/payments/initiate',
+        destination: 'https://api.styxproxy.com/api/payments/initiate',
+      },
+      {
         source: '/payments/initiate',
         destination: 'https://api.styxproxy.com/api/payments/initiate',
       },
