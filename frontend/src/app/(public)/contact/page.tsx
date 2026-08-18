@@ -60,6 +60,7 @@ export default function ContactPage() {
   };
 
   return (
+<<<<<<< Updated upstream
     <div className="min-h-screen relative overflow-hidden">
 
       {/* ── Hero background layers ── */}
@@ -86,6 +87,18 @@ export default function ContactPage() {
               Questions, issues, or just curious? We&apos;re here.
             </p>
           </div>
+=======
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1 pt-24 pb-16">
+        <div className="max-w-2xl mx-auto px-4">
+          <h1 className="text-4xl font-bold mb-4 text-center">
+            Get in <span className="gradient-text">Touch</span>
+          </h1>
+          <p className="text-[var(--muted)] text-center mb-10">
+            Have a question? Need help? We&apos;re here.
+          </p>
+>>>>>>> Stashed changes
 
           {/* FAQ Accordion */}
           <div className="mb-12">
@@ -110,7 +123,52 @@ export default function ContactPage() {
             </div>
           </div>
 
+<<<<<<< Updated upstream
           <div className="section-divider-glow mb-12" />
+=======
+          {sent ? (
+            <div className="text-center p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+              <div className="w-16 h-16 rounded-full bg-[var(--primary)]/15 flex items-center justify-center mx-auto mb-4">
+                <Check className="w-8 h-8 text-[var(--primary)]" weight="bold" />
+              </div>
+              <h2 className="text-xl font-bold mb-2">Message Sent!</h2>
+              <p className="text-[var(--muted)]">We&apos;ll get back to you within 24 hours.</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Name</label>
+                  <input required type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Your name" className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Email</label>
+                  <input required type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="your@email.com" className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Subject</label>
+                <select value={form.subject} onChange={e => setForm({...form, subject: e.target.value})} className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors">
+                  <option value="">Select a topic</option>
+                  <option value="order">I want to order</option>
+                  <option value="payment">Payment issue</option>
+                  <option value="proxy-issue">Proxy not working</option>
+                  <option value="refund">Refund request</option>
+                  <option value="bulk">Bulk / business pricing</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Message</label>
+                <textarea required rows={5} value={form.message} onChange={e => setForm({...form, message: e.target.value})} placeholder="Tell us how we can help..." className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors resize-none" />
+              </div>
+              {error && <p className="text-red-400 text-sm">{error}</p>}
+              <button disabled={loading} className="w-full py-4 bg-[var(--primary)] hover:bg-[var(--primary-dark)] disabled:opacity-50 text-black font-semibold rounded-xl transition-colors">
+                {loading ? 'Sending...' : 'Send Message'}
+              </button>
+            </form>
+          )}
+>>>>>>> Stashed changes
 
           {/* Contact form */}
           <div className="mb-12">

@@ -84,23 +84,16 @@ async function reportOutcome(triggerId: string, outcome: string) {
 }
 
 export default function ChatWidget() {
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   // Spec: public-only. Suppress on any admin/superadmin/manage route.
-  // The widget never even opens if the user shouldn't see it.
   const pathname = usePathname();
-  // P0 spec: Charon must NEVER render on admin / superadmin / manage / operator
-  // surfaces. Block-list is centralised here so the public-only rule is
-  // enforced in one place.
-  const isBlocked = ["admin", "superadmin", "manage", "login", "admin-setup"].some(
-    (p) => pathname === "/" + p || (pathname != null && (pathname.startsWith("/" + p + "/") || pathname.startsWith("/" + p)))
-  );
-  if (isBlocked) return null;
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-
   const [fabX, setFabX] = useState(-1);
+<<<<<<< Updated upstream
   const [fabY, setFabY] = useState(-1);
   const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, startFabX: 0, startFabY: 0 });
 
@@ -123,35 +116,47 @@ export default function ChatWidget() {
   };
 
   // ── Behavioral awareness ───────────────────────────────────────────
+=======
+  const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, startFabX: 0 });
+>>>>>>> Stashed changes
   const trackerRef = useRef<SessionTracker | null>(null);
   const engineRef = useRef<TriggerEngine | null>(null);
   const [activeTrigger, setActiveTrigger] = useState<Trigger | null>(null);
   const [showBubble, setShowBubble] = useState(false);
   const ignoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // pathname already declared at top of component for public-only gating
-
-  // ── Public-only gating (P1-1 Jul 22 2026) ─────────────────────────
-  // Charon must NEVER appear on auth/admin/internal pages. Mounting the
-  // widget there would (a) leak the AI to admins who don't need it,
-  // (b) make admin sessions pollute Charon's anonymous metrics with
-  // non-customer traffic, and (c) expose the LLM proxy to admin
-  // sessions that should go through the superadmin-only endpoints.
-  if (
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/setup') ||
-    pathname.startsWith('/superadmin')
-  ) {
-    return null;
-  }
-
+  
   // Refs to avoid stale closures in intervals
   const isOpenRef = useRef(false);
   const activeTriggerRef = useRef<Trigger | null>(null);
   const pathnameRef = useRef(pathname);
-  isOpenRef.current = isOpen;
-  activeTriggerRef.current = activeTrigger;
-  pathnameRef.current = pathname;
+  
+  // Keep refs in sync via effect
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+  
+  useEffect(() => {
+    activeTriggerRef.current = activeTrigger;
+  }, [activeTrigger]);
+  
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  // Determine if we should render - AFTER all hooks are called
+  const isBlocked = ["admin", "superadmin", "manage", "login", "admin-setup"].some(
+    (p) => pathname === "/" + p || (pathname != null && (pathname.startsWith("/" + p + "/") || pathname.startsWith("/" + p)))
+  );
+  const isOnBlockedPath = 
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/setup') ||
+    pathname.startsWith('/superadmin');
+  
+  // Don't render if blocked
+  if (isBlocked || isOnBlockedPath) {
+    return null;
+  }
 
   // ── Init tracker + engine once ────────────────────────────────────
   useEffect(() => {
@@ -289,7 +294,7 @@ export default function ChatWidget() {
     setIsOpen(true);
   }, []);
 
-  // ── Dismiss bubble ────────────────────────────────────────────────
+  // ── Dismiss bubble ─────────────────────────────────────────────────
   const dismissBubble = useCallback(() => {
     const t = activeTriggerRef.current;
     setShowBubble(false);
@@ -537,7 +542,7 @@ export default function ChatWidget() {
             <button
               type="submit"
               disabled={isBusy || !input.trim()}
-              className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors disabled:opacity50"
             >
               Send
             </button>
@@ -578,14 +583,16 @@ export default function ChatWidget() {
           )}
 
           {/* FAB — uses the Charon avatar (chatbot-logo.png) so the floating
-              button matches the avatar inside the chat panel header. */}
+              action button is recognizable even without the bubble. */}
           <button
-            onClick={openChat}
-            className="fixed z-[9998] charon-fab w-14 h-14 rounded-full bg-[var(--primary)] overflow-hidden flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
+            onClick={() => toggleOpen(true)}
+            className="fixed z-[9998] w-14 h-14 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
             style={fabStyle}
-            aria-label="Open chat with Charon"
+            aria-label="Open chat"
           >
-            <Image src="/chatbot-logo.png" alt="Charon" width={56} height={56} className="w-full h-full object-cover" />
+            <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
           </button>
         </>
       )}
@@ -593,27 +600,45 @@ export default function ChatWidget() {
   );
 }
 
-/* ── MessageBubble ───────────────────────────────────────────────────── */
+// ── Message bubble ─────────────────────────────────────────────────
 function MessageBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === 'user';
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+        className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm ${
           isUser
             ? 'bg-[var(--primary)] text-black rounded-br-md'
-            : 'bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] rounded-bl-md'
+            : 'bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)] rounded-bl-md'
         }`}
       >
+<<<<<<< Updated upstream
         <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-strong:text-[var(--primary)] prose-a:text-[var(--primary)] prose-a:underline">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {msg.content}
           </ReactMarkdown>
         </div>
+=======
+>>>>>>> Stashed changes
         {msg.escalated && (
-          <p className="mt-2 text-xs text-[var(--muted)]">
-            A team member has been notified and will follow up via email.
-          </p>
+          <div className="mb-1 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded">
+            Escalated to support
+          </div>
+        )}
+        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+        {msg.tool_calls && msg.tool_calls.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-[var(--border)]">
+            {msg.tool_calls.map((tc, i) => (
+              <div key={i} className="text-xs text-[var(--muted)]">
+                <span className="font-medium">{tc.tool}</span>
+                {tc.result !== undefined && (
+                  <pre className="mt-1 p-1 bg-[var(--background)] rounded overflow-x-auto">
+                    {JSON.stringify(tc.result, null, 1)}
+                  </pre>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

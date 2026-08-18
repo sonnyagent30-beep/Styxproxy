@@ -17,7 +17,7 @@ export default function AdminError({
   useEffect(() => {
     // Surface the error to whatever the host env uses for logs.
     // On Vercel this goes to the deployment logs.
-    // eslint-disable-next-line no-console
+     
     console.error('[admin route error]', error);
   }, [error]);
 
