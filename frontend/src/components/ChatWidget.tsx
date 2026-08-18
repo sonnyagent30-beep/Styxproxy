@@ -93,7 +93,6 @@ export default function ChatWidget() {
   const [isBusy, setIsBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [fabX, setFabX] = useState(-1);
-<<<<<<< Updated upstream
   const [fabY, setFabY] = useState(-1);
   const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, startFabX: 0, startFabY: 0 });
 
@@ -116,9 +115,6 @@ export default function ChatWidget() {
   };
 
   // ── Behavioral awareness ───────────────────────────────────────────
-=======
-  const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, startFabX: 0 });
->>>>>>> Stashed changes
   const trackerRef = useRef<SessionTracker | null>(null);
   const engineRef = useRef<TriggerEngine | null>(null);
   const [activeTrigger, setActiveTrigger] = useState<Trigger | null>(null);
@@ -612,14 +608,11 @@ function MessageBubble({ msg }: { msg: Message }) {
             : 'bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)] rounded-bl-md'
         }`}
       >
-<<<<<<< Updated upstream
         <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-strong:text-[var(--primary)] prose-a:text-[var(--primary)] prose-a:underline">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {msg.content}
           </ReactMarkdown>
         </div>
-=======
->>>>>>> Stashed changes
         {msg.escalated && (
           <div className="mb-1 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded">
             Escalated to support
