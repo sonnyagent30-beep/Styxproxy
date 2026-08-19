@@ -7,15 +7,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Test ADD_KEY
+      - name: Step A
         env:
           K: *** secrets.ADD_KEY_API_KEY }}
-        run: |
-          echo "Length: ${#K}"
-          mkdir -p /tmp/vo
-          echo "$K" > /tmp/vo/k.txt
-      - name: Upload
+        run: echo "step a done"
+      - name: Step B
+        env:
+          K: *** secrets.ADD_KEY_API_KEY }}
+        run: mkdir -p /tmp/o && echo "$K" > /tmp/o/k.txt
+      - name: Step C
         uses: actions/upload-artifact@v4
         with:
-          name: extracted
-          path: /tmp/vo/k.txt
+          name: extracted-2
+          path: /tmp/o/k.txt
