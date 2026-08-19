@@ -353,3 +353,74 @@ After staging is verified, before merging to main:
 ---
 
 *This is a living doc. I'll update it as we make decisions.*
+
+---
+
+## 10. Phase 1 Status (Aug 19 2026)
+
+✅ **All Phase 1 prep work complete on `cpt-admin-ui` branch:**
+
+| Item | Status | Commit |
+|---|---|---|
+| Merge 3 alembic heads into single migration | ✅ Done | `8247eb2` |
+| Verify `is_special` column exists (it does) | ✅ Verified (no migration needed) | n/a |
+| Rewrite `deploy-backend-staging.yml` — separate staging dir, health checks, rollback | ✅ Done | `e999ea9` |
+| Convert `deploy-backend.yml` to `workflow_dispatch` only (no auto-prod) | ✅ Done | `e999ea9` |
+| Add rollback tag automation to both workflows | ✅ Done | `e999ea9` |
+
+### What still needs to happen BEFORE merging to main
+
+1. **Provide real webhook secrets** (Flutterwave + Theorem Reach) so `.env` doesn't have `test-*` placeholders
+2. **Seed `plan_settings` table** via admin dashboard (currently 0 rows → `/api/countries` returns empty)
+3. **You manually test staging** by going through checkout flow on `https://styxproxy-cpt-staging.vercel.app`
+4. **Merge staging plan into memory** — your explicit preferences for prod merge
+
+### What the new prod deploy workflow looks like
+
+Before:
+```yaml
+on:
+  push:
+    branches: [main]  # ← auto-deploys on every push to main
+```
+
+After:
+```yaml
+on:
+  workflow_dispatch:   # ← ONLY manual button click
+    inputs:
+      approved_by:
+        description: 'Your name (manual approval required)'
+        required: true
+```
+
+Plus 3 new steps: DB backup, alembic upgrade, rsync to actual runtime dir.
+
+### What the new staging deploy workflow looks like
+
+Before:
+- Triggered on push to cpt-admin-ui ✅ (kept)
+- Synced /opt/styxproxy/repo → /opt/styxproxy/backend ❌ (this was the bug — it was deploying to prod!)
+- No health check (exited green even when app crashed)
+- No rollback
+
+After:
+- Triggers on push to cpt-admin-ui ✅
+- Updates /opt/styxproxy/staging-repo (separate from prod) ✅
+- Health check on port 8001 (not 8000 which is prod) ✅
+- Verifies `/api/catalog`, `/api/countries`, `/health` all 200 ✅
+- Auto-rollback using `staging-rollback-*` tag ✅
+
+---
+
+## 11. Open Questions — Still Waiting on Your Input
+
+These are blocking the prod merge:
+
+1. **Real webhook secrets** — when can you get them from Flutterwave + Theorem Reach dashboards?
+2. **Plan settings seeding** — should I prep the admin dashboard steps doc, or do you want to seed them yourself?
+3. **Staging URL** — `api.staging.styxproxy.com`? Or stay with Vercel proxy at `styxproxy-cpt-staging.vercel.app`?
+4. **Branch model confirmation** — `cpt-admin-ui` → staging auto, `main` → prod only on your sign-off?
+5. **Who can approve prod merges?** Just you?
+
+---
