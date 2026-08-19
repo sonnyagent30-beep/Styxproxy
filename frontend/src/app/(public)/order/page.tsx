@@ -461,7 +461,7 @@ export default function OrderPage() {
   return (
     <div className="min-h-screen pb-32">
       {/* Hero — full width, outside the constrained container */}
-      <div className="relative overflow-hidden pt-24 pb-12">
+      <div className="relative overflow-hidden pt-12 pb-12">
         <div className="absolute inset-0 hero-bg-grid" />
         <div className="absolute inset-0 hero-bg-rings" />
         <div className="absolute inset-0 hero-bg-vignette" />
