@@ -53,9 +53,6 @@ class Settings(BaseSettings):
     betterstack_status_page_id: str = ""
     betterstack_monitor_id: str = ""
     betterstack_status_page_url: str = ""
-    # Incident notification webhooks
-    incident_slack_webhook_url: str = ""
-    incident_discord_webhook_url: str = ""
     from_email: str = "Styxproxy <noreply@styxproxy.com>"
     support_email: str = "support@styxproxy.com"
     admin_email: str = "support@styxproxy.com"
@@ -66,10 +63,27 @@ class Settings(BaseSettings):
     proxy_seller_base_url: str = "https://api.proxy-seller.com"
     proxy_seller_balance_alert_threshold_usd: float = 10.0
 
-    # ── IPQualityScore (proxy IP screening) ───────────────────────────────────
-    # Sign up free at https://www.ipqualityscore.com — 5,000 lookups/month.
-    # Set IPQUALITYSCORE_API_KEY in .env to enable screening.
-    ipqualityscore_api_key: str = ""
+    # ── DataImpulse (S1.2 — primary residential/mobile proxy provider) ──────
+    # Used for trial credential creation in the Theorem Reach → trial pipeline.
+    # Purchase at https://dataimpulse.com — $5 trial gives 5 GB residential.
+    dataimpulse_api_key: str = ""
+
+    # ── Decodo (S2.8 — secondary provider, city-level targeting) ────────────
+    # Formerly Smartproxy. Used for Nigeria city-level targeting (Lagos, Abuja).
+    # DataImpulse handles all other countries.
+    # Sign up: https://decodo.com — $5 trial available.
+    decodo_api_key: str = ""
+
+    # ── 3proxy port allocation range ─────────────────────────────────────────
+    # Allocated from this range when spinning up trial SOCKS5 ports.
+    # Must not overlap with any other Dante/3proxy port allocation.
+    threeproxy_port_range_start: int = 10000
+    threeproxy_port_range_end: int = 50000
+
+    # ── TheoremReach (survey completion → trial pipeline) ─────────────────────
+    # Webhook secret for HMAC-SHA256 signature verification on the theorem-reach
+    # webhook endpoint. Found in TheoremReach dashboard → integrations → webhooks.
+    theorem_reach_webhook_secret: str = ""
 
     # ── Dante (branding gateway — runs on VPS) ───────────────────────────────
     dante_api_url: str = "http://localhost:9000"
@@ -151,6 +165,38 @@ class Settings(BaseSettings):
 
         if not self.admin_token or self.admin_token == "your-admin-token-change-in-production":
             failures.append("ADMIN_TOKEN is still the default placeholder. Set ADMIN_TOKEN to a secure value.")
+
+        # PAY-1 CRITICAL (CVSS 8.1): flutterwave_webhook_secret must be set.
+        # When absent/empty, verify_flutterwave_signature() uses an empty HMAC key,
+        # making signature verification a no-op — any unsigned payload is accepted.
+        if not self.flutterwave_webhook_secret:
+            failures.append(
+                "FLUTTERWAVE_WEBHOOK_SECRET is not set. "
+                "This must be configured before any production payment traffic: "
+                "find it in your Flutterwave dashboard under Settings > Webhooks."
+            )
+
+        # S2.3 (SEC finding): TheoremReach webhook has no signature verification.
+        # Require THEOREM_REACH_WEBHOOK_SECRET so the HMAC check in the webhook
+        # handler actually gates access. An empty string bypasses the check entirely.
+        if not self.theorem_reach_webhook_secret:
+            failures.append(
+                "THEOREM_REACH_WEBHOOK_SECRET is not set. "
+                "Theorem Reach survey webhooks will be rejected until this is configured: "
+                "find it in your TheoremReach dashboard under Integrations > Webhooks."
+            )
+
+        # OPS-1 HIGH (STYXv2-003-SEC): OPS_JWT_SECRET must be set explicitly.
+        # The ops_auth module already raises ValueError at import time if the env
+        # var is absent, but we also enforce it here so the full validation error
+        # message is visible at startup alongside other missing-config failures.
+        import os as _os
+        if not _os.environ.get("OPS_JWT_SECRET"):
+            failures.append(
+                "OPS_JWT_SECRET is not set. "
+                "Financial ops endpoints (/refund, /reprocess) require an explicit "
+                "OPS_JWT_SECRET. Set it to a secure value: openssl rand -base64 32"
+            )
 
         if failures:
             raise ValueError("\n".join(failures))

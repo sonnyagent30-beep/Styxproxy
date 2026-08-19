@@ -23,7 +23,7 @@ from app.auth import (
 from app.config import get_settings
 from app.database import get_session
 from app.limiter import limiter
-from app.models import AdminAuth, AdminInvite, FeatureFlag
+from app.models import AdminAuth, AdminInvite, AdminTotpSession, FeatureFlag
 from app.schemas import (
     AdminChangePasswordRequest,
     AdminChangePasswordResponse,
@@ -895,6 +895,74 @@ async def reset_password(
     await session.commit()
 
     return PasswordResetResponse(message="Password reset successfully. Please log in with your new password.")
+
+
+# ============== Session Management ==============
+
+
+@router.delete("/sessions/{session_id}")
+async def revoke_totp_session(
+    session_id: str,
+    http_request: Request,
+    current_admin: dict = Depends(require_viewer),
+    db: AsyncSession = Depends(get_session),
+):
+    """Revoke a TOTP \"remember this device\" session.
+
+    A stolen or compromised session token is valid until expires_at.
+    This endpoint sets revoked_at = now() so the token is immediately
+    rejected on subsequent requests.
+
+    - Returns 200 on success.
+    - Returns 404 if the session does not exist.
+    - Only the admin who owns the session may revoke it (enforced via
+      admin_email match on the row).
+    """
+    from uuid import UUID
+
+    try:
+        session_uuid = UUID(session_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid session ID",
+        )
+
+    stmt = select(AdminTotpSession).where(AdminTotpSession.id == session_uuid)
+    result = await db.execute(stmt)
+    totp_session = result.scalar_one_or_none()
+
+    if not totp_session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    # Verify the session belongs to the requesting admin
+    if totp_session.admin_email != current_admin["email"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot revoke a session that does not belong to you",
+        )
+
+    totp_session.revoked_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    await write_audit_log(
+        db,
+        admin_email=current_admin["email"],
+        action="revoke_totp_session",
+        resource_type="admin_totp_session",
+        resource_id=session_id,
+        details={
+            "revoked_session_email": totp_session.admin_email,
+            "device_fingerprint": totp_session.device_fingerprint,
+            "ip_address": str(totp_session.ip_address) if totp_session.ip_address else None,
+        },
+        request=http_request,
+    )
+
+    return {"message": "Session revoked successfully", "session_id": session_id}
 
 
 # ============== Team Management ==============

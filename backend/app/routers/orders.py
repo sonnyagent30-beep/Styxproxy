@@ -194,6 +194,7 @@ async def create_order(
             phone=None,
             email=body.customer_email,
             platform_account=platform_account,
+            referred_by_code=body.referred_by_code,
         )
         if customer is None:
             # No customer_email supplied AND no JWT customer — reject with
@@ -445,6 +446,7 @@ async def create_order(
         styxproxy_credential=cred_brief,
         created_at=order.created_at,
         expires_at=order.expires_at,
+        referral_tx_ref=order.referral_tx_ref,
     )
 
 
@@ -495,6 +497,7 @@ async def list_orders_by_device(
                 created_at=order.created_at,
                 expires_at=order.expires_at,
                 customer_name=customer.name if customer and customer.name else None,
+                referral_tx_ref=order.referral_tx_ref,
             )
         )
     return results

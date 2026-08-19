@@ -2424,6 +2424,192 @@ async def send_support_reply_email(
     )
 
 
+# =============================================================================
+# Renewal Reminder Email Template  (S2.5)
+# =============================================================================
+
+
+def _render_renewal_reminder_email(
+    customer_name: str,
+    order_id: str,
+    plan_code: str,
+    expires_at: datetime,
+    days_remaining: int,
+) -> EmailContent:
+    """Render renewal reminder email - matching receipt PDF dark/light design."""
+    base_styles = _get_base_styles()
+    # Calculate dynamic expiry message
+    if days_remaining <= 0:
+        expiry_headline = "Your proxy has expired"
+        expiry_sub = "Renew now to keep your IP and avoid interruption."
+        badge_class = "pill-red"
+        badge_text = "EXPIRED"
+    elif days_remaining == 1:
+        expiry_headline = "Your proxy expires tomorrow"
+        expiry_sub = "Renew now to keep your IP and avoid interruption."
+        badge_class = "pill-red"
+        badge_text = "EXPIRES SOON"
+    else:
+        expiry_headline = f"Your proxy expires in {days_remaining} days"
+        expiry_sub = "Renew now to keep your IP and avoid interruption."
+        badge_class = "pill-amber"
+        badge_text = f"{days_remaining} DAYS LEFT"
+
+    # Format expiry date
+    expires_str = expires_at.strftime("%B %d, %Y")
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Your Proxy Expires Soon — Renew Now</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="accent-bar-top"></div>
+
+            {_render_header("RENEWAL Reminder", "styxproxy.com")}
+
+            <div class="divider"></div>
+
+            <div class="content-section">
+                <!-- Section label -->
+                <div class="section-label">Subscription Alert</div>
+
+                <!-- Main heading -->
+                <div class="main-heading">{expiry_headline}</div>
+                <div class="subheading">{expiry_sub}</div>
+
+                <!-- Status badge -->
+                <div style="margin-bottom: 20px;">
+                    <span class="pill {badge_class}">{badge_text}</span>
+                </div>
+
+                <!-- Order details card -->
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Order ID</span>
+                        <span class="card-value card-value-primary">{order_id}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Plan</span>
+                        <span class="card-value">{plan_code}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Expiry Date</span>
+                        <span class="card-value">{expires_str}</span>
+                    </div>
+                </div>
+
+                <!-- Warning box -->
+                <div class="warning-box">
+                    <strong>Don't lose your IP.</strong> Once your proxy expires, the IP address
+                    is released back into the pool and may no longer be available when you renew.
+                    Act now to keep the same IP address.
+                </div>
+
+                <!-- CTA Button -->
+                <div style="text-align: center; margin: 24px 0;">
+                    <a href="https://styxproxy.com/manage" class="cta-button">
+                        Renew Now → styxproxy.com/manage
+                    </a>
+                </div>
+
+                <!-- Support section -->
+                <div class="support-card">
+                    <div class="support-title">NEED HELP?</div>
+                    <div class="support-row">
+                        <span class="support-label">Chat:</span>
+                        <a href="https://styxproxy.com/contact" class="support-link">styxproxy.com/contact</a>
+                    </div>
+                    <div class="support-row">
+                        <span class="support-label">Email:</span>
+                        <a href="mailto:support@styxproxy.com" class="support-link">support@styxproxy.com</a>
+                    </div>
+                    <div class="support-row" style="margin-bottom: 0;">
+                        <span class="support-label">Web:</span>
+                        <a href="https://styxproxy.com" class="support-link">styxproxy.com</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="footer">
+                <div class="footer-auto">You received this email because you have an active Styxproxy subscription.</div>
+                <div class="footer-auto">To manage your email preferences, visit your account settings.</div>
+                <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
+            </div>
+
+            <div class="accent-bar-bottom"></div>
+        </div>
+    </div>
+</body>
+</html>"""
+
+    # Plain text fallback
+    text = f"""Styxproxy Renewal Reminder
+
+{expiry_headline}
+
+Order ID: {order_id}
+Plan: {plan_code}
+Expires: {expires_str}
+
+Don't lose your IP address. Renew now at https://styxproxy.com/manage
+
+If you have questions, contact support@styxproxy.com or visit styxproxy.com/contact
+
+© 2026 Styxproxy
+"""
+
+    subject = f"{expiry_headline} — renew at styxproxy.com/manage"
+    return EmailContent(subject=subject, html=html, text=text)
+
+
+async def send_renewal_reminder_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    plan_code: str,
+    expires_at: datetime,
+    days_remaining: int,
+) -> EmailResult:
+    """Send renewal reminder email to customer.
+
+    Args:
+        customer_email: Recipient email address.
+        customer_name: Customer's display name.
+        order_id: The order ID (ORD-XXXXXX).
+        plan_code: The plan code (e.g. RESI-US-5GB).
+        expires_at: When the proxy subscription expires.
+        days_remaining: Days until expiry (used for subject / badge copy).
+    """
+    content = _render_renewal_reminder_email(
+        customer_name=customer_name,
+        order_id=order_id,
+        plan_code=plan_code,
+        expires_at=expires_at,
+        days_remaining=days_remaining,
+    )
+    recipient = EmailRecipient(email=customer_email, name=customer_name)
+
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
+    )
+
+
 async def send_rotation_notification_email(
     customer_email: str,
     bun_username: str,

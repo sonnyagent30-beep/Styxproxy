@@ -84,23 +84,32 @@ async def create_flutterwave_invoice(
     currency: str = "NGN",
     callback_url: Optional[str] = None,
     description: Optional[str] = None,
+    device_id: Optional[str] = None,
 ) -> dict:
     tx_ref = f"TXF-{uuid.uuid4().hex[:8].upper()}"
+    payload_meta: dict[str, str] = {}
+    if device_id:
+        payload_meta["device_id"] = device_id
+
     async with httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=10.0)) as client:
         try:
+            json_body: dict[str, Any] = {
+                "tx_ref": tx_ref,
+                "amount": amount,
+                "currency": currency,
+                "customer": {"email": customer_email, "phone_number": customer_phone},
+                "customizations": {
+                    "title": "Styxproxy Proxy Service",
+                    "description": description or "Proxy service payment",
+                },
+                "callback_url": callback_url,
+            }
+            if payload_meta:
+                json_body["meta"] = payload_meta
+
             response = await client.post(
                 "https://api.flutterwave.com/v3/payments",
-                json={
-                    "tx_ref": tx_ref,
-                    "amount": amount,
-                    "currency": currency,
-                    "customer": {"email": customer_email, "phone_number": customer_phone},
-                    "customizations": {
-                        "title": "Styxproxy Proxy Service",
-                        "description": description or "Proxy service payment",
-                    },
-                    "callback_url": callback_url,
-                },
+                json=json_body,
                 headers={
                     "Authorization": f"Bearer {settings.flutterwave_secret_key}",
                     "Content-Type": "application/json",
@@ -216,7 +225,37 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                 order.status = "failed_manual_review"
                 await db_session.commit()
 
-            # ── Step 4: Audit log (after all state mutations) ─────────────────
+            # ── Step 4: Apply referral credit if referee just made their first payment ─
+            # Only trigger for customers who were referred (referred_by != null)
+            # and only on their first confirmed payment (each referee earns at most once).
+            try:
+                from app.models import Customer
+                from app.services.referral import apply_referral_credit
+
+                customer_stmt = select(Customer).where(Customer.phone == order.customer_phone)
+                customer = (await db_session.execute(customer_stmt)).scalar_one_or_none()
+                if customer and customer.referred_by is not None:
+                    await apply_referral_credit(
+                        db_session,
+                        referee_customer_id=customer.id,
+                        referee_payment_tx_ref=tx_ref,
+                    )
+            except Exception as referral_error:
+                # Referral credit failures must NOT roll back the payment confirmation.
+                # Log and continue — the credit can be applied manually or via a reconciliation job.
+                import sentry_sdk
+                try:
+                    sentry_sdk.capture_exception(referral_error)
+                except Exception:
+                    pass
+                logger.warning(
+                    "Failed to apply referral credit for order %s (customer %s): %s",
+                    order.order_id,
+                    order.customer_phone,
+                    referral_error,
+                )
+
+            # ── Step 5: Audit log (after all state mutations) ─────────────────
             from app.services.audit import log_audit_event
 
             if fulfillment_error:
@@ -255,7 +294,61 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                     details={"tx_ref": tx_ref},
                 )
 
-            # ── Step 5: Mark processed ONLY after all mutations succeeded ──────
+            # ── Step 5b: Record trial-to-paid conversion (S2.4) ───────────────
+            # If this payment completes an active trial session for the same
+            # platform_account (or device), mark it as converted.
+            try:
+                from datetime import datetime, timezone as tz
+                from sqlalchemy import select
+
+                from app.models import TrialSession
+
+                # Look up the most recent active trial session for this platform_account.
+                # device_id lookup via platform_account is the prerequisite noted in SPEC.
+                if order.platform_account_id is not None:
+                    trial_stmt = (
+                        select(TrialSession)
+                        .where(TrialSession.platform_account_id == order.platform_account_id)
+                        .where(TrialSession.status == "active")
+                        .order_by(TrialSession.trial_started_at.desc())
+                        .limit(1)
+                    )
+                    trial_session = (await db_session.execute(trial_stmt)).scalar_one_or_none()
+
+                    if trial_session is not None:
+                        # Only mark converted if the trial was still valid at payment time.
+                        now = datetime.now(tz.utc)
+                        if trial_session.trial_expires_at >= now:
+                            trial_session.converted_at = now
+                            trial_session.status = "converted"
+                            await log_audit_event(
+                                db_session,
+                                event_type="trial_converted",
+                                phone=order.customer_phone,
+                                order_id=order.order_id,
+                                details={
+                                    "trial_session_id": trial_session.id,
+                                    "trial_started_at": str(trial_session.trial_started_at),
+                                    "trial_expires_at": str(trial_session.trial_expires_at),
+                                    "tx_ref": tx_ref,
+                                },
+                            )
+            except Exception as trial_conv_error:
+                # Conversion tracking failures must NOT roll back or block payment processing.
+                import sentry_sdk
+
+                try:
+                    sentry_sdk.capture_exception(trial_conv_error)
+                except Exception:
+                    pass
+                logger.warning(
+                    "Trial conversion tracking failed for order %s (tx_ref=%s): %s",
+                    order.order_id,
+                    tx_ref,
+                    trial_conv_error,
+                )
+
+            # ── Step 6: Mark processed ONLY after all mutations succeeded ──────
             await mark_webhook_processed(
                 db_session,
                 webhook_id=tx_ref,

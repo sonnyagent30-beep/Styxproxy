@@ -29,11 +29,14 @@ Environment variables:
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import httpx
+import redis as redis_sync
 import sentry_sdk
 
 logger = logging.getLogger(__name__)
@@ -54,6 +57,67 @@ class LLMResponse:
 
 class LLMUnavailable(RuntimeError):
     """Raised when the LLM service cannot be reached or returns no content."""
+
+
+# ─── Redis response cache ──────────────────────────────────────────────────
+
+_LLM_CACHE_TTL_SECONDS = 3600  # 1 hour
+_redis_client: redis_sync.Redis | None = None
+
+
+def _get_redis() -> redis_sync.Redis | None:
+    """Return a blocking Redis client. None if Redis is not configured."""
+    global _redis_client
+    if _redis_client is not None:
+        return _redis_client
+    url = os.environ.get("REDIS_URL", "").strip()
+    if not url:
+        return None
+    try:
+        _redis_client = redis_sync.from_url(url, decode_responses=True)
+        _redis_client.ping()  # fail fast
+        return _redis_client
+    except Exception as exc:
+        logger.warning("Redis unavailable for LLM cache: %s", exc)
+        _redis_client = None
+        return None
+
+
+def _cache_key(message_str: str) -> str:
+    """Build a cache key from a normalized message string."""
+    return f"llm:response:{hashlib.sha256(message_str.encode()).hexdigest()[:32]}"
+
+
+def _cache_get(key: str) -> LLMResponse | None:
+    """Return cached LLMResponse or None."""
+    try:
+        client = _get_redis()
+        if client is None:
+            return None
+        raw = client.get(key)
+        if raw is None:
+            return None
+        data = json.loads(raw)
+        return LLMResponse(**data)
+    except Exception as exc:
+        logger.debug("LLM cache miss (get): %s", exc)
+        return None
+
+
+def _cache_set(key: str, response: LLMResponse) -> None:
+    """Store an LLMResponse in cache. Best-effort."""
+    try:
+        client = _get_redis()
+        if client is None:
+            return
+        client.set(key, json.dumps(asdict(response), default=str), ex=_LLM_CACHE_TTL_SECONDS)
+    except Exception as exc:
+        logger.debug("LLM cache miss (set): %s", exc)
+
+
+def _normalize_messages(messages: list[dict]) -> str:
+    """Stable, order-specific serialization for cache key derivation."""
+    return json.dumps(messages, sort_keys=True, ensure_ascii=True)
 
 
 SYSTEM_PROMPT = """You are Charon, the automated support agent for Styxproxy.
@@ -91,9 +155,10 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
     is treated as a system message internally; if the caller already
     provided a system message at index 0, we honor it instead.
 
-    Order: M2 (cloud) → MiniCPM5 (local). On M2 failure, MiniCPM5 is
-    tried once. On any failure, returns LLMResponse with `error` set;
-    never raises. Use `ok` to check before reading content.
+    Order: check Redis cache → M2 (cloud) → MiniCPM5 (local). On M2
+    failure, MiniCPM5 is tried once. On any failure, returns LLMResponse
+    with `error` set; never raises. Use `ok` to check before reading
+    content.
 
     Set CHARON_FALLBACK_TO_LOCAL=false to disable the fallback and
     surface M2 outages directly.
@@ -103,6 +168,14 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
     cron no longer needs to flip CHARON_LLM_PROVIDER — the client
     handles failover per-request.
     """
+    # Cache lookup — skip if REDIS_URL is not set (cache_get is safe)
+    message_str = _normalize_messages(messages)
+    cache_key = _cache_key(message_str)
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        logger.debug("LLM cache hit for key %s", cache_key)
+        return cached
+
     fallback_disabled = os.getenv("CHARON_FALLBACK_TO_LOCAL", "true").strip().lower() in (
         "0",
         "false",
@@ -113,6 +186,7 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
     # Try M2 cloud first
     primary = _call_cloud(messages, max_tokens)
     if primary.ok:
+        _cache_set(cache_key, primary)
         return primary
 
     # M2 failed. Log it, then either bail or try local.
@@ -142,6 +216,7 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
                 "tokens_used": fallback.tokens_used,
             },
         )
+        _cache_set(cache_key, fallback)
         return fallback
 
     # Both failed — return primary error so the caller knows the original

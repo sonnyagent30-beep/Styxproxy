@@ -64,6 +64,8 @@ async def initiate_payment(
         )
 
     platform_account = current_user.get("platform_account") if isinstance(current_user, dict) else None
+    device_id = platform_account.device_id if platform_account else None
+
     customer = await get_or_create_customer(
         session,
         phone=request.customer_phone,
@@ -88,6 +90,7 @@ async def initiate_payment(
             currency="NGN",
             callback_url=request.callback_url,
             description=f"Payment for {request.plan_code}",
+            device_id=device_id,
         )
     except Exception as e:
         await log_audit_event(

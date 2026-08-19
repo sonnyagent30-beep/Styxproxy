@@ -60,9 +60,67 @@ class Customer(Base):
     consent_version: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     consent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     support_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # ─── Referral system (Sprint 2 / BIZ STYXv2-004 §4.3) ────────────────────
+    # 20-char random unique string shown to the customer as their referral code.
+    # Null only for rows created before this migration was applied.
+    referral_code: Mapped[Optional[str]] = mapped_column(String(20), unique=True, nullable=True, index=True)
+    # UUID of the customer who referred this one (null = organic, no referrer).
+    referred_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True, index=True
+    )
 
     # Relationships
     platform_accounts: Mapped[list["PlatformAccount"]] = relationship("PlatformAccount", back_populates="customer")
+    # Customers this customer has referred
+    referred_customers: Mapped[list["Customer"]] = relationship(
+        "Customer", foreign_keys="[Customer.referred_by]", back_populates="referrer"
+    )
+    referrer: Mapped[Optional["Customer"]] = relationship(
+        "Customer", foreign_keys="[Customer.referred_by]", back_populates="referred_customers"
+    )
+
+
+class ReferralCredit(Base):
+    """Referral credits table — ₦500 credit applied to referrer when referee makes first payment.
+
+    One row per successful referral. `applied_at` is set to the moment the credit
+    was applied (first confirmed Flutterwave payment of the referee). If the
+    referee never makes a payment `applied_at` stays null — the credit is pending.
+    """
+
+    __tablename__ = "referral_credits"
+    __table_args__ = (
+        Index("idx_referral_credits_referrer", "referrer_customer_id"),
+        Index("idx_referral_credits_referee", "referee_customer_id"),
+        Index("idx_referral_credits_applied", "applied_at"),
+        # Each referee can only earn once (first payment triggers the credit)
+        UniqueConstraint("referee_customer_id", name="uq_one_credit_per_referee"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # The customer whose account receives the ₦500 credit
+    referrer_customer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False
+    )
+    # The customer who was referred (earns the credit once they pay)
+    referee_customer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False
+    )
+    # Credit amount in nano-naira (500 NGN = 500_000_000 nGN)
+    credit_amount_nGN: Mapped[int] = mapped_column(BigInteger, nullable=False, default=500_000_000)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    # Null = pending (referee hasn't paid yet); set when credit is applied
+    applied_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # tx_ref of the referee's first payment that triggered this credit
+    referee_payment_tx_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+
+    # Relationships
+    referrer: Mapped["Customer"] = relationship(
+        "Customer", foreign_keys="[ReferralCredit.referrer_customer_id]"
+    )
+    referee: Mapped["Customer"] = relationship(
+        "Customer", foreign_keys="[ReferralCredit.referee_customer_id]"
+    )
 
 
 class PlatformAccount(Base):
@@ -93,6 +151,7 @@ class PlatformAccount(Base):
     # Relationships
     customer: Mapped[Optional[Customer]] = relationship("Customer", back_populates="platform_accounts")
     orders: Mapped[list["Order"]] = relationship("Order", back_populates="platform_account")
+    trial_sessions: Mapped[list["TrialSession"]] = relationship("TrialSession", back_populates="platform_account")
 
 
 class MergeRequest(Base):
@@ -167,6 +226,13 @@ class Order(Base):
     # Sprint 13 — city picker (residential/mobile orders)
     city_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("cities.id", ondelete="SET NULL"), nullable=True)
     city_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # Referral: tx_ref of the referee's payment that earned the referrer a credit (Sprint 2)
+    referral_tx_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    # S2.5 — Renewal reminder tracking
+    # Number of renewal reminder emails sent for this order.
+    emails_sent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Timestamp of the last renewal reminder email sent (null = never sent).
+    reminder_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     platform_account: Mapped[Optional[PlatformAccount]] = relationship("PlatformAccount", back_populates="orders")
@@ -322,6 +388,85 @@ class FreeTrial(Base):
     )
 
 
+# Sprint 2 — S2.3 / S2.4: Trial session tracking for TheoremReach → trial pipeline.
+# Each row represents a single trial grant: one TheoremReach survey completion
+# = 2 hours of trial credit, capped at 24 hours per device_id.
+#
+# trial_started_at / trial_expires_at are the canonical source of truth for
+# "how long does this trial last?" — this drives both the n8n reminder cron
+# (fires 24 hours before trial_expires_at) and the S2.4 conversion tracking.
+#
+# device_id here matches platform_accounts.device_id — used by the n8n workflow
+# to look up the platform_account that initiated the survey flow.
+class TrialSession(Base):
+    """Trial sessions table — tracks trial grants from TheoremReach surveys."""
+
+    __tablename__ = "trial_sessions"
+    __table_args__ = (
+        Index("idx_trial_sessions_device_id", "device_id"),
+        Index("idx_trial_sessions_status", "status"),
+        Index("idx_trial_sessions_expires", "trial_expires_at"),
+        Index("idx_trial_sessions_started", "trial_started_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # Which platform_account this trial belongs to (used to look up customer).
+    # Nullable: anonymous users who haven't linked a phone number yet.
+    platform_account_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_accounts.id"), nullable=True
+    )
+
+    # TheoremReach device identifier — unique per-browser, set as localStorage UUID.
+    device_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+
+    # The survey that triggered this trial grant.
+    survey_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, unique=True)
+
+    # Trial window
+    trial_started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    trial_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    # Cumulative hours granted from all surveys for this device.
+    # 1 survey = 2 hours. Accumulated up to MAX_TOTAL_TRIAL_HOURS.
+    total_hours_granted: Mapped[float] = mapped_column(Numeric(6, 2), default=0.0, nullable=False)
+
+    # Credentials granted as part of this trial session.
+    styxproxy_credential_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("styxproxy_credentials.id"), nullable=True
+    )
+
+    # 3proxy port allocated for this trial session.
+    threeproxy_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # Delivery status
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="pending",  # pending | active | expiring_soon | expired | converted
+        nullable=False,
+    )
+
+    # Trial-to-paid conversion
+    converted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Audit
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    # Relationships
+    platform_account: Mapped[Optional["PlatformAccount"]] = relationship(
+        "PlatformAccount", back_populates="trial_sessions"
+    )
+    styxproxy_credential: Mapped[Optional["StyxproxyCredential"]] = relationship(
+        "StyxproxyCredential",
+        foreign_keys="[TrialSession.styxproxy_credential_id]",
+    )
+
+
 class PendingTrialSurvey(Base):
     """Pending trial surveys table - Trial feedback."""
 
@@ -374,6 +519,24 @@ class ProcessedWebhook(Base):
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     response_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     extra_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+
+class IdempotencyResponse(Base):
+    """Idempotency responses table — caches POST handler responses by key_hash.
+
+    Created via raw SQL on startup (see idempotency.py). This ORM model
+    is used only for type-safe query construction; it does NOT manage
+    table creation or schema.
+    """
+
+    __tablename__ = "idempotency_responses"
+
+    key_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    status_code: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    response_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    response_headers: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class AdminAuth(Base):

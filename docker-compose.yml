@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-styxproxy}
       POSTGRES_USER: ${POSTGRES_USER:-styxproxy}
@@ -23,6 +24,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    mem_limit: 256m
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes
@@ -41,6 +43,8 @@ services:
       context: backend
       dockerfile: Dockerfile.dev
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 2
     ports:
       - "8000:8000"
     environment:
@@ -117,10 +121,11 @@ services:
     volumes:
       - ./backend/litellm/config.yaml:/app/config.yaml:ro
     command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
-    # healthcheck disabled — investigated in P1-1; the spawn-from-compose
-    # pattern triggers exit-code-1 from the python -c probe; uvicorn
-    # worker still comes up. Monitor with `docker logs styxproxy-local-litellm-1`
-    # and confirm "Uvicorn running on" banner.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
   styxproxy_local_net:
