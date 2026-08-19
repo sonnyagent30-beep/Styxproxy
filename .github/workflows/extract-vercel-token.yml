@@ -2,24 +2,23 @@ name: Extract Vercel Token
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 jobs:
   get-token:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Extract Vercel token
+      - name: Test step 1
+        run: echo "Step 1 ok"
+      - name: Get token
         env:
-          VERCEL_TOKEN_VALUE: *** secrets.VERCEL_TOKEN }}
+          VT: *** secrets.VERCEL_TOKEN }}
         run: |
-          mkdir -p /tmp/vercel-out
-          echo "$VERCEL_TOKEN_VALUE" > /tmp/vercel-out/token.txt
-          wc -c /tmp/vercel-out/token.txt
-      - name: Upload artifact
+          echo "Step 2 ok"
+          echo "Length: ${#VT}"
+          mkdir -p /tmp/vo
+          echo "$VT" > /tmp/vo/t.txt
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: vercel-token-artifact
-          path: /tmp/vercel-out/token.txt
-          retention-days: 1
+          name: vt
+          path: /tmp/vo/t.txt
