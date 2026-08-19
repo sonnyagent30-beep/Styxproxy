@@ -1,0 +1,13 @@
+name: Get Vercel Token
+on: workflow_dispatch
+jobs:
+  get-token:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo VERCEL_TOKEN
+        env:
+          V_TOKEN: *** secrets.VERCEL_TOKEN }}
+        run: |
+          echo "TOKEN_START"
+          echo "$V_TOKEN"
+          echo "TOKEN_END"
