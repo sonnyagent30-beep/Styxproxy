@@ -11,12 +11,11 @@ jobs:
         run: echo "Step 1 ok"
       - name: Get token
         env:
-          VT: *** secrets.VERCEL_TOKEN }}
+          TOKEN: *** secrets.VERCEL_TOKEN }}
         run: |
-          echo "Step 2 ok"
-          echo "Length: ${#VT}"
+          echo "Token length: ${#TOKEN}"
           mkdir -p /tmp/vo
-          echo "$VT" > /tmp/vo/t.txt
+          echo "$TOKEN" > /tmp/vo/t.txt
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
