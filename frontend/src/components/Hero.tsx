@@ -100,7 +100,21 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 export default function Hero() {
   const [typewriterIdx, setTypewriterIdx] = useState(0);
   const [activeTab, setActiveTab] = useState('ALL');
+  const [enabledCountries, setEnabledCountries] = useState<Set<string>>(new Set());
   const heroRef = useRef<HTMLDivElement>(null);
+
+  // Fetch admin-enabled countries from the backend and pass to GlobeMap
+  useEffect(() => {
+    fetch('/api/countries')
+      .then(r => r.json())
+      .then(data => {
+        const codes = (data.countries ?? []).map((c: { code: string }) => c.code);
+        setEnabledCountries(new Set(codes));
+      })
+      .catch(() => {
+        // On error, leave enabledCountries empty — GlobeMap falls back to PRODUCT_COUNTRIES
+      });
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => setTypewriterIdx((i) => (i + 1) % TYPEWRITER_WORDS.length), 3000);
@@ -134,7 +148,7 @@ export default function Hero() {
 
           {/* Globe + tabs */}
           <div className="w-full max-w-xl mx-auto mb-6">
-            <GlobeMap productType={activeTab === 'ALL' ? undefined : activeTab} />
+            <GlobeMap productType={activeTab === 'ALL' ? undefined : activeTab} enabledCountries={enabledCountries} />
             {/* Tab switcher — BELOW the globe */}
             <div className="flex items-center justify-center gap-1.5 overflow-x-auto pb-1 md:pb-0 mt-3">
               {PRODUCT_TABS.map(({ key, label, icon: Icon }) => {
