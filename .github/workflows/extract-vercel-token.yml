@@ -1,10 +1,15 @@
 name: Extract Vercel Token
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 jobs:
   get-token:
     runs-on: ubuntu-latest
     steps:
-      - name: Echo VERCEL_TOKEN
+      - uses: actions/checkout@v4
+      - name: Echo token
         env:
           V_TOKEN: *** secrets.VERCEL_TOKEN }}
         run: |
