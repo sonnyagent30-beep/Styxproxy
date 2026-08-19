@@ -71,6 +71,13 @@ class Customer(Base):
 
     # Relationships
     platform_accounts: Mapped[list["PlatformAccount"]] = relationship("PlatformAccount", back_populates="customer")
+    # Customers this customer has referred
+    referred_customers: Mapped[list["Customer"]] = relationship(
+        "Customer", foreign_keys="[Customer.referred_by]", back_populates="referrer"
+    )
+    referrer: Mapped[Optional["Customer"]] = relationship(
+        "Customer", foreign_keys="[Customer.referred_by]", back_populates="referred_customers"
+    )
 
 
 class ReferralCredit(Base):
