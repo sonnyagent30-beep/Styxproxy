@@ -578,39 +578,6 @@ class ApiClient {
       body: JSON.stringify({ action, reviewer_notes }),
     });
   }
-  }
-
-  // ── Permission Change Requests (S14) ─────────────────────────────────────
-  async getPermissionRequests(
-    status?: 'pending' | 'approved' | 'rejected' | 'expired',
-  ): Promise<ApiResponse<{ requests: any[]; total: number }>> {
-    const params = status ? `status=${status}` : '';
-    return this.request();
-  }
-
-  async createPermissionRequest(data: {
-    permission_code: string;
-    desired_state: boolean;
-    justification: string;
-    target_email?: string;
-  }): Promise<ApiResponse<any>> {
-    return this.request('/api/admin/permission-requests', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async actionPermissionRequest(
-    requestId: string,
-    action: 'approve' | 'reject',
-    reviewer_notes?: string,
-  ): Promise<ApiResponse<unknown>> {
-    return this.request(, {
-      method: 'POST',
-      body: JSON.stringify({ action, reviewer_notes }),
-    });
-  }
-  }
 
   async getTotpStatus(): Promise<ApiResponse<AdminTotpStatusResponse>> {
     return this.request<AdminTotpStatusResponse>('/api/me/totp/status');
