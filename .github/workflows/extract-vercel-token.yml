@@ -1,8 +1,5 @@
 name: Extract Vercel Token
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
+on: [push, workflow_dispatch]
 jobs:
   get-token:
     runs-on: ubuntu-latest
