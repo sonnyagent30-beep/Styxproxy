@@ -1,4 +1,4 @@
-name: Test Secrets
+name: Super Simple Secret Test
 on:
   push:
     branches: [main]
@@ -6,16 +6,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Test ADD_KEY_API_KEY
+      - run: |
+          echo "hello"
+          echo "Length: ${#ADD_KEY_API_KEY}"
         env:
-          K: *** secrets.ADD_KEY_API_KEY }}
-        run: |
-          echo "Length: ${#K}"
-          mkdir -p /tmp/secrets-test
-          echo "$K" > /tmp/secrets-test/k.txt
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: secret-test
-          path: /tmp/secrets-test/k.txt
+          ADD_KEY_API_KEY: *** secrets.ADD_KEY_API_KEY }}
