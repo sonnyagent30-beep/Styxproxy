@@ -167,13 +167,8 @@ class ApiClient {
         // Ensure error is always a string — guard against structured objects
         // (e.g. Pydantic/GraphQL errors like {type, loc, msg, input, ctx})
         const rawError = errorData.detail || errorData.message || JSON.stringify(errorData);
-        // FastAPI validation errors return detail as an array (e.g. [{msg, loc, ...}]).
-        // Flatten to a readable string so it doesn't render as [object Object].
-        const flatError = Array.isArray(rawError)
-          ? rawError.map((e: Record<string, unknown>) => e.msg || JSON.stringify(e)).join('; ')
-          : rawError;
         return {
-          error: typeof flatError === 'string' ? flatError : String(flatError)
+          error: typeof rawError === 'string' ? rawError : String(rawError)
         };
       }
 
@@ -581,6 +576,72 @@ class ApiClient {
     return this.request('/api/admin/permission-requests/' + requestId + '/action', {
       method: 'POST',
       body: JSON.stringify({ action, reviewer_notes }),
+    });
+  }
+  }
+
+  // ── Permission Change Requests (S14) ─────────────────────────────────────
+  async getPermissionRequests(
+    status?: 'pending' | 'approved' | 'rejected' | 'expired',
+  ): Promise<ApiResponse<{ requests: any[]; total: number }>> {
+    const params = status ? `status=${status}` : '';
+    return this.request();
+  }
+
+  async createPermissionRequest(data: {
+    permission_code: string;
+    desired_state: boolean;
+    justification: string;
+    target_email?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request('/api/admin/permission-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async actionPermissionRequest(
+    requestId: string,
+    action: 'approve' | 'reject',
+    reviewer_notes?: string,
+  ): Promise<ApiResponse<unknown>> {
+    return this.request(, {
+      method: 'POST',
+      body: JSON.stringify({ action, reviewer_notes }),
+    });
+  }
+  }
+
+  async getTotpStatus(): Promise<ApiResponse<AdminTotpStatusResponse>> {
+    return this.request<AdminTotpStatusResponse>('/api/me/totp/status');
+  }
+
+  async elevateTotp(
+    totpCode: string,
+    rememberDevice: boolean = false,
+  ): Promise<ApiResponse<AdminTotpElevateResponse>> {
+    return this.request<AdminTotpElevateResponse>('/api/me/totp/elevate', {
+      method: 'POST',
+      body: JSON.stringify({
+        totp_code: totpCode,
+        remember_device: rememberDevice,
+      }),
+    });
+  }
+
+  // Change admin PIN
+  async changeAdminPin(currentPin: string, newPin: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/auth/password', {
+      method: 'POST',
+      body: JSON.stringify({ current_pin: currentPin, new_pin: newPin }),
+    });
+  }
+
+  // Toggle TOTP
+  async toggleAdminTOTP(action: 'enable' | 'disable', totpCode?: string): Promise<ApiResponse<{ totp_enabled: boolean; message: string }>> {
+    return this.request('/api/admin/auth/totp', {
+      method: 'POST',
+      body: JSON.stringify({ action, totp_code: totpCode }),
     });
   }
 
@@ -1151,86 +1212,6 @@ class ApiClient {
 
   async refreshRlsPolicies(): Promise<ApiResponse<{ added: Array<{ table: string; now_enabled: boolean }>; count_added: number }>> {
     return this.request('/api/admin/rls/policies/refresh', { method: 'POST' });
-  }
-
-  // ============== CPT / Plan Settings (Admin) ==============
-
-  async getAllPlans(): Promise<ApiResponse<any>> {
-    const all: any[] = [];
-    let page = 1;
-    let hasNext = true;
-    while (hasNext) {
-      const params = new URLSearchParams({ page: String(page), limit: '20' });
-      const res = await this.request<any>(`/api/admin/plans?${params.toString()}`);
-      if (res.error || !res.data?.data) break;
-      all.push(...res.data.data);
-      hasNext = res.data.pagination?.has_next ?? false;
-      page++;
-    }
-    return { data: all, error: null };
-  }
-
-  async getPlanSettings(): Promise<ApiResponse<any[]>> {
-    return this.request('/api/admin/plan-settings');
-  }
-
-  async updatePlanSettings(
-    id: number,
-    data: {
-      plan_type: string;
-      setting_value: {
-        price_per_gb?: number;
-        price_per_ip?: number;
-        available_countries: string[];
-        gb_tiers?: string[];
-        supports_city: boolean;
-        rotation_modes: string[];
-      };
-    }
-  ): Promise<ApiResponse<any>> {
-    return this.request(`/api/admin/plan-settings/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async getAdminCountries(): Promise<ApiResponse<any>> {
-    return this.request('/api/admin/countries');
-  }
-
-  async getAdminCountry(code: string): Promise<ApiResponse<any>> {
-    return this.request(`/api/admin/countries/${code}`);
-  }
-
-  async updateCountryPlanType(
-    code: string,
-    planType: 'ISP' | 'DC' | 'RESIDENTIAL' | 'MOBILE',
-    data: { enabled?: boolean; price_per_gb?: number; price_per_ip?: number; is_special?: boolean }
-  ): Promise<ApiResponse<any>> {
-    return this.request(`/api/admin/countries/${code}/${planType}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async removeCountryFromProduct(
-    code: string,
-    planType: 'ISP' | 'DC' | 'RESIDENTIAL' | 'MOBILE'
-  ): Promise<ApiResponse<any>> {
-    return this.request(`/api/admin/countries/${code}/${planType}`, {
-      method: 'DELETE',
-    });
-  }
-
-  async toggleCountry(
-    code: string,
-    planType: 'ISP' | 'DC' | 'RESIDENTIAL' | 'MOBILE',
-    enabled: boolean
-  ): Promise<ApiResponse<any>> {
-    return this.request(`/api/admin/countries/${code}/${planType}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ enabled }),
-    });
   }
 
   // ============== Local token clear ==============
