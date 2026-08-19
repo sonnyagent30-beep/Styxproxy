@@ -106,7 +106,7 @@ jobs:
       - name: Wait for backend to start
         run: |
           echo "Waiting 30s for backend to start..."
-          sleep 30
+          sleep 90
           echo "Done waiting"
 
       - name: Health check staging backend
