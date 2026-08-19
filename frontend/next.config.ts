@@ -34,6 +34,10 @@ const nextConfig: NextConfig = {
         destination: 'https://api.styxproxy.com/api/catalog',
       },
       {
+        source: '/api/countries',
+        destination: 'https://api.styxproxy.com/api/countries',
+      },
+      {
         source: '/api/products',
         destination: 'https://api.styxproxy.com/api/products',
       },
@@ -57,6 +61,22 @@ const nextConfig: NextConfig = {
         source: '/api/v1/admin/charon/ab-test/:path*',
         destination: 'https://api.styxproxy.com/api/v1/admin/charon/ab-test/:path*',
       },
+      // Charon AI endpoints
+      {
+        source: '/api/charon/:path*',
+        destination: 'https://api.styxproxy.com/api/charon/:path*',
+      },
+      // Public maintenance flag check
+      {
+        source: '/api/maintenance',
+        destination: 'https://api.styxproxy.com/api/maintenance',
+      },
+      // Charon admin endpoints
+      {
+        source: '/api/v1/charon/:path*',
+        destination: 'https://api.styxproxy.com/api/v1/charon/:path*',
+      },
+
       // ── Public API routes (frontend calls these without /api prefix) ──
       // Orders
       {
