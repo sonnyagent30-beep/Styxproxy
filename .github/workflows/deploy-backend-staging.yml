@@ -1,0 +1,109 @@
+name: Deploy Backend to Staging
+
+on:
+  push:
+    branches:
+      - cpt-admin-ui
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend-staging.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: backend-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend to Staging VPS
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate ephemeral deploy key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t ed25519 -f /tmp/deploy_key -N "" -C "github-runner-staging-$(date +%s)"
+          echo "DEPLOY_PUBKEY=$(cat /tmp/deploy_key.pub)" >> $GITHUB_ENV
+          echo "DEPLOY_PRIVKEY<<EOF" >> $GITHUB_ENV
+          cat /tmp/deploy_key >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Trigger webhook on VPS (add key)
+        run: |
+          RESPONSE=$(curl -s -X POST http://162.35.184.69:9001/add-key \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
+            -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}")
+          echo "Webhook response: $RESPONSE"
+          if echo "$RESPONSE" | grep -qE '"(added|success)"'; then
+            echo "Key added"
+          else
+            echo "Key addition failed"
+            exit 1
+          fi
+
+      - name: Pull and restart staging backend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 162.35.184.69
+          username: root
+          key: ${{ env.DEPLOY_PRIVKEY }}
+          timeout: 180s
+          script: |
+            set -e
+            cd /opt/styxproxy/repo
+            git fetch origin cpt-admin-ui
+            git reset --hard origin/cpt-admin-ui
+            echo "Repo updated to latest cpt-admin-ui"
+
+            # Restart the staging API service
+            if systemctl list-units --full -all | grep -q styxproxy-staging-api; then
+              systemctl restart styxproxy-staging-api
+              echo "Staging backend restarted"
+            else
+              echo "styxproxy-staging-api service not found - checking other options"
+              # Maybe it's under a different name
+              systemctl list-units --type=service --all | grep -i styx
+              # Try docker compose
+              if [ -f /opt/styxproxy/infrastructure/docker-compose.yml ]; then
+                cd /opt/styxproxy/infrastructure
+                docker compose -f docker-compose.yml restart api || echo "docker restart failed"
+              fi
+            fi
+
+      - name: Wait for backend to start
+        run: |
+          echo "Waiting 20s for backend to start..."
+          sleep 20
+          echo "Done waiting"
+
+      - name: Health check staging backend
+        run: |
+          for i in $(seq 1 10); do
+            sleep 3
+            # Try multiple health endpoints
+            for ep in "/api/v1/health" "/health" "/api/public/maintenance"; do
+              RESP=$(curl -sf "http://162.35.184.69:8001$ep" 2>/dev/null || curl -sf "http://162.35.184.69:8000$ep" 2>/dev/null)
+              if [ $? -eq 0 ]; then
+                echo "Healthy at $ep: $RESP"
+                exit 0
+              fi
+            done
+            echo "Attempt $i/10..."
+          done
+          echo "Health check did not succeed"
+          exit 1
+
+      - name: Remove deploy key
+        if: always()
+        run: |
+          curl -sf -X POST http://162.35.184.69:9001/remove-key \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
+            -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}" || true
