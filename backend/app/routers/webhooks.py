@@ -154,27 +154,157 @@ async def flutterwave_webhook(
     return {"status": "received", "event": event_type, "webhook_id": webhook_id or tx_ref}
 
 
+# TheoremReach HMAC signature — verified using HMAC-SHA256.
+# TheoremReach sends X-Signature: sha256=<hex> on every webhook request.
+THEOREM_REACH_MAX_PAYLOAD_AGE_SECONDS = 300
+
+
+def _is_theorem_reach_payload_fresh(payload: dict) -> bool:
+    """Return True if the TheoremReach payload timestamp is recent enough."""
+    import datetime as _dt
+
+    # TheoremReach sends event.metadata.timestamp_ms as epoch milliseconds.
+    timestamp_ms = payload.get("event_metadata", {}).get("timestamp_ms")
+    if not timestamp_ms:
+        # No timestamp = treat as suspicious (could be a replay).
+        return False
+    try:
+        ts = _dt.datetime.fromtimestamp(int(timestamp_ms) / 1000, tz=_dt.timezone.utc)
+    except (ValueError, TypeError, OSError):
+        return False
+    now = _dt.datetime.now(_dt.timezone.utc)
+    age = (now - ts).total_seconds()
+    return 0 <= age <= THEOREM_REACH_MAX_PAYLOAD_AGE_SECONDS
+
+
+def _verify_theorem_reach_signature(payload_bytes: bytes, signature_header: str, secret: str) -> bool:
+    """Verify HMAC-SHA256 signature of the TheoremReach webhook payload.
+
+    TheoremReach sends: X-Signature: sha256=<hex_digest>
+    The signed payload is the raw request body.
+    """
+    import hashlib
+    import hmac
+
+    if not signature_header:
+        return False
+    # Strip "sha256=" prefix if present
+    expected = signature_header.lower()
+    if expected.startswith("sha256="):
+        expected = expected[7:]
+    computed = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(computed, expected)
+
+
 @router.post("/theorem-reach", status_code=status.HTTP_200_OK)
 async def theorem_reach_webhook(
     request: Request,
     session: AsyncSession = Depends(get_session),
+    x_signature: Optional[str] = Header(None, alias="X-Signature"),
 ) -> dict[str, Any]:
-    """Receive TheoremReach survey completion webhooks."""
+    """Receive TheoremReach survey completion webhooks.
+
+    Verifies HMAC-SHA256 signature, checks replay window, and triggers
+    the trial credential pipeline (DataImpulse → 3proxy port allocation →
+    n8n → WhatsApp/Telegram delivery).
+
+    Payload shape (confirmed with TheoremReach integration docs):
+    {
+        "event_type": "survey_complete",
+        "event_metadata": { "timestamp_ms": 1234567890123 },
+        "details": {
+            "survey_id": "SURVEY-XXXX",
+            "user_id": "DEVICE-UUID",
+            "reward_amount_usd": 1.00,
+            "country": "Nigeria"
+        }
+    }
+    """
+    settings = get_settings()
+    payload_bytes = await request.body()
+
+    # 1. Verify HMAC signature — reject unsigned requests (SEC finding).
+    if not x_signature:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing X-Signature header",
+        )
+    if not _verify_theorem_reach_signature(
+        payload_bytes, x_signature, settings.theorem_reach_webhook_secret
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid X-Signature — payload may have been tampered with",
+        )
+
+    # 2. Parse payload
     try:
-        payload = json.loads(await request.body())
+        payload = json.loads(payload_bytes)
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid JSON payload",
         )
 
-    event_type = payload.get("type", "")
+    # 3. Replay-window check
+    if not _is_theorem_reach_payload_fresh(payload):
+        await log_audit_event(
+            session,
+            event_type="theorem_reach_webhook_replay_rejected",
+            details={"reason": "stale_or_missing_timestamp"},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Webhook payload outside replay window",
+        )
+
+    event_type = payload.get("event_type", "")
     details = payload.get("details", {})
+    survey_id = details.get("survey_id", "")
+    device_id = details.get("user_id", "")  # TheoremReach calls it user_id, maps to device_id
+    reward_usd = float(details.get("reward_amount_usd", 1.0))
+
+    # 4. Duplicate check
+    if survey_id and await is_webhook_processed(session, survey_id):
+        return {"status": "already_processed", "survey_id": survey_id}
 
     await log_audit_event(
         session,
         event_type=f"theorem_reach_{event_type}",
-        details={"payload": details},
+        details={
+            "survey_id": survey_id,
+            "device_id": device_id,
+            "reward_usd": reward_usd,
+            "country": details.get("country"),
+        },
     )
 
-    return {"status": "received"}
+    # 5. Trigger trial delivery pipeline (fire-and-forget from webhook perspective)
+    if event_type == "survey_complete" and device_id:
+        # Import here to avoid circular imports at module load time.
+        from app.services.trial_delivery import process_theorem_reach_trial
+
+        asyncio.create_task(
+            process_theorem_reach_trial(
+                device_id=device_id,
+                survey_id=survey_id,
+                reward_usd=reward_usd,
+                country=details.get("country", "Nigeria"),
+            )
+        )
+
+    # 6. Mark processed
+    if survey_id:
+        await mark_webhook_processed(
+            session,
+            webhook_id=survey_id,
+            provider="theorem-reach",
+            event_type=event_type,
+            extra_data={"device_id": device_id, "reward_usd": reward_usd},
+        )
+
+    return {"status": "received", "survey_id": survey_id, "event_type": event_type}
+
+
+# asyncio is needed for the fire-and-forget task in the theorem-reach handler
+import asyncio  # noqa: E402  (imported here to avoid top-level circular import)

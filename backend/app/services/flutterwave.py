@@ -256,7 +256,37 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                     fingerprint=f"manual-review-{tx_ref}",
                 )
 
-            # ── Step 4: Audit log (after all state mutations) ─────────────────
+            # ── Step 4: Apply referral credit if referee just made their first payment ─
+            # Only trigger for customers who were referred (referred_by != null)
+            # and only on their first confirmed payment (each referee earns at most once).
+            try:
+                from app.models import Customer
+                from app.services.referral import apply_referral_credit
+
+                customer_stmt = select(Customer).where(Customer.phone == order.customer_phone)
+                customer = (await db_session.execute(customer_stmt)).scalar_one_or_none()
+                if customer and customer.referred_by is not None:
+                    await apply_referral_credit(
+                        db_session,
+                        referee_customer_id=customer.id,
+                        referee_payment_tx_ref=tx_ref,
+                    )
+            except Exception as referral_error:
+                # Referral credit failures must NOT roll back the payment confirmation.
+                # Log and continue — the credit can be applied manually or via a reconciliation job.
+                import sentry_sdk
+                try:
+                    sentry_sdk.capture_exception(referral_error)
+                except Exception:
+                    pass
+                logger.warning(
+                    "Failed to apply referral credit for order %s (customer %s): %s",
+                    order.order_id,
+                    order.customer_phone,
+                    referral_error,
+                )
+
+            # ── Step 5: Audit log (after all state mutations) ─────────────────
             from app.services.audit import log_audit_event
 
             if fulfillment_error:
@@ -320,7 +350,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                     details={"tx_ref": tx_ref},
                 )
 
-            # ── Step 5: Mark processed ONLY after all mutations succeeded ──────
+            # ── Step 6: Mark processed ONLY after all mutations succeeded ──────
             await mark_webhook_processed(
                 db_session,
                 webhook_id=tx_ref,

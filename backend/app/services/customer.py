@@ -38,6 +38,7 @@ async def get_or_create_customer(
     phone: str | None,
     email: str | None,
     platform_account: PlatformAccount | None,
+    referred_by_code: str | None = None,
 ) -> Customer | None:
     """Find or create the Customer row for this checkout attempt.
 
@@ -49,6 +50,10 @@ async def get_or_create_customer(
        come back.
     3. Otherwise create a new Customer row with the placeholder phone
        and the supplied email, then link it to the platform_account.
+
+    When ``referred_by_code`` is supplied and resolves to an existing customer,
+    the new customer is linked as their referee (referred_by = referrer.id)
+    and a pending ReferralCredit record is created.
 
     Returns None only when both phone and email are missing.
     """
@@ -77,15 +82,41 @@ async def get_or_create_customer(
             await session.commit()
         return existing
 
+    # ── New customer — generate referral code and optionally link referrer ──
+    from app.services.referral import (
+        generate_referral_code,
+        resolve_referrer_by_code,
+        upsert_referral_credit_pending,
+    )
+
+    referral_code = generate_referral_code()
+    referred_by_customer_id = None
+
+    if referred_by_code:
+        referrer = await resolve_referrer_by_code(session, referred_by_code)
+        if referrer:
+            referred_by_customer_id = referrer.id
+
     name = email.split("@")[0][:100] or "Customer"
     customer = Customer(
         phone=placeholder,
         name=name,
         blocked=False,
         free_trials_used_today=0,
+        referral_code=referral_code,
+        referred_by=referred_by_customer_id,
     )
     session.add(customer)
     await session.flush()
+
+    if referred_by_customer_id:
+        # Create a pending ReferralCredit — it will be applied when the referee pays
+        await upsert_referral_credit_pending(
+            session,
+            referrer_customer_id=referred_by_customer_id,
+            referee_customer_id=customer.id,
+        )
+
     if platform_account:
         platform_account.customer_id = customer.id
     await session.commit()

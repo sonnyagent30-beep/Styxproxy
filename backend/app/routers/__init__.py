@@ -1,6 +1,5 @@
 """Routers package."""
 from app.routers.admin import router as admin
-from app.routers.admin_proxies import router as admin_proxies
 from app.routers.admin_support import router as admin_support
 from app.routers.auth import router as auth
 from app.routers.blog import router as blog

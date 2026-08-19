@@ -11,12 +11,15 @@ from app.schemas import (
     TrialClaimRequest,
     TrialClaimResponse,
     TrialCredentialResponse,
+    TrialFromSurveyRequest,
+    TrialFromSurveyResponse,
     TrialSurveyRequest,
     TrialSurveyResponse,
 )
 from app.services.audit import log_audit_event
 from app.services.customer import get_or_create_customer
 from app.services.trial import check_trial_limit, create_trial, get_trial_by_id, submit_trial_survey
+from app.services.trial_delivery import process_theorem_reach_trial
 
 router = APIRouter(prefix="/api/trials", tags=["trials"])
 

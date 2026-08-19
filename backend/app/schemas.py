@@ -358,6 +358,8 @@ class OrderCreateRequest(BaseModel):
     city_id: Optional[int] = Field(None, description="City ID for residential/mobile")
     city_name: Optional[str] = Field(None, description="City name (denormalized for cred)")
     quantity_gb: Optional[int] = Field(None, ge=1, description="Override quantity in GB for residential/mobile")
+    # Sprint 2 — referral code from the customer's referrer (passed at checkout)
+    referred_by_code: Optional[str] = Field(None, max_length=20, description="Referral code of the referrer")
 
     @field_validator("country")
     @classmethod
@@ -392,6 +394,49 @@ class OrderResponse(BaseModel):
     is_renewable: Optional[bool] = False
     rotation_count: Optional[int] = 0
     max_rotations: Optional[int] = 3
+    # Sprint 2 — set if this order's payment triggered a referral credit
+    referral_tx_ref: Optional[str] = None
+
+
+# ============== Referral Schemas (Sprint 2) ==============
+
+
+class ReferralCreditResponse(BaseModel):
+    """A single referral credit record (admin view)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    referrer_customer_id: UUID
+    referee_customer_id: UUID
+    credit_amount_nGN: int
+    created_at: datetime
+    applied_at: Optional[datetime]
+    referee_payment_tx_ref: Optional[str]
+
+
+class ReferralStatsResponse(BaseModel):
+    """Aggregated referral statistics for a customer or the whole platform."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    total_referrals: int = 0
+    pending_referrals: int = 0
+    total_credit_earned_ngn: float = 0.0
+    total_credits_available_ngn: float = 0.0
+    referrer_count: int = 0
+    referee_count: int = 0
+
+
+class ReferralCodeResponse(BaseModel):
+    """The current customer's referral code and stats."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    referral_code: str
+    total_referrals: int = 0
+    pending_referrals: int = 0
+    total_credit_earned_ngn: float = 0.0
 
 
 class OrderCancelRequest(BaseModel):
@@ -616,6 +661,27 @@ class TrialSurveyResponse(BaseModel):
     survey_id: str
     status: str
     reward_usd: Optional[float]
+
+
+# S2.3 — TheoremReach survey completion → trial endpoint (called by n8n)
+class TrialFromSurveyRequest(BaseModel):
+    """Request body for POST /api/trials/from-survey (n8n → backend)."""
+
+    device_id: str
+    survey_id: str
+    reward_usd: float = 1.0
+    country: str = "Nigeria"
+
+
+class TrialFromSurveyResponse(BaseModel):
+    """Response from POST /api/trials/from-survey (backend → n8n)."""
+
+    status: str  # "delivered" | "capped" | "error"
+    trial_session_id: Optional[int] = None
+    threeproxy_port: Optional[int] = None
+    dataimpulse_order_id: Optional[str] = None
+    message: Optional[str] = None
+    error: Optional[str] = None
 
 
 # ============== Admin Schemas ==============

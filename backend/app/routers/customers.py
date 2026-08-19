@@ -18,6 +18,8 @@ from app.models import (
     Order,
     StyxproxyCredential,
 )
+from app.schemas import ReferralCodeResponse
+from app.services.referral import get_referral_stats_for_customer
 
 router = APIRouter(prefix="/api", tags=["customers"])
 
@@ -291,3 +293,29 @@ async def record_consent(
     await session.commit()
 
     return {"status": "recorded"}
+
+
+@router.get("/me/referral-code", response_model=ReferralCodeResponse)
+async def get_my_referral_code(
+    customer: Customer = Depends(get_current_customer),
+    session: AsyncSession = Depends(get_session),
+):
+    """Return the current customer's referral code and stats.
+
+    If the customer doesn't have a referral_code yet (pre-migration accounts),
+    one is generated on-demand.
+    """
+    from app.services.referral import backfill_referral_codes, generate_referral_code
+
+    if not customer.referral_code:
+        # Generate a code for this pre-migration account
+        customer.referral_code = generate_referral_code()
+        await session.commit()
+
+    stats = await get_referral_stats_for_customer(session, customer_id=customer.id)
+    return ReferralCodeResponse(
+        referral_code=customer.referral_code,
+        total_referrals=stats["total_referrals"],
+        pending_referrals=stats["pending_referrals"],
+        total_credit_earned_ngn=stats["total_credit_earned_ngn"],
+    )

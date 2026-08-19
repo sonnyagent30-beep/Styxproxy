@@ -32,7 +32,10 @@ router = APIRouter(prefix="/_ops/v1", tags=["ops"])
 
 
 @router.get("/health")
-async def ops_health(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+async def ops_health(
+    session: AsyncSession = Depends(get_session),
+    _: dict = Depends(require_ops_role("ops-control")),
+) -> dict[str, Any]:
     """Deep health probe — DB + Redis + LiteLLM + Ollama + M2 cloud.
 
     Extends the /api/v1/health response with a history_summary showing
@@ -99,7 +102,10 @@ async def ops_health(session: AsyncSession = Depends(get_session)) -> dict[str, 
 
 
 @router.get("/metrics")
-async def ops_metrics(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+async def ops_metrics(
+    session: AsyncSession = Depends(get_session),
+    _: dict = Depends(require_ops_role("ops-control")),
+) -> dict[str, Any]:
     """Platform metrics summary — all from async DB queries."""
     # Total customers
     total_customers = (
@@ -313,6 +319,7 @@ async def ops_reprocess_order(
 async def ops_slow_queries(
     threshold_ms: int = Query(default=200, ge=1),
     session: AsyncSession = Depends(get_session),
+    _: dict = Depends(require_ops_role("ops-control")),
 ) -> dict[str, Any]:
     """Query pg_stat_statements for slow queries.
 
@@ -359,6 +366,7 @@ async def ops_health_history(
     hours: int = Query(default=24, ge=1, le=168),
     limit: int = Query(default=500, ge=1, le=5000),
     session: AsyncSession = Depends(get_session),
+    _: dict = Depends(require_ops_role("ops-control")),
 ) -> dict[str, Any]:
     """Read health_snapshots time-series — no admin auth required.
 

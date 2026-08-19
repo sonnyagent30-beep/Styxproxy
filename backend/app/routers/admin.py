@@ -23,6 +23,7 @@ from app.models import (
     Plan,
     PlanSettings,
     ProcessedWebhook,
+    ReferralCredit,
     StyxproxyCredential,
 )
 from app.schemas import (
@@ -66,6 +67,8 @@ from app.schemas import (
     PlanSettingsUpdateRequest,
     PlansResponse,
     PlanUpdateRequest,
+    ReferralCreditResponse,
+    ReferralStatsResponse,
     UpdateKnowledgeRequest,
     UpdateKnowledgeResponse,
 )
@@ -77,6 +80,10 @@ from app.services.email import (
 )
 from app.services.n8n import clear_failures, get_failure_stats, get_failures
 from app.services.permissions import require_permission
+from app.services.referral import (
+    backfill_referral_codes,
+    get_referral_stats_for_customer,
+)
 from app.services.trial import get_trials_today_count
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -2012,3 +2019,100 @@ async def health_history(
         "window_hours": hours,
         "limit": limit,
     }
+
+
+# ─── Referral system endpoints (Sprint 2) ─────────────────────────────────────
+
+
+@router.get(
+    "/referrals/stats",
+    response_model=ReferralStatsResponse,
+    dependencies=[Depends(require_permission("admin.referrals.read"))],
+)
+async def get_platform_referral_stats(
+    session: AsyncSession = Depends(get_session),
+):
+    """Platform-wide referral statistics for the admin dashboard."""
+    # All applied credits
+    applied_stmt = select(ReferralCredit).where(ReferralCredit.applied_at.isnot(None))
+    applied_credits = (await session.execute(applied_stmt)).scalars().all()
+
+    # All pending credits
+    pending_stmt = select(ReferralCredit).where(ReferralCredit.applied_at.is_(None))
+    pending_credits = (await session.execute(pending_stmt)).scalars().all()
+
+    total_earned_ngn = sum(c.credit_amount_nGN for c in applied_credits) / 1_000_000
+    total_pending_ngn = sum(c.credit_amount_nGN for c in pending_credits) / 1_000_000
+
+    # Count unique referrers and referees
+    referrer_ids = {c.referrer_customer_id for c in applied_credits}
+    referee_ids = {c.referee_customer_id for c in applied_credits}
+
+    return ReferralStatsResponse(
+        total_referrals=len(applied_credits),
+        pending_referrals=len(pending_credits),
+        total_credit_earned_ngn=total_earned_ngn,
+        total_credits_available_ngn=total_pending_ngn,
+        referrer_count=len(referrer_ids),
+        referee_count=len(referee_ids),
+    )
+
+
+@router.get(
+    "/referrals/credits",
+    response_model=list[ReferralCreditResponse],
+    dependencies=[Depends(require_permission("admin.referrals.read"))],
+)
+async def list_referral_credits(
+    session: AsyncSession = Depends(get_session),
+    applied: Optional[bool] = Query(
+        None,
+        description="Filter by applied status: true=applied, false=pending, omitted=all",
+    ),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """List all referral credit records, newest first."""
+    stmt = select(ReferralCredit).order_by(ReferralCredit.created_at.desc()).limit(limit).offset(offset)
+    if applied is True:
+        stmt = stmt.where(ReferralCredit.applied_at.isnot(None))
+    elif applied is False:
+        stmt = stmt.where(ReferralCredit.applied_at.is_(None))
+    rows = (await session.execute(stmt)).scalars().all()
+    return [ReferralCreditResponse.model_validate(r) for r in rows]
+
+
+@router.get(
+    "/referrals/by-customer/{customer_id}",
+    response_model=ReferralStatsResponse,
+    dependencies=[Depends(require_permission("admin.referrals.read"))],
+)
+async def get_customer_referral_stats(
+    customer_id: UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Referral stats for a specific customer (as referrer)."""
+    customer = (
+        await session.execute(select(Customer).where(Customer.id == customer_id))
+    ).scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    stats = await get_referral_stats_for_customer(session, customer_id=customer.id)
+    return ReferralStatsResponse(**stats)
+
+
+@router.post(
+    "/referrals/backfill-codes",
+    dependencies=[Depends(require_permission("admin.referrals.manage"))],
+)
+async def admin_backfill_referral_codes(
+    session: AsyncSession = Depends(get_session),
+):
+    """Generate referral codes for existing customers who don't have one.
+
+    Safe to re-run — only affects rows where referral_code IS NULL.
+    Returns the count of codes generated.
+    """
+    count = await backfill_referral_codes(session)
+    return {"codes_generated": count, "detail": f"Generated {count} referral codes."}
