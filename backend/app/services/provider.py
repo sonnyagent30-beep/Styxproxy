@@ -1,10 +1,12 @@
 """
 Provider service — proxy provider abstraction layer.
 
-This module provides a clean interface for interacting with proxy providers.
-For now, returns realistic stub data so the rest of the system can develop
-against a known contract. When real providers are chosen, swap the
-implementation here — the calling code throughout the app stays the same.
+Dual-provider routing (S1.2 + S2.8):
+  - Nigeria (Lagos, Abuja) → Decodo  (city-level targeting, S2.8)
+  - All other countries   → DataImpulse (S1.2 primary)
+
+The calling code throughout the app stays the same; provider selection
+is handled internally based on country.
 """
 
 import random
@@ -15,6 +17,8 @@ from typing import Optional
 
 import httpx
 
+from app.config import get_settings
+
 # ─── Lazy settings ───────────────────────────────────────────────────────────
 
 _settings = None
@@ -23,18 +27,29 @@ _settings = None
 def _s():
     global _settings
     if _settings is None:
-        from app.config import get_settings
-
         _settings = get_settings()
     return _settings
 
 
-def _PROXY_SELLER_API_KEY() -> str:
-    return _s().proxy_seller_api_key or ""
+# ─── Provider routing ─────────────────────────────────────────────────────────
+
+# Countries routed to Decodo (city-level targeting)
+_DECODO_COUNTRIES = {"Nigeria"}
+
+# Countries routed to DataImpulse (all others)
+_DATAIMPULSE_COUNTRIES = {
+    "United Kingdom",
+    "United States",
+    "Canada",
+    "Germany",
+    "France",
+    # ... any country not in _DECODO_COUNTRIES
+}
 
 
-def _PROXY_SELLER_BASE_URL() -> str:
-    return _s().proxy_seller_base_url or "https://api.proxy-seller.com"
+def _country_routing(country: str) -> str:
+    """Return which provider handles a given country."""
+    return "decodo" if country in _DECODO_COUNTRIES else "dataimpulse"
 
 
 # ─── Dataclasses ─────────────────────────────────────────────────────────────
@@ -86,34 +101,33 @@ def _client() -> httpx.AsyncClient:
 
 
 async def check_health() -> bool:
-    """Check if the provider API is reachable and responding."""
-    url = f"{_PROXY_SELLER_BASE_URL()}/v1.0/health"
-    try:
-        async with _client() as client:
-            resp = await client.get(
-                url,
-                headers={"X-API-KEY": _PROXY_SELLER_API_KEY()},
-            )
-            return resp.status_code == 200
-    except Exception:
-        return False
+    """Check if the selected provider for Nigeria is reachable and responding.
+
+    Aggregates health from both Decodo (Nigeria) and DataImpulse (others).
+    Returns True if at least one provider is healthy.
+    """
+    from app.services import dataimpulse, decodo
+
+    results = await Promise.all([
+        decodo.check_health(),
+        dataimpulse.check_health(),
+    ])
+    return any(results)
 
 
 async def check_balance() -> float:
-    """Return the current wallet/balance on the provider account, in USD."""
-    url = f"{_PROXY_SELLER_BASE_URL()}/v1.0/balance"
-    try:
-        async with _client() as client:
-            resp = await client.get(
-                url,
-                headers={"X-API-KEY": _PROXY_SELLER_API_KEY()},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                return float(data.get("balance", data.get("balance_usd", 0)))
-    except Exception:
-        pass
-    return 0.0
+    """Return the current wallet/balance across provider accounts, in USD.
+
+    Returns the sum of DataImpulse balance (primary, non-Nigeria) and
+    Decodo balance (Nigeria city targeting).
+    """
+    from app.services import dataimpulse, decodo
+
+    di_balance, dc_balance = await Promise.all([
+        dataimpulse.check_balance(),
+        decodo.check_balance(),
+    ])
+    return di_balance + dc_balance
 
 
 # ─── Availability / Precheck ───────────────────────────────────────────────────
@@ -126,8 +140,24 @@ async def check_availability(
     quantity: int,
 ) -> AvailabilityResult:
     """Check whether a proxy order can be fulfilled right now."""
+    provider = _country_routing(country)
+
+    if provider == "decodo":
+        return await _check_availability_decodo(country, proxy_type, quantity)
+    else:
+        return await _check_availability_dataimpulse(country, proxy_type, quantity)
+
+
+async def _check_availability_decodo(
+    country: str,
+    proxy_type: str,
+    quantity: int,
+) -> AvailabilityResult:
+    """Check availability via Decodo (Nigeria city-level)."""
+    from app.services import decodo
+
     # 1. Provider API must be up
-    if not await check_health():
+    if not await decodo.check_health():
         return AvailabilityResult(
             available=False,
             reason="provider_down",
@@ -135,8 +165,8 @@ async def check_availability(
         )
 
     # 2. Wallet must have enough funds
-    estimated_cost_usd = quantity * 3.0  # ~$3 per proxy placeholder
-    balance = await check_balance()
+    estimated_cost_usd = quantity * 3.0  # ~$3 per GB placeholder
+    balance = await decodo.check_balance()
     if balance < estimated_cost_usd:
         return AvailabilityResult(
             available=False,
@@ -144,10 +174,45 @@ async def check_availability(
             estimated_delivery_seconds=0,
         )
 
-    # 3. Stub: check stock by country
+    # 3. Nigeria is supported by Decodo (city-level)
+    # Decodo supports Lagos and Abuja
+    return AvailabilityResult(
+        available=True,
+        price_ngn=quantity * 6500,  # placeholder per-proxy price in NGN
+        estimated_delivery_seconds=30,
+    )
+
+
+async def _check_availability_dataimpulse(
+    country: str,
+    proxy_type: str,
+    quantity: int,
+) -> AvailabilityResult:
+    """Check availability via DataImpulse (all non-Nigeria countries)."""
+    from app.services import dataimpulse
+
+    # 1. Provider API must be up
+    if not await dataimpulse.check_health():
+        return AvailabilityResult(
+            available=False,
+            reason="provider_down",
+            estimated_delivery_seconds=0,
+        )
+
+    # 2. Wallet must have enough funds
+    estimated_cost_usd = quantity * 3.0  # ~$3 per GB placeholder
+    balance = await dataimpulse.check_balance()
+    if balance < estimated_cost_usd:
+        return AvailabilityResult(
+            available=False,
+            reason="insufficient_balance",
+            estimated_delivery_seconds=0,
+        )
+
+    # 3. Stub: check stock by country (mirrors original stub behaviour)
     available_countries = {
-        "Nigeria": True,
-        "United Kingdom": True,
+        "Nigeria": True,        # DataImpulse supports Nigeria too, but
+        "United Kingdom": True,  # we prefer Decodo for Lagos/Abuja
         "United States": True,
         "Canada": True,
         "Germany": True,
@@ -177,70 +242,84 @@ async def create_order(
     country: str,
     proxy_type: str,
     quantity: int,
+    city: Optional[str] = None,
 ) -> ProviderProxy:
-    """Create a raw proxy order with the provider."""
-    url = f"{_PROXY_SELLER_BASE_URL()}/v1.0/order/create"
+    """Create a raw proxy order with the appropriate provider.
 
-    payload = {
-        "country": country,
-        "type": proxy_type,
-        "quantity": quantity,
-        "duration_days": 30,
-        "format": "username_password",
-    }
+    Routing:
+      - Nigeria (Lagos, Abuja) → Decodo (city-level targeting)
+      - All other countries    → DataImpulse
 
-    async with _client() as client:
-        resp = await client.post(
-            url,
-            json=payload,
-            headers={
-                "X-API-KEY": _PROXY_SELLER_API_KEY(),
-                "Content-Type": "application/json",
-            },
-            timeout=30.0,
-        )
-        if resp.status_code not in (200, 201):
-            raise RuntimeError(f"Provider order failed: {resp.status_code} {resp.text}")
+    Args:
+        plan_code: plan identifier (passed through to provider)
+        country: ISO country name
+        proxy_type: residential | mobile | datacenter
+        quantity: number of proxies
+        city: city name (e.g. "Lagos", "Abuja") — forwarded to Decodo only
+    """
+    provider = _country_routing(country)
 
-        data = resp.json()
+    if provider == "decodo":
+        return await _create_order_decodo(country, proxy_type, quantity, city)
+    else:
+        return await _create_order_dataimpulse(plan_code, country, proxy_type, quantity)
 
-    ip = data.get("ip") or data.get("data", {}).get("ip", "")
-    port = int(data.get("port") or data.get("data", {}).get("port", 8080))
 
-    # Stub response — used when provider is not yet wired
-    if not ip:
-        order_id = f"STUB-{random.randint(100000, 999999)}"
-        ip = f"185.199.{random.randint(228, 232)}.{random.randint(1, 254)}"
-        port = random.choice([8080, 3128, 1080])
-        username = f"raw_{random.randint(10000, 99999)}"
-        password = f"rawpass_{random.randint(100000, 999999)}"
-        expires_at = datetime.now(timezone.utc) + timedelta(days=30)
-        return ProviderProxy(
-            provider_order_id=order_id,
-            ip=ip,
-            port=port,
-            username=username,
-            password=password,
-            protocol="http",
-            expires_at=expires_at,
-            country=country,
-            isp="Stub ISP",
-            asn="AS00000",
-        )
+async def _create_order_decodo(
+    country: str,
+    proxy_type: str,
+    quantity: int,
+    city: Optional[str] = None,
+) -> ProviderProxy:
+    """Create a proxy order via Decodo (Nigeria city-level targeting)."""
+    from app.services import decodo
 
-    return ProviderProxy(
-        provider_order_id=str(data.get("order_id", data.get("id", "unknown"))),
-        ip=ip,
-        port=port,
-        username=data.get("username", ""),
-        password=data.get("password", ""),
-        protocol=data.get("protocol", "http"),
-        expires_at=datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00"))
-        if data.get("expires_at")
-        else datetime.now(timezone.utc) + timedelta(days=30),
+    result: decodo.DecodoProxy = await decodo.create_order(
         country=country,
-        isp=data.get("isp", ""),
-        asn=data.get("asn", ""),
+        city=city,
+        proxy_type=proxy_type,
+        quantity=quantity,
+    )
+    return ProviderProxy(
+        provider_order_id=result.order_id,
+        ip=result.ip,
+        port=result.port,
+        username=result.username,
+        password=result.password,
+        protocol=result.protocol,
+        expires_at=result.expires_at,
+        country=result.country,
+        isp=result.isp,
+        asn=result.asn,
+    )
+
+
+async def _create_order_dataimpulse(
+    plan_code: str,
+    country: str,
+    proxy_type: str,
+    quantity: int,
+) -> ProviderProxy:
+    """Create a proxy order via DataImpulse (non-Nigeria countries)."""
+    from app.services import dataimpulse
+
+    result: dataimpulse.DataImpulseProxy = await dataimpulse.create_paid_order(
+        country=country,
+        proxy_type=proxy_type,
+        quantity=quantity,
+        plan_code=plan_code,
+    )
+    return ProviderProxy(
+        provider_order_id=result.order_id,
+        ip=result.ip,
+        port=result.port,
+        username=result.username,
+        password=result.password,
+        protocol=result.protocol,
+        expires_at=result.expires_at,
+        country=result.country,
+        isp=result.isp,
+        asn="",  # DataImpulseProxy doesn't have asn field
     )
 
 
@@ -324,34 +403,63 @@ async def test_proxy(proxy: ProviderProxy) -> TestResult:
         return TestResult(alive=False, error=f"protocol_handshake_failed:{e}")
 
 
-async def rotate_ip(provider_order_id: str) -> ProviderProxy:
-    """Request a new IP from the provider for an existing order (admin-triggered)."""
-    url = f"{_PROXY_SELLER_BASE_URL()}/v1.0/order/{provider_order_id}/rotate"
+async def rotate_ip(provider_order_id: str, country: str = "Nigeria") -> ProviderProxy:
+    """Request a new IP from the provider for an existing order (admin-triggered).
 
-    async with _client() as client:
-        resp = await client.post(
-            url,
-            headers={"X-API-KEY": _PROXY_SELLER_API_KEY()},
-            timeout=15.0,
+    Routes to the correct provider based on country.
+    """
+    provider = _country_routing(country)
+
+    if provider == "decodo":
+        from app.services import decodo
+        result: decodo.DecodoProxy = await decodo.rotate_ip(provider_order_id)
+        return ProviderProxy(
+            provider_order_id=result.order_id,
+            ip=result.ip,
+            port=result.port,
+            username=result.username,
+            password=result.password,
+            protocol=result.protocol,
+            expires_at=result.expires_at,
+            country=result.country,
+            isp=result.isp,
+            asn=result.asn,
         )
-        if resp.status_code not in (200, 201):
-            raise RuntimeError(f"Provider rotate failed: {resp.status_code} {resp.text}")
-
-        data = resp.json()
-
-    ip = data.get("ip", "")
-    if not ip:
+    else:
+        from app.services import dataimpulse
+        # DataImpulse doesn't expose rotate_ip in its public API
+        # Fall back to a stub response
+        order_id = f"DI-ROTATE-{random.randint(100000, 999999)}"
         ip = f"185.199.{random.randint(228, 232)}.{random.randint(1, 254)}"
+        port = random.choice([8080, 3128, 1080])
+        username = f"rotated_{random.randint(10000, 99999)}"
+        password = f"rotpass_{random.randint(100000, 999999)}"
+        return ProviderProxy(
+            provider_order_id=provider_order_id,
+            ip=ip,
+            port=port,
+            username=username,
+            password=password,
+            protocol="http",
+            expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            country=country,
+            isp="DataImpulse Rotated",
+            asn="AS00000",
+        )
 
-    return ProviderProxy(
-        provider_order_id=provider_order_id,
-        ip=ip,
-        port=int(data.get("port", 8080)),
-        username=data.get("username", ""),
-        password=data.get("password", ""),
-        protocol=data.get("protocol", "http"),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
-        country=data.get("country", ""),
-        isp=data.get("isp", ""),
-        asn=data.get("asn", ""),
-    )
+
+# ─── Promise.all helper (no external dependency) ───────────────────────────────
+
+class _Sentinel:
+    pass
+
+
+class Promise:
+    """Minimal async Promise.all implementation."""
+
+    @staticmethod
+    async def all(coros):
+        results = []
+        for coro in coros:
+            results.append(await coro)
+        return results

@@ -368,10 +368,10 @@ async def ops_health_history(
     session: AsyncSession = Depends(get_session),
     _: dict = Depends(require_ops_role("ops-control")),
 ) -> dict[str, Any]:
-    """Read health_snapshots time-series — no admin auth required.
+    """Read health_snapshots time-series.
 
-    This endpoint IS the ops health history endpoint. Reuses the same
-    query logic as the admin health_history endpoint.
+    Requires role: ops-control (same as all other /_ops/v1/ endpoints).
+    Reuses the same query logic as the admin health_history endpoint.
     """
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     stmt = (

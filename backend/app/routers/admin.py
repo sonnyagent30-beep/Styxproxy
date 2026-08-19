@@ -25,6 +25,7 @@ from app.models import (
     ProcessedWebhook,
     ReferralCredit,
     StyxproxyCredential,
+    TrialSession,
 )
 from app.schemas import (
     AdminAuditLogResponse,
@@ -69,6 +70,7 @@ from app.schemas import (
     PlanUpdateRequest,
     ReferralCreditResponse,
     ReferralStatsResponse,
+    TrialConversionStatsResponse,
     UpdateKnowledgeRequest,
     UpdateKnowledgeResponse,
 )

@@ -396,6 +396,9 @@ class OrderResponse(BaseModel):
     max_rotations: Optional[int] = 3
     # Sprint 2 — set if this order's payment triggered a referral credit
     referral_tx_ref: Optional[str] = None
+    # S2.5 — Renewal reminder tracking
+    emails_sent: Optional[int] = 0
+    reminder_sent_at: Optional[datetime] = None
 
 
 # ============== Referral Schemas (Sprint 2) ==============
@@ -696,6 +699,20 @@ class AdminStatsResponse(BaseModel):
     free_trials_today: int
     active_credentials: int
     plan_counts: dict[str, int]  # e.g. {"ISP": 6, "DC": 2, "MOBILE": 48, "RESIDENTIAL": 48}
+    trial_conversion_rate_pct: Optional[float] = None  # S2.4: 30-day trial-to-paid conversion rate
+
+
+class TrialConversionStatsResponse(BaseModel):
+    """S2.4: Trial-to-paid conversion statistics."""
+
+    period_days: int
+    total_trial_sessions: int
+    converted: int
+    expired_unconverted: int
+    still_active: int
+    conversion_rate_pct: float
+    target_pct: float
+    meets_target: bool
 
 
 class AdminCustomerResponse(BaseModel):
