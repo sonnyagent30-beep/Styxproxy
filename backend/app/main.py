@@ -17,7 +17,6 @@ from app.limiter import limiter
 from app.models import Base
 from app.routers import (
     admin,
-    admin_proxies,
     admin_support,
     analytics,
     auth,
@@ -356,7 +355,6 @@ app.include_router(webhooks)
 app.include_router(credentials)
 app.include_router(trials)
 app.include_router(admin)
-app.include_router(admin_proxies)
 app.include_router(admin_support)
 app.include_router(session)
 app.include_router(charon)
