@@ -32,7 +32,10 @@ router = APIRouter(prefix="/_ops/v1", tags=["ops"])
 
 
 @router.get("/health")
-async def ops_health(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+async def ops_health(
+    session: AsyncSession = Depends(get_session),
+    _: dict = Depends(require_ops_role("ops-control")),
+) -> dict[str, Any]:
     """Deep health probe — DB + Redis + LiteLLM + Ollama + M2 cloud.
 
     Extends the /api/v1/health response with a history_summary showing
@@ -99,40 +102,31 @@ async def ops_health(session: AsyncSession = Depends(get_session)) -> dict[str, 
 
 
 @router.get("/metrics")
-async def ops_metrics(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+async def ops_metrics(
+    session: AsyncSession = Depends(get_session),
+    _: dict = Depends(require_ops_role("ops-control")),
+) -> dict[str, Any]:
     """Platform metrics summary — all from async DB queries."""
     # Total customers
-    total_customers = (
-        await session.execute(select(func.count()).select_from(Customer))
-    ).scalar() or 0
+    total_customers = (await session.execute(select(func.count()).select_from(Customer))).scalar() or 0
 
     # Total orders
-    total_orders = (
-        await session.execute(select(func.count()).select_from(Order))
-    ).scalar() or 0
+    total_orders = (await session.execute(select(func.count()).select_from(Order))).scalar() or 0
 
     # Order status counts
     paid_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "paid")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "paid"))
     ).scalar() or 0
     fulfilled_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "fulfilled")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "fulfilled"))
     ).scalar() or 0
     refunded_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "refunded")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "refunded"))
     ).scalar() or 0
 
     # Revenue (paid + fulfilled orders)
     revenue_ngn = (
-        await session.execute(
-            select(func.sum(Order.amount_paid_ngn)).where(Order.status.in_(["paid", "fulfilled"]))
-        )
+        await session.execute(select(func.sum(Order.amount_paid_ngn)).where(Order.status.in_(["paid", "fulfilled"])))
     ).scalar() or 0.0
 
     # Active credentials
@@ -144,9 +138,7 @@ async def ops_metrics(session: AsyncSession = Depends(get_session)) -> dict[str,
 
     # Trial orders
     trial_count = (
-        await session.execute(
-            select(func.count()).select_from(Order).where(Order.status == "trial")
-        )
+        await session.execute(select(func.count()).select_from(Order).where(Order.status == "trial"))
     ).scalar() or 0
 
     return {
@@ -194,10 +186,9 @@ async def ops_refund_order(
     # Call Flutterwave refund
     tx_ref = order.payment_reference or ""
     amount = float(order.amount_paid_ngn or 0)
-    refund_result: dict[str, Any] = {}
     try:
         if tx_ref and amount > 0:
-            await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
+            _ = await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
         else:
             raise ValueError("No payment reference or amount to refund")
     except Exception as e:
@@ -254,9 +245,7 @@ async def ops_reprocess_order(
         raise HTTPException(status_code=404, detail="Order not found")
 
     if order.status != "failed_unfulfilled":
-        raise HTTPException(
-            status_code=400, detail=f"Cannot reprocess order with status '{order.status}'"
-        )
+        raise HTTPException(status_code=400, detail=f"Cannot reprocess order with status '{order.status}'")
 
     admin_email = jwt_payload.get("sub", "ops-service")
 
@@ -313,6 +302,7 @@ async def ops_reprocess_order(
 async def ops_slow_queries(
     threshold_ms: int = Query(default=200, ge=1),
     session: AsyncSession = Depends(get_session),
+    _: dict = Depends(require_ops_role("ops-control")),
 ) -> dict[str, Any]:
     """Query pg_stat_statements for slow queries.
 
@@ -359,11 +349,12 @@ async def ops_health_history(
     hours: int = Query(default=24, ge=1, le=168),
     limit: int = Query(default=500, ge=1, le=5000),
     session: AsyncSession = Depends(get_session),
+    _: dict = Depends(require_ops_role("ops-control")),
 ) -> dict[str, Any]:
-    """Read health_snapshots time-series — no admin auth required.
+    """Read health_snapshots time-series.
 
-    This endpoint IS the ops health history endpoint. Reuses the same
-    query logic as the admin health_history endpoint.
+    Requires role: ops-control (same as all other /_ops/v1/ endpoints).
+    Reuses the same query logic as the admin health_history endpoint.
     """
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     stmt = (

@@ -28,7 +28,7 @@ function getDsnParts(dsn: string): { publicKey: string; host: string; projectId:
 
 export function reportError(err: Error | unknown, context: SentryContext = {}): void {
   // Always log to console for dev
-  // eslint-disable-next-line no-console
+   
   console.error('[styxproxy:error]', err, context);
 
   if (!SENTRY_DSN || typeof window === 'undefined') return;

@@ -12,7 +12,7 @@ export default function PublicError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
+     
     console.error('[public route error]', error);
   }, [error]);
 

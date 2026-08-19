@@ -18,6 +18,7 @@ os.environ.setdefault("FLUTTERWAVE_WEBHOOK_SECRET", "test-webhook-secret")
 os.environ.setdefault("WHATSAPP_ACCESS_TOKEN", "test-wa-token")
 os.environ.setdefault("WHATSAPP_PHONE_NUMBER_ID", "test-phone-id")
 os.environ.setdefault("MINIMAX_API_KEY", "test-minimax-key")
+os.environ.setdefault("OPS_JWT_SECRET", "test-ops-jwt-secret-not-real-32chars")
 
 # Now clear the settings cache so new env values are picked up
 from app.config import get_settings

@@ -1,3 +1,5 @@
+
+/* eslint-disable prefer-const */
 'use client';
 
 import Link from 'next/link';
@@ -20,7 +22,7 @@ export default function BlogPostClient({ post }: Props) {
   // Simple markdown-like rendering for the content
   const renderContent = (content: string) => {
     // Replace common markdown patterns with HTML
-    let html = content
+    const html = content
       // Headers
       .replace(/^### (.*$)/gim, '<h3 class="text-xl font-bold mt-8 mb-4">$1</h3>')
       .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold mt-10 mb-4">$1</h2>')

@@ -4,25 +4,61 @@
  * All data stays in sessionStorage + memory. No PII, no cookies, no cross-session tracking.
  * Session IDs are random, non-sequential, and expire when the browser tab closes.
  *
- * Pages tracked: pricing, products, order flow, cart.
+ * Pages tracked: pricing, products, order flow, cart, blog.
  * NOT tracked: payment/checkout pages (customer is in a transaction — no outreach).
  */
 
+import { DEMO_POSTS } from '@/data/blog-posts';
+
+// ── Page taxonomy ──────────────────────────────────────────────────────────────
+
 const PRICING_PAGES = ['/pricing', '/how-it-works', '/'];
-const PAYMENT_PAGES = ['/order', '/thank-you', '/preview', '/receipt'];
 const PRODUCT_PAGES = ['/products', '/residential', '/mobile', '/isp', '/datacenter'];
+const BLOG_PAGES = ['/blog'];
+const PAYMENT_PAGES = ['/order', '/thank-you', '/preview', '/receipt'];
+
+// ── Theme keywords per page — used to give Charon page-level context ─────────
+
+const PAGE_THEMES: Record<string, string[]> = {
+  '/': ['landing page', 'proxy overview', 'hero section'],
+  '/pricing': ['pricing', 'plan comparison', 'ISP', 'datacenter', 'residential'],
+  '/products': ['product catalog', 'proxy types', 'ISP', 'datacenter', 'residential'],
+  '/residential': ['residential proxies', 'home IPs', 'real ISPs', 'Nigeria'],
+  '/datacenter': ['datacenter proxies', 'cloud servers', 'speed', 'scraping'],
+  '/mobile': ['mobile proxies', '4G', 'social media', 'stealth'],
+  '/isp': ['ISP proxies', 'static IPs', 'business', 'banking'],
+  '/blog': ['blog', 'guides', 'tutorials', 'proxy education'],
+  '/how-it-works': ['how it works', 'setup', 'configuration', 'SOCKS5'],
+  '/order': ['order form', 'checkout', 'cart'],
+};
+
+// ── Blog posts index (built once, reused) ────────────────────────────────────
+
+const BLOG_INDEX = DEMO_POSTS.map(p => ({
+  slug: p.slug,
+  title: p.title,
+  excerpt: p.excerpt,
+  tags: p.tags ?? [],
+}));
+
+// ── Tracker ───────────────────────────────────────────────────────────────────
 
 export class SessionTracker {
   private sessionId: string;
   private pages: { url: string; visitedAt: number }[] = [];
-  private pricingVisits = 0;
-  private productVisits = 0;
-  private cartActive = false;
+  // Public properties accessed by TriggerEngine via bracket notation
+  pricingVisits = 0;
+  productVisits = 0;
+  cartActive = false;
+  scrollBottomFired = false;
+  orderAndPricingVisited = false;
+  blogVisits = 0;
   private firstVisitAt = 0;
   private lastActiveAt = 0;
-  private scrollBottomFired = false;
-  private orderAndPricingVisited = false; // visited /order AND /pricing in same session
-  private firedTriggers = new Map<string, number>(); // trigger_id → last fired timestamp
+  private firedTriggers = new Map<string, number>();
+  private currentBlogSlug = '';
+  private currentBlogTags: string[] = [];
+  private currentBlogTitle = '';
 
   constructor() {
     this.sessionId = this.getOrCreateSessionId();
@@ -49,7 +85,6 @@ export class SessionTracker {
     const now = Date.now();
     this.lastActiveAt = now;
 
-    // Always track pages for session_stuck
     this.pages.push({ url, visitedAt: now });
 
     const path = url.split('?')[0].split('#')[0];
@@ -62,17 +97,36 @@ export class SessionTracker {
       this.productVisits++;
     }
 
+    if (BLOG_PAGES.some(b => path === b || path.startsWith(b + '/'))) {
+      this.blogVisits++;
+      // Try to detect current blog slug from URL
+      const slug = this.extractBlogSlug(path);
+      if (slug) {
+        this.currentBlogSlug = slug;
+        const post = BLOG_INDEX.find(p => p.slug === slug);
+        if (post) {
+          this.currentBlogTitle = post.title;
+          this.currentBlogTags = post.tags;
+        }
+      }
+    }
+
     if (path === '/order') {
       this.cartActive = true;
     }
 
-    // Detect order+pricing in same session
     if (path === '/order' && this.pricingVisits > 0) {
       this.orderAndPricingVisited = true;
     }
     if (path === '/pricing' && this.cartActive) {
       this.orderAndPricingVisited = true;
     }
+  }
+
+  /** Derive blog slug from URL like /blog/web-scraping-nigeria-guide */
+  private extractBlogSlug(path: string): string {
+    const match = path.match(/^\/blog\/(.+?)(\/|$)/);
+    return match ? match[1] : '';
   }
 
   /** Record cart add. */
@@ -98,7 +152,7 @@ export class SessionTracker {
     this.scrollBottomFired = false;
   }
 
-  /** Mark that a trigger has fired. Prevents immediate re-fire on same trigger. */
+  /** Mark that a trigger has fired. Prevents immediate re-fire. */
   markTriggerFired(triggerId: string): void {
     this.firedTriggers.set(triggerId, Date.now());
   }
@@ -122,7 +176,7 @@ export class SessionTracker {
 
   /** Number of unique pages visited this session. */
   getPageCount(): number {
-    const unique = new Set(this.pages.map((p: { url: string }) => p.url.split('?')[0].split('#')[0]));
+    const unique = new Set(this.pages.map((p) => p.url.split('?')[0].split('#')[0]));
     return unique.size;
   }
 
@@ -134,7 +188,7 @@ export class SessionTracker {
 
   /** Seconds on current page (based on last visit timestamp). */
   getDwellTimeSeconds(url: string): number {
-    const last = [...this.pages].reverse().find((p: { url: string }) => p.url.startsWith(url));
+    const last = [...this.pages].reverse().find((p) => p.url.startsWith(url));
     if (!last) return 0;
     return Math.floor((Date.now() - last.visitedAt) / 1000);
   }
@@ -143,5 +197,70 @@ export class SessionTracker {
     if (typeof window === 'undefined') return false;
     const path = window.location.pathname.split('?')[0].split('#')[0];
     return PAYMENT_PAGES.includes(path);
+  }
+
+  /** Returns theme keywords for the current page path. */
+  getPageThemes(path: string): string[] {
+    const clean = path.split('?')[0].split('#')[0];
+    // Blog posts get dynamic tags from the post itself
+    if (BLOG_PAGES.some(b => clean === b || clean.startsWith(b + '/'))) {
+      if (this.currentBlogTags.length > 0) {
+        return [...this.currentBlogTags.map(t => `blog:${t}`), 'blog'];
+      }
+      return ['blog', 'guides'];
+    }
+    return PAGE_THEMES[clean] ?? [];
+  }
+
+  /** Returns blog post data for the current blog slug (or empty if not on blog). */
+  getCurrentBlogPost(): { slug: string; title: string; tags: string[] } | null {
+    if (!this.currentBlogSlug) return null;
+    return {
+      slug: this.currentBlogSlug,
+      title: this.currentBlogTitle,
+      tags: this.currentBlogTags,
+    };
+  }
+
+  /** Build the page_context object to send to Charon backend. */
+  getPageContext(): Record<string, unknown> {
+    if (typeof window === 'undefined') return {};
+    const path = window.location.pathname;
+
+    const ctx: Record<string, unknown> = {
+      page_type: this.getPageType(path),
+      path,
+      themes: this.getPageThemes(path),
+      session_pages: this.getPageCount(),
+      session_duration_s: Math.floor(this.getActiveTimeMs() / 1000),
+    };
+
+    // Blog context
+    const blog = this.getCurrentBlogPost();
+    if (blog) {
+      ctx.blog_post = blog;
+    }
+
+    // Cart context
+    if (this.cartActive) {
+      ctx.cart_active = true;
+    }
+
+    // Blog index — all posts so Charon can link to them
+    ctx.blog_index = BLOG_INDEX;
+
+    return ctx;
+  }
+
+  /** Derive a page_type string from a path. */
+  private getPageType(path: string): string {
+    const clean = path.split('?')[0].split('#')[0];
+    if (PAYMENT_PAGES.includes(clean)) return 'payment';
+    if (clean === '/pricing' || PRICING_PAGES.includes(clean)) return 'pricing';
+    if (PRODUCT_PAGES.includes(clean)) return 'product';
+    if (BLOG_PAGES.some(b => clean === b || clean.startsWith(b + '/'))) return 'blog_post';
+    if (clean === '/order') return 'checkout';
+    if (clean === '/how-it-works') return 'how_it_works';
+    return 'general';
   }
 }

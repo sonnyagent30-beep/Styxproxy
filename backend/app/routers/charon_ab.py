@@ -38,9 +38,7 @@ async def assign_variant(
     variant = _variant_for_session(session_id)
 
     async with async_session() as session:
-        existing = await session.execute(
-            select(CharonAbAssignment).where(CharonAbAssignment.session_id == session_id)
-        )
+        existing = await session.execute(select(CharonAbAssignment).where(CharonAbAssignment.session_id == session_id))
         row = existing.scalar_one_or_none()
         if row is None:
             assignment = CharonAbAssignment(session_id=session_id, variant=variant)
@@ -67,9 +65,7 @@ async def record_outcome(
         raise HTTPException(status_code=400, detail="outcome must be resolution or escalation")
 
     async with async_session() as session:
-        result = await session.execute(
-            select(CharonAbOutcome).where(CharonAbOutcome.session_id == session_id)
-        )
+        result = await session.execute(select(CharonAbOutcome).where(CharonAbOutcome.session_id == session_id))
         row = result.scalar_one_or_none()
         if row:
             row.outcome = outcome
@@ -113,7 +109,9 @@ async def ab_test_results(
             select(
                 CharonAbOutcome.variant,
                 func.count(CharonAbOutcome.id).label("resolutions"),
-            ).where(CharonAbOutcome.outcome == "resolution").group_by(CharonAbOutcome.variant)
+            )
+            .where(CharonAbOutcome.outcome == "resolution")
+            .group_by(CharonAbOutcome.variant)
         )
         res_map: dict[str, int] = {r.variant: r.resolutions for r in resolutions}
 
@@ -121,7 +119,9 @@ async def ab_test_results(
             select(
                 CharonAbOutcome.variant,
                 func.count(CharonAbOutcome.id).label("escalations"),
-            ).where(CharonAbOutcome.outcome == "escalation").group_by(CharonAbOutcome.variant)
+            )
+            .where(CharonAbOutcome.outcome == "escalation")
+            .group_by(CharonAbOutcome.variant)
         )
         esc_map: dict[str, int] = {r.variant: r.escalations for r in escalations}
 

@@ -40,8 +40,7 @@ class OrderPaymentStatus(BaseModel):
     next_action: str = Field(
         ...,
         description=(
-            "poll | redirect_to_payment | show_success | show_failure | "
-            "redirect_to_proxy_details | show_retry"
+            "poll | redirect_to_payment | show_success | show_failure | " "redirect_to_proxy_details | show_retry"
         ),
     )
     next_action_url: Optional[str] = None  # URL the customer should be sent to

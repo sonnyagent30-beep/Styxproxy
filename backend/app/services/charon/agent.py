@@ -1,4 +1,7 @@
 """Charon agent orchestrator.
+from app.services.charon.page_templates import get_page_prompt_addition
+from app.services.charon.ab_framework import get_variant, get_page_context_variant, record_outcome
+from app.services.charon.escalation_persist import persist_escalation_sync
 
 Glues together: scenario matcher → RAG → LLM (with tools) → response.
 
@@ -47,6 +50,7 @@ class Reply:
     error: str | None = None
     tokens_used: int = 0
     raw: dict | None = None
+    experiment_variant: str | None = None
 
 
 @dataclass
@@ -162,6 +166,7 @@ async def reply(
     user_message: str,
     *,
     history: list[Message] | None = None,
+    page_context: dict | None = None,
 ) -> Reply:
     """End-to-end Charon reply.
 
@@ -170,10 +175,13 @@ async def reply(
     2. Try LLM with knowledge context + tool definitions.
     3. Fall back to "I am having trouble; escalate" if LLM fails.
     """
+    conversation_id = conversation_id or str(uuid.uuid4())
+    variant = get_variant(conversation_id)
     log_ctx: dict[str, Any] = {
         "channel": channel,
-        "conversation_id": conversation_id or str(uuid.uuid4()),
+        "conversation_id": conversation_id,
         "user_message": user_message[:500],
+        "experiment_variant": variant.value,
     }
 
     messages = list(history or [])
@@ -182,12 +190,12 @@ async def reply(
     # ── 1. Scenario matcher ──────────────────────────────────────────
     scenario = scenarios.match(user_message)
     if scenario:
-        reply_action, escalate = _run_scenario(scenario, messages)
+        reply_action, escalate = _run_scenario(scenario, messages, conversation_id=conversation_id, customer_email=None, customer_phone=None, customer_message=user_message, history_summary="")
         log_ctx["scenario_id"] = scenario.id
         log_ctx["response"] = reply_action.text
         log_ctx["escalated"] = escalate
         _persist_log(log_ctx)
-        return Reply(text=reply_action.text, scenario_id=scenario.id, escalated=escalate)
+        return Reply(text=reply_action.text, scenario_id=scenario.id, escalated=escalate, experiment_variant=variant.value)
 
     # ── 2. LLM with knowledge + tools ──────────────────────────────
     context_chunks = knowledge.search(user_message, top_k=4)
@@ -195,6 +203,10 @@ async def reply(
 
     tx_ref = _extract_tx_ref(messages)
     history_dicts = _serialize_history(messages[-8:])  # 8 turns of context is plenty for QA
+
+    # A/B: treatment group gets page context, control gets None
+    filtered_context, _ = get_page_context_variant(conversation_id, page_context)
+    page_prompt = get_page_prompt_addition(filtered_context)
 
     system_block = (
         "You may use these tools if relevant. Call them only when useful; "
@@ -206,6 +218,7 @@ async def reply(
         f"Available tools:\n{json.dumps(tools.registry.list_specs(), indent=2)}\n\n"
         f"Known transaction reference (if any): {tx_ref or 'none mentioned yet'}\n\n"
         f"Knowledge base context:\n{context_text}\n"
+        + (f"\n\n{page_prompt}" if page_prompt else "")
     )
 
     # ── 2a. Try a tool-calling loop. If the LLM doesn't speak tool
@@ -221,6 +234,7 @@ async def reply(
     if tool_call_result is not None:
         log_ctx["response"] = tool_call_result.text
         _persist_log(log_ctx)
+        await record_outcome(conversation_id, "resolved", messages_count=len(messages))
         return tool_call_result
 
     # ── 2b. Plain prompt to LLM (no tool step) ───────────────────────
@@ -260,7 +274,7 @@ async def reply(
     return Reply(text=fallback, escalated=True, error=llm_resp.error)
 
 
-def _run_scenario(scenario: scenarios.Scenario, messages: list[Message]) -> tuple[Any, bool]:
+def _run_scenario(scenario: scenarios.Scenario, messages: list[Message], *, conversation_id: str | None = None, customer_email: str | None = None, customer_phone: str | None = None, customer_message: str = "", history_summary: str = "") -> tuple[Any, bool]:
     """Execute a matched scenario's actions. Returns (reply, escalated)."""
     tx_ref = _extract_tx_ref(messages)
     escalated = False
@@ -272,7 +286,7 @@ def _run_scenario(scenario: scenarios.Scenario, messages: list[Message]) -> tupl
             reply_text = action.text or ""
         elif action.type == "escalate":
             escalated = True
-            _emit_escalation(scenario, action, tx_ref)
+            _emit_escalation(scenario, action, tx_ref, conversation_id=conversation_id, customer_email=customer_email, customer_phone=customer_phone, customer_message=customer_message, history_summary=history_summary)
         elif action.type == "tool":
             # future: schedule tool call
             pass
@@ -284,8 +298,18 @@ def _run_scenario(scenario: scenarios.Scenario, messages: list[Message]) -> tupl
     return type("R", (), {"text": reply_text})(), escalated
 
 
-def _emit_escalation(scenario: scenarios.Scenario, action, tx_ref: str | None) -> None:
+def _emit_escalation(
+    scenario: scenarios.Scenario,
+    action,
+    tx_ref: str | None,
+    conversation_id: str | None = None,
+    customer_email: str | None = None,
+    customer_phone: str | None = None,
+    customer_message: str = "",
+    history_summary: str = "",
+) -> None:
     """Persist an escalation record and surface to operator alert hooks."""
+    from app.services.charon.escalation_persist import persist_escalation_sync
     summary = (action.summary_template or f"Charon escalated case: {scenario.name}").replace(
         "{{tx_ref_or_unknown}}", tx_ref or "unknown"
     )
@@ -297,6 +321,19 @@ def _emit_escalation(scenario: scenarios.Scenario, action, tx_ref: str | None) -
         "reason": action.reason,
     }
     logger.warning(json.dumps(record))
+
+    # Persist to DB (background thread — never blocks the reply)
+    if conversation_id:
+        persist_escalation_sync(
+            conversation_id=conversation_id,
+            customer_email=customer_email,
+            customer_phone=customer_phone,
+            customer_message=customer_message,
+            history_summary=history_summary,
+            scenario_id=scenario.id,
+            reason=action.reason,
+        )
+
     # Capture escalation in Sentry for alerting
     sentry_sdk.capture_message(
         f"[Charon Escalation] {scenario.id}: {summary}",
@@ -307,6 +344,7 @@ def _emit_escalation(scenario: scenarios.Scenario, action, tx_ref: str | None) -
             "reason": action.reason or "customer_requested",
         },
     )
+
 
 
 async def _try_tool_call(
@@ -447,7 +485,7 @@ def _persist_log(ctx: dict) -> None:
     read today's escalation list with `tail -f logs/charon.log`.
     """
     log_dir = os.getenv("CHARON_LOG_DIR", "/tmp")
-    log_path = os.path.join(log_dir, "charon.log")
+    log_path = os.path.join(log_dir, "charon.log")  # nosec B108
     try:
         os.makedirs(log_dir, exist_ok=True)
         with open(log_path, "a") as fh:

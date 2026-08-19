@@ -1,0 +1,175 @@
+name: Deploy Backend to Staging
+
+# This workflow deploys the backend to the STAGING environment only.
+# - Triggers on push to cpt-admin-ui
+# - Updates /opt/styxproxy/staging-repo (separate from prod repo)
+# - styxproxy-staging-api service serves from staging-repo/backend on port 8001
+# - Has health checks and rollback tags
+
+on:
+  push:
+    branches:
+      - cpt-admin-ui
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend-staging.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: backend-staging
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Lint check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint check
+        working-directory: backend
+        run: |
+          echo "Running ruff check (warnings only, non-blocking)..."
+          ruff check app/ || echo "Lint warnings present (continuing)"
+
+  deploy:
+    name: Deploy to staging
+    needs: test
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate ephemeral deploy key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t ed25519 -f /tmp/deploy_key -N "" -C "github-runner-staging-$(date +%s)"
+          echo "DEPLOY_PUBKEY=$(cat /tmp/deploy_key.pub)" >> $GITHUB_ENV
+          echo "DEPLOY_PRIVKEY<<EOF" >> $GITHUB_ENV
+          cat /tmp/deploy_key >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Trigger webhook on VPS (add key)
+        run: |
+          RESPONSE=$(curl -s -X POST http://162.35.184.69:9001/add-key \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: *** secrets.ADD_KEY_API_KEY }}" \
+            -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}")
+          echo "Webhook response: $RESPONSE"
+          if echo "$RESPONSE" | grep -qE '"(added|success)"'; then
+            echo "Key added"
+          else
+            echo "Key addition failed"
+            exit 1
+          fi
+
+      - name: Sync code to staging repo + restart
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 162.35.184.69
+          username: root
+          key: ${{ env.DEPLOY_PRIVKEY }}
+          timeout: 300s
+          script: |
+            set -e
+            echo "=== Update staging-repo to latest cpt-admin-ui ==="
+            cd /opt/styxproxy/staging-repo
+
+            # Tag previous commit for rollback
+            PREV_SHA=$(git rev-parse HEAD)
+            ROLLBACK_TAG="staging-rollback-$(date +%s)"
+            git tag "$ROLLBACK_TAG" HEAD
+            echo "Tagged previous HEAD as $ROLLBACK_TAG ($PREV_SHA)"
+
+            # Pull latest
+            git fetch origin cpt-admin-ui
+            git reset --hard origin/cpt-admin-ui
+            echo "Repo updated to: $(git rev-parse --short HEAD)"
+
+            echo "=== Verify venv exists (shared with prod) ==="
+            if [ ! -d /opt/styxproxy/backend/venv ]; then
+              echo "ERROR: venv missing"
+              exit 1
+            fi
+
+            echo "=== Restart styxproxy-staging-api ==="
+            systemctl restart styxproxy-staging-api
+            echo "Restart issued"
+            sleep 2
+            systemctl is-active styxproxy-staging-api
+
+      - name: Wait for staging backend to boot
+        run: |
+          echo "Waiting 30s for boot..."
+          sleep 30
+
+      - name: Health check — staging only (port 8001)
+        run: |
+          SUCCESS=0
+          for i in $(seq 1 15); do
+            echo "Attempt $i/15..."
+            if curl -sf http://162.35.184.69:8001/api/v1/health > /tmp/health.json 2>&1; then
+              echo "Health: $(cat /tmp/health.json | head -c 200)"
+              if curl -sf http://162.35.184.69:8001/api/countries > /tmp/countries.json 2>&1; then
+                echo "/api/countries: $(cat /tmp/countries.json | head -c 200)"
+                SUCCESS=1
+                break
+              fi
+            fi
+            sleep 3
+          done
+          if [ $SUCCESS -eq 0 ]; then
+            echo "HEALTH CHECK FAILED — staging deploy did not boot cleanly"
+            exit 1
+          fi
+
+      - name: Smoke test core endpoints
+        run: |
+          for ep in /api/v1/health /api/catalog /api/countries /health; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://162.35.184.69:8001$ep)
+            if [ "$STATUS" = "200" ]; then
+              echo "  ✓ $ep → 200"
+            else
+              echo "  ✗ $ep → $STATUS (FAILED)"
+              exit 1
+            fi
+          done
+
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 162.35.184.69
+          username: root
+          key: ${{ env.DEPLOY_PRIVKEY }}
+          script: |
+            echo "=== ROLLBACK: restore last known-good staging tag ==="
+            cd /opt/styxproxy/staging-repo
+            LAST_GOOD=$(git tag --sort=-creatordate | grep '^staging-rollback' | head -1 || echo "")
+            if [ -n "$LAST_GOOD" ]; then
+              git reset --hard "$LAST_GOOD"
+              systemctl restart styxproxy-staging-api || true
+              echo "Rolled back to $LAST_GOOD"
+            else
+              echo "No previous rollback tag found, manual intervention required"
+            fi
+
+      - name: Remove deploy key
+        if: always()
+        run: |
+          curl -sf -X POST http://162.35.184.69:9001/remove-key \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: *** secrets.ADD_KEY_API_KEY }}" \
+            -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}" || true

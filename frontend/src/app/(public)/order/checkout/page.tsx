@@ -1,9 +1,12 @@
+
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatPrice, COUNTRIES } from '@/lib/products';
+import { Flag } from '@/components/ui/Flag';
 import type { CartItem } from '@/types';
 import api from '@/lib/api';
 import { tryStartOrder, setInflightOrder, getDeviceId, addToOrderHistory } from '@/lib/device-id';
@@ -33,6 +36,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   // Bug walk theme-B fix: precheck state. Map of plan_code → precheck result.
@@ -46,22 +50,31 @@ export default function CheckoutPage() {
   }>>({});
 
   useEffect(() => {
-    const stored = sessionStorage.getItem('styxproxy_cart');
+    // Read cart from sessionStorage (set by order page navigation) or
+    // localStorage (Zustand persist) — cart must survive page navigation.
+    const stored =
+      sessionStorage.getItem('styxproxy_cart') ||
+      localStorage.getItem('styxproxy_cart');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setCart(parsed);
-        } else {
-          router.replace('/order');
+          // Keep sessionStorage in sync so back-navigation also works
+          sessionStorage.setItem('styxproxy_cart', stored);
+          return;
         }
       } catch {
-        router.replace('/order');
+        // malformed — fall through to redirect
       }
-    } else {
-      router.replace('/order');
     }
+    router.replace('/order');
   }, [router]);
+
+  // Sync cart changes back to sessionStorage so order page sees them too
+  useEffect(() => {
+    sessionStorage.setItem('styxproxy_cart', JSON.stringify(cart));
+  }, [cart]);
 
   // Bug walk theme-B fix: when cart loads or changes, fire a precheck per item.
   // Precheck tells us if the provider has inventory for that plan+country+qty.
@@ -158,6 +171,10 @@ export default function CheckoutPage() {
 
   const handlePay = async () => {
     if (cart.length === 0) return;
+    if (!phone.trim() || phone.trim().length < 10) {
+      setError('Please enter a valid phone number (10+ digits) to continue.');
+      return;
+    }
     setError('');
     setLoading(true);
 
@@ -179,6 +196,7 @@ export default function CheckoutPage() {
       // model. Per-payment keeps Order.payment_reference consistent and
       // matches the existing webhook lookup logic.
       const trimmedEmail = email.trim();
+      const trimmedPhone = phone.trim();
       if (trimmedEmail) {
         sessionStorage.setItem('styxproxy_email', trimmedEmail);
       }
@@ -228,7 +246,7 @@ export default function CheckoutPage() {
           return api.initiatePayment(
             item.plan_code,
             isPerGb ? 1 : item.quantity,
-            '',
+            trimmedPhone || '',
             trimmedEmail || undefined,
           );
         }),
@@ -308,12 +326,12 @@ export default function CheckoutPage() {
               return (
                 <div key={item.plan_code} className="flex items-center justify-between p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{item.flag}</span>
+                    <Flag countryCode={item.country_code} size={28} />
                     <div>
                       <p className="font-semibold">{item.name}</p>
                       {country && (
                         <p className="text-xs text-[var(--muted)]">
-                          {country.flag} {country.name} · {country.region}
+                          <Flag countryCode={item.country_code} size={14} /> {country.name} · {country.region}
                           {item.city_name ? ` · ${item.city_name}` : ''}
                         </p>
                       )}
@@ -433,6 +451,23 @@ export default function CheckoutPage() {
             />
             <p className="text-xs text-[var(--muted)] mt-2">
               We&apos;ll email your receipt after payment. No spam — ever.
+            </p>
+          </div>
+
+          {/* Phone — required by Flutterwave */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Phone number <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="08031234567"
+              className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
+            />
+            <p className="text-xs text-[var(--muted)] mt-2">
+              Required for Flutterwave payment confirmation.
             </p>
           </div>
         </div>

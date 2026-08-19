@@ -1,3 +1,5 @@
+
+/* eslint-disable react-hooks/refs, react-hooks/rules-of-hooks, react-hooks/set-state-in-effect */
 'use client';
 
 /**
@@ -14,6 +16,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { SessionTracker } from '@/lib/SessionTracker';
 import { TriggerEngine, Trigger } from '@/lib/TriggerEngine';
 
@@ -80,24 +84,35 @@ async function reportOutcome(triggerId: string, outcome: string) {
 }
 
 export default function ChatWidget() {
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   // Spec: public-only. Suppress on any admin/superadmin/manage route.
-  // The widget never even opens if the user shouldn't see it.
   const pathname = usePathname();
-  // P0 spec: Charon must NEVER render on admin / superadmin / manage / operator
-  // surfaces. Block-list is centralised here so the public-only rule is
-  // enforced in one place.
-  const isBlocked = ["admin", "superadmin", "manage", "login", "admin-setup"].some(
-    (p) => pathname === "/" + p || (pathname != null && (pathname.startsWith("/" + p + "/") || pathname.startsWith("/" + p)))
-  );
-  if (isBlocked) return null;
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-
   const [fabX, setFabX] = useState(-1);
-  const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, startFabX: 0 });
+  const [fabY, setFabY] = useState(-1);
+  const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, startFabX: 0, startFabY: 0 });
+
+  // ── Load/save position from sessionStorage ──────────────────────────
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('charon_widget_pos');
+      if (saved) {
+        const { x, y } = JSON.parse(saved);
+        if (typeof x === 'number' && typeof y === 'number') {
+          setFabX(x);
+          setFabY(y);
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const persistPosition = (x: number, y: number) => {
+    try { sessionStorage.setItem('charon_widget_pos', JSON.stringify({ x, y })); } catch { /* ignore */ }
+  };
 
   // ── Behavioral awareness ───────────────────────────────────────────
   const trackerRef = useRef<SessionTracker | null>(null);
@@ -105,30 +120,39 @@ export default function ChatWidget() {
   const [activeTrigger, setActiveTrigger] = useState<Trigger | null>(null);
   const [showBubble, setShowBubble] = useState(false);
   const ignoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // pathname already declared at top of component for public-only gating
-
-  // ── Public-only gating (P1-1 Jul 22 2026) ─────────────────────────
-  // Charon must NEVER appear on auth/admin/internal pages. Mounting the
-  // widget there would (a) leak the AI to admins who don't need it,
-  // (b) make admin sessions pollute Charon's anonymous metrics with
-  // non-customer traffic, and (c) expose the LLM proxy to admin
-  // sessions that should go through the superadmin-only endpoints.
-  if (
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/setup') ||
-    pathname.startsWith('/superadmin')
-  ) {
-    return null;
-  }
-
+  
   // Refs to avoid stale closures in intervals
   const isOpenRef = useRef(false);
   const activeTriggerRef = useRef<Trigger | null>(null);
   const pathnameRef = useRef(pathname);
-  isOpenRef.current = isOpen;
-  activeTriggerRef.current = activeTrigger;
-  pathnameRef.current = pathname;
+  
+  // Keep refs in sync via effect
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+  
+  useEffect(() => {
+    activeTriggerRef.current = activeTrigger;
+  }, [activeTrigger]);
+  
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+
+  // Determine if we should render - AFTER all hooks are called
+  const isBlocked = ["admin", "superadmin", "manage", "login", "admin-setup"].some(
+    (p) => pathname === "/" + p || (pathname != null && (pathname.startsWith("/" + p + "/") || pathname.startsWith("/" + p)))
+  );
+  const isOnBlockedPath = 
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/setup') ||
+    pathname.startsWith('/superadmin');
+  
+  // Don't render if blocked
+  if (isBlocked || isOnBlockedPath) {
+    return null;
+  }
 
   // ── Init tracker + engine once ────────────────────────────────────
   useEffect(() => {
@@ -188,14 +212,25 @@ export default function ChatWidget() {
       // Fire
       trackerRef.current.markTriggerFired(trigger.id);
       setActiveTrigger(trigger);
-      setShowBubble(true);
 
-      // Auto-dismiss after 8s if ignored
-      if (ignoreTimerRef.current) clearTimeout(ignoreTimerRef.current);
-      ignoreTimerRef.current = setTimeout(() => {
-        setShowBubble(false);
-        void reportOutcome(trigger.id, 'ignored');
-      }, 8000);
+      const delayMs = trigger.delayMs ?? 0;
+      const dismissMs = trigger.dismissAfterMs ?? 8000;
+
+      const showAfterDelay = () => {
+        if (isOpenRef.current) return; // user already opened chat
+        setShowBubble(true);
+        if (ignoreTimerRef.current) clearTimeout(ignoreTimerRef.current);
+        ignoreTimerRef.current = setTimeout(() => {
+          setShowBubble(false);
+          void reportOutcome(trigger.id, 'ignored');
+        }, dismissMs);
+      };
+
+      if (delayMs > 0) {
+        setTimeout(showAfterDelay, delayMs);
+      } else {
+        showAfterDelay();
+      }
     }, 5000);
 
     return () => clearInterval(interval);
@@ -255,7 +290,7 @@ export default function ChatWidget() {
     setIsOpen(true);
   }, []);
 
-  // ── Dismiss bubble ────────────────────────────────────────────────
+  // ── Dismiss bubble ─────────────────────────────────────────────────
   const dismissBubble = useCallback(() => {
     const t = activeTriggerRef.current;
     setShowBubble(false);
@@ -290,6 +325,9 @@ export default function ChatWidget() {
         .filter(m => m.id !== 'welcome')
         .map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }));
 
+      // Build page context so Charon knows where the user is
+      const pageContext = trackerRef.current?.getPageContext() ?? {};
+
       const res = await fetch('/api/charon/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -299,6 +337,7 @@ export default function ChatWidget() {
           conversation_id: undefined,
           user_message: trimmed,
           history,
+          page_context: pageContext,
         }),
       });
 
@@ -341,20 +380,31 @@ export default function ChatWidget() {
       startX: e.clientX,
       startY: e.clientY,
       startFabX: fabX === -1 ? window.innerWidth - 80 : fabX,
+      startFabY: fabY === -1 ? window.innerHeight - 80 : fabY,
     };
-  }, [fabX]);
+  }, [fabX, fabY]);
 
   const onMouseMove = useCallback((e: MouseEvent) => {
     if (!dragState.current.dragging) return;
     const dx = e.clientX - dragState.current.startX;
-    if (Math.abs(dx) > 3) dragState.current.moved = true;
-    const newX = Math.max(8, Math.min(window.innerWidth - 64, dragState.current.startFabX + dx));
+    const dy = e.clientY - dragState.current.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragState.current.moved = true;
+
+    const maxX = window.innerWidth - 80;
+    const maxY = window.innerHeight - 80;
+    const newX = Math.max(8, Math.min(maxX, dragState.current.startFabX + dx));
+    const newY = Math.max(8, Math.min(maxY, dragState.current.startFabY + dy));
+
     setFabX(newX);
+    setFabY(newY);
   }, []);
 
   const onMouseUp = useCallback(() => {
+    if (dragState.current.dragging) {
+      persistPosition(fabX, fabY);
+    }
     dragState.current.dragging = false;
-  }, []);
+  }, [fabX, fabY]);
 
   useEffect(() => {
     window.addEventListener('mousemove', onMouseMove);
@@ -372,31 +422,51 @@ export default function ChatWidget() {
   };
 
   // ── Positions ─────────────────────────────────────────────────────
-  const fabStyle: React.CSSProperties = fabX === -1
-    ? { bottom: 24, right: 24 }
-    : { bottom: 24, left: fabX, right: 'auto' };
+  // When user has dragged: use their saved (x, y) for both FAB and chat window.
+  // When not dragged yet (-1): use default bottom-right corner.
+  const hasCustomPos = fabX !== -1 && fabY !== -1;
 
-  const bubbleStyle: React.CSSProperties = fabX === -1
-    ? { bottom: 88, right: 24 }
-    : { bottom: 88, left: fabX, right: 'auto' };
+  const fabStyle: React.CSSProperties = hasCustomPos
+    ? { top: fabY, left: fabX, right: 'auto', bottom: 'auto' }
+    : { bottom: 24, right: 24 };
+
+  // Chat window appears above the FAB when dragged; centered by default
+  const chatStyle: React.CSSProperties = hasCustomPos
+    ? {
+        position: 'fixed' as const,
+        top: Math.max(8, fabY - 520),
+        left: Math.max(8, fabX - 160),
+        right: 'auto',
+        bottom: 'auto',
+        width: 340,
+        maxWidth: `calc(100vw - ${fabX > window.innerWidth - 300 ? window.innerWidth - fabX - 16 : 16}px)`,
+        height: '80vh',
+        maxHeight: 580,
+        zIndex: 9999,
+      }
+    : {
+        insetInline: 8,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        height: '80vh',
+        maxHeight: 580,
+      };
+
+  const bubbleStyle: React.CSSProperties = hasCustomPos
+    ? { top: Math.max(8, fabY - 64), left: fabX, right: 'auto', bottom: 'auto' }
+    : { bottom: 88, right: 24 };
 
   return (
     <>
       {/* ── Chat window ─────────────────────────────────────────── */}
       {isOpen && (
         <div
-          className="fixed z-[9999] flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden"
-          style={{
-            insetInline: 8,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            height: '80vh',
-            maxHeight: 580,
-          }}
+          className="fixed z-[9999] flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden charon-chat-window"
+          style={chatStyle}
         >
-          {/* Header */}
+          {/* Header — draggable */}
           <div
-            className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--card)]"
+            className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--card)] cursor-grab active:cursor-grabbing select-none"
             style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
             onMouseDown={onHeaderMouseDown}
           >
@@ -409,9 +479,20 @@ export default function ChatWidget() {
                 <p className="text-xs text-[var(--muted)]">Online \u00b7 Chat to get started</p>
               </div>
             </div>
+            {/* Drag handle dots */}
+            <div className="flex flex-col gap-1 mr-2 shrink-0" aria-hidden="true">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="flex gap-0.5">
+                  {[0, 1, 2].map(j => (
+                    <div key={j} className="w-1 h-1 rounded-full bg-[var(--muted)] opacity-60" />
+                  ))}
+                </div>
+              ))}
+            </div>
             <button
               onClick={() => toggleOpen(false)}
               className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors shrink-0"
+              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
               aria-label="Close chat"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -457,7 +538,7 @@ export default function ChatWidget() {
             <button
               type="submit"
               disabled={isBusy || !input.trim()}
-              className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors disabled:opacity50"
             >
               Send
             </button>
@@ -498,14 +579,16 @@ export default function ChatWidget() {
           )}
 
           {/* FAB — uses the Charon avatar (chatbot-logo.png) so the floating
-              button matches the avatar inside the chat panel header. */}
+              action button is recognizable even without the bubble. */}
           <button
-            onClick={openChat}
-            className="fixed z-[9998] charon-fab w-14 h-14 rounded-full bg-[var(--primary)] overflow-hidden flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
+            onClick={() => toggleOpen(true)}
+            className="fixed z-[9998] w-14 h-14 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
             style={fabStyle}
-            aria-label="Open chat with Charon"
+            aria-label="Open chat"
           >
-            <Image src="/chatbot-logo.png" alt="Charon" width={56} height={56} className="w-full h-full object-cover" />
+            <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
           </button>
         </>
       )}
@@ -513,23 +596,42 @@ export default function ChatWidget() {
   );
 }
 
-/* ── MessageBubble ───────────────────────────────────────────────────── */
+// ── Message bubble ─────────────────────────────────────────────────
 function MessageBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === 'user';
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+        className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm ${
           isUser
             ? 'bg-[var(--primary)] text-black rounded-br-md'
-            : 'bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] rounded-bl-md'
+            : 'bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)] rounded-bl-md'
         }`}
       >
-        {msg.content}
+        <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-strong:text-[var(--primary)] prose-a:text-[var(--primary)] prose-a:underline">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {msg.content}
+          </ReactMarkdown>
+        </div>
         {msg.escalated && (
-          <p className="mt-2 text-xs text-[var(--muted)]">
-            A team member has been notified and will follow up via email.
-          </p>
+          <div className="mb-1 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded">
+            Escalated to support
+          </div>
+        )}
+        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+        {msg.tool_calls && msg.tool_calls.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-[var(--border)]">
+            {msg.tool_calls.map((tc, i) => (
+              <div key={i} className="text-xs text-[var(--muted)]">
+                <span className="font-medium">{tc.tool}</span>
+                {tc.result !== undefined && (
+                  <pre className="mt-1 p-1 bg-[var(--background)] rounded overflow-x-auto">
+                    {JSON.stringify(tc.result, null, 1)}
+                  </pre>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

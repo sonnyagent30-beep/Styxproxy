@@ -79,9 +79,9 @@ async def resolve_plan(
 # window we accept the legacy codes and translate to the real DB plans.
 # After /admin/plans is the primary UI, this can be removed in a follow-up.
 LEGACY_PLAN_TRANSLATION = {
-    "ISP-NG-1": "RESI-NG-5GB",       # legacy ISP code → residential NG
+    "ISP-NG-1": "RESI-NG-5GB",  # legacy ISP code → residential NG
     "ISP-NG-2": "RESI-NG-10GB",
-    "DC-NG-1": "DC-US-5GB",          # legacy DC NG → DC US (closest)
+    "DC-NG-1": "DC-US-5GB",  # legacy DC NG → DC US (closest)
     "RESIDENTIAL-UK-1": "RESI-UK-5GB",
     "RESIDENTIAL-US-1": "RESI-US-5GB",
     "MOBILE-DE-1": "MOB-US-5GB",
@@ -194,6 +194,7 @@ async def create_order(
             phone=None,
             email=body.customer_email,
             platform_account=platform_account,
+            referred_by_code=body.referred_by_code,
         )
         if customer is None:
             # No customer_email supplied AND no JWT customer — reject with
@@ -445,6 +446,7 @@ async def create_order(
         styxproxy_credential=cred_brief,
         created_at=order.created_at,
         expires_at=order.expires_at,
+        referral_tx_ref=order.referral_tx_ref,
     )
 
 
@@ -495,6 +497,7 @@ async def list_orders_by_device(
                 created_at=order.created_at,
                 expires_at=order.expires_at,
                 customer_name=customer.name if customer and customer.name else None,
+                referral_tx_ref=order.referral_tx_ref,
             )
         )
     return results
@@ -524,10 +527,7 @@ async def get_order_by_payment_reference(
     """
     stmt = (
         select(Order)
-        .where(
-            (Order.payment_reference == payment_reference)
-            | (Order.tx_ref == payment_reference)
-        )
+        .where((Order.payment_reference == payment_reference) | (Order.tx_ref == payment_reference))
         .order_by(Order.created_at.desc())
         .limit(1)
     )
@@ -538,9 +538,7 @@ async def get_order_by_payment_reference(
 
     cred_brief = None
     if order.styxproxy_credential_id:
-        cred_stmt = select(StyxproxyCredential).where(
-            StyxproxyCredential.id == order.styxproxy_credential_id
-        )
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
         if cred:

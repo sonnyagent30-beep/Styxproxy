@@ -14,33 +14,33 @@ export default function Footer() {
         <div className="mb-12">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-8">
 
-            {/* Brand */}
+            {/* Brand with official logo */}
             <div className="max-w-xs">
-              <Link href="/" className="inline-flex items-center gap-3 mb-4 group">
+              <Link href="/" className="inline-flex items-center gap-3 mb-4">
                 <picture>
                   <source srcSet="/footer-logo-dark.png" media="(prefers-color-scheme: dark)" />
                   <img src="/footer-logo-light.png" alt="Styxproxy" className="h-10 w-auto object-contain" />
                 </picture>
               </Link>
               <p className="text-sm text-[var(--muted)] leading-relaxed">
-                AI-powered proxy intelligence for those who move in silence.
+                Premium proxies delivered instantly. No account required.
               </p>
             </div>
 
-            {/* Social */}
+            {/* Social buttons — 3D elevated */}
             <div className="flex items-center gap-3 shrink-0">
               <a href="https://t.me/StyxproxyBot" target="_blank" rel="noopener noreferrer"
-                className="w-10 h-10 rounded-xl bg-[#0088cc] hover:bg-[#006699] flex items-center justify-center transition-all duration-200"
+                className="relative w-10 h-10 rounded-xl bg-[#0088cc] hover:bg-[#006699] flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(0,136,204,0.4)]"
                 aria-label="Telegram">
                 <TelegramLogo className="w-5 h-5 text-white" />
               </a>
               <a href="https://wa.me/2347032981049" target="_blank" rel="noopener noreferrer"
-                className="w-10 h-10 rounded-xl bg-[#25D366] hover:bg-[#1da851] flex items-center justify-center transition-all duration-200"
+                className="relative w-10 h-10 rounded-xl bg-[#25D366] hover:bg-[#1da851] flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(37,211,102,0.4)]"
                 aria-label="WhatsApp">
                 <WhatsappLogo className="w-5 h-5 text-white" />
               </a>
               <a href="mailto:support@styxproxy.com"
-                className="w-10 h-10 rounded-xl bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--primary)]/40 flex items-center justify-center transition-all duration-200"
+                className="relative w-10 h-10 rounded-xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary)]/40 hover:shadow-[0_8px_20px_rgba(10,210,90,0.15)]"
                 aria-label="Email support">
                 <Envelope className="w-5 h-5 text-[var(--muted)]" />
               </a>
@@ -48,9 +48,9 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Divider */}
+        {/* Divider with gradient */}
         <div className="relative py-8 border-t border-b border-[var(--border)]">
-          <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 h-px bg-gradient-to-r from-transparent via-[var(--primary)]/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 h-px bg-gradient-to-r from-transparent via-[var(--primary)]/30 to-transparent pointer-events-none" />
         </div>
 
         {/* Links grid */}
@@ -104,8 +104,8 @@ export default function Footer() {
           <p className="text-sm text-[var(--muted)]">
             &copy; {year} Styxproxy. All rights reserved.
           </p>
-          <p className="text-xs text-[var(--muted)] italic opacity-60">
-            Charon guides the way. You remain unseen.
+          <p className="text-xs text-[var(--muted)] opacity-50">
+            Premium proxies for professionals
           </p>
         </div>
 

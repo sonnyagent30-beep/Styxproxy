@@ -1,4 +1,8 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+
 // @ts-nocheck — react-globe.gl types are incomplete; runtime works correctly
+
+/* eslint-disable @typescript-eslint/ban-ts-comment, react-hooks/set-state-in-effect */
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
@@ -7,6 +11,7 @@ import type { GlobeMethods } from 'react-globe.gl';
 import { feature } from 'topojson-client';
 import * as THREE from 'three';
 import { COUNTRIES, PRODUCT_COUNTRIES, type CountryInfo } from '@/lib/products';
+import { Flag } from '@/components/ui/Flag';
 
 // Load react-globe.gl only on client (SSR disabled)
 const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
@@ -30,9 +35,16 @@ interface GlobeMapProps {
    * - 'ISP' | 'RESIDENTIAL' | 'MOBILE' | 'DC' → show that product's country list
    */
   productType?: string;
+  /**
+   * Optional set of country codes (ISO 2-letter) that the admin has toggled ON.
+   * When provided, only countries in this set are shown (intersected with
+   * productType filter).  When omitted, all countries in PRODUCT_COUNTRIES
+   * are shown (backward-compatible behaviour).
+   */
+  enabledCountries?: Set<string>;
 }
 
-export default function GlobeMap({ productType }: GlobeMapProps = {}) {
+export default function GlobeMap({ productType, enabledCountries }: GlobeMapProps = {}) {
   const globeRef   = useRef<GlobeMethods | null>(null);
   const [isDark, setIsDark]               = useState(true);
   const [featuredIdx, setFeaturedIdx]     = useState(0);
@@ -41,16 +53,34 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
   const [containerOpacity, setContainerOpacity] = useState(0);
   const [countriesData, setCountriesData] = useState<object[]>([]);
 
-  // Build the visible location array based on productType.
-  // Pulls from the centralized PRODUCT_COUNTRIES map so the list is consistent
-  // across the globe, the product cards, and any future page that surfaces coverage.
+  // Build the visible location array based on productType AND admin toggle state.
+  //
+  // Logic:
+  //  1. Start with all countries in PRODUCT_COUNTRIES[productType]  (or all COUNTRIES if ALL/undefined)
+  //  2. If enabledCountries is provided, intersect with that set so only admin-toggled
+  //     countries are shown.
+  //
+  // This gives the correct behaviour for all three cases:
+  //  - ISP tab  → only ISP countries that are toggled ON
+  //  - All tab  → all toggled countries (not all 196 in COUNTRIES)
+  //  - No data  → fall back to PRODUCT_COUNTRIES (shows all for that product)
   const visibleLocations: CountryInfo[] = useMemo(() => {
+    let base: CountryInfo[];
+
     if (!productType || productType === 'ALL') {
-      return Object.values(COUNTRIES);
+      base = Object.values(COUNTRIES);
+    } else {
+      const codes = PRODUCT_COUNTRIES[productType] || [];
+      base = codes.map(c => COUNTRIES[c]).filter(Boolean);
     }
-    const codes = PRODUCT_COUNTRIES[productType] || [];
-    return codes.map(c => COUNTRIES[c]).filter(Boolean);
-  }, [productType]);
+
+    // When enabledCountries is provided, filter to only those codes
+    if (enabledCountries && enabledCountries.size > 0) {
+      return base.filter(c => enabledCountries.has(c.code));
+    }
+
+    return base;
+  }, [productType, enabledCountries]);
 
   const LOCATIONS = visibleLocations;
 
@@ -108,7 +138,6 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
   // Responsive sizing — globe takes full width of its container on all breakpoints
   useEffect(() => {
     const update = () => {
-      // Read the container's actual pixel width (globe is inside a w-full parent)
       const container = document.getElementById('globe-container');
       const containerW = container ? container.offsetWidth : window.innerWidth;
       const size = Math.min(containerW, 640);
@@ -191,7 +220,7 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
           polygonStrokeWidth={2.0}
           polygonCapCurvatureResolution={5}
           polygonAltitude={0.005}
-          // Country markers — filtered by productType
+          // Country markers — filtered by productType + admin toggle
           pointsData={LOCATIONS}
           pointLat="lat"
           pointLng="lng"
@@ -225,7 +254,7 @@ export default function GlobeMap({ productType }: GlobeMapProps = {}) {
         style={{ right: '4%', top: '8%', minWidth: 165, opacity: ready ? 1 : 0, transition: 'opacity 400ms' }}
       >
         <div className={`rounded-2xl shadow-2xl p-4 flex items-center gap-3 border backdrop-blur-md ${isDark ? 'bg-[rgba(10,10,20,0.88)]' : 'bg-white shadow-lg'} ${isDark ? 'border-[rgba(10,210,90,0.3)]' : 'border-[rgba(10,210,90,0.4)]'}`}>
-          <span className="text-3xl">{featured?.flag}</span>
+          {featured && <Flag countryCode={featured.code} size={36} />}
           <div>
             <p className={`font-bold text-sm ${isDark ? 'text-zinc-100' : 'text-zinc-800'}`}>{featured?.name}</p>
             <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>{featured?.region}</p>

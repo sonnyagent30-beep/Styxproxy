@@ -119,11 +119,13 @@ async def toggle_maintenance(
     audit = AdminAuditLog(
         admin_phone=admin.get("email", "unknown"),
         action="maintenance_toggle",
-        details=json.dumps({
-            "enabled": on.enabled,
-            "ready_at": body.ready_at,
-            "message_set": body.message is not None,
-        }),
+        details=json.dumps(
+            {
+                "enabled": on.enabled,
+                "ready_at": body.ready_at,
+                "message_set": body.message is not None,
+            }
+        ),
     )
     session.add(audit)
     await session.commit()
@@ -132,7 +134,8 @@ async def toggle_maintenance(
 
 
 async def _call_betterstack(
-    maintenance_enabled: bool, message: str | None = None,
+    maintenance_enabled: bool,
+    message: str | None = None,
 ):
     """Post or clear the status-page announcement when maintenance mode flips.
 
@@ -141,6 +144,7 @@ async def _call_betterstack(
     source of truth — no DB tracking needed.
     """
     from app.config import get_settings
+
     settings = get_settings()
 
     api_key = getattr(settings, "betterstack_api_key", None)
@@ -180,7 +184,6 @@ async def public_maintenance(session: AsyncSession = Depends(get_session)):
     )
 
 
-
 # ─── Public status endpoint (Betterstack-compatible) ──────────────────────────
 # Theme A: small public status endpoint that returns overall service health.
 # Suitable for:
@@ -202,6 +205,7 @@ async def public_maintenance(session: AsyncSession = Depends(get_session)):
 # Caching: no cache headers by default. For Betterstack webhooks, the
 # recommendation is to cache for ~60s to avoid hammering. Add
 # Cache-Control header here if needed.
+
 
 @router.get("/api/public/status")
 async def public_status(session: AsyncSession = Depends(get_session)) -> dict:
@@ -260,9 +264,7 @@ async def public_status(session: AsyncSession = Depends(get_session)) -> dict:
         "degraded": ("minor", "Some non-core components are degraded"),
         "unhealthy": ("major", "Core systems are down — service degraded"),
     }
-    indicator, description = indicator_map.get(
-        snap.overall_status, ("unknown", f"Status: {snap.overall_status}")
-    )
+    indicator, description = indicator_map.get(snap.overall_status, ("unknown", f"Status: {snap.overall_status}"))
 
     return {
         "status": {"indicator": indicator, "description": description},

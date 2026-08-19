@@ -6,30 +6,18 @@ A lightweight counter store for observability. Reset only on process restart
 
 Numbers here are best-effort operational signals, not analytics-grade
 counters. Use the JSONL log for fine-grained analysis.
-
-Cost tracking: tracks M2 spend vs CHARON_DAILY_BUDGET_USD.
-MiniMax M2 ≈ $0.10/M combined tokens (input + output).
 """
 
 from __future__ import annotations
 
 import logging
-import os
 import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date
 from typing import Optional
 
 logger = logging.getLogger(__name__)
-
-# ── Cost config ──────────────────────────────────────────────────────────────
-# MiniMax M2: ~$0.10 per 1M combined tokens (input + output)
-_COST_PER_TOKEN = 0.10 / 1_000_000  # USD per token
-
-_BUDGET_USD = float(os.environ.get("CHARON_DAILY_BUDGET_USD", "0"))  # 0 = disabled
-_ALERT_THRESHOLD = float(os.environ.get("CHARON_ALERT_THRESHOLD_PCT", "80"))  # alert %
 
 
 @dataclass
@@ -65,13 +53,6 @@ class CharonStats:
     llm_last_error: Optional[str] = None
     llm_configured: bool = False
 
-    # Cost tracking
-    daily_tokens: int = 0
-    daily_spend_usd: float = 0.0
-    budget_reset_at: str = ""  # "YYYY-MM-DD"
-    budget_exhausted: bool = False
-    _at_alert_sent: bool = False
-
     def to_dict(self) -> dict:
         now = time.time()
         uptime_s = int(now - self.started_at)
@@ -98,13 +79,6 @@ class CharonStats:
             "by_channel": dict(self.by_channel),
             "by_outcome": dict(self.by_outcome),
             "recent_errors": list(self.recent_errors),
-            "cost": {
-                "budget_usd": _BUDGET_USD,
-                "daily_spend_usd": round(self.daily_spend_usd, 6),
-                "daily_tokens": self.daily_tokens,
-                "budget_reset_at": self.budget_reset_at,
-                "budget_exhausted": self.budget_exhausted,
-            },
         }
 
 
@@ -117,6 +91,11 @@ class CharonMetrics:
 
     @classmethod
     def get(cls) -> CharonStats:
+        # Load persisted tokens on first access
+        if cls._stats.tokens_used_total == 0:
+            persisted = cls._load_tokens()
+            if persisted > 0:
+                cls._stats.tokens_used_total = persisted
         return cls._stats
 
     @classmethod
@@ -137,12 +116,38 @@ class CharonMetrics:
             s = cls._stats
             s.successful_replies += 1
             s.tokens_used_total += int(tokens_used or 0)
-            s.by_outcome["success"] += 1
-            s.llm_last_success_at = time.time()
-            s.latency_samples += 1
-            s.latency_sum_ms += latency_ms
-            if latency_ms > s.latency_max_ms:
-                s.latency_max_ms = latency_ms
+            # Persist tokens to disk so they survive restarts
+            cls._persist_tokens(s.tokens_used_total)
+
+    @classmethod
+    def _persist_tokens(cls, total: int) -> None:
+        try:
+            import json
+            import os
+            path = os.environ.get(
+                "CHARON_TOKEN_LOG",
+                "/opt/styxproxy/backend/data/charon_tokens.json",
+            )
+            with open(path, "w") as f:
+                json.dump({"tokens_used_total": total}, f)
+        except Exception:
+            pass
+
+    @classmethod
+    def _load_tokens(cls) -> int:
+        try:
+            import json
+            import os
+            path = os.environ.get(
+                "CHARON_TOKEN_LOG",
+                "/opt/styxproxy/backend/data/charon_tokens.json",
+            )
+            if os.path.exists(path):
+                with open(path) as f:
+                    return json.load(f).get("tokens_used_total", 0)
+        except Exception:
+            pass
+        return 0
 
     @classmethod
     def mark_escalated(cls, reason: str = "unknown") -> None:
@@ -197,56 +202,3 @@ class CharonMetrics:
     def llm_configured(cls, configured: bool) -> None:
         with cls._lock:
             cls._stats.llm_configured = configured
-
-    @classmethod
-    def check_budget(cls) -> tuple[bool, float, float]:
-        """Check if daily budget allows another request.
-
-        Returns (allowed, current_spend, budget).
-        Resets counters at midnight WAT if new day.
-        """
-        with cls._lock:
-            s = cls._stats
-            today = date.today().isoformat()
-
-            # Reset at midnight
-            if s.budget_reset_at != today:
-                s.daily_tokens = 0
-                s.daily_spend_usd = 0.0
-                s.budget_reset_at = today
-                s.budget_exhausted = False
-                s._at_alert_sent = False
-
-            if _BUDGET_USD <= 0:
-                return True, s.daily_spend_usd, 0.0
-
-            if s.daily_spend_usd >= _BUDGET_USD:
-                s.budget_exhausted = True
-                return False, s.daily_spend_usd, _BUDGET_USD
-
-            return True, s.daily_spend_usd, _BUDGET_USD
-
-    @classmethod
-    def record_spend(cls, tokens_used: int) -> None:
-        """Record spend after a successful LLM call. Thread-safe."""
-        if tokens_used <= 0:
-            return
-        spend = tokens_used * _COST_PER_TOKEN
-        with cls._lock:
-            s = cls._stats
-            s.daily_tokens += tokens_used
-            s.daily_spend_usd += spend
-
-            # Alert once at threshold
-            if (
-                _BUDGET_USD > 0
-                and not s._at_alert_sent
-                and s.daily_spend_usd >= _BUDGET_USD * (_ALERT_THRESHOLD / 100)
-            ):
-                s._at_alert_sent = True
-                logger.warning(
-                    "charon_cost_alert: %.2f/%.2f USD (%.0f%% of daily budget)",
-                    s.daily_spend_usd,
-                    _BUDGET_USD,
-                    (s.daily_spend_usd / _BUDGET_USD) * 100,
-                )

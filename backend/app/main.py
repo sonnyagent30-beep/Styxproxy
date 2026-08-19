@@ -17,7 +17,6 @@ from app.limiter import limiter
 from app.models import Base
 from app.routers import (
     admin,
-    admin_proxies,
     admin_support,
     analytics,
     auth,
@@ -30,7 +29,9 @@ from app.routers import (
     credentials,
     health,
     inbound,
+    incident_notification,
     maintenance,
+    ops,
     orders,
     payment_status,
     payments,
@@ -72,41 +73,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Create database tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
-    # Idempotent schema patches: each wrapped in try/except so an InsufficientPrivilege
-    # error on one table doesn't kill startup. Patches should be applied manually as
-    # migrations by styxproxy_migrate role.
-    from sqlalchemy import text
-
-    idempotent_patches = [
-        "ALTER TABLE platform_accounts ADD COLUMN IF NOT EXISTS device_id VARCHAR(64)",
-        "CREATE INDEX IF NOT EXISTS idx_platform_device ON platform_accounts (device_id)",
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS rotation_count INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS country_target VARCHAR(2)",
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS sticky_session_minutes INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS bandwidth_alert_pct INTEGER NOT NULL DEFAULT 80",
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS password_rotated_at TIMESTAMPTZ",
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS password_rotations_today INTEGER NOT NULL DEFAULT 0",  # noqa: E501
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS password_rotations_reset_at DATE NOT NULL DEFAULT CURRENT_DATE",  # noqa: E501
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS last_ip_country VARCHAR(2)",
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS last_ip_address INET",
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS session_id VARCHAR(50)",
-        "ALTER TABLE styxproxy_credentials ADD COLUMN IF NOT EXISTS session_expires_at TIMESTAMPTZ",
-    ]
-
-    for stmt_sql in idempotent_patches:
-        try:
-            async with engine.begin() as conn:
-                await conn.execute(text(stmt_sql))
-        except Exception as patch_err:
-            # InsufficientPrivilegeError is expected if styxproxy role doesn't own the
-            # table — log at warning level and continue. Migrations should be applied
-            # manually via db-migrate.py using styxproxy_migrate role.
-            logger.warning(
-                "idempotent_patch_skipped",
-                stmt=stmt_sql[:80],
-                error=str(patch_err)[:200],
-            )
 
     # Seed initial trigger weights if they don't exist
     from sqlalchemy import text
@@ -150,8 +116,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
 
-    # Shutdown
-    logger.info("Shutting down Styxproxy Backend")
+    # Shutdown: drain in-flight requests before closing connections.
+    # Systemd sends SIGTERM on restart. Uvicorn's --timeout-graceful-shutdown
+    # (30s) handles the HTTP drain. We add a small async sleep so the lifespan
+    # shutdown handler completes cleanly before engine dispose.
+    logger.info("Shutting down Styxproxy Backend — draining connections")
+    import asyncio
+    await asyncio.sleep(0.5)  # allow pending tasks to complete
     await engine.dispose()
 
 
@@ -209,9 +180,9 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
 
 
@@ -249,6 +220,18 @@ async def log_requests(request: Request, call_next):
     )
 
     response.headers["X-Request-ID"] = request_id
+    return response
+
+
+# HSTS middleware — enforces Strict-Transport-Security on HTTPS requests only.
+# Without HSTS, browsers may opportunistically fall back to HTTP, enabling
+# SSL-stripping attacks (HSTS-1 LOW, STYXv2-003-SEC).
+@app.middleware("http")
+async def hsts_middleware(request: Request, call_next):
+    """Add HSTS header only for HTTPS requests."""
+    response = await call_next(request)
+    if request.url.scheme == "https":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 
@@ -372,7 +355,6 @@ app.include_router(webhooks)
 app.include_router(credentials)
 app.include_router(trials)
 app.include_router(admin)
-app.include_router(admin_proxies)
 app.include_router(admin_support)
 app.include_router(session)
 app.include_router(charon)
@@ -387,7 +369,8 @@ app.include_router(inbound)
 app.include_router(superadmin)
 app.include_router(maintenance)
 app.include_router(unsubscribe)
+app.include_router(incident_notification)
 app.include_router(costs)
-app.include_router(analytics.router)
-app.include_router(charon_ab.router)
-app.include_router(charon_ab.admin_router)
+app.include_router(analytics)
+app.include_router(charon_ab)
+app.include_router(ops, prefix="")

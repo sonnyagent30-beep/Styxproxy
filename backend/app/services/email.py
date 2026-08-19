@@ -10,7 +10,7 @@ Provides transactional email functionality with Styxproxy brand design language:
 Design language matches the receipt PDF:
 - Dark theme by default (#0f0f0f background)
 - Light theme via prefers-color-scheme
-- Green accent (#0AD25A / #10B981)
+- Green accent (#00D060 / #00D060)
 - Card-based layout with dividers
 - Credentials with green border
 """
@@ -75,7 +75,7 @@ settings = get_settings()
 
 def _get_logo_b64_dark() -> str:
     """Process and return the dark mode Styxproxy logo as base64 PNG."""
-    logo = Image.open(get_logo_path("dark"))
+    logo = Image.open(get_logo_path("dark")).convert("RGB")
     # The image is already cropped to just the logo (icon + wordmark)
     # Resize for email header — 480px wide, aspect ratio preserved
     target_w = 480
@@ -83,20 +83,20 @@ def _get_logo_b64_dark() -> str:
     target_h = int(logo.size[1] * ratio)
     resized = logo.resize((target_w, target_h), Image.LANCZOS)
     buf = io.BytesIO()
-    resized.save(buf, format="PNG", optimize=True)
+    resized.save(buf, format="JPEG", quality=85)
     return base64.b64encode(buf.getvalue()).decode()
 
 
 def _get_logo_b64_light() -> str:
     """Process and return the light mode Styxproxy logo as base64 PNG."""
-    logo = Image.open(get_logo_path("light"))
+    logo = Image.open(get_logo_path("light")).convert("RGB")
     # The image is already cropped to just the logo (icon + wordmark)
     target_w = 480
     ratio = target_w / logo.size[0]
     target_h = int(logo.size[1] * ratio)
     resized = logo.resize((target_w, target_h), Image.LANCZOS)
     buf = io.BytesIO()
-    resized.save(buf, format="PNG", optimize=True)
+    resized.save(buf, format="JPEG", quality=85)
     return base64.b64encode(buf.getvalue()).decode()
 
 
@@ -116,8 +116,8 @@ def _get_base_styles() -> str:
         
         /* Styxproxy Brand Colors - matches receipt PDF */
         :root {
-            --brand-primary: #10B981;
-            --brand-primary-brighter: #0AD25A;
+            --brand-primary: #00D060;
+            --brand-primary-brighter: #00D060;
             --brand-accent: #f59e0b;
             --brand-bg: #0f0f0f;
             --brand-card: #1a1a1a;
@@ -163,13 +163,13 @@ def _get_base_styles() -> str:
         /* Top accent bar - 4mm thin green bar */
         .accent-bar-top {
             height: 4px;
-            background: linear-gradient(90deg, #10B981 0%, #0AD25A 50%, #22FF7A 100%);
+            background: linear-gradient(90deg, #00D060 0%, #00D060 50%, #00D060 100%);
         }
         
         /* Bottom accent bar */
         .accent-bar-bottom {
             height: 4px;
-            background: linear-gradient(90deg, #22FF7A 0%, #0AD25A 50%, #10B981 100%);
+            background: linear-gradient(90deg, #00D060 0%, #00D060 50%, #00D060 100%);
         }
         
         /* Header section */
@@ -265,7 +265,7 @@ def _get_base_styles() -> str:
         }
         
         .pill-green {
-            background-color: #10B981;
+            background-color: #00D060;
             color: #000000;
         }
         
@@ -354,7 +354,7 @@ def _get_base_styles() -> str:
         
         /* Total paid pill */
         .total-pill {
-            background-color: #10B981;
+            background-color: #00D060;
             color: #000000;
             padding: 10px 16px;
             border-radius: 2px;
@@ -459,7 +459,7 @@ def _get_base_styles() -> str:
         /* CTA Button */
         .cta-button {
             display: inline-block;
-            background: #10B981;
+            background: #00D060;
             color: #000000;
             font-weight: 700;
             padding: 14px 28px;
@@ -469,7 +469,7 @@ def _get_base_styles() -> str:
         }
         
         .cta-button:hover {
-            background: #0AD25A;
+            background: #00D060;
         }
         
         /* Warning box */
@@ -714,7 +714,8 @@ async def send_email(
 
             # Threading + List-Unsubscribe headers
             import hashlib
-            unsub_token = hashlib.sha1((to + ":styxproxy_unsubscribe_v1").encode()).hexdigest()
+
+            unsub_token = hashlib.sha1((to + ":styxproxy_unsubscribe_v1").encode(), usedforsecurity=False).hexdigest()
             unsub_url = f"https://styxproxy.com/unsubscribe?email={to}&token={unsub_token}"
             custom_headers = {
                 "List-Unsubscribe": f"<{unsub_url}>",
@@ -775,7 +776,7 @@ def _render_header(right_label: str, right_sublabel: str = "") -> str:
             <div class="logo-section">
                 <img
     class="logo-dark"
-    src="data:image/png;base64,{LOGO_DARK_B64}"
+    src="data:image/jpeg;base64,{LOGO_DARK_B64}"
     alt="Styxproxy"
     width="200"
     height="58"
@@ -783,7 +784,7 @@ def _render_header(right_label: str, right_sublabel: str = "") -> str:
 >
                 <img
     class="logo-light"
-    src="data:image/png;base64,{LOGO_LIGHT_B64}"
+    src="data:image/jpeg;base64,{LOGO_LIGHT_B64}"
     alt="Styxproxy"
     width="200"
     height="58"
@@ -881,7 +882,7 @@ def _render_support_reply_email(
                 <div class="logo-section">
                     <img
     class="logo-dark"
-    src="data:image/png;base64,{LOGO_DARK_B64}"
+    src="data:image/jpeg;base64,{LOGO_DARK_B64}"
     alt="Styxproxy"
     width="200"
     height="58"
@@ -889,7 +890,7 @@ def _render_support_reply_email(
 >
                     <img
     class="logo-light"
-    src="data:image/png;base64,{LOGO_LIGHT_B64}"
+    src="data:image/jpeg;base64,{LOGO_LIGHT_B64}"
     alt="Styxproxy"
     width="200"
     height="58"
@@ -2420,6 +2421,192 @@ async def send_support_reply_email(
         reply_to="support@styxproxy.com",
         in_reply_to=in_reply_to,
         references=references,
+    )
+
+
+# =============================================================================
+# Renewal Reminder Email Template  (S2.5)
+# =============================================================================
+
+
+def _render_renewal_reminder_email(
+    customer_name: str,
+    order_id: str,
+    plan_code: str,
+    expires_at: datetime,
+    days_remaining: int,
+) -> EmailContent:
+    """Render renewal reminder email - matching receipt PDF dark/light design."""
+    base_styles = _get_base_styles()
+    # Calculate dynamic expiry message
+    if days_remaining <= 0:
+        expiry_headline = "Your proxy has expired"
+        expiry_sub = "Renew now to keep your IP and avoid interruption."
+        badge_class = "pill-red"
+        badge_text = "EXPIRED"
+    elif days_remaining == 1:
+        expiry_headline = "Your proxy expires tomorrow"
+        expiry_sub = "Renew now to keep your IP and avoid interruption."
+        badge_class = "pill-red"
+        badge_text = "EXPIRES SOON"
+    else:
+        expiry_headline = f"Your proxy expires in {days_remaining} days"
+        expiry_sub = "Renew now to keep your IP and avoid interruption."
+        badge_class = "pill-amber"
+        badge_text = f"{days_remaining} DAYS LEFT"
+
+    # Format expiry date
+    expires_str = expires_at.strftime("%B %d, %Y")
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>Your Proxy Expires Soon — Renew Now</title>
+    <style>
+        {base_styles}
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="accent-bar-top"></div>
+
+            {_render_header("RENEWAL Reminder", "styxproxy.com")}
+
+            <div class="divider"></div>
+
+            <div class="content-section">
+                <!-- Section label -->
+                <div class="section-label">Subscription Alert</div>
+
+                <!-- Main heading -->
+                <div class="main-heading">{expiry_headline}</div>
+                <div class="subheading">{expiry_sub}</div>
+
+                <!-- Status badge -->
+                <div style="margin-bottom: 20px;">
+                    <span class="pill {badge_class}">{badge_text}</span>
+                </div>
+
+                <!-- Order details card -->
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Order ID</span>
+                        <span class="card-value card-value-primary">{order_id}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Plan</span>
+                        <span class="card-value">{plan_code}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Expiry Date</span>
+                        <span class="card-value">{expires_str}</span>
+                    </div>
+                </div>
+
+                <!-- Warning box -->
+                <div class="warning-box">
+                    <strong>Don't lose your IP.</strong> Once your proxy expires, the IP address
+                    is released back into the pool and may no longer be available when you renew.
+                    Act now to keep the same IP address.
+                </div>
+
+                <!-- CTA Button -->
+                <div style="text-align: center; margin: 24px 0;">
+                    <a href="https://styxproxy.com/manage" class="cta-button">
+                        Renew Now → styxproxy.com/manage
+                    </a>
+                </div>
+
+                <!-- Support section -->
+                <div class="support-card">
+                    <div class="support-title">NEED HELP?</div>
+                    <div class="support-row">
+                        <span class="support-label">Chat:</span>
+                        <a href="https://styxproxy.com/contact" class="support-link">styxproxy.com/contact</a>
+                    </div>
+                    <div class="support-row">
+                        <span class="support-label">Email:</span>
+                        <a href="mailto:support@styxproxy.com" class="support-link">support@styxproxy.com</a>
+                    </div>
+                    <div class="support-row" style="margin-bottom: 0;">
+                        <span class="support-label">Web:</span>
+                        <a href="https://styxproxy.com" class="support-link">styxproxy.com</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="footer">
+                <div class="footer-auto">You received this email because you have an active Styxproxy subscription.</div>
+                <div class="footer-auto">To manage your email preferences, visit your account settings.</div>
+                <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
+            </div>
+
+            <div class="accent-bar-bottom"></div>
+        </div>
+    </div>
+</body>
+</html>"""
+
+    # Plain text fallback
+    text = f"""Styxproxy Renewal Reminder
+
+{expiry_headline}
+
+Order ID: {order_id}
+Plan: {plan_code}
+Expires: {expires_str}
+
+Don't lose your IP address. Renew now at https://styxproxy.com/manage
+
+If you have questions, contact support@styxproxy.com or visit styxproxy.com/contact
+
+© 2026 Styxproxy
+"""
+
+    subject = f"{expiry_headline} — renew at styxproxy.com/manage"
+    return EmailContent(subject=subject, html=html, text=text)
+
+
+async def send_renewal_reminder_email(
+    customer_email: str,
+    customer_name: str,
+    order_id: str,
+    plan_code: str,
+    expires_at: datetime,
+    days_remaining: int,
+) -> EmailResult:
+    """Send renewal reminder email to customer.
+
+    Args:
+        customer_email: Recipient email address.
+        customer_name: Customer's display name.
+        order_id: The order ID (ORD-XXXXXX).
+        plan_code: The plan code (e.g. RESI-US-5GB).
+        expires_at: When the proxy subscription expires.
+        days_remaining: Days until expiry (used for subject / badge copy).
+    """
+    content = _render_renewal_reminder_email(
+        customer_name=customer_name,
+        order_id=order_id,
+        plan_code=plan_code,
+        expires_at=expires_at,
+        days_remaining=days_remaining,
+    )
+    recipient = EmailRecipient(email=customer_email, name=customer_name)
+
+    return await _send_via_resend(
+        recipient=recipient,
+        subject=content.subject,
+        html=content.html,
+        text=content.text,
     )
 
 

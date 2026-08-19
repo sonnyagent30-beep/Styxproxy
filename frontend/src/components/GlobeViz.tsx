@@ -1,7 +1,10 @@
+
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import { Flag } from '@/components/ui/Flag';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ThreeGlobe = dynamic(() => import('three-globe').then((m: any) => m.default as unknown as React.ComponentType<any>), {
@@ -14,15 +17,15 @@ const ThreeGlobe = dynamic(() => import('three-globe').then((m: any) => m.defaul
 });
 
 const COUNTRY_DATA = [
-  { lat: 51.5074, lng: -0.1278, name: 'UK', country: 'United Kingdom', region: 'Europe', flag: '🇬🇧' },
-  { lat: 40.7128, lng: -74.006, name: 'US', country: 'United States', region: 'North America', flag: '🇺🇸' },
-  { lat: 52.52, lng: 13.405, name: 'DE', country: 'Germany', region: 'Europe', flag: '🇩🇪' },
-  { lat: 48.8566, lng: 2.3522, name: 'FR', country: 'France', region: 'Europe', flag: '🇫🇷' },
-  { lat: 45.5017, lng: -73.5673, name: 'CA', country: 'Canada', region: 'North America', flag: '🇨🇦' },
-  { lat: 35.6762, lng: 139.6503, name: 'JP', country: 'Japan', region: 'Asia Pacific', flag: '🇯🇵' },
-  { lat: -33.8688, lng: 151.2093, name: 'AU', country: 'Australia', region: 'Oceania', flag: '🇦🇺' },
-  { lat: -23.5505, lng: -46.6333, name: 'BR', country: 'Brazil', region: 'South America', flag: '🇧🇷' },
-  { lat: 1.3521, lng: 103.8198, name: 'SG', country: 'Singapore', region: 'Asia Pacific', flag: '🇸🇬' },
+  { lat: 51.5074, lng: -0.1278, name: 'GB', country: 'United Kingdom', region: 'Europe' },
+  { lat: 40.7128, lng: -74.006, name: 'US', country: 'United States', region: 'North America' },
+  { lat: 52.52, lng: 13.405, name: 'DE', country: 'Germany', region: 'Europe' },
+  { lat: 48.8566, lng: 2.3522, name: 'FR', country: 'France', region: 'Europe' },
+  { lat: 45.5017, lng: -73.5673, name: 'CA', country: 'Canada', region: 'North America' },
+  { lat: 35.6762, lng: 139.6503, name: 'JP', country: 'Japan', region: 'Asia Pacific' },
+  { lat: -33.8688, lng: 151.2093, name: 'AU', country: 'Australia', region: 'Oceania' },
+  { lat: -23.5505, lng: -46.6333, name: 'BR', country: 'Brazil', region: 'South America' },
+  { lat: 1.3521, lng: 103.8198, name: 'SG', country: 'Singapore', region: 'Asia Pacific' },
 ];
 
 export default function GlobeViz() {
@@ -145,7 +148,7 @@ export default function GlobeViz() {
             backdropFilter: 'blur(12px)',
           }}
         >
-          <span className="text-3xl">{featured.flag}</span>
+          <Flag countryCode={featured.name} size={36} />
           <div>
             <p className="font-bold text-sm leading-tight" style={{ color: isDark ? '#f4f4f5' : '#18181b' }}>
               {featured.country}

@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import logging
 import uuid
-from typing import Any, Optional
+from typing import Optional
 
 import httpx
 
@@ -14,35 +14,6 @@ from app.services.n8n import trigger_credentials_delivered_webhook
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-
-_sentry_dsn = str(getattr(settings, "sentry_dsn", "") or "").strip()
-
-
-def _capture_money_event(
-    level: str,
-    title: str,
-    extra: dict[str, Any],
-    fingerprint: Optional[str] = None,
-) -> None:
-    """Capture a money-path event in Sentry if configured.
-
-    Safe to call even when Sentry DSN is not set — no-op in that case.
-    """
-    if not _sentry_dsn:
-        return
-    try:
-        import sentry_sdk
-
-        with sentry_sdk.push_scope() as scope:
-            scope.set_level(level)  # type: ignore[arg-type]
-            scope.set_tag("domain", "money")
-            for k, v in extra.items():
-                scope.set_extra(k, v)
-            if fingerprint:
-                scope.fingerprint = [fingerprint]
-            sentry_sdk.capture_message(title)  # type: ignore[arg-type]
-    except Exception:
-        pass  # Never let observability crash the payment path
 
 
 def verify_flutterwave_signature(payload: bytes, signature: str, secret: str) -> bool:
@@ -113,23 +84,32 @@ async def create_flutterwave_invoice(
     currency: str = "NGN",
     callback_url: Optional[str] = None,
     description: Optional[str] = None,
+    device_id: Optional[str] = None,
 ) -> dict:
     tx_ref = f"TXF-{uuid.uuid4().hex[:8].upper()}"
+    payload_meta: dict[str, str] = {}
+    if device_id:
+        payload_meta["device_id"] = device_id
+
     async with httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=10.0)) as client:
         try:
+            json_body: dict[str, Any] = {
+                "tx_ref": tx_ref,
+                "amount": amount,
+                "currency": currency,
+                "customer": {"email": customer_email, "phone_number": customer_phone},
+                "customizations": {
+                    "title": "Styxproxy Proxy Service",
+                    "description": description or "Proxy service payment",
+                },
+                "callback_url": callback_url,
+            }
+            if payload_meta:
+                json_body["meta"] = payload_meta
+
             response = await client.post(
                 "https://api.flutterwave.com/v3/payments",
-                json={
-                    "tx_ref": tx_ref,
-                    "amount": amount,
-                    "currency": currency,
-                    "customer": {"email": customer_email, "phone_number": customer_phone},
-                    "customizations": {
-                        "title": "Styxproxy Proxy Service",
-                        "description": description or "Proxy service payment",
-                    },
-                    "callback_url": callback_url,
-                },
+                json=json_body,
                 headers={
                     "Authorization": f"Bearer {settings.flutterwave_secret_key}",
                     "Content-Type": "application/json",
@@ -244,19 +224,38 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                 fulfillment_error = str(e)
                 order.status = "failed_manual_review"
                 await db_session.commit()
-                _capture_money_event(
-                    level="error",
-                    title=f"Payment succeeded but fulfillment FAILED — manual review needed: {tx_ref}",
-                    extra={
-                        "tx_ref": tx_ref,
-                        "order_id": order.order_id,
-                        "amount": data.get("amount", 0),
-                        "error": fulfillment_error,
-                    },
-                    fingerprint=f"manual-review-{tx_ref}",
+
+            # ── Step 4: Apply referral credit if referee just made their first payment ─
+            # Only trigger for customers who were referred (referred_by != null)
+            # and only on their first confirmed payment (each referee earns at most once).
+            try:
+                from app.models import Customer
+                from app.services.referral import apply_referral_credit
+
+                customer_stmt = select(Customer).where(Customer.phone == order.customer_phone)
+                customer = (await db_session.execute(customer_stmt)).scalar_one_or_none()
+                if customer and customer.referred_by is not None:
+                    await apply_referral_credit(
+                        db_session,
+                        referee_customer_id=customer.id,
+                        referee_payment_tx_ref=tx_ref,
+                    )
+            except Exception as referral_error:
+                # Referral credit failures must NOT roll back the payment confirmation.
+                # Log and continue — the credit can be applied manually or via a reconciliation job.
+                import sentry_sdk
+                try:
+                    sentry_sdk.capture_exception(referral_error)
+                except Exception:
+                    pass
+                logger.warning(
+                    "Failed to apply referral credit for order %s (customer %s): %s",
+                    order.order_id,
+                    order.customer_phone,
+                    referral_error,
                 )
 
-            # ── Step 4: Audit log (after all state mutations) ─────────────────
+            # ── Step 5: Audit log (after all state mutations) ─────────────────
             from app.services.audit import log_audit_event
 
             if fulfillment_error:
@@ -284,33 +283,8 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                         order.refund_requested = True
                         order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
                         await db_session.commit()
-                        _capture_money_event(
-                            level="warning",
-                            title=f"Auto-refund triggered for {tx_ref}",
-                            extra={
-                                "tx_ref": tx_ref,
-                                "order_id": order.order_id,
-                                "amount": data.get("amount", 0),
-                                "reason": fulfillment_error,
-                            },
-                            fingerprint=f"auto-refund-{tx_ref}",
-                        )
                     except Exception as refund_error:
-                        logger.warning(
-                            "Flutterwave refund call failed for tx_ref=%s: %s", tx_ref, refund_error
-                        )
-                        _capture_money_event(
-                            level="error",
-                            title=f"MONEY BUG: auto-refund FAILED for {tx_ref}",
-                            extra={
-                                "tx_ref": tx_ref,
-                                "order_id": order.order_id,
-                                "amount": data.get("amount", 0),
-                                "refund_error": str(refund_error),
-                                "fulfillment_error": fulfillment_error,
-                            },
-                            fingerprint=f"refund-failed-{tx_ref}",
-                        )
+                        logger.warning("Flutterwave refund call failed for tx_ref=%s: %s", tx_ref, refund_error)
             else:
                 await log_audit_event(
                     db_session,
@@ -320,7 +294,61 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                     details={"tx_ref": tx_ref},
                 )
 
-            # ── Step 5: Mark processed ONLY after all mutations succeeded ──────
+            # ── Step 5b: Record trial-to-paid conversion (S2.4) ───────────────
+            # If this payment completes an active trial session for the same
+            # platform_account (or device), mark it as converted.
+            try:
+                from datetime import datetime, timezone as tz
+                from sqlalchemy import select
+
+                from app.models import TrialSession
+
+                # Look up the most recent active trial session for this platform_account.
+                # device_id lookup via platform_account is the prerequisite noted in SPEC.
+                if order.platform_account_id is not None:
+                    trial_stmt = (
+                        select(TrialSession)
+                        .where(TrialSession.platform_account_id == order.platform_account_id)
+                        .where(TrialSession.status == "active")
+                        .order_by(TrialSession.trial_started_at.desc())
+                        .limit(1)
+                    )
+                    trial_session = (await db_session.execute(trial_stmt)).scalar_one_or_none()
+
+                    if trial_session is not None:
+                        # Only mark converted if the trial was still valid at payment time.
+                        now = datetime.now(tz.utc)
+                        if trial_session.trial_expires_at >= now:
+                            trial_session.converted_at = now
+                            trial_session.status = "converted"
+                            await log_audit_event(
+                                db_session,
+                                event_type="trial_converted",
+                                phone=order.customer_phone,
+                                order_id=order.order_id,
+                                details={
+                                    "trial_session_id": trial_session.id,
+                                    "trial_started_at": str(trial_session.trial_started_at),
+                                    "trial_expires_at": str(trial_session.trial_expires_at),
+                                    "tx_ref": tx_ref,
+                                },
+                            )
+            except Exception as trial_conv_error:
+                # Conversion tracking failures must NOT roll back or block payment processing.
+                import sentry_sdk
+
+                try:
+                    sentry_sdk.capture_exception(trial_conv_error)
+                except Exception:
+                    pass
+                logger.warning(
+                    "Trial conversion tracking failed for order %s (tx_ref=%s): %s",
+                    order.order_id,
+                    tx_ref,
+                    trial_conv_error,
+                )
+
+            # ── Step 6: Mark processed ONLY after all mutations succeeded ──────
             await mark_webhook_processed(
                 db_session,
                 webhook_id=tx_ref,
@@ -330,100 +358,5 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
             )
 
             return {"status": "processed", "order_id": order.order_id}
-
-    # ── payment.expired ──────────────────────────────────────────────────────────
-    # Flutterwave sends this when a payment link expires before the customer paid.
-    # If the order was already paid/fulfilled, ignore — the customer already got value.
-    # If the order is still pending/created, mark it expired so it can't be used.
-    if event_type == "payment.expired":
-        tx_ref = data.get("tx_ref")
-        if not tx_ref:
-            return {"status": "ignored"}
-
-        from sqlalchemy import select
-
-        from app.models import Order
-
-        order = (
-            await db_session.execute(select(Order).where(Order.payment_reference == tx_ref))
-        ).scalar_one_or_none()
-
-        if not order:
-            logger.warning("payment.expired: no order found for tx_ref=%s", tx_ref)
-            return {"status": "no_order_found"}
-
-        if order.status in ("paid", "fulfilled", "active"):
-            # Customer already paid and got served — ignore the expired notification
-            return {"status": "already_processed"}
-
-        # Order is still pending — mark it expired
-        order.status = "payment_expired"
-        await db_session.commit()
-
-        from app.services.audit import log_audit_event
-        await log_audit_event(
-            db_session,
-            event_type="payment_expired",
-            phone=order.customer_phone,
-            order_id=order.order_id,
-            details={"tx_ref": tx_ref},
-        )
-
-        await mark_webhook_processed(
-            db_session,
-            webhook_id=tx_ref,
-            provider="flutterwave",
-            event_type=event_type,
-            extra_data=data,
-        )
-        return {"status": "processed", "order_id": order.order_id}
-
-    # ── charge.failed ────────────────────────────────────────────────────────────
-    # Customer's card was declined or payment failed after initiating a payment.
-    # Mark the order as failed so the payment link can't be reused.
-    if event_type == "charge.failed":
-        tx_ref = data.get("tx_ref")
-        status = data.get("status")
-        failure_message = data.get("processor_response", {}).get("remark", "") if isinstance(data.get("processor_response"), dict) else str(data.get("processor_response", ""))
-
-        if not tx_ref:
-            return {"status": "ignored"}
-
-        from sqlalchemy import select
-
-        from app.models import Order
-
-        order = (
-            await db_session.execute(select(Order).where(Order.payment_reference == tx_ref))
-        ).scalar_one_or_none()
-
-        if not order:
-            logger.warning("charge.failed: no order found for tx_ref=%s", tx_ref)
-            return {"status": "no_order_found"}
-
-        if order.status in ("paid", "fulfilled", "active", "failed"):
-            return {"status": "already_processed"}
-
-        order.status = "failed"
-        order.refund_reason = f"Payment failed: {failure_message}"
-        await db_session.commit()
-
-        from app.services.audit import log_audit_event
-        await log_audit_event(
-            db_session,
-            event_type="payment_charge_failed",
-            phone=order.customer_phone,
-            order_id=order.order_id,
-            details={"tx_ref": tx_ref, "status": status, "failure": failure_message},
-        )
-
-        await mark_webhook_processed(
-            db_session,
-            webhook_id=tx_ref,
-            provider="flutterwave",
-            event_type=event_type,
-            extra_data=data,
-        )
-        return {"status": "processed", "order_id": order.order_id}
 
     return {"status": "ignored"}

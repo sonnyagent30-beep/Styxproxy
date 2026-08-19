@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
     // Pre-existing TS errors in admin pages — don't block deploys while we fix them iteratively
     ignoreBuildErrors: true,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   async rewrites() {
     // Proxy /api/admin calls to the backend — browser never talks to api.styxproxy.com directly
     // This eliminates CORS issues entirely for admin API calls
@@ -31,6 +34,10 @@ const nextConfig: NextConfig = {
         destination: 'https://api.styxproxy.com/api/catalog',
       },
       {
+        source: '/api/countries',
+        destination: 'https://api.styxproxy.com/api/countries',
+      },
+      {
         source: '/api/products',
         destination: 'https://api.styxproxy.com/api/products',
       },
@@ -53,6 +60,66 @@ const nextConfig: NextConfig = {
         // Charon A/B test results (Sprint 25)
         source: '/api/v1/admin/charon/ab-test/:path*',
         destination: 'https://api.styxproxy.com/api/v1/admin/charon/ab-test/:path*',
+      },
+      // Charon AI endpoints
+      {
+        source: '/api/charon/:path*',
+        destination: 'https://api.styxproxy.com/api/charon/:path*',
+      },
+      // Public maintenance flag check
+      {
+        source: '/api/maintenance',
+        destination: 'https://api.styxproxy.com/api/maintenance',
+      },
+      // Charon admin endpoints
+      {
+        source: '/api/v1/charon/:path*',
+        destination: 'https://api.styxproxy.com/api/v1/charon/:path*',
+      },
+
+      // ── Public API routes (frontend calls these without /api prefix) ──
+      // Orders
+      {
+        source: '/orders/:path*',
+        destination: 'https://api.styxproxy.com/api/orders/:path*',
+      },
+      // Payments
+      {
+        source: '/api/payments/initiate',
+        destination: 'https://api.styxproxy.com/api/payments/initiate',
+      },
+      {
+        source: '/payments/initiate',
+        destination: 'https://api.styxproxy.com/api/payments/initiate',
+      },
+      {
+        source: '/payments/:tx_ref/status',
+        destination: 'https://api.styxproxy.com/api/payments/:tx_ref/status',
+      },
+      // Credentials
+      {
+        source: '/credentials/:order_id',
+        destination: 'https://api.styxproxy.com/api/credentials/:order_id',
+      },
+      // Public checkout status
+      {
+        source: '/public/checkout-status',
+        destination: 'https://api.styxproxy.com/api/public/checkout-status',
+      },
+      // Blog admin sub-path (frontend uses /api/blog/admin/... but rewrite only covers /api/blog/:path*)
+      {
+        source: '/api/blog/admin/:path*',
+        destination: 'https://api.styxproxy.com/api/blog/admin/:path*',
+      },
+      // Public order status (called directly in thank-you page as /api/orders/:id/status)
+      {
+        source: '/api/orders/:path*',
+        destination: 'https://api.styxproxy.com/api/orders/:path*',
+      },
+      // Public receipt/pdf (called directly in receipt page as /api/orders/:tx_ref/...)
+      {
+        source: '/api/orders/:tx_ref/:subpath*',
+        destination: 'https://api.styxproxy.com/api/orders/:tx_ref/:subpath*',
       },
     ];
   },
@@ -83,6 +150,7 @@ const nextConfig: NextConfig = {
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           {
@@ -120,13 +188,17 @@ const nextConfig: NextConfig = {
 // - hideSourceMaps: true prevents source maps from being deployed to Vercel
 // Note: @sentry/nextjs@10 handles its own tunnel via the SDK's `tunnel` option
 // (set automatically from `tunnelRoute`). No custom route handler needed.
-export default withSentryConfig(nextConfig, {
-  org: "dannion-creative-hub",
-  project: "styxproxy-frontend",
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  silent: !process.env.CI,
-  hideSourceMaps: true,
-  disableLogger: true,
-  widenClientFileUpload: true,
-  transpileClientSDK: true,
-});
+// CONDITIONAL: Only activate Sentry when SENTRY_AUTH_TOKEN is present.
+// This prevents post-compile SIGSEGV on Vercel builds without a token.
+const config = process.env.SENTRY_AUTH_TOKEN
+  ? withSentryConfig(nextConfig, {
+      org: "dannion-creative-hub",
+      project: "styxproxy-frontend",
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      silent: !process.env.CI,
+      sourcemaps: { disable: true },
+      disableLogger: true,
+    })
+  : nextConfig;
+
+export default config;

@@ -1,3 +1,6 @@
+
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -7,8 +10,10 @@ import {
   COUNTRIES,
   type CountryInfo,
 } from '@/lib/products';
+import { Flag } from '@/components/ui/Flag';
+import { useCartStore } from '@/store/cart-store';
 import type { CartItem, CatalogResponse, CatalogTemplate, CatalogVariant, CatalogPlanType } from '@/types';
-import { Globe, House, DeviceMobile, HardDrives, ArrowRight, X, ArrowsClockwise, Plus, Minus, Check } from '@phosphor-icons/react';
+import { Globe, House, DeviceMobile, HardDrives, Database, ArrowRight, X, ArrowsClockwise, Plus, Minus, Check } from '@phosphor-icons/react';
 
 // Map catalog plan_type to display icons and labels
 function getTypeCardConfig(planType: CatalogPlanType): {
@@ -39,11 +44,11 @@ function getTypeCardConfig(planType: CatalogPlanType): {
         icon: <DeviceMobile className="w-8 h-8" />,
         description: 'Mobile carrier IPs, perfect for social media and ad verification',
       };
-    case 'datacenter':
+    case 'dc':
       return {
         key: 'DC',
         label: 'Datacenter',
-        icon: <HardDrives className="w-8 h-8" />,
+        icon: <Database className="w-8 h-8" />,
         description: 'Fast datacenter proxies for general purpose use',
       };
     default:
@@ -57,8 +62,13 @@ function getTypeCardConfig(planType: CatalogPlanType): {
 }
 
 // Extract cheapest price for a template
+// DC/ISP: use base_price_per_ip (plan's published rate)
+// Residential/Mobile: use cheapest variant price_ngn (volume tier pricing)
 function getCheapestPrice(template: CatalogTemplate): number | null {
   if (!template.variants || template.variants.length === 0) return null;
+  if (template.plan_type === 'dc' || template.plan_type === 'isp') {
+    return template.base_price_per_ip ?? null;
+  }
   return Math.min(...template.variants.map(v => v.price_ngn));
 }
 
@@ -72,9 +82,14 @@ export default function OrderPage() {
   const [catalog, setCatalog] = useState<CatalogResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const { items: cart, addItem, removeItem, clearCart, total: cartTotal } = useCartStore();
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [addedMessage, setAddedMessage] = useState('');
+
+  // Sync cart to sessionStorage so checkout page can read it
+  useEffect(() => {
+    sessionStorage.setItem('styxproxy_cart', JSON.stringify(cart));
+  }, [cart]);
 
   // Residential/Mobile state
   const [selectedCountry, setSelectedCountry] = useState<string>('');
@@ -104,21 +119,11 @@ export default function OrderPage() {
     fetchCatalog();
   }, []);
 
-  // Load cart from sessionStorage
-  useEffect(() => {
-    const stored = sessionStorage.getItem('styxproxy_cart');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) setCart(parsed);
-      } catch {}
-    }
-  }, []);
 
   // Stale cart fix: verify cart items still exist in catalog
   useEffect(() => {
     if (!catalog || catalog.templates.length === 0) return;
-    
+
     // Build set of valid plan_codes from catalog
     const validPlanCodes = new Set<string>();
     for (const template of catalog.templates) {
@@ -126,19 +131,43 @@ export default function OrderPage() {
         validPlanCodes.add(variant.plan_code);
       }
     }
-    
+
     // Remove items whose plan_codes no longer exist
     const validCart = cart.filter(item => validPlanCodes.has(item.plan_code));
     if (validCart.length !== cart.length) {
-      setCart(validCart);
-      sessionStorage.setItem('styxproxy_cart', JSON.stringify(validCart));
+      clearCart();
+      validCart.forEach(item => addItem(item));
     }
   }, [catalog]);
 
-  const saveCart = useCallback((newCart: CartItem[]) => {
-    setCart(newCart);
-    sessionStorage.setItem('styxproxy_cart', JSON.stringify(newCart));
-  }, []);
+  // Trigger reveal after catalog loads (cards render async, observer needs a second pass)
+  useEffect(() => {
+    if (!loading && catalog) {
+      setTimeout(() => {
+        document.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
+      }, 100);
+    }
+  }, [loading, catalog]);
+
+  // Scroll reveal for elements added later
+  useEffect(() => {
+    const revealEls = document.querySelectorAll('.reveal:not(.visible)');
+    if (revealEls.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.05, rootMargin: '0px 0px -10% 0px' }
+    );
+    revealEls.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [loading, catalog]);
+
 
   // Build typeCards from catalog
   const typeCards = useMemo(() => {
@@ -179,7 +208,7 @@ export default function OrderPage() {
       return {
         code: code.toUpperCase(),
         name: country?.name || code,
-        flag: country?.flag || '🌍',
+        countryCode: code.toUpperCase(),
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [currentTemplate]);
@@ -264,8 +293,10 @@ export default function OrderPage() {
     const country = selectedCountry ? COUNTRIES[selectedCountry.toUpperCase()] : null;
     // Build plan code: use COUNTRY_CODE if selected, else GENERIC
     const planCode = selectedCountry
-      ? `${currentTemplate.plan_type}-${selectedCountry.toUpperCase()}-${selectedGbTier}`
-      : `${currentTemplate.plan_type}-GENERIC-${selectedGbTier}`;
+      ? (currentTemplate.plan_type === 'dc' || currentTemplate.plan_type === 'isp'
+          ? `${currentTemplate.plan_type.toUpperCase()}-${selectedCountry.toUpperCase()}-${selectedGbTier}IP`
+          : `${currentTemplate.plan_type.toUpperCase().replace('RESIDENTIAL', 'RESI').replace('MOBILE', 'MOB')}-${selectedCountry.toUpperCase()}-${selectedGbTier}GB`)
+      : `${currentTemplate.plan_type.toUpperCase().replace('RESIDENTIAL', 'RESI').replace('MOBILE', 'MOB')}-GENERIC-${selectedGbTier}GB`;
 
     // Find variant for price if country selected
     const variant = selectedCountry
@@ -299,7 +330,8 @@ export default function OrderPage() {
         }
         return i;
       });
-      saveCart(updated);
+      clearCart();
+      updated.forEach(item => addItem(item));
     } else {
       const newItem: CartItem = {
         plan_code: planCode,
@@ -318,9 +350,9 @@ export default function OrderPage() {
         gb_tiers: gbTiers,
         supports_city: supportsCity,
       };
-      saveCart([...cart, newItem]);
+      addItem(newItem);
     }
-    setAddedMessage(`${country?.flag || '🌍'} ${name} added to cart`);
+    setAddedMessage(`${country?.name || selectedCountry?.toUpperCase() || ''} added to cart`);
     setTimeout(() => setAddedMessage(''), 2000);
   };
 
@@ -337,7 +369,7 @@ export default function OrderPage() {
       );
 
       const itemPrice = (variant?.price_ngn || 0) * selection.quantity;
-      const planCode = `${currentTemplate.plan_type}-${selection.code.toUpperCase()}-${selection.quantity}`;
+      const planCode = `${currentTemplate.plan_type.toUpperCase()}-${selection.code.toUpperCase()}-${selection.quantity}IP`;
 
       const name = `${country?.name || selection.code} x${selection.quantity} IPs`;
 
@@ -375,13 +407,14 @@ export default function OrderPage() {
       }
     }
     
-    saveCart(updatedCart);
+    clearCart();
+    updatedCart.forEach(item => addItem(item));
     const count = selectedCountries.length;
     setAddedMessage(`${count} ${count === 1 ? 'country' : 'countries'} added to cart`);
     setTimeout(() => setAddedMessage(''), 2000);
   };
 
-  const cartTotal = cart.reduce((sum, i) => sum + i.price_ngn, 0);
+  
   const cartCount = cart.length;
 
   const handleRetry = () => {
@@ -393,17 +426,9 @@ export default function OrderPage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 pb-32">
+      <div className="min-h-screen pb-32">
         <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <h1 className="text-4xl font-bold mb-3">
-              Choose Your <span className="text-[var(--primary)]">Proxy Type</span>
-            </h1>
-            <p className="text-[var(--muted)]">
-              Pick a proxy type, choose your country, and add to cart
-            </p>
-          </div>
-          <div className="flex items-center justify-center py-20">
+          <div className="flex items-center justify-center py-32">
             <div className="flex items-center gap-3 text-[var(--muted)]">
               <ArrowsClockwise className="animate-spin" size={24} />
               <span>Loading catalog...</span>
@@ -417,17 +442,9 @@ export default function OrderPage() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen pt-24 pb-32">
+      <div className="min-h-screen pb-32">
         <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <h1 className="text-4xl font-bold mb-3">
-              Choose Your <span className="text-[var(--primary)]">Proxy Type</span>
-            </h1>
-            <p className="text-[var(--muted)]">
-              Pick a proxy type, choose your country, and add to cart
-            </p>
-          </div>
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <div className="flex flex-col items-center justify-center py-32 gap-4">
             <p className="text-red-400">{error}</p>
             <button
               onClick={handleRetry}
@@ -442,20 +459,42 @@ export default function OrderPage() {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-32">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold mb-3">
-            Choose Your <span className="text-[var(--primary)]">Proxy Type</span>
-          </h1>
-          <p className="text-[var(--muted)]">
-            Pick a proxy type, choose your country, and add to cart
-          </p>
-        </div>
+    <div className="min-h-screen pb-32">
+      {/* Hero — full width, outside the constrained container */}
+      <div className="relative overflow-hidden pt-12 pb-12">
+        <div className="absolute inset-0 hero-bg-grid" />
+        <div className="absolute inset-0 hero-bg-rings" />
+        <div className="absolute inset-0 hero-bg-vignette" />
+        <div className="hero-orb-1" />
+        <div className="hero-orb-2" />
+        <div className="hero-orb-3" />
 
+        <div className="relative text-center max-w-3xl mx-auto px-4">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-6 mx-auto">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
+            <span className="text-xs font-bold uppercase tracking-widest text-[var(--primary)]">Order Proxies</span>
+          </div>
+
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mb-4">
+            Get Your <span className="text-[var(--primary)]">Proxies</span> Now
+          </h1>
+          <p className="text-base text-[var(--muted)] max-w-xl mx-auto">
+            Pick a proxy type, choose your country, checkout in seconds. No signup required.
+          </p>
+
+          {/* Scroll indicator */}
+          <div className="flex flex-col items-center gap-2 pt-8">
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+            <div className="w-px h-8 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
+          </div>
+        </div>
+      </div>
+
+      {/* Rest of page — constrained */}
+      <div className="max-w-4xl mx-auto px-4">
         {/* Type Cards */}
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-2 gap-4 reveal">
           {typeCards.map(card => (
             <button
               key={card.key}
@@ -463,13 +502,13 @@ export default function OrderPage() {
               className="w-full p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] transition-all text-left group card-depth"
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="w-14 h-14 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)]/20 transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)]/20 transition-colors">
                   {card.icon}
                 </div>
                 <ArrowRight className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors" />
               </div>
-              <h3 className="text-lg font-bold mb-1">{card.label}</h3>
-              <p className="text-sm text-[var(--muted)] mb-3">{card.description}</p>
+              <h3 className="text-base font-bold mb-1">{card.label}</h3>
+              <p className="text-xs text-[var(--muted)] mb-3">{card.description}</p>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-[var(--primary)]">{card.price}</span>
                 <span className="text-xs text-[var(--muted)]">
@@ -488,7 +527,7 @@ export default function OrderPage() {
                 <span className="font-bold text-[var(--foreground)]">
                   {cartCount} {cartCount === 1 ? 'item' : 'items'}
                 </span>
-                <span className="text-[var(--muted)] ml-2">{formatPrice(cartTotal)}</span>
+                <span className="text-[var(--muted)] ml-2">{formatPrice(cartTotal())}</span>
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -595,7 +634,7 @@ export default function OrderPage() {
                     <option value="">Select a country</option>
                     {templateCountries.map(c => (
                       <option key={c.code} value={c.code}>
-                        {c.flag} {c.name} ({c.code})
+                        {c.name} ({c.code})
                       </option>
                     ))}
                   </select>
@@ -692,8 +731,9 @@ export default function OrderPage() {
                               : 'border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted)] hover:text-[var(--foreground)]'
                           }`}
                         >
-                          <span className="text-base leading-none">{c.flag}</span>
-                          <span className="font-medium">{c.code}</span>
+                          <Flag countryCode={c.code} size={18} />
+                          <span className="font-medium">{c.name}</span>
+                          <span className="text-[var(--muted)] text-xs">({c.code})</span>
                         </button>
                       );
                     })}
@@ -716,11 +756,11 @@ export default function OrderPage() {
                     return (
                       <div
                         key={selection.code}
-                        className="flex items-center gap-3 p-3 rounded-lg bg-[var(--background)] border border-[var(--border)]"
+                        className="flex items-center gap-3 p-3 rounded-xl bg-[var(--card)] border border-[var(--border)] card-depth"
                       >
-                        <span className="text-2xl">{country?.flag || '🌍'}</span>
+                        <Flag countryCode={selection.code} size={32} />
                         <div className="flex-1">
-                          <p className="font-medium">{country?.name || selection.code}</p>
+                          <p className="font-semibold">{country?.name || selection.code}</p>
                           <p className="text-xs text-[var(--muted)]">
                             {formatPrice(pricePerIp)}/mo each
                           </p>

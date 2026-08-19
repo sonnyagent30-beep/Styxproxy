@@ -1,18 +1,21 @@
+
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Flag } from '@/components/ui/Flag';
 
 // Country data with SVG coordinates (viewBox: 0 0 1000 500)
 const COUNTRIES = [
-  { name: 'UK', country: 'United Kingdom', region: 'Europe', flag: '🇬🇧', x: 470, y: 140, type: 'ISP' },
-  { name: 'US', country: 'United States', region: 'North America', flag: '🇺🇸', x: 180, y: 160, type: 'ISP' },
-  { name: 'DE', country: 'Germany', region: 'Europe', flag: '🇩🇪', x: 510, y: 150, type: 'ISP' },
-  { name: 'FR', country: 'France', region: 'Europe', flag: '🇫🇷', x: 490, y: 160, type: 'ISP' },
-  { name: 'CA', country: 'Canada', region: 'North America', flag: '🇨🇦', x: 170, y: 120, type: 'ISP' },
-  { name: 'JP', country: 'Japan', region: 'Asia Pacific', flag: '🇯🇵', x: 840, y: 170, type: 'ISP' },
-  { name: 'AU', country: 'Australia', region: 'Oceania', flag: '🇦🇺', x: 830, y: 370, type: 'ISP' },
-  { name: 'BR', country: 'Brazil', region: 'South America', flag: '🇧🇷', x: 290, y: 340, type: 'ISP' },
-  { name: 'SG', country: 'Singapore', region: 'Asia Pacific', flag: '🇸🇬', x: 770, y: 270, type: 'ISP' },
+  { name: 'GB', country: 'United Kingdom', region: 'Europe', x: 470, y: 140, type: 'ISP' },
+  { name: 'US', country: 'United States', region: 'North America', x: 180, y: 160, type: 'ISP' },
+  { name: 'DE', country: 'Germany', region: 'Europe', x: 510, y: 150, type: 'ISP' },
+  { name: 'FR', country: 'France', region: 'Europe', x: 490, y: 160, type: 'ISP' },
+  { name: 'CA', country: 'Canada', region: 'North America', x: 170, y: 120, type: 'ISP' },
+  { name: 'JP', country: 'Japan', region: 'Asia Pacific', x: 840, y: 170, type: 'ISP' },
+  { name: 'AU', country: 'Australia', region: 'Oceania', x: 830, y: 370, type: 'ISP' },
+  { name: 'BR', country: 'Brazil', region: 'South America', x: 290, y: 340, type: 'ISP' },
+  { name: 'SG', country: 'Singapore', region: 'Asia Pacific', x: 770, y: 270, type: 'ISP' },
 ];
 
 // Connections from UK to all other ISP countries
@@ -205,7 +208,7 @@ export default function WorldMap() {
                   fill={isDark ? '#e2e8f0' : '#1e293b'}
                   style={{ fontSize: '11px' }}
                 >
-                  {country.flag} {country.name}
+                  {country.name}
                 </text>
               </g>
             );
@@ -216,7 +219,7 @@ export default function WorldMap() {
       {/* Floating callout card */}
       <div className="absolute top-4 right-4 bg-[var(--card)]/95 backdrop-blur-sm border border-[var(--border)] rounded-xl p-4 min-w-[200px] shadow-lg">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-2xl">{featuredCountry.flag}</span>
+          <Flag countryCode={featuredCountry.name} size={28} />
           <div>
             <h3 className="font-bold text-[var(--foreground)]">{featuredCountry.country}</h3>
             <p className="text-xs text-[var(--muted)]">{featuredCountry.region}</p>

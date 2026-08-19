@@ -5,8 +5,11 @@ GET    /api/catalog          - list plan_type templates with country + rotation 
 POST   /api/orders           - create order + provision credential (customer picks location + rotation_mode)
 """
 
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_account
@@ -81,3 +84,47 @@ async def create_order(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=msg)
 
     return OrderCreateResponse(**result)
+
+
+# ─── Public Countries Endpoint ────────────────────────────────────────────────
+
+class CountryInfo(BaseModel):
+    """Minimal country info for GlobeMap + public country list."""
+    code: str
+    name: str
+    flag_emoji: str
+    region: Optional[str] = None
+
+
+class CountriesResponse(BaseModel):
+    countries: list[CountryInfo]
+
+
+@router.get("/countries", response_model=CountriesResponse)
+async def get_countries(session: AsyncSession = Depends(get_session)):
+    """Return all countries that have at least one active plan_type in PlanSettings."""
+    from app.models import Country, PlanSettings
+    from sqlalchemy import select
+
+    pt_result = await session.execute(
+        select(PlanSettings.plan_type, PlanSettings.country).where(PlanSettings.is_active)
+    )
+    rows = pt_result.fetchall()
+
+    country_codes: set[str] = {code for _, code in rows if code}
+
+    if country_codes:
+        country_result = await session.execute(
+            select(Country).where(Country.code.in_(country_codes))
+        )
+        countries_rows = country_result.scalars().all()
+    else:
+        countries_rows = []
+
+    country_infos = []
+    for c in countries_rows:
+        country_infos.append(CountryInfo(
+            code=c.code, name=c.name, flag_emoji=c.flag_emoji, region=c.region
+        ))
+
+    return CountriesResponse(countries=country_infos)

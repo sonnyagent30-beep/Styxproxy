@@ -12,7 +12,7 @@ export default function AuthError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
+     
     console.error('[admin auth error]', error);
   }, [error]);
 

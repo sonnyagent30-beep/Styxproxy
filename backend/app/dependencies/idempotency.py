@@ -20,18 +20,15 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import Header, HTTPException
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import engine
+from app.models import IdempotencyResponse
 
 
 def _hash(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()
-
-
-class IdempotencyRecord:
-    """Nominal class — actual table created via raw SQL on startup."""
-    pass
 
 
 async def check_idempotency(
@@ -60,16 +57,14 @@ async def check_idempotency(
     ttl = datetime.fromtimestamp(now.timestamp() + 86400, tz=timezone.utc)
 
     async with AsyncSession(engine) as session:
-        from sqlalchemy import select, text
-
-        # Find existing record
+        # Find existing record — uses ORM select with bindparams, NO raw text() f-strings
         row = await session.execute(
-            select(
-                text("key_hash, status_code, response_body, response_headers")
-            ).select_from(text("idempotency_responses")
-            ).where(text(f"key_hash = '{key_hash}' AND expires_at > '{now.isoformat()}'"))
+            select(IdempotencyResponse).where(
+                IdempotencyResponse.key_hash == key_hash,
+                IdempotencyResponse.expires_at > now,
+            )
         )
-        existing = row.first()
+        existing = row.scalar_one_or_none()
 
         if existing:
             if existing.status_code is not None:
@@ -113,7 +108,6 @@ async def store_idempotent_response(
     now = datetime.now(timezone.utc)
 
     async with AsyncSession(engine) as session:
-        from sqlalchemy import text
         await session.execute(
             text("""
                 UPDATE idempotency_responses

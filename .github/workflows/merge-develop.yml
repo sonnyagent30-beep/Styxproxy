@@ -1,0 +1,33 @@
+name: Merge Develop to Main
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Merge message (optional)'
+        required: false
+        default: 'Merge develop to main'
+
+jobs:
+  merge:
+    name: Merge develop → main
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch + merge develop into main
+        run: |
+          set -e
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions@github.com"
+          git checkout main
+          git pull origin main --ff-only
+          git merge --no-ff develop -m "${{ github.event.inputs.message || 'Merge develop to main' }}"
+          git push origin main
+          echo "Merged and pushed develop → main"

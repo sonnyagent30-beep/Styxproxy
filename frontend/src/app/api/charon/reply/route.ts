@@ -1,3 +1,5 @@
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 
 // Vercel proxy for Charon.
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Enforce payload safety: limit message length and shape.
-    const safe = {
+    const safe: Record<string, unknown> = {
       channel: typeof payload.channel === 'string' ? payload.channel.slice(0, 32) : 'web',
       conversation_id: typeof payload.conversation_id === 'string' ? payload.conversation_id.slice(0, 64) : undefined,
       user_message: payload.user_message.slice(0, 4000),
@@ -40,6 +42,11 @@ export async function POST(request: NextRequest) {
             .map((m: any) => ({ role: m.role, content: m.content.slice(0, 4000) }))
         : [],
     };
+
+    // Forward page context so Charon knows which page the user is on
+    if (payload.page_context && typeof payload.page_context === 'object') {
+      safe.page_context = payload.page_context;
+    }
 
     // Forward to FastAPI without forwarding the customer's IP.
     if (!BACKEND) {

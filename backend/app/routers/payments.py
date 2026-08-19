@@ -46,9 +46,7 @@ async def initiate_payment(
     # the admin dashboard. Site stays up (so customers can still view
     # orders, contact support, etc.) — only the buy path is blocked.
     kill_switch = (
-        await session.execute(
-            select(FeatureFlag).where(FeatureFlag.name == "checkout_disabled")
-        )
+        await session.execute(select(FeatureFlag).where(FeatureFlag.name == "checkout_disabled"))
     ).scalar_one_or_none()
     if kill_switch and kill_switch.enabled:
         raise HTTPException(
@@ -66,6 +64,8 @@ async def initiate_payment(
         )
 
     platform_account = current_user.get("platform_account") if isinstance(current_user, dict) else None
+    device_id = platform_account.device_id if platform_account else None
+
     customer = await get_or_create_customer(
         session,
         phone=request.customer_phone,
@@ -90,6 +90,7 @@ async def initiate_payment(
             currency="NGN",
             callback_url=request.callback_url,
             description=f"Payment for {request.plan_code}",
+            device_id=device_id,
         )
     except Exception as e:
         await log_audit_event(

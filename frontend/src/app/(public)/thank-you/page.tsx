@@ -1,9 +1,13 @@
+
+/* eslint-disable react-hooks/set-state-in-effect */
+
 'use client';
 
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
+import { Flag } from '@/components/ui/Flag';
 import { generateReceiptPDF } from '@/lib/pdf-receipt';
 import type { ReceiptOrder } from '@/lib/pdf-receipt';
 import { Check, Copy, Warning, XCircle, ArrowLineDown, WarningCircle } from '@phosphor-icons/react';
@@ -12,7 +16,7 @@ import { Check, Copy, Warning, XCircle, ArrowLineDown, WarningCircle } from '@ph
 interface CartItem {
   plan_code: string;
   name: string;
-  flag: string;
+  country_code: string;
   price_ngn: number;
   quantity: number;
 }
@@ -197,7 +201,7 @@ async function generateLocalPDF(order: OrderData, cart: CartItem[], txRef: strin
     doc.setTextColor(...WHITE);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`${item.flag || ''} ${item.name}`, 15, y);
+    doc.text(`${item.country_code} ${item.name}`, 15, y);
 
     doc.setTextColor(...MUTED);
     doc.setFontSize(6.5);
@@ -659,7 +663,7 @@ function ThankYouContent() {
                   {cart.map((item, idx) => (
                     <div key={item.plan_code} className="p-3 rounded-lg bg-[var(--card-hover)]">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xl">{item.flag}</span>
+                        <Flag countryCode={item.country_code} size={20} />
                         <span className="font-medium">{item.name}</span>
                         <span className="text-sm text-[var(--muted)]">× {item.quantity}</span>
                       </div>

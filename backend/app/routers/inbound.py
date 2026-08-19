@@ -14,8 +14,112 @@ from app.config import get_settings
 from app.database import get_session
 from app.models import ProcessedWebhook, SupportMessage, SupportThread
 from app.services.email import send_email
+import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
+
+# ── Rate limiting ────────────────────────────────────────────────────────────────
+RATE_LIMIT_WINDOW = 3600   # 1 hour
+RATE_LIMIT_MAX   = 5      # 5 messages per sender per hour
+_redis_client: redis.Redis | None = None
+
+async def _get_redis() -> redis.Redis:
+    global _redis_client
+    if _redis_client is None:
+        url = getattr(get_settings(), "redis_url", "redis://:styxproxy_redis_2026@127.0.0.1:6379/0")
+        _redis_client = redis.from_url(url, decode_responses=True)
+    return _redis_client
+
+async def _check_rate_limit(sender_email: str) -> tuple[bool, int]:
+    """5 msgs/hr per sender via Redis sliding window. Returns (allowed, remaining)."""
+    try:
+        client = await _get_redis()
+        key    = f"inbound:rate:{sender_email}"
+        now    = time.time()
+        window = now - RATE_LIMIT_WINDOW
+
+        pipe = client.pipeline()
+        pipe.zremrangebyscore(key, 0, window)
+        pipe.zcard(key)
+        results = await pipe.execute()
+        count = results[1]
+
+        if count >= RATE_LIMIT_MAX:
+            return False, 0
+
+        await client.zadd(key, {str(now): now})
+        await client.expire(key, RATE_LIMIT_WINDOW + 60)
+        return True, max(0, RATE_LIMIT_MAX - count - 1)
+
+    except Exception as e:
+        logger.warning(f"Redis rate limit check failed (allowing): {e}")
+        return True, RATE_LIMIT_MAX   # fail open
+
+# ── MIME validation ─────────────────────────────────────────────────────────────
+MAX_EMAIL_SIZE   = 10 * 1024 * 1024   # 10 MB
+BLOCKED_MIME_TYPES = {
+    "application/octet-stream", "application/x-executable",
+    "application/x-msdownload", "application/zip",
+    "application/x-zip-compressed", "application/javascript",
+    "text/javascript",
+}
+
+def _validate_mime(request) -> tuple[bool, str]:
+    """Reject oversized or dangerous Content-Types."""
+    cl = request.headers.get("content-length")
+    if cl:
+        try:
+            if int(cl) > MAX_EMAIL_SIZE:
+                return False, f"Payload too large (>{MAX_EMAIL_SIZE // 1024//1024}MB)"
+        except ValueError:
+            pass
+
+    ct = request.headers.get("content-type", "").lower()
+    if ct in BLOCKED_MIME_TYPES:
+        return False, f"Blocked Content-Type: {ct}"
+
+    return True, ""
+
+# ── Auto-close stale threads ───────────────────────────────────────────────────
+AUTO_CLOSE_DAYS = 14
+
+async def _auto_close_stale_threads(session) -> int:
+    """Close open threads with no customer reply in 14 days."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=AUTO_CLOSE_DAYS)
+
+    subq = (
+        select(SupportMessage.thread_id, SupportMessage.direction, SupportMessage.created_at)
+        .where(
+            SupportMessage.thread_id.in_(
+                select(SupportThread.id).where(SupportThread.status == "open")
+            )
+        )
+        .order_by(SupportMessage.created_at.desc())
+        .distinct(SupportMessage.thread_id)
+    ).subquery()
+
+    stmt = (
+        select(SupportThread)
+        .join(subq, SupportThread.id == subq.c.thread_id)
+        .where(
+            and_(
+                SupportThread.status == "open",
+                subq.c.direction == "outbound",
+                subq.c.created_at < cutoff,
+            )
+        )
+    )
+    result = await session.execute(stmt)
+    stale = result.scalars().all()
+
+    for t in stale:
+        t.status = "closed"
+
+    if stale:
+        await session.commit()
+        logger.info(f"Auto-closed {len(stale)} stale support threads")
+
+    return len(stale)
 settings = get_settings()
 
 router = APIRouter(prefix="/api/v1/inbound", tags=["inbound"])
@@ -241,34 +345,47 @@ async def receive_resend_webhook(
         await _handle_complaint(session, payload.data)
         return {"status": "ok", "action": "complaint_recorded"}
 
+    # Handle unsubscribe events (user clicked unsubscribe in their email client)
+    if payload.type == "email.unsubscribed":
+        await _handle_resend_unsubscribe(session, payload.data)
+        return {"status": "ok", "action": "unsubscribe_recorded"}
+
     if payload.type != "email.received":
         logger.warning(f"Ignoring event type: {payload.type}")
         return {"status": "ignored", "reason": f"unhandled: {payload.type}"}
 
     data = payload.data
 
-    # Parse the email data
-    email_id = data.get("email_id", "")
+    email_id    = data.get("email_id", "")
     from_header = data.get("from", "")
-    subject = data.get("subject", "(No Subject)")
+    subject     = data.get("subject", "(No Subject)")
     in_reply_to = data.get("in_reply_to")
-    references = data.get("references")
-    text = data.get("text")
-    html = data.get("html")
+    references  = data.get("references")
+    text        = data.get("text")
+    html        = data.get("html")
 
-    # Extract email and name from From header
     from_email, from_name = _extract_email_from_header(from_header)
 
-    # Idempotency: check if already processed
-    existing = await session.execute(select(ProcessedWebhook).where(ProcessedWebhook.webhook_id == email_id))
+    # ── Rate limit ──────────────────────────────────────────────────────────
+    allowed, remaining = await _check_rate_limit(from_email)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many emails from this sender. Try again later.",
+            headers={"Retry-After": "3600"},
+        )
+
+    # ── Idempotency ───────────────────────────────────────────────────────
+    existing = await session.execute(
+        select(ProcessedWebhook).where(ProcessedWebhook.webhook_id == email_id)
+    )
     if existing.scalar_one_or_none():
         logger.info(f"Email already processed: {email_id}")
         return {"status": "already_processed", "email_id": email_id}
 
-    # Spam check
+    # ── Spam ──────────────────────────────────────────────────────────────
     if _is_spam_sender(from_email):
         logger.warning(f"Blocking spam email from: {from_email}")
-        # Still record it as processed to avoid reprocessing
         processed = ProcessedWebhook(
             webhook_id=email_id,
             provider="resend",
@@ -279,6 +396,9 @@ async def receive_resend_webhook(
         session.add(processed)
         await session.commit()
         return {"status": "blocked_spam", "email_id": email_id}
+
+    # ── Auto-close stale threads ───────────────────────────────────────────
+    await _auto_close_stale_threads(session)
 
     # Find or create thread
     thread = None
@@ -357,9 +477,45 @@ async def receive_resend_webhook(
         "status": "received",
         "email_id": email_id,
         "thread_id": str(thread.id),
+        "rate_limit_remaining": remaining,
     }
 
 # ── Bounce / Complaint handlers ─────────────────────────────────────────────────
+
+async def _handle_resend_unsubscribe(session, data: dict):
+    """Record unsubscribe from Resend native list-unsubscribe click."""
+    import time as _time
+    emails = data.get("emails", [])
+    logger.warning(f"email_unsubscribed_via_resend: {emails}")
+
+    for email in emails:
+        try:
+            from sqlalchemy import select
+
+            from app.models import PlatformAccount, ProcessedWebhook
+            stmt = select(PlatformAccount).where(PlatformAccount.email == email.lower())
+            result = await session.execute(stmt)
+            user = result.scalar_one_or_none()
+            if user:
+                user.unsubscribed = True
+                user.unsubscribed_at = _time.time()
+            # Record in ProcessedWebhook for idempotency
+            wh_id = f"unsubscribe_{email}_{int(_time.time())}"
+            stmt2 = select(ProcessedWebhook).where(ProcessedWebhook.webhook_id == wh_id)
+            existing = (await session.execute(stmt2)).scalar_one_or_none()
+            if not existing:
+                wh = ProcessedWebhook(
+                    webhook_id=wh_id,
+                    provider="resend",
+                    event_type="email.unsubscribed",
+                    response_sent=False,
+                    extra_data={"email": email, "source": "resend_list_unsubscribe"},
+                )
+                session.add(wh)
+            await session.commit()
+        except Exception as e:
+            logger.error(f"unsubscribe_handler_error: email={email} error={e}")
+
 
 async def _handle_bounce(session, data: dict):
     """Record hard bounce → mark user as unsubscribed."""

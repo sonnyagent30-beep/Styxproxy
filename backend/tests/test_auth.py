@@ -129,3 +129,139 @@ class TestJWTBearer:
         with pytest.raises(HTTPException) as exc_info:
             await bearer(credentials=None)
         assert exc_info.value.status_code == 401
+
+
+class TestRevokeTOTPSession:
+    """Tests for DELETE /api/admin/auth/sessions/{session_id}."""
+
+    def _make_client(self, monkeypatch):
+        """Build an async httpx client for the revocation endpoint with a valid JWT."""
+        from unittest.mock import AsyncMock
+        from httpx import ASGITransport, AsyncClient
+        from app.routers.auth import router
+        from app.auth import create_access_token
+        from datetime import timedelta
+
+        admin_email = "admin@example.com"
+        token = create_access_token(
+            sub=admin_email,
+            platform="admin",
+            phone=admin_email,
+            role="admin",
+            expires_delta=timedelta(hours=1),
+        )
+
+        async def mock_get_session():
+            yield AsyncMock()
+
+        import app.routers.auth as auth_module
+        monkeypatch.setattr(auth_module, "get_session", mock_get_session)
+
+        return token, admin_email, ASGITransport(app=router)
+
+    @pytest.mark.asyncio
+    async def test_revoke_totp_session_not_found(self, monkeypatch):
+        """Returns 404 when the session does not exist."""
+        import uuid
+        from unittest.mock import AsyncMock, MagicMock
+        from httpx import ASGITransport, AsyncClient
+
+        token, admin_email, transport = self._make_client(monkeypatch)
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_db.execute.return_value = mock_result
+
+        import app.routers.auth as auth_module
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_get_session():
+            yield mock_db
+
+        monkeypatch.setattr(auth_module, "get_session", mock_get_session)
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.delete(
+                f"/api/admin/auth/sessions/{uuid.uuid4()}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_revoke_totp_session_forbidden_for_other_admin(self, monkeypatch):
+        """Returns 403 when the session belongs to a different admin."""
+        import uuid
+        from unittest.mock import AsyncMock, MagicMock
+        from httpx import ASGITransport, AsyncClient
+
+        token, admin_email, transport = self._make_client(monkeypatch)
+
+        mock_session_row = MagicMock()
+        mock_session_row.admin_email = "other@example.com"
+        mock_session_row.revoked_at = None
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_session_row
+        mock_db.execute.return_value = mock_result
+
+        import app.routers.auth as auth_module
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_get_session():
+            yield mock_db
+
+        monkeypatch.setattr(auth_module, "get_session", mock_get_session)
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.delete(
+                f"/api/admin/auth/sessions/{uuid.uuid4()}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_revoke_totp_session_success(self, monkeypatch):
+        """Sets revoked_at and returns 200 when session belongs to requesting admin."""
+        import uuid
+        from unittest.mock import AsyncMock, MagicMock
+        from httpx import ASGITransport, AsyncClient
+
+        token, admin_email, transport = self._make_client(monkeypatch)
+
+        mock_session_row = MagicMock()
+        mock_session_row.admin_email = admin_email
+        mock_session_row.revoked_at = None
+        mock_session_row.device_fingerprint = "fp_abc123"
+        mock_session_row.ip_address = None
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_session_row
+        mock_db.execute.return_value = mock_result
+        mock_db.commit = AsyncMock()
+
+        import app.routers.auth as auth_module
+        monkeypatch.setattr(auth_module, "write_audit_log", AsyncMock())
+
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_get_session():
+            yield mock_db
+
+        monkeypatch.setattr(auth_module, "get_session", mock_get_session)
+
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.delete(
+                f"/api/admin/auth/sessions/{uuid.uuid4()}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["message"] == "Session revoked successfully"
+        assert mock_session_row.revoked_at is not None
+        mock_db.commit.assert_called_once()

@@ -1,14 +1,7 @@
 {
   "name": "styxproxy",
   "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "next": "latest"
-  },
-  "devDependencies": {
-    "playwright": "^1.62.1"
-  },
-  "scripts": {
-    "build": "cd frontend && npm install && npm run build"
+  "engines": {
+    "node": "24.x"
   }
 }

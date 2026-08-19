@@ -569,6 +569,38 @@ export interface PlanSetting {
   is_active: boolean;
 }
 
+// ============== Country Plan Types (Sprint 27) ==============
+// GET /api/admin/countries → { countries: CountryCPT[], total: number }
+export interface CPTPlanTypeStatus {
+  plan_type: string;
+  enabled: boolean;
+  price_per_ip: number | null;
+  price_per_gb: number | null;
+  provider_id: number | null;
+}
+
+export interface CountryCPT {
+  code: string;
+  name: string;
+  flag_emoji: string;
+  region: string;
+  enabled_plan_types: string[]; // simplified list from GET /countries
+  plan_types?: Record<string, CPTPlanTypeStatus>; // full detail from GET /countries/:code
+}
+
+export interface CountryCPTDetail extends CountryCPT {
+  plan_types: Record<string, CPTPlanTypeStatus>;
+}
+
+export interface CPTUpdateResult {
+  country_code: string;
+  plan_type: string;
+  enabled: boolean;
+  price_per_ip: number | null;
+  price_per_gb: number | null;
+  provider_id: number | null;
+}
+
 // ============== Catalog Templates (Admin) ==============
 export interface CatalogTemplate {
   plan_type: string;
@@ -1030,4 +1062,20 @@ export interface AnalyticsEvent {
   channel: string;
   meta: Record<string, unknown>;
   created_at: string;
+}
+
+export interface PermissionChangeRequestResponse {
+  id: string;
+  requested_by: string;
+  target_email: string | null;
+  target_role: string | null;
+  permission_code: string;
+  desired_state: boolean;
+  justification: string;
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  reviewer_notes: string | null;
+  created_at: string;
+  expires_at: string;
 }

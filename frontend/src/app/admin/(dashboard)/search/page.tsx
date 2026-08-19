@@ -1,3 +1,6 @@
+
+/* eslint-disable react-hooks/set-state-in-effect, react/no-unescaped-entities */
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';

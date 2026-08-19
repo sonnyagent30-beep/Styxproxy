@@ -161,10 +161,15 @@ export const groupLabels: Record<string, string> = {
 export interface CountryInfo {
   code: string;          // ISO 2-letter short code (e.g. "GB")
   name: string;          // Display name (e.g. "United Kingdom")
-  flag: string;          // Emoji flag
+  flag: string;          // Emoji flag (fallback)
   lat: number;
   lng: number;
   region: string;
+}
+
+/** Returns a flag image URL from flagcdn.com — renders consistently on all devices */
+export function getFlagUrl(countryCode: string): string {
+  return `https://flagcdn.com/w80/${countryCode.toLowerCase()}.png`;
 }
 
 export const COUNTRIES: Record<string, CountryInfo> = {

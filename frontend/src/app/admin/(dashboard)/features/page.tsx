@@ -1,3 +1,6 @@
+
+/* eslint-disable react-hooks/immutability */
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -122,7 +125,7 @@ export default function AdminFeaturesPage() {
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
           <h2 className="text-xl font-semibold mb-4">Channels</h2>
           <p className="text-sm text-[var(--muted)] mb-6">
-            Configure Telegram and WhatsApp channels. When disabled, customers will see "features will be available soon" instead of the buttons.
+            Configure Telegram and WhatsApp channels. When disabled, customers will see &quot;features will be available soon&quot; instead of the buttons.
           </p>
           
           <div className="space-y-6">

@@ -1,11 +1,19 @@
 """Ops service JWT auth — verifies _ops/v1/ requests."""
+
 import os
 from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException, Request
 
-OPS_JWT_SECRET = os.environ.get("OPS_JWT_SECRET", os.environ.get("JWT_SECRET", ""))
+_ops_jwt_secret = os.environ.get("OPS_JWT_SECRET")
+if _ops_jwt_secret is None:
+    raise ValueError(
+        "OPS_JWT_SECRET environment variable is not set. "
+        "Financial ops endpoints (/refund, /reprocess) require an explicit "
+        "OPS_JWT_SECRET. Set it to a secure value: openssl rand -base64 32"
+    )
+OPS_JWT_SECRET: str = _ops_jwt_secret
 
 
 def require_ops_role(RequiredRole: str = "ops-control"):

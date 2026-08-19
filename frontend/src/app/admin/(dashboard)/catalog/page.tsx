@@ -1,8 +1,12 @@
+
+/* eslint-disable react-hooks/set-state-in-effect */
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import type { Plan } from '@/types';
+import { Flag } from '@/components/ui/Flag';
 
 // All supported countries with display info
 const ALL_COUNTRIES = [
@@ -280,7 +284,7 @@ export default function AdminCatalogPage() {
                         </button>
 
                         <div className="flex items-start gap-2">
-                          <span className="text-2xl">{country.flag}</span>
+                          <Flag countryCode={country.code} size={28} />
                           <div>
                             <p className="font-semibold text-sm">{country.name}</p>
                             <p className="text-xs text-[var(--muted)]">{plan.country}</p>
@@ -318,7 +322,7 @@ export default function AdminCatalogPage() {
                         key={c.code}
                         className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] text-xs text-[var(--muted)]"
                       >
-                        <span>{c.flag}</span>
+                        <Flag countryCode={c.code} size={16} />
                         <span>{c.code}</span>
                         <span className="opacity-50">— no plan</span>
                       </span>

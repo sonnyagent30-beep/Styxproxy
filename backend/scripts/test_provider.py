@@ -22,11 +22,11 @@ Env vars (optional):
 
 import argparse
 import asyncio
-import sys
-from datetime import datetime, timezone
 
 # Allow running from repo root or scripts/ dir
 import os
+import sys
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) or ".")
 
@@ -77,9 +77,11 @@ async def main() -> None:
     result = await test_proxy_full(proxy)
 
     print("=== Benchmark Results ===\n")
-    print(f"  Speed grade:    {result.speed_grade}  ({result.speed_ms:.0f}ms)" if result.speed_ms else f"  Speed grade:    {result.speed_grade}")
+    spd = f"{result.speed_ms:.0f}ms" if result.speed_ms else "N/A"
+    print(f"  Speed grade:    {result.speed_grade}  ({spd})")
     print(f"  Strength grade: {result.strength_grade}  (AbuseIPDB: {result.abuse_reports} reports)")
-    print(f"  Quality grade:  {result.quality_grade}" + (f"  (IPQS fraud_score={result.fraud_score:.0f})" if result.fraud_score else ""))
+    qs = f"  (IPQS fraud_score={result.fraud_score:.0f})" if result.fraud_score else ""
+    print(f"  Quality grade:  {result.quality_grade}{qs}")
     print(f"  Verdict:        {result.final_verdict}")
     print(f"  Notes:          {result.notes}")
     print()

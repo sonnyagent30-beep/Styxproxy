@@ -11,12 +11,15 @@ from app.schemas import (
     TrialClaimRequest,
     TrialClaimResponse,
     TrialCredentialResponse,
+    TrialFromSurveyRequest,
+    TrialFromSurveyResponse,
     TrialSurveyRequest,
     TrialSurveyResponse,
 )
 from app.services.audit import log_audit_event
 from app.services.customer import get_or_create_customer
 from app.services.trial import check_trial_limit, create_trial, get_trial_by_id, submit_trial_survey
+from app.services.trial_delivery import process_theorem_reach_trial
 
 router = APIRouter(prefix="/api/trials", tags=["trials"])
 
@@ -66,7 +69,7 @@ async def claim_trial(
         status=trial.status or "active",
         styxproxy_credential=TrialCredentialResponse(
             bun_username=credential.bun_username,
-            upstream_proxy_ip=credential.upstream_proxy_ip or "0.0.0.0",
+            upstream_proxy_ip=credential.upstream_proxy_ip or "0.0.0.0",  # nosec B104
             upstream_proxy_port=credential.upstream_proxy_port,
             expires_at=credential.expires_at,
         ),

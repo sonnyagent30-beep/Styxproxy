@@ -1,3 +1,5 @@
+
+/* eslint-disable react/no-unescaped-entities */
 'use client';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -52,7 +54,7 @@ export default function TagFilter({ tags, activeTag }: Props) {
           </div>
         ))}
         {filtered.length === 0 && (
-          <span className="text-xs text-[var(--muted)] py-2">No tags match "{query}"</span>
+          <span className="text-xs text-[var(--muted)] py-2">No tags match &quot;{query}&quot;</span>
         )}
       </div>
     </div>

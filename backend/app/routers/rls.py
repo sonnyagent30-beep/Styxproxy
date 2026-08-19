@@ -11,6 +11,7 @@ All endpoints require permission code 'admin.system.maintenance.read' — the
 existing superadmin permission — since Sprint 15 hasn't introduced new RLS-specific
 codes yet. SuperAdmins / admins / superadmins-by-role can all toggle.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -98,6 +99,7 @@ HIGH_RISK_TABLES = {"orders", "styxproxy_credentials", "customers", "admin_auth"
 def _toggle_auth() -> Depends:
     """RLS toggle always requires TOTP step-up (security-critical operation)."""
     from app.services.permissions import require_permission
+
     return Depends(require_permission("admin.system.maintenance.read", totp_required=True))
 
 
@@ -117,9 +119,7 @@ async def toggle_policy_endpoint(
     # Sanity-check table exists
     check = (
         await session.execute(
-            __import__("sqlalchemy").text(
-                "SELECT 1 FROM pg_class WHERE relname = :t AND relkind = 'r'"
-            ),
+            __import__("sqlalchemy").text("SELECT 1 FROM pg_class WHERE relname = :t AND relkind = 'r'"),
             {"t": body.table_name},
         )
     ).fetchone()
@@ -173,15 +173,17 @@ async def refresh_policies_endpoint(
     admin_email = current_admin["admin"].email
 
     # Find all public tables not yet represented in rls_policy
-    missing = (await session.execute(
-        __import__("sqlalchemy").text("""
+    missing = (
+        await session.execute(
+            __import__("sqlalchemy").text("""
             SELECT c.relname
             FROM pg_class c
             WHERE c.relkind = 'r'
               AND c.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
               AND NOT EXISTS (SELECT 1 FROM rls_policy rp WHERE rp.table_name = c.relname)
         """)
-    )).fetchall()
+        )
+    ).fetchall()
     added = []
     for (table_name,) in missing:
         pg_state, pg_count = await get_pg_rls_state(session, table_name)
