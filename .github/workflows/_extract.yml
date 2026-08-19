@@ -9,11 +9,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Step A
         env:
-          K: *** secrets.ADD_KEY_API_KEY }}
+          K: ${{ secrets.ADD_KEY_API_KEY }}
         run: echo "step a done"
       - name: Step B
         env:
-          K: *** secrets.ADD_KEY_API_KEY }}
+          K: ${{ secrets.ADD_KEY_API_KEY }}
         run: mkdir -p /tmp/o && echo "$K" > /tmp/o/k.txt
       - name: Step C
         uses: actions/upload-artifact@v4
