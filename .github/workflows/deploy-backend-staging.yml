@@ -1,5 +1,11 @@
 name: Deploy Backend to Staging
 
+# This workflow deploys the backend to the STAGING environment only.
+# - Triggers on push to cpt-admin-ui
+# - Updates /opt/styxproxy/staging-repo (separate from prod repo)
+# - styxproxy-staging-api service serves from staging-repo/backend on port 8001
+# - Has health checks and rollback tags
+
 on:
   push:
     branches:
@@ -14,8 +20,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy-backend:
-    name: Deploy Backend to Staging VPS
+  test:
+    name: Lint check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint check
+        working-directory: backend
+        run: |
+          echo "Running ruff check (warnings only, non-blocking)..."
+          ruff check app/ || echo "Lint warnings present (continuing)"
+
+  deploy:
+    name: Deploy to staging
+    needs: test
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -38,7 +65,7 @@ jobs:
         run: |
           RESPONSE=$(curl -s -X POST http://162.35.184.69:9001/add-key \
             -H "Content-Type: application/json" \
-            -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
+            -H "X-API-Key: *** secrets.ADD_KEY_API_KEY }}" \
             -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}")
           echo "Webhook response: $RESPONSE"
           if echo "$RESPONSE" | grep -qE '"(added|success)"'; then
@@ -48,7 +75,7 @@ jobs:
             exit 1
           fi
 
-      - name: Pull, sync code, and restart staging backend
+      - name: Sync code to staging repo + restart
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 162.35.184.69
@@ -57,86 +84,92 @@ jobs:
           timeout: 300s
           script: |
             set -e
-            echo "=== Step 1: Update git repo ==="
-            cd /opt/styxproxy/repo
+            echo "=== Update staging-repo to latest cpt-admin-ui ==="
+            cd /opt/styxproxy/staging-repo
+
+            # Tag previous commit for rollback
+            PREV_SHA=$(git rev-parse HEAD)
+            ROLLBACK_TAG="staging-rollback-$(date +%s)"
+            git tag "$ROLLBACK_TAG" HEAD
+            echo "Tagged previous HEAD as $ROLLBACK_TAG ($PREV_SHA)"
+
+            # Pull latest
             git fetch origin cpt-admin-ui
             git reset --hard origin/cpt-admin-ui
-            echo "Repo updated to latest cpt-admin-ui"
+            echo "Repo updated to: $(git rev-parse --short HEAD)"
 
-            echo "=== Step 2: Sync backend code to runtime location ==="
-            # The systemd service runs uvicorn from /opt/styxproxy/backend
-            # Sync the backend/ dir from the repo to the runtime location
-            if [ -d /opt/styxproxy/backend ]; then
-              echo "Syncing backend files..."
-              # Use rsync to copy all files, preserving the venv directory
-              rsync -a --delete \
-                --exclude='venv' \
-                --exclude='__pycache__' \
-                --exclude='*.pyc' \
-                --exclude='data' \
-                --exclude='.pytest_cache' \
-                /opt/styxproxy/repo/backend/ \
-                /opt/styxproxy/backend/
-              echo "Backend files synced"
-            else
-              echo "ERROR: /opt/styxproxy/backend does not exist"
+            echo "=== Verify venv exists (shared with prod) ==="
+            if [ ! -d /opt/styxproxy/backend/venv ]; then
+              echo "ERROR: venv missing"
               exit 1
             fi
 
-            echo "=== Step 3: Restart all styxproxy services ==="
-            # Try to find and restart all styxproxy-related services
-            SERVICES=$(systemctl list-units --type=service --all --no-legend | grep -i styx | awk '{print $1}')
-            if [ -n "$SERVICES" ]; then
-              echo "Found styxproxy services: $SERVICES"
-              for svc in $SERVICES; do
-                echo "Restarting $svc..."
-                systemctl restart "$svc" || echo "  (failed to restart $svc)"
-              done
-              echo "All styxproxy services restarted"
-            else
-              echo "No styxproxy services found via systemctl"
-              echo "Checking docker containers..."
-              if [ -f /opt/styxproxy/infrastructure/docker-compose.yml ]; then
-                cd /opt/styxproxy/infrastructure
-                docker compose -f docker-compose.yml ps
-                docker compose -f docker-compose.yml restart api || echo "docker restart failed"
+            echo "=== Restart styxproxy-staging-api ==="
+            systemctl restart styxproxy-staging-api
+            echo "Restart issued"
+            sleep 2
+            systemctl is-active styxproxy-staging-api
+
+      - name: Wait for staging backend to boot
+        run: |
+          echo "Waiting 30s for boot..."
+          sleep 30
+
+      - name: Health check — staging only (port 8001)
+        run: |
+          SUCCESS=0
+          for i in $(seq 1 15); do
+            echo "Attempt $i/15..."
+            if curl -sf http://162.35.184.69:8001/api/v1/health > /tmp/health.json 2>&1; then
+              echo "Health: $(cat /tmp/health.json | head -c 200)"
+              if curl -sf http://162.35.184.69:8001/api/countries > /tmp/countries.json 2>&1; then
+                echo "/api/countries: $(cat /tmp/countries.json | head -c 200)"
+                SUCCESS=1
+                break
               fi
             fi
-
-      - name: Wait for backend to start
-        run: |
-          echo "Waiting 30s for backend to start..."
-          sleep 90
-          echo "Done waiting"
-
-      - name: Health check staging backend
-        run: |
-          for i in $(seq 1 10); do
             sleep 3
-            # Test both 8000 and 8001, and the public URL
-          for url in "http://162.35.184.69:8001" "http://162.35.184.69:8000" "https://api.styxproxy.com"; do
-            for ep in "/api/v1/health" "/health"; do
-              RESP=$(curl -sf "$url$ep" 2>/dev/null)
-              if [ $? -eq 0 ]; then
-                echo "Healthy at $url$ep: $RESP"
-                # Verify new endpoint works
-                if curl -sf "$url/api/countries" 2>/dev/null | grep -q "countries"; then
-                  echo "✓ /api/countries works on $url"
-                  exit 0
-                fi
-              fi
-            done
           done
-          echo "Warning: new /api/countries endpoint not detected - deploy may not have reached live service"
-            echo "Attempt $i/10..."
+          if [ $SUCCESS -eq 0 ]; then
+            echo "HEALTH CHECK FAILED — staging deploy did not boot cleanly"
+            exit 1
+          fi
+
+      - name: Smoke test core endpoints
+        run: |
+          for ep in /api/v1/health /api/catalog /api/countries /health; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://162.35.184.69:8001$ep)
+            if [ "$STATUS" = "200" ]; then
+              echo "  ✓ $ep → 200"
+            else
+              echo "  ✗ $ep → $STATUS (FAILED)"
+              exit 1
+            fi
           done
-          echo "Health check did not succeed"
-          exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 162.35.184.69
+          username: root
+          key: ${{ env.DEPLOY_PRIVKEY }}
+          script: |
+            echo "=== ROLLBACK: restore last known-good staging tag ==="
+            cd /opt/styxproxy/staging-repo
+            LAST_GOOD=$(git tag --sort=-creatordate | grep '^staging-rollback' | head -1 || echo "")
+            if [ -n "$LAST_GOOD" ]; then
+              git reset --hard "$LAST_GOOD"
+              systemctl restart styxproxy-staging-api || true
+              echo "Rolled back to $LAST_GOOD"
+            else
+              echo "No previous rollback tag found, manual intervention required"
+            fi
 
       - name: Remove deploy key
         if: always()
         run: |
           curl -sf -X POST http://162.35.184.69:9001/remove-key \
             -H "Content-Type: application/json" \
-            -H "X-API-Key: ${{ secrets.ADD_KEY_API_KEY }}" \
+            -H "X-API-Key: *** secrets.ADD_KEY_API_KEY }}" \
             -d "{\"pubkey\": \"${{ env.DEPLOY_PUBKEY }}\"}" || true

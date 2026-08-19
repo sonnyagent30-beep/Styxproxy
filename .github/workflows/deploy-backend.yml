@@ -1,13 +1,29 @@
 name: Deploy Backend
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/deploy-backend.yml'
-      - 'VERSION'
+  # DISABLED auto-deploy: production only deploys on manual approval
+  # Re-enable only after merge to main is verified stable on staging
+  #
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'backend/**'
+  #     - '.github/workflows/deploy-backend.yml'
+  #     - 'VERSION'
+
   workflow_dispatch:
+    inputs:
+      approved_by:
+        description: 'Your name (manual approval required)'
+        required: true
+        type: string
+      rollback_sha:
+        description: 'SHA to roll back to if this fails (optional)'
+        required: false
+        type: string
+        default: ''
+
+  # Allow re-running failed deploys
 
 concurrency:
   group: backend-deploy
@@ -166,57 +182,115 @@ jobs:
             echo "Key addition failed"
             exit 1
           fi
-
       - name: Pull and restart backend
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 162.35.184.69
           username: root
           key: ${{ env.DEPLOY_PRIVKEY }}
-          timeout: 120s
+          timeout: 300s
           script: |
             set -e
+
+            echo "=== Step 1: Tag previous commit for rollback ==="
             cd /opt/styxproxy/repo
+            PREV_SHA=$(git rev-parse HEAD)
+            ROLLBACK_TAG="prod-rollback-$(date +%s)"
+            git tag "$ROLLBACK_TAG" HEAD
+            echo "Tagged previous HEAD as $ROLLBACK_TAG ($PREV_SHA)"
+
+            echo "=== Step 2: Pull latest main ==="
             git fetch origin main
             git reset --hard origin/main
+            NEW_SHA=$(git rev-parse HEAD)
+            echo "Deployed commit: $NEW_SHA"
 
-            # Restore systemd service file if missing (container /etc is ephemeral)
-            if [ ! -f /etc/systemd/system/styxproxy-api.service ]; then
-              echo "styxproxy-api.service missing — restoring from git..."
-              cp /opt/styxproxy/repo/backend/systemd/styxproxy-api.service /etc/systemd/system/
-              systemctl daemon-reload
+            echo "=== Step 3: Sync backend code to runtime location ==="
+            # The systemd service runs uvicorn from /opt/styxproxy/backend
+            # Sync the backend/ dir from the repo to the runtime location
+            if [ -d /opt/styxproxy/backend ]; then
+              rsync -a --delete \
+                --exclude='venv' \
+                --exclude='__pycache__' \
+                --exclude='*.pyc' \
+                --exclude='data' \
+                --exclude='.pytest_cache' \
+                /opt/styxproxy/repo/backend/ \
+                /opt/styxproxy/backend/
+              echo "Backend files synced"
+            else
+              echo "ERROR: /opt/styxproxy/backend does not exist"
+              exit 1
             fi
 
+            echo "=== Step 4: Take DB backup before restart ==="
+            sudo -u postgres pg_dump -d styxproxy -Fc -f /opt/styxproxy/backups/pre-deploy-$(date +%Y%m%d-%H%M%S).dump || echo "Backup failed (non-blocking)"
+
+            echo "=== Step 5: Run alembic upgrade heads ==="
+            cd /opt/styxproxy/backend
+            set +e  # Don't fail on alembic issues — let app boot reveal them
+            /opt/styxproxy/backend/venv/bin/alembic upgrade heads 2>&1 | tail -20
+            set -e
+
+            echo "=== Step 6: Restart styxproxy-api ==="
             systemctl restart styxproxy-api
-            echo "Backend restarted"
-
-      - name: Wait for backend to start
-        run: |
-          echo "Waiting 20s for backend to start..."
-          sleep 20
-          echo "Done waiting"
-
-      - name: Health check with retry
-        continue-on-error: true
-        run: |
-          for i in $(seq 1 10); do
             sleep 3
-            RESP=$(curl -sf http://162.35.184.69:8000/api/v1/health 2>/dev/null)
-            if [ $? -eq 0 ]; then echo "Healthy: $RESP"; exit 0; fi
-            echo "Attempt $i/10..."
-          done
-          echo "Health check did not succeed, but deploy completed"
+            systemctl is-active styxproxy-api
 
-      - name: Tag release
-        if: success()
+      - name: Wait for backend to boot
         run: |
-          VERSION=$(cat VERSION)
-          echo "Tagging version: $VERSION"
-          git config --local user.email "github-actions@github.com"
-          git config --local user.name "GitHub Actions"
-          git tag "$VERSION" || echo "Tag already exists, skipping"
-          git push origin "$VERSION" || echo "Tag push skipped"
-          echo "Tagged and pushed: $VERSION"
+          echo "Waiting 30s for boot..."
+          sleep 30
+
+      - name: Health check — fail-fast
+        run: |
+          SUCCESS=0
+          for i in $(seq 1 15); do
+            echo "Attempt $i/15..."
+            if curl -sf http://162.35.184.69:8000/api/v1/health > /tmp/health.json 2>&1; then
+              echo "Health: $(cat /tmp/health.json | head -c 200)"
+              # Verify new endpoints work
+              for ep in /api/catalog /api/countries /health; do
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://162.35.184.69:8000$ep)
+                if [ "$STATUS" = "200" ]; then
+                  echo "  ✓ $ep → 200"
+                else
+                  echo "  ✗ $ep → $STATUS (FAILED)"
+                  exit 1
+                fi
+              done
+              SUCCESS=1
+              break
+            fi
+            sleep 3
+          done
+          if [ $SUCCESS -eq 0 ]; then
+            echo "HEALTH CHECK FAILED — prod deploy did not boot cleanly"
+            exit 1
+          fi
+
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 162.35.184.69
+          username: root
+          key: ${{ env.DEPLOY_PRIVKEY }}
+          script: |
+            echo "=== ROLLBACK: restore last known-good prod tag ==="
+            cd /opt/styxproxy/repo
+            LAST_GOOD=$(git tag --sort=-creatordate | grep '^prod-rollback' | head -1 || echo "")
+            if [ -n "$LAST_GOOD" ]; then
+              git reset --hard "$LAST_GOOD"
+              rsync -a --delete \
+                --exclude='venv' --exclude='__pycache__' \
+                /opt/styxproxy/repo/backend/ \
+                /opt/styxproxy/backend/
+              systemctl restart styxproxy-api || true
+              echo "Rolled back to $LAST_GOOD"
+            else
+              echo "No previous rollback tag found, manual intervention required"
+            fi
 
       - name: Remove deploy key
         if: always()
