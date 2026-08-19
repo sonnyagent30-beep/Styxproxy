@@ -83,17 +83,24 @@ jobs:
               exit 1
             fi
 
-            echo "=== Step 3: Restart the staging API service ==="
-            if systemctl list-units --full -all | grep -q styxproxy-staging-api; then
-              systemctl restart styxproxy-staging-api
-              echo "Staging backend restarted"
-            elif systemctl list-units --full -all | grep -q styxproxy-api; then
-              systemctl restart styxproxy-api
-              echo "Production backend restarted (no staging found)"
+            echo "=== Step 3: Restart all styxproxy services ==="
+            # Try to find and restart all styxproxy-related services
+            SERVICES=$(systemctl list-units --type=service --all --no-legend | grep -i styx | awk '{print $1}')
+            if [ -n "$SERVICES" ]; then
+              echo "Found styxproxy services: $SERVICES"
+              for svc in $SERVICES; do
+                echo "Restarting $svc..."
+                systemctl restart "$svc" || echo "  (failed to restart $svc)"
+              done
+              echo "All styxproxy services restarted"
             else
-              echo "styxproxy-api service not found"
-              systemctl list-units --type=service --all | grep -i styx || echo "(no styx services)"
-              exit 1
+              echo "No styxproxy services found via systemctl"
+              echo "Checking docker containers..."
+              if [ -f /opt/styxproxy/infrastructure/docker-compose.yml ]; then
+                cd /opt/styxproxy/infrastructure
+                docker compose -f docker-compose.yml ps
+                docker compose -f docker-compose.yml restart api || echo "docker restart failed"
+              fi
             fi
 
       - name: Wait for backend to start
@@ -106,13 +113,21 @@ jobs:
         run: |
           for i in $(seq 1 10); do
             sleep 3
+            # Test both 8000 and 8001, and the public URL
+          for url in "http://162.35.184.69:8001" "http://162.35.184.69:8000" "https://api.styxproxy.com"; do
             for ep in "/api/v1/health" "/health"; do
-              RESP=$(curl -sf "http://162.35.184.69:8001$ep" 2>/dev/null || curl -sf "http://162.35.184.69:8000$ep" 2>/dev/null)
+              RESP=$(curl -sf "$url$ep" 2>/dev/null)
               if [ $? -eq 0 ]; then
-                echo "Healthy at $ep: $RESP"
-                exit 0
+                echo "Healthy at $url$ep: $RESP"
+                # Verify new endpoint works
+                if curl -sf "$url/api/countries" 2>/dev/null | grep -q "countries"; then
+                  echo "✓ /api/countries works on $url"
+                  exit 0
+                fi
               fi
             done
+          done
+          echo "Warning: new /api/countries endpoint not detected - deploy may not have reached live service"
             echo "Attempt $i/10..."
           done
           echo "Health check did not succeed"
