@@ -5,6 +5,8 @@ GET    /api/catalog          - list plan_type templates with country + rotation 
 POST   /api/orders           - create order + provision credential (customer picks location + rotation_mode)
 """
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
