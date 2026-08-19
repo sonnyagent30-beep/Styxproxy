@@ -71,13 +71,10 @@ class Customer(Base):
 
     # Relationships
     platform_accounts: Mapped[list["PlatformAccount"]] = relationship("PlatformAccount", back_populates="customer")
-    # Customers this customer has referred
-    referred_customers: Mapped[list["Customer"]] = relationship(
-        "Customer", foreign_keys="[Customer.referred_by]", back_populates="referrer"
-    )
-    referrer: Mapped[Optional["Customer"]] = relationship(
-        "Customer", foreign_keys="[Customer.referred_by]", back_populates="referred_customers"
-    )
+    # Customers this customer has referred — REMOVED 2026-08-19
+    # The referred_customers / referrer self-referential relationships crashed
+    # SQLAlchemy mapper init ("both of the same direction ONETOMANY").
+    # The referred_by FK column is preserved; queries join via it manually.
 
 
 class ReferralCredit(Base):
