@@ -1,0 +1,770 @@
+openapi: 3.0.3
+info:
+  title: Styxproxy Charon API
+  description: |
+    Single source of truth for prices, plans, orders, refunds, customer data, and admin actions.
+    All services (n8n, web dashboard, telegram bot) MUST call these endpoints instead of
+    querying the styxproxy database directly. This is the public contract for the platform.
+
+    Versioning: stable/v1 (this document). Breaking changes require a new major version.
+
+  version: 1.0.0-draft
+  contact:
+    name: Dannion
+    email: dannion@styxproxy.com
+
+servers:
+  - url: https://charon.styxproxy.com/api/v1
+    description: Production
+  - url: http://162.35.184.69:8000/api/v1
+    description: Production direct (Interserver VPS)
+
+security:
+  - ApiKeyAuth: []
+  - ServiceScope: []
+
+tags:
+  - name: catalog
+    description: Public pricing and plan data (read-only, no auth required)
+  - name: customers
+    description: Customer lookup (n8n + dashboard)
+  - name: orders
+    description: Order lifecycle (n8n creates, Flutterwave webhook updates)
+  - name: refunds
+    description: Refund processing (n8n auto + dashboard manual)
+  - name: trials
+    description: Free trial allocation and lifecycle
+  - name: admin
+    description: Admin-only operations (dashboard scope required)
+  - name: health
+    description: Operational health and stats
+
+paths:
+  # ============================================================
+  # CATALOG (public read, no auth required)
+  # ============================================================
+  /catalog:
+    get:
+      tags: [catalog]
+      summary: Get current plan catalog
+      description: Returns all active plans with current prices. Cacheable for 60s.
+      security: []  # public
+      parameters:
+        - name: country
+          in: query
+          schema:
+            type: string
+            enum: [NG, US, UK, EU]
+          description: Filter plans available in a country
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [isp, residential, mobile, datacenter]
+      responses:
+        '200':
+          description: Catalog returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plans:
+                    type: array
+                    items: { $ref: '#/components/schemas/Plan' }
+                  updated_at:
+                    type: string
+                    format: date-time
+                  cache_ttl_seconds:
+                    type: integer
+                    default: 60
+
+  /catalog/{plan_id}:
+    get:
+      tags: [catalog]
+      summary: Get a single plan by ID
+      security: []
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Plan found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Plan' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /countries:
+    get:
+      tags: [catalog]
+      summary: List supported countries with their pricing multipliers
+      security: []
+      responses:
+        '200':
+          description: Country list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Country' }
+
+  # ============================================================
+  # CUSTOMERS (n8n + dashboard read/write)
+  # ============================================================
+  /customers/{phone}:
+    get:
+      tags: [customers]
+      summary: Lookup customer by phone number
+      description: |
+        Primary lookup for n8n workflows. Returns customer + recent orders + active trials.
+        Phone must be E.164 format (+234...).
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          schema: { type: string, example: "+2348123456789" }
+        - name: include
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [orders, trials, subscriptions, audit_log]
+      responses:
+        '200':
+          description: Customer found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /customers/{phone}/status:
+    get:
+      tags: [customers]
+      summary: Get current customer status (used by n8n for quick gating)
+      description: |
+        Lightweight endpoint that returns just active_subscriptions and active_trials.
+        Use this for rate-limit checks and "can this customer order?" decisions.
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Customer status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  phone: { type: string }
+                  can_order: { type: boolean }
+                  active_subscriptions:
+                    type: array
+                    items: { $ref: '#/components/schemas/Subscription' }
+                  active_trials:
+                    type: array
+                    items: { $ref: '#/components/schemas/Trial' }
+                  rate_limit_remaining: { type: integer }
+
+  # ============================================================
+  # ORDERS (n8n creates, Flutterwave webhook updates status)
+  # ============================================================
+  /orders:
+    post:
+      tags: [orders]
+      summary: Create a new order
+      description: |
+        Called by n8n order-handler when customer requests a plan.
+        Idempotency-Key is REQUIRED (use Flutterwave tx_ref or webhook event_id).
+        Returns payment link that n8n sends to customer.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderCreate' }
+      responses:
+        '201':
+          description: Order created, payment link ready
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '200':
+          description: Idempotent replay — same order returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Customer has conflicting active subscription
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+    get:
+      tags: [orders]
+      summary: List orders (admin or customer)
+      parameters:
+        - name: phone
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, fulfilled, failed, refunded, expired]
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Order list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orders:
+                    type: array
+                    items: { $ref: '#/components/schemas/Order' }
+                  next_cursor: { type: string, nullable: true }
+
+  /orders/{order_id}:
+    get:
+      tags: [orders]
+      summary: Get order by ID
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [orders]
+      summary: Update order status (called by payment-confirmation, fulfillment worker)
+      description: |
+        Idempotent on (order_id, status). Used by:
+        - Flutterwave webhook (paid)
+        - fulfillment-worker (fulfilled)
+        - admin (manual override)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+
+  # ============================================================
+  # REFUNDS (n8n auto + dashboard manual)
+  # ============================================================
+  /refunds:
+    post:
+      tags: [refunds]
+      summary: Process a refund
+      description: |
+        Called by n8n refund-handler or admin dashboard.
+        Idempotency-Key REQUIRED (use Flutterwave transaction_id).
+        Refund policy enforced server-side (residential = no refund, mobile = partial if <30d, etc).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefundCreate' }
+      responses:
+        '201':
+          description: Refund processed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '200':
+          description: Idempotent replay
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '422':
+          description: Refund not eligible per policy
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      eligible: { type: boolean }
+                      reason: { type: string }
+                      policy_reference: { type: string }
+
+  # ============================================================
+  # TRIALS (n8n free-trial workflow)
+  # ============================================================
+  /trials:
+    post:
+      tags: [trials]
+      summary: Allocate a free trial slot
+      description: |
+        Called by n8n free-trial handler when a customer completes a survey.
+        Idempotency-Key REQUIRED.
+        Server validates: max concurrent trials per IP, max surveys per customer, etc.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TrialCreate' }
+      responses:
+        '201':
+          description: Trial allocated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Trial' }
+        '422':
+          description: Trial slot not available
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      slot_available: { type: boolean }
+                      retry_after_seconds: { type: integer }
+
+  /trials/{trial_id}/expire:
+    post:
+      tags: [trials]
+      summary: Mark trial as expired (called by trial-reset-daily cron)
+      parameters:
+        - name: trial_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Expired
+
+  # ============================================================
+  # ADMIN (dashboard scope only)
+  # ============================================================
+  /admin/plans:
+    patch:
+      tags: [admin]
+      summary: Bulk update plan prices (admin only)
+      description: |
+        Atomic price update across all plans. The single source of truth for pricing.
+        Triggers cache invalidation on /catalog endpoint.
+        Audit logged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                updates:
+                  type: array
+                  items:
+                    type: object
+                    required: [plan_id, price_ngn]
+                    properties:
+                      plan_id: { type: string }
+                      price_ngn: { type: number, minimum: 0 }
+                      enabled: { type: boolean }
+      responses:
+        '200':
+          description: Prices updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count: { type: integer }
+                  updated_at: { type: string, format: date-time }
+                  cache_invalidated: { type: boolean }
+
+    post:
+      tags: [admin]
+      summary: Create a new plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlanCreate' }
+      responses:
+        '201':
+          description: Plan created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Plan' }
+
+  /admin/plans/{plan_id}:
+    delete:
+      tags: [admin]
+      summary: Soft-delete a plan (sets enabled=false)
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204':
+          description: Deleted
+
+  /admin/refunds:
+    post:
+      tags: [admin]
+      summary: Manual refund by admin (bypasses policy)
+      description: |
+        Admin-only. Allows refund even when policy would normally reject.
+        Audit logged with admin_user_id.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/RefundCreate'
+                - type: object
+                  properties:
+                    override_policy: { type: boolean, default: false }
+                    reason: { type: string }
+      responses:
+        '201':
+          description: Refund processed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+
+  /admin/stats:
+    get:
+      tags: [admin, health]
+      summary: Dashboard summary stats
+      responses:
+        '200':
+          description: Stats returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  today:
+                    type: object
+                    properties:
+                      orders_count: { type: integer }
+                      revenue_ngn: { type: number }
+                      new_customers: { type: integer }
+                      refunds_count: { type: integer }
+                  last_7_days:
+                    type: object
+                    additionalProperties: true
+                  active_trials: { type: integer }
+                  provider_health:
+                    type: array
+                    items: { $ref: '#/components/schemas/ProviderHealth' }
+
+  /admin/audit-log:
+    get:
+      tags: [admin]
+      summary: Admin action audit trail
+      parameters:
+        - name: actor
+          in: query
+          schema: { type: string }
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: since
+          in: query
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 100 }
+      responses:
+        '200':
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AuditEntry' }
+
+  # ============================================================
+  # HEALTH
+  # ============================================================
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness + readiness
+      security: []
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  version: { type: string }
+                  dependencies:
+                    type: object
+                    additionalProperties:
+                      type: string
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Charon-Key
+    ServiceScope:
+      type: oauth2
+      description: |
+        OAuth2 scopes for fine-grained access:
+        - catalog:read (public, no key needed)
+        - customers:read (n8n)
+        - orders:write (n8n)
+        - refunds:write (n8n)
+        - trials:write (n8n)
+        - admin:* (dashboard only)
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Unique key per logical operation. For n8n→charon:
+        - Payment confirmation: Flutterwave tx_ref
+        - Refund: Flutterwave transaction_id + "refund"
+        - Order create: customer_phone + plan_id + unix_timestamp_minute
+        - Trial allocate: customer_phone + "trial" + survey_count
+      schema: { type: string, maxLength: 255 }
+
+  responses:
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: API key lacks required scope
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+
+    Plan:
+      type: object
+      required: [id, type, country, price_ngn, enabled]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [isp, residential, mobile, datacenter] }
+        country: { type: string, example: "NG" }
+        data_gb: { type: integer }
+        duration_days: { type: integer, nullable: true }
+        price_ngn: { type: number, minimum: 0 }
+        enabled: { type: boolean }
+        max_concurrent_users: { type: integer }
+        updated_at: { type: string, format: date-time }
+
+    PlanCreate:
+      type: object
+      required: [type, country, data_gb, price_ngn]
+      properties:
+        type: { type: string, enum: [isp, residential, mobile, datacenter] }
+        country: { type: string }
+        data_gb: { type: integer }
+        duration_days: { type: integer }
+        price_ngn: { type: number }
+        max_concurrent_users: { type: integer }
+
+    Country:
+      type: object
+      properties:
+        code: { type: string, example: "NG" }
+        name: { type: string }
+        price_multiplier: { type: number, example: 1.0 }
+        supported: { type: boolean }
+
+    Customer:
+      type: object
+      properties:
+        id: { type: string }
+        phone: { type: string }
+        created_at: { type: string, format: date-time }
+        total_spent_ngn: { type: number }
+        orders:
+          type: array
+          items: { $ref: '#/components/schemas/Order' }
+        trials:
+          type: array
+          items: { $ref: '#/components/schemas/Trial' }
+
+    Subscription:
+      type: object
+      properties:
+        id: { type: string }
+        plan_id: { type: string }
+        status: { type: string }
+        data_used_gb: { type: number }
+        data_remaining_gb: { type: number }
+        expires_at: { type: string, format: date-time, nullable: true }
+
+    Order:
+      type: object
+      required: [id, customer_phone, plan_id, status, amount_ngn]
+      properties:
+        id: { type: string }
+        customer_phone: { type: string }
+        plan_id: { type: string }
+        status:
+          type: string
+          enum: [pending, paid, fulfilled, failed, refunded, expired]
+        amount_ngn: { type: number }
+        payment_link: { type: string, nullable: true }
+        payment_reference: { type: string, nullable: true }
+        proxy_credentials:
+          type: object
+          nullable: true
+          properties:
+            host: { type: string }
+            port: { type: integer }
+            username: { type: string }
+            password: { type: string }
+        created_at: { type: string, format: date-time }
+        paid_at: { type: string, format: date-time, nullable: true }
+        fulfilled_at: { type: string, format: date-time, nullable: true }
+
+    OrderCreate:
+      type: object
+      required: [customer_phone, plan_id]
+      properties:
+        customer_phone: { type: string }
+        plan_id: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Free-form metadata (n8n execution_id, channel, etc)
+
+    OrderUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [paid, fulfilled, failed, expired]
+        payment_reference: { type: string }
+        proxy_credentials:
+          type: object
+        notes: { type: string }
+
+    Refund:
+      type: object
+      properties:
+        id: { type: string }
+        order_id: { type: string }
+        amount_ngn: { type: number }
+        reason: { type: string }
+        status: { type: string, enum: [pending, processed, failed] }
+        flutterwave_refund_id: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        processed_at: { type: string, format: date-time, nullable: true }
+
+    RefundCreate:
+      type: object
+      required: [order_id]
+      properties:
+        order_id: { type: string }
+        amount_ngn: { type: number, description: "Defaults to order amount if omitted" }
+        reason: { type: string }
+        requested_by: { type: string, description: "customer_phone or admin_user_id" }
+
+    Trial:
+      type: object
+      properties:
+        id: { type: string }
+        customer_phone: { type: string }
+        platform: { type: string, enum: [whatsapp, telegram] }
+        proxy_host: { type: string }
+        proxy_port: { type: integer }
+        proxy_username: { type: string }
+        proxy_password: { type: string }
+        total_hours: { type: integer }
+        expires_at: { type: string, format: date-time }
+        status: { type: string, enum: [active, expired, revoked] }
+
+    TrialCreate:
+      type: object
+      required: [customer_phone, platform, surveys_completed]
+      properties:
+        customer_phone: { type: string }
+        platform: { type: string, enum: [whatsapp, telegram] }
+        surveys_completed: { type: integer, minimum: 1, maximum: 12 }
+
+    ProviderHealth:
+      type: object
+      properties:
+        provider: { type: string, enum: [dataimpulse, proxy_seller] }
+        status: { type: string, enum: [healthy, degraded, down] }
+        last_check: { type: string, format: date-time }
+        success_rate_24h: { type: number }
+
+    AuditEntry:
+      type: object
+      properties:
+        id: { type: string }
+        actor: { type: string, description: "admin_user_id or service:n8n" }
+        action: { type: string, example: "plan.price.update" }
+        target: { type: object, additionalProperties: true }
+        timestamp: { type: string, format: date-time }
+        ip_address: { type: string }
