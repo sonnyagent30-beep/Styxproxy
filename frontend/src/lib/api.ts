@@ -809,6 +809,35 @@ class ApiClient {
     });
   }
 
+
+  // ============== Country Plan Types (Admin) ==============
+
+  async getAdminCountries(): Promise<ApiResponse<{ countries: Array<{
+    code: string;
+    name: string | null;
+    plan_types: Record<string, { enabled: boolean; is_special: boolean; price_per_ip: number | null; price_per_gb: number | null }>;
+  }> }>> {
+    return this.request('/api/admin/countries');
+  }
+
+  async updateCountryPlanType(
+    code: string,
+    planType: string,
+    data: { enabled?: boolean; is_special?: boolean; price_per_ip?: number; price_per_gb?: number }
+  ): Promise<ApiResponse<{ status: string }>> {
+    return this.request(`/api/admin/countries/${code}/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async removeCountryFromProduct(code: string, planType: string): Promise<ApiResponse<{ status: string }>> {
+    return this.request(`/api/admin/countries/${code}/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: false }),
+    });
+  }
+
   // ============== Catalog Templates (Admin) ==============
 
   async getCatalogTemplates(): Promise<ApiResponse<CatalogTemplate[]>> {

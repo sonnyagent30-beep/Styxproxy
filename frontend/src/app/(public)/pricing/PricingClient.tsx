@@ -433,7 +433,7 @@ export default function PricingClient() {
                     className="suggestion-item"
                     onClick={() => selectCountry(c.code)}
                   >
-                    <span className="flag">{c.flag}</span>
+                    <Flag countryCode={c.code} size={22} />
                     <span className="country-name">{c.name}</span>
                     {c.priceLabel && <span className="country-price">{c.priceLabel}</span>}
                     <span className="country-code">{c.region}</span>
@@ -454,7 +454,7 @@ export default function PricingClient() {
         <div className="max-w-6xl mx-auto px-6 pb-16">
           <div className="country-detail-card p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
             <div className="country-detail-header">
-              <span className="flag">{selectedCountryData.flag}</span>
+              <Flag countryCode={selectedCountryData.code} size={26} />
               <div>
                 <h2>{selectedCountryData.name}</h2>
                 <div className="region-tag">{selectedCountryData.region}</div>
@@ -517,7 +517,7 @@ export default function PricingClient() {
               className="country-tile p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth"
               onClick={() => selectCountry(c.code)}
             >
-              <span className="flag">{c.flag}</span>
+              <Flag countryCode={c.code} size={22} />
               <div className="name">{c.name}</div>
               <div className="region">{c.region}</div>
               {c.priceLabel && <div className="country-price">{c.priceLabel}</div>}

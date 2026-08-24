@@ -17,6 +17,7 @@ from app.models import (
     AdminAuditLog,
     CharonEscalation,
     ContactSubmission,
+    Country,
     Customer,
     FeatureFlag,
     Order,
@@ -1047,6 +1048,84 @@ async def update_plan_setting(
     await session.refresh(setting)
     return PlanSettingsResponse.model_validate(setting)
 
+
+# ============== Country Plan Types (admin country/product matrix) ==============
+
+@router.get(
+    "/countries",
+    dependencies=[Depends(require_permission("admin.plans.manage"))],
+)
+async def list_admin_countries(session: AsyncSession = Depends(get_session)):
+    """List countries with their per-plan-type settings from country_plan_types.
+
+    Shape consumed by /admin/plans page:
+    {countries: [{code, name, plan_types: {<PLAN_TYPE>: {enabled, is_special,
+        price_per_ip, price_per_gb}}}]}
+    """
+    rows = (await session.execute(text(
+        "SELECT c.code, c.name, cpt.plan_type, cpt.enabled, cpt.is_special, "
+        "cpt.price_per_ip, cpt.price_per_gb "
+        "FROM country_plan_types cpt "
+        "LEFT JOIN countries c ON c.code = cpt.country_code "
+        "ORDER BY COALESCE(c.name, cpt.country_code), cpt.plan_type"
+    ))).mappings().all()
+
+    countries: dict[str, dict] = {}
+    for r in rows:
+        code = r["code"]
+        if not code:
+            continue
+        entry = countries.setdefault(code, {"code": code, "name": r["name"], "plan_types": {}})
+        entry["plan_types"][r["plan_type"]] = {
+            "enabled": bool(r["enabled"]),
+            "is_special": bool(r["is_special"]),
+            "price_per_ip": float(r["price_per_ip"]) if r["price_per_ip"] is not None else None,
+            "price_per_gb": float(r["price_per_gb"]) if r["price_per_gb"] is not None else None,
+        }
+
+    return {"countries": list(countries.values())}
+
+
+class CountryPlanTypeUpdateRequest(BaseModel):
+    enabled: Optional[bool] = None
+    is_special: Optional[bool] = None
+    price_per_ip: Optional[float] = None
+    price_per_gb: Optional[float] = None
+
+
+@router.patch("/countries/{code}/{plan_type}",
+              dependencies=[Depends(require_permission("admin.plans.manage"))])
+async def update_country_plan_type(
+    code: str,
+    plan_type: str,
+    request: CountryPlanTypeUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Update a single country+plan_type row in country_plan_types."""
+    result = await session.execute(text(
+        "SELECT id FROM country_plan_types WHERE country_code = :c AND plan_type = :p"
+    ), {"c": code.upper(), "p": plan_type.upper()})
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Country plan type not found")
+
+    updates = []
+    params: dict = {"id": row.id}
+    if request.enabled is not None:
+        updates.append("enabled = :enabled"); params["enabled"] = request.enabled
+    if request.is_special is not None:
+        updates.append("is_special = :is_special"); params["is_special"] = request.is_special
+    if request.price_per_ip is not None:
+        updates.append("price_per_ip = :pip"); params["pip"] = request.price_per_ip
+    if request.price_per_gb is not None:
+        updates.append("price_per_gb = :pgb"); params["pgb"] = request.price_per_gb
+
+    if updates:
+        updates.append("updated_at = now()")
+        await session.execute(text(
+            f"UPDATE country_plan_types SET {', '.join(updates)} WHERE id = :id"), params)
+        await session.commit()
+    return {"status": "updated", "country": code.upper(), "plan_type": plan_type.upper()}
 
 # ============== Channel Feature Flags ==============
 
