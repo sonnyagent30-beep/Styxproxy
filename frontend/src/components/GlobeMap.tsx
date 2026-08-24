@@ -52,6 +52,26 @@ export default function GlobeMap({ productType, enabledCountries }: GlobeMapProp
   const [ready, setReady]                 = useState(false);
   const [containerOpacity, setContainerOpacity] = useState(0);
   const [countriesData, setCountriesData] = useState<object[]>([]);
+  // Live per-product country availability from /api/catalog (DB-driven).
+  // Keyed by uppercase plan type (ISP / RESIDENTIAL / MOBILE / DC).
+  const [catalogCountries, setCatalogCountries] = useState<Record<string, string[]> | null>(null);
+
+  // Fetch catalog once — this is the source of truth for which countries
+  // each product type actually serves, straight from PlanSettings in the DB.
+  useEffect(() => {
+    fetch('/api/catalog')
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: { templates?: { plan_type: string; available_countries: string[] }[] }) => {
+        const map: Record<string, string[]> = {};
+        for (const t of data.templates ?? []) {
+          map[t.plan_type.toUpperCase()] = t.available_countries;
+        }
+        if (Object.keys(map).length > 0) setCatalogCountries(map);
+      })
+      .catch(() => {
+        // On error, keep null → fall back to static PRODUCT_COUNTRIES
+      });
+  }, []);
 
   // Build the visible location array based on productType AND admin toggle state.
   //
@@ -68,9 +88,15 @@ export default function GlobeMap({ productType, enabledCountries }: GlobeMapProp
     let base: CountryInfo[];
 
     if (!productType || productType === 'ALL') {
-      base = Object.values(COUNTRIES);
+      // Prefer live catalog countries (DB-driven) over the full static list.
+      if (catalogCountries) {
+        const codes = [...new Set(Object.values(catalogCountries).flat())];
+        base = codes.map(c => COUNTRIES[c]).filter(Boolean);
+      } else {
+        base = Object.values(COUNTRIES);
+      }
     } else {
-      const codes = PRODUCT_COUNTRIES[productType] || [];
+      const codes = catalogCountries?.[productType] ?? PRODUCT_COUNTRIES[productType] ?? [];
       base = codes.map(c => COUNTRIES[c]).filter(Boolean);
     }
 
@@ -80,17 +106,25 @@ export default function GlobeMap({ productType, enabledCountries }: GlobeMapProp
     }
 
     return base;
-  }, [productType, enabledCountries]);
+  }, [productType, enabledCountries, catalogCountries]);
 
   const LOCATIONS = visibleLocations;
 
   // Return which proxy types are available in a given country code
   const getProductsAtCountry = (code: string): string[] => {
     const available: string[] = [];
-    if (PRODUCT_COUNTRIES.ISP?.includes(code))        available.push('ISP');
-    if (PRODUCT_COUNTRIES.RESIDENTIAL?.includes(code)) available.push('Residential');
-    if (PRODUCT_COUNTRIES.MOBILE?.includes(code))       available.push('Mobile 4G');
-    if (PRODUCT_COUNTRIES.DC?.includes(code))           available.push('DC');
+    // Prefer live catalog data; fall back to static lists.
+    if (catalogCountries) {
+      if (catalogCountries.ISP?.includes(code))          available.push('ISP');
+      if (catalogCountries.RESIDENTIAL?.includes(code))  available.push('Residential');
+      if (catalogCountries.MOBILE?.includes(code))       available.push('Mobile 4G');
+      if (catalogCountries.DC?.includes(code))           available.push('DC');
+    } else {
+      if (PRODUCT_COUNTRIES.ISP?.includes(code))        available.push('ISP');
+      if (PRODUCT_COUNTRIES.RESIDENTIAL?.includes(code)) available.push('Residential');
+      if (PRODUCT_COUNTRIES.MOBILE?.includes(code))       available.push('Mobile 4G');
+      if (PRODUCT_COUNTRIES.DC?.includes(code))           available.push('DC');
+    }
     return available;
   };
 
