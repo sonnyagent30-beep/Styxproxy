@@ -1066,7 +1066,8 @@ async def list_admin_countries(session: AsyncSession = Depends(get_session)):
     Shape consumed by /admin/plans page.
     """
     rows = (await session.execute(text(
-        "SELECT c.code, c.name, cpt.plan_type, cpt.enabled, cpt.is_special, "
+        "SELECT c.code, c.name, c.is_supported AS country_enabled, "
+        "cpt.plan_type, cpt.enabled, cpt.is_special, "
         "cpt.price_per_ip, cpt.price_per_gb "
         "FROM countries c "
         "LEFT JOIN country_plan_types cpt ON cpt.country_code = c.code "
@@ -1092,9 +1093,10 @@ async def list_admin_countries(session: AsyncSession = Depends(get_session)):
         for pt in PLAN_TYPES_ALL:
             pts.setdefault(pt, {"enabled": False, "is_special": False,
                                 "price_per_ip": None, "price_per_gb": None})
-        enabled_pts = [pt for pt, v in pts.items() if v["enabled"]]
-        entry["is_enabled"] = len(enabled_pts) > 0
-        entry["enabled_plan_types"] = enabled_pts
+        # Product membership ONLY: plan types explicitly added to a product
+        entry["enabled_plan_types"] = [pt for pt, v in pts.items() if v["enabled"]]
+        # Global availability toggle lives on countries.is_supported
+        entry["is_enabled"] = bool(entry.pop("country_enabled", False))
         result_list.append(entry)
 
     return {"countries": result_list}
@@ -1122,16 +1124,18 @@ async def toggle_country(
     if not exists:
         raise HTTPException(status_code=404, detail=f"Unknown country code: {code}")
 
+    # Global toggle = countries.is_supported. Product membership is managed
+    # separately via PATCH /countries/{code}/{plan_type}.
+    await session.execute(text(
+        "UPDATE countries SET is_supported = :e, updated_at = now() WHERE code = :c"
+    ), {"e": request.enabled, "c": code})
+    # Ensure plan-type placeholder rows exist (disabled) for future product adds
     await session.execute(text(
         "INSERT INTO country_plan_types (country_code, plan_type, enabled) "
         "SELECT :c, pt, false FROM unnest(:pts::text[]) AS pt "
         "WHERE NOT EXISTS (SELECT 1 FROM country_plan_types cpt "
         "WHERE cpt.country_code = :c AND cpt.plan_type = pt)"
     ), {"c": code, "pts": list(PLAN_TYPES_ALL)})
-    await session.execute(text(
-        "UPDATE country_plan_types SET enabled = :e, updated_at = now() "
-        "WHERE country_code = :c"
-    ), {"e": request.enabled, "c": code})
     await session.commit()
     return {"status": "updated", "country": code, "enabled": request.enabled}
 

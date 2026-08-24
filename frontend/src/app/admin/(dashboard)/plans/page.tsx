@@ -633,19 +633,8 @@ export default function PlanSettingsPage() {
       setCountries((prev) =>
         prev.map((c) => {
           if (c.code !== code) return c;
-          if (!currentEnabled) {
-            // Activating enables all plan types — country can now be added to products
-            return { ...c, is_enabled: true, enabled_plan_types: ['DC', 'ISP', 'RESIDENTIAL', 'MOBILE'] };
-          }
-          // Deactivating disables all plan types and detaches from products
-          return {
-            ...c,
-            is_enabled: false,
-            enabled_plan_types: [],
-            plan_types: Object.fromEntries(
-              Object.entries(c.plan_types ?? {}).map(([pt, v]: [string, any]) => [pt, { ...v, enabled: false }])
-            ),
-          };
+          // Global toggle only — "Enabled In" reflects product membership, untouched here
+          return { ...c, is_enabled: !currentEnabled };
         })
       );
     } catch {
