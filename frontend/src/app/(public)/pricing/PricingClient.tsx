@@ -379,9 +379,9 @@ export default function PricingClient() {
         <div className="absolute inset-0 hero-bg-grid" />
         <div className="absolute inset-0 hero-bg-rings" />
         <div className="absolute inset-0 hero-bg-vignette" />
-        <div className="hero-orb-1" />
-        <div className="hero-orb-2" />
-        <div className="hero-orb-3" />
+        <div className="hero-orb hero-orb-1" />
+        <div className="hero-orb hero-orb-2" />
+        <div className="hero-orb hero-orb-3" />
 
         <div className="relative text-center max-w-3xl mx-auto">
           {/* Badge */}
