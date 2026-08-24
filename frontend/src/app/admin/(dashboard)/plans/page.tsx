@@ -11,10 +11,11 @@ type Tab = 'settings' | 'countries';
 interface CountryItem {
   code: string;
   name: string;
-  flag_emoji: string;
-  region: string;
+  flag_emoji?: string;
+  region?: string;
   enabled_plan_types: string[];
   is_enabled: boolean;
+  plan_types?: Record<string, { enabled: boolean; is_special: boolean; price_per_ip: number | null; price_per_gb: number | null }>;
 }
 
 interface ProductCard {
@@ -557,6 +558,7 @@ export default function PlanSettingsPage() {
 
   const [countries, setCountries] = useState<CountryItem[]>([]);
   const [countriesLoading, setCountriesLoading] = useState(true);
+  const [countrySearch, setCountrySearch] = useState('');
   const [savingCodes, setSavingCodes] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
@@ -625,16 +627,32 @@ export default function PlanSettingsPage() {
 
   const handleToggleCountry = async (code: string, currentEnabled: boolean) => {
     setSavingCodes((prev) => new Set(prev).add(code));
-    const planTypes = ['DC', 'ISP', 'RESIDENTIAL', 'MOBILE'];
-    await api.toggleCountry(code, !currentEnabled);
-    setCountries((prev) =>
-      prev.map((c) =>
-        c.code !== code
-          ? c
-          : { ...c, is_enabled: !currentEnabled, enabled_plan_types: currentEnabled ? [] : c.enabled_plan_types }
-      )
-    );
-    setSavingCodes((prev) => { const n = new Set(prev); n.delete(code); return n; });
+    setError(null);
+    try {
+      await api.toggleCountry(code, !currentEnabled);
+      setCountries((prev) =>
+        prev.map((c) => {
+          if (c.code !== code) return c;
+          if (!currentEnabled) {
+            // Activating enables all plan types — country can now be added to products
+            return { ...c, is_enabled: true, enabled_plan_types: ['DC', 'ISP', 'RESIDENTIAL', 'MOBILE'] };
+          }
+          // Deactivating disables all plan types and detaches from products
+          return {
+            ...c,
+            is_enabled: false,
+            enabled_plan_types: [],
+            plan_types: Object.fromEntries(
+              Object.entries(c.plan_types ?? {}).map(([pt, v]: [string, any]) => [pt, { ...v, enabled: false }])
+            ),
+          };
+        })
+      );
+    } catch {
+      setError(`Failed to update ${code}. Try again.`);
+    } finally {
+      setSavingCodes((prev) => { const n = new Set(prev); n.delete(code); return n; });
+    }
   };
 
   return (
@@ -759,8 +777,19 @@ export default function PlanSettingsPage() {
             <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] overflow-hidden">
-            <div className="overflow-x-auto">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <input
+                value={countrySearch}
+                onChange={(e) => setCountrySearch(e.target.value)}
+                placeholder="Search countries…"
+                className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-sm text-[var(--foreground)] w-full max-w-xs"
+              />
+              <span className="text-sm text-[var(--muted)]">
+                {[...countries].filter((c) => c.is_enabled).length} active of {countries.length}
+              </span>
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] overflow-hidden max-h-[600px] overflow-y-auto">
               <table className="w-full min-w-[400px]">
                 <thead>
                   <tr className="border-b border-[var(--border)] bg-[var(--background)]">
@@ -817,7 +846,7 @@ export default function PlanSettingsPage() {
               </table>
             </div>
             <div className="px-4 py-3 border-t border-[var(--border)] text-sm text-[var(--muted)]">
-              {countries.filter((c) => c.enabled_plan_types.length > 0).length} of {countries.length} countries active
+              {[...countries].filter((c) => c.is_enabled).length} of {countries.length} countries active
             </div>
           </div>
         )

@@ -1051,41 +1051,47 @@ async def update_plan_setting(
 
 # ============== Country Plan Types (admin country/product matrix) ==============
 
+PLAN_TYPES_ALL = ("DC", "ISP", "RESIDENTIAL", "MOBILE")
+
+
 @router.get(
     "/countries",
     dependencies=[Depends(require_permission("admin.plans.manage"))],
 )
 async def list_admin_countries(session: AsyncSession = Depends(get_session)):
-    """List countries with their per-plan-type settings from country_plan_types.
+    """List ALL countries (full ISO reference) with per-plan-type settings.
 
-    Shape consumed by /admin/plans page:
-    {countries: [{code, name, plan_types: {<PLAN_TYPE>: {enabled, is_special,
-        price_per_ip, price_per_gb}}}]}
+    Countries with no country_plan_types rows are returned with every
+    plan type disabled — they exist but are not yet activated.
+    Shape consumed by /admin/plans page.
     """
     rows = (await session.execute(text(
         "SELECT c.code, c.name, cpt.plan_type, cpt.enabled, cpt.is_special, "
         "cpt.price_per_ip, cpt.price_per_gb "
-        "FROM country_plan_types cpt "
-        "LEFT JOIN countries c ON c.code = cpt.country_code "
-        "ORDER BY COALESCE(c.name, cpt.country_code), cpt.plan_type"
+        "FROM countries c "
+        "LEFT JOIN country_plan_types cpt ON cpt.country_code = c.code "
+        "ORDER BY c.name, cpt.plan_type"
     ))).mappings().all()
 
     countries: dict[str, dict] = {}
     for r in rows:
         code = r["code"]
-        if not code:
-            continue
         entry = countries.setdefault(code, {"code": code, "name": r["name"], "plan_types": {}})
-        entry["plan_types"][r["plan_type"]] = {
-            "enabled": bool(r["enabled"]),
-            "is_special": bool(r["is_special"]),
-            "price_per_ip": float(r["price_per_ip"]) if r["price_per_ip"] is not None else None,
-            "price_per_gb": float(r["price_per_gb"]) if r["price_per_gb"] is not None else None,
-        }
+        if r["plan_type"]:
+            entry["plan_types"][r["plan_type"]] = {
+                "enabled": bool(r["enabled"]),
+                "is_special": bool(r["is_special"]),
+                "price_per_ip": float(r["price_per_ip"]) if r["price_per_ip"] is not None else None,
+                "price_per_gb": float(r["price_per_gb"]) if r["price_per_gb"] is not None else None,
+            }
 
     result_list = []
     for entry in countries.values():
         pts = entry["plan_types"]
+        # Fill in disabled placeholders for plan types with no row yet
+        for pt in PLAN_TYPES_ALL:
+            pts.setdefault(pt, {"enabled": False, "is_special": False,
+                                "price_per_ip": None, "price_per_gb": None})
         enabled_pts = [pt for pt, v in pts.items() if v["enabled"]]
         entry["is_enabled"] = len(enabled_pts) > 0
         entry["enabled_plan_types"] = enabled_pts
@@ -1105,15 +1111,29 @@ async def toggle_country(
     request: CountryToggleRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    """Enable/disable ALL plan types for a country in country_plan_types."""
-    result = await session.execute(text(
+    """Enable/disable a country across all plan types.
+
+    Enabling creates any missing country_plan_types rows at defaults;
+    disabling flips existing rows to enabled=false (never deletes).
+    """
+    code = code.upper()
+    exists = (await session.execute(text(
+        "SELECT id FROM countries WHERE code = :c"), {"c": code})).first()
+    if not exists:
+        raise HTTPException(status_code=404, detail=f"Unknown country code: {code}")
+
+    await session.execute(text(
+        "INSERT INTO country_plan_types (country_code, plan_type, enabled) "
+        "SELECT :c, pt, false FROM unnest(:pts::text[]) AS pt "
+        "WHERE NOT EXISTS (SELECT 1 FROM country_plan_types cpt "
+        "WHERE cpt.country_code = :c AND cpt.plan_type = pt)"
+    ), {"c": code, "pts": list(PLAN_TYPES_ALL)})
+    await session.execute(text(
         "UPDATE country_plan_types SET enabled = :e, updated_at = now() "
         "WHERE country_code = :c"
-    ), {"e": request.enabled, "c": code.upper()})
+    ), {"e": request.enabled, "c": code})
     await session.commit()
-    if result.rowcount == 0:
-        raise HTTPException(status_code=404, detail="Country not found in country_plan_types")
-    return {"status": "updated", "country": code.upper(), "enabled": request.enabled}
+    return {"status": "updated", "country": code, "enabled": request.enabled}
 
 
 class CountryPlanTypeUpdateRequest(BaseModel):
