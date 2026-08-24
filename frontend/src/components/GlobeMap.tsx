@@ -248,7 +248,16 @@ export default function GlobeMap({ productType, enabledCountries }: GlobeMapProp
           backgroundColor="rgba(0,0,0,0)"
           polygonsData={countriesData}
           polygonGeoJsonGeometry={(d: object) => (d as { geometry: object }).geometry}
-          polygonCapColor={() => 'rgba(0,0,0,0)'}
+          // Only highlight countries that are actually enabled for sale
+          polygonCapColor={(d: object) => {
+            const iso = (d as { properties?: { ISO_A2?: string } }).properties?.ISO_A2;
+            const enabled = !productType || productType === 'ALL'
+              ? [...new Set(Object.values(catalogCountries ?? {}).flat())]
+              : (catalogCountries?.[productType] ?? PRODUCT_COUNTRIES[productType] ?? []);
+            const alsoEnabled = enabledCountries && enabledCountries.size > 0 ? enabledCountries : null;
+            const ok = enabled.includes(iso ?? '') && (!alsoEnabled || alsoEnabled.has(iso ?? ''));
+            return ok ? 'rgba(34,197,94,0.35)' : 'rgba(0,0,0,0)';
+          }}
           polygonSideColor={() => 'rgba(0,0,0,0)'}
           polygonStrokeColor={() => outlineColor}
           polygonStrokeWidth={2.0}

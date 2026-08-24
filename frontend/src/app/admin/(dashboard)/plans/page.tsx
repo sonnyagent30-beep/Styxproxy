@@ -569,7 +569,11 @@ export default function PlanSettingsPage() {
       const res = await api.getAdminCountries();
       if (res.error) { setError('Failed: ' + res.error); return; }
       const data = res.data as any;
-      setCountries(data?.countries ?? []);
+      const list = (data?.countries ?? []).map((c: any) => ({
+        ...c,
+        name: c.name ?? getCountryName(c.code),
+      }));
+      setCountries(list);
     } catch { setError('Failed to load countries.'); }
     finally { setCountriesLoading(false); }
   }, []);

@@ -1083,7 +1083,37 @@ async def list_admin_countries(session: AsyncSession = Depends(get_session)):
             "price_per_gb": float(r["price_per_gb"]) if r["price_per_gb"] is not None else None,
         }
 
-    return {"countries": list(countries.values())}
+    result_list = []
+    for entry in countries.values():
+        pts = entry["plan_types"]
+        enabled_pts = [pt for pt, v in pts.items() if v["enabled"]]
+        entry["is_enabled"] = len(enabled_pts) > 0
+        entry["enabled_plan_types"] = enabled_pts
+        result_list.append(entry)
+
+    return {"countries": result_list}
+
+
+class CountryToggleRequest(BaseModel):
+    enabled: bool
+
+
+@router.patch("/countries/{code}",
+              dependencies=[Depends(require_permission("admin.plans.manage"))])
+async def toggle_country(
+    code: str,
+    request: CountryToggleRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Enable/disable ALL plan types for a country in country_plan_types."""
+    result = await session.execute(text(
+        "UPDATE country_plan_types SET enabled = :e, updated_at = now() "
+        "WHERE country_code = :c"
+    ), {"e": request.enabled, "c": code.upper()})
+    await session.commit()
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Country not found in country_plan_types")
+    return {"status": "updated", "country": code.upper(), "enabled": request.enabled}
 
 
 class CountryPlanTypeUpdateRequest(BaseModel):

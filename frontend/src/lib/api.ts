@@ -838,6 +838,13 @@ class ApiClient {
     });
   }
 
+  async toggleCountry(code: string, enabled: boolean): Promise<ApiResponse<{ status: string; country: string; enabled: boolean }>> {
+    return this.request(`/api/admin/countries/${code}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled }),
+    });
+  }
+
   // ============== Catalog Templates (Admin) ==============
 
   async getCatalogTemplates(): Promise<ApiResponse<CatalogTemplate[]>> {
