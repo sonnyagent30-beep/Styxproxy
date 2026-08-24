@@ -102,16 +102,18 @@ class CountriesResponse(BaseModel):
 
 @router.get("/countries", response_model=CountriesResponse)
 async def get_countries(session: AsyncSession = Depends(get_session)):
-    """Return all countries that have at least one active plan_type in PlanSettings."""
-    from app.models import Country, PlanSettings
+    """Return all countries that have at least one active plan in the plans table.
+
+    The plans table is the admin-controlled source of truth: a country is
+    "enabled" for sale exactly when an active plan row exists for it.
+    """
+    from app.models import Country, Plan
     from sqlalchemy import select
 
-    pt_result = await session.execute(
-        select(PlanSettings.plan_type, PlanSettings.country).where(PlanSettings.is_active)
+    plan_result = await session.execute(
+        select(Plan.country).where(Plan.is_active)
     )
-    rows = pt_result.fetchall()
-
-    country_codes: set[str] = {code for _, code in rows if code}
+    country_codes: set[str] = {c.upper() for (c,) in plan_result.fetchall() if c}
 
     if country_codes:
         country_result = await session.execute(

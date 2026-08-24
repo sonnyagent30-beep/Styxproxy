@@ -235,14 +235,11 @@ async function fetchCatalog(): Promise<typeof FALLBACK_PRODUCTS> {
       const baseUnitPrice = isIpBased
         ? apiTemplate.base_price_per_ip
         : apiTemplate.base_price_per_gb;
-      const formattedPrice = baseUnitPrice > 0
-        ? `₦${baseUnitPrice.toLocaleString('en-NG')}`
-        : product.price;
-      const displayPrice = baseUnitPrice > 0
-        ? isIpBased
-          ? `From ₦${baseUnitPrice.toLocaleString('en-NG')}`
-          : `₦${baseUnitPrice.toLocaleString('en-NG')}`
-        : product.price;
+      // No silent hardcode fallback: show whatever the DB says (₦0 if unset)
+      const formattedPrice = `₦${(baseUnitPrice || 0).toLocaleString('en-NG')}`;
+      const displayPrice = isIpBased
+        ? `From ₦${(baseUnitPrice || 0).toLocaleString('en-NG')}`
+        : `₦${(baseUnitPrice || 0).toLocaleString('en-NG')}`;
 
       // Use countries from API
       const countries = apiTemplate.available_countries.length;

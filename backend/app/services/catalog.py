@@ -220,17 +220,21 @@ async def list_catalog(session: AsyncSession) -> dict:
                 continue
 
             for rotation_mode in rotation_options:
-                # Compute price: use country_override for ISP, else base_pricing
-                if plan_type == "isp":
-                    # Check country override first
-                    override_map = country_overrides.get(plan_type, {})
-                    per_ip = override_map.get(country, base_price_per_ip)
-                else:
-                    per_ip = base_price_per_ip
-
+                # ── Pricing (admin-controlled, plans table is source of truth) ──
+                # Primary: per-country price from the plan row itself.
+                #   - residential/mobile: price_per_gb (fallback: base_pricing setting)
+                #   - isp/dc: price_ngn (per-IP; fallback: base_pricing or country_override)
+                # This keeps admin dashboard edits authoritative even when
+                # plan_settings has no base_pricing rows configured.
+                override_map = country_overrides.get(plan_type, {})
                 if is_per_gb:
-                    base_price = base_price_per_gb * quantity
+                    base_price = float(plan.price_per_gb or 0) * quantity
+                    if base_price <= 0:
+                        base_price = base_price_per_gb * quantity
                 else:
+                    per_ip = float(plan.price_ngn or 0)
+                    if per_ip <= 0:
+                        per_ip = override_map.get(country) or base_price_per_ip
                     base_price = per_ip * quantity
 
                 if rotation_mode == "static":
@@ -314,7 +318,11 @@ async def list_catalog(session: AsyncSession) -> dict:
         # residential/mobile: customer picks GB tier, price_per_gb × quantity
         # datacenter: per-IP at price_ngn
         base_price_per_gb = float(default_plan.price_per_gb or 0)
-        base_price_per_ip = float(settings.get("price_per_ip", 0) or 0)
+        # plans table is source of truth: derive per-IP base from the cheapest plan row
+        # rather than the (often unconfigured) plan_settings.base_pricing.
+        base_price_per_ip = float(
+            min((float(p.price_ngn or 0) for p in plan_list if float(p.price_ngn or 0) > 0), default=0.0)
+        ) or float(settings.get("price_per_ip", 0) or 0)
         min_gb = int(default_plan.min_gb or 5)
         max_gb = int(default_plan.max_gb or 50)
         gb_tiers = list(default_plan.gb_tiers or [5, 10, 20, 50])

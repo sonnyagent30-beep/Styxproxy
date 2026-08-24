@@ -213,7 +213,11 @@ export default function PricingClient() {
     fetchCatalog();
   }, []);
 
-  // Derive products from catalog data, merged with fallback metadata
+  // Derive products from catalog data, merged with fallback metadata.
+  // NOTE: prices/countries ALWAYS come from the API (admin-controlled).
+  // FALLBACK_PRODUCTS only supplies static card styling metadata (badges,
+  // colors, copy); if a price is missing from the DB we show ₦0 rather
+  // than a fake hardcoded number.
   const products = useMemo(() => {
     if (catalogLoading) return FALLBACK_PRODUCTS;
     if (catalogTemplates.length === 0) return FALLBACK_PRODUCTS;
@@ -228,9 +232,8 @@ export default function PricingClient() {
         ? apiTemplate.base_price_per_ip
         : apiTemplate.base_price_per_gb;
 
-      const formattedPrice = unitPrice > 0
-        ? `₦${Math.round(unitPrice).toLocaleString('en-NG')}`
-        : fallback.price;
+      // No silent hardcode fallback: show whatever the DB says (₦0 if unset)
+      const formattedPrice = `₦${Math.round(unitPrice || 0).toLocaleString('en-NG')}`;
 
       return {
         ...fallback,
