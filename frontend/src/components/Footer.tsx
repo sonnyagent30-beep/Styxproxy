@@ -40,9 +40,9 @@ export default function Footer() {
                 <WhatsappLogo className="w-5 h-5 text-white" />
               </a>
               <a href="mailto:support@styxproxy.com"
-                className="relative w-10 h-10 rounded-xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary)]/40 hover:shadow-[0_8px_20px_rgba(10,210,90,0.15)]"
+                className="relative w-10 h-10 rounded-xl bg-[var(--card-hover)] border border-[var(--border-light)] flex items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary)] hover:shadow-[0_8px_20px_rgba(10,210,90,0.25)]"
                 aria-label="Email support">
-                <Envelope className="w-5 h-5 text-[var(--muted)]" />
+                <Envelope className="w-5 h-5 text-[var(--foreground)]" />
               </a>
             </div>
           </div>

@@ -20,7 +20,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
       case 'DC':
         return 'bg-orange-500/20 text-orange-400';
       default:
-        return 'bg-gray-500/20 text-gray-400';
+        return 'bg-gray-500/20 text-[var(--muted)]';
     }
   };
 

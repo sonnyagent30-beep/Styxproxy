@@ -449,7 +449,7 @@ export default function ProductsPage() {
             <h2 className="text-2xl font-bold mb-3 leading-tight text-[var(--primary-light)] tracking-tight">
               Choose your cover.
             </h2>
-            <p className="text-sm mb-6 leading-relaxed text-gray-400">
+            <p className="text-sm mb-6 leading-relaxed text-[var(--muted)]">
               Each disguise has a distinct signature. Pick the one that fits your operation.
             </p>
 
@@ -474,7 +474,7 @@ export default function ProductsPage() {
                     </div>
                     <div className="font-bold text-sm">{p.name}</div>
                   </div>
-                  <div className="text-xs leading-relaxed text-gray-400">{p.tagline}</div>
+                  <div className="text-xs leading-relaxed text-[var(--muted)]">{p.tagline}</div>
                 </button>
               ))}
             </div>
@@ -660,7 +660,7 @@ export default function ProductsPage() {
                   ))}
                 </div>
 
-                <p className="text-sm leading-relaxed mb-4 text-gray-400">
+                <p className="text-sm leading-relaxed mb-4 text-[var(--muted)]">
                   {product.description}
                 </p>
 

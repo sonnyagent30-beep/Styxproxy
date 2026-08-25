@@ -49,9 +49,9 @@ export default function ConsentGate() {
           align-items: center;
           justify-content: center;
           padding: 1rem;
-          background: rgba(0, 0, 0, 0.65);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
+          background: rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
           animation: cg-fade-in 0.3s ease;
           /* Block everything behind */
           pointer-events: all;
@@ -80,10 +80,13 @@ export default function ConsentGate() {
           margin-bottom: 1.25rem;
         }
         .cg-links {
-          display: flex;
-          flex-direction: column;
-          gap: 0.35rem;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.4rem 1rem;
           margin-bottom: 1.5rem;
+        }
+        @media (max-width: 420px) {
+          .cg-links { grid-template-columns: 1fr; }
         }
         .cg-links a {
           font-size: 0.8rem;
@@ -96,10 +99,11 @@ export default function ConsentGate() {
         .cg-actions {
           display: flex;
           gap: 0.625rem;
-          flex-wrap: wrap;
+          align-items: stretch;
         }
+        .cg-actions > * { flex: 1; }
         .cg-btn-accept {
-          padding: 0.6rem 1.5rem;
+          padding: 0.6rem 1.25rem;
           background: var(--primary);
           color: #000;
           font-weight: 700;

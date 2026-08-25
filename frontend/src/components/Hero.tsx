@@ -5,6 +5,8 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { CaretDown, WhatsappLogo, TelegramLogo, Lightning, Shield, Lock, Globe, Clock, Headset, House, DeviceMobile, HardDrives, Desktop, Check } from '@phosphor-icons/react';
 
+import GlobeErrorBoundary from '@/components/GlobeErrorBoundary';
+
 const GlobeMap = dynamic(() => import('@/components/GlobeMap'), { ssr: false });
 
 const TYPEWRITER_WORDS = ['untraceable', 'unrestricted', 'verified', 'instant', 'anonymous'];
@@ -148,7 +150,9 @@ export default function Hero() {
 
           {/* Globe + tabs */}
           <div className="w-full max-w-xl mx-auto mb-6">
-            <GlobeMap productType={activeTab === 'ALL' ? undefined : activeTab} enabledCountries={enabledCountries} />
+            <GlobeErrorBoundary>
+              <GlobeMap productType={activeTab === 'ALL' ? undefined : activeTab} enabledCountries={enabledCountries} />
+            </GlobeErrorBoundary>
             {/* Tab switcher — BELOW the globe */}
             <div className="flex items-center justify-center gap-1.5 overflow-x-auto pb-1 md:pb-0 mt-3">
               {PRODUCT_TABS.map(({ key, label, icon: Icon }) => {
@@ -248,7 +252,7 @@ export default function Hero() {
             {STATS.map((stat, i) => (
               <div key={i} className="text-center">
                 <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-[var(--foreground)] tracking-tight">
-                  {stat.isText ? stat.value : <AnimatedCounter target={stat.value} suffix={stat.suffix || ''} />}
+                  {stat.value}
                 </div>
                 <div className="text-xs text-[var(--muted)] mt-2 font-medium tracking-widest uppercase">
                   {stat.label}
