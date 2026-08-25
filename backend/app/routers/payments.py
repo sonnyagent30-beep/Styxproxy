@@ -57,11 +57,11 @@ async def initiate_payment(
     price = PRODUCT_PRICES.get(request.plan_code)
     if not price:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
+    # Anonymous checkout: contact fields are OPTIONAL. If neither is given we
+    # synthesize a throwaway guest identity so the payment provider's mandatory
+    # email field is satisfied without collecting any real PII.
     if not request.customer_email and not request.customer_phone:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Either customer_email or customer_phone is required",
-        )
+        request.customer_email = f"anon-{uuid.uuid4().hex[:10]}@guest.styxproxy.com"
 
     platform_account = current_user.get("platform_account") if isinstance(current_user, dict) else None
     device_id = platform_account.device_id if platform_account else None

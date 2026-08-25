@@ -170,11 +170,6 @@ export default function CheckoutPage() {
 
   const handlePay = async () => {
     if (cart.length === 0) return;
-    if (!email.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
-      setError('Please enter a valid email address to continue.');
-      setLoading(false);
-      return;
-    }
     setError('');
     setLoading(true);
 
@@ -439,7 +434,7 @@ export default function CheckoutPage() {
           <h2 className="text-lg font-semibold mb-4">Your Receipt</h2>
           <div>
             <label className="block text-sm font-medium mb-2">
-              Email address <span className="text-red-400">*</span>
+              Email address <span className="text-[var(--muted)] font-normal">(optional)</span>
             </label>
             <input
               type="email"
