@@ -150,7 +150,7 @@ class _VirtualPlan:
         self.max_gb = None
 
 
-def list_catalog(session: AsyncSession) -> dict:
+async def list_catalog(session: AsyncSession) -> dict:
     """List all plan_type templates with their options.
 
     Countries and rotation modes are loaded from plan_settings (DB).
