@@ -1132,10 +1132,10 @@ async def toggle_country(
     # Ensure plan-type placeholder rows exist (disabled) for future product adds
     await session.execute(text(
         "INSERT INTO country_plan_types (country_code, plan_type, enabled) "
-        "SELECT :c, pt, false FROM unnest(:pts::text[]) AS pt "
+        "SELECT :c, pt, false FROM (VALUES ('DC'),('ISP'),('RESIDENTIAL'),('MOBILE')) AS v(pt) "
         "WHERE NOT EXISTS (SELECT 1 FROM country_plan_types cpt "
         "WHERE cpt.country_code = :c AND cpt.plan_type = pt)"
-    ), {"c": code, "pts": list(PLAN_TYPES_ALL)})
+    ), {"c": code})
     await session.commit()
     return {"status": "updated", "country": code, "enabled": request.enabled}
 
@@ -1156,12 +1156,17 @@ async def update_country_plan_type(
     session: AsyncSession = Depends(get_session),
 ):
     """Update a single country+plan_type row in country_plan_types."""
+    # Upsert: create the row if it doesn't exist yet (country never activated)
+    await session.execute(text(
+        "INSERT INTO country_plan_types (country_code, plan_type, enabled) "
+        "VALUES (:c, :p, false) ON CONFLICT DO NOTHING"
+    ), {"c": code.upper(), "p": plan_type.upper()})
     result = await session.execute(text(
         "SELECT id FROM country_plan_types WHERE country_code = :c AND plan_type = :p"
     ), {"c": code.upper(), "p": plan_type.upper()})
     row = result.first()
     if not row:
-        raise HTTPException(status_code=404, detail="Country plan type not found")
+        raise HTTPException(status_code=500, detail="Failed to create country plan type row")
 
     updates = []
     params: dict = {"id": row.id}

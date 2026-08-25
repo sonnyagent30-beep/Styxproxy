@@ -788,7 +788,9 @@ export default function PlanSettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[...countries].sort((a, b) => getCountryName(a.code).localeCompare(getCountryName(b.code))).map((country) => {
+                  {[...countries]
+                    .filter((c) => getCountryName(c.code).toLowerCase().includes(countrySearch.toLowerCase()) || c.code.toLowerCase().includes(countrySearch.toLowerCase()))
+                    .sort((a, b) => getCountryName(a.code).localeCompare(getCountryName(b.code))).map((country) => {
                     const isActive = country.is_enabled;
                     const saving = savingCodes.has(country.code);
                     return (
