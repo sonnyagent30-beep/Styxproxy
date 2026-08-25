@@ -793,6 +793,15 @@ export default function OrderPage() {
                         <span className="text-sm font-semibold text-[var(--primary)] min-w-[80px] text-right">
                           {formatPrice(totalPrice)}
                         </span>
+
+                        {/* Remove country */}
+                        <button
+                          onClick={() => toggleCountryForIsp(selection.code)}
+                          aria-label={`Remove ${country?.name || selection.code}`}
+                          className="w-8 h-8 rounded-lg border border-[var(--border)] flex items-center justify-center text-[var(--muted)] hover:text-[var(--error)] hover:border-[var(--error)] transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     );
                   })}
