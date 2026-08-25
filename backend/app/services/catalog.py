@@ -129,7 +129,28 @@ def build_upstream_password(
 # ─── Catalog API ──────────────────────────────────────────────────────────────
 
 
-async def list_catalog(session: AsyncSession) -> dict:
+class _VirtualPlan:
+    """Duck-typed stand-in for a Plan row, synthesized from country_plan_types.
+
+    Lets the catalog read straight from what the admin dashboard saves without
+    duplicating writes into the plans table.
+    """
+
+    def __init__(self, country: str, plan_type: str, price_ngn, price_per_gb,
+                 quantity: int, plan_code: str, sort_order: int):
+        self.country = country
+        self.plan_type = plan_type
+        self.price_ngn = price_ngn
+        self.price_per_gb = price_per_gb
+        self.quantity = quantity
+        self.plan_code = plan_code
+        self.sort_order = sort_order
+        self.gb_tiers = None
+        self.min_gb = None
+        self.max_gb = None
+
+
+def list_catalog(session: AsyncSession) -> dict:
     """List all plan_type templates with their options.
 
     Countries and rotation modes are loaded from plan_settings (DB).
@@ -177,6 +198,28 @@ async def list_catalog(session: AsyncSession) -> dict:
     # Pull all active plans
     plans_result = await session.execute(select(Plan).where(Plan.is_active).order_by(Plan.sort_order, Plan.plan_code))
     plans = plans_result.scalars().all()
+
+    # ── Also pull admin-configured countries from country_plan_types ──
+    # The /admin/plans dashboard writes prices here. For any (country, plan_type)
+    # enabled there with NO matching Plan row, synthesize a virtual plan so the
+    # public catalog reflects the dashboard without a second write path.
+    cpt_rows = (await session.execute(text(
+        "SELECT country_code, plan_type, is_special, price_per_ip, price_per_gb "
+        "FROM country_plan_types WHERE enabled"
+    ))).mappings().all()
+    existing_pairs = {(p.country.upper(), p.plan_type.upper()) for p in plans}
+    for row in cpt_rows:
+        if (row["country_code"].upper(), row["plan_type"].upper()) in existing_pairs:
+            continue  # real Plan row wins
+        plans.append(_VirtualPlan(
+            country=row["country_code"].upper(),
+            plan_type=row["plan_type"].upper(),
+            price_ngn=row["price_per_ip"],
+            price_per_gb=row["price_per_gb"],
+            quantity=1,
+            plan_code=f"{row['plan_type'].upper()}-{row['country_code'].upper()}",
+            sort_order=999,
+        ))
 
     # Group by plan_type
     plans_by_type: dict = {}
