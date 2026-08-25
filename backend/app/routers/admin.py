@@ -1132,9 +1132,9 @@ async def toggle_country(
     # Ensure plan-type placeholder rows exist (disabled) for future product adds
     await session.execute(text(
         "INSERT INTO country_plan_types (country_code, plan_type, enabled) "
-        "SELECT :c, pt, false FROM (VALUES ('DC'),('ISP'),('RESIDENTIAL'),('MOBILE')) AS v(pt) "
+        "SELECT CAST(:c AS varchar), pt, false FROM (VALUES ('DC'),('ISP'),('RESIDENTIAL'),('MOBILE')) AS v(pt) "
         "WHERE NOT EXISTS (SELECT 1 FROM country_plan_types cpt "
-        "WHERE cpt.country_code = :c AND cpt.plan_type = pt)"
+        "WHERE cpt.country_code = CAST(:c AS varchar) AND cpt.plan_type = pt)"
     ), {"c": code})
     await session.commit()
     return {"status": "updated", "country": code, "enabled": request.enabled}
@@ -1159,7 +1159,7 @@ async def update_country_plan_type(
     # Upsert: create the row if it doesn't exist yet (country never activated)
     await session.execute(text(
         "INSERT INTO country_plan_types (country_code, plan_type, enabled) "
-        "VALUES (:c, :p, false) ON CONFLICT DO NOTHING"
+        "VALUES (CAST(:c AS varchar), CAST(:p AS varchar), false) ON CONFLICT DO NOTHING"
     ), {"c": code.upper(), "p": plan_type.upper()})
     result = await session.execute(text(
         "SELECT id FROM country_plan_types WHERE country_code = :c AND plan_type = :p"
