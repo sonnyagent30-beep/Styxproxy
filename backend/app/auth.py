@@ -132,7 +132,11 @@ def verify_admin_token(authorization: Optional[str]) -> bool:
 
 async def get_current_account(
     request: Request,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    # auto_error=False so missing auth reaches our cookie/device-id fallback
+    # instead of JWTBearer raising 401 before get_current_account executes.
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+        HTTPBearer(auto_error=False)
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Get current authenticated account from JWT token, session cookie,
