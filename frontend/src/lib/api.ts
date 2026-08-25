@@ -1,5 +1,6 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { getDeviceId } from '@/lib/device-id';
 import type {
   Product,
   Order,
@@ -143,6 +144,14 @@ class ApiClient {
         'Content-Type': 'application/json',
         ...(options.headers as Record<string, string>),
       };
+
+      // Anonymous device identity — lets the backend auto-provision an
+      // account for checkout without any collected PII.
+      if (typeof window !== 'undefined') {
+        try {
+          headers['X-Device-Id'] = getDeviceId();
+        } catch { /* non-browser or storage blocked */ }
+      }
       
       const adminToken = this.getAdminToken();
       // Attach Bearer token to admin API endpoints.

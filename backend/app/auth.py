@@ -135,15 +135,78 @@ async def get_current_account(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    """Get current authenticated account from JWT token OR device_id header.
+    """Get current authenticated account from JWT token, session cookie,
+    or X-Device-Id header (anonymous auto-provision).
 
-    Web flow: device_id is sent in X-Device-Id header on every API call.
-    Backend auto-creates an anonymous PlatformAccount on first call.
-    JWT cookie is set by /api/session/init and reused.
+    Web flow: the browser carries the styxproxy_session httpOnly cookie set
+    by /api/session/init. If neither a Bearer token nor the cookie is
+    present but X-Device-Id is, an anonymous PlatformAccount is created on
+    the fly so checkout works with zero collected PII.
     """
     from app.models import Customer, PlatformAccount
 
-    token = credentials.credentials
+    # ── Anonymous fallbacks (cookie / device header) ──
+    token = credentials.credentials if credentials else None
+    if not token:
+        cookie_token = request.cookies.get("styxproxy_session")
+        device_header = request.headers.get("X-Device-Id")
+
+        platform_account = None
+
+        if cookie_token:
+            try:
+                payload = decode_access_token(cookie_token)
+                sub = payload.get("sub")
+                if sub:
+                    result = await session.execute(
+                        select(PlatformAccount).where(PlatformAccount.id == UUID(sub))
+                    )
+                    platform_account = result.scalar_one_or_none()
+            except Exception:
+                platform_account = None
+
+        if platform_account is None and device_header and len(device_header.strip()) >= 8:
+            dev = device_header.strip()
+            stmt = select(PlatformAccount).where(
+                PlatformAccount.platform == "web",
+                PlatformAccount.platform_user_id == dev,
+            )
+            result = await session.execute(stmt)
+            platform_account = result.scalar_one_or_none()
+            if platform_account is None:
+                platform_account = PlatformAccount(
+                    customer_id=None,
+                    platform="web",
+                    platform_user_id=dev,
+                    device_id=dev,
+                    is_primary=True,
+                )
+                session.add(platform_account)
+                await session.commit()
+                await session.refresh(platform_account)
+
+        if platform_account is not None:
+            customer = None
+            if platform_account.customer_id:
+                result = await session.execute(
+                    select(Customer).where(Customer.id == platform_account.customer_id)
+                )
+                customer = result.scalar_one_or_none()
+            return {
+                "platform_account": platform_account,
+                "customer": customer,
+                "device_id": platform_account.device_id,
+                "phone": "",
+                "role": "anonymous",
+            }
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload = decode_access_token(token)
     payload = decode_access_token(token)
 
     platform_account_id: str = payload.get("sub")
