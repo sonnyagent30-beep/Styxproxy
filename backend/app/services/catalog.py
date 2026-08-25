@@ -16,7 +16,7 @@ import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import City, Order, Plan, PlanSettings, StyxproxyCredential
