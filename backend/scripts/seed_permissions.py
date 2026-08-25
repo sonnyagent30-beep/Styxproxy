@@ -100,6 +100,9 @@ PERMISSIONS = [
     ("admin.system.backup.run", "system", "Trigger a backup run", True),
     ("admin.system.maintenance.read", "system", "View maintenance state", False),
     ("admin.system.audit_log.read", "system", "View admin audit log", False),
+    ("admin.system.secrets.read", "system", "View secrets vault (masked values)", True),
+    ("admin.system.secrets.write", "system", "Write or delete secrets in vault", True),
+    ("admin.system.secrets.restart", "system", "Restart backend API from vault", True),
 ]
 
 
@@ -111,7 +114,7 @@ PERMISSIONS = [
 SUPERADMIN_GRANTS = [(code, True) for (code, *_) in PERMISSIONS]
 # admin = all except safety/admin operations
 ADMIN_DENY = {
-    "admin.auth.invite.create",   # superadmin only per current code
+    "admin.auth.invite.create",  # superadmin only per current code
     "admin.auth.invite.delete",
     "admin.auth.password.reset_request",
     "admin.auth.lock_admin",
@@ -155,18 +158,22 @@ async def main() -> int:
     async with async_session() as session:
         # 1. Seed permissions catalog
         for code, category, description, is_sensitive in PERMISSIONS:
-            stmt = pg_insert(AdminPermission).values(
-                code=code,
-                category=category,
-                description=description,
-                is_sensitive=is_sensitive,
-            ).on_conflict_do_update(
-                index_elements=["code"],
-                set_={
-                    "category": category,
-                    "description": description,
-                    "is_sensitive": is_sensitive,
-                },
+            stmt = (
+                pg_insert(AdminPermission)
+                .values(
+                    code=code,
+                    category=category,
+                    description=description,
+                    is_sensitive=is_sensitive,
+                )
+                .on_conflict_do_update(
+                    index_elements=["code"],
+                    set_={
+                        "category": category,
+                        "description": description,
+                        "is_sensitive": is_sensitive,
+                    },
+                )
             )
             await session.execute(stmt)
 
@@ -177,15 +184,19 @@ async def main() -> int:
             ("viewer", VIEWER_GRANTS),
         ):
             for code, granted in grants:
-                stmt = pg_insert(AdminRolePermission).values(
-                    role=role,
-                    permission_code=code,
-                    granted=granted,
-                ).on_conflict_do_update(
-                    index_elements=["role", "permission_code"],
-                    set_={
-                        "granted": granted,
-                    },
+                stmt = (
+                    pg_insert(AdminRolePermission)
+                    .values(
+                        role=role,
+                        permission_code=code,
+                        granted=granted,
+                    )
+                    .on_conflict_do_update(
+                        index_elements=["role", "permission_code"],
+                        set_={
+                            "granted": granted,
+                        },
+                    )
                 )
                 await session.execute(stmt)
 

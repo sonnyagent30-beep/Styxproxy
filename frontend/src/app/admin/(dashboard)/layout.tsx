@@ -86,6 +86,7 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
       { href: '/admin/audit-log', label: 'Audit', icon: '🔍' },
       { href: '/admin/providers', label: 'Providers', icon: '🌐' },
       { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
+      { href: '/admin/secrets', label: 'Secrets Vault', icon: '🔒' },
       { href: '/admin/permissions', label: 'Permissions', icon: '🔑' },
       { href: '/admin/rls', label: 'Row-Level Security', icon: '🛡️' },
     ] : []),
