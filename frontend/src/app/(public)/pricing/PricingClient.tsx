@@ -219,13 +219,20 @@ export default function PricingClient() {
   // colors, copy); if a price is missing from the DB we show ₦0 rather
   // than a fake hardcoded number.
   const products = useMemo(() => {
-    if (catalogLoading) return FALLBACK_PRODUCTS;
-    if (catalogTemplates.length === 0) return FALLBACK_PRODUCTS;
+    // While loading, keep skeleton cards neutral — no hardcoded prices
+    if (catalogLoading) {
+      return FALLBACK_PRODUCTS.map((f) => ({ ...f, price: '—' }));
+    }
+    // Empty catalog = admin hasn't configured products yet. Show ₦0, never
+    // hardcoded numbers (single source of truth is the DB).
+    if (catalogTemplates.length === 0) {
+      return FALLBACK_PRODUCTS.map((f) => ({ ...f, price: '₦0', coverage: 0 }));
+    }
 
     return FALLBACK_PRODUCTS.map((fallback) => {
       const dbPlanType = keyToPlanType[fallback.key];
       const apiTemplate = catalogTemplates.find(t => t.plan_type === dbPlanType);
-      if (!apiTemplate) return fallback;
+      if (!apiTemplate) return { ...fallback, price: '₦0', coverage: 0 };
 
       const isIpBased = dbPlanType === 'dc' || dbPlanType === 'isp';
       const unitPrice = isIpBased

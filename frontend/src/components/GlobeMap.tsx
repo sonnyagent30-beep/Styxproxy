@@ -66,7 +66,8 @@ export default function GlobeMap({ productType, enabledCountries }: GlobeMapProp
         for (const t of data.templates ?? []) {
           map[t.plan_type.toUpperCase()] = t.available_countries;
         }
-        if (Object.keys(map).length > 0) setCatalogCountries(map);
+        // Set even when empty — an empty catalog means NO countries to show
+        setCatalogCountries(map);
       })
       .catch(() => {
         // On error, keep null → fall back to static PRODUCT_COUNTRIES
@@ -93,10 +94,12 @@ export default function GlobeMap({ productType, enabledCountries }: GlobeMapProp
         const codes = [...new Set(Object.values(catalogCountries).flat())];
         base = codes.map(c => COUNTRIES[c]).filter(Boolean);
       } else {
-        base = Object.values(COUNTRIES);
+        // Catalog not loaded yet — show nothing rather than all 196
+        base = [];
       }
     } else {
-      const codes = catalogCountries?.[productType] ?? PRODUCT_COUNTRIES[productType] ?? [];
+      // No static fallback — only DB-driven catalog countries
+      const codes = catalogCountries?.[productType] ?? [];
       base = codes.map(c => COUNTRIES[c]).filter(Boolean);
     }
 

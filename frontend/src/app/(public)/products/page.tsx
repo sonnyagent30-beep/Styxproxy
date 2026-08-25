@@ -197,14 +197,14 @@ async function fetchCatalog(): Promise<typeof FALLBACK_PRODUCTS> {
     
     if (!response.ok) {
       console.warn('[Products] API returned non-ok status:', response.status);
-      return FALLBACK_PRODUCTS;
+      return FALLBACK_PRODUCTS.map((p) => ({ ...p, price: '₦0', countries: 0 }));
     }
     
     const data: CatalogResponse = await response.json();
     
     if (!data.templates || data.templates.length === 0) {
-      console.warn('[Products] No templates in API response');
-      return FALLBACK_PRODUCTS;
+      // Empty catalog = admin hasn't configured products. Show ₦0, never hardcoded.
+      return FALLBACK_PRODUCTS.map((p) => ({ ...p, price: '₦0', countries: 0 }));
     }
     
     // Map DB plan_type to our product key
@@ -224,8 +224,8 @@ async function fetchCatalog(): Promise<typeof FALLBACK_PRODUCTS> {
       });
       
       if (!apiTemplate) {
-        // No API data for this product type, use full fallback
-        return product;
+        // No API data for this product type — ₦0, no countries
+        return { ...product, price: '₦0', countries: 0 };
       }
       
       // Calculate price from API
