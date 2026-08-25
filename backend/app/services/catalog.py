@@ -148,6 +148,9 @@ class _VirtualPlan:
         self.gb_tiers = None
         self.min_gb = None
         self.max_gb = None
+        self.duration_days = 30
+        self.features = []
+        self.static_price_multiplier = 1.0
 
 
 async def list_catalog(session: AsyncSession) -> dict:
