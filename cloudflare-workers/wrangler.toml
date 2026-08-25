@@ -1,0 +1,15 @@
+name = "n8n-router"
+main = "n8n-webhook-router.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+CHARON_INTERNAL_URL = "https://charon.styxproxy.com"
+
+# Placeholder - will be updated after creating KV namespace
+[[kv_namespaces]]
+binding = "N8N_WEBHOOK_MAP"
+id = "PLACEHOLDER_ID"
+preview_id = "PLACEHOLDER_PREVIEW_ID"
+
+[triggers]
+crons = ["*/5 * * * *"]

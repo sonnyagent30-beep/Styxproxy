@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     flutterwave_public_key: str = "I14tjXLvFqcs4eCcaDW1BeY22XJaaLre"
     flutterwave_webhook_secret: str = ""
 
+    # ── Additional payment gateways (optional) ──────────────────────────────
+    paystack_secret_key: str = ""
+    nowpayments_api_key: str = ""
+    nowpayments_ipn_secret: str = ""
+    nowpayments_base_url: str = "https://api.nowpayments.io"
+
     # ── WhatsApp (required for WhatsApp messaging) ──────────────────────────
     whatsapp_access_token: str = ""
     whatsapp_phone_number_id: str = ""

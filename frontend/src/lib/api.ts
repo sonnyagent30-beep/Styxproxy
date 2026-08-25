@@ -254,6 +254,7 @@ class ApiClient {
     quantity: number,
     customerPhone: string,
     customerEmail?: string,
+    gateway?: 'flutterwave' | 'paystack' | 'crypto',
   ): Promise<ApiResponse<PaymentInitiateResponse>> {
     return this.request<PaymentInitiateResponse>('/payments/initiate', {
       method: 'POST',
@@ -262,6 +263,7 @@ class ApiClient {
         quantity,
         customer_phone: customerPhone || undefined,
         customer_email: customerEmail || undefined,
+        gateway: gateway || 'flutterwave',
       }),
     });
   }

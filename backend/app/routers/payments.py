@@ -82,16 +82,45 @@ async def initiate_payment(
     fw_phone = customer.phone
     fw_email = request.customer_email or f"{customer.phone}@styxproxy.com"
 
+    # ── Multi-gateway dispatch ──────────────────────────────────────────────
+    gateway = (request.gateway or "flutterwave").lower()
+    redirect_url = request.callback_url or "https://styxproxy.com/thank-you"
     try:
-        result = await create_flutterwave_invoice(
-            amount=total_amount,
-            customer_email=fw_email,
-            customer_phone=fw_phone,
-            currency="NGN",
-            callback_url=request.callback_url,
-            description=f"Payment for {request.plan_code}",
-            device_id=device_id,
-        )
+        if gateway == "paystack":
+            from app.services.paystack import create_paystack_transaction
+
+            result = await create_paystack_transaction(
+                amount_ngn=total_amount,
+                customer_email=fw_email,
+                customer_phone=fw_phone,
+                callback_url=redirect_url,
+                description=f"Payment for {request.plan_code}",
+                device_id=device_id,
+            )
+        elif gateway == "crypto":
+            from app.services.nowpayments import create_nowpayments_invoice
+
+            result = await create_nowpayments_invoice(
+                amount_ngn=total_amount,
+                customer_email=fw_email,
+                customer_phone=fw_phone,
+                callback_url=redirect_url,
+                description=f"Payment for {request.plan_code}",
+                device_id=device_id,
+            )
+        else:
+            result = await create_flutterwave_invoice(
+                amount=total_amount,
+                customer_email=fw_email,
+                customer_phone=fw_phone,
+                currency="NGN",
+                callback_url=request.callback_url,
+                description=f"Payment for {request.plan_code}",
+                device_id=device_id,
+            )
+    except ValueError as e:
+        # Gateway not configured / pricing failure — clean client-facing error
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         await log_audit_event(
             session,
@@ -112,6 +141,7 @@ async def initiate_payment(
             "plan_code": request.plan_code,
             "quantity": request.quantity,
             "amount_ngn": total_amount,
+            "gateway": gateway,
             "anonymous": platform_account is None or platform_account.customer_id == customer.id,
         },
     )

@@ -36,6 +36,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [email, setEmail] = useState('');
+  const [gateway, setGateway] = useState<'flutterwave' | 'paystack' | 'crypto'>('flutterwave');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   // Bug walk theme-B fix: precheck state. Map of plan_code → precheck result.
@@ -242,6 +243,7 @@ export default function CheckoutPage() {
             isPerGb ? 1 : item.quantity,
             '',
             trimmedEmail || undefined,
+            gateway,
           );
         }),
       );
@@ -456,6 +458,32 @@ export default function CheckoutPage() {
             {error}
           </div>
         )}
+
+        {/* Payment method */}
+        <div className="mb-4">
+          <p className="text-sm font-medium mb-2 text-[var(--muted)]">Payment method</p>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { id: 'flutterwave', label: 'Card / Bank', sub: 'Flutterwave' },
+              { id: 'paystack', label: 'Card / Transfer', sub: 'Paystack' },
+              { id: 'crypto', label: 'Crypto', sub: 'USDT · BTC' },
+            ] as const).map(opt => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setGateway(opt.id)}
+                className={`px-3 py-3 rounded-xl border text-center transition-colors ${
+                  gateway === opt.id
+                    ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
+                    : 'border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--primary)]/40'
+                }`}
+              >
+                <span className="block text-sm font-semibold">{opt.label}</span>
+                <span className="block text-xs opacity-70 mt-0.5">{opt.sub}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Pay Button */}
         <button

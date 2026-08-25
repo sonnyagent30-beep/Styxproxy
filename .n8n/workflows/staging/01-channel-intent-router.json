@@ -1,0 +1,367 @@
+{
+  "name": "Channel Intent Router (Template)",
+  "tags": ["staging", "template", "channel-router"],
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "{{$env.WEBHOOK_PATH}}",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "router-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "{{$env.WEBHOOK_PATH}}"
+    },
+    {
+      "parameters": {
+        "jsCode": "// HMAC-SHA256 verification Code node\n// Verifies x-signature header against HMAC_SECRET env var\n// Returns early (401) if mismatch\n\nconst crypto = require('crypto');\nconst signature = $input.item.json.headers?.['x-signature'] || $input.item.json.headers?.['x-hub-signature-256'] || '';\nconst hmacSecret = process.env.HMAC_SECRET;\nconst body = JSON.stringify($input.item.json.body || $input.item.json);\n\nif (!hmacSecret) {\n  // No secret configured - skip verification in dev mode\n  return { json: { ...$input.item.json, hmac_verified: true, skip_verify: true } };\n}\n\nconst expectedSignature = 'sha256=' + crypto.createHmac('sha256', hmacSecret).update(body).digest('hex');\nconst isValid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));\n\nif (!isValid && signature) {\n  // Invalid signature - return error response\n  throw new Error('HMAC verification failed');\n}\n\nreturn { json: { ...$input.item.json, hmac_verified: true } };"
+      },
+      "id": "hmac-verify",
+      "name": "Verify HMAC Signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse message from either Telegram or Baileys format\n// Normalize to standard format for MiniMax LLM parsing\n\nconst body = $input.item.json.body || $input.item.json;\n\n// Detect channel\nlet message = '';\nlet userId = '';\nlet channel = 'unknown';\n\n// Telegram format\nif (body.message?.text) {\n  message = body.message.text;\n  userId = body.message?.chat?.id?.toString() || '';\n  channel = 'telegram';\n}\n// Baileys format (WhatsApp)\nelse if (body.messages && body.messages[0]) {\n  const msg = body.messages[0];\n  message = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';\n  userId = msg.key?.remoteJid || '';\n  channel = 'baileys';\n}\n// WhatsApp Cloud API format\nelse if (body.entry && body.entry[0]?.changes) {\n  const changes = body.entry[0].changes[0];\n  const msg = changes.value?.messages?.[0];\n  message = msg?.text?.body || '';\n  userId = msg?.from || '';\n  channel = 'whatsapp';\n}\n\n// Extract intent keyword patterns for routing\nconst messageLower = message.toLowerCase().trim();\n\nconst orderKeywords = ['order', 'buy', 'purchase', 'get proxy', 'want proxy'];\nconst trialKeywords = ['free trial', 'trial', 'free plan', 'try free'];\nconst statusKeywords = ['status', 'check', 'track', 'where'];\nconst helpKeywords = ['help', 'menu', 'start', 'hello', 'hi'];\n\nconst intent = \n  orderKeywords.some(k => messageLower.includes(k)) ? 'order' :\n  trialKeywords.some(k => messageLower.includes(k)) ? 'free_trial' :\n  statusKeywords.some(k => messageLower.includes(k)) ? 'status' :\n  helpKeywords.some(k => messageLower.includes(k)) ? 'help' :\n  'unknown';\n\nreturn {\n  json: {\n    channel,\n    user_id: userId,\n    message,\n    message_raw: body,\n    intent,\n    reply_node_type: process.env.REPLY_NODE_TYPE || 'telegram'\n  }\n};"
+      },
+      "id": "parse-message",
+      "name": "Parse & Normalize Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Idempotency check using Redis\n// Key prefix is configurable via IDEMPOTENCY_PREFIX env var\n// Default uses staging: prefix for staging environment\n\nconst crypto = require('crypto');\nconst body = $input.item.json.body || $input.item.json;\n\n// Generate idempotency key from message data\nconst messageId = body.update_id || body.messages?.[0]?.key?.id || body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.id || crypto.randomBytes(8).toString('hex');\nconst prefix = process.env.IDEMPOTENCY_PREFIX || 'staging:';\nconst idempotencyKey = `${prefix}idempotency:${messageId}`;\n\n// Store the key in Redis (we'll set via Redis node in actual execution)\n// This Code node prepares the key for the Redis Set node\n\nreturn {\n  json: {\n    ...$input.item.json,\n    idempotency_key: idempotencyKey,\n    already_processed: false\n  }\n};"
+      },
+      "id": "idempotency-prep",
+      "name": "Prepare Idempotency Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "rule": "set",
+        "key": "{{$json.idempotency_key}}",
+        "value": "1",
+        "options": {
+          "ttl": 86400,
+          "setNX": true
+        }
+      },
+      "id": "idempotency-check",
+      "name": "Idempotency Redis Check",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1130, 300],
+      "notes": "Check if message already processed. Skip if key exists (already_processed=true)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "cond-already-done",
+              "leftValue": "={{$json.already_processed}}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-not-processed",
+      "name": "If Not Already Processed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.minimax.chat/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.MINIMAX_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "MiniMax-M2"
+            },
+            {
+              "name": "messages",
+              "value": [
+                {
+                  "role": "system",
+                  "content": "You are Styxproxy, a WhatsApp/Telegram proxy reseller assistant. Parse customer messages and extract intent. Available intents: order, renewal, status, help, free_trial, recovery, how_to_use, check_data, referral_share, unknown. Respond with JSON: { intent, entities, original_message }"
+                },
+                {
+                  "role": "user",
+                  "content": "={{$json.message}}"
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "llm-parse",
+      "name": "MiniMax LLM Parser",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1570, 300],
+      "notes": "Extract intent + entities using LLM"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse LLM response and extract intent\n// Handle both JSON string and object responses\n\nlet content = $input.item.json.choices?.[0]?.message?.content || '';\nlet parsed = {};\n\ntry {\n  // Try to parse as JSON\n  if (typeof content === 'string') {\n    // Handle potential markdown code blocks\n    content = content.replace(/^```json\\n?/, '').replace(/\\n?```$/, '');\n    parsed = JSON.parse(content);\n  } else {\n    parsed = content;\n  }\n} catch (e) {\n  // Fallback: keyword-based intent detection\n  const msg = ($input.item.json.message || '').toLowerCase();\n  parsed = {\n    intent: msg.includes('order') ? 'order' : \n            msg.includes('trial') ? 'free_trial' : \n            msg.includes('status') ? 'status' : \n            msg.includes('help') ? 'help' : 'unknown',\n    entities: {},\n    original_message: msg\n  };\n}\n\nreturn {\n  json: {\n    ...$input.item.json,\n    intent: parsed.intent || 'unknown',\n    entities: parsed.entities || {},\n    llm_raw: content\n  }\n};"
+      },
+      "id": "parse-llm",
+      "name": "Parse LLM Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1790, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Route reply based on REPLY_NODE_TYPE env var\n// Switches between telegram and baileys (WhatsApp) reply nodes\n\nconst replyType = process.env.REPLY_NODE_TYPE || 'telegram';\nconst channel = $input.item.json.channel;\n\n// Determine reply configuration\nconst replyConfig = {\n  node_type: replyType,\n  // For Telegram: use Telegram node\n  // For Baileys: use HTTP webhook to Baileys runtime\n  use_telegram: replyType === 'telegram' || channel === 'telegram',\n  use_baileys: replyType === 'baileys' || channel === 'baileys' || channel === 'whatsapp'\n};\n\nreturn {\n  json: {\n    ...$input.item.json,\n    reply_config: replyConfig,\n    will_use_telegram: replyConfig.use_telegram,\n    will_use_baileys: replyConfig.use_baileys\n  }\n};"
+      },
+      "id": "route-reply",
+      "name": "Route Reply Channel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2010, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-use-tg",
+              "leftValue": "={{$json.will_use_telegram}}",
+              "rightValue": true,
+              "operation": "equals"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-telegram",
+      "name": "If Telegram Reply",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2230, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-use-baileys",
+              "leftValue": "={{$json.will_use_baileys}}",
+              "rightValue": true,
+              "operation": "equals"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-baileys",
+      "name": "If Baileys Reply",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2230, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate help menu message\nconst message = `🇳🇬 **Styxproxy Proxy**\n\nI can help you with:\n\n🛒 **Order** — ISP, Residential, Mobile, Datacenter\n💳 **Check Status** — Track your order\n💰 **Pricing** — See all plans\n❓ **Help** — How to get started\n🔗 **Free Trial** — Get a free proxy\n\nWhat would you like to do?`;\n\nreturn { json: { ...$input.item.json, reply_message: message } };"
+      },
+      "id": "gen-help",
+      "name": "Generate Help Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate fallback message for unknown intent\nconst message = `🤖 I'm not sure I understood that. Could you rephrase?\n\nYou can say things like:\n- \"Order ISP UK\"\n- \"Check my order status\"\n- \"Help\"\n- \"How do I use proxies?\"`;\n\nreturn { json: { ...$input.item.json, reply_message: message } };"
+      },
+      "id": "gen-fallback",
+      "name": "Generate Fallback Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2450, 420]
+    },
+    {
+      "parameters": {
+        "chatId": "={{$json.user_id}}",
+        "message": "={{$json.reply_message}}",
+        "options": {}
+      },
+      "id": "telegram-reply",
+      "name": "Reply via Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [2670, 200],
+      "credentials": { "telegramApi": { "id": "2", "name": "Telegram Bot API (Staging)" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "{{$env.BAILEYS_RUNTIME_URL}}/send-message",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{$json.user_id}}"
+            },
+            {
+              "name": "message",
+              "value": "={{$json.reply_message}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "baileys-reply",
+      "name": "Reply via Baileys HTTP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2670, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\":\"ok\"}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond-200",
+      "name": "Respond 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2890, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [{ "node": "Verify HMAC Signature", "type": "main", "index": 0 }]
+      ]
+    },
+    "Verify HMAC Signature": {
+      "main": [
+        [{ "node": "Parse & Normalize Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse & Normalize Message": {
+      "main": [
+        [{ "node": "Prepare Idempotency Key", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Idempotency Key": {
+      "main": [
+        [{ "node": "Idempotency Redis Check", "type": "main", "index": 0 }]
+      ]
+    },
+    "Idempotency Redis Check": {
+      "main": [
+        [{ "node": "If Not Already Processed", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Not Already Processed": {
+      "main": [
+        [{ "node": "MiniMax LLM Parser", "type": "main", "index": 0 }],
+        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
+      ]
+    },
+    "MiniMax LLM Parser": {
+      "main": [
+        [{ "node": "Parse LLM Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse LLM Response": {
+      "main": [
+        [{ "node": "Route Reply Channel", "type": "main", "index": 0 }]
+      ]
+    },
+    "Route Reply Channel": {
+      "main": [
+        [{ "node": "If Telegram Reply", "type": "main", "index": 0 }],
+        [{ "node": "If Baileys Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Telegram Reply": {
+      "main": [
+        [{ "node": "Generate Help Message", "type": "main", "index": 0 }],
+        [{ "node": "Generate Fallback Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Baileys Reply": {
+      "main": [
+        [{ "node": "Generate Help Message", "type": "main", "index": 0 }],
+        [{ "node": "Generate Fallback Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate Help Message": {
+      "main": [
+        [{ "node": "Reply via Telegram", "type": "main", "index": 0 }],
+        [{ "node": "Reply via Baileys HTTP", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generate Fallback Message": {
+      "main": [
+        [{ "node": "Reply via Telegram", "type": "main", "index": 0 }],
+        [{ "node": "Reply via Baileys HTTP", "type": "main", "index": 0 }]
+      ]
+    },
+    "Reply via Telegram": {
+      "main": [
+        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
+      ]
+    },
+    "Reply via Baileys HTTP": {
+      "main": [
+        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

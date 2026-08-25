@@ -134,9 +134,7 @@ async def flutterwave_webhook(
 
         from app.models import Order
 
-        order = (
-            await session.execute(select(Order).where(Order.payment_reference == tx_ref))
-        ).scalar_one_or_none()
+        order = (await session.execute(select(Order).where(Order.payment_reference == tx_ref))).scalar_one_or_none()
 
         if order and order.status not in ("fulfilled", "active"):
             order.status = "paid"
@@ -146,6 +144,7 @@ async def flutterwave_webhook(
             # Enqueue fulfillment job (non-blocking)
             try:
                 from app.routers._webhook_queue import enqueue_fulfillment
+
                 job_id = await enqueue_fulfillment(tx_ref, order.order_id, payload)
                 await log_audit_event(
                     session,
@@ -267,9 +266,7 @@ async def theorem_reach_webhook(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing X-Signature header",
         )
-    if not _verify_theorem_reach_signature(
-        payload_bytes, x_signature, settings.theorem_reach_webhook_secret
-    ):
+    if not _verify_theorem_reach_signature(payload_bytes, x_signature, settings.theorem_reach_webhook_secret):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid X-Signature — payload may have been tampered with",
@@ -346,3 +343,146 @@ async def theorem_reach_webhook(
 
 # asyncio is needed for the fire-and-forget task in the theorem-reach handler
 import asyncio  # noqa: E402  (imported here to avoid top-level circular import)
+
+
+# ─── Paystack ────────────────────────────────────────────────────────────────
+@router.post("/paystack", status_code=status.HTTP_200_OK)
+async def paystack_webhook(
+    request: Request,
+    x_paystack_signature: Optional[str] = Header(None, alias="X-Paystack-Signature"),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Paystack charge.success webhook — same fulfillment path as Flutterwave.
+
+    Signature: HMAC-SHA512(secret_key, raw_body) in X-Paystack-Signature.
+    """
+    from app.services.paystack import verify_paystack_signature
+
+    settings = get_settings()
+    payload_bytes = await request.body()
+
+    if not x_paystack_signature or not verify_paystack_signature(payload_bytes, x_paystack_signature):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Paystack signature")
+
+    try:
+        payload = json.loads(payload_bytes)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload")
+
+    event_type = payload.get("event", "")
+    event_data = payload.get("data", {})
+    tx_ref = event_data.get("reference", "")
+    webhook_id = f"ps_{event_data.get('id', tx_ref)}"
+
+    if await is_webhook_processed(session, webhook_id):
+        return {"status": "already_processed", "webhook_id": webhook_id}
+
+    if event_type == "charge.success" and tx_ref:
+        from sqlalchemy import select
+
+        from app.models import Order
+
+        order = (await session.execute(select(Order).where(Order.payment_reference == tx_ref))).scalar_one_or_none()
+        if order and order.status not in ("fulfilled", "active"):
+            order.status = "paid"
+            order.amount_paid_ngn = (event_data.get("amount") or 0) / 100  # kobo → naira
+            await session.commit()
+            try:
+                from app.routers._webhook_queue import enqueue_fulfillment
+
+                job_id = await enqueue_fulfillment(tx_ref, order.order_id, payload)
+                await log_audit_event(
+                    session,
+                    event_type="webhook_fulfillment_enqueued",
+                    details={"tx_ref": tx_ref, "order_id": order.order_id, "job_id": job_id, "gateway": "paystack"},
+                )
+            except Exception as eq_err:
+                logger.warning(f"RQ enqueue failed for paystack {tx_ref}, inline fallback: {eq_err}")
+                await process_payment_webhook(
+                    session,
+                    {
+                        "event": "charge.completed",
+                        "data": {"tx_ref": tx_ref, "status": "successful", "amount": order.amount_paid_ngn},
+                    },
+                )
+
+    await mark_webhook_processed(
+        session,
+        webhook_id=webhook_id or tx_ref,
+        provider="paystack",
+        event_type=event_type,
+        extra_data={"tx_ref": tx_ref, "status": event_data.get("status")},
+    )
+    await log_audit_event(session, event_type=f"paystack_webhook_{event_type}", details={"tx_ref": tx_ref})
+    return {"status": "received", "event": event_type}
+
+
+# ─── NOWPayments (crypto) ────────────────────────────────────────────────────
+NOWPAYMENTS_PAID_STATUSES = {"finished", "confirmed"}
+
+
+@router.post("/nowpayments", status_code=status.HTTP_200_OK)
+async def nowpayments_ipn(
+    request: Request,
+    x_nowpayments_sig: Optional[str] = Header(None, alias="x-nowpayments-sig"),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """NOWPayments IPN callback — payment_status.finished/confirmed marks paid."""
+    from app.services.nowpayments import verify_nowpayments_signature
+
+    payload_bytes = await request.body()
+    if not x_nowpayments_sig or not verify_nowpayments_signature(payload_bytes, x_nowpayments_sig):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid NOWPayments signature")
+
+    try:
+        payload = json.loads(payload_bytes)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload")
+
+    payment_status = payload.get("payment_status", "")
+    # order_id is the tx_ref we assigned at invoice creation; fall back to order_description parse
+    tx_ref = payload.get("order_id", "")
+    webhook_id = f"np_{payload.get('payment_id', tx_ref)}"
+
+    if not tx_ref:
+        return {"status": "ignored", "reason": "no order_id"}
+
+    if await is_webhook_processed(session, webhook_id):
+        return {"status": "already_processed", "webhook_id": webhook_id}
+
+    if payment_status in NOWPAYMENTS_PAID_STATUSES:
+        from sqlalchemy import select
+
+        from app.models import Order
+
+        order = (await session.execute(select(Order).where(Order.payment_reference == tx_ref))).scalar_one_or_none()
+        if order and order.status not in ("fulfilled", "active"):
+            order.status = "paid"
+            # Crypto pays USD-equivalent; leave amount_paid_ngn to reconciliation,
+            # which prices the order from the plan catalog at fulfillment time.
+            await session.commit()
+            try:
+                from app.routers._webhook_queue import enqueue_fulfillment
+
+                job_id = await enqueue_fulfillment(tx_ref, order.order_id, payload)
+                await log_audit_event(
+                    session,
+                    event_type="webhook_fulfillment_enqueued",
+                    details={"tx_ref": tx_ref, "order_id": order.order_id, "job_id": job_id, "gateway": "crypto"},
+                )
+            except Exception as eq_err:
+                logger.warning(f"RQ enqueue failed for nowpayments {tx_ref}, inline fallback: {eq_err}")
+                await process_payment_webhook(
+                    session,
+                    {"event": "charge.completed", "data": {"tx_ref": tx_ref, "status": "successful"}},
+                )
+
+    await mark_webhook_processed(
+        session,
+        webhook_id=webhook_id or tx_ref,
+        provider="nowpayments",
+        event_type=payment_status,
+        extra_data={"tx_ref": tx_ref, "status": payment_status},
+    )
+    await log_audit_event(session, event_type=f"nowpayments_ipn_{payment_status}", details={"tx_ref": tx_ref})
+    return {"status": "received", "payment_status": payment_status}
