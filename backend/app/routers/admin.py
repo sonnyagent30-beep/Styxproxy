@@ -1077,7 +1077,8 @@ async def list_admin_countries(session: AsyncSession = Depends(get_session)):
     countries: dict[str, dict] = {}
     for r in rows:
         code = r["code"]
-        entry = countries.setdefault(code, {"code": code, "name": r["name"], "plan_types": {}})
+        entry = countries.setdefault(code, {"code": code, "name": r["name"],
+                                            "country_enabled": r["country_enabled"], "plan_types": {}})
         if r["plan_type"]:
             entry["plan_types"][r["plan_type"]] = {
                 "enabled": bool(r["enabled"]),
