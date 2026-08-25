@@ -97,12 +97,16 @@ async def create_flutterwave_invoice(
                 "tx_ref": tx_ref,
                 "amount": amount,
                 "currency": currency,
-                "customer": {"email": customer_email, "phone_number": customer_phone},
+                # Omit obviously-synthetic anonymous placeholder phones — FW rejects them.
+                **({"customer": {"email": customer_email}}
+                   if customer_phone.endswith("@styxproxy.local")
+                   else {"customer": {"email": customer_email, "phone_number": customer_phone}}),
                 "customizations": {
                     "title": "Styxproxy Proxy Service",
                     "description": description or "Proxy service payment",
                 },
-                "callback_url": callback_url,
+                # FW v3 requires `redirect_url` (it ignores callback_url).
+                "redirect_url": callback_url or "https://styxproxy.com/thank-you",
             }
             if payload_meta:
                 json_body["meta"] = payload_meta
