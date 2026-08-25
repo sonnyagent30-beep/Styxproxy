@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
+import Logo from '@/components/Logo';
 import { useState } from 'react';
 import { List, X } from '@phosphor-icons/react';
 
@@ -12,27 +12,8 @@ export default function Header() {
     <header className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo — full lockup, switches with theme */}
-          <Link href="/" className="flex items-center gap-2">
-            {/* Dark mode logo — full lockup, no crop */}
-            <Image
-              src="/header-logo-dark.png"
-              alt="styxproxy"
-              width={181}
-              height={64}
-              className="hidden dark:block w-auto h-16 object-contain"
-              priority
-            />
-            {/* Light mode logo */}
-            <Image
-              src="/header-logo-light.png"
-              alt="styxproxy"
-              width={181}
-              height={64}
-              className="block dark:hidden w-auto h-16 object-contain"
-              priority
-            />
-          </Link>
+          {/* Logo — crisp SVG, theme-aware */}
+          <Logo height={36} />
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">

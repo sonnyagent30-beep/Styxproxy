@@ -1,5 +1,6 @@
 'use client';
 
+import Logo from '@/components/Logo';
 import Link from 'next/link';
 import { TelegramLogo, WhatsappLogo, Envelope } from '@phosphor-icons/react';
 
@@ -16,12 +17,7 @@ export default function Footer() {
 
             {/* Brand with official logo */}
             <div className="max-w-xs">
-              <Link href="/" className="inline-flex items-center gap-3 mb-4">
-                <picture>
-                  <source srcSet="/footer-logo-dark.png" media="(prefers-color-scheme: dark)" />
-                  <img src="/footer-logo-light.png" alt="Styxproxy" className="h-10 w-auto object-contain" />
-                </picture>
-              </Link>
+              <Logo height={32} />
               <p className="text-sm text-[var(--muted)] leading-relaxed">
                 Premium proxies delivered instantly. No account required.
               </p>

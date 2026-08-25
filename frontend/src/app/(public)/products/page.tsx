@@ -684,10 +684,10 @@ export default function ProductsPage() {
                     <div className="radar-chart">
                       <svg viewBox="0 0 160 160" className="w-full">
                         {[40, 60, 80, 100].map((r) => (
-                          <circle key={r} cx="80" cy="80" r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+                          <circle key={r} cx="80" cy="80" r={r} fill="none" stroke="var(--border)" strokeWidth="1" />
                         ))}
                         {RADAR_POINTS.map((p) => (
-                          <line key={`${p.x}-${p.y}`} x1="80" y1="80" x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+                          <line key={`${p.x}-${p.y}`} x1="80" y1="80" x2={p.x} y2={p.y} stroke="var(--border-light)" strokeWidth="1" />
                         ))}
                         <polygon
                           className="radar-polygon"
@@ -701,12 +701,12 @@ export default function ProductsPage() {
                           <circle key={i} cx={pt.x} cy={pt.y} r="3" fill={product.statusDot === 'warn' ? 'var(--error)' : 'var(--primary)'} />
                         ))}
                         {/* Axis labels */}
-                        <text x="80" y="10" textAnchor="middle" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">SPD</text>
-                        <text x="130" y="44" textAnchor="start" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">DET</text>
-                        <text x="130" y="118" textAnchor="start" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">GEO</text>
-                        <text x="80" y="158" textAnchor="middle" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">BAN</text>
-                        <text x="26" y="118" textAnchor="end" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">CST</text>
-                        <text x="26" y="44" textAnchor="end" fill="rgba(245,245,245,0.4)" fontSize="8" fontFamily="monospace">STB</text>
+                        <text x="80" y="10" textAnchor="middle" fill="var(--muted)" fontSize="8" fontFamily="monospace">SPD</text>
+                        <text x="130" y="44" textAnchor="start" fill="var(--muted)" fontSize="8" fontFamily="monospace">DET</text>
+                        <text x="130" y="118" textAnchor="start" fill="var(--muted)" fontSize="8" fontFamily="monospace">GEO</text>
+                        <text x="80" y="158" textAnchor="middle" fill="var(--muted)" fontSize="8" fontFamily="monospace">BAN</text>
+                        <text x="26" y="118" textAnchor="end" fill="var(--muted)" fontSize="8" fontFamily="monospace">CST</text>
+                        <text x="26" y="44" textAnchor="end" fill="var(--muted)" fontSize="8" fontFamily="monospace">STB</text>
                       </svg>
                     </div>
                   </div>

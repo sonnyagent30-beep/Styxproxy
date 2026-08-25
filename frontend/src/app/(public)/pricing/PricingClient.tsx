@@ -65,8 +65,8 @@ const FALLBACK_PRODUCTS = [
     per: 'IP/mo',
     badge: 'Baseline',
     badgeColor: 'var(--glow-primary-strong)',
-    badgeBorder: 'rgba(180,120,80,0.25)',
-    badgeText: 'rgba(180,120,80,0.9)',
+    badgeBorder: 'var(--border)',
+    badgeText: 'var(--foreground)',
     coverage: 45,
     banRisk: 'Moderate',
     banRiskLevel: 'warn',
@@ -100,8 +100,8 @@ const FALLBACK_PRODUCTS = [
     per: 'GB/mo',
     badge: 'Ghost Protocol',
     badgeColor: 'var(--surface)',
-    badgeBorder: 'rgba(148,163,184,0.2)',
-    badgeText: 'rgba(148,163,184,0.9)',
+    badgeBorder: 'var(--border)',
+    badgeText: 'var(--muted)',
     coverage: 45,
     banRisk: 'Very Low',
     banRiskLevel: '',
@@ -117,7 +117,7 @@ const FALLBACK_PRODUCTS = [
     per: 'IP/mo',
     badge: 'Fast Lane',
     badgeColor: 'var(--surface)',
-    badgeBorder: 'rgba(239,68,68,0.2)',
+    badgeBorder: 'var(--border)',
     badgeText: 'var(--error)',
     coverage: 45,
     banRisk: 'High',
@@ -477,10 +477,10 @@ export default function PricingClient() {
                 <div key={product.key} className="country-product-card card-depth p-5">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="product-icon" style={{ background: 'rgba(10,210,90,0.08)', border: '1px solid rgba(10,210,90,0.15)' }}>
-                      {product.key === 'isp' && <Globe size={18} style={{ color: 'rgba(180,120,80,0.8)' }} />}
+                      {product.key === 'isp' && <Globe size={18} style={{ color: 'var(--primary)' }} />}
                       {product.key === 'residential' && <House size={18} style={{ color: 'var(--primary)' }} />}
-                      {product.key === 'mobile' && <DeviceMobile size={18} style={{ color: 'rgba(148,163,184,0.8)' }} />}
-                      {product.key === 'datacenter' && <HardDrives size={18} style={{ color: 'rgba(140,100,60,0.6)' }} />}
+                      {product.key === 'mobile' && <DeviceMobile size={18} style={{ color: 'var(--primary)' }} />}
+                      {product.key === 'datacenter' && <HardDrives size={18} style={{ color: 'var(--primary)' }} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="product-name">{product.name}</div>
