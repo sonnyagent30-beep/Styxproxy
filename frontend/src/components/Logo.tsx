@@ -1,46 +1,39 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 
 /**
- * Crisp theme-aware SVG logo — replaces the 64px raster PNGs that blurred
- * on retina displays. Icon = concentric Styx wave mark; wordmark = plain
- * bold text using the primary token.
+ * Brand logo — uses the official logo-pack lockup PNGs (green rowing S-mark
+ * + "styx" green / "proxy" dark wordmark). Light/dark variants swap via CSS
+ * so the mark stays legible on both themes.
+ *
+ * Source of truth: frontend/public/header-logo-{light,dark}.png (181x64).
+ * Do NOT replace with an inline SVG — the drawn mark is not the brand mark.
  */
 export default function Logo({ height = 40 }: { height?: number }) {
+  const width = Math.round(height * (181 / 64));
+
   return (
-    <Link href="/" className="flex items-center gap-2.5" aria-label="Styxproxy home">
-      <svg
-        width={height}
+    <Link href="/" className="flex items-center" aria-label="Styxproxy home">
+      <Image
+        src="/header-logo-light.png"
+        alt="Styxproxy"
+        width={width}
         height={height}
-        viewBox="0 0 40 40"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <circle cx="20" cy="20" r="18" stroke="var(--primary)" strokeWidth="2.5" />
-        <path
-          d="M8 24 Q14 14 20 20 T32 20"
-          stroke="var(--primary)"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <path
-          d="M10 29 Q16 21 22 26 T30 25"
-          stroke="var(--primary)"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.55"
-        />
-      </svg>
-      <span
-        className="font-black tracking-tight text-[var(--foreground)]"
-        style={{ fontSize: height * 0.52, lineHeight: 1 }}
-      >
-        styx<span style={{ color: 'var(--primary)' }}>proxy</span>
-      </span>
+        priority
+        className="block dark:hidden"
+        style={{ height, width: 'auto' }}
+      />
+      <Image
+        src="/header-logo-dark.png"
+        alt="Styxproxy"
+        width={width}
+        height={height}
+        priority
+        className="hidden dark:block"
+        style={{ height, width: 'auto' }}
+      />
     </Link>
   );
 }
