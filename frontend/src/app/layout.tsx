@@ -1,7 +1,18 @@
 import type { Metadata } from "next";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toast";
 import ConsentGate from "@/components/ConsentGate";
+
+// Self-hosted via next/font — no external request, no FOUT race against
+// globals.css, and weight 900 included because ~32 components use font-black.
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  display: "swap",
+  variable: "--font-poppins",
+});
+
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://styxproxy.com'),
@@ -62,11 +73,8 @@ export default function RootLayout({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://styxproxy.com';
   
   return (
-    <html lang="en">
+    <html lang="en" className={poppins.variable}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <link
           rel="alternate"
           type="application/rss+xml"
@@ -74,7 +82,8 @@ export default function RootLayout({
           href={`${siteUrl}/blog/rss.xml`}
         />
       </head>
-      <body className="antialiased" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      <body className="antialiased">
+
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <ToastProvider>
           <ConsentGate />
