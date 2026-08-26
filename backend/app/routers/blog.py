@@ -128,7 +128,8 @@ async def list_published_posts(
     from app.services.observability import cache_get, cache_set
 
     # Cache key covers all filter dimensions
-    cache_key = f"blog:list:p={page}:l={limit}:t={tag or ''}:c={category or ''}:f={featured}"
+    # v2: bumped after schema change (tags + categories added to PostBriefResponse)
+    cache_key = f"blog:list:v2:p={page}:l={limit}:t={tag or ''}:c={category or ''}:f={featured}"
     cached = await cache_get(cache_key)
     if cached is not None:
         return PostListResponse.model_validate(cached)
@@ -157,6 +158,25 @@ async def list_published_posts(
     stmt = select(Post).where(and_(*conditions)).order_by(Post.published_at.desc()).offset(offset).limit(limit)
     posts = (await session.execute(stmt)).scalars().all()
 
+    # Load categories for each post (Post has no ORM relationship for categories)
+    post_ids = [p.id for p in posts]
+    post_categories_map: dict[UUID, list[dict]] = {pid: [] for pid in post_ids}
+    if post_ids:
+        cat_stmt = (
+            select(PostCategory.post_id, Category)
+            .join(Category, Category.id == PostCategory.category_id)
+            .where(PostCategory.post_id.in_(post_ids))
+        )
+        cat_rows = (await session.execute(cat_stmt)).all()
+        for post_id, cat in cat_rows:
+            post_categories_map[post_id].append(
+                {"id": str(cat.id), "name": cat.name, "slug": cat.slug, "color": cat.color}
+            )
+
+    # Attach categories so PostBriefResponse.model_validate picks them up
+    for p in posts:
+        p.categories = post_categories_map.get(p.id, [])  # type: ignore[attr-defined]
+
     response = PostListResponse(
         posts=[PostBriefResponse.model_validate(p) for p in posts],
         pagination={
@@ -169,7 +189,7 @@ async def list_published_posts(
         },
     )
 
-    # Cache the JSON-serializable form
+    # Invalidate any v1 cache entries from before the schema change
     await cache_set(cache_key, response.model_dump(mode="json"), ttl_seconds=60)
     return response
 
@@ -258,6 +278,23 @@ async def list_featured_posts(
     offset = (page - 1) * limit
     stmt = select(Post).where(and_(*conditions)).order_by(Post.published_at.desc()).offset(offset).limit(limit)
     posts = (await session.execute(stmt)).scalars().all()
+
+    # Load categories for each post
+    post_ids = [p.id for p in posts]
+    post_categories_map: dict[UUID, list[dict]] = {pid: [] for pid in post_ids}
+    if post_ids:
+        cat_stmt = (
+            select(PostCategory.post_id, Category)
+            .join(Category, Category.id == PostCategory.category_id)
+            .where(PostCategory.post_id.in_(post_ids))
+        )
+        cat_rows = (await session.execute(cat_stmt)).all()
+        for post_id, cat in cat_rows:
+            post_categories_map[post_id].append(
+                {"id": str(cat.id), "name": cat.name, "slug": cat.slug, "color": cat.color}
+            )
+    for p in posts:
+        p.categories = post_categories_map.get(p.id, [])  # type: ignore[attr-defined]
 
     return PostListResponse(
         posts=[PostBriefResponse.model_validate(p) for p in posts],
@@ -620,6 +657,23 @@ async def list_all_posts(
     if conditions:
         stmt = stmt.where(and_(*conditions))
     posts = (await session.execute(stmt)).scalars().all()
+
+    # Load categories for each post
+    post_ids = [p.id for p in posts]
+    post_categories_map: dict[UUID, list[dict]] = {pid: [] for pid in post_ids}
+    if post_ids:
+        cat_stmt = (
+            select(PostCategory.post_id, Category)
+            .join(Category, Category.id == PostCategory.category_id)
+            .where(PostCategory.post_id.in_(post_ids))
+        )
+        cat_rows = (await session.execute(cat_stmt)).all()
+        for post_id, cat in cat_rows:
+            post_categories_map[post_id].append(
+                {"id": str(cat.id), "name": cat.name, "slug": cat.slug, "color": cat.color}
+            )
+    for p in posts:
+        p.categories = post_categories_map.get(p.id, [])  # type: ignore[attr-defined]
 
     return PostListResponse(
         posts=[PostBriefResponse.model_validate(p) for p in posts],

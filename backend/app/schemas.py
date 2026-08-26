@@ -10,8 +10,31 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    ValidationInfo,
     field_validator,
+    model_validator,
 )
+
+# ============== Display Name Mapping ==============
+# Maps known service account emails to human-readable display names.
+# Add new service accounts here as needed. Unknown authors pass through unchanged.
+
+_AUTHOR_DISPLAY_NAMES: dict[str, str] = {
+    "service-bot@styxproxy.com": "Styxproxy Team",
+    "charon@styxproxy.com": "Styxproxy Team",
+}
+
+
+def resolve_display_author(author: Optional[str]) -> Optional[str]:
+    """Resolve an author email to a display name.
+
+    Returns the mapped display name for known service accounts,
+    or the original author string for everything else.
+    """
+    if not author:
+        return author
+    return _AUTHOR_DISPLAY_NAMES.get(author.strip().lower(), author)
+
 
 # ============== Enums ==============
 
@@ -1448,6 +1471,7 @@ class PostResponse(BaseModel):
     excerpt: Optional[str]
     cover_image_url: Optional[str]
     author: str
+    display_author: Optional[str] = None
     status: str
     submitted_at: Optional[datetime]
     reviewed_by: Optional[str]
@@ -1463,6 +1487,11 @@ class PostResponse(BaseModel):
     updated_at: datetime
     categories: Optional[list[dict]] = []
 
+    @model_validator(mode="after")
+    def _resolve_display_author(self):
+        self.display_author = resolve_display_author(self.author)
+        return self
+
 
 class PostBriefResponse(BaseModel):
     """Brief response for a blog post (list view)."""
@@ -1475,10 +1504,18 @@ class PostBriefResponse(BaseModel):
     excerpt: Optional[str]
     cover_image_url: Optional[str]
     author: str
+    display_author: Optional[str] = None
     status: str
     published_at: Optional[datetime]
     view_count: int
     created_at: datetime
+    tags: Optional[list[str]] = []
+    categories: Optional[list[dict]] = []
+
+    @model_validator(mode="after")
+    def _resolve_display_author(self):
+        self.display_author = resolve_display_author(self.author)
+        return self
 
 
 class PostListResponse(BaseModel):

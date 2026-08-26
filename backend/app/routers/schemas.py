@@ -10,8 +10,12 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    ValidationInfo,
     field_validator,
+    model_validator,
 )
+
+from app.schemas import resolve_display_author
 
 # ============== Enums ==============
 
@@ -1374,6 +1378,7 @@ class PostResponse(BaseModel):
     excerpt: Optional[str]
     cover_image_url: Optional[str]
     author: str
+    display_author: Optional[str] = None
     status: str
     submitted_at: Optional[datetime]
     reviewed_by: Optional[str]
@@ -1389,6 +1394,11 @@ class PostResponse(BaseModel):
     updated_at: datetime
     categories: Optional[list[dict]] = []
 
+    @model_validator(mode="after")
+    def _resolve_display_author(self):
+        self.display_author = resolve_display_author(self.author)
+        return self
+
 
 class PostBriefResponse(BaseModel):
     """Brief response for a blog post (list view)."""
@@ -1401,10 +1411,18 @@ class PostBriefResponse(BaseModel):
     excerpt: Optional[str]
     cover_image_url: Optional[str]
     author: str
+    display_author: Optional[str] = None
     status: str
     published_at: Optional[datetime]
     view_count: int
     created_at: datetime
+    tags: Optional[list[str]] = []
+    categories: Optional[list[dict]] = []
+
+    @model_validator(mode="after")
+    def _resolve_display_author(self):
+        self.display_author = resolve_display_author(self.author)
+        return self
 
 
 class PostListResponse(BaseModel):
