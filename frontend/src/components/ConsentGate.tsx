@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-const GUARDED_PATHS = ['/admin', '/superadmin', '/manage', '/login', '/admin-setup'];
+const GUARDED_PATHS = ['/admin', '/superadmin', '/login', '/admin-setup'];
 
 const CONSENTGATE_STYLES = `
 .cg-overlay {

@@ -128,7 +128,7 @@ export default function ChatWidget() {
   };
 
   // Determine if we should render
-  const isBlocked = ["admin", "superadmin", "manage", "login", "admin-setup"].some(
+  const isBlocked = ["admin", "superadmin", "login", "admin-setup"].some(
     (p) => pathname === "/" + p || (pathname != null && (pathname.startsWith("/" + p + "/") || pathname.startsWith("/" + p)))
   );
   const isOnBlockedPath = 

@@ -128,7 +128,7 @@ function ThankYouPreview() {
             </svg>
             Download Receipt (PDF)
           </button>
-          <a href="/manage" className="block w-full px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-lg text-center transition-colors">
+          <a href="/order/status" className="block w-full px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-lg text-center transition-colors">
             Manage Order →
           </a>
           <a href="/order" className="block w-full px-6 py-3 text-[var(--muted)] hover:text-[var(--foreground)] text-center transition-colors">
