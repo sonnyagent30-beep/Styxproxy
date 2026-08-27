@@ -1317,3 +1317,50 @@ class EmailUnsubscribe(Base):
     email: Mapped[str] = mapped_column(String(255), primary_key=True)
     unsubscribed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     source: Mapped[str] = mapped_column(String(50), default="list_unsubscribe")
+
+
+# ─── Charon Conversation Persistence ──────────────────────────────────────
+# Stores conversations and messages for history, analytics, and context.
+
+class CharonConversation(Base):
+    """Charon conversation session — one per customer interaction."""
+
+    __tablename__ = "charon_conversations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    channel: Mapped[str] = mapped_column(String(20), default="web")
+    customer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    customer_phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active, closed, escalated
+    escalated: Mapped[bool] = mapped_column(Boolean, default=False)
+    escalation_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5 stars
+    rating_comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    message_count: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_used: Mapped[int] = mapped_column(Integer, default=0)
+    page_context: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    experiment_variant: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+
+    # Relationships
+    messages: Mapped[list["CharonMessage"]] = relationship("CharonMessage", back_populates="conversation", cascade="all, delete-orphan")
+
+
+class CharonMessage(Base):
+    """Individual message in a Charon conversation."""
+
+    __tablename__ = "charon_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("charon_conversations.id", ondelete="CASCADE"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)  # user, assistant, system
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    tool_calls: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    tokens_used: Mapped[int] = mapped_column(Integer, default=0)
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    conversation: Mapped["CharonConversation"] = relationship("CharonConversation", back_populates="messages")

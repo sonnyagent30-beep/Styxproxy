@@ -694,3 +694,128 @@ async def get_weights():
 
     weights = {row[0]: {"weight": float(row[1]), "total_fires": row[2]} for row in rows}
     return {"weights": weights}
+
+
+# ─── Conversation Persistence Endpoints ────────────────────────────────────
+
+class ConversationListRequest(BaseModel):
+    limit: int = Field(default=50, ge=1, le=200)
+    offset: int = Field(default=0, ge=0)
+    status: Optional[str] = None
+    escalated: Optional[bool] = None
+
+
+@router.get("/conversations")
+async def list_conversations_db(req: ConversationListRequest):
+    """List conversations from database (persistent storage)."""
+    from app.models import CharonConversation, CharonMessage
+    from sqlalchemy import select
+    
+    async with async_session() as session:
+        stmt = select(CharonConversation).order_by(CharonConversation.last_activity_at.desc())
+        
+        if req.status:
+            stmt = stmt.where(CharonConversation.status == req.status)
+        if req.escalated is not None:
+            stmt = stmt.where(CharonConversation.escalated == req.escalated)
+        
+        stmt = stmt.offset(req.offset).limit(req.limit)
+        result = await session.execute(stmt)
+        conversations = result.scalars().all()
+        
+        return {
+            "conversations": [
+                {
+                    "id": str(c.id),
+                    "session_id": c.session_id,
+                    "channel": c.channel,
+                    "status": c.status,
+                    "escalated": c.escalated,
+                    "message_count": c.message_count,
+                    "tokens_used": c.tokens_used,
+                    "rating": c.rating,
+                    "started_at": c.started_at.isoformat() if c.started_at else None,
+                    "last_activity_at": c.last_activity_at.isoformat() if c.last_activity_at else None,
+                }
+                for c in conversations
+            ],
+            "limit": req.limit,
+            "offset": req.offset,
+        }
+
+
+@router.get("/conversations/{conversation_id}")
+async def get_conversation(conversation_id: str):
+    """Get a single conversation with all messages."""
+    from app.models import CharonConversation, CharonMessage
+    from sqlalchemy import select
+    
+    async with async_session() as session:
+        # Get conversation
+        conv_stmt = select(CharonConversation).where(CharonConversation.id == conversation_id)
+        conv_result = await session.execute(conv_stmt)
+        conv = conv_result.scalar_one_or_none()
+        
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        # Get messages
+        msg_stmt = select(CharonMessage).where(CharonMessage.conversation_id == conversation_id).order_by(CharonMessage.ts)
+        msg_result = await session.execute(msg_stmt)
+        messages = msg_result.scalars().all()
+        
+        return {
+            "conversation": {
+                "id": str(conv.id),
+                "session_id": conv.session_id,
+                "channel": conv.channel,
+                "status": conv.status,
+                "escalated": conv.escalated,
+                "escalation_reason": conv.escalation_reason,
+                "rating": conv.rating,
+                "rating_comment": conv.rating_comment,
+                "message_count": conv.message_count,
+                "tokens_used": conv.tokens_used,
+                "page_context": conv.page_context,
+                "experiment_variant": conv.experiment_variant,
+                "started_at": conv.started_at.isoformat() if conv.started_at else None,
+                "last_activity_at": conv.last_activity_at.isoformat() if conv.last_activity_at else None,
+            },
+            "messages": [
+                {
+                    "id": str(m.id),
+                    "role": m.role,
+                    "content": m.content,
+                    "tool_calls": m.tool_calls,
+                    "tokens_used": m.tokens_used,
+                    "ts": m.ts.isoformat() if m.ts else None,
+                }
+                for m in messages
+            ],
+        }
+
+
+class RatingRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = None
+
+
+@router.post("/conversations/{conversation_id}/rate")
+async def rate_conversation(conversation_id: str, req: RatingRequest):
+    """Rate a conversation (1-5 stars)."""
+    from app.models import CharonConversation
+    from sqlalchemy import select
+    
+    async with async_session() as session:
+        stmt = select(CharonConversation).where(CharonConversation.id == conversation_id)
+        result = await session.execute(stmt)
+        conv = result.scalar_one_or_none()
+        
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        conv.rating = req.rating
+        conv.rating_comment = req.comment
+        await session.commit()
+        
+        return {"ok": True, "rating": req.rating}

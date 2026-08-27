@@ -29,6 +29,7 @@ import asyncio
 import json
 import logging
 import os
+from datetime import datetime, timezone
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -172,12 +173,16 @@ async def reply(
     """End-to-end Charon reply.
 
     Order of operations:
+    0. Persist user message to DB
     1. Try scenario matcher — deterministic, free, fast.
     2. Try LLM with knowledge context + tool definitions.
     3. Fall back to "I am having trouble; escalate" if LLM fails.
     """
     conversation_id = conversation_id or str(uuid.uuid4())
     variant = get_variant(conversation_id)
+    
+    # Persist user message
+    await _persist_message(conversation_id, channel, "user", user_message, page_context=page_context)
     log_ctx: dict[str, Any] = {
         "channel": channel,
         "conversation_id": conversation_id,
@@ -513,13 +518,61 @@ def _persist_log(ctx: dict) -> None:
     try:
         os.makedirs(log_dir, exist_ok=True)
         with open(log_path, "a") as fh:
-            fh.write(json.dumps({"ts": _now(), **ctx}) + "\n")
+            fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), **ctx}) + "\n")
     except OSError:
         pass  # best-effort
     logger.info("charon.reply", extra={"charon": ctx})
 
 
-def _now() -> str:
-    from datetime import datetime, timezone
-
-    return datetime.now(timezone.utc).isoformat()
+async def _persist_message(
+    conversation_id: str,
+    channel: str,
+    role: str,
+    content: str,
+    tool_calls: list[dict] | None = None,
+    tokens_used: int = 0,
+    page_context: dict | None = None,
+) -> None:
+    """Persist a message to the charon_conversations/charon_messages tables."""
+    try:
+        from datetime import datetime, timezone
+        from app.database import async_session
+        from app.models import CharonConversation, CharonMessage
+        from sqlalchemy import select
+        
+        async with async_session() as session:
+            # Find or create conversation
+            stmt = select(CharonConversation).where(CharonConversation.session_id == conversation_id)
+            result = await session.execute(stmt)
+            conv = result.scalar_one_or_none()
+            
+            if not conv:
+                conv = CharonConversation(
+                    session_id=conversation_id,
+                    channel=channel,
+                    page_context=page_context,
+                )
+                session.add(conv)
+                await session.flush()
+            
+            # Create message
+            msg = CharonMessage(
+                conversation_id=conv.id,
+                role=role,
+                content=content,
+                tool_calls=tool_calls,
+                tokens_used=tokens_used,
+            )
+            session.add(msg)
+            
+            # Update conversation stats
+            conv.message_count += 1
+            conv.last_activity_at = datetime.now(timezone.utc)
+            if tokens_used:
+                conv.tokens_used += tokens_used
+            if role == "user" and page_context:
+                conv.page_context = page_context
+            
+            await session.commit()
+    except Exception as exc:
+        logger.warning("Failed to persist message: %s", exc)

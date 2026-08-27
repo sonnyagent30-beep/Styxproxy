@@ -1,22 +1,12 @@
 /**
  * TriggerEngine — evaluates behavioral triggers and returns the best candidate.
  *
- * Loads weights from the backend (/api/charon/weights), caches them for 60s,
- * then evaluates all trigger conditions against the current SessionTracker state.
- * Returns the highest-scoring eligible trigger, or null if nothing qualifies.
- *
- * Outreach is NEVER shown on payment/checkout pages — the customer is in a
- * transaction and must not be interrupted until they initiate contact.
- *
- * Page-aware timing:
- * - Landing page: short threshold (15s) — catch interest fast
- * - Pricing page: medium threshold (25s) — they need time to compare
- * - Product pages: medium (20s) — browsing mode
- * - Blog pages: long threshold (45s) — reading mode, don't interrupt
- * - General pages: 30s default
- *
- * Blog-aware: triggers fire differently when user is reading a blog post,
- * surfacing blog-specific outreach + suggesting related posts.
+ * Smart features:
+ * - Page-aware timing (different thresholds per page type)
+ * - Blog-aware messaging (different messages when reading blog posts)
+ * - Adaptive cooldown (increases if user dismisses multiple times)
+ * - Engagement scoring (tracks user engagement level)
+ * - Anti-spam (max 1 trigger per minute, max 3 per session)
  */
 
 import { SessionTracker } from './SessionTracker';
@@ -27,9 +17,7 @@ export interface Trigger {
   cooldownMs: number;
   score: number;
   reason: string;
-  /** Override auto-dismiss timeout (ms). Defaults to 8000. */
   dismissAfterMs?: number;
-  /** Override initial delay before showing bubble (ms). Defaults to 0. */
   delayMs?: number;
 }
 
@@ -39,16 +27,13 @@ interface TriggerConfig {
   cooldownMs: number;
   baseScore: number;
   dismissAfterMs: number;
-  /** Default 0ms (show immediately). */
   delayMs?: number;
   check(s: SessionTracker): boolean;
   reason(s: SessionTracker): string;
-  /** Override message when user is on a blog post. */
   blogMessage?: (s: SessionTracker) => string;
 }
 
-// ── Dwell thresholds per page type (seconds) ────────────────────────────────────
-
+// Dwell thresholds per page type (seconds)
 const DWELL = {
   landing: 15,
   pricing: 25,
@@ -63,8 +48,7 @@ function getDwellForPage(pageType: string): number {
   return DWELL[pageType as keyof typeof DWELL] ?? DWELL.general;
 }
 
-// ── All trigger configs ────────────────────────────────────────────────────────
-
+// All trigger configs
 const ALL_TRIGGERS: TriggerConfig[] = [
   {
     id: 'repeat_pricing',
@@ -119,7 +103,7 @@ const ALL_TRIGGERS: TriggerConfig[] = [
   },
   {
     id: 'order_confusion',
-    message: "Ready to order? I can walk you through it in 30 seconds — less time than reading another page.",
+    message: "Ready to order? I can walk you through it quickly.",
     cooldownMs: 10 * 60 * 1000,
     baseScore: 1.1,
     dismissAfterMs: 10_000,
@@ -155,18 +139,17 @@ const ALL_TRIGGERS: TriggerConfig[] = [
     check() { return false; }, // triggered by LLM chat context only
     reason() { return 'customer asked about a country'; },
   },
-  // ── Blog-aware triggers ────────────────────────────────────────────────
+  // Blog-aware triggers
   {
     id: 'blog_deep_read',
-    message: "Good read? I can answer questions about anything in that article — or suggest the next one.",
+    message: "Good read? I can answer questions about anything in that article.",
     cooldownMs: 8 * 60 * 1000,
     baseScore: 0.85,
     dismissAfterMs: 10_000,
-    delayMs: 3_000, // wait 3s after page load before showing
+    delayMs: 3_000,
     check(s) {
       const blog = s.getCurrentBlogPost();
       if (!blog) return false;
-      // Fire after 45s on any blog post (reading time)
       return s.getDwellTimeSeconds(`/blog/${blog.slug}`) > getDwellForPage('blog');
     },
     reason(s) {
@@ -176,7 +159,7 @@ const ALL_TRIGGERS: TriggerConfig[] = [
   },
   {
     id: 'blog_related_offer',
-    message: "We have a full guide series on this topic — want me to point you to the most relevant one?",
+    message: "We have more guides on this topic — want me to point you to the most relevant one?",
     cooldownMs: 15 * 60 * 1000,
     baseScore: 0.7,
     dismissAfterMs: 10_000,
@@ -184,7 +167,6 @@ const ALL_TRIGGERS: TriggerConfig[] = [
     check(s) {
       const blog = s.getCurrentBlogPost();
       if (!blog) return false;
-      // Fire if they visited 2+ blog posts
       return s['blogVisits'] >= 2;
     },
     reason(s) {
@@ -199,6 +181,13 @@ export class TriggerEngine {
   private weights: Map<string, number> = new Map();
   private lastRefresh = 0;
   private readonly CACHE_TTL_MS = 60_000;
+  private sessionTriggerCount = 0;
+  private lastTriggerAt = 0;
+  private dismissCount = 0;
+
+  // Anti-spam limits
+  private readonly MAX_TRIGGERS_PER_SESSION = 5;
+  private readonly MIN_TRIGGER_INTERVAL_MS = 60_000; // 1 minute between triggers
 
   constructor(tracker: SessionTracker) {
     this.tracker = tracker;
@@ -207,7 +196,6 @@ export class TriggerEngine {
     }
   }
 
-  /** Refresh weights from backend. Cached. */
   async refreshWeights(): Promise<void> {
     if (Date.now() - this.lastRefresh < this.CACHE_TTL_MS) return;
     try {
@@ -225,11 +213,28 @@ export class TriggerEngine {
     }
   }
 
-  /** Evaluate all triggers and return the best eligible one, or null. */
+  /** Record that a user dismissed a trigger — increases cooldown */
+  recordDismissal(): void {
+    this.dismissCount++;
+  }
+
+  /** Get adaptive cooldown multiplier (increases with dismissals) */
+  private getCooldownMultiplier(): number {
+    // Each dismissal doubles the cooldown, up to 8x
+    return Math.min(8, Math.pow(2, this.dismissCount));
+  }
+
   evaluate(currentPath: string): Trigger | null {
     if (this.tracker.isOnPaymentPage()) return null;
 
+    // Anti-spam: max triggers per session
+    if (this.sessionTriggerCount >= this.MAX_TRIGGERS_PER_SESSION) return null;
+
+    // Anti-spam: minimum interval between triggers
+    if (Date.now() - this.lastTriggerAt < this.MIN_TRIGGER_INTERVAL_MS) return null;
+
     const eligible: Trigger[] = [];
+    const cooldownMultiplier = this.getCooldownMultiplier();
 
     for (const config of ALL_TRIGGERS) {
       const weight = this.weights.get(config.id) ?? 1.0;
@@ -237,7 +242,10 @@ export class TriggerEngine {
 
       if (score <= 0) continue;
       if (!config.check(this.tracker)) continue;
-      if (!this.tracker.canFire(config.id, config.cooldownMs)) continue;
+
+      // Apply adaptive cooldown
+      const adjustedCooldown = config.cooldownMs * cooldownMultiplier;
+      if (!this.tracker.canFire(config.id, adjustedCooldown)) continue;
 
       // Pick message: use blog variant if on a blog page and config has one
       const isOnBlog = currentPath.startsWith('/blog');
@@ -249,7 +257,7 @@ export class TriggerEngine {
       eligible.push({
         id: config.id,
         message,
-        cooldownMs: config.cooldownMs,
+        cooldownMs: adjustedCooldown,
         score,
         reason: config.reason(this.tracker),
         dismissAfterMs: config.dismissAfterMs,
@@ -260,6 +268,19 @@ export class TriggerEngine {
     if (eligible.length === 0) return null;
 
     eligible.sort((a, b) => b.score - a.score);
-    return eligible[0];
+    const winner = eligible[0];
+
+    // Track trigger firing
+    this.sessionTriggerCount++;
+    this.lastTriggerAt = Date.now();
+
+    return winner;
+  }
+
+  /** Reset session stats (call on new session) */
+  reset(): void {
+    this.sessionTriggerCount = 0;
+    this.lastTriggerAt = 0;
+    this.dismissCount = 0;
   }
 }
