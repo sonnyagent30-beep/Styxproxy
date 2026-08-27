@@ -1008,8 +1008,8 @@ async def search_conversations(
                     "customer_email": conv.customer_email,
                     "rating": conv.rating,
                     "message_count": conv.message_count,
-                    "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
-                    "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                    "last_message_at": conv.last_activity_at.isoformat() if conv.last_activity_at else None,
+                    "created_at": conv.started_at.isoformat() if conv.started_at else None,
                 })
         
         return {"results": results, "query": q, "total": len(results)}
@@ -1034,7 +1034,7 @@ async def get_analytics(
         # Total conversations
         total_result = await session.execute(
             select(func.count(CharonConversation.id))
-            .where(CharonConversation.created_at >= since)
+            .where(CharonConversation.started_at >= since)
         )
         total_conversations = total_result.scalar() or 0
         
@@ -1049,7 +1049,7 @@ async def get_analytics(
         rating_result = await session.execute(
             select(func.avg(CharonConversation.rating))
             .where(CharonConversation.rating.isnot(None))
-            .where(CharonConversation.created_at >= since)
+            .where(CharonConversation.started_at >= since)
         )
         avg_rating = rating_result.scalar() or 0.0
         
@@ -1066,7 +1066,7 @@ async def get_analytics(
         # Top channels
         channel_result = await session.execute(
             select(CharonConversation.channel, func.count(CharonConversation.id))
-            .where(CharonConversation.created_at >= since)
+            .where(CharonConversation.started_at >= since)
             .group_by(CharonConversation.channel)
             .order_by(func.count(CharonConversation.id).desc())
         )
@@ -1075,11 +1075,11 @@ async def get_analytics(
         # Daily breakdown
         daily_result = await session.execute(
             select(
-                func.date_trunc("day", CharonConversation.created_at).label("day"),
+                func.date_trunc("day", CharonConversation.started_at).label("day"),
                 func.count(CharonConversation.id),
             )
-            .where(CharonConversation.created_at >= since)
-            .group_by(func.date_trunc("day", CharonConversation.created_at))
+            .where(CharonConversation.started_at >= since)
+            .group_by(func.date_trunc("day", CharonConversation.started_at))
             .order_by("day")
         )
         daily = [{"day": d.isoformat() if hasattr(d, "isoformat") else str(d), "count": c} for d, c in daily_result.all()]
@@ -1174,8 +1174,8 @@ async def export_conversation(
                 "rating": conv.rating,
                 "rating_comment": conv.rating_comment,
                 "message_count": conv.message_count,
-                "created_at": conv.created_at.isoformat() if conv.created_at else None,
-                "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
+                "created_at": conv.started_at.isoformat() if conv.started_at else None,
+                "last_message_at": conv.last_activity_at.isoformat() if conv.last_activity_at else None,
             },
             "messages": [
                 {
