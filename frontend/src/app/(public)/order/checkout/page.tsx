@@ -36,7 +36,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [email, setEmail] = useState('');
-  const [gateway, setGateway] = useState<'flutterwave' | 'paystack' | 'crypto'>('flutterwave');
+  const [gateway, setGateway] = useState<'card' | 'transfer' | 'ussd' | 'qr'>('card');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   // Bug walk theme-B fix: precheck state. Map of plan_code → precheck result.
@@ -462,24 +462,28 @@ export default function CheckoutPage() {
         {/* Payment method */}
         <div className="mb-4">
           <p className="text-sm font-medium mb-2 text-[var(--muted)]">Payment method</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {([
-              { id: 'flutterwave', label: 'Card / Bank', sub: 'Flutterwave' },
-              { id: 'paystack', label: 'Card / Transfer', sub: 'Paystack' },
-              { id: 'crypto', label: 'Crypto', sub: 'USDT · BTC' },
+              { id: 'card', label: 'Card Payment', sub: 'Visa, Mastercard', icon: '💳' },
+              { id: 'transfer', label: 'Bank Transfer', sub: 'Access, UBA, GTBank', icon: '🏦' },
+              { id: 'ussd', label: 'USSD', sub: 'Nigerian cards only', icon: '📱' },
+              { id: 'qr', label: 'QR Code', sub: 'Any banking app', icon: '📲' },
             ] as const).map(opt => (
               <button
                 key={opt.id}
                 type="button"
-                onClick={() => setGateway(opt.id)}
-                className={`px-3 py-3 rounded-xl border text-center transition-colors ${
+                onClick={() => setGateway(opt.id as any)}
+                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-colors ${
                   gateway === opt.id
-                    ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
-                    : 'border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--primary)]/40'
+                    ? 'border-[var(--primary)] bg-[var(--primary)]/10'
+                    : 'border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)]/40'
                 }`}
               >
-                <span className="block text-sm font-semibold">{opt.label}</span>
-                <span className="block text-xs opacity-70 mt-0.5">{opt.sub}</span>
+                <span className="text-xl">{opt.icon}</span>
+                <div>
+                  <span className={`block text-sm font-semibold ${gateway === opt.id ? 'text-[var(--primary)]' : 'text-[var(--foreground)]'}`}>{opt.label}</span>
+                  <span className="block text-xs text-[var(--muted)]">{opt.sub}</span>
+                </div>
               </button>
             ))}
           </div>
