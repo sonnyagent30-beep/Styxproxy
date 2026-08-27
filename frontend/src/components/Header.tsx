@@ -19,19 +19,19 @@ export default function Header() {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-[var(--border)]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'var(--background)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}>
+      <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '4rem' }}>
           {/* Logo */}
           <Logo height={36} />
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '2rem' }} className="hidden md:flex">
             {navLinks.map(link => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                style={{ color: 'var(--muted)', textDecoration: 'none' }}
               >
                 {link.label}
               </Link>
@@ -39,10 +39,10 @@ export default function Header() {
           </nav>
 
           {/* CTA Button */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }} className="hidden md:flex">
             <Link
               href="/order"
-              className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors"
+              style={{ padding: '0.5rem 1rem', background: 'var(--primary)', color: '#000', fontWeight: 500, borderRadius: '0.5rem', textDecoration: 'none' }}
             >
               Get Proxy
             </Link>
@@ -50,9 +50,9 @@ export default function Header() {
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-2 text-[var(--muted)]"
+            style={{ padding: '0.5rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+            className="md:hidden"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileMenuOpen ? (
               <X className="w-6 h-6" />
@@ -63,24 +63,24 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile Menu - Full screen overlay */}
+      {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 top-16 z-[10000] bg-[var(--background)] overflow-y-auto">
-          <nav className="flex flex-col p-6 space-y-2">
+        <div style={{ position: 'fixed', inset: 0, top: '4rem', zIndex: 100, background: 'var(--background)', overflowY: 'auto' }} className="md:hidden">
+          <nav style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
             {navLinks.map(link => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-[var(--foreground)] hover:text-[var(--primary)] transition-colors py-4 px-2 text-lg font-medium border-b border-[var(--border)]"
                 onClick={() => setMobileMenuOpen(false)}
+                style={{ padding: '1rem 0.5rem', fontSize: '1.125rem', fontWeight: 500, color: 'var(--foreground)', textDecoration: 'none', borderBottom: '1px solid var(--border)' }}
               >
                 {link.label}
               </Link>
             ))}
             <Link
               href="/order"
-              className="mt-4 px-4 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors text-center text-lg"
               onClick={() => setMobileMenuOpen(false)}
+              style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: 'var(--primary)', color: '#000', fontWeight: 500, borderRadius: '0.5rem', textAlign: 'center', textDecoration: 'none' }}
             >
               Get Proxy
             </Link>
