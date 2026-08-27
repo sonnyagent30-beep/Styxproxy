@@ -8,57 +8,34 @@ import { List, X } from '@phosphor-icons/react';
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const navLinks = [
+    { href: '/products', label: 'Products' },
+    { href: '/pricing', label: 'Pricing' },
+    { href: '/how-it-works', label: 'How It Works' },
+    { href: '/about', label: 'About' },
+    { href: '/blog', label: 'Blog' },
+    { href: '/contact', label: 'Contact' },
+    { href: '/order/status', label: 'Order Status' },
+  ];
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo — crisp SVG, theme-aware */}
+          {/* Logo */}
           <Logo height={36} />
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link
-              href="/products"
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              Products
-            </Link>
-            <Link
-              href="/pricing"
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              Pricing
-            </Link>
-            <Link
-              href="/how-it-works"
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              How It Works
-            </Link>
-            <Link
-              href="/about"
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              About
-            </Link>
-            <Link
-              href="/blog"
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              Blog
-            </Link>
-            <Link
-              href="/contact"
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              Contact
-            </Link>
-            <Link
-              href="/manage"
-              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-            >
-              Manage
-            </Link>
+            {navLinks.map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
 
           {/* CTA Button */}
@@ -75,6 +52,7 @@ export default function Header() {
           <button
             className="md:hidden p-2 text-[var(--muted)]"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileMenuOpen ? (
               <X className="w-6 h-6" />
@@ -83,50 +61,32 @@ export default function Header() {
             )}
           </button>
         </div>
+      </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div
-            className="md:hidden fixed inset-0 top-16 bg-black/50 z-40"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-        )}
-        <div
-          className="md:hidden overflow-hidden transition-all duration-300 ease-out"
-          style={{
-            maxHeight: mobileMenuOpen ? 'calc(100svh - 64px)' : '0',
-            opacity: mobileMenuOpen ? 1 : 0,
-          }}
-        >
-          <nav className="flex flex-col space-y-1 py-4 border-t border-[var(--border)]">
-            {[
-              ['/products', 'Products'],
-              ['/pricing', 'Pricing'],
-              ['/how-it-works', 'How It Works'],
-              ['/about', 'About'],
-              ['/blog', 'Blog'],
-              ['/contact', 'Contact'],
-              ['/manage', 'Manage'],
-            ].map(([href, label]) => (
+      {/* Mobile Menu - Full screen overlay */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 top-16 z-[10000] bg-[var(--background)] overflow-y-auto">
+          <nav className="flex flex-col p-6 space-y-2">
+            {navLinks.map(link => (
               <Link
-                key={href}
-                href={href}
-                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors py-2.5 px-1"
+                key={link.href}
+                href={link.href}
+                className="text-[var(--foreground)] hover:text-[var(--primary)] transition-colors py-4 px-2 text-lg font-medium border-b border-[var(--border)]"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                {label}
+                {link.label}
               </Link>
             ))}
             <Link
               href="/order"
-              className="mt-2 px-4 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors text-center"
+              className="mt-4 px-4 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors text-center text-lg"
               onClick={() => setMobileMenuOpen(false)}
             >
               Get Proxy
             </Link>
           </nav>
         </div>
-      </div>
+      )}
     </header>
   );
 }

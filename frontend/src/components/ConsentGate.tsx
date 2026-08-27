@@ -15,6 +15,10 @@ const CONSENTGATE_STYLES = `
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(8px);
   padding: 1rem;
+  pointer-events: none;
+}
+.cg-overlay .cg-modal {
+  pointer-events: auto;
 }
 .cg-modal {
   background: var(--card, #141414);
