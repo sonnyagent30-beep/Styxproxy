@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import Logo from '@/components/Logo';
 import { useState } from 'react';
 import { List, X } from '@phosphor-icons/react';
+import Logo from '@/components/Logo';
 
 export default function Header() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navLinks = [
+  const links = [
     { href: '/products', label: 'Products' },
     { href: '/pricing', label: 'Pricing' },
     { href: '/how-it-works', label: 'How It Works' },
@@ -19,74 +19,71 @@ export default function Header() {
   ];
 
   return (
-    <header style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'var(--background)', borderBottom: '1px solid var(--border)', backdropFilter: 'blur(12px)' }}>
-      <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '4rem' }}>
+    <>
+      <header className="fixed top-0 left-0 right-0 z-[200] bg-[var(--background)]/95 backdrop-blur-md border-b border-[var(--border)]">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           {/* Logo */}
           <Logo height={36} />
 
-          {/* Desktop Navigation */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '2rem' }} className="hidden md:flex">
-            {navLinks.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={{ color: 'var(--muted)', textDecoration: 'none' }}
-              >
-                {link.label}
+          {/* Desktop nav */}
+          <nav className="hidden lg:flex items-center gap-8">
+            {links.map(l => (
+              <Link key={l.href} href={l.href} className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors text-sm font-medium">
+                {l.label}
               </Link>
             ))}
           </nav>
 
-          {/* CTA Button */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }} className="hidden md:flex">
-            <Link
-              href="/order"
-              style={{ padding: '0.5rem 1rem', background: 'var(--primary)', color: '#000', fontWeight: 500, borderRadius: '0.5rem', textDecoration: 'none' }}
-            >
+          {/* Desktop CTA */}
+          <div className="hidden lg:flex items-center gap-3">
+            <Link href="/order" className="px-5 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors">
               Get Proxy
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile toggle */}
           <button
-            style={{ padding: '0.5rem', color: 'var(--muted)', background: 'none', border: 'none', cursor: 'pointer' }}
-            className="md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="lg:hidden p-2 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            onClick={() => setMobileOpen(o => !o)}
+            aria-label="Toggle menu"
           >
-            {mobileMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <List className="w-6 h-6" />
-            )}
+            {mobileOpen ? <X weight="bold" className="w-6 h-6" /> : <List weight="bold" className="w-6 h-6" />}
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Mobile Menu */}
-      {mobileMenuOpen && (
-        <div style={{ position: 'fixed', inset: 0, top: '4rem', zIndex: 100, background: 'var(--background)', overflowY: 'auto' }} className="md:hidden">
-          <nav style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem' }}>
-            {navLinks.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                style={{ padding: '1rem 0.5rem', fontSize: '1.125rem', fontWeight: 500, color: 'var(--foreground)', textDecoration: 'none', borderBottom: '1px solid var(--border)' }}
-              >
-                {link.label}
-              </Link>
-            ))}
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-[199] bg-black/60" onClick={() => setMobileOpen(false)} />
+      )}
+
+      {/* Mobile slide-down panel */}
+      <div
+        className="lg:hidden fixed top-16 left-0 right-0 z-[200] bg-[var(--background)] border-b border-[var(--border)] transition-all duration-300 ease-out overflow-hidden"
+        style={{ maxHeight: mobileOpen ? '100dvh' : 0, opacity: mobileOpen ? 1 : 0 }}
+      >
+        <nav className="flex flex-col p-6 gap-1">
+          {links.map(l => (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={() => setMobileOpen(false)}
+              className="text-[var(--foreground)] hover:text-[var(--primary)] hover:bg-[var(--card-hover)] transition-colors py-4 px-4 text-base font-medium rounded-xl"
+            >
+              {l.label}
+            </Link>
+          ))}
+          <div className="mt-4 pt-4 border-t border-[var(--border)]">
             <Link
               href="/order"
-              onClick={() => setMobileMenuOpen(false)}
-              style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: 'var(--primary)', color: '#000', fontWeight: 500, borderRadius: '0.5rem', textAlign: 'center', textDecoration: 'none' }}
+              onClick={() => setMobileOpen(false)}
+              className="block w-full text-center px-5 py-3.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-base transition-colors"
             >
               Get Proxy
             </Link>
-          </nav>
-        </div>
-      )}
-    </header>
+          </div>
+        </nav>
+      </div>
+    </>
   );
 }
