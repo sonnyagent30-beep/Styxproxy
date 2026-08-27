@@ -111,29 +111,21 @@ export default function ManagePage() {
     setHistory(getOrderHistory());
   }, []);
 
-  const handleSearch = async (ref: string) => {
+  const handleSearch = (ref: string) => {
     if (!ref.trim()) { setError('Please enter an order ID or transaction reference'); return; }
     setLoading(true); setError(''); setOrder(null);
     const trimmedRef = ref.trim();
-    // Bug walk theme-B fix: route by reference format.
-    // - STX-XXXXXX (FE payment_reference) → use auth-less /by-payment-reference/{ref}
-    // - ORD-XXXXXX (BE order_id) → use auth-required /{order_id}
-    // Previously the manage page always called /{order_id} which 404'd for
-    // STX- references (most common case after /thank-you flow) and 400'd
-    // for anonymous customers (no JWT = no customer).
     const endpoint = trimmedRef.startsWith('STX-') || trimmedRef.startsWith('stx-')
       ? `/api/orders/by-payment-reference/${trimmedRef}`
       : `/api/orders/${trimmedRef}`;
-    try {
-      const res = await fetch(endpoint);
-      const data = await res.json();
-      if (res.ok && data.order_id) { setOrder(data); }
-      else { setError(data.detail || data.error || 'Order not found. Double-check your order ID and try again.'); }
-    } catch {
-      setError('Network error. Please check your connection and try again.');
-    } finally {
-      setLoading(false);
-    }
+    fetch(endpoint)
+      .then(res => res.json())
+      .then(data => {
+        if (data.order_id) { setOrder(data); }
+        else { setError(data.detail || data.error || 'Order not found. Double-check your order ID and try again.'); }
+      })
+      .catch(() => setError('Network error. Please check your connection and try again.'))
+      .finally(() => setLoading(false));
   };
 
   const handleRotateKey = async () => {

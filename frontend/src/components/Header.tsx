@@ -53,6 +53,12 @@ export default function Header() {
             >
               Contact
             </Link>
+            <Link
+              href="/manage"
+              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            >
+              Manage
+            </Link>
           </nav>
 
           {/* CTA Button */}
@@ -94,6 +100,7 @@ export default function Header() {
               ['/about', 'About'],
               ['/blog', 'Blog'],
               ['/contact', 'Contact'],
+              ['/manage', 'Manage'],
             ].map(([href, label]) => (
               <Link
                 key={href}
