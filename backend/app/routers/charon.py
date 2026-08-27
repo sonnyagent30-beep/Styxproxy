@@ -1019,6 +1019,7 @@ async def search_conversations(
 # FEATURE 13: Analytics Dashboard
 # =============================================================================
 
+
 @router.get("/analytics")
 async def get_analytics(
     days: int = Query(7, ge=1, le=90),
@@ -1030,72 +1031,89 @@ async def get_analytics(
     
     since = datetime.utcnow() - timedelta(days=days)
     
-    async with async_session() as session:
-        # Total conversations
-        total_result = await session.execute(
-            select(func.count(CharonConversation.id))
-            .where(CharonConversation.started_at >= since)
-        )
-        total_conversations = total_result.scalar() or 0
-        
-        # Total messages
-        msg_result = await session.execute(
-            select(func.count(CharonMessage.id))
-            .where(CharonMessage.ts >= since)
-        )
-        total_messages = msg_result.scalar() or 0
-        
-        # Average rating
-        rating_result = await session.execute(
-            select(func.avg(CharonConversation.rating))
-            .where(CharonConversation.rating.isnot(None))
-            .where(CharonConversation.started_at >= since)
-        )
-        avg_rating = rating_result.scalar() or 0.0
-        
-        # Escalation count
-        esc_result = await session.execute(
-            select(func.count(CharonEscalation.id))
-            .where(CharonEscalation.created_at >= since)
-        )
-        escalations = esc_result.scalar() or 0
-        
-        # Average messages per conversation
-        avg_messages = total_messages / max(total_conversations, 1)
-        
-        # Top channels
-        channel_result = await session.execute(
-            select(CharonConversation.channel, func.count(CharonConversation.id))
-            .where(CharonConversation.started_at >= since)
-            .group_by(CharonConversation.channel)
-            .order_by(func.count(CharonConversation.id).desc())
-        )
-        channels = [{"channel": c, "count": n} for c, n in channel_result.all()]
-        
-        # Daily breakdown
-        daily_result = await session.execute(
-            select(
-                func.date_trunc("day", CharonConversation.started_at).label("day"),
-                func.count(CharonConversation.id),
+    try:
+        async with async_session() as session:
+            # Total conversations
+            total_result = await session.execute(
+                select(func.count(CharonConversation.id))
+                .where(CharonConversation.started_at >= since)
             )
-            .where(CharonConversation.started_at >= since)
-            .group_by(func.date_trunc("day", CharonConversation.started_at))
-            .order_by("day")
-        )
-        daily = [{"day": d.isoformat() if hasattr(d, "isoformat") else str(d), "count": c} for d, c in daily_result.all()]
-        
+            total_conversations = total_result.scalar() or 0
+            
+            # Total messages
+            msg_result = await session.execute(
+                select(func.count(CharonMessage.id))
+                .where(CharonMessage.ts >= since)
+            )
+            total_messages = msg_result.scalar() or 0
+            
+            # Average rating
+            rating_result = await session.execute(
+                select(func.avg(CharonConversation.rating))
+                .where(CharonConversation.rating.isnot(None))
+                .where(CharonConversation.started_at >= since)
+            )
+            avg_rating = rating_result.scalar() or 0.0
+            
+            # Escalation count
+            esc_result = await session.execute(
+                select(func.count(CharonEscalation.id))
+                .where(CharonEscalation.created_at >= since)
+            )
+            escalations = esc_result.scalar() or 0
+            
+            # Average messages per conversation
+            avg_messages = total_messages / max(total_conversations, 1)
+            
+            # Top channels
+            channel_result = await session.execute(
+                select(CharonConversation.channel, func.count(CharonConversation.id))
+                .where(CharonConversation.started_at >= since)
+                .group_by(CharonConversation.channel)
+                .order_by(func.count(CharonConversation.id).desc())
+            )
+            channels = [{"channel": c, "count": n} for c, n in channel_result.all()]
+            
+            # Daily breakdown
+            daily_result = await session.execute(
+                select(
+                    func.date_trunc("day", CharonConversation.started_at).label("day"),
+                    func.count(CharonConversation.id),
+                )
+                .where(CharonConversation.started_at >= since)
+                .group_by(func.date_trunc("day", CharonConversation.started_at))
+                .order_by("day")
+            )
+            daily = [{"day": d.isoformat() if hasattr(d, "isoformat") else str(d), "count": c} for d, c in daily_result.all()]
+            
+            return {
+                "period_days": days,
+                "total_conversations": total_conversations,
+                "total_messages": total_messages,
+                "average_rating": round(float(avg_rating), 2),
+                "average_messages_per_conversation": round(avg_messages, 1),
+                "escalations": escalations,
+                "escalation_rate": round(escalations / max(total_conversations, 1) * 100, 1),
+                "channels": channels,
+                "daily": daily,
+            }
+    except Exception as e:
+        # Tables may not exist yet (migration not applied)
         return {
             "period_days": days,
-            "total_conversations": total_conversations,
-            "total_messages": total_messages,
-            "average_rating": round(float(avg_rating), 2),
-            "average_messages_per_conversation": round(avg_messages, 1),
-            "escalations": escalations,
-            "escalation_rate": round(escalations / max(total_conversations, 1) * 100, 1),
-            "channels": channels,
-            "daily": daily,
+            "total_conversations": 0,
+            "total_messages": 0,
+            "average_rating": 0.0,
+            "average_messages_per_conversation": 0.0,
+            "escalations": 0,
+            "escalation_rate": 0.0,
+            "channels": [],
+            "daily": [],
+            "error": str(e),
         }
 
+
+# ==================================================
 
 # =============================================================================
 # FEATURE 14: Quick Reply Buttons
