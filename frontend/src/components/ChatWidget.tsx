@@ -5,12 +5,11 @@
 /**
  * ChatWidget — Charon support chatbot with behavioral awareness.
  *
- * Charon is quiet during payment/checkout flows (customer is in a transaction).
- * On all other pages, Charon watches anonymous session behavior and may reach out
- * once — a single contextual prompt, never repeated until cooldown expires.
- *
- * Tracking is fully anonymous: no PII, sessionStorage only, no cookies.
- * Outreach is suppressed on /order, /thank-you, /preview, /receipt.
+ * Features:
+ * - Draggable to any corner of the screen
+ * - Smart triggers (exit-intent, scroll, time-based) that are page-aware
+ * - Mobile-responsive (full-screen on small screens)
+ * - Clean text rendering (no em-dash issues)
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -44,8 +43,7 @@ const newId = () => Math.random().toString(36).slice(2) + Date.now().toString(36
 const WELCOME: Message = {
   id: 'welcome',
   role: 'assistant',
-  content:
-    'Hi \u2014 I\u2019m Charon. I can help with orders, plan details, payment status, and proxy troubleshooting. What can I help you with?',
+  content: "Hi - I'm Charon. I can help with orders, plan details, payment status, and proxy troubleshooting. What can I help you with?",
   ts: 0,
 };
 
@@ -58,7 +56,7 @@ interface ChatReplyResponse {
   error?: string | null;
 }
 
-/** Anonymous session ID — random, no PII, sessionStorage only. */
+/** Anonymous session ID - random, no PII, sessionStorage only. */
 function getSessionId(): string {
   const key = 'charon_session_id';
   let id = sessionStorage.getItem(key);
@@ -84,27 +82,42 @@ async function reportOutcome(triggerId: string, outcome: string) {
 }
 
 export default function ChatWidget() {
-  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
-  // Spec: public-only. Suppress on any admin/superadmin/manage route.
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const [fabX, setFabX] = useState(-1);
-  const [fabY, setFabY] = useState(-1);
-  const dragState = useRef({ dragging: false, moved: false, startX: 0, startY: 0, startFabX: 0, startFabY: 0 });
+  
+  // Position state: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | {x, y}
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({
+    dragging: false,
+    moved: false,
+    startX: 0,
+    startY: 0,
+    startPosX: 0,
+    startPosY: 0,
+  });
 
-  // ── Load/save position from sessionStorage ──────────────────────────
+  // Refs to avoid stale closures
+  const isOpenRef = useRef(false);
+  const pathnameRef = useRef(pathname);
+  const positionRef = useRef(position);
+  
+  useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
+  useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
+  useEffect(() => { positionRef.current = position; }, [position]);
+
+  // Load saved position
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem('charon_widget_pos');
       if (saved) {
-        const { x, y } = JSON.parse(saved);
-        if (typeof x === 'number' && typeof y === 'number') {
-          setFabX(x);
-          setFabY(y);
+        const pos = JSON.parse(saved);
+        if (typeof pos.x === 'number' && typeof pos.y === 'number') {
+          setPosition(pos);
         }
       }
     } catch { /* ignore */ }
@@ -114,32 +127,7 @@ export default function ChatWidget() {
     try { sessionStorage.setItem('charon_widget_pos', JSON.stringify({ x, y })); } catch { /* ignore */ }
   };
 
-  // ── Behavioral awareness ───────────────────────────────────────────
-  const trackerRef = useRef<SessionTracker | null>(null);
-  const engineRef = useRef<TriggerEngine | null>(null);
-  const [activeTrigger, setActiveTrigger] = useState<Trigger | null>(null);
-  const [showBubble, setShowBubble] = useState(false);
-  const ignoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  // Refs to avoid stale closures in intervals
-  const isOpenRef = useRef(false);
-  const activeTriggerRef = useRef<Trigger | null>(null);
-  const pathnameRef = useRef(pathname);
-  
-  // Keep refs in sync via effect
-  useEffect(() => {
-    isOpenRef.current = isOpen;
-  }, [isOpen]);
-  
-  useEffect(() => {
-    activeTriggerRef.current = activeTrigger;
-  }, [activeTrigger]);
-  
-  useEffect(() => {
-    pathnameRef.current = pathname;
-  }, [pathname]);
-
-  // Determine if we should render - AFTER all hooks are called
+  // Determine if we should render
   const isBlocked = ["admin", "superadmin", "manage", "login", "admin-setup"].some(
     (p) => pathname === "/" + p || (pathname != null && (pathname.startsWith("/" + p + "/") || pathname.startsWith("/" + p)))
   );
@@ -149,12 +137,20 @@ export default function ChatWidget() {
     pathname.startsWith('/setup') ||
     pathname.startsWith('/superadmin');
   
-  // Don't render if blocked
   if (isBlocked || isOnBlockedPath) {
     return null;
   }
 
-  // ── Init tracker + engine once ────────────────────────────────────
+  // Init tracker + engine
+  const trackerRef = useRef<SessionTracker | null>(null);
+  const engineRef = useRef<TriggerEngine | null>(null);
+  const [activeTrigger, setActiveTrigger] = useState<Trigger | null>(null);
+  const [showBubble, setShowBubble] = useState(false);
+  const ignoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeTriggerRef = useRef<Trigger | null>(null);
+  
+  useEffect(() => { activeTriggerRef.current = activeTrigger; }, [activeTrigger]);
+
   useEffect(() => {
     if (!trackerRef.current) {
       trackerRef.current = new SessionTracker();
@@ -162,16 +158,15 @@ export default function ChatWidget() {
     }
   }, []);
 
-  // ── Track page visits ─────────────────────────────────────────────
+  // Track page visits
   useEffect(() => {
     trackerRef.current?.onPageVisit(pathname);
-    // Dismiss bubble on any navigation
     setShowBubble(false);
     setActiveTrigger(null);
     if (ignoreTimerRef.current) clearTimeout(ignoreTimerRef.current);
   }, [pathname]);
 
-  // ── Track scroll depth ─────────────────────────────────────────────
+  // Track scroll depth
   useEffect(() => {
     const onScroll = () => {
       const scrolled = window.scrollY + window.innerHeight;
@@ -184,7 +179,7 @@ export default function ChatWidget() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // ── Track cart events ─────────────────────────────────────────────
+  // Track cart events
   useEffect(() => {
     const onCartAdd = () => trackerRef.current?.onCartAdd();
     const onCartClear = () => trackerRef.current?.onCartClear();
@@ -196,20 +191,16 @@ export default function ChatWidget() {
     };
   }, []);
 
-  // ── Trigger evaluation loop (every 5s) — suppressed on payment pages ─
+  // Trigger evaluation loop (every 5s)
   useEffect(() => {
     const interval = setInterval(async () => {
-      if (isOpenRef.current) return; // don't intrude while chat is open
+      if (isOpenRef.current) return;
       if (!engineRef.current || !trackerRef.current) return;
 
-      // Refresh weights from backend (cached after first load)
       await engineRef.current.refreshWeights();
-
-      // evaluate() already returns null on payment pages
       const trigger = engineRef.current.evaluate(pathnameRef.current);
       if (!trigger) return;
 
-      // Fire
       trackerRef.current.markTriggerFired(trigger.id);
       setActiveTrigger(trigger);
 
@@ -217,7 +208,7 @@ export default function ChatWidget() {
       const dismissMs = trigger.dismissAfterMs ?? 8000;
 
       const showAfterDelay = () => {
-        if (isOpenRef.current) return; // user already opened chat
+        if (isOpenRef.current) return;
         setShowBubble(true);
         if (ignoreTimerRef.current) clearTimeout(ignoreTimerRef.current);
         ignoreTimerRef.current = setTimeout(() => {
@@ -236,7 +227,7 @@ export default function ChatWidget() {
     return () => clearInterval(interval);
   }, []);
 
-  // ── Exit-intent detection (desktop only) — suppressed on payment pages ─
+  // Exit-intent detection (desktop only)
   useEffect(() => {
     const onMouseLeave = (e: MouseEvent) => {
       if (e.clientY <= 5 && !isOpenRef.current && engineRef.current && trackerRef.current) {
@@ -261,36 +252,32 @@ export default function ChatWidget() {
     return () => document.removeEventListener('mouseleave', onMouseLeave);
   }, []);
 
-  // ── Auto-scroll ───────────────────────────────────────────────────
+  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isBusy]);
 
-  // ── Show welcome message when chat opens ──────────────────────────
+  // Show welcome message
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       setMessages([WELCOME]);
     }
   }, [isOpen, messages.length]);
 
-  // ── Listen for programmatic open ─────────────────────────────────
+  // Listen for programmatic open
   useEffect(() => {
     const handler = () => setIsOpen(true);
     window.addEventListener('open-chat-widget', handler);
     return () => window.removeEventListener('open-chat-widget', handler);
   }, []);
 
-  // ── Open chat ──────────────────────────────────────────────────────
   const openChat = useCallback(() => {
     const t = activeTriggerRef.current;
     setShowBubble(false);
-    if (t) {
-      void reportOutcome(t.id, 'opened_chat');
-    }
+    if (t) void reportOutcome(t.id, 'opened_chat');
     setIsOpen(true);
   }, []);
 
-  // ── Dismiss bubble ─────────────────────────────────────────────────
   const dismissBubble = useCallback(() => {
     const t = activeTriggerRef.current;
     setShowBubble(false);
@@ -300,7 +287,6 @@ export default function ChatWidget() {
     }
   }, []);
 
-  // ── Send message ──────────────────────────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isBusy) return;
@@ -314,18 +300,14 @@ export default function ChatWidget() {
     setInput('');
     setIsBusy(true);
 
-    // Dismiss any trigger bubble when user types
     setShowBubble(false);
-    if (t) {
-      void reportOutcome(t.id, 'opened_chat');
-    }
+    if (t) void reportOutcome(t.id, 'opened_chat');
 
     try {
       const history = messages
         .filter(m => m.id !== 'welcome')
         .map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }));
 
-      // Build page context so Charon knows where the user is
       const pageContext = trackerRef.current?.getPageContext() ?? {};
 
       const res = await fetch('/api/charon/reply', {
@@ -361,7 +343,7 @@ export default function ChatWidget() {
         {
           id: newId(),
           role: 'assistant',
-          content: 'I\u2019m having trouble reaching the support backend. Please email support@styxproxy.com while we resolve this.',
+          content: "I'm having trouble reaching the support backend. Please email support@styxproxy.com while we resolve this.",
           ts: Date.now(),
         },
       ]);
@@ -370,41 +352,39 @@ export default function ChatWidget() {
     }
   }, [isBusy, messages]);
 
-  // ── Drag handlers ─────────────────────────────────────────────────
-  const onHeaderMouseDown = useCallback((e: React.MouseEvent) => {
-    if (typeof window !== 'undefined' && window.innerWidth < 640) return;
+  // Drag handlers for FAB
+  const onFabMouseDown = useCallback((e: React.MouseEvent) => {
+    if (window.innerWidth < 640) return; // Disable drag on mobile
     e.preventDefault();
-    dragState.current = {
+    const currentPos = positionRef.current || { x: window.innerWidth - 80, y: window.innerHeight - 80 };
+    dragRef.current = {
       dragging: true,
       moved: false,
       startX: e.clientX,
       startY: e.clientY,
-      startFabX: fabX === -1 ? window.innerWidth - 80 : fabX,
-      startFabY: fabY === -1 ? window.innerHeight - 80 : fabY,
+      startPosX: currentPos.x,
+      startPosY: currentPos.y,
     };
-  }, [fabX, fabY]);
+  }, []);
 
   const onMouseMove = useCallback((e: MouseEvent) => {
-    if (!dragState.current.dragging) return;
-    const dx = e.clientX - dragState.current.startX;
-    const dy = e.clientY - dragState.current.startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragState.current.moved = true;
+    if (!dragRef.current.dragging) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragRef.current.moved = true;
 
-    const maxX = window.innerWidth - 80;
-    const maxY = window.innerHeight - 80;
-    const newX = Math.max(8, Math.min(maxX, dragState.current.startFabX + dx));
-    const newY = Math.max(8, Math.min(maxY, dragState.current.startFabY + dy));
+    const newX = Math.max(8, Math.min(window.innerWidth - 80, dragRef.current.startPosX + dx));
+    const newY = Math.max(8, Math.min(window.innerHeight - 80, dragRef.current.startPosY + dy));
 
-    setFabX(newX);
-    setFabY(newY);
+    setPosition({ x: newX, y: newY });
   }, []);
 
   const onMouseUp = useCallback(() => {
-    if (dragState.current.dragging) {
-      persistPosition(fabX, fabY);
+    if (dragRef.current.dragging && positionRef.current) {
+      persistPosition(positionRef.current.x, positionRef.current.y);
     }
-    dragState.current.dragging = false;
-  }, [fabX, fabY]);
+    dragRef.current.dragging = false;
+  }, []);
 
   useEffect(() => {
     window.addEventListener('mousemove', onMouseMove);
@@ -416,59 +396,91 @@ export default function ChatWidget() {
   }, [onMouseMove, onMouseUp]);
 
   const toggleOpen = (open: boolean) => {
-    if (!open && dragState.current.moved) return;
-    dragState.current.moved = false;
+    if (!open && dragRef.current.moved) return;
+    dragRef.current.moved = false;
     setIsOpen(open);
   };
 
-  // ── Positions ─────────────────────────────────────────────────────
-  // When user has dragged: use their saved (x, y) for both FAB and chat window.
-  // When not dragged yet (-1): use default bottom-right corner.
-  const hasCustomPos = fabX !== -1 && fabY !== -1;
+  // Compute FAB position
+  const getFabStyle = (): React.CSSProperties => {
+    if (position) {
+      return { position: 'fixed', top: position.y, left: position.x, right: 'auto', bottom: 'auto', zIndex: 9998 };
+    }
+    return { position: 'fixed', bottom: 24, right: 24, zIndex: 9998 };
+  };
 
-  const fabStyle: React.CSSProperties = hasCustomPos
-    ? { top: fabY, left: fabX, right: 'auto', bottom: 'auto' }
-    : { bottom: 24, right: 24 };
+  // Compute chat window position
+  const getChatStyle = (): React.CSSProperties => {
+    // Mobile: full screen
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      return {
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        maxHeight: '100vh',
+        zIndex: 9999,
+      };
+    }
+    
+    // Desktop with custom position
+    if (position) {
+      const chatWidth = 360;
+      const chatHeight = Math.min(600, window.innerHeight - 100);
+      // Position chat above FAB, but ensure it stays on screen
+      const top = Math.max(8, position.y - chatHeight - 16);
+      const left = Math.max(8, Math.min(window.innerWidth - chatWidth - 8, position.x - chatWidth / 2 + 28));
+      
+      return {
+        position: 'fixed',
+        top,
+        left,
+        width: chatWidth,
+        height: chatHeight,
+        maxHeight: '80vh',
+        zIndex: 9999,
+      };
+    }
+    
+    // Desktop default (bottom-right)
+    return {
+      position: 'fixed',
+      bottom: 100,
+      right: 24,
+      width: 360,
+      height: '80vh',
+      maxHeight: 600,
+      zIndex: 9999,
+    };
+  };
 
-  // Chat window appears above the FAB when dragged; centered by default
-  const chatStyle: React.CSSProperties = hasCustomPos
-    ? {
-        position: 'fixed' as const,
-        top: Math.max(8, fabY - 520),
-        left: Math.max(8, fabX - 160),
+  // Compute bubble position
+  const getBubbleStyle = (): React.CSSProperties => {
+    if (position) {
+      return {
+        position: 'fixed',
+        top: Math.max(8, position.y - 72),
+        left: position.x - 100,
         right: 'auto',
         bottom: 'auto',
-        width: 340,
-        maxWidth: `calc(100vw - ${fabX > window.innerWidth - 300 ? window.innerWidth - fabX - 16 : 16}px)`,
-        height: '80vh',
-        maxHeight: 580,
-        zIndex: 9999,
-      }
-    : {
-        insetInline: 8,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        height: '80vh',
-        maxHeight: 580,
+        zIndex: 9997,
       };
-
-  const bubbleStyle: React.CSSProperties = hasCustomPos
-    ? { top: Math.max(8, fabY - 64), left: fabX, right: 'auto', bottom: 'auto' }
-    : { bottom: 88, right: 24 };
+    }
+    return { position: 'fixed', bottom: 88, right: 24, zIndex: 9997 };
+  };
 
   return (
     <>
-      {/* ── Chat window ─────────────────────────────────────────── */}
+      {/* Chat window */}
       {isOpen && (
         <div
-          className="fixed z-[9999] flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden charon-chat-window"
-          style={chatStyle}
+          className="flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden charon-chat-window"
+          style={getChatStyle()}
         >
-          {/* Header — draggable */}
+          {/* Header - draggable */}
           <div
             className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--card)] cursor-grab active:cursor-grabbing select-none"
-            style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-            onMouseDown={onHeaderMouseDown}
+            onMouseDown={onFabMouseDown}
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-[var(--primary)]">
@@ -476,23 +488,12 @@ export default function ChatWidget() {
               </div>
               <div>
                 <p className="font-bold text-sm">Charon</p>
-                <p className="text-xs text-[var(--muted)]">Online \u00b7 Chat to get started</p>
+                <p className="text-xs text-[var(--muted)]">Online - Chat to get started</p>
               </div>
-            </div>
-            {/* Drag handle dots */}
-            <div className="flex flex-col gap-1 mr-2 shrink-0" aria-hidden="true">
-              {[0, 1, 2].map(i => (
-                <div key={i} className="flex gap-0.5">
-                  {[0, 1, 2].map(j => (
-                    <div key={j} className="w-1 h-1 rounded-full bg-[var(--muted)] opacity-60" />
-                  ))}
-                </div>
-              ))}
             </div>
             <button
               onClick={() => toggleOpen(false)}
               className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] flex items-center justify-center hover:border-[var(--primary)] transition-colors shrink-0"
-              style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
               aria-label="Close chat"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -531,14 +532,14 @@ export default function ChatWidget() {
                 }
               }}
               rows={1}
-              placeholder="Type a message \u2014 Enter to send"
+              placeholder="Type a message - Enter to send"
               className="flex-1 resize-none px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[var(--primary)]"
               disabled={isBusy}
             />
             <button
               type="submit"
               disabled={isBusy || !input.trim()}
-              className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors disabled:opacity50"
+              className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors disabled:opacity-50"
             >
               Send
             </button>
@@ -546,15 +547,15 @@ export default function ChatWidget() {
         </div>
       )}
 
-      {/* ── FAB + Reach-out bubble ──────────────────────────────── */}
+      {/* FAB + Reach-out bubble */}
       {!isOpen && (
         <>
           {/* Behavioral reach-out bubble */}
           {showBubble && activeTrigger && (
             <button
               onClick={openChat}
-              className="fixed z-[9997] animate-reach-out"
-              style={bubbleStyle}
+              className="animate-reach-out"
+              style={getBubbleStyle()}
               aria-label="Chat with Charon"
             >
               <div className="relative flex items-center gap-2 pl-3 pr-4 py-2.5 bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-xl max-w-[240px]">
@@ -578,12 +579,12 @@ export default function ChatWidget() {
             </button>
           )}
 
-          {/* FAB — uses the Charon avatar (chatbot-logo.png) so the floating
-              action button is recognizable even without the bubble. */}
+          {/* FAB */}
           <button
             onClick={() => toggleOpen(true)}
-            className="fixed z-[9998] w-14 h-14 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
-            style={fabStyle}
+            onMouseDown={onFabMouseDown}
+            className="w-14 h-14 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+            style={getFabStyle()}
             aria-label="Open chat"
           >
             <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -596,7 +597,7 @@ export default function ChatWidget() {
   );
 }
 
-// ── Message bubble ─────────────────────────────────────────────────
+// Message bubble
 function MessageBubble({ msg }: { msg: Message }) {
   const isUser = msg.role === 'user';
   return (
@@ -618,7 +619,6 @@ function MessageBubble({ msg }: { msg: Message }) {
             Escalated to support
           </div>
         )}
-        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
         {msg.tool_calls && msg.tool_calls.length > 0 && (
           <div className="mt-2 pt-2 border-t border-[var(--border)]">
             {msg.tool_calls.map((tc, i) => (
