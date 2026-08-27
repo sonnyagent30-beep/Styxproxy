@@ -235,6 +235,17 @@ async def post_reply(
             message=payload.user_message,
             history_summary=history_summary,
         )
+    
+    # Persist assistant message
+    from app.services.charon.agent import _persist_message
+    await _persist_message(
+        payload.conversation_id or "unknown",
+        payload.channel,
+        "assistant",
+        result.text,
+        tool_calls=result.tool_calls,
+        tokens_used=result.tokens_used,
+    )
 
     return ChatReplyResponse(
         text=result.text,
@@ -819,3 +830,61 @@ async def rate_conversation(conversation_id: str, req: RatingRequest):
         await session.commit()
         
         return {"ok": True, "rating": req.rating}
+
+
+# ─── Context Summary Endpoint ──────────────────────────────────────────────
+
+class ContextRequest(BaseModel):
+    messages: list[dict]
+    topics: list[str] = []
+
+
+@router.post("/context")
+async def save_context(req: ContextRequest):
+    """Generate and save a context summary for the conversation."""
+    from app.services.charon.agent import _save_context_summary
+    from app.services.charon.llm import call_llm
+    
+    # Build summary from messages
+    history_text = "\n".join(f"{m['role']}: {m['content']}" for m in req.messages)
+    topics_str = ", ".join(req.topics) if req.topics else "general"
+    
+    summary_prompt = f"""Summarize this customer support conversation in 2-3 sentences. Focus on:
+1. What the customer needed
+2. Whether it was resolved
+3. Any follow-up actions needed
+
+Topics: {topics_str}
+
+Conversation:
+{history_text}
+
+Summary:"""
+    
+    try:
+        result = call_llm([
+            {"role": "system", "content": "You are a conversation summarizer. Be concise and factual."},
+            {"role": "user", "content": summary_prompt},
+        ], max_tokens=200)
+        
+        if result.ok:
+            summary = result.content
+        else:
+            summary = f"Customer discussed: {topics_str}"
+    except Exception:
+        summary = f"Customer discussed: {topics_str}"
+    
+    # Extract intent from last user message
+    last_user_msg = next((m['content'] for m in reversed(req.messages) if m['role'] == 'user'), None)
+    intent = last_user_msg[:100] if last_user_msg else None
+    
+    # Save summary
+    await _save_context_summary(
+        conversation_id="web-session",
+        summary=summary,
+        message_count=len(req.messages),
+        last_intent=intent,
+        last_topics=req.topics,
+    )
+    
+    return {"ok": True, "summary": summary}

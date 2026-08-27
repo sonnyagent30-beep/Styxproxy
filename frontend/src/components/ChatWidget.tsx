@@ -337,6 +337,14 @@ export default function ChatWidget() {
           ts: Date.now(),
         },
       ]);
+
+      // Save context summary for future conversations
+      const allMessages = [...messages, 
+        { role: 'user', content: trimmed },
+        { role: 'assistant', content: data.text }
+      ];
+      const topics = pageContext.themes as string[] || [];
+      await saveContextSummary(allMessages, topics);
     } catch {
       setMessages(prev => [
         ...prev,
@@ -351,6 +359,33 @@ export default function ChatWidget() {
       setIsBusy(false);
     }
   }, [isBusy, messages]);
+
+  // Save context summary to backend
+  const saveContextSummary = useCallback(async (history: { role: string; content: string }[], topics: string[]) => {
+    try {
+      await fetch('/api/v1/charon/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ messages: history.slice(-10), topics }),
+      });
+    } catch {
+      // silent
+    }
+  }, []);
+
+  // Rating handler
+  const handleRate = useCallback(async (conversationId: string, rating: number) => {
+    try {
+      await fetch(`/api/v1/charon/conversations/${conversationId}/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating }),
+      });
+    } catch {
+      // silent
+    }
+  }, []);
 
   // Drag handlers for FAB
   const onFabMouseDown = useCallback((e: React.MouseEvent) => {
@@ -505,7 +540,7 @@ export default function ChatWidget() {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             {messages.map(m => (
-              <MessageBubble key={m.id} msg={m} />
+              <MessageBubble key={m.id} msg={m} onRate={(rating) => handleRate(m.id, rating)} />
             ))}
             {isBusy && (
               <div className="flex gap-2 items-center text-xs text-[var(--muted)] pl-1">
@@ -598,8 +633,10 @@ export default function ChatWidget() {
 }
 
 // Message bubble
-function MessageBubble({ msg }: { msg: Message }) {
+function MessageBubble({ msg, onRate }: { msg: Message; onRate?: (rating: number) => void }) {
   const isUser = msg.role === 'user';
+  const [rated, setRated] = useState(false);
+  
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
@@ -631,6 +668,23 @@ function MessageBubble({ msg }: { msg: Message }) {
                 )}
               </div>
             ))}
+          </div>
+        )}
+        {/* Thumbs up/down for assistant messages */}
+        {!isUser && onRate && !rated && (
+          <div className="mt-2 pt-2 border-t border-[var(--border)] flex gap-2">
+            <button
+              onClick={() => { setRated(true); onRate(5); }}
+              className="text-xs px-2 py-1 rounded bg-[var(--background)] hover:bg-[var(--card-hover)]"
+            >
+              👍 Helpful
+            </button>
+            <button
+              onClick={() => { setRated(true); onRate(1); }}
+              className="text-xs px-2 py-1 rounded bg-[var(--background)] hover:bg-[var(--card-hover)]"
+            >
+              👎 Not helpful
+            </button>
           </div>
         )}
       </div>

@@ -183,6 +183,7 @@ async def reply(
     
     # Persist user message
     await _persist_message(conversation_id, channel, "user", user_message, page_context=page_context)
+    
     log_ctx: dict[str, Any] = {
         "channel": channel,
         "conversation_id": conversation_id,
@@ -228,6 +229,11 @@ async def reply(
     # ── 2. LLM with knowledge + tools ──────────────────────────────
     context_chunks = knowledge.search(user_message, top_k=4)
     context_text = knowledge.format_context(context_chunks)
+    
+    # Load previous context summary if exists
+    context_summary = await _load_context_summary(conversation_id)
+    if context_summary:
+        context_text = f"Previous conversation summary:\n{context_summary}\n\n{context_text}"
 
     tx_ref = _extract_tx_ref(messages)
     history_dicts = _serialize_history(messages[-8:])  # 8 turns of context is plenty for QA
@@ -298,8 +304,12 @@ async def reply(
     )
     log_ctx["response"] = fallback
     log_ctx["error"] = llm_resp.error
-    log_ctx["escalated"] = True  # failed queries are escalated for human review
+    log_ctx["escalated"] = True
     _persist_log(log_ctx)
+    
+    # Persist assistant message (fallback)
+    await _persist_message(conversation_id, channel, "assistant", fallback, tokens_used=0)
+    
     return Reply(text=fallback, escalated=True, error=llm_resp.error)
 
 
@@ -576,3 +586,68 @@ async def _persist_message(
             await session.commit()
     except Exception as exc:
         logger.warning("Failed to persist message: %s", exc)
+
+
+async def _load_context_summary(conversation_id: str) -> str | None:
+    """Load the rolling context summary for a conversation."""
+    try:
+        from app.database import async_session
+        from app.models import CharonContext
+        from sqlalchemy import select
+        
+        async with async_session() as session:
+            stmt = select(CharonContext).where(
+                CharonContext.conversation_id == conversation_id,
+                CharonContext.expires_at > datetime.now(timezone.utc),
+            )
+            result = await session.execute(stmt)
+            ctx = result.scalar_one_or_none()
+            return ctx.summary_json if ctx else None
+    except Exception:
+        return None
+
+
+async def _save_context_summary(
+    conversation_id: str,
+    summary: str,
+    message_count: int,
+    last_intent: str | None = None,
+    last_topics: list[str] | None = None,
+    customer_email: str | None = None,
+    customer_phone: str | None = None,
+) -> None:
+    """Save or update the rolling context summary for a conversation."""
+    try:
+        from datetime import datetime, timezone, timedelta
+        from app.database import async_session
+        from app.models import CharonContext
+        from sqlalchemy import select
+        
+        async with async_session() as session:
+            stmt = select(CharonContext).where(CharonContext.conversation_id == conversation_id)
+            result = await session.execute(stmt)
+            ctx = result.scalar_one_or_none()
+            
+            if ctx:
+                ctx.summary_json = summary
+                ctx.message_count = message_count
+                ctx.last_intent = last_intent
+                ctx.last_topics = last_topics
+                ctx.updated_at = datetime.now(timezone.utc)
+                ctx.expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+            else:
+                ctx = CharonContext(
+                    conversation_id=conversation_id,
+                    summary_json=summary,
+                    message_count=message_count,
+                    last_intent=last_intent,
+                    last_topics=last_topics,
+                    customer_email=customer_email,
+                    customer_phone=customer_phone,
+                    expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+                )
+                session.add(ctx)
+            
+            await session.commit()
+    except Exception as exc:
+        logger.warning("Failed to save context summary: %s", exc)
