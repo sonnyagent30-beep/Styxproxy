@@ -7,6 +7,8 @@ interface Props {
   params: Promise<{ name: string }>;
 }
 
+const POST_AUTHOR = 'Styxproxy Team';
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { name } = await params;
   const decoded = decodeURIComponent(name);
@@ -50,46 +52,57 @@ export default async function AuthorPage({ params }: Props) {
     .map(([t]) => t);
 
   return (
-    // Use <section> not <main>: surrounding PublicLayout already renders a <main>.
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-      {/* Header card */}
-      <header className="mb-12 pb-10 border-b border-[var(--border)]">
-        <div className="flex items-start gap-5">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-2xl sm:text-3xl flex-shrink-0">
-            {decoded.charAt(0)}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1
-              className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-[-0.03em] leading-[1.05] mb-2"
-              style={{ textWrap: 'balance' }}
-            >
-              {decoded}
-            </h1>
-            <p className="text-base text-[var(--muted)] mb-4">
-              {posts.length} {posts.length === 1 ? 'post' : 'posts'}
-            </p>
-            {topTags.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {topTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-3 py-1 rounded-full text-xs font-medium bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]"
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+    <>
+      {/* Hero Section */}
+      <div className="relative overflow-hidden pt-12 pb-16 px-6">
+        <div className="absolute inset-0 hero-bg-grid" aria-hidden="true" />
+        <div className="absolute inset-0 hero-bg-rings" aria-hidden="true" />
+        <div className="absolute inset-0 hero-bg-vignette" aria-hidden="true" />
+        <div className="hero-orb hero-orb-1" aria-hidden="true" />
+        <div className="hero-orb hero-orb-2" aria-hidden="true" />
+        <div className="hero-orb hero-orb-3" aria-hidden="true" />
 
-      {/* Posts Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {posts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
+        <div className="relative text-center max-w-3xl mx-auto">
+          <div className="w-20 h-20 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-black text-2xl mx-auto mb-6">
+            S
+          </div>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight mb-4 text-[var(--foreground)]">
+            Styxproxy Team
+          </h1>
+          <p className="text-lg text-[var(--muted)]">
+            {posts.length} {posts.length === 1 ? 'post' : 'posts'}
+          </p>
+          {topTags.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2 mt-6">
+              {topTags.map((tag) => (
+                <a
+                  key={tag}
+                  href={`/blog/tag/${encodeURIComponent(tag)}`}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-[var(--card)] border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--primary)]/60 transition-colors"
+                >
+                  #{tag}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </section>
+
+      {/* Scroll indicator */}
+      <div className="flex flex-col items-center gap-2 py-8">
+        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
+      </div>
+
+      {/* Posts Grid — 1-col mobile / 2-col desktop */}
+      <section className="max-w-6xl mx-auto px-6 pb-20">
+        <div className="section-divider-glow mb-12" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+          {posts.map((post) => (
+            <PostCard key={post.id} post={post} />
+          ))}
+        </div>
+      </section>
+    </>
   );
 }

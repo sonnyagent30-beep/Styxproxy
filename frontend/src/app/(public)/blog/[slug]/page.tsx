@@ -13,6 +13,8 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+const POST_AUTHOR = 'Styxproxy Team';
+
 function generateJsonLd(post: BlogPost, siteUrl: string) {
   return {
     '@context': 'https://schema.org',
@@ -22,7 +24,7 @@ function generateJsonLd(post: BlogPost, siteUrl: string) {
     image: post.cover_image_url ? `${siteUrl}${post.cover_image_url}` : `${siteUrl}/og-image.png`,
     datePublished: post.published_at || post.created_at,
     dateModified: post.updated_at,
-    author: { '@type': 'Person', name: post.author },
+    author: { '@type': 'Person', name: POST_AUTHOR },
     publisher: {
       '@type': 'Organization',
       name: 'Styxproxy',
@@ -35,7 +37,7 @@ function generateJsonLd(post: BlogPost, siteUrl: string) {
 // P0-6: BreadcrumbList JSON-LD for SEO. Read by Google for
 // rich-result breadcrumb display in search.
 function generateBreadcrumbJsonLd(post: BlogPost, siteUrl: string) {
-  const cat = (post.categories && post.categories[0]) || (post.tags && post.tags[0]) || null;
+  const cat = (post.tags && post.tags[0]) || null;
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -78,7 +80,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: `${post.title} | Styxproxy Blog`,
     description: post.excerpt,
     keywords: post.tags || ['proxy', 'automation'],
-    authors: [{ name: post.author }],
+    authors: [{ name: POST_AUTHOR }],
     openGraph: {
       type: 'article',
       url: `${siteUrl}/blog/${post.slug}`,
@@ -128,30 +130,89 @@ export default async function BlogPostPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      {/* Use <article> not <main>: surrounding PublicLayout already renders a <main>.
-          pt-0 because the layout's pt-20 already gives clearance from the fixed header. */}
-      <article className="max-w-4xl mx-auto px-4 sm:px-6 pt-0 pb-16">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-[var(--muted)] mb-8">
-          <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
-            Blog
-          </Link>
-          {post.tags && post.tags[0] && (
-            <>
-              <span>/</span>
-              <Link
-                href={`/blog/tag/${encodeURIComponent(post.tags[0])}`}
-                className="hover:text-[var(--primary)] transition-colors"
-              >
-                #{post.tags[0]}
-              </Link>
-            </>
-          )}
-        </nav>
+      {/* Hero / Title Block */}
+      <section className="relative overflow-hidden pt-16 pb-12 px-6">
+        <div className="absolute inset-0 hero-bg-grid" aria-hidden="true" />
+        <div className="absolute inset-0 hero-bg-rings" aria-hidden="true" />
+        <div className="absolute inset-0 hero-bg-vignette" aria-hidden="true" />
+        <div className="hero-orb hero-orb-1" aria-hidden="true" />
+        <div className="hero-orb hero-orb-2" aria-hidden="true" />
+        <div className="hero-orb hero-orb-3" aria-hidden="true" />
 
-        {/* Cover image */}
-        {post.cover_image_url && (
-          <div className="relative w-full aspect-[16/9] overflow-hidden rounded-2xl bg-[var(--surface)] mb-8">
+        <div className="relative max-w-3xl mx-auto">
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-2 text-sm text-[var(--muted)] mb-6">
+            <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
+              Blog
+            </Link>
+            {post.tags && post.tags[0] && (
+              <>
+                <span>/</span>
+                <Link
+                  href={`/blog/tag/${encodeURIComponent(post.tags[0])}`}
+                  className="hover:text-[var(--primary)] transition-colors"
+                >
+                  #{post.tags[0]}
+                </Link>
+              </>
+            )}
+          </nav>
+
+          {/* Tags */}
+          {post.tags && post.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-5">
+              {post.tags.map((tag) => (
+                <Link
+                  key={tag}
+                  href={`/blog/tag/${encodeURIComponent(tag)}`}
+                  className="px-3 py-1 text-xs font-medium bg-[var(--card)] border border-[var(--border)] text-[var(--muted)] rounded-full hover:text-[var(--foreground)] hover:border-[var(--primary)]/60 transition-colors"
+                >
+                  #{tag}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Title — exactly one h1 per page */}
+          <h1
+            className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-[var(--foreground)] leading-[1.05] mb-6"
+            style={{ textWrap: 'balance' }}
+          >
+            {post.title}
+          </h1>
+
+          {/* Excerpt */}
+          <p className="text-lg sm:text-xl text-[var(--muted)] leading-relaxed mb-8 max-w-2xl">
+            {post.excerpt}
+          </p>
+
+          {/* Author + meta */}
+          <div className="flex items-center gap-3 pb-8 border-b border-[var(--border)]">
+            <Link href={`/blog/author/${encodeURIComponent(POST_AUTHOR)}`} className="flex items-center gap-3 group">
+              <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-black text-sm flex-shrink-0">
+                S
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors">
+                  Styxproxy Team
+                </p>
+                <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                  <time dateTime={post.published_at || post.created_at}>
+                    {formatDate(post.published_at || post.created_at)}
+                  </time>
+                  <span>·</span>
+                  <span>{readTime} min read</span>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Cover Image (below hero) */}
+      {post.cover_image_url && (
+        <div className="max-w-4xl mx-auto px-6 mt-10 mb-8">
+          <div className="relative w-full aspect-[16/9] overflow-hidden rounded-2xl bg-[var(--surface)]">
             <Image
               src={post.cover_image_url}
               alt={post.title}
@@ -161,73 +222,35 @@ export default async function BlogPostPage({ params }: Props) {
               sizes="(max-width: 768px) 100vw, 896px"
             />
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Tags */}
-        {post.tags && post.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-5">
+      {/* Article body */}
+      <article
+        className="prose-styx max-w-[65ch] mx-auto px-6"
+        dangerouslySetInnerHTML={{ __html: post.content }}
+      />
+
+      {/* Engagement row — inline reactions, save, share, link */}
+      <EngagementRow
+        postSlug={post.slug}
+        postTitle={post.title}
+        initialViews={post.view_count || 0}
+      />
+
+      {/* Tag cross-link — "explore more in #tag" */}
+      {post.tags && post.tags.length > 0 && (
+        <div className="mt-12 pt-8 border-t border-[var(--border)] max-w-[65ch] mx-auto px-6">
+          <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-4">
+            Explore more
+          </p>
+          <div className="flex flex-wrap gap-2">
             {post.tags.map((tag) => (
               <TagPill key={tag} tag={tag} />
             ))}
           </div>
-        )}
-
-        {/* Title */}
-        <h1
-          className="text-3xl sm:text-4xl md:text-5xl font-bold text-[var(--foreground)] tracking-[-0.03em] leading-[1.1] mb-6"
-          style={{ textWrap: 'balance' }}
-        >
-          {post.title}
-        </h1>
-
-        {/* Meta */}
-        <div className="flex items-center gap-3 pb-8 border-b border-[var(--border)] mb-10">
-          <Link href={`/blog/author/${encodeURIComponent(post.author)}`} className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold flex-shrink-0">
-              {post.author?.charAt(0)}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-white group-hover:text-[var(--primary)] transition-colors">
-                {post.author}
-              </p>
-              <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                <time dateTime={post.published_at || post.created_at}>
-                  {formatDate(post.published_at || post.created_at)}
-                </time>
-                <span>·</span>
-                <span>{readTime} min read</span>
-              </div>
-            </div>
-          </Link>
         </div>
-
-        {/* Article body */}
-        <article
-          className="prose-styx max-w-[65ch] mx-auto"
-          dangerouslySetInnerHTML={{ __html: post.content }}
-        />
-
-        {/* Engagement row — inline reactions, save, share, link */}
-        <EngagementRow
-          postSlug={post.slug}
-          postTitle={post.title}
-          initialViews={post.view_count || 0}
-        />
-
-        {/* Tag cross-link — "explore more in #tag" */}
-        {post.tags && post.tags.length > 0 && (
-          <div className="mt-12 pt-8 border-t border-[var(--border)]">
-            <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-4">
-              Explore more
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {post.tags.map((tag) => (
-                <TagPill key={tag} tag={tag} />
-              ))}
-            </div>
-          </div>
-        )}
-      </article>
+      )}
     </>
   );
 }

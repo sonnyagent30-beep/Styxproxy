@@ -23,21 +23,21 @@ export default function RelatedPosts({
   if (!filtered.length) {
     if (emptyMessage) {
       return (
-        <div className="mt-16 pt-10 border-t border-[var(--border)]">
-          <h3 className="text-lg font-bold text-[var(--foreground)] mb-4">{title}</h3>
+        <section className="mt-16 pt-10 border-t border-[var(--border)]">
+          <h2 className="text-xl font-bold text-[var(--foreground)] tracking-[-0.02em] mb-4">{title}</h2>
           <p className="text-sm text-[var(--muted)]">{emptyMessage}</p>
-        </div>
+        </section>
       );
     }
     return null;
   }
 
   return (
-    <section className="mt-16 pt-10 border-t border-[var(--border)]">
+    <section className="max-w-6xl mx-auto px-6 mt-16 pt-10 border-t border-[var(--border)]">
       <div className="flex items-end justify-between mb-6">
-        <h3 className="text-xl font-bold text-[var(--foreground)] tracking-[-0.02em]">
+        <h2 className="text-xl font-bold text-[var(--foreground)] tracking-[-0.02em]">
           {title}
-        </h3>
+        </h2>
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
         {filtered.slice(0, 3).map((post) => (

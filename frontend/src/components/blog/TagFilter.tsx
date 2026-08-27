@@ -31,7 +31,7 @@ export default function TagFilter({ tags, activeTag }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search posts..."
-            className="w-full pl-10 pr-3 py-2 rounded-full bg-[var(--surface)] border border-[var(--border)] text-sm text-white placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)]/60 transition-colors"
+            className="w-full pl-10 pr-3 py-2 rounded-full bg-[var(--card)] border border-[var(--border)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)]/60 transition-colors"
           />
         </div>
         <Link
@@ -39,7 +39,7 @@ export default function TagFilter({ tags, activeTag }: Props) {
           className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 flex-shrink-0 ${
             !activeTag
               ? 'bg-[var(--primary)] text-black'
-              : 'bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:text-white hover:border-[var(--primary)]/60'
+              : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)] hover:border-[var(--primary)]/60'
           }`}
         >
           All posts

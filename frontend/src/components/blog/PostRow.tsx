@@ -61,19 +61,19 @@ export default function PostRow({
               </div>
             )}
             <h2
-              className="font-bold text-white group-hover:text-[var(--primary)] transition-colors leading-[1.05] tracking-[-0.03em] mb-3 text-2xl sm:text-4xl md:text-5xl max-w-3xl"
+              className="font-bold text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors leading-[1.05] tracking-[-0.03em] mb-3 text-2xl sm:text-4xl md:text-5xl max-w-3xl"
               style={{ textWrap: 'balance' }}
             >
               {post.title}
             </h2>
-            <p className="text-sm sm:text-base text-white/80 leading-relaxed mb-4 max-w-2xl line-clamp-2">
+            <p className="text-sm sm:text-base text-[var(--muted)] leading-relaxed mb-4 max-w-2xl line-clamp-2">
               {post.excerpt}
             </p>
-            <div className="flex items-center gap-2 text-xs text-white/70">
+            <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
               <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-[11px] flex-shrink-0">
                 {post.author?.charAt(0)}
               </div>
-              <span className="font-medium text-white">{post.author}</span>
+              <span className="font-medium text-[var(--foreground)]">{post.author}</span>
               <span>·</span>
               <time>{formatDate(post.published_at || post.created_at)}</time>
               <span>·</span>
@@ -119,7 +119,7 @@ export default function PostRow({
               <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-[11px] flex-shrink-0">
                 {post.author?.charAt(0)}
               </div>
-              <span className="font-medium text-white">{post.author}</span>
+              <span className="font-medium text-[var(--foreground)]">{post.author}</span>
               <span>·</span>
               <time>{formatDate(post.published_at || post.created_at)}</time>
               <span>·</span>
@@ -205,7 +205,7 @@ export default function PostRow({
             <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-[11px] flex-shrink-0">
               {post.author?.charAt(0)}
             </div>
-            <span className="font-medium text-white">{post.author}</span>
+            <span className="font-medium text-[var(--foreground)]">{post.author}</span>
             <span>·</span>
             <time>{formatDate(post.published_at || post.created_at)}</time>
             <span>·</span>

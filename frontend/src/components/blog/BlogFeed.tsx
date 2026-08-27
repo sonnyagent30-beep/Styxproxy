@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { api } from '@/lib/api';
 import type { BlogPost } from '@/types';
 import PostCard from './PostCard';
-import TagFilter from './TagFilter';
 import { PostCardSkeletonGrid } from '@/components/Skeletons';
 
 interface BlogFeedProps {
@@ -26,6 +26,7 @@ export default function BlogFeed({
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
@@ -73,56 +74,137 @@ export default function BlogFeed({
     })();
   };
 
-  return (
-    // Use <section> not <main>: the surrounding PublicLayout already
-    // renders a <main>, and nesting two <main> elements is invalid HTML.
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-      {/* Header */}
-      <header className="mb-10">
-        <h1
-          className="text-4xl sm:text-5xl md:text-6xl font-bold text-white tracking-[-0.03em] leading-[1.05] mb-3"
-          style={{ textWrap: 'balance' }}
-        >
-          Blog
-        </h1>
-        <p className="text-base sm:text-lg text-[var(--muted)] max-w-2xl leading-relaxed">
-          Notes on proxies, anonymity, and the infrastructure that keeps the web working.
-        </p>
-      </header>
+  // Scroll-reveal observer — same pattern as PricingClient / products / how-it-works
+  useEffect(() => {
+    const revealEls = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.05, rootMargin: '0px 0px -10% 0px' }
+    );
+    revealEls.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [posts]);
 
-      {/* Tag filter */}
-      <div className="mb-10">
-        <TagFilter
-          tags={initialTags}
-          activeTag={activeTag || undefined}
-        />
+  const filtered = query
+    ? initialTags.filter((t) => t.toLowerCase().includes(query.toLowerCase()))
+    : initialTags;
+
+  return (
+    <>
+      {/* Hero Section */}
+      <div className="relative overflow-hidden pt-12 pb-16 px-6">
+        <div className="absolute inset-0 hero-bg-grid" aria-hidden="true" />
+        <div className="absolute inset-0 hero-bg-rings" aria-hidden="true" />
+        <div className="absolute inset-0 hero-bg-vignette" aria-hidden="true" />
+        <div className="hero-orb hero-orb-1" aria-hidden="true" />
+        <div className="hero-orb hero-orb-2" aria-hidden="true" />
+        <div className="hero-orb hero-orb-3" aria-hidden="true" />
+
+        <div className="relative text-center max-w-3xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-6 mx-auto">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
+            <span className="text-xs font-medium tracking-widest uppercase text-[var(--muted)]">
+              The Styxproxy Blog
+            </span>
+          </div>
+
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight mb-6">
+            Notes from the<br />
+            <span className="text-[var(--primary)]">trenches.</span>
+          </h1>
+          <p className="text-lg max-w-xl mx-auto leading-relaxed text-[var(--muted)]">
+            Guides on proxies, anonymity, automation, and the infrastructure that keeps the web working.
+          </p>
+        </div>
       </div>
 
-      {/* Instagram-style vertical feed: 1 column on mobile, 2 columns on
-          desktop. No 3-column masonry — true Instagram feed is single-track
-          for narrative flow. */}
-      {posts.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
+      {/* Scroll indicator */}
+      <div className="flex flex-col items-center gap-2 py-8">
+        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
+      </div>
+
+      {/* Filter Bar */}
+      <div className="max-w-6xl mx-auto px-6 pb-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative flex-1 max-w-md">
+            <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] pointer-events-none" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search posts..."
+              className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--card)] border border-[var(--border)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)]/60 transition-colors"
+            />
+          </div>
+          <Link
+            href="/blog"
+            onClick={() => handleTagChange(null)}
+            className={`px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 flex-shrink-0 ${
+              !activeTag
+                ? 'bg-[var(--primary)] text-black font-bold'
+                : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)] hover:border-[var(--primary)]/60'
+            }`}
+          >
+            All posts
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {filtered.map((tag) => (
+            <Link
+              key={tag}
+              href={`/blog/tag/${encodeURIComponent(tag)}`}
+              onClick={() => handleTagChange(tag)}
+              className={`inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex-shrink-0 ${
+                tag === activeTag
+                  ? 'bg-[var(--primary)] text-black font-bold'
+                  : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)] hover:border-[var(--primary)]/60'
+              }`}
+            >
+              #{tag}
+            </Link>
           ))}
         </div>
-      ) : loading ? (
-        <PostCardSkeletonGrid count={6} />
-      ) : (
-        <div className="text-center py-20">
-          <p className="text-[var(--muted)] text-lg">No posts found.</p>
-          {activeTag && (
-            <Link
-              href="/blog"
-              className="text-[var(--primary)] hover:underline mt-2 inline-block"
-              onClick={() => handleTagChange(null)}
-            >
-              View all posts
-            </Link>
-          )}
-        </div>
-      )}
+      </div>
+
+      {/* Grid */}
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="section-divider-glow mb-12" />
+        {posts.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+            {posts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
+          </div>
+        ) : loading ? (
+          <PostCardSkeletonGrid count={6} />
+        ) : (
+          <div className="text-center py-20">
+            <div className="w-16 h-16 rounded-full bg-[var(--card)] border border-[var(--border)] flex items-center justify-center mx-auto mb-6">
+              <MagnifyingGlass size={24} className="text-[var(--muted)]" />
+            </div>
+            <p className="text-[var(--muted)] text-lg mb-2">No posts found</p>
+            <p className="text-sm text-[var(--muted)] mb-6">Try a different search or tag.</p>
+            {activeTag && (
+              <Link
+                href="/blog"
+                onClick={() => handleTagChange(null)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--card)] border border-[var(--border)] text-sm font-medium text-[var(--foreground)] hover:border-[var(--primary)]/60 transition-colors"
+              >
+                View all posts
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Load More */}
       {hasMore && posts.length > 0 && (
@@ -130,7 +212,7 @@ export default function BlogFeed({
           <button
             onClick={loadMore}
             disabled={loading}
-            className="px-6 py-3 bg-[var(--surface)] border border-[var(--border)] text-white rounded-full font-medium hover:border-[var(--primary)]/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-8 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] font-medium hover:border-[var(--primary)]/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <span className="flex items-center gap-2">
@@ -153,6 +235,6 @@ export default function BlogFeed({
           You&apos;ve reached the end
         </p>
       )}
-    </section>
+    </>
   );
 }

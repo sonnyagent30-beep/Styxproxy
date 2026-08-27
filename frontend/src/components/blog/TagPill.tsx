@@ -19,8 +19,8 @@ export default function TagPill({
   const baseActive = 'bg-[var(--primary)] text-black font-medium';
   const baseInactive =
     variant === 'soft'
-      ? 'bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)] hover:text-white hover:border-[var(--primary)]/60'
-      : 'bg-transparent text-[var(--muted)] hover:text-white';
+      ? 'bg-[var(--card)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)] hover:border-[var(--primary)]/60'
+      : 'bg-transparent text-[var(--muted)] hover:text-[var(--foreground)]';
 
   return (
     <Link

@@ -11,7 +11,7 @@ export default function PostNav({ prev, next }: Props) {
   if (!prev && !next) return null;
 
   return (
-    <nav className="mt-16 pt-10 border-t border-[var(--border)] grid sm:grid-cols-2 gap-4">
+    <nav className="max-w-6xl mx-auto px-6 mt-16 pt-10 border-t border-[var(--border)] grid sm:grid-cols-2 gap-4">
       {prev ? (
         <Link
           href={`/blog/${prev.slug}`}
