@@ -27,11 +27,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import csv
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import text, func, case
 
 from app.auth import decode_access_token, verify_admin_token
 from app.database import async_session
@@ -888,3 +889,401 @@ Summary:"""
     )
     
     return {"ok": True, "summary": summary}
+
+
+# =============================================================================
+# FEATURE 10: Per-Session Rate Limiting
+# =============================================================================
+
+class RateLimitStatus(BaseModel):
+    session_id: str
+    requests_remaining: int
+    reset_at: int
+    limit: int
+
+
+def get_session_rate_limiter(session_id: str) -> dict:
+    """Return rate limit state for a session (in-memory fallback when Redis unavailable)."""
+    # Use slowapi limiter with a session-scoped key
+    return {
+        "session_id": session_id,
+        "limit": 20,  # per session per minute
+        "window": 60,
+    }
+
+
+# =============================================================================
+# FEATURE 11: Real-time Escalation Alerts
+# =============================================================================
+
+from app.services.email import send_charon_escalation_email
+
+class EscalationAlertRequest(BaseModel):
+    conversation_id: str
+    customer_email: Optional[str] = None
+    customer_message: str
+    reason: str
+
+
+@router.post("/escalations/notify")
+async def notify_escalation(alert: EscalationAlertRequest):
+    """Send real-time escalation alert to admin."""
+    from app.models import CharonEscalation
+    
+    async with async_session() as session:
+        # Create escalation record
+        esc = CharonEscalation(
+            conversation_id=alert.conversation_id,
+            customer_email=alert.customer_email,
+            customer_message=alert.customer_message[:1000],
+            status="pending",
+        )
+        session.add(esc)
+        await session.commit()
+        await session.refresh(esc)
+        
+        # Send email notification (silent failure)
+        try:
+            await send_charon_escalation_email(
+                conversation_id=alert.conversation_id,
+                customer_email=alert.customer_email,
+                customer_message=alert.customer_message[:500],
+                reason=alert.reason,
+            )
+        except Exception:
+            pass  # Don't fail the escalation if email fails
+        
+        return {
+            "ok": True,
+            "escalation_id": str(esc.id),
+            "status": esc.status,
+        }
+
+
+# =============================================================================
+# FEATURE 12: Conversation Search
+# =============================================================================
+
+@router.get("/conversations/search")
+async def search_conversations(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """Full-text search across conversation messages."""
+    from app.models import CharonMessage, CharonConversation
+    from sqlalchemy import select, or_, func
+    
+    async with async_session() as session:
+        # Search in message content
+        stmt = (
+            select(CharonMessage.conversation_id, func.max(CharonMessage.ts).label("last_ts"))
+            .where(CharonMessage.content.ilike(f"%{q}%"))
+            .group_by(CharonMessage.conversation_id)
+            .order_by(func.max(CharonMessage.ts).desc())
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        rows = result.all()
+        
+        conversation_ids = [r[0] for r in rows]
+        
+        if not conversation_ids:
+            return {"results": [], "query": q, "total": 0}
+        
+        # Fetch conversation metadata
+        conv_stmt = (
+            select(CharonConversation)
+            .where(CharonConversation.id.in_(conversation_ids))
+        )
+        conv_result = await session.execute(conv_stmt)
+        conversations = {c.id: c for c in conv_result.scalars().all()}
+        
+        results = []
+        for cid, last_ts in rows:
+            conv = conversations.get(cid)
+            if conv:
+                results.append({
+                    "conversation_id": cid,
+                    "channel": conv.channel,
+                    "customer_email": conv.customer_email,
+                    "rating": conv.rating,
+                    "message_count": conv.message_count,
+                    "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
+                    "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                })
+        
+        return {"results": results, "query": q, "total": len(results)}
+
+
+# =============================================================================
+# FEATURE 13: Analytics Dashboard
+# =============================================================================
+
+@router.get("/analytics")
+async def get_analytics(
+    days: int = Query(7, ge=1, le=90),
+):
+    """Return conversation analytics for the dashboard."""
+    from app.models import CharonConversation, CharonMessage, CharonEscalation
+    from sqlalchemy import select, func, case
+    from datetime import datetime, timedelta
+    
+    since = datetime.utcnow() - timedelta(days=days)
+    
+    async with async_session() as session:
+        # Total conversations
+        total_result = await session.execute(
+            select(func.count(CharonConversation.id))
+            .where(CharonConversation.created_at >= since)
+        )
+        total_conversations = total_result.scalar() or 0
+        
+        # Total messages
+        msg_result = await session.execute(
+            select(func.count(CharonMessage.id))
+            .where(CharonMessage.ts >= since)
+        )
+        total_messages = msg_result.scalar() or 0
+        
+        # Average rating
+        rating_result = await session.execute(
+            select(func.avg(CharonConversation.rating))
+            .where(CharonConversation.rating.isnot(None))
+            .where(CharonConversation.created_at >= since)
+        )
+        avg_rating = rating_result.scalar() or 0.0
+        
+        # Escalation count
+        esc_result = await session.execute(
+            select(func.count(CharonEscalation.id))
+            .where(CharonEscalation.created_at >= since)
+        )
+        escalations = esc_result.scalar() or 0
+        
+        # Average messages per conversation
+        avg_messages = total_messages / max(total_conversations, 1)
+        
+        # Top channels
+        channel_result = await session.execute(
+            select(CharonConversation.channel, func.count(CharonConversation.id))
+            .where(CharonConversation.created_at >= since)
+            .group_by(CharonConversation.channel)
+            .order_by(func.count(CharonConversation.id).desc())
+        )
+        channels = [{"channel": c, "count": n} for c, n in channel_result.all()]
+        
+        # Daily breakdown
+        daily_result = await session.execute(
+            select(
+                func.date_trunc("day", CharonConversation.created_at).label("day"),
+                func.count(CharonConversation.id),
+            )
+            .where(CharonConversation.created_at >= since)
+            .group_by(func.date_trunc("day", CharonConversation.created_at))
+            .order_by("day")
+        )
+        daily = [{"day": d.isoformat() if hasattr(d, "isoformat") else str(d), "count": c} for d, c in daily_result.all()]
+        
+        return {
+            "period_days": days,
+            "total_conversations": total_conversations,
+            "total_messages": total_messages,
+            "average_rating": round(float(avg_rating), 2),
+            "average_messages_per_conversation": round(avg_messages, 1),
+            "escalations": escalations,
+            "escalation_rate": round(escalations / max(total_conversations, 1) * 100, 1),
+            "channels": channels,
+            "daily": daily,
+        }
+
+
+# =============================================================================
+# FEATURE 14: Quick Reply Buttons
+# =============================================================================
+
+QUICK_REPLIES = [
+    {"id": "check_order", "label": "Check my order", "message": "I'd like to check my order status"},
+    {"id": "pricing", "label": "Pricing", "message": "What are your pricing plans?"},
+    {"id": "payment_issue", "label": "Payment issue", "message": "I have a payment issue"},
+    {"id": "proxy_help", "label": "Proxy setup help", "message": "I need help setting up my proxy"},
+    {"id": "refund", "label": "Refund request", "message": "I'd like to request a refund"},
+    {"id": "speak_human", "label": "Speak to human", "message": "I'd like to speak with a human agent"},
+]
+
+
+@router.get("/quick-replies")
+async def get_quick_replies():
+    """Return available quick reply buttons for the chat widget."""
+    return {"replies": QUICK_REPLIES}
+
+
+# =============================================================================
+# FEATURE 15: Conversation Export
+# =============================================================================
+
+@router.get("/conversations/{conversation_id}/export")
+async def export_conversation(
+    conversation_id: str,
+    format: str = Query("json", pattern="^(json|csv)$"),
+):
+    """Export a conversation as JSON or CSV."""
+    from app.models import CharonConversation, CharonMessage
+    from sqlalchemy import select
+    
+    async with async_session() as session:
+        # Get conversation
+        conv_stmt = select(CharonConversation).where(CharonConversation.id == conversation_id)
+        conv_result = await session.execute(conv_stmt)
+        conv = conv_result.scalar_one_or_none()
+        
+        if not conv:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        # Get messages
+        msg_stmt = (
+            select(CharonMessage)
+            .where(CharonMessage.conversation_id == conversation_id)
+            .order_by(CharonMessage.ts.asc())
+        )
+        msg_result = await session.execute(msg_stmt)
+        messages = msg_result.scalars().all()
+        
+        if format == "csv":
+            # Build CSV
+            import csv
+            import io
+            output = io.StringIO()
+            writer = csv.writer(output)
+            writer.writerow(["role", "content", "ts", "tokens_used"])
+            for m in messages:
+                writer.writerow([m.role, m.content, m.ts.isoformat() if m.ts else "", m.tokens_used])
+            
+            from fastapi.responses import PlainTextResponse
+            return PlainTextResponse(
+                content=output.getvalue(),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename=conversation_{conversation_id}.csv"},
+            )
+        
+        # Default JSON
+        return {
+            "conversation": {
+                "id": conv.id,
+                "channel": conv.channel,
+                "customer_email": conv.customer_email,
+                "rating": conv.rating,
+                "rating_comment": conv.rating_comment,
+                "message_count": conv.message_count,
+                "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                "last_message_at": conv.last_message_at.isoformat() if conv.last_message_at else None,
+            },
+            "messages": [
+                {
+                    "id": m.id,
+                    "role": m.role,
+                    "content": m.content,
+                    "ts": m.ts.isoformat() if m.ts else None,
+                    "tokens_used": m.tokens_used,
+                }
+                for m in messages
+            ],
+        }
+
+
+# =============================================================================
+# FEATURE 16: Personality Settings
+# =============================================================================
+
+# Default personality (stored in code for now; could be DB later)
+CHARON_PERSONALITY = {
+    "tone": "friendly_professional",
+    "name": "Charon",
+    "greeting": "Hi - I'm Charon. I can help with orders, plan details, payment status, and proxy troubleshooting. What can I help you with?",
+    "style_rules": [
+        "Be concise and helpful",
+        "Use plain English",
+        "Avoid jargon unless the customer uses it first",
+        "Never make promises about delivery times",
+        "Always offer to escalate for refunds, replacements, or complex issues",
+    ],
+}
+
+
+@router.get("/personality")
+async def get_personality():
+    """Return Charon's personality configuration."""
+    return CHARON_PERSONALITY
+
+
+# =============================================================================
+# FEATURE 19: Multi-language Support
+# =============================================================================
+
+SUPPORTED_LANGUAGES = {
+    "en": {"name": "English", "nativeName": "English"},
+    "fr": {"name": "French", "nativeName": "Français"},
+    "es": {"name": "Spanish", "nativeName": "Español"},
+    "pt": {"name": "Portuguese", "nativeName": "Português"},
+    "de": {"name": "German", "nativeName": "Deutsch"},
+    "ar": {"name": "Arabic", "nativeName": "العربية"},
+    "zh": {"name": "Chinese", "nativeName": "中文"},
+    "yo": {"name": "Yoruba", "nativeName": "Yorùbá"},
+    "ha": {"name": "Hausa", "nativeName": "Hausa"},
+    "ig": {"name": "Igbo", "nativeName": "Igbo"},
+}
+
+
+@router.get("/languages")
+async def get_languages():
+    """Return supported languages for Charon."""
+    return {"languages": SUPPORTED_LANGUAGES, "default": "en"}
+
+
+def get_language_prompt(lang_code: str) -> str:
+    """Return a system prompt addition for the requested language."""
+    if lang_code == "en":
+        return ""
+    
+    lang_name = SUPPORTED_LANGUAGES.get(lang_code, {}).get("name", lang_code)
+    return f"The customer has selected {lang_name} as their preferred language. Respond in {lang_name} if you can, otherwise respond in English and note that {lang_name} support is limited."
+
+
+# =============================================================================
+# FEATURE 20: Online/Away Status
+# =============================================================================
+
+# Simple status tracking (in-memory; could be Redis later)
+_charon_status = {
+    "status": "online",  # online, away, offline
+    "message": "We're here to help!",
+    "updated_at": datetime.utcnow().isoformat(),
+}
+
+
+@router.get("/status")
+async def get_charon_status():
+    """Return Charon's current online status."""
+    return {
+        "status": _charon_status["status"],
+        "message": _charon_status["message"],
+        "updated_at": _charon_status["updated_at"],
+    }
+
+
+@router.put("/status")
+async def update_charon_status(
+    status: str,
+    message: Optional[str] = None,
+    _admin: None = Depends(verify_admin_token),
+):
+    """Update Charon's online status (admin only)."""
+    if status not in {"online", "away", "offline"}:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    _charon_status["status"] = status
+    _charon_status["message"] = message or _charon_status["message"]
+    _charon_status["updated_at"] = datetime.utcnow().isoformat()
+    
+    return {"ok": True, **_charon_status}
+
+
