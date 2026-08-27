@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/components/Toast';
-import { getOrderHistory, type OrderHistoryEntry, getInflightOrder, clearInflightOrder } from '@/lib/device-id';
+import { getOrderHistory, type OrderHistoryEntry } from '@/lib/device-id';
 import { Eye, EyeSlash, Copy, Clock, Check, ArrowRight, ArrowClockwise, X, WarningCircle, MagnifyingGlass } from '@phosphor-icons/react';
 
 // Helper: Copy to clipboard with toast feedback
@@ -104,7 +104,6 @@ export default function ManagePage() {
   const [rotating, setRotating] = useState(false);
   const [error, setError] = useState('');
   const [history, setHistory] = useState<OrderHistoryEntry[]>([]);
-  const [inflight, setInflight] = useState(getInflightOrder());
   const { toast } = useToast();
 
   // Load local order history on mount
@@ -189,38 +188,7 @@ export default function ManagePage() {
             </p>
           </div>
 
-          {/* In-flight order banner */}
-          {inflight && !order && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
-              <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-[var(--warning)] shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-[var(--warning)] text-sm font-medium">Order In Progress</p>
-                  <p className="text-xs text-[var(--muted)] mt-1">
-                    You have an unpaid order <span className="font-mono text-foreground">{inflight.tx_ref}</span>{' '}
-                    for {inflight.plan_code}.{' '}
-                    <button
-                      onClick={() => handleSearch(inflight.tx_ref)}
-                      className="text-[var(--primary)] hover:underline font-medium"
-                    >
-                      Check status →
-                    </button>
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    clearInflightOrder();
-                    setInflight(null);
-                    toast({ type: 'info', title: 'In-flight order cleared', message: 'You can place a new order now.' });
-                  }}
-                  className="text-[var(--muted)] hover:text-foreground text-xs"
-                  aria-label="Dismiss"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          )}
+
 
           {/* Local order history */}
           {history.length > 0 && !order && (
@@ -288,7 +256,7 @@ export default function ManagePage() {
 
           {/* Order Found */}
           {order && (
-            <div className="space-y-4 animate-fade-in">
+            <div className="space-y-4 ">
 
               {/* Status Banner */}
               <div className={`rounded-2xl p-5 border ${
@@ -491,7 +459,7 @@ export default function ManagePage() {
 
           {/* Empty State */}
           {!order && !error && !loading && (
-            <div className="text-center py-10 animate-fade-in">
+            <div className="text-center py-10 ">
               <div className="w-16 h-16 rounded-2xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-center mx-auto mb-4">
                 <MagnifyingGlass className="w-8 h-8 text-[var(--muted)]" />
               </div>
