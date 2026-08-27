@@ -2,10 +2,10 @@
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import ChatWidget from "@/components/ChatWidget";
 import SentryBoundary from "@/components/SentryBoundary";
 import CheckoutDisabledBanner from "@/components/CheckoutDisabledBanner";
 import { ChannelFeatureFlagsProvider } from "@/lib/feature-flags";
+import { LazyChatWidget } from "@/components/LazyChatWidget";
 
 /**
  * Public layout — every non-admin, non-API page renders inside this.
@@ -13,8 +13,8 @@ import { ChannelFeatureFlagsProvider } from "@/lib/feature-flags";
  * Admin routes (app/admin/*) are NOT inside this group, so they get
  * their own (auth)/(dashboard) layouts and never see the public chrome.
  *
- * Charon is mounted here and ONLY here. The visibility guard inside
- * ChatWidget also checks route + admin flag as defense-in-depth.
+ * Charon is mounted via LazyChatWidget which lazy-loads after 1.5s delay
+ * with a skeleton fallback, to reduce initial bundle size.
  */
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -24,7 +24,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <Header />
         <main id="main-content" className="pt-16">{children}</main>
         <Footer />
-        <ChatWidget />
+        <LazyChatWidget />
       </SentryBoundary>
     </ChannelFeatureFlagsProvider>
   );

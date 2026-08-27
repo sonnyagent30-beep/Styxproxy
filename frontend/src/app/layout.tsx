@@ -3,7 +3,6 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toast";
 import ConsentGate from "@/components/ConsentGate";
-import { LazyChatWidget } from "@/components/LazyChatWidget";
 
 // Self-hosted via next/font — no external request, no FOUT race against
 // globals.css, and weight 900 included because ~32 components use font-black.
@@ -89,7 +88,6 @@ export default function RootLayout({
         <ToastProvider>
           <ConsentGate />
           {children}
-          <LazyChatWidget />
         </ToastProvider>
 
         {/* Organization JSON-LD — Google Knowledge Graph source for brand */}
