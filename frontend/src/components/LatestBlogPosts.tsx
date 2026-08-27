@@ -1,31 +1,15 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight } from '@phosphor-icons/react';
-import { api } from '@/lib/api';
+import type { BlogPost } from '@/types';
 
-export const dynamic = 'force-dynamic';
+interface Props {
+  initialPosts: BlogPost[];
+}
 
-export default async function LatestBlogPosts() {
-  let posts: Array<{
-    id: string;
-    slug: string;
-    title: string;
-    excerpt?: string;
-    content?: string;
-    cover_image_url?: string;
-    tags?: string[];
-  }> = [];
-
-  try {
-    const result = await api.getBlogPosts(1, 3);
-    if (result.data?.posts) {
-      posts = result.data.posts;
-    }
-  } catch {
-    // render nothing on error (same as /blog page)
-  }
-
-  if (posts.length === 0) return null;
+export default function LatestBlogPosts({ initialPosts }: Props) {
+  if (!initialPosts || initialPosts.length === 0) return null;
 
   const estimateReadTime = (content: string): number => {
     const words = content
@@ -48,7 +32,7 @@ export default async function LatestBlogPosts() {
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {posts.map((post) => {
+          {initialPosts.map((post) => {
             const readTime = estimateReadTime(post.content || post.excerpt || '');
             return (
               <article
@@ -96,7 +80,7 @@ export default async function LatestBlogPosts() {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] text-sm font-bold text-[var(--foreground)] hover:border-[var(--primary)]/60 transition-colors"
           >
             View all posts
-            <ArrowRight size={16} />
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z" /></svg>
           </Link>
         </div>
       </div>

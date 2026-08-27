@@ -1,11 +1,11 @@
 import Hero from "@/components/Hero";
-import LatestBlogPosts from "@/components/LatestBlogPosts";
+import LatestBlogPostsServer from "@/components/LatestBlogPostsServer";
 
 export default function Home() {
   return (
     <>
       <Hero />
-      <LatestBlogPosts />
+      <LatestBlogPostsServer />
     </>
   );
 }
