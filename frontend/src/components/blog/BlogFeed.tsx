@@ -28,6 +28,10 @@ export default function BlogFeed({
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
+  const filtered = query
+    ? initialTags.filter((t) => t.toLowerCase().includes(query.toLowerCase()))
+    : initialTags;
+
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
     setLoading(true);
