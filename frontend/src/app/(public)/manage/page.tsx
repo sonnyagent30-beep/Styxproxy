@@ -193,9 +193,9 @@ export default function ManagePage() {
           {inflight && !order && (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
               <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <Clock className="w-5 h-5 text-[var(--warning)] shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-amber-400 text-sm font-medium">Order In Progress</p>
+                  <p className="text-[var(--warning)] text-sm font-medium">Order In Progress</p>
                   <p className="text-xs text-[var(--muted)] mt-1">
                     You have an unpaid order <span className="font-mono text-foreground">{inflight.tx_ref}</span>{' '}
                     for {inflight.plan_code}.{' '}
@@ -244,8 +244,8 @@ export default function ManagePage() {
                       </div>
                       <span className={`text-xs px-2 py-0.5 rounded-md ${
                         h.status === 'active' || h.status === 'fulfilled'
-                          ? 'bg-emerald-500/20 text-emerald-400'
-                          : 'bg-amber-500/20 text-amber-400'
+                          ? 'bg-[var(--success)]/20 text-[var(--success)]'
+                          : 'bg-amber-500/20 text-[var(--warning)]'
                       }`}>
                         {h.status}
                       </span>
@@ -280,9 +280,9 @@ export default function ManagePage() {
 
           {/* Error */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 flex items-start gap-3">
-              <WarningCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-red-500 text-sm">{error}</p>
+            <div className="bg-[var(--error)]/10 border border-[var(--error)]/30 rounded-xl p-4 mb-6 flex items-start gap-3">
+              <WarningCircle className="w-5 h-5 text-[var(--error)] shrink-0 mt-0.5" />
+              <p className="text-[var(--error)] text-sm">{error}</p>
             </div>
           )}
 
@@ -293,22 +293,22 @@ export default function ManagePage() {
               {/* Status Banner */}
               <div className={`rounded-2xl p-5 border ${
                 isActive
-                  ? 'bg-emerald-500/10 border-emerald-500/30'
+                  ? 'bg-[var(--success)]/10 border-[var(--success)]/30'
                   : 'bg-amber-500/10 border-amber-500/30'
               }`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {isActive ? (
-                      <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                        <Check className="w-5 h-5 text-emerald-400" weight="bold" />
+                      <div className="w-10 h-10 rounded-full bg-[var(--success)]/20 flex items-center justify-center">
+                        <Check className="w-5 h-5 text-[var(--success)]" weight="bold" />
                       </div>
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-amber-400" />
+                        <Clock className="w-5 h-5 text-[var(--warning)]" />
                       </div>
                     )}
                     <div>
-                      <p className={`font-semibold text-sm ${isActive ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      <p className={`font-semibold text-sm ${isActive ? 'text-[var(--success)]' : 'text-[var(--warning)]'}`}>
                         {isActive ? 'Proxy Active' : 'Order Processing'}
                       </p>
                       <p className="text-xs text-[var(--muted)] mt-0.5">
@@ -320,8 +320,8 @@ export default function ManagePage() {
                   </div>
                   <span className={`text-xs font-mono px-2 py-1 rounded-md ${
                     isActive
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : 'bg-amber-500/20 text-amber-400'
+                      ? 'bg-[var(--success)]/20 text-[var(--success)]'
+                      : 'bg-amber-500/20 text-[var(--warning)]'
                   }`}>
                     {order.status}
                   </span>
@@ -393,8 +393,8 @@ export default function ManagePage() {
                     {order.expires_at && (
                       <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-amber-400" />
-                          <span className="text-sm text-amber-400">
+                          <Clock className="w-4 h-4 text-[var(--warning)]" />
+                          <span className="text-sm text-[var(--warning)]">
                             {formatTimeRemaining(order.expires_at)}
                           </span>
                         </div>

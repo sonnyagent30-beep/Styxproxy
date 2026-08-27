@@ -349,12 +349,12 @@ export default function CheckoutPage() {
                         </p>
                       )}
                       {precheck[item.plan_code]?.available === true && precheck[item.plan_code]?.etaSeconds != null && (
-                        <p className="text-xs text-green-400 mt-1">
+                        <p className="text-xs text-[var(--success)] mt-1">
                           ✓ Available · Usually delivered in ~{precheck[item.plan_code]!.etaSeconds}s
                         </p>
                       )}
                       {precheck[item.plan_code]?.available === false && (
-                        <p className="text-xs text-red-400 mt-1">
+                        <p className="text-xs text-[var(--error)] mt-1">
                           ✗ Currently unavailable
                           {precheck[item.plan_code]?.reason ? ` (${precheck[item.plan_code]!.reason})` : ''}
                         </p>
@@ -409,7 +409,7 @@ export default function CheckoutPage() {
                     {/* Remove */}
                     <button
                       onClick={() => removeItem(item.plan_code)}
-                      className="w-8 h-8 rounded-lg hover:bg-red-500/10 flex items-center justify-center text-[var(--muted)] hover:text-red-400 transition-colors"
+                      className="w-8 h-8 rounded-lg hover:bg-[var(--error)]/10 flex items-center justify-center text-[var(--muted)] hover:text-[var(--error)] transition-colors"
                       title="Remove"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -454,7 +454,7 @@ export default function CheckoutPage() {
 
         {/* Error */}
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <div className="mb-4 p-3 rounded-lg bg-[var(--error)]/10 border border-[var(--error)]/20 text-[var(--error)] text-sm">
             {error}
           </div>
         )}

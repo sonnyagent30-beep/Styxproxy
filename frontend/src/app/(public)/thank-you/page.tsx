@@ -799,10 +799,10 @@ function ThankYouContent() {
           <div className="animate-fade-in">
             {/* Red error banner for show_failure */}
             {nextAction === 'show_failure' && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+              <div className="mb-6 p-4 bg-[var(--error)]/10 border border-[var(--error)]/30 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-                    <WarningCircle className="w-5 h-5 text-red-500" weight="bold" />
+                  <div className="w-10 h-10 rounded-full bg-[var(--error)]/20 flex items-center justify-center flex-shrink-0">
+                    <WarningCircle className="w-5 h-5 text-[var(--error)]" weight="bold" />
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-red-400">Payment could not be processed</h2>
@@ -853,7 +853,7 @@ function ThankYouContent() {
               </Link>
               <Link
                 href="/contact"
-                className="block w-full px-6 py-3 border border-[var(--border)] hover:border-red-500/50 text-[var(--foreground)] font-medium rounded-lg text-center transition-colors"
+                className="block w-full px-6 py-3 border border-[var(--border)] hover:border-[var(--error)]/50 text-[var(--foreground)] font-medium rounded-lg text-center transition-colors"
               >
                 Contact Support
               </Link>

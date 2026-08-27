@@ -57,15 +57,15 @@ function ThankYouPreview() {
 
       <div className="space-y-4">
         {/* Success banner */}
-        <div className="rounded-2xl p-5 border bg-emerald-500/10 border-emerald-500/30">
+        <div className="rounded-2xl p-5 border bg-[var(--success)]/10 border-[var(--success)]/30">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-full bg-[var(--success)]/20 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-[var(--success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
             <div>
-              <p className="font-semibold text-sm text-emerald-400">Order Complete!</p>
+              <p className="font-semibold text-sm text-[var(--success)]">Order Complete!</p>
               <p className="text-xs text-[var(--muted)] mt-0.5">Your proxy credentials are ready</p>
             </div>
           </div>
@@ -155,20 +155,20 @@ function ManagePreview() {
 
       <div className="space-y-4">
         {/* Status banner */}
-        <div className="rounded-2xl p-5 border bg-emerald-500/10 border-emerald-500/30">
+        <div className="rounded-2xl p-5 border bg-[var(--success)]/10 border-[var(--success)]/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-full bg-[var(--success)]/20 flex items-center justify-center">
+                <svg className="w-5 h-5 text-[var(--success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
               <div>
-                <p className="font-semibold text-sm text-emerald-400">Proxy Active</p>
+                <p className="font-semibold text-sm text-[var(--success)]">Proxy Active</p>
                 <p className="text-xs text-[var(--muted)] mt-0.5">Your proxy credentials are ready</p>
               </div>
             </div>
-            <span className="text-xs font-mono px-2 py-1 rounded-md bg-emerald-500/20 text-emerald-400 capitalize">
+            <span className="text-xs font-mono px-2 py-1 rounded-md bg-[var(--success)]/20 text-[var(--success)] capitalize">
               {order.status}
             </span>
           </div>
@@ -237,7 +237,7 @@ function ManagePreview() {
             Order Another
           </a>
           <button
-            className="px-5 py-3 bg-[#0088cc] hover:bg-[#006699] text-white font-semibold rounded-xl text-sm text-center transition-colors"
+            className="px-5 py-3 bg-[var(--accent)] hover:bg-[var(--accent-dark)] text-white font-semibold rounded-xl text-sm text-center transition-colors"
           >
             Get Support
           </button>
@@ -364,30 +364,30 @@ export default function PreviewPage() {
           <div className="text-center mb-8">
             {activeTab === 'thankyou' && (
               <>
-                <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight" style={{ color: 'var(--foreground)' }}>
-                  Payment Confirmed,<br /><span style={{ color: 'var(--primary)' }}>Proxy Ready.</span>
+                <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight">
+                  Payment Confirmed,<br /><span className="text-[var(--primary)]">Proxy Ready.</span>
                 </h1>
-                <p className="text-base" style={{ color: 'var(--muted)' }}>
+                <p className="text-base" className="text-[var(--muted)]">
                   Your credentials are ready. Download your receipt or manage your order below.
                 </p>
               </>
             )}
             {activeTab === 'manage' && (
               <>
-                <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight" style={{ color: 'var(--foreground)' }}>
-                  Manage Your<br /><span style={{ color: 'var(--primary)' }}>Proxy Order.</span>
+                <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight">
+                  Manage Your<br /><span className="text-[var(--primary)]">Proxy Order.</span>
                 </h1>
-                <p className="text-base" style={{ color: 'var(--muted)' }}>
+                <p className="text-base" className="text-[var(--muted)]">
                   Rotate keys, renew proxies, or contact support — all in one place.
                 </p>
               </>
             )}
             {activeTab === 'checkout' && (
               <>
-                <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight" style={{ color: 'var(--foreground)' }}>
-                  Complete Your<br /><span style={{ color: 'var(--primary)' }}>Order.</span>
+                <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight">
+                  Complete Your<br /><span className="text-[var(--primary)]">Order.</span>
                 </h1>
-                <p className="text-base" style={{ color: 'var(--muted)' }}>
+                <p className="text-base" className="text-[var(--muted)]">
                   Choose your payment method. All transactions secured by Flutterwave.
                 </p>
               </>
@@ -419,7 +419,7 @@ export default function PreviewPage() {
               { label: 'Support', value: '24/7' },
             ].map(({ label, value }) => (
               <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2">
-                <div className="text-sm font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
+                <div className="text-sm font-bold" className="text-[var(--primary)]">{value}</div>
                 <div className="text-xs text-[var(--muted)]">{label}</div>
               </div>
             ))}
@@ -429,7 +429,7 @@ export default function PreviewPage() {
               { label: 'Support', value: '24/7' },
             ].map(({ label, value }) => (
               <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2">
-                <div className="text-sm font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
+                <div className="text-sm font-bold" className="text-[var(--primary)]">{value}</div>
                 <div className="text-xs text-[var(--muted)]">{label}</div>
               </div>
             ))}
@@ -439,7 +439,7 @@ export default function PreviewPage() {
               { label: 'Delivery', value: 'Instant' },
             ].map(({ label, value }) => (
               <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2">
-                <div className="text-sm font-bold" style={{ color: 'var(--primary)' }}>{value}</div>
+                <div className="text-sm font-bold" className="text-[var(--primary)]">{value}</div>
                 <div className="text-xs text-[var(--muted)]">{label}</div>
               </div>
             ))}
