@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://user:password@localhost:5432/styxproxy"
 
     # ── JWT (required for auth to work) ─────────────────────────────────────
-    jwt_secret: str = "your-jwt-secret-key-change-in-production"
+    jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 15
 
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     cred_encryption_key: str = ""
 
     # ── Admin ───────────────────────────────────────────────────────────────
-    admin_token: str = "your-admin-token-change-in-production"
+    admin_token: str = ""
 
     # ── Flutterwave (required for payments) ─────────────────────────────────
     flutterwave_secret_key: str = ""

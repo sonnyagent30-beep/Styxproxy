@@ -1,6 +1,6 @@
 # Styxproxy — Product SPEC
 **Last Updated:** 2026-07-01
-**Status:** Planning — Ready for Build
+**Status:** Production — Live at styxproxy.com
 
 ---
 

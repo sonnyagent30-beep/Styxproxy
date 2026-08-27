@@ -71,7 +71,7 @@
           "parameters": [
             {
               "name": "model",
-              "value": "MiniMax-M2"
+              "model": "MiniMax-M2.7"
             },
             {
               "name": "messages",

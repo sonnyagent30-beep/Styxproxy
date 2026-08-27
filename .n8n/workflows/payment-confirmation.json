@@ -16,7 +16,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Verify Flutterwave webhook signature\nconst crypto = require('crypto');\nconst secretHash = $env.FLUTTERWAVE_WEBHOOK_VERIF_HASH;\nconst signature = $headers['verif-hash'];\n\nconst body = $input.first().json;\nconst computedHash = crypto.createHmac('sha256', secretHash).digest('hex');\n\nif (signature !== computedHash) {\n  throw new Error('Invalid Flutterwave signature');\n}\n\nreturn [{ json: body }];"
+        "functionCode": "// Verify Flutterwave webhook signature\nconst crypto = require('crypto');\nconst secretHash = $env.FLUTTERWAVE_WEBHOOK_SECRET;\nconst signature = $headers['verif-hash'];\n\nconst body = $input.first().json;\nconst computedHash = crypto.createHmac('sha256', secretHash).digest('hex');\n\nif (signature !== computedHash) {\n  throw new Error('Invalid Flutterwave signature');\n}\n\nreturn [{ json: body }];"
       },
       "id": "fw-verify",
       "name": "Verify Signature",

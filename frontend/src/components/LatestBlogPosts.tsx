@@ -1,15 +1,59 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { BlogPost } from '@/types';
+import { api } from '@/lib/api';
 
 interface Props {
-  initialPosts: BlogPost[];
+  initialPosts?: BlogPost[];
 }
 
-export default function LatestBlogPosts({ initialPosts }: Props) {
-  if (!initialPosts || initialPosts.length === 0) return null;
+export default function LatestBlogPosts({ initialPosts = [] }: Props) {
+  const [posts, setPosts] = useState<BlogPost[]>(initialPosts);
+  const [loading, setLoading] = useState(!initialPosts.length);
+
+  useEffect(() => {
+    if (initialPosts.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await api.getBlogPosts(1, 3);
+        if (!cancelled && result.data?.posts) {
+          setPosts(result.data.posts);
+        }
+      } catch {
+        // render nothing on error
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [initialPosts]);
+
+  if (loading) {
+    return (
+      <section className="py-24 lg:py-32 px-6 bg-[var(--surface)]">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden animate-pulse">
+                <div className="aspect-[16/9] bg-[var(--surface)]" />
+                <div className="p-5 space-y-3">
+                  <div className="h-3 w-16 bg-[var(--surface)] rounded" />
+                  <div className="h-4 w-full bg-[var(--surface)] rounded" />
+                  <div className="h-4 w-2/3 bg-[var(--surface)] rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!posts || posts.length === 0) return null;
 
   const estimateReadTime = (content: string): number => {
     const words = content

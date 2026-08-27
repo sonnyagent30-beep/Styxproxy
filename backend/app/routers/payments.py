@@ -14,18 +14,9 @@ from app.schemas import PaymentInitiateRequest, PaymentInitiateResponse, Payment
 from app.services.audit import log_audit_event
 from app.services.customer import get_or_create_customer
 from app.services.flutterwave import create_flutterwave_invoice, verify_flutterwave_payment
+from app.routers.orders import resolve_plan
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
-
-PRODUCT_PRICES = {
-    "ISP-NG-1": 5000,
-    "ISP-NG-2": 9500,
-    "DC-NG-1": 8000,
-    "RESIDENTIAL-UK-1": 12000,
-    "RESIDENTIAL-US-1": 10000,
-    "MOBILE-DE-1": 15000,
-    "MOBILE-JP-1": 18000,
-}
 
 
 @router.post("/initiate", response_model=PaymentInitiateResponse, status_code=status.HTTP_201_CREATED)
@@ -54,9 +45,11 @@ async def initiate_payment(
             detail="Checkout is temporarily disabled. Please contact support or try again later.",
         )
 
-    price = PRODUCT_PRICES.get(request.plan_code)
-    if not price:
+    # Resolve price from DB (single source of truth: plans table)
+    plan = await resolve_plan(session, request.plan_code)
+    if not plan:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
+    price = plan.price_per_gb if plan.price_per_gb is not None else plan.price_ngn
     # Anonymous checkout: contact fields are OPTIONAL. If neither is given we
     # synthesize a throwaway guest identity so the payment provider's mandatory
     # email field is satisfied without collecting any real PII.

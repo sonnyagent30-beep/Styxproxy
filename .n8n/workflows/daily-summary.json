@@ -60,9 +60,9 @@
     {
       "parameters": {
         "operation": "select",
-        "table": "error_log",
-        "columns": "COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE) as errors_today, COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE AND severity IN ('critical','high')) as critical_errors_today",
-        "conditions": "DATE(created_at) = CURRENT_DATE"
+        "table": "orders",
+        "columns": "COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE AND status = 'cancelled') as errors_today",
+        "conditions": "DATE(created_at) = CURRENT_DATE AND status = 'cancelled'"
       },
       "id": "ds-errors",
       "name": "Count Errors Today",
@@ -86,7 +86,7 @@
     {
       "parameters": {
         "operation": "select",
-        "table": "free_trials",
+        "table": "customers",
         "columns": "COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE) as trials_today",
         "conditions": "DATE(created_at) = CURRENT_DATE"
       },

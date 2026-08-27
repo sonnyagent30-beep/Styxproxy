@@ -10,16 +10,8 @@ import { useToast } from '@/components/Toast';
 import { Flag } from '@/components/ui/Flag';
 import { generateReceiptPDF } from '@/lib/pdf-receipt';
 import type { ReceiptOrder } from '@/lib/pdf-receipt';
+import type { CartItem } from '@/types';
 import { Check, Copy, Warning, XCircle, ArrowLineDown, WarningCircle } from '@phosphor-icons/react';
-
-// Cart item type (matches order page)
-interface CartItem {
-  plan_code: string;
-  name: string;
-  country_code: string;
-  price_ngn: number;
-  quantity: number;
-}
 
 interface OrderData {
   order_id?: string;

@@ -9,6 +9,7 @@ The calling code throughout the app stays the same; provider selection
 is handled internally based on country.
 """
 
+import asyncio
 import random
 import socket
 from dataclasses import dataclass
@@ -108,10 +109,10 @@ async def check_health() -> bool:
     """
     from app.services import dataimpulse, decodo
 
-    results = await Promise.all([
+    results = await asyncio.gather(
         decodo.check_health(),
         dataimpulse.check_health(),
-    ])
+    )
     return any(results)
 
 
@@ -123,10 +124,10 @@ async def check_balance() -> float:
     """
     from app.services import dataimpulse, decodo
 
-    di_balance, dc_balance = await Promise.all([
+    di_balance, dc_balance = await asyncio.gather(
         dataimpulse.check_balance(),
         decodo.check_balance(),
-    ])
+    )
     return di_balance + dc_balance
 
 
@@ -448,18 +449,4 @@ async def rotate_ip(provider_order_id: str, country: str = "Nigeria") -> Provide
         )
 
 
-# ─── Promise.all helper (no external dependency) ───────────────────────────────
 
-class _Sentinel:
-    pass
-
-
-class Promise:
-    """Minimal async Promise.all implementation."""
-
-    @staticmethod
-    async def all(coros):
-        results = []
-        for coro in coros:
-            results.append(await coro)
-        return results

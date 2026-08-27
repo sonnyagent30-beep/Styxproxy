@@ -10,6 +10,7 @@ import { Flag } from '@/components/ui/Flag';
 import type { CartItem } from '@/types';
 import api from '@/lib/api';
 import { tryStartOrder, setInflightOrder, getDeviceId, addToOrderHistory } from '@/lib/device-id';
+import { useCartStore } from '@/store/cart-store';
 
 // Sprint 13: per-GB vs per-IP pricing
 function itemPrice(item: import('@/types').CartItem): number {
@@ -34,7 +35,7 @@ function generateTxRef(): string {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const { items: cart, total: cartTotal } = useCartStore();
   const [email, setEmail] = useState('');
   const [gateway, setGateway] = useState<'card' | 'transfer' | 'ussd' | 'qr'>('card');
   const [loading, setLoading] = useState(false);
@@ -50,31 +51,10 @@ export default function CheckoutPage() {
   }>>({});
 
   useEffect(() => {
-    // Read cart from sessionStorage (set by order page navigation) or
-    // localStorage (Zustand persist) — cart must survive page navigation.
-    const stored =
-      sessionStorage.getItem('styxproxy_cart') ||
-      localStorage.getItem('styxproxy_cart');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCart(parsed);
-          // Keep sessionStorage in sync so back-navigation also works
-          sessionStorage.setItem('styxproxy_cart', stored);
-          return;
-        }
-      } catch {
-        // malformed — fall through to redirect
-      }
+    if (cart.length === 0) {
+      router.replace('/order');
     }
-    router.replace('/order');
-  }, [router]);
-
-  // Sync cart changes back to sessionStorage so order page sees them too
-  useEffect(() => {
-    sessionStorage.setItem('styxproxy_cart', JSON.stringify(cart));
-  }, [cart]);
+  }, [cart, router]);
 
   // Bug walk theme-B fix: when cart loads or changes, fire a precheck per item.
   // Precheck tells us if the provider has inventory for that plan+country+qty.

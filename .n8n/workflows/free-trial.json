@@ -70,8 +70,10 @@
     },
     {
       "parameters": {
-        "command": "SELECT COUNT(*) AS survey_count FROM pending_trial_surveys WHERE platform_user_id = '{{$json.phone}}' AND platform = 'whatsapp' AND credited = FALSE;",
-        "options": {}
+        "operation": "select",
+        "table": "customers",
+        "columns": "free_trials_used_today",
+        "conditions": "phone = '{{$json.phone}}'"
       },
       "id": "ft-count",
       "name": "Count Pending Surveys",
@@ -165,8 +167,10 @@
     },
     {
       "parameters": {
-        "command": "UPDATE pending_trial_surveys SET credited = TRUE WHERE platform_user_id = '{{ $('Parse Message').first().json.phone }}' AND platform = 'whatsapp' AND credited = FALSE;",
-        "options": {}
+        "operation": "update",
+        "table": "customers",
+        "values": "free_trials_used_today = free_trials_used_today + 1",
+        "conditions": "phone = '{{ $('Parse Message').first().json.phone }}'"
       },
       "id": "ft-mark-credited",
       "name": "Mark Surveys Credited",
