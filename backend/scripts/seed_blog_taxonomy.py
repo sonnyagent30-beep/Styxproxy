@@ -52,6 +52,15 @@ async def seed_taxonomy(dry_run: bool = False) -> dict:
     categories = data.get("categories", [])
     posts_updates = data.get("posts", [])
 
+    # taxonomy.json uses a single `category` slug per post. Older drafts of this
+    # script expected a `category_slugs` list, which silently linked nothing —
+    # normalise both shapes into `category_slugs` here.
+    for _p in posts_updates:
+        if "category_slugs" not in _p:
+            _one = _p.get("category")
+            _p["category_slugs"] = [_one] if _one else []
+
+
     stats = {"categories_upserted": 0, "posts_updated": 0, "links_created": 0}
 
     async with async_session() as session:
