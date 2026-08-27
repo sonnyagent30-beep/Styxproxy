@@ -367,7 +367,7 @@ export default function PreviewPage() {
                 <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight">
                   Payment Confirmed,<br /><span className="text-[var(--primary)]">Proxy Ready.</span>
                 </h1>
-                <p className="text-base" className="text-[var(--muted)]">
+                <p className="text-base text-[var(--muted)]">
                   Your credentials are ready. Download your receipt or manage your order below.
                 </p>
               </>
@@ -377,7 +377,7 @@ export default function PreviewPage() {
                 <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight">
                   Manage Your<br /><span className="text-[var(--primary)]">Proxy Order.</span>
                 </h1>
-                <p className="text-base" className="text-[var(--muted)]">
+                <p className="text-base text-[var(--muted)]">
                   Rotate keys, renew proxies, or contact support — all in one place.
                 </p>
               </>
@@ -387,7 +387,7 @@ export default function PreviewPage() {
                 <h1 className="text-3xl sm:text-4xl font-bold mb-3 leading-tight">
                   Complete Your<br /><span className="text-[var(--primary)]">Order.</span>
                 </h1>
-                <p className="text-base" className="text-[var(--muted)]">
+                <p className="text-base text-[var(--muted)]">
                   Choose your payment method. All transactions secured by Flutterwave.
                 </p>
               </>
@@ -419,7 +419,7 @@ export default function PreviewPage() {
               { label: 'Support', value: '24/7' },
             ].map(({ label, value }) => (
               <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2">
-                <div className="text-sm font-bold" className="text-[var(--primary)]">{value}</div>
+                <div className="text-sm font-bold text-[var(--primary)]">{value}</div>
                 <div className="text-xs text-[var(--muted)]">{label}</div>
               </div>
             ))}
@@ -429,7 +429,7 @@ export default function PreviewPage() {
               { label: 'Support', value: '24/7' },
             ].map(({ label, value }) => (
               <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2">
-                <div className="text-sm font-bold" className="text-[var(--primary)]">{value}</div>
+                <div className="text-sm font-bold text-[var(--primary)]">{value}</div>
                 <div className="text-xs text-[var(--muted)]">{label}</div>
               </div>
             ))}
@@ -439,7 +439,7 @@ export default function PreviewPage() {
               { label: 'Delivery', value: 'Instant' },
             ].map(({ label, value }) => (
               <div key={label} className="bg-[var(--card)] border border-[var(--border)] rounded-xl px-3 py-2">
-                <div className="text-sm font-bold" className="text-[var(--primary)]">{value}</div>
+                <div className="text-sm font-bold text-[var(--primary)]">{value}</div>
                 <div className="text-xs text-[var(--muted)]">{label}</div>
               </div>
             ))}
