@@ -697,7 +697,7 @@ function OrderDetailModal({
                       )}
                     </div>
                   ) : (
-                    <p className="text-xs text-[var(--muted)]">Click reveal to show credentials</p>
+                    <p className="text-xs text-[var(--muted)]">Click to show credentials</p>
                   )}
                 </div>
               </div>

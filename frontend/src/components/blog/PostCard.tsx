@@ -36,7 +36,7 @@ export default function PostCard({ post }: PostCardProps) {
 
   return (
     <article
-      className="reveal group rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth overflow-hidden"
+      className="group rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth overflow-hidden"
       data-testid="post-card"
     >
       {/* Author header */}

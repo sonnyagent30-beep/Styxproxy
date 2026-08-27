@@ -339,23 +339,6 @@ export default function PricingClient() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Scroll-reveal observer
-  useEffect(() => {
-    const revealEls = document.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.05, rootMargin: '0px 0px -10% 0px' }
-    );
-    revealEls.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
@@ -557,7 +540,7 @@ export default function PricingClient() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {products.map(product => (
-            <div key={product.key} className={`plan-card p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth reveal ${product.featured ? 'featured' : ''}`}>
+            <div key={product.key} className={`plan-card p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth ${product.featured ? 'featured' : ''}`}>
               <span
                 className="plan-badge"
                 style={{
@@ -633,7 +616,7 @@ export default function PricingClient() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {faqs.map(faq => (
-            <div key={faq.q} className="faq-item p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth reveal">
+            <div key={faq.q} className="faq-item p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
               <h3>{faq.q}</h3>
               <p>{faq.a}</p>
             </div>

@@ -70,23 +70,6 @@ const features = [
 const stepVisuals = [Globe, CreditCard, Rocket];
 
 export default function HowItWorksClient() {
-  // Scroll-reveal observer — same pattern as PricingClient / products
-  useEffect(() => {
-    const revealEls = document.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.05, rootMargin: '0px 0px -10% 0px' }
-    );
-    revealEls.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <main className="min-h-screen text-[var(--foreground)]">
@@ -152,7 +135,7 @@ export default function HowItWorksClient() {
               return (
                 <div
                   key={step.number}
-                  className={`reveal flex flex-col md:flex-row gap-8 items-start ${
+                  className={`flex flex-col md:flex-row gap-8 items-start ${
                     i % 2 === 1 ? 'md:flex-row-reverse' : ''
                   }`}
                 >
@@ -211,7 +194,7 @@ export default function HowItWorksClient() {
           {features.map((f) => (
             <div
               key={f.title}
-              className="reveal p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth hover:border-[var(--primary)] transition-all duration-200"
+              className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth hover:border-[var(--primary)] transition-all duration-200"
             >
               <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] mb-4">
                 {f.icon}

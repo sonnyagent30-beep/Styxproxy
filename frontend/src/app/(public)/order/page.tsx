@@ -140,35 +140,6 @@ export default function OrderPage() {
     }
   }, [catalog]);
 
-  // Trigger reveal after catalog loads (cards render async, observer needs a second pass)
-  useEffect(() => {
-    if (!loading && catalog) {
-      setTimeout(() => {
-        document.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
-      }, 100);
-    }
-  }, [loading, catalog]);
-
-  // Scroll reveal for elements added later
-  useEffect(() => {
-    const revealEls = document.querySelectorAll('.reveal:not(.visible)');
-    if (revealEls.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.05, rootMargin: '0px 0px -10% 0px' }
-    );
-    revealEls.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [loading, catalog]);
-
-
   // Build typeCards from catalog
   const typeCards = useMemo(() => {
     if (!catalog || !catalog.templates) return [];
@@ -494,7 +465,7 @@ export default function OrderPage() {
       {/* Rest of page — constrained */}
       <div className="max-w-4xl mx-auto px-4">
         {/* Type Cards */}
-        <div className="grid sm:grid-cols-2 gap-4 reveal">
+        <div className="grid sm:grid-cols-2 gap-4">
           {typeCards.map(card => (
             <button
               key={card.key}

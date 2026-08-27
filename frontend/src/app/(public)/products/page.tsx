@@ -305,10 +305,6 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<typeof FALLBACK_PRODUCTS>(FALLBACK_PRODUCTS);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedMission, setSelectedMission] = useState<string | null>(null);
-  const [visibleCards, setVisibleCards] = useState<Set<string>>(
-    new Set(['product-ISP', 'product-RESIDENTIAL', 'product-MOBILE', 'product-DATACENTER'])
-  );
-  const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   // Only show products that have real DB data
   const dbProducts = products.filter((p) => p.hasApiData);
@@ -320,41 +316,6 @@ export default function ProductsPage() {
     });
   }, []);
 
-  // Product card individual observers
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setVisibleCards((prev) => new Set([...prev, entry.target.id]));
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    cardRefs.current.forEach((el) => observer.observe(el));
-
-    return () => observer.disconnect();
-  }, []);
-
-  // Global reveal observer — makes all .reveal elements visible on scroll
-  useEffect(() => {
-    const revealEls = document.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.05, rootMargin: '0px 0px -10% 0px' }
-    );
-    revealEls.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
 
   const toggleExpand = (key: string) => {
     setExpanded(expanded === key ? null : key);
@@ -592,9 +553,7 @@ export default function ProductsPage() {
             key={product.key}
             id={`product-${product.key}`}
             ref={(el) => { if (el) cardRefs.current.set(`product-${product.key}`, el); }}
-            className={`reveal mb-8 p-6 ${product.featured ? 'card-depth-primary' : 'card-depth'} ${
-              visibleCards.has(`product-${product.key}`) ? 'visible' : ''
-            }`}
+            className={`mb-8 p-6 ${product.featured ? 'card-depth-primary' : 'card-depth'}`}
           >
             {/* Featured badge */}
             {product.featured && (
@@ -854,11 +813,11 @@ export default function ProductsPage() {
       {/* Comparison Table */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
         <div className="section-divider-glow mb-16" />
-        <div className="text-center mb-12 reveal">
+        <div className="text-center mb-12">
           <h2 className="text-3xl font-bold mb-3" style={{ letterSpacing: '-0.02em' }}>Compare Disguises</h2>
           <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--muted)' }}>Every cover has trade-offs. Here&apos;s the full breakdown.</p>
         </div>
-        <div className="overflow-x-auto reveal">
+        <div className="overflow-x-auto">
           <table className="w-full" style={{ minWidth: '560px' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>

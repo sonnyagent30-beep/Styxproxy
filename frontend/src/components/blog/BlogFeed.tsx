@@ -74,28 +74,6 @@ export default function BlogFeed({
     })();
   };
 
-  // Scroll-reveal observer — same pattern as PricingClient / products / how-it-works
-  useEffect(() => {
-    const revealEls = document.querySelectorAll('.reveal');
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.05, rootMargin: '0px 0px -10% 0px' }
-    );
-    revealEls.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [posts]);
-
-  const filtered = query
-    ? initialTags.filter((t) => t.toLowerCase().includes(query.toLowerCase()))
-    : initialTags;
-
   return (
     <>
       {/* Hero Section */}
