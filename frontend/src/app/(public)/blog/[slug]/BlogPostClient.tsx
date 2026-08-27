@@ -98,9 +98,9 @@ export default function BlogPostClient({ post }: Props) {
           <div className="flex items-center gap-4 text-sm text-[var(--muted)] border-b border-[var(--border)] pb-6">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)] font-semibold">
-                {post.author.charAt(0).toUpperCase()}
+                {(post.display_author || post.author).charAt(0).toUpperCase()}
               </div>
-              <span className="font-medium text-[var(--foreground)]">{post.author}</span>
+              <span className="font-medium text-[var(--foreground)]">{post.display_author || post.author}</span>
             </div>
             <span>•</span>
             <time dateTime={post.published_at || post.created_at}>

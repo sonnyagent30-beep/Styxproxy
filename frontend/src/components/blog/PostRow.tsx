@@ -71,9 +71,9 @@ export default function PostRow({
             </p>
             <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
               <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-[11px] flex-shrink-0">
-                {post.author?.charAt(0)}
+                {(post.display_author || post.author)?.charAt(0)}
               </div>
-              <span className="font-medium text-[var(--foreground)]">{post.author}</span>
+              <span className="font-medium text-[var(--foreground)]">{post.display_author || post.author}</span>
               <span>·</span>
               <time>{formatDate(post.published_at || post.created_at)}</time>
               <span>·</span>
@@ -117,9 +117,9 @@ export default function PostRow({
             </p>
             <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
               <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-[11px] flex-shrink-0">
-                {post.author?.charAt(0)}
+                {(post.display_author || post.author)?.charAt(0)}
               </div>
-              <span className="font-medium text-[var(--foreground)]">{post.author}</span>
+              <span className="font-medium text-[var(--foreground)]">{post.display_author || post.author}</span>
               <span>·</span>
               <time>{formatDate(post.published_at || post.created_at)}</time>
               <span>·</span>
@@ -156,7 +156,7 @@ export default function PostRow({
               {post.title}
             </h3>
             <div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
-              <span>{post.author}</span>
+              <span>{post.display_author || post.author}</span>
               <span>·</span>
               <span>{readTime} min</span>
             </div>
@@ -203,9 +203,9 @@ export default function PostRow({
           </p>
           <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
             <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-[11px] flex-shrink-0">
-              {post.author?.charAt(0)}
+              {(post.display_author || post.author)?.charAt(0)}
             </div>
-            <span className="font-medium text-[var(--foreground)]">{post.author}</span>
+            <span className="font-medium text-[var(--foreground)]">{post.display_author || post.author}</span>
             <span>·</span>
             <time>{formatDate(post.published_at || post.created_at)}</time>
             <span>·</span>

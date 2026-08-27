@@ -34,7 +34,7 @@ export default async function AuthorPage({ params }: Props) {
   
   // Filter by author
   const posts = allPosts
-    .filter((post) => post.author === decoded)
+    .filter((post) => post.author === decoded || post.display_author === decoded)
     .sort(
       (a, b) =>
         new Date(b.published_at || b.created_at).getTime() -

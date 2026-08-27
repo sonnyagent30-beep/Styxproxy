@@ -1489,7 +1489,12 @@ class PostResponse(BaseModel):
 
     @model_validator(mode="after")
     def _resolve_display_author(self):
-        self.display_author = resolve_display_author(self.author)
+        resolved = resolve_display_author(self.author)
+        self.display_author = resolved
+        # Never emit raw service-account emails on public endpoints — the
+        # display name replaces author in the payload entirely.
+        if resolved and resolved != self.author:
+            self.author = resolved
         return self
 
 
@@ -1514,7 +1519,12 @@ class PostBriefResponse(BaseModel):
 
     @model_validator(mode="after")
     def _resolve_display_author(self):
-        self.display_author = resolve_display_author(self.author)
+        resolved = resolve_display_author(self.author)
+        self.display_author = resolved
+        # Never emit raw service-account emails on public endpoints — the
+        # display name replaces author in the payload entirely.
+        if resolved and resolved != self.author:
+            self.author = resolved
         return self
 
 

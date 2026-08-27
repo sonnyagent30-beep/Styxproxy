@@ -443,7 +443,8 @@ export interface BlogPost {
   excerpt: string;
   content: string;
   cover_image_url?: string;
-  author: string; // admin phone/email
+  author: string;
+  display_author?: string; // admin phone/email
   status: PostStatus;
   submitted_at?: string;
   reviewed_by?: string;
