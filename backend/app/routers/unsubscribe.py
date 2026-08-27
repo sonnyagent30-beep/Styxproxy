@@ -5,25 +5,15 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import Column, DateTime, String, select
+from sqlalchemy import String, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import declarative_base
 
 from app.database import get_session
+from app.models import EmailUnsubscribe
 
 router = APIRouter(tags=["public"])
 
 UNSUBSCRIBE_SECRET = "styxproxy_unsubscribe_secret_v1"
-
-Base = declarative_base()
-
-
-class EmailUnsubscribe(Base):
-    __tablename__ = "email_unsubscribes"
-
-    email = Column(String(255), primary_key=True)
-    unsubscribed_at = Column(DateTime(timezone=True), nullable=False)
-    source = Column(String(50), default="list_unsubscribe")
 
 
 def _make_token(email: str) -> str:

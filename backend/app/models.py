@@ -1307,3 +1307,13 @@ class CharonAbOutcome(Base):
     outcome: Mapped[str] = mapped_column(String(20), nullable=False)
     concluded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class EmailUnsubscribe(Base):
+    """Email unsubscribe tracking — public, no auth required."""
+
+    __tablename__ = "email_unsubscribes"
+
+    email: Mapped[str] = mapped_column(String(255), primary_key=True)
+    unsubscribed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    source: Mapped[str] = mapped_column(String(50), default="list_unsubscribe")
