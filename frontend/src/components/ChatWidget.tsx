@@ -6,10 +6,12 @@
  * ChatWidget — Charon support chatbot with behavioral awareness.
  *
  * Features:
- * - Draggable to any corner of the screen
+ * - Draggable FAB to any corner (saved to sessionStorage)
  * - Smart triggers (exit-intent, scroll, time-based) that are page-aware
- * - Mobile-responsive (full-screen on small screens)
+ * - Fully responsive (full-screen on mobile, positioned on desktop)
  * - Clean text rendering (no em-dash issues)
+ * - Conversation rating (thumbs up/down)
+ * - Context memory across sessions
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -38,6 +40,11 @@ interface Message {
   ts: number;
 }
 
+interface Position {
+  x: number;
+  y: number;
+}
+
 const newId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 const WELCOME: Message = {
@@ -56,7 +63,6 @@ interface ChatReplyResponse {
   error?: string | null;
 }
 
-/** Anonymous session ID - random, no PII, sessionStorage only. */
 function getSessionId(): string {
   const key = 'charon_session_id';
   let id = sessionStorage.getItem(key);
@@ -67,18 +73,36 @@ function getSessionId(): string {
   return id;
 }
 
-/** Report trigger outcome to backend for aggregate learning (silent failure). */
+function getSavedPosition(): Position | null {
+  try {
+    const saved = sessionStorage.getItem('charon_widget_pos');
+    if (saved) {
+      const { x, y } = JSON.parse(saved);
+      if (typeof x === 'number' && typeof y === 'number') {
+        // Validate position is still on screen
+        const maxX = window.innerWidth - 80;
+        const maxY = window.innerHeight - 80;
+        if (x >= 8 && x <= maxX && y >= 8 && y <= maxY) {
+          return { x, y };
+        }
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function savePosition(x: number, y: number): void {
+  try { sessionStorage.setItem('charon_widget_pos', JSON.stringify({ x, y })); } catch { /* ignore */ }
+}
+
 async function reportOutcome(triggerId: string, outcome: string) {
-  const sessionId = getSessionId();
   try {
     await fetch('/api/charon/trigger-event', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, trigger_id: triggerId, outcome }),
+      body: JSON.stringify({ session_id: getSessionId(), trigger_id: triggerId, outcome }),
     });
-  } catch {
-    // never block UX for analytics
-  }
+  } catch { /* never block UX */ }
 }
 
 export default function ChatWidget() {
@@ -87,11 +111,9 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isBusy, setIsBusy] = useState(false);
+  const [position, setPosition] = useState<Position | null>(() => getSavedPosition());
   const bottomRef = useRef<HTMLDivElement>(null);
   
-  // Position state: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | {x, y}
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef({
     dragging: false,
     moved: false,
@@ -105,43 +127,6 @@ export default function ChatWidget() {
   const isOpenRef = useRef(false);
   const pathnameRef = useRef(pathname);
   const positionRef = useRef(position);
-  
-  useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
-  useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
-  useEffect(() => { positionRef.current = position; }, [position]);
-
-  // Load saved position
-  useEffect(() => {
-    try {
-      const saved = sessionStorage.getItem('charon_widget_pos');
-      if (saved) {
-        const pos = JSON.parse(saved);
-        if (typeof pos.x === 'number' && typeof pos.y === 'number') {
-          setPosition(pos);
-        }
-      }
-    } catch { /* ignore */ }
-  }, []);
-
-  const persistPosition = (x: number, y: number) => {
-    try { sessionStorage.setItem('charon_widget_pos', JSON.stringify({ x, y })); } catch { /* ignore */ }
-  };
-
-  // Determine if we should render
-  const isBlocked = ["admin", "superadmin", "login", "admin-setup"].some(
-    (p) => pathname === "/" + p || (pathname != null && (pathname.startsWith("/" + p + "/") || pathname.startsWith("/" + p)))
-  );
-  const isOnBlockedPath = 
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/setup') ||
-    pathname.startsWith('/superadmin');
-  
-  if (isBlocked || isOnBlockedPath) {
-    return null;
-  }
-
-  // Init tracker + engine
   const trackerRef = useRef<SessionTracker | null>(null);
   const engineRef = useRef<TriggerEngine | null>(null);
   const [activeTrigger, setActiveTrigger] = useState<Trigger | null>(null);
@@ -149,8 +134,24 @@ export default function ChatWidget() {
   const ignoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeTriggerRef = useRef<Trigger | null>(null);
   
+  useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
+  useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
+  useEffect(() => { positionRef.current = position; }, [position]);
   useEffect(() => { activeTriggerRef.current = activeTrigger; }, [activeTrigger]);
 
+  // Determine if we should render
+  const isBlocked = ['admin', 'superadmin', 'login', 'admin-setup'].some(
+    (p) => pathname === '/' + p || (pathname != null && (pathname.startsWith('/' + p + '/') || pathname.startsWith('/' + p)))
+  );
+  const isOnBlockedPath = 
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/setup') ||
+    pathname.startsWith('/superadmin');
+  
+  if (isBlocked || isOnBlockedPath) return null;
+
+  // Init tracker + engine
   useEffect(() => {
     if (!trackerRef.current) {
       trackerRef.current = new SessionTracker();
@@ -191,7 +192,7 @@ export default function ChatWidget() {
     };
   }, []);
 
-  // Trigger evaluation loop (every 5s)
+  // Trigger evaluation loop
   useEffect(() => {
     const interval = setInterval(async () => {
       if (isOpenRef.current) return;
@@ -227,7 +228,7 @@ export default function ChatWidget() {
     return () => clearInterval(interval);
   }, []);
 
-  // Exit-intent detection (desktop only)
+  // Exit-intent detection
   useEffect(() => {
     const onMouseLeave = (e: MouseEvent) => {
       if (e.clientY <= 5 && !isOpenRef.current && engineRef.current && trackerRef.current) {
@@ -287,6 +288,49 @@ export default function ChatWidget() {
     }
   }, []);
 
+  // Drag handlers for FAB - works on both desktop and mobile
+  const onFabPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const currentPos = positionRef.current || { x: window.innerWidth - 80, y: window.innerHeight - 80 };
+    dragRef.current = {
+      dragging: true,
+      moved: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      startPosX: currentPos.x,
+      startPosY: currentPos.y,
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }, []);
+
+  const onPointerMove = useCallback((e: PointerEvent) => {
+    if (!dragRef.current.dragging) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragRef.current.moved = true;
+
+    const newX = Math.max(8, Math.min(window.innerWidth - 80, dragRef.current.startPosX + dx));
+    const newY = Math.max(8, Math.min(window.innerHeight - 80, dragRef.current.startPosY + dy));
+
+    setPosition({ x: newX, y: newY });
+  }, []);
+
+  const onPointerUp = useCallback(() => {
+    if (dragRef.current.dragging && positionRef.current) {
+      savePosition(positionRef.current.x, positionRef.current.y);
+    }
+    dragRef.current.dragging = false;
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [onPointerMove, onPointerUp]);
+
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isBusy) return;
@@ -337,14 +381,6 @@ export default function ChatWidget() {
           ts: Date.now(),
         },
       ]);
-
-      // Save context summary for future conversations
-      const allMessages = [...messages, 
-        { role: 'user', content: trimmed },
-        { role: 'assistant', content: data.text }
-      ];
-      const topics = pageContext.themes as string[] || [];
-      await saveContextSummary(allMessages, topics);
     } catch {
       setMessages(prev => [
         ...prev,
@@ -360,20 +396,6 @@ export default function ChatWidget() {
     }
   }, [isBusy, messages]);
 
-  // Save context summary to backend
-  const saveContextSummary = useCallback(async (history: { role: string; content: string }[], topics: string[]) => {
-    try {
-      await fetch('/api/v1/charon/context', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ messages: history.slice(-10), topics }),
-      });
-    } catch {
-      // silent
-    }
-  }, []);
-
   // Rating handler
   const handleRate = useCallback(async (conversationId: string, rating: number) => {
     try {
@@ -382,53 +404,8 @@ export default function ChatWidget() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rating }),
       });
-    } catch {
-      // silent
-    }
+    } catch { /* silent */ }
   }, []);
-
-  // Drag handlers for FAB
-  const onFabMouseDown = useCallback((e: React.MouseEvent) => {
-    if (window.innerWidth < 640) return; // Disable drag on mobile
-    e.preventDefault();
-    const currentPos = positionRef.current || { x: window.innerWidth - 80, y: window.innerHeight - 80 };
-    dragRef.current = {
-      dragging: true,
-      moved: false,
-      startX: e.clientX,
-      startY: e.clientY,
-      startPosX: currentPos.x,
-      startPosY: currentPos.y,
-    };
-  }, []);
-
-  const onMouseMove = useCallback((e: MouseEvent) => {
-    if (!dragRef.current.dragging) return;
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragRef.current.moved = true;
-
-    const newX = Math.max(8, Math.min(window.innerWidth - 80, dragRef.current.startPosX + dx));
-    const newY = Math.max(8, Math.min(window.innerHeight - 80, dragRef.current.startPosY + dy));
-
-    setPosition({ x: newX, y: newY });
-  }, []);
-
-  const onMouseUp = useCallback(() => {
-    if (dragRef.current.dragging && positionRef.current) {
-      persistPosition(positionRef.current.x, positionRef.current.y);
-    }
-    dragRef.current.dragging = false;
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [onMouseMove, onMouseUp]);
 
   const toggleOpen = (open: boolean) => {
     if (!open && dragRef.current.moved) return;
@@ -444,27 +421,27 @@ export default function ChatWidget() {
     return { position: 'fixed', bottom: 24, right: 24, zIndex: 9998 };
   };
 
-  // Compute chat window position
+  // Compute chat window position - always within viewport
   const getChatStyle = (): React.CSSProperties => {
-    // Mobile: full screen
-    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    
+    if (isMobile) {
       return {
         position: 'fixed',
         inset: 0,
         width: '100vw',
-        height: '100vh',
-        maxHeight: '100vh',
+        height: '100dvh' as any,
+        maxHeight: '100dvh' as any,
         zIndex: 9999,
+        borderRadius: 0,
       };
     }
     
-    // Desktop with custom position
     if (position) {
-      const chatWidth = 360;
-      const chatHeight = Math.min(600, window.innerHeight - 100);
-      // Position chat above FAB, but ensure it stays on screen
-      const top = Math.max(8, position.y - chatHeight - 16);
-      const left = Math.max(8, Math.min(window.innerWidth - chatWidth - 8, position.x - chatWidth / 2 + 28));
+      const chatWidth = Math.min(380, window.innerWidth - 32);
+      const chatHeight = Math.min(600, window.innerHeight - 120);
+      const top = Math.max(16, position.y - chatHeight - 16);
+      const left = Math.max(16, Math.min(window.innerWidth - chatWidth - 16, position.x - chatWidth / 2 + 28));
       
       return {
         position: 'fixed',
@@ -472,19 +449,18 @@ export default function ChatWidget() {
         left,
         width: chatWidth,
         height: chatHeight,
-        maxHeight: '80vh',
+        maxHeight: 'calc(100dvh - 32px)',
         zIndex: 9999,
       };
     }
     
-    // Desktop default (bottom-right)
     return {
       position: 'fixed',
       bottom: 100,
       right: 24,
-      width: 360,
-      height: '80vh',
-      maxHeight: 600,
+      width: Math.min(380, window.innerWidth - 32),
+      height: Math.min(600, window.innerHeight - 120),
+      maxHeight: 'calc(100dvh - 32px)',
       zIndex: 9999,
     };
   };
@@ -494,7 +470,7 @@ export default function ChatWidget() {
     if (position) {
       return {
         position: 'fixed',
-        top: Math.max(8, position.y - 72),
+        top: Math.max(16, position.y - 80),
         left: position.x - 100,
         right: 'auto',
         bottom: 'auto',
@@ -512,10 +488,10 @@ export default function ChatWidget() {
           className="flex flex-col bg-[var(--background)] rounded-2xl border border-[var(--border)] shadow-2xl overflow-hidden charon-chat-window"
           style={getChatStyle()}
         >
-          {/* Header - draggable */}
+          {/* Header */}
           <div
             className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--card)] cursor-grab active:cursor-grabbing select-none"
-            onMouseDown={onFabMouseDown}
+            onPointerDown={onFabPointerDown}
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-[var(--primary)]">
@@ -585,7 +561,7 @@ export default function ChatWidget() {
       {/* FAB + Reach-out bubble */}
       {!isOpen && (
         <>
-          {/* Behavioral reach-out bubble */}
+          {/* Bubble */}
           {showBubble && activeTrigger && (
             <button
               onClick={openChat}
@@ -614,11 +590,11 @@ export default function ChatWidget() {
             </button>
           )}
 
-          {/* FAB */}
+          {/* FAB - draggable */}
           <button
             onClick={() => toggleOpen(true)}
-            onMouseDown={onFabMouseDown}
-            className="w-14 h-14 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+            onPointerDown={onFabPointerDown}
+            className="w-14 h-14 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-dark)] shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 touch-none"
             style={getFabStyle()}
             aria-label="Open chat"
           >
@@ -677,13 +653,13 @@ function MessageBubble({ msg, onRate }: { msg: Message; onRate?: (rating: number
               onClick={() => { setRated(true); onRate(5); }}
               className="text-xs px-2 py-1 rounded bg-[var(--background)] hover:bg-[var(--card-hover)]"
             >
-              👍 Helpful
+              Helpful
             </button>
             <button
               onClick={() => { setRated(true); onRate(1); }}
               className="text-xs px-2 py-1 rounded bg-[var(--background)] hover:bg-[var(--card-hover)]"
             >
-              👎 Not helpful
+              Not helpful
             </button>
           </div>
         )}
