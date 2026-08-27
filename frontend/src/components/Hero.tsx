@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { CaretDown, WhatsappLogo, TelegramLogo, Lightning, Shield, Lock, Globe, Clock, Headset, House, DeviceMobile, HardDrives, Desktop, Check } from '@phosphor-icons/react';
 
 import GlobeErrorBoundary from '@/components/GlobeErrorBoundary';
+import LatestBlogPosts from '@/components/LatestBlogPosts';
 
 const GlobeMap = dynamic(() => import('@/components/GlobeMap'), { ssr: false });
 
@@ -378,6 +379,12 @@ export default function Hero() {
           </div>
         </div>
       </section>
+
+      {/* Section divider */}
+      <div className="section-divider" />
+
+      {/* ── LATEST FROM THE BLOG ── */}
+      <LatestBlogPosts />
 
       {/* Section divider */}
       <div className="section-divider" />
