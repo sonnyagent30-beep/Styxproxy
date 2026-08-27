@@ -122,7 +122,7 @@ export default function ManagePage() {
       .then(res => res.json())
       .then(data => {
         if (data.order_id) { setOrder(data); }
-        else { setError(data.detail || data.error || 'Order not found. Double-check your order ID and try again.'); }
+        else { setError(typeof data.detail === 'string' ? data.detail : typeof data.error === 'string' ? data.error : 'Order not found. Double-check your order ID and try again.'); }
       })
       .catch(() => setError('Network error. Please check your connection and try again.'))
       .finally(() => setLoading(false));
