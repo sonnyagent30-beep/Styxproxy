@@ -552,7 +552,7 @@ export default function ProductsPage() {
           <div
             key={product.key}
             id={`product-${product.key}`}
-            ref={(el) => { if (el) cardRefs.current.set(`product-${product.key}`, el); }}
+            
             className={`mb-8 p-6 ${product.featured ? 'card-depth-primary' : 'card-depth'}`}
           >
             {/* Featured badge */}

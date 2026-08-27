@@ -109,7 +109,6 @@ export default function ManagePage() {
   // Load local order history on mount
   useEffect(() => {
     setHistory(getOrderHistory());
-    setInflight(getInflightOrder());
   }, []);
 
   const handleSearch = async (ref: string) => {
