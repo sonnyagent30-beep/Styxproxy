@@ -37,7 +37,7 @@ export default function LatestBlogPosts({ initialPosts }: Props) {
             return (
               <article
                 key={post.id}
-                className="reveal group rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth overflow-hidden"
+                className="group rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth overflow-hidden"
               >
                 <Link href={`/blog/${post.slug}`} className="block">
                   <div className="relative aspect-[16/9] overflow-hidden bg-[var(--surface)]">
@@ -74,7 +74,7 @@ export default function LatestBlogPosts({ initialPosts }: Props) {
             );
           })}
         </div>
-        <div className="mt-10 text-center reveal">
+        <div className="mt-10 text-center">
           <Link
             href="/blog"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] text-sm font-bold text-[var(--foreground)] hover:border-[var(--primary)]/60 transition-colors"

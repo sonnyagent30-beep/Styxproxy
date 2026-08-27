@@ -439,9 +439,9 @@ export default function ProductsPage() {
             </button>
 
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0"
+              <div className="w-2 h-2 rounded-full bg-[var(--error)] animate-pulse flex-shrink-0"
                 style={{ boxShadow: '0 0 8px var(--error)' }} />
-              <span className="text-xs uppercase tracking-widest font-mono text-gray-500">
+              <span className="text-xs uppercase tracking-widest font-mono text-[var(--muted)]">
                 Classified // Eyes Only
               </span>
             </div>
@@ -453,7 +453,7 @@ export default function ProductsPage() {
               Each disguise has a distinct signature. Pick the one that fits your operation.
             </p>
 
-            <p className="text-xs uppercase tracking-widest font-mono mb-4 text-gray-500">
+            <p className="text-xs uppercase tracking-widest font-mono mb-4 text-[var(--muted)]">
               Primary objective:
             </p>
 
@@ -496,7 +496,7 @@ export default function ProductsPage() {
               </button>
               <button
                 onClick={skipBriefing}
-                className="px-6 py-3 rounded-xl border border-[var(--border)] text-gray-300 hover:border-[var(--primary)]/40 transition-all duration-200"
+                className="px-6 py-3 rounded-xl border border-[var(--border)] text-[var(--muted)] hover:border-[var(--primary)]/40 transition-all duration-200"
               >
                 Skip
               </button>
