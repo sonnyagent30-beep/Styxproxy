@@ -75,28 +75,26 @@ settings = get_settings()
 
 def _get_logo_b64_dark() -> str:
     """Process and return the dark mode Styxproxy logo as base64 PNG."""
-    logo = Image.open(get_logo_path("dark")).convert("RGB")
-    # The image is already cropped to just the logo (icon + wordmark)
-    # Resize for email header — 480px wide, aspect ratio preserved
-    target_w = 480
+    logo = Image.open(get_logo_path("dark")).convert("RGBA")
+    # Resize for email header — 200px wide is enough for header logo
+    target_w = 200
     ratio = target_w / logo.size[0]
     target_h = int(logo.size[1] * ratio)
     resized = logo.resize((target_w, target_h), Image.LANCZOS)
     buf = io.BytesIO()
-    resized.save(buf, format="JPEG", quality=85)
+    resized.save(buf, format="PNG", optimize=True)
     return base64.b64encode(buf.getvalue()).decode()
 
 
 def _get_logo_b64_light() -> str:
     """Process and return the light mode Styxproxy logo as base64 PNG."""
-    logo = Image.open(get_logo_path("light")).convert("RGB")
-    # The image is already cropped to just the logo (icon + wordmark)
-    target_w = 480
+    logo = Image.open(get_logo_path("light")).convert("RGBA")
+    target_w = 200
     ratio = target_w / logo.size[0]
     target_h = int(logo.size[1] * ratio)
     resized = logo.resize((target_w, target_h), Image.LANCZOS)
     buf = io.BytesIO()
-    resized.save(buf, format="JPEG", quality=85)
+    resized.save(buf, format="PNG", optimize=True)
     return base64.b64encode(buf.getvalue()).decode()
 
 
@@ -568,6 +566,10 @@ async def _send_via_resend(
             error="Email service not configured (RESEND_API_KEY missing)",
         )
 
+    import hashlib
+    import uuid
+    from email.utils import formatdate
+
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=15.0)) as client:
             # Build the recipient dict
@@ -575,6 +577,13 @@ async def _send_via_resend(
             if recipient.name:
                 to = f"{recipient.name} <{recipient.email}>"
 
+            # Generate unique Message-ID for email identification
+            msg_id = f"<{uuid.uuid4()}@styxproxy.com>"
+            
+            # Generate unsubscribe URL
+            unsub_token = hashlib.sha1((recipient.email + ":styxproxy_unsubscribe_v1").encode(), usedforsecurity=False).hexdigest()
+            unsub_url = f"https://styxproxy.com/unsubscribe?email={recipient.email}&token={unsub_token}"
+            
             response = await client.post(
                 "https://api.resend.com/emails",
                 json={
@@ -583,6 +592,13 @@ async def _send_via_resend(
                     "subject": subject,
                     "html": html,
                     "text": text,
+                    "headers": {
+                        "List-Unsubscribe": f"<{unsub_url}>",
+                        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+                        "Precedence": "bulk",
+                        "Message-ID": msg_id,
+                        "Date": formatdate(timeval=None, localtime=False, usegmt=True),
+                    },
                 },
                 headers={
                     "Authorization": f"Bearer {settings.resend_api_key}",
@@ -714,12 +730,20 @@ async def send_email(
 
             # Threading + List-Unsubscribe headers
             import hashlib
+            import uuid
+            from email.utils import formatdate
 
+            # Generate unique Message-ID for email threading and identification
+            msg_id = f"<{uuid.uuid4()}@styxproxy.com>"
+            
             unsub_token = hashlib.sha1((to + ":styxproxy_unsubscribe_v1").encode(), usedforsecurity=False).hexdigest()
             unsub_url = f"https://styxproxy.com/unsubscribe?email={to}&token={unsub_token}"
             custom_headers = {
                 "List-Unsubscribe": f"<{unsub_url}>",
                 "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+                "Precedence": "bulk",
+                "Message-ID": msg_id,
+                "Date": formatdate(timeval=None, localtime=False, usegmt=True),
             }
             if in_reply_to:
                 custom_headers["In-Reply-To"] = in_reply_to
@@ -776,7 +800,7 @@ def _render_header(right_label: str, right_sublabel: str = "") -> str:
             <div class="logo-section">
                 <img
     class="logo-dark"
-    src="data:image/jpeg;base64,{LOGO_DARK_B64}"
+    src="data:image/png;base64,{LOGO_DARK_B64}"
     alt="Styxproxy"
     width="200"
     height="58"
@@ -882,7 +906,7 @@ def _render_support_reply_email(
                 <div class="logo-section">
                     <img
     class="logo-dark"
-    src="data:image/jpeg;base64,{LOGO_DARK_B64}"
+    src="data:image/png;base64,{LOGO_DARK_B64}"
     alt="Styxproxy"
     width="200"
     height="58"
