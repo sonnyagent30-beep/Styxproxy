@@ -7,7 +7,8 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, cast, func, select
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import admin_only
@@ -138,7 +139,12 @@ async def list_published_posts(
     conditions = [Post.status == "published"]
 
     if tag:
-        conditions.append(Post.tags.contains([tag]))
+        # Post.tags is a plain JSON column (not JSONB/ARRAY), so SQLAlchemy compiles
+        # .contains([tag]) into `tags LIKE '%' || $1::JSON || '%'`, which Postgres
+        # rejects with `operator does not exist: json ~~ text` (HTTP 500 on every
+        # ?tag= request). Cast to jsonb and use the containment operator instead.
+        conditions.append(func.cast(Post.tags, JSONB).contains(cast([tag], JSONB)))
+
 
     if category:
         # Join with post_categories to filter by category slug
