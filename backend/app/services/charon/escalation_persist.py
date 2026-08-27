@@ -20,10 +20,10 @@ async def _get_pool():
     global _pool
     if _pool is None:
         import asyncpg
-        database_url = os.environ.get(
-            "DATABASE_URL",
-            "postgresql+asyncpg://styxproxy_app:Ku3xHibr3qjcbGNSmQ5ZOAwNViCbm4lO@127.0.0.1:5432/styxproxy",
-        )
+        database_url = os.environ.get("DATABASE_URL", "")
+        if not database_url:
+            logger.warning("DATABASE_URL not set, skipping escalation persistence")
+            return None
         dsn = database_url.replace("postgresql+asyncpg://", "")
         _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=2, command_timeout=10)
     return _pool
@@ -41,6 +41,8 @@ async def persist_escalation(
     """Insert a charon_escalations record. Returns the created ID or None on failure."""
     try:
         pool = await _get_pool()
+        if pool is None:
+            return None
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 """

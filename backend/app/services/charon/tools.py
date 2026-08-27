@@ -125,11 +125,8 @@ async def _lookup_order_tx_ref(tx_ref: str) -> ToolResult:
                 cred_result = await session.execute(cred_stmt)
                 cred = cred_result.scalar_one_or_none()
                 if cred:
-                    pwd = cred.provider_password or ""
-                    redacted_password = f"***{pwd[-4:]}" if len(pwd) >= 4 else "****"
                     creds = {
                         "username": cred.styxproxy_username,
-                        "password_preview": redacted_password,
                         "proxy_address": str(cred.upstream_proxy_ip) if cred.upstream_proxy_ip else None,
                         "port": cred.upstream_proxy_port,
                         "protocol": cred.protocol,
@@ -281,77 +278,34 @@ async def _generate_receipt_link(tx_ref: str) -> ToolResult:
 
 
 async def _get_product_catalog() -> ToolResult:
-    """Return the current product catalog with plan codes, names, and prices."""
-    return ToolResult(
-        ok=True,
-        data={
-            "plans": [
-                {
-                    "code": "ISP-1",
-                    "type": "isp",
-                    "label": "ISP",
-                    "starting_price_ngn": 6500,
-                    "starting_price_period": "month",
-                },
-                {
-                    "code": "RESIDENTIAL-5GB",
-                    "type": "residential",
-                    "label": "Residential 5GB",
-                    "price_ngn": 5000,
-                    "period": "data_plan",
-                },
-                {
-                    "code": "RESIDENTIAL-10GB",
-                    "type": "residential",
-                    "label": "Residential 10GB",
-                    "price_ngn": 9000,
-                    "period": "data_plan",
-                },
-                {
-                    "code": "RESIDENTIAL-50GB",
-                    "type": "residential",
-                    "label": "Residential 50GB",
-                    "price_ngn": 38000,
-                    "period": "data_plan",
-                },
-                {
-                    "code": "MOBILE-5GB",
-                    "type": "mobile",
-                    "label": "Mobile 4G 5GB",
-                    "price_ngn": 20000,
-                    "period": "data_plan",
-                },
-                {
-                    "code": "MOBILE-10GB",
-                    "type": "mobile",
-                    "label": "Mobile 4G 10GB",
-                    "price_ngn": 35000,
-                    "period": "data_plan",
-                },
-                {
-                    "code": "DC-10",
-                    "type": "datacenter",
-                    "label": "Datacenter 10 IPs",
-                    "price_ngn": 3000,
-                    "period": "month",
-                },
-                {
-                    "code": "DC-50",
-                    "type": "datacenter",
-                    "label": "Datacenter 50 IPs",
-                    "price_ngn": 12000,
-                    "period": "month",
-                },
-                {
-                    "code": "DC-100",
-                    "type": "datacenter",
-                    "label": "Datacenter 100 IPs",
-                    "price_ngn": 20000,
-                    "period": "month",
-                },
-            ],
-        },
-    )
+    """Return the current product catalog from the database (single source of truth)."""
+    try:
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models import Plan
+
+        async with async_session() as session:
+            stmt = select(Plan).where(Plan.is_active.is_(True)).order_by(Plan.plan_code)
+            result = await session.execute(stmt)
+            plans = result.scalars().all()
+
+            catalog = []
+            for plan in plans:
+                catalog.append({
+                    "code": plan.plan_code,
+                    "type": plan.plan_type.lower() if plan.plan_type else "unknown",
+                    "label": plan.name or plan.plan_code,
+                    "price_ngn": float(plan.price_ngn) if plan.price_ngn else None,
+                    "price_per_gb": float(plan.price_per_gb) if plan.price_per_gb else None,
+                    "country": plan.country,
+                    "duration_days": plan.duration_days,
+                    "features": plan.features if plan.features else [],
+                })
+
+            return ToolResult(ok=True, data={"plans": catalog})
+    except Exception as exc:
+        logger.exception("get_product_catalog failed")
+        return ToolResult(ok=False, error=f"Failed to load product catalog: {exc}")
 
 
 async def _suggest_articles(topic: str) -> ToolResult:

@@ -25,6 +25,7 @@ Self-improvement loop:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -187,6 +188,17 @@ async def reply(
     messages = list(history or [])
     messages.append(Message(role="user", content=user_message))
 
+    # ── 0. Conversation timeout ──────────────────────────────────────
+    # If conversation has gone on too long, escalate to human
+    CONVERSATION_TURN_LIMIT = 10
+    user_turns = sum(1 for m in messages if m.role == "user")
+    if user_turns > CONVERSATION_TURN_LIMIT:
+        return Reply(
+            text="This conversation has been going on for a while. Let me connect you with a human who can help better.",
+            escalated=True,
+            error="conversation_timeout",
+        )
+
     # ── 1. Scenario matcher ──────────────────────────────────────────
     scenario = scenarios.match(user_message)
     if scenario:
@@ -196,6 +208,17 @@ async def reply(
         log_ctx["escalated"] = escalate
         _persist_log(log_ctx)
         return Reply(text=reply_action.text, scenario_id=scenario.id, escalated=escalate, experiment_variant=variant.value)
+
+    # ── 1b. Per-conversation budget cap ─────────────────────────────
+    # Prevent runaway conversations from spending too much
+    MAX_TOKENS_PER_CONVERSATION = 8000
+    history_tokens = sum(len(m.content or "") for m in messages) // 4  # rough estimate
+    if history_tokens > MAX_TOKENS_PER_CONVERSATION:
+        return Reply(
+            text="I've spent a lot of time on this. Let me escalate to the team for better help.",
+            escalated=True,
+            error="conversation_budget_exhausted",
+        )
 
     # ── 2. LLM with knowledge + tools ──────────────────────────────
     context_chunks = knowledge.search(user_message, top_k=4)
@@ -234,7 +257,8 @@ async def reply(
     if tool_call_result is not None:
         log_ctx["response"] = tool_call_result.text
         _persist_log(log_ctx)
-        await record_outcome(conversation_id, "resolved", messages_count=len(messages))
+        # Fire-and-forget: don't block the response on experiment tracking
+        asyncio.create_task(record_outcome(conversation_id, "resolved", messages_count=len(messages)))
         return tool_call_result
 
     # ── 2b. Plain prompt to LLM (no tool step) ───────────────────────

@@ -303,23 +303,10 @@ async def health():
     return {
         "ok": True,
         "module": "charon",
-        "scenarios_loaded": sum(1 for _ in scenarios.all_scenarios()),
         "llm_configured": api_key_set,
         "llm_status": llm_status,
-        "llm_provider": "m2-primary,local-fallback",
-        "primary": {
-            "name": "m2-cloud",
-            "configured": cloud_key_set,
-        },
-        "fallback": {
-            "name": "local-minicpm5",
-            "reachable": local_reachable,
-        },
-        "last_success_age_s": int(success_age) if success_age is not None else None,
-        "last_error_age_s": int(error_age) if error_age is not None else None,
         "total_requests": s.total_requests,
         "escalated_replies": s.escalated_replies,
-        "llm_errors": s.llm_errors,
     }
 
 
@@ -457,7 +444,8 @@ async def _broadcast_event(event_type: str, data: dict):
 
 
 @router.get("/stream")
-async def stream_events():
+@limiter.limit("10/minute")
+async def stream_events(request: Request):
     """SSE stream for real-time Charon events."""
     queue: asyncio.Queue = asyncio.Queue()
     _sse_subscribers.add(queue)
