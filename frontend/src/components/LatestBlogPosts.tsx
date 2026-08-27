@@ -1,37 +1,31 @@
-'use client';
-
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight } from '@phosphor-icons/react';
-import api from '@/lib/api';
-import type { BlogPost } from '@/types';
+import { api } from '@/lib/api';
 
-export default function LatestBlogPosts() {
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
+export const dynamic = 'force-dynamic';
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const result = await api.getBlogPosts(1, 3);
-        if (!cancelled && result.data?.posts) {
-          setPosts(result.data.posts);
-        }
-      } catch {
-        // render nothing on error
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+export default async function LatestBlogPosts() {
+  let posts: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    excerpt?: string;
+    content?: string;
+    cover_image_url?: string;
+    tags?: string[];
+  }> = [];
+
+  try {
+    const result = await api.getBlogPosts(1, 3);
+    if (result.data?.posts) {
+      posts = result.data.posts;
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  } catch {
+    // render nothing on error (same as /blog page)
+  }
 
-  if (!loading && posts.length === 0) return null;
+  if (posts.length === 0) return null;
 
   const estimateReadTime = (content: string): number => {
     const words = content
