@@ -1234,6 +1234,28 @@ class ApiClient {
 
   // ============== Local token clear ==============
 
+
+  // ============== Secrets Vault ==============
+
+  async getSecretsVault(): Promise<ApiResponse<{ groups: Record<string, { key: string; masked: string; set: boolean }[]>; other: { key: string; masked: string; set: boolean }[]; env_path: string }>> {
+    return this.request('/api/admin/secrets');
+  }
+
+  async saveSecret(key: string, value: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/secrets', {
+      method: 'PUT',
+      body: JSON.stringify({ key, value }),
+    });
+  }
+
+  async deleteSecret(key: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/secrets/${key}`, { method: 'DELETE' });
+  }
+
+  async restartApi(): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/secrets/restart', { method: 'POST' });
+  }
+
   clearAdminToken(): void {
     if (typeof window !== 'undefined') {
       this.adminToken = null;

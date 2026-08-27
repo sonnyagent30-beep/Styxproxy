@@ -29,7 +29,7 @@ export default function AdminEscalationsPage() {
     if (result.error) {
       setError(result.error);
     } else {
-      setEscalations(result.data?.escalations || []);
+      setEscalations(result.data?.data || []);
       setTotal(result.data?.total || 0);
     }
 

@@ -5,11 +5,10 @@
  * plaintext. Writes require TOTP step-up (handled by the api client headers). */
 
 import { useCallback, useEffect, useState } from 'react';
+import api from '@/lib/api';
 
 type SecretRow = { key: string; masked: string; set: boolean };
 type VaultData = { groups: Record<string, SecretRow[]>; other: SecretRow[]; env_path: string };
-
-const apiBase = '/api/admin/secrets';
 
 export default function SecretsVaultPage() {
   const [data, setData] = useState<VaultData | null>(null);
@@ -27,9 +26,12 @@ export default function SecretsVaultPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(apiBase, { credentials: 'include' });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || `HTTP ${res.status}`);
-      setData(await res.json());
+      const result = await api.getSecretsVault();
+      if (result.error) {
+        setError(result.error);
+      } else if (result.data) {
+        setData(result.data as VaultData);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load vault');
     } finally {
@@ -44,18 +46,15 @@ export default function SecretsVaultPage() {
     setError('');
     setMessage('');
     try {
-      // TOTP step-up header is injected by the shared admin fetch wrapper when required.
-      const res = await fetch(apiBase, {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, value }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || `HTTP ${res.status}`);
-      setMessage(`${key} saved. Restart the API to apply.`);
-      setEditingKey(null);
-      setEditValue('');
-      await load();
+      const result = await api.saveSecret(key, value);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setMessage(`${key} saved. Restart the API to apply.`);
+        setEditingKey(null);
+        setEditValue('');
+        await load();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed');
     } finally {
@@ -67,10 +66,13 @@ export default function SecretsVaultPage() {
     if (!confirm(`Remove ${key} from .env? The API keeps its current value until restart.`)) return;
     setBusy(true);
     try {
-      const res = await fetch(`${apiBase}/${key}`, { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || `HTTP ${res.status}`);
-      setMessage(`${key} removed. Restart the API to apply.`);
-      await load();
+      const result = await api.deleteSecret(key);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setMessage(`${key} removed. Restart the API to apply.`);
+        await load();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Delete failed');
     } finally {
@@ -83,10 +85,13 @@ export default function SecretsVaultPage() {
     setBusy(true);
     setMessage('');
     try {
-      const res = await fetch(`${apiBase}/restart`, { method: 'POST', credentials: 'include' });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || `HTTP ${res.status}`);
-      setMessage('API restarting… it will be back in a few seconds.');
-      setTimeout(() => load(), 5000);
+      const result = await api.restartApi();
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setMessage('API restarting… it will be back in a few seconds.');
+        setTimeout(() => load(), 5000);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Restart failed');
     } finally {
@@ -128,56 +133,118 @@ export default function SecretsVaultPage() {
     </div>
   );
 
-  if (loading) return <div className="animate-pulse text-[var(--muted)] p-6">Loading vault…</div>;
-
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
+    <div className="max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Secrets Vault</h1>
-          <p className="text-xs text-[var(--muted)] mt-1 font-mono">{data?.env_path}</p>
+          <h1 className="text-3xl lg:text-4xl font-bold mb-2">Secrets Vault</h1>
+          <p className="text-[var(--muted)]">Manage runtime environment variables. Changes require API restart.</p>
         </div>
-        <button onClick={restartApi} disabled={busy}
-          className="px-4 py-2 rounded-xl bg-[var(--primary)] text-black text-sm font-semibold hover:opacity-90 disabled:opacity-50">
-          ↻ Restart API
-        </button>
+        <div className="flex gap-2">
+          <button onClick={load} disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--card-hover)] transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+          </button>
+          <button onClick={() => { setNewKey(''); setNewValue(''); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Secret
+          </button>
+          <button onClick={restartApi} disabled={busy}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors disabled:opacity-50">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Restart API
+          </button>
+        </div>
       </div>
 
-      <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs">
-        Values are write-only — the vault shows masked previews and never returns plaintext after saving.
-        Changes take effect after <strong>Restart API</strong>.
-      </div>
-
-      {error && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
-      {message && <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm">{message}</div>}
-
-      {data && Object.entries(data.groups).map(([group, rows]) => (
-        <section key={group} className="mb-6 rounded-xl bg-[var(--card)] border border-[var(--border)] overflow-hidden relative">
-          <h2 className="px-4 py-3 text-sm font-bold uppercase tracking-wide bg-[var(--card-hover)]">{group}</h2>
-          {rows.map(r => <Row key={r.key} row={r} />)}
-        </section>
-      ))}
-
-      {data && data.other.length > 0 && (
-        <section className="mb-6 rounded-xl bg-[var(--card)] border border-[var(--border)] overflow-hidden relative">
-          <h2 className="px-4 py-3 text-sm font-bold uppercase tracking-wide bg-[var(--card-hover)]">Other</h2>
-          {data.other.map(r => <Row key={r.key} row={r} />)}
-        </section>
+      {message && (
+        <div className="mb-6 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 flex items-center justify-between">
+          <span>{message}</span>
+          <button onClick={() => setMessage('')} className="text-green-300 hover:text-white">Dismiss</button>
+        </div>
       )}
 
-      {/* Add new secret */}
-      <form onSubmit={e => { e.preventDefault(); save(newKey.trim().toUpperCase(), newValue); setNewKey(''); setNewValue(''); }}
-        className="rounded-xl bg-[var(--card)] border border-dashed border-[var(--border)] p-4">
-        <p className="text-sm font-semibold mb-3">Add a secret</p>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input value={newKey} onChange={e => setNewKey(e.target.value.toUpperCase())}
-            placeholder="KEY_NAME" className="w-full sm:w-56 px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none font-mono text-sm" />
-          <input type="password" value={newValue} onChange={e => setNewValue(e.target.value)}
-            placeholder="secret value…" className="flex-1 px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none font-mono text-sm" />
-          <button type="submit" disabled={!newKey || !newValue || busy}
-            className="px-4 py-2 rounded-lg bg-[var(--primary)] text-black text-sm font-semibold disabled:opacity-50">Add</button>
+      {error && (
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError('')} className="text-red-300 hover:text-white">Dismiss</button>
         </div>
-      </form>
+      )}
+
+      {loading ? (
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+              <div className="animate-pulse h-4 bg-[var(--card-hover)] rounded w-32 mb-3"></div>
+              <div className="animate-pulse h-6 bg-[var(--card-hover)] rounded w-64"></div>
+            </div>
+          ))}
+        </div>
+      ) : data ? (
+        <div className="space-y-6">
+          {Object.entries(data.groups).map(([group, rows]) => (
+            <div key={group} className="bg-[var(--card)] rounded-2xl border border-[var(--border)] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--card-hover)]">
+                <h2 className="font-semibold text-sm uppercase tracking-wider text-[var(--muted)]">{group}</h2>
+              </div>
+              <div className="divide-y divide-[var(--border)]">
+                {rows.map(row => <Row key={row.key} row={row} />)}
+              </div>
+            </div>
+          ))}
+          {data.other && data.other.length > 0 && (
+            <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--card-hover)]">
+                <h2 className="font-semibold text-sm uppercase tracking-wider text-[var(--muted)]">Other</h2>
+              </div>
+              <div className="divide-y divide-[var(--border)]">
+                {data.other.map(row => <Row key={row.key} row={row} />)}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-center text-[var(--muted)] py-12">No secrets loaded.</div>
+      )}
+
+      {/* Add Secret Modal */}
+      {newKey !== '' || newValue !== '' ? (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setNewKey(''); setNewValue(''); }}>
+          <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-[var(--border)]">
+              <h2 className="text-xl font-bold">Add Secret</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Key</label>
+                <input type="text" value={newKey} onChange={e => setNewKey(e.target.value)} placeholder="e.g., MY_API_KEY"
+                  className="w-full px-4 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-[var(--primary)] font-mono" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Value</label>
+                <input type="password" value={newValue} onChange={e => setNewValue(e.target.value)} placeholder="Secret value"
+                  className="w-full px-4 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-[var(--primary)] font-mono" />
+              </div>
+            </div>
+            <div className="p-6 border-t border-[var(--border)] flex gap-3">
+              <button onClick={() => { setNewKey(''); setNewValue(''); }}
+                className="flex-1 px-4 py-2 rounded-xl bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--card-hover)] transition-colors">Cancel</button>
+              <button onClick={() => { save(newKey, newValue); setNewKey(''); setNewValue(''); }}
+                disabled={!newKey.trim() || !newValue.trim() || busy}
+                className="flex-1 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50">Save</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
