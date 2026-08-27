@@ -36,14 +36,25 @@ async function getTags(): Promise<string[]> {
 export const dynamic = 'force-dynamic';
 
 export default async function BlogPage() {
-  const [postsData, tags] = await Promise.all([getPosts(), getTags()]);
-
-  return (
-    <BlogFeed
-      initialPosts={postsData.posts}
-      initialTags={tags}
-      initialPage={1}
-      hasMore={postsData.pagination.has_next}
-    />
-  );
+  try {
+    const [postsData, tags] = await Promise.all([getPosts(), getTags()]);
+    return (
+      <BlogFeed
+        initialPosts={postsData.posts}
+        initialTags={tags}
+        initialPage={1}
+        hasMore={postsData.pagination.has_next}
+      />
+    );
+  } catch (err) {
+    console.error('Blog page error:', err);
+    return (
+      <BlogFeed
+        initialPosts={[]}
+        initialTags={[]}
+        initialPage={1}
+        hasMore={false}
+      />
+    );
+  }
 }
