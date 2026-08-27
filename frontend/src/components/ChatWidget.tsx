@@ -421,17 +421,41 @@ export default function ChatWidget() {
     return { position: 'fixed', bottom: 24, right: 24, zIndex: 9998 };
   };
 
+  // Track visual viewport for keyboard avoidance on mobile
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const vv = (window as any).visualViewport;
+    if (!vv) return;
+    
+    const onResize = () => {
+      setViewportHeight(vv.height);
+    };
+    
+    vv.addEventListener('resize', onResize);
+    vv.addEventListener('scroll', onResize);
+    onResize();
+    
+    return () => {
+      vv.removeEventListener('resize', onResize);
+      vv.removeEventListener('scroll', onResize);
+    };
+  }, []);
+
   // Compute chat window position - always within viewport
   const getChatStyle = (): React.CSSProperties => {
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
     
     if (isMobile) {
+      // Use visual viewport height when available (accounts for keyboard)
+      const h = viewportHeight || window.innerHeight;
       return {
         position: 'fixed',
         inset: 0,
         width: '100vw',
-        height: '100dvh' as any,
-        maxHeight: '100dvh' as any,
+        height: h ? `${h}px` : '100dvh',
+        maxHeight: h ? `${h}px` : '100dvh',
         zIndex: 9999,
         borderRadius: 0,
       };

@@ -85,10 +85,16 @@ export default function Header() {
         </div>
 
         {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div
+            className="md:hidden fixed inset-0 top-16 bg-black/50 z-40"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
         <div
           className="md:hidden overflow-hidden transition-all duration-300 ease-out"
           style={{
-            maxHeight: mobileMenuOpen ? '400px' : '0',
+            maxHeight: mobileMenuOpen ? 'calc(100svh - 64px)' : '0',
             opacity: mobileMenuOpen ? 1 : 0,
           }}
         >
