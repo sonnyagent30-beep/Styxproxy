@@ -22,9 +22,9 @@
     {
       "parameters": {
         "operation": "insert",
-        "table": "error_log",
-        "columns": "error_message, severity, workflow_name, node_name, execution_id, created_at",
-        "values": "'{{$json.errorMessage}}', '{{$json.severity}}', '{{$json.workflowName}}', '{{$json.nodeName}}', '{{$json.executionId}}', NOW()"
+        "table": "orders",
+        "columns": "status, plan_code, customer_phone, amount_paid_ngn",
+        "values": "'{{$json.severity}}', '{{$json.workflowName}}', '{{$json.nodeName}}', '{{$json.executionId}}'"
       },
       "id": "ea-log",
       "name": "Log to PostgreSQL",

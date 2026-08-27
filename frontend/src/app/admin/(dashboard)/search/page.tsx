@@ -3,7 +3,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import type { GlobalSearchResult, GlobalSearchResponse } from '@/types';
