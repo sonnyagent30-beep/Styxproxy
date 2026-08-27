@@ -1,5 +1,5 @@
 const content = `<h1>Privacy Policy</h1>
-<p><em>Styxproxy — Anonymous Proxy Service</em><br><em>Effective Date: July 15, 2026</em></p>
+<p><em>Styxproxy — Anonymous Proxy Service</em><br><em>Effective Date: August 27, 2026</em></p>
 
 <h2>1. Introduction</h2>
 <p>Styxproxy ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our services across any channel — our website, our Telegram bot, or our chat widget.</p>
@@ -105,6 +105,7 @@ const content = `<h1>Privacy Policy</h1>
 <p>We will delete your personal data within 30 days, except financial records required by law (7 years) and data we are required to retain under applicable law.</p>
 
 <h2>7. Data Security</h2>
+
 <h3>7.1 Technical Measures</h3>
 <ul>
 <li>HTTPS-only on all Styxproxy properties</li>
@@ -155,7 +156,7 @@ const content = `<h1>Privacy Policy</h1>
 <li><strong>Telegram:</strong> @styxproxy</li>
 <li><strong>Email:</strong> support@styxproxy.com</li>
 <li><strong>Website:</strong> styxproxy.com</li>
+<li><strong>Order Status page:</strong> styxproxy.com/order/status</li>
 </ul>
 <p>We will respond to all enquiries within 30 days.</p>`;
-
 module.exports = { content };

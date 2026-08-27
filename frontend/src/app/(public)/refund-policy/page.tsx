@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { content } from "@/lib/legal/refund";
 
 export const metadata: Metadata = {
   title: "Refund Policy — Styxproxy",
@@ -20,9 +19,11 @@ export default function RefundPolicyPage() {
 
       <main className="relative z-10 flex-1 pt-28 pb-20">
         <div className="max-w-2xl mx-auto px-6">
+
           {/* Article card */}
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl card-depth overflow-hidden">
             <div className="p-8 sm:p-10">
+
               {/* Page Header */}
               <div className="mb-8">
                 <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Policy</p>
@@ -30,7 +31,7 @@ export default function RefundPolicyPage() {
                   Refund <span className="text-[var(--primary)]">Policy</span>
                 </h1>
                 <p className="text-[var(--muted)] text-sm">
-                  Effective Date: July 15, 2026
+                  Effective Date: August 27, 2026
                 </p>
               </div>
               <div className="border-t border-[var(--border)] mb-8" />
@@ -80,7 +81,7 @@ export default function RefundPolicyPage() {
                 <ul className="space-y-3">
                   {[
                     ["Chat Widget (Charon)", "styxproxy.com — open the chat widget and say 'I want a refund for [your tx_ref]'"],
-                    ["Management Portal", "styxproxy.com/manage — enter your order number and submit a refund request"],
+                    ["Order Status Page", "styxproxy.com/order/status — enter your transaction reference and submit a refund request"],
                     ["Telegram", "@styxproxy — send 'Refund request for [your tx_ref]'"],
                     ["Email", "support@styxproxy.com — include your tx_ref and a brief description"],
                   ].map(([method, desc]) => (
@@ -182,7 +183,7 @@ export default function RefundPolicyPage() {
     
               {/* Last updated */}
               <div className="border-t border-[var(--border)] pt-6">
-                <p className="text-sm text-[var(--muted)]">Last updated: July 15, 2026</p>
+                <p className="text-sm text-[var(--muted)]">Last updated: August 27, 2026</p>
               </div>
             </div>
           </div>

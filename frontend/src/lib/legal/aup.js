@@ -1,11 +1,11 @@
 const content = `<h1>Acceptable Use Policy</h1>
-<p><em>Styxproxy — Anonymous Proxy Service</em><br><em>Effective Date: July 1, 2026</em></p>
+<p><em>Styxproxy — Anonymous Proxy Service</em><br><em>Effective Date: August 27, 2026</em></p>
 
 <h2>1. Purpose</h2>
 <p>This Acceptable Use Policy ("AUP") defines acceptable use of Styxproxy proxy services. By using Styxproxy, you agree to this policy. Violations may result in immediate credential revocation and permanent suspension from the service without refund.</p>
 
 <h2>2. Scope</h2>
-<p>This policy applies to all Styxproxy channels — the website and the Styxproxy Telegram bot. The same rules apply regardless of how you purchased your proxy.</p>
+<p>This policy applies to all Styxproxy channels — the website, the website chat widget (Charon), and the Styxproxy Telegram bot. The same rules apply regardless of how you purchased your proxy.</p>
 
 <h2>3. Permitted Use</h2>
 <p>Styxproxy proxies may be used for:</p>
@@ -86,8 +86,8 @@ const content = `<h1>Acceptable Use Policy</h1>
 <p>If your proxy IP is blocked by a website or service, you may raise a ban claim.</p>
 
 <h3>5.1 How to Raise a Ban Claim</h3>
-<p><strong>Via Management Portal:</strong> Go to styxproxy.com/manage, enter your transaction reference, select "Report a Ban," upload a screenshot showing the block.</p>
-<p><strong>Via Telegram:</strong> Send "Ban claim for order [tx_ref]" to @styxproxy.</p>
+<p><strong>Via Order Status Page:</strong> Go to styxproxy.com/order/status, enter your transaction reference, select "Report a Ban," upload a screenshot showing the block.</p>
+<p><strong>Via Telegram:</strong> Send "Ban claim for [tx_ref]" to @styxproxy.</p>
 
 <h3>5.2 What Happens Next</h3>
 <p>An admin will review your claim. You may be asked to provide additional information. Replacement credentials are issued at Styxproxy's discretion based on the evidence provided.</p>
@@ -100,7 +100,7 @@ const content = `<h1>Acceptable Use Policy</h1>
 <p>If prohibited use is detected: we may immediately revoke affected credentials, suspend the associated account without notice, report the activity to law enforcement if required, and refunds are not provided for abuse-related revocations.</p>
 
 <h2>7. Report Abuse</h2>
-<p>If you become aware that a Styxproxy customer is using the service for prohibited activity, report it via the management portal at styxproxy.com/manage, or by emailing support@styxproxy.com. All abuse reports are investigated. Reporter information is kept confidential upon request.</p>
+<p>If you become aware that a Styxproxy customer is using the service for prohibited activity, report it via the Order Status page at styxproxy.com/order/status, or by emailing support@styxproxy.com. All abuse reports are investigated. Reporter information is kept confidential upon request.</p>
 
 <h2>8. Credential Revocation</h2>
 <p>Styxproxy reserves the right to revoke credentials immediately and without notice if: the proxy is used for prohibited activities, the proxy exposes Styxproxy or our infrastructure partners to legal liability, the customer engages in abusive behaviour toward Styxproxy staff, a third party provides evidence of illegal use, or a refund is approved (credentials revoked simultaneously). Revoked credentials cannot be reactivated. A new order must be placed if service is desired after revocation.</p>
@@ -118,7 +118,6 @@ const content = `<h1>Acceptable Use Policy</h1>
 <li><strong>Chat widget:</strong> styxproxy.com</li>
 <li><strong>Email:</strong> support@styxproxy.com</li>
 <li><strong>Website:</strong> styxproxy.com</li>
-<li><strong>Management portal:</strong> styxproxy.com/manage</li>
+<li><strong>Order Status page:</strong> styxproxy.com/order/status</li>
 </ul>`;
-
 module.exports = { content };

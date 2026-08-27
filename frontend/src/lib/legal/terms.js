@@ -1,6 +1,6 @@
 const content = `# Terms of Service
 *Styxproxy — Anonymous Proxy Service*
-*Effective Date: July 15, 2026*
+*Effective Date: August 27, 2026*
 
 ---
 
@@ -22,7 +22,7 @@ The primary order path. No account required.
 - Select product → pay via our payment processor → receive credentials on screen
 - No registration. No phone number. No email required.
 - Your Flutterwave transaction reference (tx_ref) is your only order identifier
-- Manage and retrieve orders at styxproxy.com/manage
+- Check your order status at styxproxy.com/order/status
 
 ### 2.2 Chat Widget (Charon)
 
@@ -71,7 +71,7 @@ All payments are processed by Flutterwave. Styxproxy does not store your card de
 
 Website orders: credentials are displayed on the confirmation page immediately after payment is confirmed (typically within 30 seconds).
 
-If you are disconnected, do not receive your credentials, or cannot access the confirmation page — chat with Charon on the website and provide your transaction reference. Charon can look up your order and deliver your credentials directly in the chat. You can also check your order status at styxproxy.com/manage using your transaction reference.
+If you are disconnected, do not receive your credentials, or cannot access the confirmation page — chat with Charon on the website and provide your transaction reference. Charon can look up your order and deliver your credentials directly in the chat. You can also check your order status at styxproxy.com/order/status using your transaction reference.
 
 Chat orders (Telegram): credentials are delivered in Telegram within 2 minutes of payment confirmation.
 
@@ -80,7 +80,7 @@ Chat orders (Telegram): credentials are delivered in Telegram within 2 minutes o
 If you paid but did not receive your credentials:
 
 1. **Chat with Charon** — open the chat widget on styxproxy.com and say "I paid but didn't get my proxy". Share your Flutterwave transaction reference when asked. Charon will look up your order and deliver your credentials.
-2. **Manage portal** — go to styxproxy.com/manage and enter your transaction reference.
+2. **Order Status page** — go to styxproxy.com/order/status and enter your transaction reference.
 3. **Telegram** — message @styxproxy with your transaction reference.
 4. **Email** — send your transaction reference to support@styxproxy.com.
 
@@ -118,7 +118,7 @@ Violations may result in immediate credential revocation without refund.
 
 If your proxy IP is blocked by a website or service:
 
-**Via Management Portal:** Go to styxproxy.com/manage, enter your transaction reference, select "Report a Ban."
+**Via Order Status Page:** Go to styxproxy.com/order/status, enter your transaction reference, select "Report a Ban."
 
 **Via Telegram:** Send "Ban claim for [your tx_ref]" to @styxproxy.
 
@@ -136,7 +136,7 @@ You may request a refund within 24 hours of receiving your credentials if: the p
 
 ### 8.2 How to Request
 
-Request a refund via styxproxy.com/manage, by chatting with Charon on the website, via Telegram at @styxproxy, or by emailing support@styxproxy.com. All refund requests are reviewed manually.
+Request a refund via styxproxy.com/order/status, by chatting with Charon on the website, via Telegram at @styxproxy, or by emailing support@styxproxy.com. All refund requests are reviewed manually.
 
 ### 8.3 Refund Processing
 
@@ -165,7 +165,7 @@ Unused data does not roll over. Renewing grants a fresh data quota.
 Support is available via:
 - Chat widget (Charon) on styxproxy.com — AI-powered, instant responses
 - Telegram: @styxproxy
-- Management portal at styxproxy.com/manage
+- Order Status page at styxproxy.com/order/status
 - Email: support@styxproxy.com
 
 Response time: within 2 hours during business hours (9am–6pm WAT, Monday–Saturday). Charon can resolve most questions instantly without waiting.
@@ -225,8 +225,8 @@ Styxproxy
 - Telegram: @styxproxy
 - Email: support@styxproxy.com
 - Website: styxproxy.com
-- Management portal: styxproxy.com/manage
+- Order Status page: styxproxy.com/order/status
 
-Version: 2026-07-15
+Version: 2026-08-27
 `;
 module.exports = { content };
