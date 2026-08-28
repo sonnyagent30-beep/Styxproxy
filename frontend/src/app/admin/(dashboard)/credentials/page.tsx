@@ -44,16 +44,16 @@ export default function AdminCredentialsPage() {
     if (credsResult.error) {
       setError(credsResult.error);
     } else {
-      const creds = credsResult.data?.data || [];
+      const creds = credsResult.data?.credentials || [];
       setCredentials(searchQuery 
         ? creds.filter(c => 
-            c.styxproxy_username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            c.styxproxy_username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             c.customer_phone?.includes(searchQuery)
           )
         : creds
       );
-      setTotal(credsResult.data?.pagination.total_items || 0);
-      setTotalPages(credsResult.data?.pagination.total_pages || 0);
+      setTotal(credsResult.data?.pagination?.total_items || 0);
+      setTotalPages(credsResult.data?.pagination?.total_pages || 0);
     }
 
     setLoading(false);

@@ -8,15 +8,16 @@ import api from '@/lib/api';
 import type { ApiResponse } from '@/types';
 
 type FunnelStage = {
-  stage: string;
+  step: string;
   count: number;
-  conversion_rate: number | null;
+  unique_sessions: number;
 };
 
 type FunnelData = {
-  total_events: number;
-  stages: FunnelStage[];
-  period_days: number;
+  period_start: string;
+  period_end: string;
+  total_sessions: number;
+  steps: FunnelStage[];
 };
 
 type AnalyticsEvent = {
@@ -90,8 +91,8 @@ export default function AdminAnalyticsPage() {
     );
   }
 
-  const filteredFunnel = funnelData?.stages.filter(s =>
-    eventFilter === 'all' || s.stage === eventFilter
+  const filteredFunnel = funnelData?.steps?.filter(s =>
+    eventFilter === 'all' || s.step === eventFilter
   ) || [];
 
   const maxCount = Math.max(...(filteredFunnel.map(s => s.count) || [1]));
@@ -104,7 +105,7 @@ export default function AdminAnalyticsPage() {
           <div>
             <h1 className="text-3xl font-bold">Analytics</h1>
             <p className="text-[var(--muted)] mt-1">
-              Customer journey funnel — {funnelData?.period_days || 30} day period
+              Customer journey funnel — last 30 days
             </p>
           </div>
           <div className="flex gap-2">
@@ -145,21 +146,18 @@ export default function AdminAnalyticsPage() {
             <div className="space-y-4">
               {filteredFunnel.map((stage) => {
                 const pct = maxCount > 0 ? (stage.count / maxCount) * 100 : 0;
-                const convPct = stage.conversion_rate !== null
-                  ? `${(stage.conversion_rate * 100).toFixed(1)}%`
-                  : '—';
-                const color = EVENT_COLORS[stage.stage] || '#6366f1';
+                const color = EVENT_COLORS[stage.step] || '#6366f1';
 
                 return (
-                  <div key={stage.stage} className="space-y-1">
+                  <div key={stage.step} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">
-                        {FUNNEL_STAGE_LABELS[stage.stage] || stage.stage}
+                        {FUNNEL_STAGE_LABELS[stage.step] || stage.step}
                       </span>
                       <div className="flex items-center gap-4 text-[var(--muted)]">
                         <span>{stage.count.toLocaleString()} users</span>
                         <span className="text-xs px-2 py-0.5 rounded bg-[var(--background)]">
-                          {convPct} conversion
+                          {stage.unique_sessions} unique
                         </span>
                       </div>
                     </div>

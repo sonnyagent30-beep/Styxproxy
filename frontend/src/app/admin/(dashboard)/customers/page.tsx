@@ -40,8 +40,8 @@ export default function AdminCustomersPage() {
     if (customersResult.error) {
       setError(customersResult.error);
     } else {
-      setCustomers(customersResult.data?.data || []);
-      setTotal(customersResult.data?.pagination.total_items || 0);
+      setCustomers(customersResult.data?.customers || []);
+      setTotal(customersResult.data?.pagination?.total_items || 0);
     }
 
     setLoading(false);

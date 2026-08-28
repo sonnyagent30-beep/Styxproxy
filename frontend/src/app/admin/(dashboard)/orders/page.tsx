@@ -46,9 +46,9 @@ export default function AdminOrdersPage() {
     if (ordersResult.error) {
       setError(ordersResult.error);
     } else {
-      const allOrders = ordersResult.data?.data || [];
+      const allOrders = ordersResult.data?.orders || [];
       setOrders(statusFilter === 'all' ? allOrders : allOrders.filter(o => o.status === statusFilter));
-      setTotal(ordersResult.data?.pagination.total_items || 0);
+      setTotal(ordersResult.data?.pagination?.total_items || 0);
     }
 
     setLoading(false);
