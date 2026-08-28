@@ -2319,3 +2319,17 @@ async def fix_orders_columns(
             except Exception as e:
                 logger.warning(f"Column {col_name} already exists or error: {e}")
     return {"status": "ok", "columns_added": added}
+
+
+@router.get("/orders/columns/list",
+    dependencies=[Depends(require_permission("admin.orders.list"))])
+async def list_orders_columns(
+    session: AsyncSession = Depends(get_session),
+):
+    """List actual columns in the orders table."""
+    from sqlalchemy import text
+    result = await session.execute(text(
+        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'orders' ORDER BY ordinal_position"
+    ))
+    columns = [{"name": row[0], "type": row[1]} for row in result.fetchall()]
+    return {"table": "orders", "columns": columns, "count": len(columns)}
