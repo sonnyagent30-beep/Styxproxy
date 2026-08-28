@@ -12,7 +12,10 @@ from pydantic import BaseModel
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_session
+import logging
+logger = logging.getLogger(__name__)
+
+from app.database import engine, get_session
 from app.models import (
     AdminAuditLog,
     CharonEscalation,
@@ -2262,3 +2265,57 @@ async def admin_backfill_referral_codes(
     """
     count = await backfill_referral_codes(session)
     return {"codes_generated": count, "detail": f"Generated {count} referral codes."}
+
+
+@router.post("/orders/columns/fix",
+    dependencies=[Depends(require_permission("admin.orders.manage"))])
+async def fix_orders_columns(
+    session: AsyncSession = Depends(get_session),
+):
+    """Temporary endpoint to fix missing orders table columns."""
+    from sqlalchemy import text
+    async with engine.begin() as conn:
+        columns_to_add = [
+            ("platform_account_id", "UUID"),
+            ("customer_phone", "VARCHAR(20)"),
+            ("plan_type", "VARCHAR(20)"),
+            ("plan_code", "VARCHAR(50)"),
+            ("country", "VARCHAR(10)"),
+            ("quantity", "INTEGER"),
+            ("amount_paid_ngn", "NUMERIC(12, 2)"),
+            ("payment_reference", "VARCHAR(100)"),
+            ("tx_ref", "VARCHAR(100)"),
+            ("provider", "VARCHAR(50)"),
+            ("provider_order_id", "VARCHAR(100)"),
+            ("styxproxy_credential_id", "INTEGER"),
+            ("status", "VARCHAR(50) DEFAULT 'pending'"),
+            ("ip_tested", "BOOLEAN DEFAULT false"),
+            ("ip_test_result", "VARCHAR(10)"),
+            ("data_total_gb", "NUMERIC(10, 2)"),
+            ("data_remaining_gb", "NUMERIC(10, 2)"),
+            ("data_expires", "TIMESTAMP WITH TIME ZONE"),
+            ("expires_at", "TIMESTAMP WITH TIME ZONE"),
+            ("ban_reported", "BOOLEAN DEFAULT false"),
+            ("screenshot_url", "TEXT"),
+            ("ban_verified", "VARCHAR(50)"),
+            ("replacement_count", "INTEGER DEFAULT 0"),
+            ("refund_requested", "BOOLEAN DEFAULT false"),
+            ("refund_reason", "TEXT"),
+            ("notes", "TEXT"),
+            ("fulfilled_at", "TIMESTAMP WITH TIME ZONE"),
+            ("cost_usd", "NUMERIC(10, 4)"),
+            ("rotation_mode", "VARCHAR(20)"),
+            ("city_id", "INTEGER"),
+            ("city_name", "VARCHAR(100)"),
+            ("referral_tx_ref", "VARCHAR(100)"),
+            ("emails_sent", "INTEGER DEFAULT 0"),
+            ("reminder_sent_at", "TIMESTAMP WITH TIME ZONE"),
+        ]
+        added = []
+        for col_name, col_type in columns_to_add:
+            try:
+                await conn.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                added.append(col_name)
+            except Exception as e:
+                logger.warning(f"Column {col_name} already exists or error: {e}")
+    return {"status": "ok", "columns_added": added}
