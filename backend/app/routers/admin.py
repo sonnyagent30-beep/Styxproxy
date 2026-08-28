@@ -12,10 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import logging
-logger = logging.getLogger(__name__)
-
-from app.database import engine, get_session
+from app.database import get_session
 from app.models import (
     AdminAuditLog,
     CharonEscalation,
@@ -2265,17 +2262,3 @@ async def admin_backfill_referral_codes(
     """
     count = await backfill_referral_codes(session)
     return {"codes_generated": count, "detail": f"Generated {count} referral codes."}
-
-
-@router.get("/orders/columns/list",
-    dependencies=[Depends(require_permission("admin.orders.list"))])
-async def list_orders_columns(
-    session: AsyncSession = Depends(get_session),
-):
-    """List actual columns in the orders table."""
-    from sqlalchemy import text
-    result = await session.execute(text(
-        "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'orders' ORDER BY ordinal_position"
-    ))
-    columns = [{"name": row[0], "type": row[1]} for row in result.fetchall()]
-    return {"table": "orders", "columns": columns, "count": len(columns)}
