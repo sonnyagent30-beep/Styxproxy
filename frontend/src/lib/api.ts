@@ -102,9 +102,11 @@ import type {
 //     to show 'No posts found' even though curl from outside returned 17).
 //
 // NEXT_PUBLIC_API_BASE_URL is inlined at build time by Next.js for both client
-// and server bundles. Empty/undefined → fall back to the production BE URL.
+// and server bundles. Empty/undefined → use relative URLs (same-origin).
+// Relative URLs let Next.js rewrites proxy /api/* → backend, avoiding
+// cross-origin issues on mobile browsers.
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.styxproxy.com';
+  process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
 class ApiClient {
   private baseUrl: string;
