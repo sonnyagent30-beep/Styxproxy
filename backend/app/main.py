@@ -71,9 +71,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     logger.info("Starting Styxproxy Backend", version="1.0.0")
 
-    # Create database tables
+    # Create database tables (if they don't exist)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Run alembic migrations (best-effort, safe to skip if alembic not installed)
+    try:
+        from alembic.config import Config
+        from alembic import command
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Alembic migrations applied")
+    except Exception as e:
+        logger.warning(f"Alembic migrations skipped: {e}")
 
     # Seed initial trigger weights if they don't exist
     from sqlalchemy import text
