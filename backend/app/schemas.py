@@ -775,6 +775,13 @@ class AdminOrderResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator('amount_paid_ngn', mode='before')
+    @classmethod
+    def convert_decimal(cls, v):
+        if hasattr(v, 'quantize'):  # Decimal
+            return float(v)
+        return v
+
     order_id: str
     customer_phone: Optional[str]
     plan_type: Optional[str]
@@ -814,7 +821,7 @@ class AdminCredentialResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    bun_username: str
+    bun_username: str = Field(validation_alias="styxproxy_username")
     customer_phone: Optional[str]
     order_id: Optional[str]
     pool_type: str

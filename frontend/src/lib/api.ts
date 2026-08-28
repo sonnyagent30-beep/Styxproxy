@@ -326,7 +326,7 @@ class ApiClient {
 
   // Analytics
   async getAnalyticsFunnel(): Promise<ApiResponse<FunnelData>> {
-    return this.request<FunnelData>('/api/v1/admin/analytics/funnel');
+    return this.request<FunnelData>('/api/admin/analytics/funnel');
   }
 
   async getAnalyticsEvents(page: number = 1, limit: number = 30, eventName?: string): Promise<ApiResponse<{ events: AnalyticsEvent[]; total: number }>> {
@@ -334,7 +334,7 @@ class ApiClient {
     const params = new URLSearchParams(`limit=${limit}&offset=${offset}`);
     if (eventName && eventName !== 'all') params.set('event_name', eventName);
     return this.request<{ events: AnalyticsEvent[]; total: number }>(
-      `/api/v1/admin/analytics/events?${params.toString()}`
+      `/api/admin/analytics/events?${params.toString()}`
     );
   }
 
@@ -881,28 +881,28 @@ class ApiClient {
   // ============== Support Threads =============
 
   async getSupportThreads(status?: string, page = 1, limit = 20): Promise<ApiResponse<SupportThreadsResponse>> {
-    let url = `/api/admin/support/threads?page=${page}&limit=${limit}`;
+    let url = `/api/v1/admin/support/threads?page=${page}&limit=${limit}`;
     if (status && status !== 'all') url += `&status=${status}`;
     return this.request<SupportThreadsResponse>(url);
   }
 
   async getSupportThread(threadId: string): Promise<ApiResponse<SupportThreadDetail>> {
-    return this.request<SupportThreadDetail>(`/api/admin/support/threads/${threadId}`);
+    return this.request<SupportThreadDetail>(`/api/v1/admin/support/threads/${threadId}`);
   }
 
   async replySupportThread(threadId: string, replyHtml: string, adminName = 'Dannion'): Promise<ApiResponse<{ status: string; message_id: string; thread_id: string }>> {
-    return this.request(`/api/admin/support/threads/${threadId}/reply`, {
+    return this.request(`/api/v1/admin/support/threads/${threadId}/reply`, {
       method: 'POST',
       body: JSON.stringify({ reply_html: replyHtml, admin_name: adminName }),
     });
   }
 
   async closeSupportThread(threadId: string): Promise<ApiResponse<{ status: string }>> {
-    return this.request(`/api/admin/support/threads/${threadId}/close`, { method: 'POST' });
+    return this.request(`/api/v1/admin/support/threads/${threadId}/close`, { method: 'POST' });
   }
 
   async reopenSupportThread(threadId: string): Promise<ApiResponse<{ status: string }>> {
-    return this.request(`/api/admin/support/threads/${threadId}/reopen`, { method: 'POST' });
+    return this.request(`/api/v1/admin/support/threads/${threadId}/reopen`, { method: 'POST' });
   }
 
   // ============== Contact Submissions =============

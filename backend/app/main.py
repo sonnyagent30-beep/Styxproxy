@@ -325,12 +325,14 @@ async def maintenance_block(request: Request, call_next):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Handle uncaught exceptions with request context."""
+    import traceback
     logger.error(
         "Uncaught exception",
         path=request.url.path,
         method=request.method,
         error=str(exc),
         error_type=type(exc).__name__,
+        traceback=traceback.format_exc(),
     )
 
     return JSONResponse(
@@ -339,6 +341,7 @@ async def global_exception_handler(request: Request, exc: Exception):
             "error": {
                 "code": "INTERNAL_ERROR",
                 "message": "An internal error occurred",
+                "detail": str(exc),
                 "request_id": structlog.contextvars.get_contextvars().get("request_id"),
             }
         },

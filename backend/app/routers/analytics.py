@@ -163,16 +163,70 @@ async def _trial_survey() -> TrialSurvey:
         )
 
 
-# ── Endpoint ─────────────────────────────────────────────────────────────
+# ── Endpoints ─────────────────────────────────────────────────────────────
+
+@router.get("/analytics/funnel", response_model=FunnelResponse)
+async def get_analytics_funnel(days: int = 30):
+    """Conversion funnel (last N days)."""
+    return await _funnel(days=days)
+
+
+@router.get("/analytics/events")
+async def get_analytics_events(
+    page: int = 1,
+    limit: int = 30,
+    event_name: Optional[str] = None,
+):
+    """Paginated raw analytics events."""
+    offset = (page - 1) * limit
+    async with get_session() as session:
+        # Build query
+        where_clause = ""
+        params = {"limit": limit, "offset": offset}
+        if event_name:
+            where_clause = "WHERE event_name = :event_name"
+            params["event_name"] = event_name
+
+        # Count
+        count_row = await session.execute(
+            text(f"SELECT COUNT(*) FROM analytics_events {where_clause}"),
+            params,
+        )
+        total = count_row.scalar() or 0
+
+        # Fetch rows
+        rows = await session.execute(
+            text(f"""
+                SELECT id, event_name, session_id, customer_phone, country,
+                       plan_code, channel, meta, created_at
+                FROM analytics_events
+                {where_clause}
+                ORDER BY created_at DESC
+                LIMIT :limit OFFSET :offset
+            """),
+            params,
+        )
+
+        events = []
+        for row in rows.fetchall():
+            events.append({
+                "id": row[0],
+                "event_name": row[1],
+                "session_id": row[2],
+                "customer_phone": row[3],
+                "country": row[4],
+                "plan_code": row[5],
+                "channel": row[6] or "web",
+                "meta": row[7] or {},
+                "created_at": row[8].isoformat() if row[8] else None,
+            })
+
+        return {"events": events, "total": total, "page": page, "limit": limit}
+
 
 @router.get("/analytics", response_model=AnalyticsResponse)
-async def get_analytics() -> AnalyticsResponse:
-    """
-    Customer journey analytics — conversion funnel (last 30 days) and trial survey stats.
-
-    Funnel: page_view → plan_viewed → cart_added → checkout_started → payment_completed
-    NPS: 9-10 = promoters, 7-8 = passives, 0-6 = detractors
-    """
+async def get_analytics():
+    """Full analytics — funnel + trial survey."""
     funnel = await _funnel(days=30)
     trial = await _trial_survey()
     return AnalyticsResponse(
