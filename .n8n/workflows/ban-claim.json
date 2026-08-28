@@ -5,14 +5,16 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "whatsapp-incoming",
-        "responseMode": "lastNode",
-        "options": {}
+        "responseMode": "lastNode"
       },
       "id": "wa-trigger",
       "name": "WhatsApp Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -22,12 +24,17 @@
       "name": "Verify WhatsApp Signature",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [200, 0]
+      "position": [
+        200,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": false },
+          "options": {
+            "caseSensitive": false
+          },
           "conditions": [
             {
               "id": "ban-keyword",
@@ -49,7 +56,10 @@
       "name": "Detect: Ban Claim",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [400, 0]
+      "position": [
+        400,
+        0
+      ]
     },
     {
       "parameters": {
@@ -62,7 +72,10 @@
       "name": "Lookup Customer in PostgreSQL",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [600, 0]
+      "position": [
+        600,
+        0
+      ]
     },
     {
       "parameters": {
@@ -75,7 +88,10 @@
       "name": "Lookup Active Order",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [800, 0]
+      "position": [
+        800,
+        0
+      ]
     },
     {
       "parameters": {
@@ -100,12 +116,17 @@
       "name": "Check Provider Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [1000, 0]
+      "position": [
+        1000,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true },
+          "options": {
+            "caseSensitive": true
+          },
           "conditions": [
             {
               "id": "provider-ok",
@@ -120,7 +141,10 @@
       "name": "Provider Status OK?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [1200, 0]
+      "position": [
+        1200,
+        0
+      ]
     },
     {
       "parameters": {
@@ -133,7 +157,10 @@
       "name": "Check Mass Ban Reports",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [1400, 0]
+      "position": [
+        1400,
+        0
+      ]
     },
     {
       "parameters": {
@@ -153,7 +180,10 @@
       "name": "Mass Ban Detected?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [1600, 0]
+      "position": [
+        1600,
+        0
+      ]
     },
     {
       "parameters": {
@@ -163,7 +193,10 @@
       "name": "Prepare Credential Rotation",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1800, 0]
+      "position": [
+        1800,
+        0
+      ]
     },
     {
       "parameters": {
@@ -201,7 +234,10 @@
       "name": "Revoke Old Credentials",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [2000, 0]
+      "position": [
+        2000,
+        0
+      ]
     },
     {
       "parameters": {
@@ -243,7 +279,10 @@
       "name": "Create New Credentials",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [2200, 0]
+      "position": [
+        2200,
+        0
+      ]
     },
     {
       "parameters": {
@@ -255,7 +294,10 @@
       "name": "Update Credentials in PostgreSQL",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [2400, 0]
+      "position": [
+        2400,
+        0
+      ]
     },
     {
       "parameters": {
@@ -267,51 +309,68 @@
       "name": "Log Support Ticket",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [2600, 0]
+      "position": [
+        2600,
+        0
+      ]
     },
     {
       "parameters": {
-        "message": "🔄 Credentials Rotated\n\nYour IP stays the same but you've got fresh login details:\n\n👤 New Username: {{$json.new_username}}\n🔑 New Password: {{$json.new_password}}\n\nYour old credentials have been revoked.\nUse these from now on.\n\nNeed help? Reply how to use.",
+        "message": "\ud83d\udd04 Credentials Rotated\n\nYour IP stays the same but you've got fresh login details:\n\n\ud83d\udc64 New Username: {{$json.new_username}}\n\ud83d\udd11 New Password: {{$json.new_password}}\n\nYour old credentials have been revoked.\nUse these from now on.\n\nNeed help? Reply how to use.",
         "extraOptions": {}
       },
       "id": "wa-rotate-success",
       "name": "Notify: Rotation Success",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [2800, 0]
+      "position": [
+        2800,
+        0
+      ]
     },
     {
       "parameters": {
-        "message": "🚨 MASS BAN ALERT — /24 RANGE\n\nIP Range: {{$json.ip_block}}\nAffected customers: {{$json.count}}\n\nActions needed:\n1. Check if more customers affected\n2. Contact provider for credit/replacement\n3. Plan mass credential rotation",
-        "extraOptions": {}
+        "message": "\ud83d\udea8 MASS BAN ALERT \u2014 /24 RANGE\n\nIP Range: {{$json.ip_block}}\nAffected customers: {{$json.count}}\n\nActions needed:\n1. Check if more customers affected\n2. Contact provider for credit/replacement\n3. Plan mass credential rotation",
+        "extraOptions": {},
+        "options": {}
       },
       "id": "wa-admin-mass",
       "name": "Alert Admin: Mass Ban",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [3000, 0]
+      "position": [
+        3000,
+        0
+      ]
     },
     {
       "parameters": {
-        "message": "⚠️ System Notice\n\nWe've detected an issue affecting your proxy IP.\nWe're working on getting you a fresh IP now.\n\nWill update within 30 minutes.\nSorry for the inconvenience 🙏",
+        "message": "\u26a0\ufe0f System Notice\n\nWe've detected an issue affecting your proxy IP.\nWe're working on getting you a fresh IP now.\n\nWill update within 30 minutes.\nSorry for the inconvenience \ud83d\ude4f",
         "extraOptions": {}
       },
       "id": "wa-wait-customer",
       "name": "Notify: Wait for Resolution",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [3200, 0]
+      "position": [
+        3200,
+        0
+      ]
     },
     {
       "parameters": {
-        "message": "🚨 BAN CLAIM ESCALATION\n\nCustomer: {{$json.name}} ({{$json.phone}})\nOrder: {{$json.order_id}}\nIP: {{$json.ip_address}}\nProvider Status: {{$json.data?.status}}\n\nAction: Manual intervention needed",
-        "extraOptions": {}
+        "message": "\ud83d\udea8 BAN CLAIM ESCALATION\n\nCustomer: {{$json.name}} ({{$json.phone}})\nOrder: {{$json.order_id}}\nIP: {{$json.ip_address}}\nProvider Status: {{$json.data?.status}}\n\nAction: Manual intervention needed",
+        "extraOptions": {},
+        "options": {}
       },
       "id": "wa-admin-escalate",
       "name": "Escalate to Admin",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
-      "position": [3400, 0]
+      "position": [
+        3400,
+        0
+      ]
     },
     {
       "parameters": {
@@ -322,80 +381,234 @@
       "name": "Notify: Troubleshooting",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [3600, 0]
+      "position": [
+        3600,
+        0
+      ]
     },
     {
       "parameters": {
-        "message": "Our provider confirmed the IP has an issue.\nI'm rotating you to a fresh IP now.\n\n🔄 Your new credentials are ready.\n\nUse these new details:\n[IP / Port / User / Pass]\n\nIf this keeps happening, reply help.",
+        "message": "Our provider confirmed the IP has an issue.\nI'm rotating you to a fresh IP now.\n\n\ud83d\udd04 Your new credentials are ready.\n\nUse these new details:\n[IP / Port / User / Pass]\n\nIf this keeps happening, reply help.",
         "extraOptions": {}
       },
       "id": "wa-auto-rotate",
       "name": "Notify: Auto Rotation",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [3800, 0]
+      "position": [
+        3800,
+        0
+      ]
     }
   ],
   "connections": {
     "WhatsApp Webhook": {
-      "main": [[{ "node": "Verify WhatsApp Signature", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Verify WhatsApp Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Verify WhatsApp Signature": {
-      "main": [[{ "node": "Detect: Ban Claim", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Detect: Ban Claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Detect: Ban Claim": {
       "main": [
-        [{ "node": "Lookup Customer in PostgreSQL", "type": "main", "index": 0 }],
-        [{ "node": "Lookup Customer in PostgreSQL", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Lookup Customer in PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lookup Customer in PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Lookup Customer in PostgreSQL": {
-      "main": [[{ "node": "Lookup Active Order", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Lookup Active Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Lookup Active Order": {
-      "main": [[{ "node": "Check Provider Status", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Check Provider Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Provider Status": {
-      "main": [[{ "node": "Provider Status OK?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Provider Status OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Provider Status OK?": {
       "main": [
-        [{ "node": "Check Mass Ban Reports", "type": "main", "index": 0 }],
-        [{ "node": "Notify: Troubleshooting", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Check Mass Ban Reports",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify: Troubleshooting",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Check Mass Ban Reports": {
-      "main": [[{ "node": "Mass Ban Detected?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Mass Ban Detected?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Mass Ban Detected?": {
       "main": [
-        [{ "node": "Alert Admin: Mass Ban", "type": "main", "index": 0 }],
-        [{ "node": "Prepare Credential Rotation", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Alert Admin: Mass Ban",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Credential Rotation",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Prepare Credential Rotation": {
-      "main": [[{ "node": "Revoke Old Credentials", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Revoke Old Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Revoke Old Credentials": {
-      "main": [[{ "node": "Create New Credentials", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Create New Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Create New Credentials": {
-      "main": [[{ "node": "Update Credentials in PostgreSQL", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Update Credentials in PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Update Credentials in PostgreSQL": {
-      "main": [[{ "node": "Log Support Ticket", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Log Support Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Log Support Ticket": {
-      "main": [[{ "node": "Notify: Rotation Success", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Notify: Rotation Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Alert Admin: Mass Ban": {
-      "main": [[{ "node": "Notify: Wait for Resolution", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Notify: Wait for Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Notify: Troubleshooting": {
-      "main": [[{ "node": "Check Provider Status", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Check Provider Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Notify: Auto Rotation": {
-      "main": [[{ "node": "Log Support Ticket", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Log Support Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -404,5 +617,9 @@
     "timezone": "Africa/Lagos"
   },
   "staticData": null,
-  "tags": ["whatsapp", "ban-claim", "support"]
+  "tags": [
+    "whatsapp",
+    "ban-claim",
+    "support"
+  ]
 }

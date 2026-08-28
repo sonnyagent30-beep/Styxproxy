@@ -5,14 +5,16 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "flutterwave-webhook",
-        "responseMode": "lastNode",
-        "options": {}
+        "responseMode": "lastNode"
       },
       "id": "fw-trigger",
       "name": "Flutterwave Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -22,12 +24,17 @@
       "name": "Verify Signature",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [200, 0]
+      "position": [
+        200,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true },
+          "options": {
+            "caseSensitive": true
+          },
           "conditions": [
             {
               "id": "evt-charge",
@@ -42,7 +49,10 @@
       "name": "Switch: Event Type",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [400, 0]
+      "position": [
+        400,
+        0
+      ]
     },
     {
       "parameters": {
@@ -52,12 +62,17 @@
       "name": "Idempotency Check",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [600, 0]
+      "position": [
+        600,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true },
+          "options": {
+            "caseSensitive": true
+          },
           "conditions": [
             {
               "id": "status-pending",
@@ -72,7 +87,10 @@
       "name": "Check Payment Status",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [800, 0]
+      "position": [
+        800,
+        0
+      ]
     },
     {
       "parameters": {
@@ -85,12 +103,17 @@
       "name": "Lookup Order in PostgreSQL",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [1000, 0]
+      "position": [
+        1000,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true },
+          "options": {
+            "caseSensitive": true
+          },
           "conditions": [
             {
               "id": "already-fulfilled",
@@ -105,7 +128,10 @@
       "name": "Already Fulfilled?",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [1200, 0]
+      "position": [
+        1200,
+        0
+      ]
     },
     {
       "parameters": {
@@ -117,7 +143,10 @@
       "name": "Update Order to Paid",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [1400, 0]
+      "position": [
+        1400,
+        0
+      ]
     },
     {
       "parameters": {
@@ -138,23 +167,31 @@
         },
         "sendBody": true,
         "body": "={{ $json.data }}",
-        "options": { "timeout": 30000 }
+        "options": {
+          "timeout": 30000
+        }
       },
       "id": "fw-call-provider",
       "name": "Call Provider API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [1600, 0]
+      "position": [
+        1600,
+        0
+      ]
     },
     {
       "parameters": {
-        "functionCode": "// Test proxy IP — 5s timeout\nconst proxy = $input.first().json;\nconst host = proxy.ip || proxy.data?.ip;\nconst port = proxy.port || proxy.data?.port;\n\n// Simple connectivity test via curl\nconst { execSync } = require('child_process');\ntry {\n  execSync(`timeout 5 curl -x http://${host}:${port} https://ipinfo.io/ip`, { stdio: 'ignore' });\n  return [{ json: { ...proxy, testPassed: true } }];\n} catch (e) {\n  return [{ json: { ...proxy, testPassed: false } }];\n}"
+        "functionCode": "// Test proxy IP \u2014 5s timeout\nconst proxy = $input.first().json;\nconst host = proxy.ip || proxy.data?.ip;\nconst port = proxy.port || proxy.data?.port;\n\n// Simple connectivity test via curl\nconst { execSync } = require('child_process');\ntry {\n  execSync(`timeout 5 curl -x http://${host}:${port} https://ipinfo.io/ip`, { stdio: 'ignore' });\n  return [{ json: { ...proxy, testPassed: true } }];\n} catch (e) {\n  return [{ json: { ...proxy, testPassed: false } }];\n}"
       },
       "id": "fw-test-proxy",
       "name": "Test Proxy IP",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1800, 0]
+      "position": [
+        1800,
+        0
+      ]
     },
     {
       "parameters": {
@@ -166,18 +203,24 @@
       "name": "Save Fulfilled to PostgreSQL",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [2000, 0]
+      "position": [
+        2000,
+        0
+      ]
     },
     {
       "parameters": {
-        "message": "🎉 ORDER COMPLETE!\n\n🇳🇬 Your proxy is ready:\n\n🔗 IP: {{$json.ip}}\n🔌 Port: {{$json.port}}\n👤 Username: {{$json.username}}\n🔐 Password: {{$json.password}}\n\n📋 Order ID: ORD-XXXXX\n⏰ Expires: [DATE]\n\nNeed help using it? Reply 'How to use' 📱",
+        "message": "\ud83c\udf89 ORDER COMPLETE!\n\n\ud83c\uddf3\ud83c\uddec Your proxy is ready:\n\n\ud83d\udd17 IP: {{$json.ip}}\n\ud83d\udd0c Port: {{$json.port}}\n\ud83d\udc64 Username: {{$json.username}}\n\ud83d\udd10 Password: {{$json.password}}\n\n\ud83d\udccb Order ID: ORD-XXXXX\n\u23f0 Expires: [DATE]\n\nNeed help using it? Reply 'How to use' \ud83d\udcf1",
         "extraOptions": {}
       },
       "id": "fw-send-creds",
       "name": "Send Credentials via WhatsApp",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [2200, 0]
+      "position": [
+        2200,
+        0
+      ]
     },
     {
       "parameters": {
@@ -189,62 +232,166 @@
       "name": "Auto Refund",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [2400, 200]
+      "position": [
+        2400,
+        200
+      ]
     },
     {
       "parameters": {
-        "message": "⚠️ We couldn't deliver your proxy. A full refund has been initiated.",
+        "message": "\u26a0\ufe0f We couldn't deliver your proxy. A full refund has been initiated.",
         "extraOptions": {}
       },
       "id": "fw-refund-notify",
       "name": "Notify Refund",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [2600, 200]
+      "position": [
+        2600,
+        200
+      ]
     }
   ],
   "connections": {
     "Flutterwave Webhook": {
-      "main": [[{ "node": "Verify Signature", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Verify Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Verify Signature": {
-      "main": [[{ "node": "Switch: Event Type", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Switch: Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Switch: Event Type": {
-      "main": [[{ "node": "Idempotency Check", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Idempotency Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Idempotency Check": {
-      "main": [[{ "node": "Check Payment Status", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Check Payment Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Payment Status": {
-      "main": [[{ "node": "Lookup Order in PostgreSQL", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Lookup Order in PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Lookup Order in PostgreSQL": {
-      "main": [[{ "node": "Already Fulfilled?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Already Fulfilled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Already Fulfilled?": {
       "main": [
-        [{ "node": "Update Order to Paid", "type": "main", "index": 0 }],
+        [
+          {
+            "node": "Update Order to Paid",
+            "type": "main",
+            "index": 0
+          }
+        ],
         []
       ]
     },
     "Update Order to Paid": {
-      "main": [[{ "node": "Call Provider API", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Call Provider API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Call Provider API": {
-      "main": [[{ "node": "Test Proxy IP", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Test Proxy IP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Test Proxy IP": {
       "main": [
-        [{ "node": "Save Fulfilled to PostgreSQL", "type": "main", "index": 0 }],
-        [{ "node": "Auto Refund", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Save Fulfilled to PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auto Refund",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Save Fulfilled to PostgreSQL": {
-      "main": [[{ "node": "Send Credentials via WhatsApp", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Send Credentials via WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Auto Refund": {
-      "main": [[{ "node": "Notify Refund", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Notify Refund",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -253,5 +400,9 @@
     "timezone": "Africa/Lagos"
   },
   "staticData": null,
-  "tags": ["flutterwave", "payment", "provider"]
+  "tags": [
+    "flutterwave",
+    "payment",
+    "provider"
+  ]
 }

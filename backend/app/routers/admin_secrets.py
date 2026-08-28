@@ -56,7 +56,7 @@ KNOWN_GROUPS: dict[str, list[str]] = {
         "TELEGRAM_BOT_TOKEN",
     ],
     "Email": ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "FROM_EMAIL"],
-    "Integrations": ["MINIMAX_API_KEY", "THEOREM_REACH_WEBHOOK_SECRET"],
+    "Integrations": ["GROQ_API_KEY", "MINIMAX_API_KEY", "THEOREM_REACH_WEBHOOK_SECRET"],
 }
 
 

@@ -49,7 +49,7 @@
       ],
       "parameters": {
         "method": "POST",
-        "url": "https://api.minimax.chat/v1/chat/completions",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -61,7 +61,7 @@
             },
             {
               "name": "Authorization",
-              "value": "Bearer {{$credentials.minimaxApiKey}}"
+              "value": "Bearer {{$env.GROQ_API_KEY}}"
             }
           ]
         },
@@ -70,7 +70,7 @@
           "parameters": [
             {
               "name": "model",
-              "value": "MiniMax-M2"
+              "value": "qwen-3.5-27b"
             },
             {
               "name": "messages",
@@ -90,8 +90,7 @@
               "value": 0.3
             }
           ]
-        },
-        "options": {}
+        }
       },
       "credentials": {
         "minimaxApiKey": "minimax-api"
@@ -202,7 +201,8 @@
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
         "text": "Hello! Welcome to Styxproxy. I can help you with:\n\nOrders - Buy new proxies\nCheck Data - View your usage\nRenewals - Extend your proxy\nHelp - General support\nRecovery - Recover your account\n\nWhat would you like help with?",
-        "additionalFields": {}
+        "additionalFields": {},
+        "options": {}
       },
       "credentials": {
         "telegramApi": "telegram-bot-api"
@@ -221,7 +221,8 @@
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
         "text": "I did not quite get that. I can help you with:\n\nOrders - Buy new proxies\nCheck Data - View your usage\nRenewals - Extend your proxy\nHelp - General support\n\nJust let me know what you need!",
-        "additionalFields": {}
+        "additionalFields": {},
+        "options": {}
       },
       "credentials": {
         "telegramApi": "telegram-bot-api"
@@ -240,7 +241,8 @@
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
         "text": "What type of proxy do you need? Choose from:\n\nISP - Stable residential proxies\nDatacenter - Fast and affordable\nResidential - Real device IPs\nMobile - 4G/5G proxies\n\nJust reply with your choice!",
-        "additionalFields": {}
+        "additionalFields": {},
+        "options": {}
       },
       "credentials": {
         "telegramApi": "telegram-bot-api"
@@ -259,7 +261,8 @@
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
         "text": "What is your order ID or the phone number you used when placing your order?",
-        "additionalFields": {}
+        "additionalFields": {},
+        "options": {}
       },
       "credentials": {
         "telegramApi": "telegram-bot-api"
@@ -277,8 +280,9 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "🎁 Free Trial — e be like this:\\n\\nYou go complete some surveys, each survey give you 2 hours of proxy time.\\nYou fit do up to 12 surveys = 24 hours free!\\n\\nWhen you don finish, tell me \"done\" and I go send your proxy details.\\n\\nMake I send you the survey link now? Just tell me \"send survey link\"!",
-        "additionalFields": {}
+        "text": "\ud83c\udf81 Free Trial \u2014 e be like this:\\n\\nYou go complete some surveys, each survey give you 2 hours of proxy time.\\nYou fit do up to 12 surveys = 24 hours free!\\n\\nWhen you don finish, tell me \"done\" and I go send your proxy details.\\n\\nMake I send you the survey link now? Just tell me \"send survey link\"!",
+        "additionalFields": {},
+        "options": {}
       },
       "credentials": {
         "telegramApi": "telegram-bot-api"
@@ -296,8 +300,9 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "🔄 No problem! To renew your proxy, go to:\\n\\n📱 styxproxy.com\\n\\nClick \"Renew\" and use the same phone number or order ID you used before.\\nYour details go show up automatically.\\n\\nNa ₦6,500 for ISP UK or check the website for other plans.",
-        "additionalFields": {}
+        "text": "\ud83d\udd04 No problem! To renew your proxy, go to:\\n\\n\ud83d\udcf1 styxproxy.com\\n\\nClick \"Renew\" and use the same phone number or order ID you used before.\\nYour details go show up automatically.\\n\\nNa \u20a66,500 for ISP UK or check the website for other plans.",
+        "additionalFields": {},
+        "options": {}
       },
       "credentials": {
         "telegramApi": "telegram-bot-api"
@@ -315,8 +320,9 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "📋 No worries! Recovery be like this:\\n\\nIf your proxy no work again and you don renew, e go auto-restore.\\nIf you lose your details, go to:\\n\\n📱 styxproxy.com\\n\\nUse \"Recover Details\" with your phone number.\\nI go send your details back to you on this chat.\\n\\nIf e no work, text our support team!",
-        "additionalFields": {}
+        "text": "\ud83d\udccb No worries! Recovery be like this:\\n\\nIf your proxy no work again and you don renew, e go auto-restore.\\nIf you lose your details, go to:\\n\\n\ud83d\udcf1 styxproxy.com\\n\\nUse \"Recover Details\" with your phone number.\\nI go send your details back to you on this chat.\\n\\nIf e no work, text our support team!",
+        "additionalFields": {},
+        "options": {}
       },
       "credentials": {
         "telegramApi": "telegram-bot-api"
@@ -334,8 +340,9 @@
       "parameters": {
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
-        "text": "📖 How to use Styxproxy proxy:\\n\\n1. Copy your proxy details from the message I send you\\n2. Open your browser or app settings → Proxy\\n3. Enter the IP, Port, Username, Password\\n4. Save and you dey set!\\n\\n💡 Make sure e no be HTTPS, na SOCKS5 proxy.\\n\\nNeed more help? Just ask!",
-        "additionalFields": {}
+        "text": "\ud83d\udcd6 How to use Styxproxy proxy:\\n\\n1. Copy your proxy details from the message I send you\\n2. Open your browser or app settings \u2192 Proxy\\n3. Enter the IP, Port, Username, Password\\n4. Save and you dey set!\\n\\n\ud83d\udca1 Make sure e no be HTTPS, na SOCKS5 proxy.\\n\\nNeed more help? Just ask!",
+        "additionalFields": {},
+        "options": {}
       },
       "credentials": {
         "telegramApi": "telegram-bot-api"
@@ -426,7 +433,8 @@
         "operation": "sendMessage",
         "chatId": "={{ $json.message.chat.id }}",
         "text": "You are sending messages too fast. Please wait a moment and try again.",
-        "additionalFields": {}
+        "additionalFields": {},
+        "options": {}
       },
       "credentials": {
         "telegramApi": "telegram-bot-api"

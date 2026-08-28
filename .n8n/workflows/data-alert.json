@@ -16,7 +16,10 @@
       "name": "Cron: Every 15 Minutes",
       "type": "n8n-nodes-base.cron",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -29,7 +32,10 @@
       "name": "Query Active DataImpulse Orders",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [200, 0]
+      "position": [
+        200,
+        0
+      ]
     },
     {
       "parameters": {
@@ -39,7 +45,10 @@
       "name": "Calculate Thresholds",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [400, 0]
+      "position": [
+        400,
+        0
+      ]
     },
     {
       "parameters": {
@@ -52,12 +61,17 @@
       "name": "Check Alert History",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [600, 0]
+      "position": [
+        600,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true },
+          "options": {
+            "caseSensitive": true
+          },
           "conditions": [
             {
               "id": "no-alert-sent",
@@ -72,17 +86,23 @@
       "name": "Filter: New Alert Needed",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [800, 0]
+      "position": [
+        800,
+        0
+      ]
     },
     {
       "parameters": {
-        "functionCode": "// Select message template by threshold\nconst order = $input.first().json;\nconst threshold = order.threshold;\nconst pct = order.pct_remaining;\n\nconst messages = {\n  20: `📊 Data Running Low — [Name]\n\nYour ${order.product_type} Proxy:\n🔗 IP: ${order.ip_address}\n📦 ${order.data_remaining_gb}GB of ${order.data_total_gb}GB used (~${pct}% left)\n\n💡 You're using more data than expected.\nWant to top up? Just say \"Top up\" 📱`,\n  \n  10: `⚠️ Data Running Very Low — [Name]\n\nYour ${order.product_type} Proxy:\n🔗 IP: ${order.ip_address}\n📦 Only ${order.data_remaining_gb}GB remaining (~${pct}% left)\n\n🚨 Time to top up!\nSay \"Top up\" to add more data 📱`,\n\n  5: `🚨 LAST WARNING — [Name]\n\nYour ${order.product_type} Proxy:\n🔗 IP: ${order.ip_address}\n📦 Just ${order.data_remaining_gb}GB left (~${pct}%)!\n🔴 Proxy stops when data runs out.\n\nTOP UP NOW — say \"Top up\" 📱`\n};\n\nreturn [{ json: { ...order, message: messages[threshold] || messages[5] } }];"
+        "functionCode": "// Select message template by threshold\nconst order = $input.first().json;\nconst threshold = order.threshold;\nconst pct = order.pct_remaining;\n\nconst messages = {\n  20: `\ud83d\udcca Data Running Low \u2014 [Name]\n\nYour ${order.product_type} Proxy:\n\ud83d\udd17 IP: ${order.ip_address}\n\ud83d\udce6 ${order.data_remaining_gb}GB of ${order.data_total_gb}GB used (~${pct}% left)\n\n\ud83d\udca1 You're using more data than expected.\nWant to top up? Just say \"Top up\" \ud83d\udcf1`,\n  \n  10: `\u26a0\ufe0f Data Running Very Low \u2014 [Name]\n\nYour ${order.product_type} Proxy:\n\ud83d\udd17 IP: ${order.ip_address}\n\ud83d\udce6 Only ${order.data_remaining_gb}GB remaining (~${pct}% left)\n\n\ud83d\udea8 Time to top up!\nSay \"Top up\" to add more data \ud83d\udcf1`,\n\n  5: `\ud83d\udea8 LAST WARNING \u2014 [Name]\n\nYour ${order.product_type} Proxy:\n\ud83d\udd17 IP: ${order.ip_address}\n\ud83d\udce6 Just ${order.data_remaining_gb}GB left (~${pct}%)!\n\ud83d\udd34 Proxy stops when data runs out.\n\nTOP UP NOW \u2014 say \"Top up\" \ud83d\udcf1`\n};\n\nreturn [{ json: { ...order, message: messages[threshold] || messages[5] } }];"
       },
       "id": "da-select-template",
       "name": "Select Message Template",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [1000, 0]
+      "position": [
+        1000,
+        0
+      ]
     },
     {
       "parameters": {
@@ -93,7 +113,10 @@
       "name": "Send Alert via WhatsApp",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [1200, 0]
+      "position": [
+        1200,
+        0
+      ]
     },
     {
       "parameters": {
@@ -106,33 +129,90 @@
       "name": "Log Alert to PostgreSQL",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
-      "position": [1400, 0]
+      "position": [
+        1400,
+        0
+      ]
     }
   ],
   "connections": {
     "Cron: Every 15 Minutes": {
-      "main": [[{ "node": "Query Active DataImpulse Orders", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Query Active DataImpulse Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Query Active DataImpulse Orders": {
-      "main": [[{ "node": "Calculate Thresholds", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Calculate Thresholds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Calculate Thresholds": {
-      "main": [[{ "node": "Check Alert History", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Check Alert History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Alert History": {
-      "main": [[{ "node": "Filter: New Alert Needed", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Filter: New Alert Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filter: New Alert Needed": {
       "main": [
-        [{ "node": "Select Message Template", "type": "main", "index": 0 }],
+        [
+          {
+            "node": "Select Message Template",
+            "type": "main",
+            "index": 0
+          }
+        ],
         []
       ]
     },
     "Select Message Template": {
-      "main": [[{ "node": "Send Alert via WhatsApp", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Send Alert via WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Send Alert via WhatsApp": {
-      "main": [[{ "node": "Log Alert to PostgreSQL", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Log Alert to PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -141,5 +221,9 @@
     "timezone": "Africa/Lagos"
   },
   "staticData": null,
-  "tags": ["data", "alert", "cron"]
+  "tags": [
+    "data",
+    "alert",
+    "cron"
+  ]
 }

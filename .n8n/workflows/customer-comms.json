@@ -1,0 +1,1453 @@
+{
+  "name": "Customer Communications",
+  "nodes": [
+    {
+      "id": "tg-001",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        250,
+        1100
+      ],
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "tg-002",
+      "name": "Rate Limit Check",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        470,
+        1100
+      ],
+      "parameters": {
+        "operation": "incr",
+        "key": "rate_limit:telegram:{{$json.message.chat.id}}",
+        "ttl": 60,
+        "additionalFields": {}
+      },
+      "credentials": {
+        "redis": {
+          "id": "AYDLCnOmgJYdkMQp",
+          "name": "Redis"
+        }
+      }
+    },
+    {
+      "id": "tg-003",
+      "name": "MiniMax LLM Parser",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        690,
+        1100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.minimax.chat/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.GROQ_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "MiniMax-M2"
+            },
+            {
+              "name": "messages",
+              "value": [
+                {
+                  "role": "system",
+                  "content": "You are a customer service AI for Styxproxy, a Nigerian proxy reseller. Analyze the customer's Telegram message and determine their intent.\n\nAvailable intents:\n- order: Customer wants to buy a proxy\n- help: Customer needs general help or has questions\n- check_data: Customer wants to check their order status or data usage\n- free_trial: Customer wants a free trial\n- renewal: Customer wants to renew their proxy\n- recovery: Customer needs help recovering their number or account\n- how_to_use: Customer wants to know how to use the proxy\n- unknown: Cannot determine intent\n\nRespond with JSON only (no other text):\n{\"intent\": \"<intent>\", \"confidence\": 0.0-1.0, \"entities\": {}}"
+                },
+                {
+                  "role": "user",
+                  "content": "{{$json.message.text}}"
+                }
+              ]
+            },
+            {
+              "name": "temperature",
+              "value": 0.3
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "9eIaWmlBAO6G1jlu",
+          "name": "HTTP Header Auth"
+        }
+      }
+    },
+    {
+      "id": "tg-004",
+      "name": "Idempotency Check",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        910,
+        1100
+      ],
+      "parameters": {
+        "operation": "set",
+        "key": "telegram:update:{{$json.update_id}}",
+        "value": "1",
+        "ttl": 86400,
+        "additionalFields": {}
+      },
+      "credentials": {
+        "redis": {
+          "id": "AYDLCnOmgJYdkMQp",
+          "name": "Redis"
+        }
+      }
+    },
+    {
+      "id": "tg-005",
+      "name": "Switch - Order",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1130,
+        1100
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"order\"",
+        "fallbackOutput": "next"
+      }
+    },
+    {
+      "id": "tg-006",
+      "name": "Switch - Help",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1570,
+        900
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"help\"",
+        "fallbackOutput": "next"
+      }
+    },
+    {
+      "id": "tg-007",
+      "name": "Switch - Data/Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1790,
+        500
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"(check_data|status)\"",
+        "fallbackOutput": "next"
+      }
+    },
+    {
+      "id": "tg-008",
+      "name": "Switch - Unknown",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1570,
+        1100
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"unknown\"",
+        "fallbackOutput": "next"
+      }
+    },
+    {
+      "id": "tg-009",
+      "name": "Reply - Help",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1790,
+        900
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "Hello! Welcome to Styxproxy. I can help you with:\n\nOrders - Buy new proxies\nCheck Data - View your usage\nRenewals - Extend your proxy\nHelp - General support\nRecovery - Recover your account\n\nWhat would you like help with?",
+        "additionalFields": {},
+        "options": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "tg-010",
+      "name": "Reply - Unknown",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1790,
+        1100
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "I did not quite get that. I can help you with:\n\nOrders - Buy new proxies\nCheck Data - View your usage\nRenewals - Extend your proxy\nHelp - General support\n\nJust let me know what you need!",
+        "additionalFields": {},
+        "options": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "tg-011",
+      "name": "Reply - Order",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1350,
+        1100
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "What type of proxy do you need? Choose from:\n\nISP - Stable residential proxies\nDatacenter - Fast and affordable\nResidential - Real device IPs\nMobile - 4G/5G proxies\n\nJust reply with your choice!",
+        "additionalFields": {},
+        "options": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "tg-012",
+      "name": "Reply - Status",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1130,
+        300
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "What is your order ID or the phone number you used when placing your order?",
+        "additionalFields": {},
+        "options": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "tg-013",
+      "name": "Reply - Free Trial",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        690,
+        300
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "\ud83c\udf81 Free Trial \u2014 e be like this:\\n\\nYou go complete some surveys, each survey give you 2 hours of proxy time.\\nYou fit do up to 12 surveys = 24 hours free!\\n\\nWhen you don finish, tell me \"done\" and I go send your proxy details.\\n\\nMake I send you the survey link now? Just tell me \"send survey link\"!",
+        "additionalFields": {},
+        "options": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "tg-014",
+      "name": "Reply - Renewal",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "\ud83d\udd04 No problem! To renew your proxy, go to:\\n\\n\ud83d\udcf1 styxproxy.com\\n\\nClick \"Renew\" and use the same phone number or order ID you used before.\\nYour details go show up automatically.\\n\\nNa \u20a66,500 for ISP UK or check the website for other plans.",
+        "additionalFields": {},
+        "options": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "tg-015",
+      "name": "Reply - Recovery",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        910,
+        1300
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "\ud83d\udccb No worries! Recovery be like this:\\n\\nIf your proxy no work again and you don renew, e go auto-restore.\\nIf you lose your details, go to:\\n\\n\ud83d\udcf1 styxproxy.com\\n\\nUse \"Recover Details\" with your phone number.\\nI go send your details back to you on this chat.\\n\\nIf e no work, text our support team!",
+        "additionalFields": {},
+        "options": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "tg-016",
+      "name": "Reply - How to Use",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1350,
+        1300
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "\ud83d\udcd6 How to use Styxproxy proxy:\\n\\n1. Copy your proxy details from the message I send you\\n2. Open your browser or app settings \u2192 Proxy\\n3. Enter the IP, Port, Username, Password\\n4. Save and you dey set!\\n\\n\ud83d\udca1 Make sure e no be HTTPS, na SOCKS5 proxy.\\n\\nNeed more help? Just ask!",
+        "additionalFields": {},
+        "options": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "tg-017",
+      "name": "Switch - Free Trial",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        910,
+        300
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"free_trial\"",
+        "fallbackOutput": "next"
+      }
+    },
+    {
+      "id": "tg-018",
+      "name": "Switch - Renewal",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        470,
+        300
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"renewal\"",
+        "fallbackOutput": "next"
+      }
+    },
+    {
+      "id": "tg-019",
+      "name": "Switch - Recovery",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        690,
+        1300
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"recovery\"",
+        "fallbackOutput": "next"
+      }
+    },
+    {
+      "id": "tg-020",
+      "name": "Switch - How to Use",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1130,
+        1300
+      ],
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.choices[0].message.content }}",
+        "operation": "regex",
+        "value2": "\"intent\":\\s*\"how_to_use\"",
+        "fallbackOutput": "next"
+      }
+    },
+    {
+      "id": "tg-021",
+      "name": "Rate Limit Error Handler",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        250,
+        1300
+      ],
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "You are sending messages too fast. Please wait a moment and try again.",
+        "additionalFields": {},
+        "options": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "id": "tg-022",
+      "name": "Duplicate Message Handler",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 2,
+      "position": [
+        470,
+        1300
+      ],
+      "parameters": {}
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "wf9-trigger",
+      "name": "Cron: Every 6 Hours",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "pending_trial_surveys",
+        "columns": "pts.id,\n                    pa.platform,\n                    pa.platform_user_id,\n                    pa.display_name,\n                    ft.status as trial_status,\n                    ft.id as free_trial_id,\n                    (SELECT COUNT(*) FROM pending_trial_surveys ps2\n                     JOIN free_trials ft2 ON ft2.id = ps2.free_trial_id\n                     WHERE ps2.platform_account_id = pts.platform_account_id\n                     AND ft2.status = 'pending'\n                     AND ps2.created_at >= NOW() - INTERVAL '24 hours') as surveys_24h",
+        "conditions": "ft.status = 'pending'\n                    AND pts.free_trial_id IS NOT NULL\n                    AND pts.created_at < NOW() - INTERVAL '2 hours'",
+        "options": {
+          "join": "INNER JOIN free_trials ft ON ft.id = pts.free_trial_id\nINNER JOIN platform_accounts pa ON pa.id = pts.platform_account_id"
+        }
+      },
+      "id": "wf9-idle",
+      "name": "Find Idle Trial Requests",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1790,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "idle-check",
+              "leftValue": "={{ $json.surveys_24h }}",
+              "rightValue": 0,
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "wf9-filter",
+      "name": "Filter: No Surveys in 24h",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        470,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83c\udf81 Reminder \u2014 Free Trial Still Available!\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\nHi{{#if $json.display_name}} {{$json.display_name}}{{/if}}! Your free trial access is still ready.\n\nYou started a trial request but haven't completed a survey yet.\n\n\ud83d\udca1 Complete just 1 survey = 2 hours of free proxy access.\n\nTap the link to get started \u2192 {{ $env.THEOREM_REACH_SURVEY_URL }}\n\nQuestions? Just reply to this message."
+      },
+      "id": "wf9-send",
+      "name": "Send Follow-Up",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        910,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-incoming",
+        "responseMode": "onReceived"
+      },
+      "id": "wa-trigger",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        1570,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Verify WhatsApp signature\nconst crypto = require('crypto');\nconst secret = $env.WHATSAPP_APP_SECRET;\nconst signature = $headers['x-hub-signature-256'];\nconst body = $input.first().json;\n\n// Extract signature from header\nif (!signature) return [{ json: { error: 'no signature', valid: false } }];\n\nconst computed = crypto.createHmac('sha256', secret).update(JSON.stringify(body)).digest('hex');\nconst valid = signature === `sha256=${computed}`;\n\nif (!valid) return [{ json: { error: 'invalid signature', valid: false } }];\n\nreturn [{ json: body }];"
+      },
+      "id": "wa-verify",
+      "name": "Verify WhatsApp Signature",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        250,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "ban-keyword",
+              "leftValue": "={{$json.body.message.text}}",
+              "rightValue": "ban",
+              "operation": "contains"
+            },
+            {
+              "id": "blocked-keyword",
+              "leftValue": "={{$json.body.message.text}}",
+              "rightValue": "blocked",
+              "operation": "contains"
+            }
+          ],
+          "logic": "OR"
+        }
+      },
+      "id": "wa-ban-detect",
+      "name": "Detect: Ban Claim",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        690,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "customer_id, name, phone, active_order_id",
+        "conditions": "phone = '{{$json.body.from}}'"
+      },
+      "id": "wa-db-lookup",
+      "name": "Lookup Customer in PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1130,
+        500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, status, ip_address, username, provider",
+        "conditions": "customer_id = '{{$json.customer_id}}' AND status = 'active'"
+      },
+      "id": "wa-order-lookup",
+      "name": "Lookup Active Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$json.data?.provider === 'proxy-seller' ? 'https://api.proxy-seller.com/v1.0/status' : 'https://api.dataimpulse.com/reseller/status'}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env.PROXY_SELLER_API_KEY}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "wa-provider-status",
+      "name": "Check Provider Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1570,
+        500
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "9eIaWmlBAO6G1jlu",
+          "name": "HTTP Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "provider-ok",
+              "leftValue": "={{$json.data?.status}}",
+              "rightValue": "active",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "wa-provider-ok",
+      "name": "Provider Status OK?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        250,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "support_tickets",
+        "columns": "COUNT(*) as count",
+        "conditions": "ip_block = '{{$json.ip_address}}' AND created_at > NOW() - INTERVAL '1 hour'"
+      },
+      "id": "wa-ban-check",
+      "name": "Check Mass Ban Reports",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        470,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "mass-ban-threshold",
+              "leftValue": "={{$json.count}}",
+              "rightValue": "3",
+              "operation": "gte"
+            }
+          ]
+        }
+      },
+      "id": "wa-mass-ban",
+      "name": "Mass Ban Detected?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        690,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// S15: Rotate credentials - atomic transaction\nconst customerId = $input.first().json.customer_id;\nconst oldUsername = $input.first().json.username;\n\n// Generate new credentials\nconst newUsername = `bun_${customerId}_v2`;\nconst newPassword = Math.random().toString(36).slice(-16) + '!A1';\n\n// Store rotation request\nreturn [{\n  json: {\n    customer_id: customerId,\n    old_username: oldUsername,\n    new_username: newUsername,\n    new_password: newPassword,\n    action: 'rotate_credentials'\n  }\n}];"
+      },
+      "id": "wa-prep-rotate",
+      "name": "Prepare Credential Rotation",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        910,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.proxy-seller.com/v1.0/credentials/revoke",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env.PROXY_SELLER_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "username",
+              "value": "={{$json.old_username}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "wa-revoke-old",
+      "name": "Revoke Old Credentials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1130,
+        700
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "9eIaWmlBAO6G1jlu",
+          "name": "HTTP Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.proxy-seller.com/v1.0/credentials/create",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env.PROXY_SELLER_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "username",
+              "value": "={{$json.new_username}}"
+            },
+            {
+              "name": "password",
+              "value": "={{$json.new_password}}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "wa-create-new",
+      "name": "Create New Credentials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1350,
+        700
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "9eIaWmlBAO6G1jlu",
+          "name": "HTTP Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "styxproxy_credentials",
+        "values": "username = '{{$json.new_username}}', password = '{{$json.new_password}}', status = 'active'"
+      },
+      "id": "wa-db-update",
+      "name": "Update Credentials in PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1570,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "support_tickets",
+        "values": "customer_id = '{{$json.customer_id}}', type = 'ban_claim', ip_address = '{{$json.ip_address}}', status = 'resolved'"
+      },
+      "id": "wa-log-ticket",
+      "name": "Log Support Ticket",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1790,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udd04 Credentials Rotated\n\nYour IP stays the same but you've got fresh login details:\n\n\ud83d\udc64 New Username: {{$json.new_username}}\n\ud83d\udd11 New Password: {{$json.new_password}}\n\nYour old credentials have been revoked.\nUse these from now on.\n\nNeed help? Reply how to use.",
+        "extraOptions": {}
+      },
+      "id": "wa-rotate-success",
+      "name": "Notify: Rotation Success",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        250,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "text": "\ud83d\udea8 MASS BAN ALERT \u2014 /24 RANGE\n\nIP Range: {{$json.ip_block}}\nAffected customers: {{$json.count}}\n\nActions needed:\n1. Check if more customers affected\n2. Contact provider for credit/replacement\n3. Plan mass credential rotation",
+        "additionalFields": {},
+        "operation": "sendMessage",
+        "options": {}
+      },
+      "id": "wa-admin-mass",
+      "name": "Alert Admin: Mass Ban",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        470,
+        900
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "\u26a0\ufe0f System Notice\n\nWe've detected an issue affecting your proxy IP.\nWe're working on getting you a fresh IP now.\n\nWill update within 30 minutes.\nSorry for the inconvenience \ud83d\ude4f",
+        "extraOptions": {}
+      },
+      "id": "wa-wait-customer",
+      "name": "Notify: Wait for Resolution",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        690,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "text": "\ud83d\udea8 BAN CLAIM ESCALATION\n\nCustomer: {{$json.name}} ({{$json.phone}})\nOrder: {{$json.order_id}}\nIP: {{$json.ip_address}}\nProvider Status: {{$json.data?.status}}\n\nAction: Manual intervention needed",
+        "additionalFields": {},
+        "operation": "sendMessage",
+        "options": {}
+      },
+      "id": "wa-admin-escalate",
+      "name": "Escalate to Admin",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        910,
+        900
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "I can see your IP isn't responding right now.\nThis usually means the provider is having a temporary issue.\n\nLet me check with our provider...",
+        "extraOptions": {}
+      },
+      "id": "wa-troubleshoot",
+      "name": "Notify: Troubleshooting",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1130,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "message": "Our provider confirmed the IP has an issue.\nI'm rotating you to a fresh IP now.\n\n\ud83d\udd04 Your new credentials are ready.\n\nUse these new details:\n[IP / Port / User / Pass]\n\nIf this keeps happening, reply help.",
+        "extraOptions": {}
+      },
+      "id": "wa-auto-rotate",
+      "name": "Notify: Auto Rotation",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        900
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limit Check": {
+      "main": [
+        [
+          {
+            "node": "MiniMax LLM Parser",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rate Limit Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MiniMax LLM Parser": {
+      "main": [
+        [
+          {
+            "node": "Idempotency Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Idempotency Check": {
+      "main": [
+        [
+          {
+            "node": "Switch - Free Trial",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Renewal",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Order",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Help",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Data/Status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Recovery",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - How to Use",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Switch - Unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Order": {
+      "main": [
+        [
+          {
+            "node": "Reply - Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Help": {
+      "main": [
+        [
+          {
+            "node": "Reply - Help",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Data/Status": {
+      "main": [
+        [
+          {
+            "node": "Reply - Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Unknown": {
+      "main": [
+        [
+          {
+            "node": "Reply - Unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Free Trial": {
+      "main": [
+        [
+          {
+            "node": "Reply - Free Trial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Renewal": {
+      "main": [
+        [
+          {
+            "node": "Reply - Renewal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - Recovery": {
+      "main": [
+        [
+          {
+            "node": "Reply - Recovery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch - How to Use": {
+      "main": [
+        [
+          {
+            "node": "Reply - How to Use",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron: Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Find Idle Trial Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Idle Trial Requests": {
+      "main": [
+        [
+          {
+            "node": "Filter: No Surveys in 24h",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: No Surveys in 24h": {
+      "main": [
+        [
+          {
+            "node": "Send Follow-Up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify WhatsApp Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify WhatsApp Signature": {
+      "main": [
+        [
+          {
+            "node": "Detect: Ban Claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect: Ban Claim": {
+      "main": [
+        [
+          {
+            "node": "Lookup Customer in PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lookup Customer in PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Customer in PostgreSQL": {
+      "main": [
+        [
+          {
+            "node": "Lookup Active Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Active Order": {
+      "main": [
+        [
+          {
+            "node": "Check Provider Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Provider Status": {
+      "main": [
+        [
+          {
+            "node": "Provider Status OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Provider Status OK?": {
+      "main": [
+        [
+          {
+            "node": "Check Mass Ban Reports",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify: Troubleshooting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Mass Ban Reports": {
+      "main": [
+        [
+          {
+            "node": "Mass Ban Detected?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mass Ban Detected?": {
+      "main": [
+        [
+          {
+            "node": "Alert Admin: Mass Ban",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Credential Rotation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Credential Rotation": {
+      "main": [
+        [
+          {
+            "node": "Revoke Old Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revoke Old Credentials": {
+      "main": [
+        [
+          {
+            "node": "Create New Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New Credentials": {
+      "main": [
+        [
+          {
+            "node": "Update Credentials in PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Credentials in PostgreSQL": {
+      "main": [
+        [
+          {
+            "node": "Log Support Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Support Ticket": {
+      "main": [
+        [
+          {
+            "node": "Notify: Rotation Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Admin: Mass Ban": {
+      "main": [
+        [
+          {
+            "node": "Notify: Wait for Resolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Troubleshooting": {
+      "main": [
+        [
+          {
+            "node": "Check Provider Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify: Auto Rotation": {
+      "main": [
+        [
+          {
+            "node": "Log Support Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  }
+}

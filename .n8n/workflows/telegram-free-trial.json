@@ -1,391 +1,46 @@
 {
-  "name": "Telegram Free Trial Handler",
-  "tags": ["telegram", "free-trial", "customer"],
+  "name": "Test Webhook Code",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "telegram-free-trial",
+        "path": "test-wc",
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "tgft-trigger",
-      "name": "Telegram Free Trial Trigger",
+      "id": "n1",
+      "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [250, 300],
-      "webhookId": "telegram-free-trial"
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Extract message from Telegram update\nconst data = $input.item.json;\nconst message = (data.message?.text || '').toLowerCase().trim();\nconst chatId = data.message?.chat?.id?.toString() || '';\nconst firstName = data.message?.chat?.first_name || 'there';\nconst updateId = data.update_id?.toString() || '';\n\n// Keywords\nconst trialKeywords = ['free trial', 'free plan', 'trial', 'try free', 'demo'];\nconst doneKeywords = ['done', 'completed', 'done!', 'finished', 'working'];\n\nconst isTrialRequest = trialKeywords.some(k => message.includes(k));\nconst isDoneReply = doneKeywords.some(k => message.includes(k));\n\nreturn {\n  json: {\n    chatId,\n    firstName,\n    message,\n    updateId,\n    is_trial_request: isTrialRequest,\n    is_done_reply: isDoneReply\n  }\n};"
+        "jsCode": "return {json: {result: 'hello'};"
       },
-      "id": "tgft-parse",
-      "name": "Parse Message",
+      "id": "n2",
+      "name": "Code",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [470, 300]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
-          "conditions": [
-            {
-              "id": "cond-trial-req",
-              "leftValue": "={{$json.is_trial_request}}",
-              "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "tgft-if-trial",
-      "name": "If Trial Request",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [690, 200]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
-          "conditions": [
-            {
-              "id": "cond-done-reply",
-              "leftValue": "={{$json.is_done_reply}}",
-              "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "tgft-if-done",
-      "name": "If DONE Reply",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [690, 420]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Count pending (uncredited) surveys for this customer\nconst chatId = $('Parse Message').first().json.chatId;\n\nreturn { json: { chatId } };"
-      },
-      "id": "tgft-count-prep",
-      "name": "Prep Survey Count",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [910, 420]
-    },
-    {
-      "parameters": {
-        "command": "SELECT COUNT(*) AS survey_count FROM pending_trial_surveys WHERE platform_user_id = '{{$json.chatId}}' AND platform = 'telegram' AND credited = FALSE;",
-        "options": {}
-      },
-      "id": "tgft-count-surveys",
-      "name": "Count Pending Surveys",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 1,
-      "position": [1130, 420],
-      "credentials": { "postgres": { "id": "1", "name": "PostgreSQL" } }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": false },
-          "conditions": [
-            {
-              "id": "cond-has-surveys",
-              "leftValue": "={{ $json.survey_count }}",
-              "rightValue": 0,
-              "operator": { "type": "number", "operation": "gt" }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "tgft-if-has-surveys",
-      "name": "If Has Surveys",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [1350, 300]
-    },
-    {
-      "parameters": {
-        "jsCode": "// No surveys completed yet\nconst firstName = $('Parse Message').first().json.firstName;\n\nconst message = `⏳ You no complete any survey yet.\\n\\nTo get your free proxy:\\n1. Click the survey link I sent earlier\\n2. Complete the survey\\n3. Come back and tell me \"done\"\\n\\nYou fit do as many surveys as you want — each one give you 2 more hours!\\nCome back when you don complete at least one survey. 👋`;\n\nreturn { json: { message } };"
-      },
-      "id": "tgft-no-surveys",
-      "name": "Generate No Surveys Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1350, 550]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Calculate hours and check cap\nconst surveyCountRaw = $input.item.json.survey_count;\nconst surveyCount = parseInt(surveyCountRaw, 10);\n\nconst MAX_SURVEYS = 12;\nconst HOURS_PER_SURVEY = 2;\nconst MAX_HOURS = MAX_SURVEYS * HOURS_PER_SURVEY; // 24\n\nconst cappedCount = Math.min(surveyCount, MAX_SURVEYS);\nconst totalHours = cappedCount * HOURS_PER_SURVEY;\nconst hitCap = surveyCount >= MAX_SURVEYS;\n\nreturn {\n  json: {\n    survey_count: surveyCount,\n    total_hours: totalHours,\n    hit_cap: hitCap,\n    port: 8001 + Math.floor(Math.random() * 99) // Random port 8001-8100 — TODO: query active ports for availability\n  }\n};"
-      },
-      "id": "tgft-calc",
-      "name": "Calculate Hours + Cap",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1570, 300]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": false },
-          "conditions": [
-            {
-              "id": "cond-slot-check",
-              "leftValue": "={{$json.port}}",
-              "rightValue": 0,
-              "operator": { "type": "number", "operation": "gt" }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "tgft-if-slot-ok",
-      "name": "If Slot Available",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [1790, 300]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Generate trial credentials\nconst crypto = require('crypto');\n\nconst chatId = $('Parse Message').first().json.chatId;\nconst totalHours = parseInt($input.item.json.total_hours);\nconst port = parseInt($input.item.json.port);\n\nconst userId = 'trial_' + crypto.randomBytes(4).toString('hex');\nconst password = crypto.randomBytes(8).toString('base64').replace(/[+/=]/g, '').substring(0, 16);\n\nconst expiresAt = new Date(Date.now() + totalHours * 60 * 60 * 1000).toISOString();\nconst expiresDisplay = new Date(Date.now() + totalHours * 60 * 60 * 1000)\n  .toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' });\n\nconst remaining = Math.max(0, 12 - Math.floor(totalHours / 2));\n\nreturn {\n  json: {\n    chatId,\n    user_id: userId,\n    password,\n    port,\n    expires_at: expiresAt,\n    expires_display: expiresDisplay,\n    total_hours: totalHours,\n    remaining_surveys: remaining,\n    survey_count: Math.floor(totalHours / 2)\n  }\n};"
-      },
-      "id": "tgft-gen-creds",
-      "name": "Generate Trial Credentials",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2010, 200]
-    },
-    {
-      "parameters": {
-        "command": "/usr/local/bin/manage-3proxy-trial.sh add {{$json.user_id}} '{{$json.password}}' {{$json.port}}",
-        "options": {}
-      },
-      "id": "tgft-3proxy-add",
-      "name": "Add 3proxy User",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [2230, 200]
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "schema": "public",
-        "table": "pending_trial_surveys",
-        "columns": "credited",
-        "additionalFields": "credited = TRUE",
-        "options": {}
-      },
-      "id": "tgft-mark-credited",
-      "name": "Mark Surveys Credited",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 1,
-      "position": [2450, 200],
-      "credentials": { "postgres": { "id": "1", "name": "PostgreSQL" } }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Compose success message\nconst c = $input.item.json;\nconst totalHours = parseInt(c.total_hours);\nconst remaining = Math.max(0, 12 - parseInt(c.survey_count));\nconst hitCap = parseInt(c.survey_count) >= 12;\n\nlet hoursLine = `${totalHours} hours`;\nif (hitCap) hoursLine = '24 hours (maximum!)';\n\nconst message = `🎉 Your proxy don ready!\\n\\n━━━━━━━━━━━━━━━━━━\\n🌐 STYXPROXY TRIAL PROXY\\n━━━━━━━━━━━━━━━━━━\\n\\n🔗 IP: proxy.styxproxy.com\\n🔌 Port: ${c.port}\\n👤 User: ${c.user_id}\\n🔑 Pass: ${c.password}\\n\\n⏰ Duration: ${hoursLine}\\n📊 Surveys completed: ${c.survey_count}/12\\n\\n⚠️ Shared proxy — other trial users share this IP.\\nFor private/production use, upgrade to a paid plan.\\n\\n💡 Want more time? You fit do up to ${remaining} more surveys!\\nJust come back and tell me \"done\" again when you ready. 😊`;\n\nreturn { json: { message, chatId: c.chatId } };"
-      },
-      "id": "tgft-gen-success",
-      "name": "Generate Success Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2670, 200]
-    },
-    {
-      "parameters": {
-        "chatId": "={{$json.chatId}}",
-        "message": "={{$json.message}}",
-        "options": {}
-      },
-      "id": "tgft-send-creds",
-      "name": "Send Credentials via Telegram",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [2890, 200],
-      "credentials": { "telegramApi": { "id": "2", "name": "Telegram Bot API" } }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Slots busy message\nconst chatId = $('Parse Message').first().json.chatId;\nconst message = `⚠️ All trial slots busy for now.\\n\\nOur free trial proxy dey full — e go free up within 30 minutes.\\nMake you no go anywhere o! As e free, I go send you your proxy details. 😊\\n\\nOr if you no want wait, you fit order paid proxy now:\\n• ISP UK: ₦6,500/mo\\n• Residential: from ₦1,950/GB\\n\\nJust tell me \"I want to order\"!`;\n\nreturn { json: { message, chatId } };"
-      },
-      "id": "tgft-busy-msg",
-      "name": "Generate Busy Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2010, 420]
-    },
-    {
-      "parameters": {
-        "chatId": "={{$json.chatId}}",
-        "message": "={{$json.message}}",
-        "options": {}
-      },
-      "id": "tgft-send-busy",
-      "name": "Send Busy Message",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [2230, 420],
-      "credentials": { "telegramApi": { "id": "2", "name": "Telegram Bot API" } }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Generate disclaimer + survey link message\nconst firstName = $('Parse Message').first().json.firstName;\nconst surveyLink = process.env.THEOREM_REACH_SURVEY_URL || 'https://theoremreach.com/survey/XXXXX';\n\nconst message = `🎁 FREE TRIAL — DISCLAIMER\\n\\nBefore we send your free IP, please read:\\n\\n━━━━━━━━━━━━━━━━━━\\n⚠️ FREE TRIAL TERMS ⚠️\\n━━━━━━━━━━━━━━━━━━\\n\\nThis free trial uses a Styxproxy-hosted proxy\\nshared with other trial users. By accepting, you agree:\\n\\n❌ NOT for production/critical use\\n❌ Not guaranteed private (shared with other trials)\\n❌ IP shared = if one user misbehaves, IP could get flagged\\n❌ No replacement if proxy dies or expires\\n❌ Used entirely at YOUR OWN RISK\\n\\n✅ Styxproxy-hosted proxy — generally reliable\\n✅ Auto-expires based on how many surveys you complete\\n✅ For testing our service only\\n✅ Upgrade to paid plan for reliability + privacy\\n\\n━━━━━━━━━━━━━━━━━━\\n\\nHow e go work:\\n1. Complete surveys to earn proxy time\\n2. Each survey = 2 hours of proxy access\\n3. Do up to 12 surveys = up to 24 hours free!\\n4. When you ready, tell me \"done\" and I go send your proxy details\\n\\nComplete ONE survey to start:\\n${surveyLink}\\n\\nAfter completing, come back and tell me \"done\"\\nYou fit do more surveys to get more time! 👇`;\n\nreturn { json: { message } };"
-      },
-      "id": "tgft-gen-disc",
-      "name": "Generate Disclaimer Message",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [910, 200]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $('Parse Message').first().json.chatId }}",
-        "message": "={{$json.message}}",
-        "options": {}
-      },
-      "id": "tgft-send-disc",
-      "name": "Send Disclaimer + Survey Link",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1130, 200],
-      "credentials": { "telegramApi": { "id": "2", "name": "Telegram Bot API" } }
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $('Parse Message').first().json.chatId }}",
-        "message": "={{$json.message}}",
-        "options": {}
-      },
-      "id": "tgft-send-no-surveys",
-      "name": "Send No Surveys Message",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1570, 550],
-      "credentials": { "telegramApi": { "id": "2", "name": "Telegram Bot API" } }
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"ok\"}",
-        "options": { "responseCode": 200 }
-      },
-      "id": "tgft-respond-200",
-      "name": "Respond 200 OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [3110, 300]
+      "position": [
+        470,
+        300
+      ]
     }
   ],
   "connections": {
-    "Telegram Free Trial Trigger": {
+    "Webhook": {
       "main": [
-        [{ "node": "Parse Message", "type": "main", "index": 0 }]
-      ]
-    },
-    "Parse Message": {
-      "main": [
-        [{ "node": "If Trial Request", "type": "main", "index": 0 }],
-        [{ "node": "If DONE Reply", "type": "main", "index": 0 }]
-      ]
-    },
-    "If Trial Request": {
-      "main": [
-        [{ "node": "Generate Disclaimer Message", "type": "main", "index": 0 }]
-      ]
-    },
-    "If DONE Reply": {
-      "main": [
-        [{ "node": "Prep Survey Count", "type": "main", "index": 0 }]
-      ]
-    },
-    "Prep Survey Count": {
-      "main": [
-        [{ "node": "Count Pending Surveys", "type": "main", "index": 0 }]
-      ]
-    },
-    "Count Pending Surveys": {
-      "main": [
-        [{ "node": "If Has Surveys", "type": "main", "index": 0 }]
-      ]
-    },
-    "If Has Surveys": {
-      "main": [
-        [{ "node": "Calculate Hours + Cap", "type": "main", "index": 0 }],
-        [{ "node": "Generate No Surveys Message", "type": "main", "index": 0 }]
-      ]
-    },
-    "Generate No Surveys Message": {
-      "main": [
-        [{ "node": "Send No Surveys Message", "type": "main", "index": 0 }]
-      ]
-    },
-    "Send No Surveys Message": {
-      "main": [
-        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
-      ]
-    },
-    "Calculate Hours + Cap": {
-      "main": [
-        [{ "node": "If Slot Available", "type": "main", "index": 0 }]
-      ]
-    },
-    "If Slot Available": {
-      "main": [
-        [{ "node": "Generate Trial Credentials", "type": "main", "index": 0 }],
-        [{ "node": "Generate Busy Message", "type": "main", "index": 0 }]
-      ]
-    },
-    "Generate Busy Message": {
-      "main": [
-        [{ "node": "Send Busy Message", "type": "main", "index": 0 }]
-      ]
-    },
-    "Send Busy Message": {
-      "main": [
-        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
-      ]
-    },
-    "Generate Trial Credentials": {
-      "main": [
-        [{ "node": "Add 3proxy User", "type": "main", "index": 0 }]
-      ]
-    },
-    "Add 3proxy User": {
-      "main": [
-        [{ "node": "Mark Surveys Credited", "type": "main", "index": 0 }]
-      ]
-    },
-    "Mark Surveys Credited": {
-      "main": [
-        [{ "node": "Generate Success Message", "type": "main", "index": 0 }]
-      ]
-    },
-    "Generate Success Message": {
-      "main": [
-        [{ "node": "Send Credentials via Telegram", "type": "main", "index": 0 }]
-      ]
-    },
-    "Send Credentials via Telegram": {
-      "main": [
-        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
-      ]
-    },
-    "Generate Disclaimer Message": {
-      "main": [
-        [{ "node": "Send Disclaimer + Survey Link", "type": "main", "index": 0 }]
-      ]
-    },
-    "Send Disclaimer + Survey Link": {
-      "main": [
-        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

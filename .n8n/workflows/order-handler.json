@@ -5,14 +5,16 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "whatsapp-incoming",
-        "responseMode": "lastNode",
-        "options": {}
+        "responseMode": "lastNode"
       },
       "id": "whatsapp-trigger",
       "name": "WhatsApp Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -22,7 +24,10 @@
       "name": "Verify WhatsApp Signature",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [200, 0],
+      "position": [
+        200,
+        0
+      ],
       "notes": "HMAC-SHA256 verification of X-Hub-Signature-256 header"
     },
     {
@@ -44,13 +49,16 @@
       "name": "Rate Limit Check",
       "type": "n8n-nodes-base.redis",
       "typeVersion": 1,
-      "position": [400, 0],
+      "position": [
+        400,
+        0
+      ],
       "notes": "Check Redis for phone-based rate limit. Reject if >20 msgs/min."
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.minimax.chat/v1/chat/completions",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -58,7 +66,7 @@
           "parameters": [
             {
               "name": "Authorization",
-              "value": "Bearer {{$env.MINIMAX_API_KEY}}"
+              "value": "Bearer {{$env.GROQ_API_KEY}}"
             },
             {
               "name": "Content-Type",
@@ -71,7 +79,7 @@
           "parameters": [
             {
               "name": "model",
-              "model": "MiniMax-M2.7"
+              "model": "qwen-3.5-27b"
             },
             {
               "name": "messages",
@@ -96,29 +104,32 @@
       "name": "MiniMax LLM Parser",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 3,
-      "position": [600, 0],
+      "position": [
+        600,
+        0
+      ],
       "notes": "Extract intent + entities from customer message"
     },
     {
       "parameters": {
         "fileName": "={{$json.id}}",
-        "data": "={{$json}}",
-        "options": {}
+        "data": "={{$json}}"
       },
       "id": "idempotency",
       "name": "Idempotency Check",
       "type": "n8n-nodes-base.redis",
       "typeVersion": 1,
-      "position": [800, 0],
+      "position": [
+        800,
+        0
+      ],
       "notes": "Store webhook message_id in Redis. Skip if already processed."
     },
     {
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
+            "caseSensitive": true
           },
           "conditions": [
             {
@@ -127,27 +138,24 @@
               "rightValue": "order",
               "operation": "equals"
             }
-          ],
-          "options": {
-            "caseSensitive": true
-          }
-        },
-        "options": {}
+          ]
+        }
       },
       "id": "switch-order",
       "name": "Switch: Order",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [1000, -200],
+      "position": [
+        1000,
+        -200
+      ],
       "notes": "Route to order flow"
     },
     {
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
+            "caseSensitive": true
           },
           "conditions": [
             {
@@ -156,27 +164,24 @@
               "rightValue": "help",
               "operation": "equals"
             }
-          ],
-          "options": {
-            "caseSensitive": true
-          }
-        },
-        "options": {}
+          ]
+        }
       },
       "id": "switch-help",
       "name": "Switch: Help",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [1000, 0],
+      "position": [
+        1000,
+        0
+      ],
       "notes": "Route to help flow"
     },
     {
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
+            "caseSensitive": true
           },
           "conditions": [
             {
@@ -185,27 +190,24 @@
               "rightValue": "check_data",
               "operation": "equals"
             }
-          ],
-          "options": {
-            "caseSensitive": true
-          }
-        },
-        "options": {}
+          ]
+        }
       },
       "id": "switch-data",
       "name": "Switch: Check Data",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [1000, 200],
+      "position": [
+        1000,
+        200
+      ],
       "notes": "Route to data status flow"
     },
     {
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
+            "caseSensitive": true
           },
           "conditions": [
             {
@@ -214,23 +216,22 @@
               "rightValue": "unknown",
               "operation": "equals"
             }
-          ],
-          "options": {
-            "caseSensitive": true
-          }
-        },
-        "options": {}
+          ]
+        }
       },
       "id": "switch-unknown",
       "name": "Switch: Unknown",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [1000, 400],
+      "position": [
+        1000,
+        400
+      ],
       "notes": "Route to fallback"
     },
     {
       "parameters": {
-        "message": "🇳🇬 **Styxproxy Proxy**\n\nI can help you with:\n\n🛒 **Order** — ISP, Residential, Mobile, Datacenter\n💳 **Check Status** — Track your order\n💰 **Pricing** — See all plans\n❓ **Help** — How to get started\n🔗 **Free Trial** — Get a free proxy\n\nWhat would you like to do?",
+        "message": "\ud83c\uddf3\ud83c\uddec **Styxproxy Proxy**\n\nI can help you with:\n\n\ud83d\uded2 **Order** \u2014 ISP, Residential, Mobile, Datacenter\n\ud83d\udcb3 **Check Status** \u2014 Track your order\n\ud83d\udcb0 **Pricing** \u2014 See all plans\n\u2753 **Help** \u2014 How to get started\n\ud83d\udd17 **Free Trial** \u2014 Get a free proxy\n\nWhat would you like to do?",
         "extraOptions": {
           "delay": 500
         }
@@ -239,12 +240,15 @@
       "name": "Help Reply",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [1200, 0],
+      "position": [
+        1200,
+        0
+      ],
       "notes": "Send help menu"
     },
     {
       "parameters": {
-        "message": "🤖 I'm not sure I understood that. Could you rephrase?\n\nYou can say things like:\n- \"Order ISP UK\"\n- \"Check my order status\"\n- \"Help\"\n- \"How do I use proxies?\"",
+        "message": "\ud83e\udd16 I'm not sure I understood that. Could you rephrase?\n\nYou can say things like:\n- \"Order ISP UK\"\n- \"Check my order status\"\n- \"Help\"\n- \"How do I use proxies?\"",
         "extraOptions": {
           "delay": 500
         }
@@ -253,7 +257,10 @@
       "name": "Fallback Reply",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [1200, 400],
+      "position": [
+        1200,
+        400
+      ],
       "notes": "Fallback for unrecognized intent"
     }
   ],
@@ -357,5 +364,9 @@
     "timezone": "Africa/Lagos"
   },
   "staticData": null,
-  "tags": ["whatsapp", "order", "llm"]
+  "tags": [
+    "whatsapp",
+    "order",
+    "llm"
+  ]
 }

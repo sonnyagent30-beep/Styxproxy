@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     # ── Minimax (required for AI features) ──────────────────────────────────
     minimax_api_key: str = ""
 
+    # ── Groq (required for AI features) ─────────────────────────────────────
+    groq_api_key: str = ""
+
     # ── Resend (required for email) ─────────────────────────────────────────
     resend_api_key: str = ""
     betterstack_api_key: str = ""
@@ -127,6 +130,7 @@ class Settings(BaseSettings):
     # P0-5 (Jul 22 2026): M2 is the Charon primary. Endpoint is api.minimax.io.
     # Set MINIMAX_API_KEY in .env to enable.
     minimax_base_url: str = "https://api.minimax.io/v1"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
 
     # ── LiteLLM (Charon LLM proxy sidecar) ──────────────────────────────────
     # P0-5 (Jul 22 2026): required for the deep health endpoint to verify

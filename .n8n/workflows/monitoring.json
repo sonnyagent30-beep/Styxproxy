@@ -1,0 +1,1079 @@
+{
+  "name": "Monitoring & Alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "55 23 * * *"
+            }
+          ]
+        }
+      },
+      "id": "ds-trigger",
+      "name": "Cron: 23:55 Lagos",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        690,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "COUNT(*) FILTER (WHERE DATE(fulfilled_at) = CURRENT_DATE) as orders_today",
+        "conditions": "DATE(fulfilled_at) = CURRENT_DATE"
+      },
+      "id": "ds-orders",
+      "name": "Count Orders Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1570,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "COALESCE(SUM(amount_paid), 0) FILTER (WHERE DATE(fulfilled_at) = CURRENT_DATE) as revenue_today",
+        "conditions": "DATE(fulfilled_at) = CURRENT_DATE"
+      },
+      "id": "ds-revenue",
+      "name": "Calculate Revenue Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1790,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "COUNT(*) FILTER (WHERE DATE(fulfilled_at) = CURRENT_DATE AND status = 'refunded') as refunds_today",
+        "conditions": "DATE(fulfilled_at) = CURRENT_DATE"
+      },
+      "id": "ds-refunds",
+      "name": "Count Refunds Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        910,
+        900
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE AND status = 'cancelled') as errors_today",
+        "conditions": "DATE(created_at) = CURRENT_DATE AND status = 'cancelled'"
+      },
+      "id": "ds-errors",
+      "name": "Count Errors Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        470,
+        1100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE) as new_customers_today",
+        "conditions": "DATE(created_at) = CURRENT_DATE"
+      },
+      "id": "ds-new-customers",
+      "name": "Count New Customers",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        910,
+        1100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE) as trials_today",
+        "conditions": "DATE(created_at) = CURRENT_DATE"
+      },
+      "id": "ds-trials",
+      "name": "Count Trials Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1130,
+        1100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Aggregate all metrics\nconst inputs = $input.all();\n\nconst data = {\n  orders: inputs[0]?.json?.orders_today || 0,\n  revenue: inputs[1]?.json?.revenue_today || 0,\n  refunds: inputs[2]?.json?.refunds_today || 0,\n  errors: inputs[3]?.json?.errors_today || 0,\n  critical: inputs[3]?.json?.critical_errors_today || 0,\n  newCustomers: inputs[4]?.json?.new_customers_today || 0,\n  trials: inputs[5]?.json?.trials_today || 0\n};\n\nreturn [{ json: data }];"
+      },
+      "id": "ds-aggregate",
+      "name": "Aggregate Metrics",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1130,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "daily_summary",
+        "columns": "date, orders_today, revenue_today, refunds_today, errors_today, critical_errors_today, new_customers_today, trials_today",
+        "values": "CURRENT_DATE, {{$json.orders}}, {{$json.revenue}}, {{$json.refunds}}, {{$json.errors}}, {{$json.critical}}, {{$json.newCustomers}}, {{$json.trials}}"
+      },
+      "id": "ds-save",
+      "name": "Save to daily_summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1570,
+        900
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "low-revenue",
+              "leftValue": "={{$json.revenue}}",
+              "rightValue": 50000,
+              "operation": "less"
+            },
+            {
+              "id": "high-errors",
+              "leftValue": "={{$json.errors}}",
+              "rightValue": 5,
+              "operation": "greater"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutputs": [
+            "always"
+          ]
+        }
+      },
+      "id": "ds-alert-check",
+      "name": "Alert Check",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        250,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udcca Styxproxy Daily Summary\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n\ud83d\uded2 Orders: {{$json.orders}}\n\ud83d\udcb0 Revenue: \u20a6{{$json.revenue}}\n\ud83d\udcb3 Refunds: {{$json.refunds}}\n\u26a0\ufe0f Errors: {{$json.errors}} ({{$json.critical}} critical)\n\ud83d\udc65 New Customers: {{$json.newCustomers}}\n\ud83c\udf81 Free Trials: {{$json.trials}}\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+        "extraOptions": {}
+      },
+      "id": "ds-send-normal",
+      "name": "Send Normal Summary",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        690,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udea8 Styxproxy Daily Alert\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n\u26a0\ufe0f Issues detected:\n{{#if $json.revenue < 50000}}\ud83d\udcb0 Low revenue: \u20a6{{$json.revenue}} (< \u20a650k)\n{{/if}}{{#if $json.errors > 5}}\u26a0\ufe0f High errors: {{$json.errors}}\n{{/if}}{{#if $json.critical > 0}}\ud83d\udd34 Critical: {{$json.critical}}\n{{/if}}\n\n\ud83d\udcca Full Summary:\nOrders: {{$json.orders}}\nRevenue: \u20a6{{$json.revenue}}\nRefunds: {{$json.refunds}}\nErrors: {{$json.errors}}\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+        "extraOptions": {}
+      },
+      "id": "ds-send-alert",
+      "name": "Send Alert Summary",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        690,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "da-trigger",
+      "name": "Cron: Every 15 Minutes",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        910,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, customer_phone, product_type, provider, ip_address, data_total_gb, data_remaining_gb, expires_at",
+        "conditions": "status = 'fulfilled' AND provider = 'DataImpulse' AND data_remaining_gb > 0"
+      },
+      "id": "da-query",
+      "name": "Query Active DataImpulse Orders",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1790,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate alert thresholds\nconst orders = $input.all();\nconst results = [];\n\nfor (const order of orders) {\n  const o = order.json;\n  const pct = (o.data_remaining_gb / o.data_total_gb) * 100;\n  \n  let threshold = null;\n  if (pct <= 5) threshold = 5;\n  else if (pct <= 10) threshold = 10;\n  else if (pct <= 20) threshold = 20;\n  \n  if (threshold) {\n    results.push({\n      ...o,\n      pct_remaining: Math.round(pct * 10) / 10,\n      threshold\n    });\n  }\n}\n\nreturn results.map(r => ({ json: r }));"
+      },
+      "id": "da-calc",
+      "name": "Calculate Thresholds",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        690,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "data_alert_history",
+        "columns": "order_id, threshold_pct, alert_sent_at",
+        "conditions": "order_id = '{{$json.order_id}}' AND threshold_pct = {{$json.threshold}}"
+      },
+      "id": "da-check-history",
+      "name": "Check Alert History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1570,
+        500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "no-alert-sent",
+              "leftValue": "={{$json.length}}",
+              "rightValue": 0,
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "da-filter-new",
+      "name": "Filter: New Alert Needed",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        690,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Select message template by threshold\nconst order = $input.first().json;\nconst threshold = order.threshold;\nconst pct = order.pct_remaining;\n\nconst messages = {\n  20: `\ud83d\udcca Data Running Low \u2014 [Name]\n\nYour ${order.product_type} Proxy:\n\ud83d\udd17 IP: ${order.ip_address}\n\ud83d\udce6 ${order.data_remaining_gb}GB of ${order.data_total_gb}GB used (~${pct}% left)\n\n\ud83d\udca1 You're using more data than expected.\nWant to top up? Just say \"Top up\" \ud83d\udcf1`,\n  \n  10: `\u26a0\ufe0f Data Running Very Low \u2014 [Name]\n\nYour ${order.product_type} Proxy:\n\ud83d\udd17 IP: ${order.ip_address}\n\ud83d\udce6 Only ${order.data_remaining_gb}GB remaining (~${pct}% left)\n\n\ud83d\udea8 Time to top up!\nSay \"Top up\" to add more data \ud83d\udcf1`,\n\n  5: `\ud83d\udea8 LAST WARNING \u2014 [Name]\n\nYour ${order.product_type} Proxy:\n\ud83d\udd17 IP: ${order.ip_address}\n\ud83d\udce6 Just ${order.data_remaining_gb}GB left (~${pct}%)!\n\ud83d\udd34 Proxy stops when data runs out.\n\nTOP UP NOW \u2014 say \"Top up\" \ud83d\udcf1`\n};\n\nreturn [{ json: { ...order, message: messages[threshold] || messages[5] } }];"
+      },
+      "id": "da-select-template",
+      "name": "Select Message Template",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1130,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "message": "={{$json.message}}",
+        "extraOptions": {}
+      },
+      "id": "da-send-alert",
+      "name": "Send Alert via WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "data_alert_history",
+        "columns": "order_id, threshold_pct, message_type, alert_sent_at",
+        "values": "'{{$json.order_id}}', {{$json.threshold}}, 'warning', NOW()"
+      },
+      "id": "da-log-alert",
+      "name": "Log Alert to PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1570,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "ea-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        1130,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Determine severity and extract key info\nconst error = $input.first().json;\nconst execution = error.execution;\nconst workflow = error.workflow;\n\nlet severity = 'low';\nconst errorMessage = error.message || '';\nconst workflowName = workflow?.name || 'Unknown';\nconst nodeName = error.node?.name || 'Unknown';\n\n// Critical: payment processed but proxy not delivered\nif (errorMessage.includes('provider') && errorMessage.includes('failed')) {\n  severity = 'critical';\n}\n// High: webhook failed or provider API down\nelse if (errorMessage.includes('webhook') || errorMessage.includes('API')) {\n  severity = 'high';\n}\n// Medium: timeout, rate limit\nelse if (errorMessage.includes('timeout') || errorMessage.includes('rate limit')) {\n  severity = 'medium';\n}\n\nreturn [{\n  json: {\n    severity,\n    workflowName,\n    nodeName,\n    errorMessage: errorMessage.substring(0, 500),\n    executionId: execution?.id,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "ea-classify",
+      "name": "Classify Error Severity",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        250,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "orders",
+        "columns": "status, plan_code, customer_phone, amount_paid_ngn",
+        "values": "'{{$json.severity}}', '{{$json.workflowName}}', '{{$json.nodeName}}', '{{$json.executionId}}'"
+      },
+      "id": "ea-log",
+      "name": "Log to PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        910,
+        500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "critical-high",
+              "leftValue": "={{$json.severity}}",
+              "rightValue": "critical",
+              "operation": "equals"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutputs": [
+            "always"
+          ]
+        }
+      },
+      "id": "ea-severity-filter",
+      "name": "Filter: Critical/High",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        1790,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udd34 Styxproxy Error \u2014 {{$json.severity}}\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n\u26a0\ufe0f Workflow: {{$json.workflowName}}\n\ud83d\udccd Node: {{$json.nodeName}}\n\n{{$json.errorMessage}}\n\n\u23f0 {{$json.timestamp}}\n\ud83c\udd94 {{$json.executionId}}\n\nAction required.",
+        "extraOptions": {}
+      },
+      "id": "ea-alert-admin",
+      "name": "Alert Admin",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        910,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.proxy-seller.com/v1/account",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.PROXY_SELLER_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "wf5-ps-check",
+      "name": "Check Proxy-Seller API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        470,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "provider_log",
+        "columns": "provider, event_type, status, response_code, response_body, created_at",
+        "values": "'Proxy-Seller', 'health_check', 'ok', {{ $json.status }}, '{{ JSON.stringify($json) }}', NOW()"
+      },
+      "id": "wf5-ps-log-ok",
+      "name": "Log Proxy-Seller OK",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udd34 Provider Alert \u2014 Proxy-Seller\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\nProxy-Seller API is DOWN.\n\nHTTP Status: {{ $json.status }}\nResponse: {{ $json.data?.message || $json.response || 'No response' }}\n\nTime: {{ $now }}\n\nAction required \u2014 customers may not receive proxies.",
+        "extraOptions": {}
+      },
+      "id": "wf5-ps-alert",
+      "name": "Alert Admin \u2014 Proxy-Seller Down",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1130,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "provider_log",
+        "columns": "provider, event_type, status, error_message, created_at",
+        "values": "'Proxy-Seller', 'health_check', 'error', '{{ $json.error?.message || $json.message || 'Request failed' }}', NOW()"
+      },
+      "id": "wf5-ps-log-error",
+      "name": "Log Proxy-Seller Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        250,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.dataimpulse.com/api/account",
+        "method": "GET",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Key",
+              "value": "{{ $env.DATAIMPULSE_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "wf5-di-check",
+      "name": "Check DataImpulse API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        250,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "provider_log",
+        "columns": "provider, event_type, status, response_code, created_at",
+        "values": "'DataImpulse', 'health_check', 'ok', {{ $json.status || 200 }}, NOW()"
+      },
+      "id": "wf5-di-log-ok",
+      "name": "Log DataImpulse OK",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        470,
+        900
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udd34 Provider Alert \u2014 DataImpulse\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\nDataImpulse API is DOWN.\n\nHTTP Status: {{ $json.status }}\nResponse: {{ $json.error || 'No response' }}\n\nTime: {{ $now }}\n\nAction required.",
+        "extraOptions": {}
+      },
+      "id": "wf5-di-alert",
+      "name": "Alert Admin \u2014 DataImpulse Down",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "provider_log",
+        "columns": "provider, event_type, status, error_message, created_at",
+        "values": "'DataImpulse', 'health_check', 'error', '{{ $json.error?.message || $json.message || 'Request failed' }}', NOW()"
+      },
+      "id": "wf5-di-log-error",
+      "name": "Log DataImpulse Error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1790,
+        900
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "wf12-trigger",
+      "name": "Cron: Daily 07:00 Lagos",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "provider_log",
+        "columns": "provider, event_type,\n                    COUNT(*) FILTER (WHERE status = 'ok') as ok_count,\n                    COUNT(*) FILTER (WHERE status = 'error') as error_count",
+        "conditions": "event_type = 'health_check' AND timestamp >= NOW() - INTERVAL '24 hours'",
+        "groupBy": "provider, event_type"
+      },
+      "id": "wf12-summary",
+      "name": "24h Health Summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        470,
+        500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const rows = $input.all();\nif (rows.length === 0) {\n    return [{ json: { message: '\ud83d\udcca Provider Health Report\\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\\n\\nNo health checks recorded in last 24h.\\nAll systems quiet.' }}];\n}\n\nlet message = '\ud83d\udcca Provider Health Report (24h)\\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\\n\\n';\nfor (const row of rows) {\n    const r = row.json;\n    const icon = r.error_count === 0 ? '\u2705' : '\u26a0\ufe0f';\n    message += icon + ' ' + r.provider + ': ' + r.ok_count + ' OK / ' + r.error_count + ' errors\\n';\n}\nmessage += '\\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501';\n\nreturn [{ json: { message }}];"
+      },
+      "id": "wf12-format",
+      "name": "Format Message",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "message": "{{ $json.message }}"
+      },
+      "id": "wf12-send",
+      "name": "Send to Admin",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        470,
+        700
+      ]
+    }
+  ],
+  "connections": {
+    "Cron: 23:55 Lagos": {
+      "main": [
+        [
+          {
+            "node": "Count Orders Today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Orders Today": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Revenue Today": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Refunds Today": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Errors Today": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count New Customers": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Trials Today": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Metrics": {
+      "main": [
+        [
+          {
+            "node": "Save to daily_summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to daily_summary": {
+      "main": [
+        [
+          {
+            "node": "Alert Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Check": {
+      "main": [
+        [
+          {
+            "node": "Send Alert Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Normal Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron: Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Check Proxy-Seller API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check DataImpulse API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Active DataImpulse Orders": {
+      "main": [
+        [
+          {
+            "node": "Calculate Thresholds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Thresholds": {
+      "main": [
+        [
+          {
+            "node": "Check Alert History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Alert History": {
+      "main": [
+        [
+          {
+            "node": "Filter: New Alert Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: New Alert Needed": {
+      "main": [
+        [
+          {
+            "node": "Select Message Template",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Select Message Template": {
+      "main": [
+        [
+          {
+            "node": "Send Alert via WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Alert via WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Log Alert to PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Classify Error Severity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Error Severity": {
+      "main": [
+        [
+          {
+            "node": "Log to PostgreSQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to PostgreSQL": {
+      "main": [
+        [
+          {
+            "node": "Filter: Critical/High",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter: Critical/High": {
+      "main": [
+        [
+          {
+            "node": "Alert Admin",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Check Proxy-Seller API": {
+      "main": [
+        [
+          {
+            "node": "Log Proxy-Seller OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert Admin \u2014 Proxy-Seller Down",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Admin \u2014 Proxy-Seller Down": {
+      "main": [
+        [
+          {
+            "node": "Log Proxy-Seller Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check DataImpulse API": {
+      "main": [
+        [
+          {
+            "node": "Log DataImpulse OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert Admin \u2014 DataImpulse Down",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Admin \u2014 DataImpulse Down": {
+      "main": [
+        [
+          {
+            "node": "Log DataImpulse Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron: Daily 07:00 Lagos": {
+      "main": [
+        [
+          {
+            "node": "24h Health Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "24h Health Summary": {
+      "main": [
+        [
+          {
+            "node": "Format Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Message": {
+      "main": [
+        [
+          {
+            "node": "Send to Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  }
+}

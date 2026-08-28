@@ -5,14 +5,16 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "channel-status",
-        "responseMode": "lastNode",
-        "options": {}
+        "responseMode": "lastNode"
       },
       "id": "cf-001",
       "name": "Health Check Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [0, 0]
+      "position": [
+        0,
+        0
+      ]
     },
     {
       "parameters": {
@@ -22,7 +24,10 @@
       "name": "Check WhatsApp Status",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [200, -100]
+      "position": [
+        200,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -32,15 +37,16 @@
       "name": "Check Telegram Status",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [200, 100]
+      "position": [
+        200,
+        100
+      ]
     },
     {
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
+            "caseSensitive": true
           },
           "conditions": [
             {
@@ -55,32 +61,33 @@
               "rightValue": true,
               "operation": "equals"
             }
-          ],
-          "options": {
-            "caseSensitive": true
-          }
-        },
-        "options": {}
+          ]
+        }
       },
       "id": "cf-004",
       "name": "Switch: Both Up",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [400, 0]
+      "position": [
+        400,
+        0
+      ]
     },
     {
       "parameters": {
         "respondWith": {
           "respondWith": "json",
           "responseBody": "={{ $json }}"
-        },
-        "options": {}
+        }
       },
       "id": "cf-005",
       "name": "Both Available",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [600, 0]
+      "position": [
+        600,
+        0
+      ]
     },
     {
       "parameters": {
@@ -90,50 +97,75 @@
       "name": "Merge Status",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [400, 200]
+      "position": [
+        400,
+        200
+      ]
     },
     {
       "parameters": {
         "respondWith": {
           "respondWith": "json",
           "responseBody": "={{ $json }}"
-        },
-        "options": {}
+        }
       },
       "id": "cf-007",
       "name": "Return Status",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [600, 200]
+      "position": [
+        600,
+        200
+      ]
     }
   ],
   "connections": {
     "Health Check Webhook": {
       "main": [
         [
-          { "node": "Check WhatsApp Status", "type": "main", "index": 0 },
-          { "node": "Check Telegram Status", "type": "main", "index": 0 }
+          {
+            "node": "Check WhatsApp Status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Telegram Status",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Check WhatsApp Status": {
       "main": [
         [
-          { "node": "Merge Status", "type": "main", "index": 0 }
+          {
+            "node": "Merge Status",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Check Telegram Status": {
       "main": [
         [
-          { "node": "Merge Status", "type": "main", "index": 0 }
+          {
+            "node": "Merge Status",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
     "Merge Status": {
       "main": [
         [
-          { "node": "Return Status", "type": "main", "index": 0 }
+          {
+            "node": "Return Status",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     }
@@ -144,5 +176,9 @@
     "timezone": "Africa/Lagos"
   },
   "staticData": null,
-  "tags": ["infrastructure", "failover", "health-check"]
+  "tags": [
+    "infrastructure",
+    "failover",
+    "health-check"
+  ]
 }

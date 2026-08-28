@@ -1,6 +1,5 @@
 {
   "name": "Theorem Reach Webhook",
-  "tags": ["styxproxy", "free-trial", "theorem-reach", "webhook"],
   "nodes": [
     {
       "parameters": {
@@ -9,287 +8,39 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "tr-webhook",
-      "name": "Theorem Reach Postback",
+      "id": "n1",
+      "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [250, 300],
-      "webhookId": "theorem-reach"
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// Verify HMAC-SHA256 signature from Theorem Reach\nconst crypto = require('crypto');\n\nconst payload = $input.item.json.body || {};\nconst headers = $input.item.json.headers || {};\n\n// Theorem Reach sends signature in x-theorem-reach-signature header\nconst signature = headers['x-theorem-reach-signature'] || payload.signature;\nconst secret = process.env.THEOREM_REACH_SECRET;\n\nif (!secret) {\n  throw new Error('THEOREM_REACH_SECRET not set in env');\n}\n\n// Theorem Reach signs: sha256(secret + transaction_id + user_id + payout_usd)\nconst message = `${secret}${payload.transaction_id}${payload.user_id}${payload.payout_usd}`;\nconst expected = crypto.createHash('sha256').update(message).digest('hex');\n\nconst valid = (signature === expected);\n\nreturn {\n  json: {\n    signature_valid: valid,\n    raw_payload: payload,\n    transaction_id: payload.transaction_id || '',\n    user_id: payload.user_id || '',\n    payout_usd: parseFloat(payload.payout_usd) || 0,\n    status: payload.status || ''\n  }\n};"
+        "jsCode": "return {json: {received: true};"
       },
-      "id": "tr-verify",
-      "name": "Verify HMAC Signature",
+      "id": "n2",
+      "name": "Code",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [470, 300]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
-          "conditions": [
-            {
-              "id": "cond-valid",
-              "leftValue": "={{$json.signature_valid}}",
-              "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "tr-if-valid",
-      "name": "If Signature Valid",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [690, 300]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
-          "conditions": [
-            {
-              "id": "cond-completed",
-              "leftValue": "={{$json.status}}",
-              "rightValue": "completed",
-              "operator": { "type": "string", "operation": "equals" }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "tr-if-completed",
-      "name": "If Status=Completed",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [910, 300]
-    },
-    {
-      "parameters": {
-        "command": "SELECT user_id FROM theorem_reach_postbacks WHERE transaction_id = '{{$json.transaction_id}}';",
-        "options": {}
-      },
-      "id": "tr-check-idem",
-      "name": "Check Idempotency",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 1,
-      "position": [1130, 300],
-      "credentials": { "postgres": { "id": "1", "name": "PostgreSQL" } }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
-          "conditions": [
-            {
-              "id": "cond-new",
-              "leftValue": "={{$json.user_id}}",
-              "rightValue": "",
-              "operator": { "type": "string", "operation": "empty" }
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "tr-if-new",
-      "name": "If Not Already Processed",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [1350, 300]
-    },
-    {
-      "parameters": {
-        "operation": "insert",
-        "schema": "public",
-        "table": "theorem_reach_postbacks",
-        "columns": "transaction_id,user_id,payout_usd,signature,signature_valid,raw_payload,processed_at",
-        "additionalFields": "{\n  \"signature_valid\": {{$json.signature_valid}},\n  \"raw_payload\": {{$json.raw_payload}}\n}",
-        "options": {}
-      },
-      "id": "tr-insert-postback",
-      "name": "Insert Postback Record",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 1,
-      "position": [1570, 300],
-      "credentials": { "postgres": { "id": "1", "name": "PostgreSQL" } }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Record the survey in pending_trial_surveys\n// Lookup platform_account by the user_id field (this is the Telegram chat_id for Styxproxy trials)\nconst payload = $input.item.json.raw_payload;\nconst userId = payload.user_id || '';\n\n// userId format from Theorem Reach for Styxproxy: contains the platform info\n// We store it as-is — the lookup happens at \"done\" time\nreturn {\n  json: {\n    survey_transaction_id: payload.transaction_id || '',\n    survey_user_id: userId,\n    payout_usd: parseFloat(payload.payout_usd) || 0,\n    platform_user_id: userId, // Use user_id as the platform identifier\n    platform: 'telegram', // Theorem Reach trials are triggered from Telegram for Styxproxy\n    credited: false\n  }\n};"
-      },
-      "id": "tr-prep-pending",
-      "name": "Prep Pending Survey Record",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1790, 300]
-    },
-    {
-      "parameters": {
-        "operation": "insert",
-        "schema": "public",
-        "table": "pending_trial_surveys",
-        "columns": "survey_transaction_id,survey_user_id,payout_usd,platform_user_id,platform,credited",
-        "additionalFields": "{}",
-        "options": {}
-      },
-      "id": "tr-insert-pending",
-      "name": "Insert Pending Trial Survey",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 1,
-      "position": [2010, 300],
-      "credentials": { "postgres": { "id": "1", "name": "PostgreSQL" } }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Log the successful survey recording\nreturn {\n  json: {\n    logged: true,\n    transaction_id: $input.item.json.transaction_id,\n    user_id: $input.item.json.user_id,\n    payout_usd: $input.item.json.payout_usd\n  }\n};"
-      },
-      "id": "tr-log",
-      "name": "Log Survey Recorded",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [2230, 300]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"ok\"}",
-        "options": { "responseCode": 200 }
-      },
-      "id": "tr-respond-ok",
-      "name": "Respond 200 OK",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [2450, 300]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"already_processed\"}",
-        "options": { "responseCode": 200 }
-      },
-      "id": "tr-respond-idem",
-      "name": "Respond 200 (Idempotent)",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [1570, 480]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "{\"status\":\"invalid_signature\"}",
-        "options": { "responseCode": 401 }
-      },
-      "id": "tr-respond-401",
-      "name": "Respond 401 Unauthorized",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [910, 480]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Alert admin on invalid signature — possible attack\nreturn {\n  json: {\n    alert_admin: true,\n    event: 'theorem_reach_invalid_signature',\n    transaction_id: $input.item.json.transaction_id,\n    user_id: $input.item.json.user_id\n  }\n};"
-      },
-      "id": "tr-alert-invalid",
-      "name": "Alert Admin (Invalid Signature)",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1130, 480]
-    },
-    {
-      "parameters": {
-        "chatId": "={{ $env.ADMIN_TELEGRAM_CHAT_ID }}",
-        "message": "⚠️ Theorem Reach invalid signature! Possible attack.\\nTX: {{$json.transaction_id}}\\nUser: {{$json.user_id}}",
-        "options": {}
-      },
-      "id": "tr-alert-tg",
-      "name": "Alert Admin via Telegram",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1350, 480],
-      "credentials": { "telegramApi": { "id": "2", "name": "Telegram Bot API" } }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Log completion event\nreturn { json: { event: 'theorem_reach_completed' } };"
-      },
-      "id": "tr-log-completion",
-      "name": "Log Completion",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [1130, 200]
+      "position": [
+        470,
+        300
+      ]
     }
   ],
   "connections": {
-    "Theorem Reach Postback": {
+    "Webhook": {
       "main": [
-        [{ "node": "Verify HMAC Signature", "type": "main", "index": 0 }]
-      ]
-    },
-    "Verify HMAC Signature": {
-      "main": [
-        [{ "node": "If Signature Valid", "type": "main", "index": 0 }],
-        [{ "node": "Respond 401 Unauthorized", "type": "main", "index": 0 }]
-      ]
-    },
-    "If Signature Valid": {
-      "main": [
-        [{ "node": "Log Completion", "type": "main", "index": 0 }],
-        [{ "node": "Alert Admin (Invalid Signature)", "type": "main", "index": 0 }]
-      ]
-    },
-    "Log Completion": {
-      "main": [
-        [{ "node": "If Status=Completed", "type": "main", "index": 0 }]
-      ]
-    },
-    "Alert Admin (Invalid Signature)": {
-      "main": [
-        [{ "node": "Alert Admin via Telegram", "type": "main", "index": 0 }]
-      ]
-    },
-    "Alert Admin via Telegram": {
-      "main": [
-        [{ "node": "Respond 401 Unauthorized", "type": "main", "index": 0 }]
-      ]
-    },
-    "If Status=Completed": {
-      "main": [
-        [{ "node": "Check Idempotency", "type": "main", "index": 0 }]
-      ]
-    },
-    "Check Idempotency": {
-      "main": [
-        [{ "node": "If Not Already Processed", "type": "main", "index": 0 }]
-      ]
-    },
-    "If Not Already Processed": {
-      "main": [
-        [{ "node": "Insert Postback Record", "type": "main", "index": 0 }],
-        [{ "node": "Respond 200 (Idempotent)", "type": "main", "index": 0 }]
-      ]
-    },
-    "Insert Postback Record": {
-      "main": [
-        [{ "node": "Prep Pending Survey Record", "type": "main", "index": 0 }]
-      ]
-    },
-    "Prep Pending Survey Record": {
-      "main": [
-        [{ "node": "Insert Pending Trial Survey", "type": "main", "index": 0 }]
-      ]
-    },
-    "Insert Pending Trial Survey": {
-      "main": [
-        [{ "node": "Log Survey Recorded", "type": "main", "index": 0 }]
-      ]
-    },
-    "Log Survey Recorded": {
-      "main": [
-        [{ "node": "Respond 200 OK", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

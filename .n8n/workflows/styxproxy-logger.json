@@ -5,8 +5,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "styxproxy-logger",
-        "responseMode": "lastNode",
-        "options": {}
+        "responseMode": "lastNode"
       },
       "id": "wf11-trigger",
       "name": "Webhook: Styxproxy Logger",

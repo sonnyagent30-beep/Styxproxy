@@ -28,13 +28,12 @@ model_list:
       timeout: 120
       num_retries: 1
 
-  # Cloud fallback - only enabled when LITELLM_CLOUD_API_KEY env is
-  # provided. Used as a primary when CHARON_LLM_PROVIDER=cloud.
-  - model_name: cloud-minimax-m2
+  # Groq Qwen 3.5 27B — Charon primary. OpenAI-compatible.
+  - model_name: groq-qwen
     litellm_params:
-      model: openai/MiniMax-M2
-      api_key: os.environ/LITELLM_CLOUD_API_KEY
-      api_base: https://api.minimax.io/v1
+      model: openai/qwen-3.5-27b
+      api_key: os.environ/GROQ_API_KEY
+      api_base: https://api.groq.com/openai/v1
       timeout: 30
 
 # Drop LiteLLM's verbose stdout logging; we rely on api container's

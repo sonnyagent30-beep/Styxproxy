@@ -21,9 +21,11 @@ from pydantic import BaseModel
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 # ── Pricing constants ────────────────────────────────────────────────────────
-# MiniMax M2: $0.059/M input tokens, $0.236/M output tokens
-MINIMAX_M2_INPUT_COST_PER_M = 0.059
-MINIMAX_M2_OUTPUT_COST_PER_M = 0.236
+# Groq Qwen 3.5 27B: free tier (community/preview) or very low cost
+# Actual pricing: $0.05-0.10/M input, $0.10-0.25/M output depending on model
+# Using conservative estimates
+GROQ_INPUT_COST_PER_M = 0.08
+GROQ_OUTPUT_COST_PER_M = 0.20
 INPUT_RATIO = 0.70
 OUTPUT_RATIO = 0.30
 
@@ -80,8 +82,8 @@ def _llm_cost() -> LLM_cost:
         input_tokens = int(tokens * INPUT_RATIO)
         output_tokens = int(tokens * OUTPUT_RATIO)
         cost = (
-            (input_tokens / 1_000_000) * MINIMAX_M2_INPUT_COST_PER_M
-            + (output_tokens / 1_000_000) * MINIMAX_M2_OUTPUT_COST_PER_M
+            (input_tokens / 1_000_000) * GROQ_INPUT_COST_PER_M
+            + (output_tokens / 1_000_000) * GROQ_OUTPUT_COST_PER_M
         )
         budget = float(os.environ.get("CHARON_DAILY_BUDGET_USD", "0"))
         remaining = max(0.0, budget - cost)
@@ -95,7 +97,7 @@ def _llm_cost() -> LLM_cost:
             budget_remaining_usd=round(remaining, 4),
             budget_pct_used=pct,
             daily_reset_utc=reset_str,
-            pricing_model="MiniMax M2 ($0.059/M input, $0.236/M output)",
+            pricing_model="Groq Qwen 3.5 27B ($0.08/M input, $0.20/M output)",
         )
     except Exception:
         return LLM_cost(
@@ -105,7 +107,7 @@ def _llm_cost() -> LLM_cost:
             budget_remaining_usd=0.0,
             budget_pct_used=0.0,
             daily_reset_utc="00:00 UTC",
-            pricing_model="MiniMax M2",
+            pricing_model="Groq Qwen 3.5 27B",
         )
 
 

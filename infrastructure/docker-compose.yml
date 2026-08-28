@@ -103,6 +103,7 @@ services:
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
 
       # LLM
+      GROQ_API_KEY: ${GROQ_API_KEY}
       MINIMAX_API_KEY: ${MINIMAX_API_KEY}
 
       # Auth — JWT for platform accounts, ADMIN_TOKEN for admin endpoints
@@ -152,6 +153,9 @@ services:
       SENTRY_DSN: ${SENTRY_DSN}
       SENTRY_DSN_URL: ${SENTRY_DSN}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      # LLM
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY}
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:

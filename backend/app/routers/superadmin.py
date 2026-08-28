@@ -741,7 +741,7 @@ def _charon_llm_status() -> str:
 
         # P0-5 (Jul 22 2026): primary is M2 cloud. Always check the
         # cloud key — local-only is no longer a configuration.
-        if not os.getenv("MINIMAX_API_KEY"):
+        if not os.getenv("GROQ_API_KEY"):
             # No M2 key configured — degraded even if local is up
             pass
         s = _charon_stats()

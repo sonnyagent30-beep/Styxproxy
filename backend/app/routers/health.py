@@ -245,10 +245,10 @@ async def _check_m2_cloud() -> dict[str, Any]:
     the LLM client will fall back to MiniCPM5 — but the admin status
     panel watches this to alert on M2 outages.
     """
-    api_key = os.getenv("MINIMAX_API_KEY", "")
+    api_key = os.getenv("GROQ_API_KEY", "")
     if not api_key:
-        return {"status": "not_configured", "latency_ms": None, "error": "MINIMAX_API_KEY not set"}
-    base = settings.minimax_base_url.rstrip("/")
+        return {"status": "not_configured", "latency_ms": None, "error": "GROQ_API_KEY not set"}
+    base = settings.groq_base_url.rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
             t0 = datetime.utcnow()

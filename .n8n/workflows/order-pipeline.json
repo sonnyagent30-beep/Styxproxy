@@ -1,0 +1,590 @@
+{
+  "name": "Order Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-whatsapp",
+        "responseMode": "onReceived"
+      },
+      "id": "wa-trigger",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-flutterwave",
+        "responseMode": "onReceived"
+      },
+      "id": "fw-trigger",
+      "name": "Flutterwave Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-refund",
+        "responseMode": "onReceived"
+      },
+      "id": "rf-trigger",
+      "name": "Refund Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const body = $input.first().json.body || {};\nconst message = (body.message?.text || '').toLowerCase().trim();\nconst phone = body.from || '';\nconst orderKeywords = ['order', 'buy', 'purchase', 'get proxy', 'want proxy', 'isp', 'residential', 'mobile', 'datacenter'];\nconst isOrder = orderKeywords.some(k => message.includes(k));\nreturn [{ json: { phone, message, is_order: isOrder, channel: 'whatsapp' } }];"
+      },
+      "id": "wa-parse",
+      "name": "Parse WhatsApp Intent",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        200,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const crypto = require('crypto');\nconst sig = $input.first().json.headers?.['verif-hash'];\nconst body = $input.first().json.body || $input.first().json;\nif (!sig) throw new Error('Missing Flutterwave signature');\nreturn [{ json: { ...body, sig } }];"
+      },
+      "id": "fw-verify",
+      "name": "Verify FW Signature",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "const body = $input.first().json.body || {};\nconst message = (body.message?.text || '').toLowerCase().trim();\nconst phone = body.from || '';\nreturn [{ json: { phone, message, is_refund: true, channel: 'whatsapp' } }];"
+      },
+      "id": "rf-parse",
+      "name": "Parse Refund Request",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "id": "wa-if-order",
+      "name": "Switch Order Intent",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        -300
+      ],
+      "parameters": {
+        "rules": [
+          {
+            "outputKey": "output_0",
+            "conditions": {
+              "options": {
+                "caseSensitive": false,
+                "leftValue": "",
+                "typeValidation": "loose"
+              },
+              "conditions": [
+                {
+                  "leftValue": "={{$json.is_order}}",
+                  "rightValue": true,
+                  "operation": "equals"
+                }
+              ]
+            }
+          }
+        ],
+        "outputCount": 1,
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "id": "fw-if-completed",
+      "name": "Switch Charge Completed",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        0
+      ],
+      "parameters": {
+        "rules": [
+          {
+            "outputKey": "output_0",
+            "conditions": {
+              "options": {
+                "caseSensitive": false,
+                "leftValue": "",
+                "typeValidation": "loose"
+              },
+              "conditions": [
+                {
+                  "leftValue": "={{$json.event}}",
+                  "rightValue": "charge.completed",
+                  "operation": "equals"
+                }
+              ]
+            }
+          }
+        ],
+        "outputCount": 1,
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "id": "rf-if-refund",
+      "name": "Switch Refund Request",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        300
+      ],
+      "parameters": {
+        "rules": [
+          {
+            "outputKey": "output_0",
+            "conditions": {
+              "options": {
+                "caseSensitive": false,
+                "leftValue": "",
+                "typeValidation": "loose"
+              },
+              "conditions": [
+                {
+                  "leftValue": "={{$json.is_refund}}",
+                  "rightValue": true,
+                  "operation": "equals"
+                }
+              ]
+            }
+          }
+        ],
+        "outputCount": 1,
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\uded2 *Order Proxy*\n\nChoose your proxy type:\n\n\ud83d\udce1 *ISP Proxy* - \u20a66,500/month\n\ud83c\udfe0 *Residential* - \u20a61,950/GB\n\ud83d\udcf1 *Mobile* - \u20a62,500/GB\n\ud83d\udda5\ufe0f *Datacenter* - \u20a64,000/month\n\nReply with: ISP, Residential, Mobile, or Datacenter"
+      },
+      "id": "wa-send-menu",
+      "name": "Send Order Menu",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        600,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, status, tx_ref",
+        "conditions": "tx_ref = '{{$json.body.tx_ref}}'"
+      },
+      "id": "fw-lookup-order",
+      "name": "Lookup Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        600,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, status, amount, flutterwave_tx_id",
+        "conditions": "customer_phone = '{{$json.phone}}' AND status IN ('paid', 'fulfilled') ORDER BY created_at DESC LIMIT 1"
+      },
+      "id": "rf-lookup-order",
+      "name": "Lookup Recent Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "id": "fw-if-paid",
+      "name": "Switch Status=Paid",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        -100
+      ],
+      "parameters": {
+        "rules": [
+          {
+            "outputKey": "output_0",
+            "conditions": {
+              "options": {
+                "caseSensitive": false,
+                "leftValue": "",
+                "typeValidation": "loose"
+              },
+              "conditions": [
+                {
+                  "leftValue": "={{$json.status}}",
+                  "rightValue": "paid",
+                  "operation": "equals"
+                }
+              ]
+            }
+          }
+        ],
+        "outputCount": 1,
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "id": "rf-if-found",
+      "name": "Switch Order Found",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        300
+      ],
+      "parameters": {
+        "rules": [
+          {
+            "outputKey": "output_0",
+            "conditions": {
+              "options": {
+                "caseSensitive": false,
+                "leftValue": "",
+                "typeValidation": "loose"
+              },
+              "conditions": [
+                {
+                  "leftValue": "={{$json.order_id}}",
+                  "rightValue": "",
+                  "operation": "isEmpty"
+                }
+              ]
+            }
+          }
+        ],
+        "outputCount": 1,
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "orders",
+        "values": "status = 'fulfilled', fulfilled_at = NOW()",
+        "conditions": "order_id = '{{$json.order_id}}'"
+      },
+      "id": "fw-fulfill",
+      "name": "Mark Fulfilled",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.flutterwave.com/v3/transactions/{{$json.flutterwave_tx_id}}/refund",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{$env.FLUTTERWAVE_SECRET_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "body": "{ \"amount\": {{$json.amount}} }",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "rf-call-fw",
+      "name": "Call Flutterwave Refund",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1000,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "orders",
+        "values": "status = 'refunded'",
+        "conditions": "order_id = '{{$json.order_id}}'"
+      },
+      "id": "rf-mark-refunded",
+      "name": "Mark Refunded",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\u2705 Order {{$json.order_id}} has been fulfilled!\n\nCheck your DM for proxy details.\n\nNeed help? Reply 'help'"
+      },
+      "id": "fw-notify",
+      "name": "Notify Fulfilled",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udcb0 Refund initiated for order {{$json.order_id}}.\n\nAmount: \u20a6{{$json.amount}}\nProcessing time: 3-5 business days.\n\nYou'll be notified when complete."
+      },
+      "id": "rf-notify",
+      "name": "Notify Refund",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\u274c No recent order found for this number.\n\nPlease provide your order ID (starts with ORD-)"
+      },
+      "id": "rf-not-found",
+      "name": "Order Not Found",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        400
+      ]
+    }
+  ],
+  "connections": {
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse WhatsApp Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flutterwave Trigger": {
+      "main": [
+        [
+          {
+            "node": "Verify FW Signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refund Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Refund Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse WhatsApp Intent": {
+      "main": [
+        [
+          {
+            "node": "If Order Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify FW Signature": {
+      "main": [
+        [
+          {
+            "node": "If Charge Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Refund Request": {
+      "main": [
+        [
+          {
+            "node": "If Refund Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Order Intent": {
+      "main": [
+        [
+          {
+            "node": "Send Order Menu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Charge Completed": {
+      "main": [
+        [
+          {
+            "node": "Lookup Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Refund Request": {
+      "main": [
+        [
+          {
+            "node": "Lookup Recent Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Order": {
+      "main": [
+        [
+          {
+            "node": "If Status=Paid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Recent Order": {
+      "main": [
+        [
+          {
+            "node": "If Order Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Status=Paid": {
+      "main": [
+        [
+          {
+            "node": "Mark Fulfilled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Order Found": {
+      "main": [
+        [
+          {
+            "node": "Call Flutterwave Refund",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Order Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Fulfilled": {
+      "main": [
+        [
+          {
+            "node": "Notify Fulfilled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Flutterwave Refund": {
+      "main": [
+        [
+          {
+            "node": "Mark Refunded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Refunded": {
+      "main": [
+        [
+          {
+            "node": "Notify Refund",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

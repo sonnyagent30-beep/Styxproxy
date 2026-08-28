@@ -1,19 +1,19 @@
 {
-  "name": "Admin Handler",
+  "name": "Admin Pipeline",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "admin-webhook",
-        "responseMode": "lastNode"
+        "responseMode": "onReceived"
       },
       "id": "wa-trigger",
       "name": "WhatsApp Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
-        0,
-        0
+        470,
+        300
       ]
     },
     {
@@ -25,8 +25,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        200,
-        0
+        1130,
+        300
       ]
     },
     {
@@ -38,8 +38,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        400,
-        0
+        1570,
+        300
       ]
     },
     {
@@ -63,8 +63,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
       "position": [
-        600,
-        0
+        470,
+        500
       ]
     },
     {
@@ -76,8 +76,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        800,
-        0
+        1130,
+        500
       ]
     },
     {
@@ -89,8 +89,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1000,
-        0
+        1350,
+        500
       ]
     },
     {
@@ -114,24 +114,31 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
       "position": [
-        1200,
-        0
+        1570,
+        500
       ]
     },
     {
       "parameters": {
-        "message": "\ud83d\udd10 *PIN + TOTP Required*\n\nThis is an action command and requires verification.\n\nUsage: `/[command] [PIN] [TOTP]`\n\nExample: `/resolve ORD-12345 1234 567890`\n\nGet your PIN from your secure vault.\nUse your authenticator app for TOTP code.",
-        "extraOptions": {},
+        "text": "\ud83d\udd10 *PIN + TOTP Required*\n\nThis is an action command and requires verification.\n\nUsage: `/[command] [PIN] [TOTP]`\n\nExample: `/resolve ORD-12345 1234 567890`\n\nGet your PIN from your secure vault.\nUse your authenticator app for TOTP code.",
+        "additionalFields": {},
+        "operation": "sendMessage",
         "options": {}
       },
       "id": "wa-auth-error",
       "name": "Request Auth",
       "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
+      "typeVersion": 1.2,
       "position": [
-        1400,
-        200
-      ]
+        1130,
+        1700
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
     },
     {
       "parameters": {
@@ -142,8 +149,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1400,
-        0
+        1790,
+        500
       ]
     },
     {
@@ -158,9 +165,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        1600,
-        0
-      ]
+        250,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -171,8 +184,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        1800,
-        0
+        470,
+        700
       ]
     },
     {
@@ -187,9 +200,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        2000,
-        0
-      ]
+        690,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -200,8 +219,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        2200,
-        0
+        910,
+        700
       ]
     },
     {
@@ -216,9 +235,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        2400,
-        0
-      ]
+        1130,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -232,9 +257,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        2600,
-        0
-      ]
+        1350,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -248,9 +279,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        2800,
-        0
-      ]
+        1570,
+        700
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -261,8 +298,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        3000,
-        0
+        1790,
+        700
       ]
     },
     {
@@ -277,9 +314,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        3200,
-        0
-      ]
+        250,
+        900
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -290,8 +333,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        3400,
-        0
+        470,
+        900
       ]
     },
     {
@@ -306,9 +349,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        3600,
-        0
-      ]
+        690,
+        900
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -322,9 +371,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        3800,
-        0
-      ]
+        910,
+        900
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -338,9 +393,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        4000,
-        0
-      ]
+        1130,
+        900
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -351,8 +412,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        4200,
-        0
+        1350,
+        900
       ]
     },
     {
@@ -368,9 +429,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        4400,
-        0
-      ]
+        1570,
+        900
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -381,8 +448,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        4600,
-        0
+        1790,
+        900
       ]
     },
     {
@@ -397,9 +464,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        4800,
-        0
-      ]
+        250,
+        1100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -410,8 +483,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        5000,
-        0
+        470,
+        1100
       ]
     },
     {
@@ -426,9 +499,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        5200,
-        0
-      ]
+        690,
+        1100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -439,8 +518,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        5400,
-        0
+        910,
+        1100
       ]
     },
     {
@@ -455,9 +534,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        5600,
-        0
-      ]
+        1130,
+        1100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -468,8 +553,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        5800,
-        0
+        1350,
+        1100
       ]
     },
     {
@@ -484,9 +569,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        6000,
-        0
-      ]
+        1570,
+        1100
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -497,8 +588,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        6200,
-        0
+        1790,
+        1100
       ]
     },
     {
@@ -513,9 +604,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        6400,
-        0
-      ]
+        250,
+        1300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -533,9 +630,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        6600,
-        0
-      ]
+        470,
+        1300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -546,8 +649,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        6800,
-        0
+        690,
+        1300
       ]
     },
     {
@@ -566,9 +669,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        7000,
-        0
-      ]
+        910,
+        1300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -579,8 +688,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        7200,
-        0
+        1130,
+        1300
       ]
     },
     {
@@ -595,9 +704,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        7400,
-        0
-      ]
+        1350,
+        1300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -608,8 +723,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        7600,
-        0
+        1570,
+        1300
       ]
     },
     {
@@ -624,9 +739,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        7800,
-        0
-      ]
+        1790,
+        1300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -637,8 +758,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        8000,
-        0
+        250,
+        1500
       ]
     },
     {
@@ -653,9 +774,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        8200,
-        0
-      ]
+        470,
+        1500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -666,8 +793,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        8400,
-        0
+        690,
+        1500
       ]
     },
     {
@@ -682,9 +809,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        8600,
-        0
-      ]
+        910,
+        1500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -695,8 +828,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        8800,
-        0
+        1130,
+        1500
       ]
     },
     {
@@ -711,9 +844,15 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 1,
       "position": [
-        9000,
-        0
-      ]
+        1350,
+        1500
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
     },
     {
       "parameters": {
@@ -724,8 +863,8 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        9200,
-        0
+        1570,
+        1500
       ]
     },
     {
@@ -737,23 +876,165 @@
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
       "position": [
-        9400,
-        0
+        1790,
+        1500
       ]
     },
     {
       "parameters": {
-        "message": "={{$json.response}}",
-        "extraOptions": {},
+        "text": "={{$json.response}}",
+        "additionalFields": {},
+        "operation": "sendMessage",
         "options": {}
       },
       "id": "wa-telegram-reply",
       "name": "Reply via Telegram",
       "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        250,
+        1700
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "styxproxy-logger",
+        "responseMode": "onReceived"
+      },
+      "id": "wf11-trigger",
+      "name": "Webhook: Styxproxy Logger",
+      "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
-        9600,
-        0
+        690,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Normalize incoming log event to match customer_audit_log schema\nconst body = $input.first().json || {};\n\n// Build the details JSONB object with all extra fields\nconst details = {\n    source: body.source || 'n8n-webhook',\n    workflow_id: body.workflow_id || null,\n    customer_hash: body.customer_hash || null,\n    duration_ms: body.duration_ms || null,\n    correlation_id: body.correlation_id || null,\n    n8n_execution_id: body.n8n_execution_id || null,\n    metadata: typeof body.metadata === 'object' ? body.metadata : {}\n};\n\n// request_id comes from the incoming request or is generated\nconst request_id = body.request_id || body.correlation_id || null;\n\nreturn [{ json: {\n    request_id,\n    event_type: body.event_type || 'unknown',\n    order_id: body.order_id || null,\n    workflow: body.workflow || 'unknown',\n    status: body.status || 'success',\n    details\n}}];"
+      },
+      "id": "wf11-normalize",
+      "name": "Normalize to Audit Schema",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "customer_audit_log",
+        "columns": "request_id, event_type, order_id, workflow, status, details",
+        "values": "'{{ $json.request_id }}', '{{ $json.event_type }}', '{{ $json.order_id }}', '{{ $json.workflow }}', '{{ $json.status }}', '{{ JSON.stringify($json.details) }}'"
+      },
+      "id": "wf11-insert",
+      "name": "Insert Audit Log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        1790,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "channel-status",
+        "responseMode": "onReceived"
+      },
+      "id": "cf-001",
+      "name": "Health Check Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        910,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check WhatsApp Cloud API status\nconst https = require('https');\n\n// WhatsApp Cloud API check (Meta's endpoint)\nconst options = {\n  hostname: 'graph.facebook.com',\n  port: 443,\n  path: '/v18.0/me',\n  method: 'GET',\n  headers: {\n    'Authorization': 'Bearer ' + $env.WHATSAPP_TOKEN\n  },\n  timeout: 5000\n};\n\nreturn new Promise((resolve) => {\n  const req = https.request(options, (res) => {\n    resolve({ status: res.statusCode, channel: 'whatsapp', available: res.statusCode === 200 });\n  });\n  req.on('error', () => resolve({ status: 0, channel: 'whatsapp', available: false }));\n  req.on('timeout', () => { req.destroy(); resolve({ status: 0, channel: 'whatsapp', available: false }); });\n  req.end();\n});"
+      },
+      "id": "cf-002",
+      "name": "Check WhatsApp Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check Telegram Bot API status\nconst https = require('https');\n\nconst options = {\n  hostname: 'api.telegram.org',\n  port: 443,\n  path: '/bot' + $env.TELEGRAM_BOT_TOKEN + '/getMe',\n  method: 'GET',\n  timeout: 5000\n};\n\nreturn new Promise((resolve) => {\n  const req = https.request(options, (res) => {\n    let data = '';\n    res.on('data', chunk => data += chunk);\n    res.on('end', () => {\n      try {\n        const json = JSON.parse(data);\n        resolve({ status: res.statusCode, channel: 'telegram', available: json.ok === true });\n      } catch {\n        resolve({ status: res.statusCode, channel: 'telegram', available: false });\n      }\n    });\n  });\n  req.on('error', () => resolve({ status: 0, channel: 'telegram', available: false }));\n  req.on('timeout', () => { req.destroy(); resolve({ status: 0, channel: 'telegram', available: false }); });\n  req.end();\n});"
+      },
+      "id": "cf-003",
+      "name": "Check Telegram Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        470,
+        1700
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "cf-wa-up",
+              "leftValue": "={{$json.available}}",
+              "rightValue": true,
+              "operation": "equals"
+            },
+            {
+              "id": "cf-tg-up",
+              "leftValue": "={{$json.available}}",
+              "rightValue": true,
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "cf-004",
+      "name": "Switch: Both Up",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        250,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge status from both channels\nconst wa = $input.all()[0].json;\nconst tg = $input.all()[1].json;\n\nconst result = {\n  timestamp: new Date().toISOString(),\n  whatsapp: { available: wa.available, status: wa.status },\n  telegram: { available: tg.available, status: tg.status },\n  primary: wa.available ? 'whatsapp' : (tg.available ? 'telegram' : 'none'),\n  failover_cta: wa.available ? 'https://t.me/buncheng' : 'https://wa.me/2347032981049'\n};\n\nreturn [{ json: result }];"
+      },
+      "id": "cf-006",
+      "name": "Merge Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        690,
+        1700
       ]
     }
   ],
@@ -1299,17 +1580,71 @@
           }
         ]
       ]
+    },
+    "Webhook: Styxproxy Logger": {
+      "main": [
+        [
+          {
+            "node": "Normalize to Audit Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize to Audit Schema": {
+      "main": [
+        [
+          {
+            "node": "Insert Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Check Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check WhatsApp Status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Telegram Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check WhatsApp Status": {
+      "main": [
+        [
+          {
+            "node": "Merge Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Telegram Status": {
+      "main": [
+        [
+          {
+            "node": "Merge Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1",
-    "saveManualExecutions": true,
+    "saveManualExecutions": false,
     "timezone": "Africa/Lagos"
-  },
-  "staticData": null,
-  "tags": [
-    "admin",
-    "telegram",
-    "commands"
-  ]
+  }
 }

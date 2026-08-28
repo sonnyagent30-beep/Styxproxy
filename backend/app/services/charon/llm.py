@@ -1,13 +1,13 @@
-"""Charon's LLM client — M2 primary, MiniCPM5 fallback (P0-5 Jul 22 2026).
+"""Charon's LLM client — Groq Qwen primary, MiniCPM5 fallback.
 
 Architecture:
-  Primary:   M2 cloud (fast, smart, costs money) — `MINIMAX_API_KEY`
-  Fallback:  MiniCPM5 1B local via LiteLLM proxy (free, slow, often degraded)
-  Order:     try M2 first; on failure (timeout, 5xx, transport), try MiniCPM5 once
+  Primary:   Groq Qwen 3.5 27B (fast, cheap) — GROQ_API_KEY
+  Fallback:  MiniCPM5 1B local via LiteLLM proxy (free, slow, degraded)
+  Order:     try Groq first; on failure (timeout, 5xx, transport), try MiniCPM5 once
 
 Per-request fallback reasons:
-- M2 is paid, so we want it serving traffic.
-- When M2 is down (network, billing, rate-limit), MiniCPM5 keeps Charon
+- Groq is cheap but paid, so we want it serving traffic.
+- When Groq is down (network, billing, rate-limit), MiniCPM5 keeps Charon
   answering gracefully instead of a hard 500.
 - MiniCPM5 is the LAST resort, not a silent fallback — we attach the
   serving provider name to the LLMResponse.model so admin can see which
@@ -18,12 +18,12 @@ Environment variables:
     http://127.0.0.1:4000)
   - LITELLM_API_KEY: master key for the local proxy
   - MINICPM_MODEL: local model name (default "minicpm5")
-  - MINIMAX_API_KEY: cloud M2 key (REQUIRED for primary path)
-  - MINIMAX_MODEL: cloud model name (default "MiniMax-M2")
-  - MINIMAX_BASE_URL: cloud endpoint (default https://api.minimax.io/v1)
+  - GROQ_API_KEY: Groq API key (REQUIRED for primary path)
+  - GROQ_MODEL: cloud model name (default "qwen-3.5-27b")
+  - GROQ_BASE_URL: cloud endpoint (default https://api.groq.com/openai/v1)
   - CHARON_FALLBACK_TO_LOCAL: "true" (default) | "false"
-      When false, M2 failures return error immediately without trying
-      MiniCPM5. Useful for cost control when you want to see M2 outages
+      When false, Groq failures return error immediately without trying
+      MiniCPM5. Useful for cost control when you want to see Groq outages
       instead of masking them.
 """
 
@@ -113,6 +113,7 @@ def _cache_set(key: str, response: LLMResponse) -> None:
         client.set(key, json.dumps(asdict(response), default=str), ex=_LLM_CACHE_TTL_SECONDS)
     except Exception as exc:
         logger.debug("LLM cache miss (set): %s", exc)
+        return
 
 
 def _normalize_messages(messages: list[dict]) -> str:
@@ -155,18 +156,13 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
     is treated as a system message internally; if the caller already
     provided a system message at index 0, we honor it instead.
 
-    Order: check Redis cache → M2 (cloud) → MiniCPM5 (local). On M2
+    Order: check Redis cache → Groq (cloud) → MiniCPM5 (local). On Groq
     failure, MiniCPM5 is tried once. On any failure, returns LLMResponse
     with `error` set; never raises. Use `ok` to check before reading
     content.
 
     Set CHARON_FALLBACK_TO_LOCAL=false to disable the fallback and
-    surface M2 outages directly.
-
-    P0-5 Jul 22 2026: inverted from "local primary, cloud fallback" to
-    "M2 primary, local fallback" per Dannion's directive. The watchdog
-    cron no longer needs to flip CHARON_LLM_PROVIDER — the client
-    handles failover per-request.
+    surface Groq outages directly.
     """
     # Cache lookup — skip if REDIS_URL is not set (cache_get is safe)
     message_str = _normalize_messages(messages)
@@ -183,15 +179,15 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
         "off",
     )
 
-    # Try M2 cloud first
-    primary = _call_cloud(messages, max_tokens)
+    # Try Groq cloud first
+    primary = _call_groq(messages, max_tokens)
     if primary.ok:
         _cache_set(cache_key, primary)
         return primary
 
-    # M2 failed. Log it, then either bail or try local.
+    # Groq failed. Log it, then either bail or try local.
     logger.warning(
-        "Charon primary (M2 cloud) failed: %s. Fallback to local: %s",
+        "Charon primary (Groq cloud) failed: %s. Fallback to local: %s",
         primary.error,
         "disabled" if fallback_disabled else "enabled",
     )
@@ -206,7 +202,7 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
         # Record both outcomes on the fallback response so stats/audit
         # can see we failed-over. Use a `_raw` channel via the model
         # field: "local-fallback" prefix.
-        fallback.model = f"local-fallback-after-M2-failure ({fallback.model})"
+        fallback.model = f"local-fallback-after-groq-failure ({fallback.model})"
         sentry_sdk.capture_message(
             "Charon failed over to local MiniCPM5",
             level="info",
@@ -222,14 +218,14 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
     # Both failed — return primary error so the caller knows the original
     # outage (cloud) is the root cause.
     logger.error(
-        "Charon: both M2 and MiniCPM5 failed. M2: %s. MiniCPM5: %s",
+        "Charon: both Groq and MiniCPM5 failed. Groq: %s. MiniCPM5: %s",
         primary.error,
         fallback.error,
     )
     return LLMResponse(
         content="",
         model="unavailable",
-        error=f"Chat unavailable. M2: {primary.error}. MiniCPM5: {fallback.error}.",
+        error=f"Chat unavailable. Groq: {primary.error}. MiniCPM5: {fallback.error}.",
     )
 
 
@@ -269,14 +265,14 @@ def _call_local(messages: list[dict], max_tokens: int) -> LLMResponse:
     return _parse_openai_compatible_response(resp, model)
 
 
-def _call_cloud(messages: list[dict], max_tokens: int) -> LLMResponse:
-    """Call MiniMax-M2 via OpenAI-compatible endpoint."""
-    api_key = os.getenv("MINIMAX_API_KEY")
+def _call_groq(messages: list[dict], max_tokens: int) -> LLMResponse:
+    """Call Groq Qwen via OpenAI-compatible endpoint."""
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        return LLMResponse(content="", model="", error="MINIMAX_API_KEY not set")
+        return LLMResponse(content="", model="", error="GROQ_API_KEY not set")
 
-    base_url = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1").rstrip("/")
-    model = os.getenv("MINIMAX_MODEL", "MiniMax-M2")
+    base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
+    model = os.getenv("GROQ_MODEL", "qwen-3.5-27b")
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -299,7 +295,7 @@ def _call_cloud(messages: list[dict], max_tokens: int) -> LLMResponse:
             timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0),
         )
     except httpx.HTTPError as exc:
-        logger.warning("LLM (cloud) transport error: %s", exc)
+        logger.warning("LLM (Groq) transport error: %s", exc)
         return LLMResponse(content="", model=model, error=f"transport error: {exc}")
     return _parse_openai_compatible_response(resp, model)
 

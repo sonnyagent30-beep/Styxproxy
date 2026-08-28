@@ -283,7 +283,7 @@ async def health():
     # P0-5 (Jul 22 2026): Provider priority is M2 cloud primary,
     # MiniCPM5 local fallback. Probe BOTH and report each so the
     # admin dashboard can see whether the fallback path is also up.
-    cloud_key_set = bool(os.getenv("MINIMAX_API_KEY"))
+    cloud_key_set = bool(os.getenv("GROQ_API_KEY"))
 
     # Probe LiteLLM (local fallback reachability).
     local_reachable = False
