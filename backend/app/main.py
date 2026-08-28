@@ -231,7 +231,7 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-Device-Id"],
+    allow_headers=["*"],
 )
 
 
