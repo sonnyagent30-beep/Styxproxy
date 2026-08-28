@@ -312,7 +312,7 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
 
     # Compute top-level status:
     # - unhealthy: DB is down (api can't function)
-    # - degraded: DB ok but Charon has NO working path (M2 + local both down)
+    # - degraded: DB ok but Charon has NO working path
     # - healthy: DB ok and Charon has at least one working path
     if db != "connected":
         overall = "unhealthy"
@@ -329,14 +329,12 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
             "database": db,
             "redis": redis,
             "dante": dante,
-            "litellm": litellm,
-            "ollama": ollama,
-            "m2_cloud": m2,
+            "groq": m2,
         },
-        # Charon routing policy (P0-5):
+        # Charon routing policy:
         "charon_routing": {
-            "primary": "m2-cloud",
-            "fallback": "local-minicpm5",
+            "primary": "groq",
+            "fallback": "none",
         },
         # Hint for the frontend: when Charon is impaired, show a fallback
         # UI instead of a broken spinner. True means Charon can answer.

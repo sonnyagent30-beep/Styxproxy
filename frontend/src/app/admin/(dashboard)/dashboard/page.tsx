@@ -13,9 +13,7 @@ type HealthState = {
   status: string;
   database: string;
   redis: string;
-  litellm: { status: string; latency_ms?: number };
-  ollama: { status: string; minicpm5_loaded?: boolean };
-  m2_cloud: { status: string; latency_ms?: number };
+  groq: { status: string; latency_ms?: number };
   charon_available: boolean;
   charon_primary: string;
   charon_fallback: string;
@@ -33,12 +31,10 @@ const FALLBACK_HEALTH: HealthState = {
   status: 'unknown',
   database: 'unknown',
   redis: 'unknown',
-  litellm: { status: 'unknown' },
-  ollama: { status: 'unknown' },
-  m2_cloud: { status: 'unknown' },
+  groq: { status: 'unknown' },
   charon_available: false,
-  charon_primary: 'm2-cloud',
-  charon_fallback: 'local-minicpm5',
+  charon_primary: 'groq',
+  charon_fallback: 'none',
 };
 
 function HealthBadge({ label, value, ok }: { label: string; value: string; ok: string }) {
@@ -115,9 +111,7 @@ export default function AdminDashboardPage() {
           status: h.status ?? 'unknown',
           database: services.database ?? 'unknown',
           redis: services.redis ?? 'unknown',
-          litellm: services.litellm ?? { status: 'unknown' },
-          ollama: services.ollama ?? { status: 'unknown' },
-          m2_cloud: services.m2_cloud ?? { status: 'unknown' },
+          groq: services.groq ?? { status: 'unknown' },
           charon_available: h.charon_available ?? false,
           charon_primary: h.charon_routing?.primary ?? 'unknown',
           charon_fallback: h.charon_routing?.fallback ?? 'unknown',
@@ -179,7 +173,7 @@ export default function AdminDashboardPage() {
   const allGreen =
     health.status === 'healthy' &&
     health.database === 'connected' &&
-    health.litellm.status === 'connected' &&
+    health.groq.status === 'connected' &&
     health.charon_available;
   const healthLabel = allGreen ? 'All Systems Operational' : 'Degraded';
   const healthColor = allGreen ? 'text-green-400' : 'text-amber-400';
@@ -308,27 +302,13 @@ export default function AdminDashboardPage() {
             ok={health.redis === 'connected' || health.redis === 'not_installed'}
           />
           <ServiceRow
-            label="LiteLLM"
+            label="Groq"
             value={
-              health.litellm.status === 'connected'
-                ? `${health.litellm.latency_ms?.toFixed(1) ?? '?'} ms`
-                : health.litellm.status
+              health.groq.status === 'connected'
+                ? `${health.groq.latency_ms?.toFixed(1) ?? '?'} ms`
+                : health.groq.status
             }
-            ok={health.litellm.status === 'connected'}
-          />
-          <ServiceRow
-            label="Ollama (MiniCPM5)"
-            value={health.ollama.minicpm5_loaded ? 'loaded' : health.ollama.status}
-            ok={health.ollama.status === 'connected' && !!health.ollama.minicpm5_loaded}
-          />
-          <ServiceRow
-            label="M2 Cloud"
-            value={
-              health.m2_cloud.status === 'connected'
-                ? `${health.m2_cloud.latency_ms?.toFixed(1) ?? '?'} ms`
-                : health.m2_cloud.status
-            }
-            ok={health.m2_cloud.status === 'connected'}
+            ok={health.groq.status === 'connected'}
           />
           <ServiceRow
             label="Charon Routing"

@@ -101,12 +101,12 @@ import type {
 //     so the page renders with no data (Jul 24: this caused the blog page
 //     to show 'No posts found' even though curl from outside returned 17).
 //
-// NEXT_PUBLIC_API_BASE_URL is inlined at build time by Next.js for both client
+// NEXT_PUBLIC_API_URL is inlined at build time by Next.js for both client
 // and server bundles. Empty/undefined → use relative URLs (same-origin).
 // Relative URLs let Next.js rewrites proxy /api/* → backend, avoiding
 // cross-origin issues on mobile browsers.
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || '';
+  process.env.NEXT_PUBLIC_API_URL || '';
 
 class ApiClient {
   private baseUrl: string;
@@ -1099,9 +1099,7 @@ class ApiClient {
     services: {
       database: string;
       redis: string;
-      litellm: { status: string; latency_ms?: number; error?: string | null };
-      ollama: { status: string; models?: string[]; minicpm5_loaded?: boolean };
-      m2_cloud: { status: string; latency_ms?: number; error?: string | null };
+      groq: { status: string; latency_ms?: number; error?: string | null };
     };
     charon_routing: { primary: string; fallback: string };
     charon_available: boolean;
