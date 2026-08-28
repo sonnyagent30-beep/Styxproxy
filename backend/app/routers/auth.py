@@ -524,8 +524,8 @@ async def login_admin_email(
             detail="Invalid email or password",
         )
 
-    # TOTP check
-    if admin.totp_enabled:
+    # TOTP check (only if both enabled AND secret is set — don't block logins for incomplete TOTP setup)
+    if admin.totp_enabled and admin.totp_secret:
         if not body.totp_code:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
