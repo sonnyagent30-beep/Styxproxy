@@ -2267,61 +2267,6 @@ async def admin_backfill_referral_codes(
     return {"codes_generated": count, "detail": f"Generated {count} referral codes."}
 
 
-@router.post("/orders/columns/fix",
-    dependencies=[Depends(require_permission("admin.orders.list"))])
-async def fix_orders_columns(
-    session: AsyncSession = Depends(get_session),
-):
-    """Temporary endpoint to fix missing orders table columns."""
-    from sqlalchemy import text
-    columns_to_add = [
-        ("platform_account_id", "UUID"),
-        ("customer_phone", "VARCHAR(20)"),
-        ("plan_type", "VARCHAR(20)"),
-        ("plan_code", "VARCHAR(50)"),
-        ("country", "VARCHAR(10)"),
-        ("quantity", "INTEGER"),
-        ("amount_paid_ngn", "NUMERIC(12, 2)"),
-        ("payment_reference", "VARCHAR(100)"),
-        ("tx_ref", "VARCHAR(100)"),
-        ("provider", "VARCHAR(50)"),
-        ("provider_order_id", "VARCHAR(100)"),
-        ("styxproxy_credential_id", "INTEGER"),
-        ("status", "VARCHAR(50) DEFAULT 'pending'"),
-        ("ip_tested", "BOOLEAN DEFAULT false"),
-        ("ip_test_result", "VARCHAR(10)"),
-        ("data_total_gb", "NUMERIC(10, 2)"),
-        ("data_remaining_gb", "NUMERIC(10, 2)"),
-        ("data_expires", "TIMESTAMP WITH TIME ZONE"),
-        ("expires_at", "TIMESTAMP WITH TIME ZONE"),
-        ("ban_reported", "BOOLEAN DEFAULT false"),
-        ("screenshot_url", "TEXT"),
-        ("ban_verified", "VARCHAR(50)"),
-        ("replacement_count", "INTEGER DEFAULT 0"),
-        ("refund_requested", "BOOLEAN DEFAULT false"),
-        ("refund_reason", "TEXT"),
-        ("notes", "TEXT"),
-        ("fulfilled_at", "TIMESTAMP WITH TIME ZONE"),
-        ("cost_usd", "NUMERIC(10, 4)"),
-        ("rotation_mode", "VARCHAR(20)"),
-        ("city_id", "INTEGER"),
-        ("city_name", "VARCHAR(100)"),
-        ("referral_tx_ref", "VARCHAR(100)"),
-        ("emails_sent", "INTEGER DEFAULT 0"),
-        ("reminder_sent_at", "TIMESTAMP WITH TIME ZONE"),
-    ]
-    added = []
-    errors = []
-    for col_name, col_type in columns_to_add:
-        try:
-            await session.execute(text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
-            added.append(col_name)
-        except Exception as e:
-            errors.append(f"{col_name}: {str(e)}")
-    await session.commit()
-    return {"status": "ok", "columns_added": added, "errors": errors}
-
-
 @router.get("/orders/columns/list",
     dependencies=[Depends(require_permission("admin.orders.list"))])
 async def list_orders_columns(
