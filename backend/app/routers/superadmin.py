@@ -589,10 +589,10 @@ async def global_search(
             )
         )
 
-    # Search contact submissions (subject or from_email)
+    # Search contact submissions (name, email, or message)
     contact_stmt = (
         select(ContactSubmission)
-        .where((ContactSubmission.subject.ilike(f"%{q}%")) | (ContactSubmission.from_email.ilike(f"%{q}%")))
+        .where((ContactSubmission.name.ilike(f"%{q}%")) | (ContactSubmission.email.ilike(f"%{q}%")) | (ContactSubmission.message.ilike(f"%{q}%")))
         .limit(10)
     )
     contact_results = (await session.execute(contact_stmt)).scalars().all()
@@ -600,8 +600,8 @@ async def global_search(
         contacts.append(
             GlobalSearchContactResult(
                 id=str(c.id),
-                from_email=c.from_email,
-                subject=c.subject,
+                from_email=c.email,
+                subject=c.name,
                 status=c.status,
             )
         )
