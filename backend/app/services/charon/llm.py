@@ -19,7 +19,7 @@ Environment variables:
   - LITELLM_API_KEY: master key for the local proxy
   - MINICPM_MODEL: local model name (default "minicpm5")
   - GROQ_API_KEY: Groq API key (REQUIRED for primary path)
-  - GROQ_MODEL: cloud model name (default "qwen-3.5-27b")
+  - GROQ_MODEL: cloud model name (default "qwen/qwen3.8-27b")
   - GROQ_BASE_URL: cloud endpoint (default https://api.groq.com/openai/v1)
   - CHARON_FALLBACK_TO_LOCAL: "true" (default) | "false"
       When false, Groq failures return error immediately without trying
@@ -272,7 +272,7 @@ def _call_groq(messages: list[dict], max_tokens: int) -> LLMResponse:
         return LLMResponse(content="", model="", error="GROQ_API_KEY not set")
 
     base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
-    model = os.getenv("GROQ_MODEL", "qwen-3.5-27b")
+    model = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
     headers = {
         "Authorization": f"Bearer {api_key}",

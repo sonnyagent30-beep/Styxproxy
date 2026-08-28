@@ -56,7 +56,7 @@
           "parameters": [
             {
               "name": "model",
-              "value": "qwen-3.5-27b"
+              "value": "qwen/qwen3.8-27b"
             },
             {
               "name": "messages",

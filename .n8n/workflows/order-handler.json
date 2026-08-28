@@ -79,7 +79,7 @@
           "parameters": [
             {
               "name": "model",
-              "model": "qwen-3.5-27b"
+              "model": "qwen/qwen3.8-27b"
             },
             {
               "name": "messages",

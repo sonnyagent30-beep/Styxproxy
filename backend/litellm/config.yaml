@@ -28,10 +28,10 @@ model_list:
       timeout: 120
       num_retries: 1
 
-  # Groq Qwen 3.5 27B — Charon primary. OpenAI-compatible.
+  # Groq Qwen 3.8 27B — Charon primary. OpenAI-compatible.
   - model_name: groq-qwen
     litellm_params:
-      model: openai/qwen-3.5-27b
+      model: qwen/qwen3.8-27b
       api_key: os.environ/GROQ_API_KEY
       api_base: https://api.groq.com/openai/v1
       timeout: 30
