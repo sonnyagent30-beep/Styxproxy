@@ -202,3 +202,27 @@ class CharonMetrics:
     def llm_configured(cls, configured: bool) -> None:
         with cls._lock:
             cls._stats.llm_configured = configured
+
+    @classmethod
+    def check_budget(cls) -> tuple[bool, float, float]:
+        """Check if Charon is within daily budget.
+
+        Returns (allowed, spend_usd, budget_usd).
+        allowed is True if no budget is configured or spend < budget.
+        """
+        import os
+
+        budget = float(os.environ.get("CHARON_DAILY_BUDGET_USD", "0"))
+        if budget <= 0:
+            # No budget configured — always allowed
+            return True, 0.0, 0.0
+
+        # Estimate spend from tokens (use Groq pricing)
+        tokens = cls._stats.tokens_used_total
+        input_tokens = int(tokens * 0.70)
+        output_tokens = int(tokens * 0.30)
+        spend = (
+            (input_tokens / 1_000_000) * 0.08
+            + (output_tokens / 1_000_000) * 0.20
+        )
+        return (spend < budget, round(spend, 4), budget)
