@@ -714,7 +714,7 @@ export interface AdminAuditLog {
 }
 
 export interface AdminAuditLogResponse {
-  data: AdminAuditLog[];
+  logs: AdminAuditLog[];
   pagination: {
     page: number;
     limit: number;

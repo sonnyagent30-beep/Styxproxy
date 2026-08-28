@@ -59,7 +59,7 @@ export default function AuditLogPage() {
     if (result.error) {
       setError(result.error);
     } else {
-      setLogs(result.data?.data || []);
+      setLogs(result.data?.logs || []);
       setTotal(result.data?.pagination?.total_items || 0);
       setTotalPages(result.data?.pagination?.total_pages || 0);
     }

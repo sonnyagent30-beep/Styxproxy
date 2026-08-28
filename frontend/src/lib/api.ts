@@ -162,6 +162,7 @@ class ApiClient {
       const isAdminEndpoint =
         endpoint.startsWith('/admin') ||
         endpoint.startsWith('/api/admin') ||
+        endpoint.startsWith('/api/v1/admin') ||
         endpoint.startsWith('/api/me') ||
         endpoint.startsWith('/api/blog/admin');
       if (adminToken && isAdminEndpoint) {
@@ -347,7 +348,7 @@ class ApiClient {
   }
 
   async blockCustomer(customerId: string, reason: string): Promise<ApiResponse<{ blocked: boolean }>> {
-    return this.request(`/admin/customers/${customerId}/block`, {
+    return this.request(`/api/admin/customers/${customerId}/block`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
