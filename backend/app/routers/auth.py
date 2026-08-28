@@ -675,6 +675,39 @@ async def change_totp(
     )
 
 
+@router.get("/totp/provision")
+async def provision_totp(
+    current_admin: dict = Depends(require_viewer),
+    session: AsyncSession = Depends(get_session),
+):
+    """Generate TOTP provisioning info (QR code + secret) for the current admin."""
+    admin = current_admin["admin"]
+    
+    # Generate a new TOTP secret
+    totp_secret = pyotp.random_base32()
+    
+    # Store the secret temporarily (not enabled until verified)
+    admin.totp_secret = totp_secret
+    await session.commit()
+    
+    # Generate provisioning URI
+    totp_uri = pyotp.totp.TOTP(totp_secret).provisioning_uri(
+        name=admin.email or admin.admin_phone or "admin",
+        issuer_name="Styxproxy"
+    )
+    
+    # Generate backup codes (8 codes, 6 digits each)
+    backup_codes = [secrets.token_hex(3) for _ in range(8)]
+    
+    return {
+        "secret": totp_secret,
+        "qr_code_url": totp_uri,
+        "backup_codes": backup_codes,
+        "otpauth_url": totp_uri,
+        "totp_secret": totp_secret,
+    }
+
+
 # ============== Invite Management ==============
 
 

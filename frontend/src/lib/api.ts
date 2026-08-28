@@ -615,7 +615,7 @@ class ApiClient {
 
   // Change admin PIN
   async changeAdminPin(currentPin: string, newPin: string): Promise<ApiResponse<{ message: string }>> {
-    return this.request('/api/admin/auth/password', {
+    return this.request('/api/admin/auth/change-password', {
       method: 'POST',
       body: JSON.stringify({ current_pin: currentPin, new_pin: newPin }),
     });
@@ -623,10 +623,15 @@ class ApiClient {
 
   // Toggle TOTP
   async toggleAdminTOTP(action: 'enable' | 'disable', totpCode?: string): Promise<ApiResponse<{ totp_enabled: boolean; message: string }>> {
-    return this.request('/api/admin/auth/totp', {
+    return this.request('/api/admin/auth/change-totp', {
       method: 'POST',
       body: JSON.stringify({ action, totp_code: totpCode }),
     });
+  }
+
+  // Get TOTP provisioning info (QR code + secret)
+  async getTotpProvision(): Promise<ApiResponse<{ qr_code_url: string; secret: string; backup_codes: string[]; otpauth_url?: string; totp_secret?: string }>> {
+    return this.request('/api/admin/auth/totp/provision');
   }
 
   // ============== Blog ==============
