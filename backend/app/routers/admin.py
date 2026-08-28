@@ -2268,7 +2268,7 @@ async def admin_backfill_referral_codes(
 
 
 @router.post("/orders/columns/fix",
-    dependencies=[Depends(require_permission("admin.orders.manage"))])
+    dependencies=[Depends(require_permission("admin.orders.list"))])
 async def fix_orders_columns(
     session: AsyncSession = Depends(get_session),
 ):
