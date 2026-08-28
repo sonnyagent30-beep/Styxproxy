@@ -1,28 +1,4 @@
-"""Charon agent orchestrator.
-from app.services.charon.page_templates import get_page_prompt_addition
-from app.services.charon.ab_framework import get_variant, get_page_context_variant, record_outcome
-from app.services.charon.escalation_persist import persist_escalation_sync
-
-Glues together: scenario matcher → RAG → LLM (with tools) → response.
-
-Public interface:
-  `reply(channel, conversation_id, user_message, *, history=None) -> Reply`
-
-Reply is a small dataclass with the bot text, the tool calls made,
-the chosen scenario (or None if the LLM answered), and a token count
-for billing.
-
-Logging:
-  Every call goes to `charon_logs` table via `services.charon_log` if
-  configured, plus structured logs.
-
-Self-improvement loop:
-  When Charon escalates, the resolution is later written to
-  `data/charon/learned/<ticket-id>.md`. The next call retrieves that
-  file as part of context, so Charon handles similar cases correctly
-  without escalating again.
-"""
-
+"""Charon agent orchestrator."""
 from __future__ import annotations
 
 import asyncio
@@ -37,6 +13,9 @@ from typing import Any, Iterable
 
 import sentry_sdk
 
+from app.services.charon.page_templates import get_page_prompt_addition
+from app.services.charon.ab_framework import get_variant, get_page_context_variant, record_outcome
+from app.services.charon.escalation_persist import persist_escalation_sync
 from . import knowledge, scenarios, tools
 from .llm import LLMResponse, call_llm
 
