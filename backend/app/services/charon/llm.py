@@ -1,30 +1,14 @@
-"""Charon's LLM client — Groq Qwen primary, MiniCPM5 fallback.
+"""Charon's LLM client — Groq Qwen primary, no fallback.
 
 Architecture:
-  Primary:   Groq Qwen 3.5 27B (fast, cheap) — GROQ_API_KEY
-  Fallback:  MiniCPM5 1B local via LiteLLM proxy (free, slow, degraded)
-  Order:     try Groq first; on failure (timeout, 5xx, transport), try MiniCPM5 once
-
-Per-request fallback reasons:
-- Groq is cheap but paid, so we want it serving traffic.
-- When Groq is down (network, billing, rate-limit), MiniCPM5 keeps Charon
-  answering gracefully instead of a hard 500.
-- MiniCPM5 is the LAST resort, not a silent fallback — we attach the
-  serving provider name to the LLMResponse.model so admin can see which
-  one answered.
+  Only provider: Groq Qwen 3.8 27B (fast, cheap, OpenAI-compatible).
+  No local fallback — if Groq is down, Charon returns an error.
 
 Environment variables:
-  - LITELLM_BASE_URL: where the LiteLLM proxy listens (default
-    http://127.0.0.1:4000)
-  - LITELLM_API_KEY: master key for the local proxy
-  - MINICPM_MODEL: local model name (default "minicpm5")
-  - GROQ_API_KEY: Groq API key (REQUIRED for primary path)
+  - GROQ_API_KEY: Groq API key (REQUIRED)
   - GROQ_MODEL: cloud model name (default "qwen/qwen3.8-27b")
   - GROQ_BASE_URL: cloud endpoint (default https://api.groq.com/openai/v1)
-  - CHARON_FALLBACK_TO_LOCAL: "true" (default) | "false"
-      When false, Groq failures return error immediately without trying
-      MiniCPM5. Useful for cost control when you want to see Groq outages
-      instead of masking them.
+  - REDIS_URL: optional, enables response caching
 """
 
 from __future__ import annotations
@@ -150,19 +134,15 @@ Knowledge base context is provided below. Answer only based on it; if the questi
 
 
 def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
-    """Call the LLM API.
+    """Call the Groq LLM API.
 
     `messages` is a list of {role, content} dicts. The first message
     is treated as a system message internally; if the caller already
     provided a system message at index 0, we honor it instead.
 
-    Order: check Redis cache → Groq (cloud) → MiniCPM5 (local). On Groq
-    failure, MiniCPM5 is tried once. On any failure, returns LLMResponse
-    with `error` set; never raises. Use `ok` to check before reading
+    Order: check Redis cache → Groq. If Groq fails, the response will
+    have `error` set; never raises. Use `ok` to check before reading
     content.
-
-    Set CHARON_FALLBACK_TO_LOCAL=false to disable the fallback and
-    surface Groq outages directly.
     """
     # Cache lookup — skip if REDIS_URL is not set (cache_get is safe)
     message_str = _normalize_messages(messages)
@@ -172,97 +152,19 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
         logger.debug("LLM cache hit for key %s", cache_key)
         return cached
 
-    fallback_disabled = os.getenv("CHARON_FALLBACK_TO_LOCAL", "true").strip().lower() in (
-        "0",
-        "false",
-        "no",
-        "off",
+    # Call Groq
+    result = _call_groq(messages, max_tokens)
+    if result.ok:
+        _cache_set(cache_key, result)
+        return result
+
+    logger.error("Groq LLM call failed: %s", result.error)
+    sentry_sdk.capture_message(
+        f"Charon Groq LLM error: {result.error}",
+        level="error",
+        extras={"model": result.model, "error": result.error},
     )
-
-    # Try Groq cloud first
-    primary = _call_groq(messages, max_tokens)
-    if primary.ok:
-        _cache_set(cache_key, primary)
-        return primary
-
-    # Groq failed. Log it, then either bail or try local.
-    logger.warning(
-        "Charon primary (Groq cloud) failed: %s. Fallback to local: %s",
-        primary.error,
-        "disabled" if fallback_disabled else "enabled",
-    )
-
-    if fallback_disabled:
-        # Tag the response so caller knows local was not tried
-        primary.model = f"{primary.model} (local fallback disabled)"
-        return primary
-
-    fallback = _call_local(messages, max_tokens)
-    if fallback.ok:
-        # Record both outcomes on the fallback response so stats/audit
-        # can see we failed-over. Use a `_raw` channel via the model
-        # field: "local-fallback" prefix.
-        fallback.model = f"local-fallback-after-groq-failure ({fallback.model})"
-        sentry_sdk.capture_message(
-            "Charon failed over to local MiniCPM5",
-            level="info",
-            extras={
-                "primary_error": primary.error,
-                "fallback_model": fallback.model,
-                "tokens_used": fallback.tokens_used,
-            },
-        )
-        _cache_set(cache_key, fallback)
-        return fallback
-
-    # Both failed — return primary error so the caller knows the original
-    # outage (cloud) is the root cause.
-    logger.error(
-        "Charon: both Groq and MiniCPM5 failed. Groq: %s. MiniCPM5: %s",
-        primary.error,
-        fallback.error,
-    )
-    return LLMResponse(
-        content="",
-        model="unavailable",
-        error=f"Chat unavailable. Groq: {primary.error}. MiniCPM5: {fallback.error}.",
-    )
-
-
-def _call_local(messages: list[dict], max_tokens: int) -> LLMResponse:
-    """Call MiniCPM5 via the LiteLLM proxy (sidecar)."""
-    base_url = os.getenv("LITELLM_BASE_URL", "http://127.0.0.1:4000").rstrip("/")
-    api_key = os.getenv("LITELLM_API_KEY", "«redacted:sk-…»")
-    model = os.getenv("MINICPM_MODEL", "minicpm5")
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload: dict = {
-        "model": model,
-        "max_tokens": max_tokens,
-        "temperature": 0.2,
-        "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            *messages,
-        ],
-        "stream": False,
-    }
-
-    try:
-        # Local CPU inference is slow; 120s read is generous.
-        resp = httpx.post(
-            f"{base_url}/v1/chat/completions",
-            json=payload,
-            headers=headers,
-            timeout=httpx.Timeout(connect=5.0, read=120.0, write=10.0, pool=5.0),
-        )
-    except httpx.HTTPError as exc:
-        logger.warning("LLM (local via LiteLLM) transport error: %s", exc)
-        return LLMResponse(content="", model=model, error=f"transport error: {exc}")
-
-    return _parse_openai_compatible_response(resp, model)
+    return result
 
 
 def _call_groq(messages: list[dict], max_tokens: int) -> LLMResponse:

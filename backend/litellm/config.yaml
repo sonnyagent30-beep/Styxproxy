@@ -1,33 +1,13 @@
 # LiteLLM proxy config for Styxproxy / Charon.
 #
 # This proxy sits between the FastAPI api container and the upstream
-# LLM providers. Two routes are exposed:
+# LLM provider. Only one route is exposed:
 #
-#   minicpm5            -> local Ollama (MiniCPM5 1B GGUF)
-#   cloud-minimax-m2    -> cloud MiniMax-M2 (OpenRouter-compatible)
-#
-# The api calls /v1/chat/completions with model="minicpm5" by default
-# (set by CHARON_LLM_PROVIDER=local). To switch to cloud, change the
-# api env vars — no code change needed.
+#   groq-qwen  -> Groq Qwen 3.8 27B (cloud, OpenAI-compatible)
 #
 # Reference: https://docs.litellm.ai/docs/proxy/configs
 
 model_list:
-  # Local MiniCPM5 1B via Ollama. Ollama runs on the VPS host.
-  # host.docker.internal is a Docker Desktop DNS magic name; for plain
-  # Linux + Docker engine use the host gateway IP instead.
-  - model_name: minicpm5
-    litellm_params:
-      model: ollama/openbmb/minicpm5:latest
-      # In host network mode, 127.0.0.1 is the VPS host. If you ever
-      # switch back to bridge network, override by setting
-      # OLLAMA_BASE_URL in the litellm container's env (compose has
-      # the env, but LiteLLM does not expand ${VAR:-default} syntax —
-      # edit this file directly or set the env on the litellm container).
-      api_base: http://127.0.0.1:11434
-      timeout: 120
-      num_retries: 1
-
   # Groq Qwen 3.8 27B — Charon primary. OpenAI-compatible.
   - model_name: groq-qwen
     litellm_params:
@@ -42,13 +22,6 @@ litellm_settings:
   drop_params: true
   set_verbose: false
   telemetry: false
-  request_timeout: 120
+  request_timeout: 60
 
-# Auth: loopback trust only — the api container talks to LiteLLM via
-# 127.0.0.1, so no master_key is needed. LiteLLM's master_key auth
-# requires a Postgres database (it stores virtual keys + spend logs in
-# Prisma, and SQLite is not supported by LiteLLM's Prisma layer). For
-# a dev sidecar, loopback trust is enough. Re-enable master_key +
-# database_url when you want virtual keys, spend tracking, or
-# team-level access control.
 general_settings: {}

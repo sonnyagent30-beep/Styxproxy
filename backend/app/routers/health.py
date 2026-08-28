@@ -307,11 +307,8 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
     ollama = await _check_ollama()
     m2 = await _check_m2_cloud()
 
-    # Charon availability: primary OR fallback must be reachable.
-    # M2 priority, but local fallback as backup.
-    m2_ok = m2["status"] == "connected"
-    local_ok = litellm["status"] == "connected" and ollama["status"] == "connected"
-    charon_available = m2_ok or local_ok
+    # Charon availability: Groq must be reachable.
+    charon_available = m2["status"] == "connected"
 
     # Compute top-level status:
     # - unhealthy: DB is down (api can't function)
