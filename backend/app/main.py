@@ -75,15 +75,53 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Run alembic migrations (best-effort, safe to skip if alembic not installed)
+    # Ensure all orders columns exist (idempotent, for migrations that may have failed)
     try:
-        from alembic.config import Config
-        from alembic import command
-        alembic_cfg = Config("alembic.ini")
-        command.upgrade(alembic_cfg, "head")
-        logger.info("Alembic migrations applied")
+        from sqlalchemy import text
+        async with engine.begin() as conn:
+            columns_to_add = [
+                ("platform_account_id", "UUID"),
+                ("customer_phone", "VARCHAR(20)"),
+                ("plan_type", "VARCHAR(20)"),
+                ("plan_code", "VARCHAR(50)"),
+                ("country", "VARCHAR(10)"),
+                ("quantity", "INTEGER"),
+                ("amount_paid_ngn", "NUMERIC(12, 2)"),
+                ("payment_reference", "VARCHAR(100)"),
+                ("tx_ref", "VARCHAR(100)"),
+                ("provider", "VARCHAR(50)"),
+                ("provider_order_id", "VARCHAR(100)"),
+                ("styxproxy_credential_id", "INTEGER"),
+                ("status", "VARCHAR(50) DEFAULT 'pending'"),
+                ("ip_tested", "BOOLEAN DEFAULT false"),
+                ("ip_test_result", "VARCHAR(10)"),
+                ("data_total_gb", "NUMERIC(10, 2)"),
+                ("data_remaining_gb", "NUMERIC(10, 2)"),
+                ("data_expires", "TIMESTAMP WITH TIME ZONE"),
+                ("expires_at", "TIMESTAMP WITH TIME ZONE"),
+                ("ban_reported", "BOOLEAN DEFAULT false"),
+                ("screenshot_url", "TEXT"),
+                ("ban_verified", "VARCHAR(50)"),
+                ("replacement_count", "INTEGER DEFAULT 0"),
+                ("refund_requested", "BOOLEAN DEFAULT false"),
+                ("refund_reason", "TEXT"),
+                ("notes", "TEXT"),
+                ("fulfilled_at", "TIMESTAMP WITH TIME ZONE"),
+                ("cost_usd", "NUMERIC(10, 4)"),
+                ("rotation_mode", "VARCHAR(20)"),
+                ("city_id", "INTEGER"),
+                ("city_name", "VARCHAR(100)"),
+                ("referral_tx_ref", "VARCHAR(100)"),
+                ("emails_sent", "INTEGER DEFAULT 0"),
+                ("reminder_sent_at", "TIMESTAMP WITH TIME ZONE"),
+            ]
+            for col_name, col_type in columns_to_add:
+                await conn.execute(
+                    text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+                )
+            logger.info("Orders table columns verified/updated")
     except Exception as e:
-        logger.warning(f"Alembic migrations skipped: {e}")
+        logger.warning(f"Orders column migration skipped: {e}")
 
     # Seed initial trigger weights if they don't exist
     from sqlalchemy import text
