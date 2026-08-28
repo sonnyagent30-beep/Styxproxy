@@ -339,11 +339,11 @@ class ApiClient {
   }
 
   async getOrders(page: number = 1, limit: number = 20): Promise<ApiResponse<PaginatedResponse<Order>>> {
-    return this.request<PaginatedResponse<Order>>(`/admin/orders?page=${page}&limit=${limit}`);
+    return this.request<PaginatedResponse<Order>>(`/api/admin/orders?page=${page}&limit=${limit}`);
   }
 
   async getCustomers(page: number = 1, limit: number = 20): Promise<ApiResponse<PaginatedResponse<Customer>>> {
-    return this.request<PaginatedResponse<Customer>>(`/admin/customers?page=${page}&limit=${limit}`);
+    return this.request<PaginatedResponse<Customer>>(`/api/admin/customers?page=${page}&limit=${limit}`);
   }
 
   async blockCustomer(customerId: string, reason: string): Promise<ApiResponse<{ blocked: boolean }>> {
