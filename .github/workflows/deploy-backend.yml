@@ -226,11 +226,19 @@ jobs:
             echo "=== Step 4: Take DB backup before restart ==="
             sudo -u postgres pg_dump -d styxproxy -Fc -f /opt/styxproxy/backups/pre-deploy-$(date +%Y%m%d-%H%M%S).dump || echo "Backup failed (non-blocking)"
 
-            echo "=== Step 5: Run alembic upgrade heads ==="
+            echo "=== Step 5: Run migrations as postgres ==="
             cd /opt/styxproxy/backend
-            set +e  # Don't fail on alembic issues — let app boot reveal them
+            # Run alembic (best-effort)
+            set +e
             /opt/styxproxy/backend/venv/bin/alembic upgrade heads 2>&1 | tail -20
             set -e
+            
+            # Add any missing columns that alembic might not handle
+            sudo -u postgres psql -d styxproxy -c "
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS referral_tx_ref VARCHAR(100);
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS emails_sent INTEGER DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMP WITH TIME ZONE;
+            " 2>&1 || echo "Column fix attempted"
 
             echo "=== Step 6: Restart styxproxy-api ==="
             systemctl restart styxproxy-api
