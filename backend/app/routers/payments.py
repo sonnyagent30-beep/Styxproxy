@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_account
+from app.config import get_settings
 from app.database import get_session
 from app.models import FeatureFlag
 from app.schemas import PaymentInitiateRequest, PaymentInitiateResponse, PaymentStatusResponse
@@ -101,6 +102,28 @@ async def initiate_payment(
                 description=f"Payment for {request.plan_code}",
                 device_id=device_id,
             )
+        elif gateway == "stripe":
+            from app.services.stripe import create_stripe_checkout_session
+
+            result = await create_stripe_checkout_session(
+                amount_ngn=total_amount,
+                customer_email=fw_email,
+                customer_phone=fw_phone,
+                callback_url=redirect_url,
+                description=f"Payment for {request.plan_code}",
+                device_id=device_id,
+            )
+        elif gateway == "paynow":
+            from app.services.paynow import create_paynow_invoice
+
+            result = await create_paynow_invoice(
+                amount_ngn=total_amount,
+                customer_email=fw_email,
+                customer_phone=fw_phone,
+                callback_url=redirect_url,
+                description=f"Payment for {request.plan_code}",
+                device_id=device_id,
+            )
         else:
             result = await create_flutterwave_invoice(
                 amount=total_amount,
@@ -122,7 +145,8 @@ async def initiate_payment(
             details={"plan_code": request.plan_code, "error": str(e)},
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to initiate payment: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to initiate payment: {str(e)}",
         )
 
     payment_id = str(uuid.uuid4())
@@ -145,6 +169,44 @@ async def initiate_payment(
         amount_ngn=total_amount,
         expires_at=datetime.utcnow() + timedelta(minutes=30),
     )
+
+
+@router.get("/gateways")
+async def get_available_gateways():
+    """Return which payment gateways are currently configured and available.
+
+    Used by the frontend to show/hide payment options without hardcoding
+    the availability logic in the client.
+    """
+    s = get_settings()
+    return {
+        "gateways": {
+            "flutterwave": {
+                "available": bool(s.flutterwave_secret_key),
+                "label": "Flutterwave",
+                "icon": "💳",
+                "description": "Card, Bank Transfer, USSD, QR",
+            },
+            "paystack": {
+                "available": bool(s.paystack_secret_key),
+                "label": "Paystack",
+                "icon": "🏦",
+                "description": "Card, Bank Transfer, USSD",
+            },
+            "stripe": {
+                "available": bool(s.stripe_secret_key),
+                "label": "Stripe",
+                "icon": "💰",
+                "description": "International cards",
+            },
+            "paynow": {
+                "available": bool(s.paynow_api_key),
+                "label": "Paynow",
+                "icon": "₿",
+                "description": "Bitcoin, USDT, Crypto",
+            },
+        }
+    }
 
 
 @router.get("/{tx_ref}/status", response_model=PaymentStatusResponse)

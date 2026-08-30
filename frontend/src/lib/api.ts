@@ -261,7 +261,7 @@ class ApiClient {
     quantity: number,
     customerPhone: string,
     customerEmail?: string,
-    gateway?: 'flutterwave' | 'paystack' | 'crypto',
+    gateway?: 'flutterwave' | 'paystack' | 'crypto' | 'stripe' | 'paynow',
   ): Promise<ApiResponse<PaymentInitiateResponse>> {
     return this.request<PaymentInitiateResponse>('/payments/initiate', {
       method: 'POST',
@@ -275,9 +275,19 @@ class ApiClient {
     });
   }
 
+  async fetchGateways(): Promise<ApiResponse<{
+    gateways: Record<string, {
+      available: boolean;
+      label: string;
+      icon: string;
+      description: string;
+    }>;
+  }>> {
+    return this.request('/payments/gateways');
+  }
+
   // Orders
   // Bug walk theme-B fix: precheck endpoint wired into FE checkout.
-  // Returns provider availability + estimated delivery seconds.
   // Used by /order/checkout to warn customers if plan is unavailable
   // before they hit the payment button.
   async precheckOrder(

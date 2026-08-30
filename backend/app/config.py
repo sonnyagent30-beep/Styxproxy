@@ -42,9 +42,15 @@ class Settings(BaseSettings):
 
     # ── Additional payment gateways (optional) ──────────────────────────────
     paystack_secret_key: str = ""
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
     nowpayments_api_key: str = ""
     nowpayments_ipn_secret: str = ""
     nowpayments_base_url: str = "https://api.nowpayments.io"
+    paynow_api_key: str = ""
+    paynow_api_secret: str = ""
+    paynow_base_url: str = "https://api.paynow.io"
 
     # ── WhatsApp (required for WhatsApp messaging) ──────────────────────────
     whatsapp_access_token: str = ""

@@ -566,8 +566,8 @@ class PaymentInitiateRequest(BaseModel):
     callback_url: Optional[str] = Field(None, max_length=200)
     gateway: Optional[str] = Field(
         default="flutterwave",
-        pattern="^(flutterwave|paystack|crypto)$",
-        description="Payment gateway: flutterwave (default), paystack, or crypto (NOWPayments)",
+        pattern="^(flutterwave|paystack|crypto|stripe|paynow)$",
+        description="Payment gateway: flutterwave (default), paystack, crypto (NOWPayments), stripe, or paynow",
     )
 
     @field_validator("customer_phone")

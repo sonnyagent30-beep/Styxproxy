@@ -33,13 +33,31 @@ function generateTxRef(): string {
   return `STX-${suffix}`;
 }
 
+type GatewayId = 'flutterwave' | 'paystack' | 'stripe' | 'paynow';
+
+interface GatewayInfo {
+  available: boolean;
+  label: string;
+  icon: string;
+  description: string;
+}
+
+const GATEWAY_ORDER: GatewayId[] = ['flutterwave', 'paystack', 'stripe', 'paynow'];
+
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items: cart, total: cartTotal } = useCartStore();
+  const { items: cart, total: cartTotal, setCart } = useCartStore();
   const [email, setEmail] = useState('');
-  const [gateway, setGateway] = useState<'card' | 'transfer' | 'ussd' | 'qr'>('card');
+  const [gateway, setGateway] = useState<GatewayId>('flutterwave');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [gateways, setGateways] = useState<Record<GatewayId, GatewayInfo>>({
+    flutterwave: { available: true, label: 'Flutterwave', icon: '💳', description: 'Card, Bank Transfer, USSD, QR' },
+    paystack: { available: true, label: 'Paystack', icon: '🏦', description: 'Card, Bank Transfer, USSD' },
+    stripe: { available: true, label: 'Stripe', icon: '💰', description: 'International cards' },
+    paynow: { available: true, label: 'Paynow', icon: '₿', description: 'Bitcoin, USDT, Crypto' },
+  });
+  const [gatewaysLoading, setGatewaysLoading] = useState(true);
   // Bug walk theme-B fix: precheck state. Map of plan_code → precheck result.
   // Default {checking: true} until precheck returns. Pay button disabled
   // until every cart item has available=true.
@@ -49,6 +67,30 @@ export default function CheckoutPage() {
     reason?: string;
     etaSeconds?: number;
   }>>({});
+
+  // Fetch available gateways from backend
+  useEffect(() => {
+    let cancelled = false;
+    const loadGateways = async () => {
+      try {
+        const r = await api.fetchGateways();
+        if (cancelled || !r.data?.gateways) return;
+        const fetched = r.data.gateways as Record<GatewayId, GatewayInfo>;
+        setGateways(fetched);
+        // If the currently selected gateway becomes unavailable, switch to the first available one
+        if (!fetched[gateway]?.available) {
+          const firstAvailable = GATEWAY_ORDER.find(g => fetched[g]?.available);
+          if (firstAvailable) setGateway(firstAvailable);
+        }
+      } catch {
+        // If we can't fetch gateways, assume all are available (fail open — backend will reject if not)
+      } finally {
+        if (!cancelled) setGatewaysLoading(false);
+      }
+    };
+    loadGateways();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (cart.length === 0) {
@@ -117,17 +159,15 @@ export default function CheckoutPage() {
   }, [cart]);
 
   const updateQuantity = (plan_code: string, delta: number) => {
-    setCart(prev => {
-      const updated = prev.map(item => {
-        if (item.plan_code === plan_code) {
-          const newQty = Math.max(1, item.quantity + delta);
-          return { ...item, quantity: newQty };
-        }
-        return item;
-      }).filter(item => item.quantity > 0);
-      sessionStorage.setItem('styxproxy_cart', JSON.stringify(updated));
-      return updated;
-    });
+    const updated = cart.map(item => {
+      if (item.plan_code === plan_code) {
+        const newQty = Math.max(1, item.quantity + delta);
+        return { ...item, quantity: newQty };
+      }
+      return item;
+    }).filter(item => item.quantity > 0);
+    setCart(updated);
+    sessionStorage.setItem('styxproxy_cart', JSON.stringify(updated));
   };
 
   const removeItem = (plan_code: string) => {
@@ -147,10 +187,11 @@ export default function CheckoutPage() {
   const anyUnavailable = cart.some(
     item => precheck[item.plan_code]?.available === false,
   );
-  const payDisabled = loading || cart.length === 0 || !allChecked || anyUnavailable;
+  const isGatewayAvailable = gateways[gateway]?.available;
+  const payDisabled = loading || cart.length === 0 || !allChecked || anyUnavailable || gatewaysLoading || !isGatewayAvailable;
 
   const handlePay = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || !isGatewayAvailable) return;
     setError('');
     setLoading(true);
 
@@ -159,32 +200,18 @@ export default function CheckoutPage() {
       // Previously the checkout took only cart[0] and silently dropped
       // cart[1..N]. Now we fire one /api/payments/initiate per cart item
       // in parallel and redirect to the FIRST successful checkout_url.
-      //
-      // The customer pays item #1 via Flutterwave → returns to /thank-you.
-      // cart[1..N] remain in the cart. After payment #1 completes, we
-      // show a "Pay remaining items" CTA on /thank-you that re-opens this
-      // page with cart[1..N] in styxproxy_cart. One click = one payment.
-      //
-      // This is intentionally a per-payment redirect (not a single
-      // aggregate Flutterwave transaction) because Flutterwave Standard
-      // doesn't support multi-line invoices, and the multi-item Order
-      // schema refactor needed for that would touch the entire order
-      // model. Per-payment keeps Order.payment_reference consistent and
-      // matches the existing webhook lookup logic.
       const trimmedEmail = email.trim();
       if (trimmedEmail) {
         sessionStorage.setItem('styxproxy_email', trimmedEmail);
       }
 
       // Generate one tx_ref per cart item so /thank-you /manage page can
-      // reference each independently. Keep cart[0]'s tx_ref in
-      // styxproxy_active_tx for backward-compat with the existing
-      // polling flow (commit 4f9679b).
+      // reference each independently.
       const txRefs = cart.map(() => generateTxRef());
       sessionStorage.setItem('styxproxy_active_tx', txRefs[0]);
 
       // Track each pending order in local device history so /manage page
-      // can recover them. addToOrderHistory dedupes by tx_ref.
+      // can recover them.
       for (let i = 0; i < cart.length; i++) {
         addToOrderHistory({
           tx_ref: txRefs[i],
@@ -439,34 +466,51 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {/* Payment method */}
-        <div className="mb-4">
+        {/* Payment Gateway */}
+        <div className="mb-6">
           <p className="text-sm font-medium mb-2 text-[var(--muted)]">Payment method</p>
           <div className="grid grid-cols-2 gap-2">
-            {([
-              { id: 'card', label: 'Card Payment', sub: 'Visa, Mastercard', icon: '💳' },
-              { id: 'transfer', label: 'Bank Transfer', sub: 'Access, UBA, GTBank', icon: '🏦' },
-              { id: 'ussd', label: 'USSD', sub: 'Nigerian cards only', icon: '📱' },
-              { id: 'qr', label: 'QR Code', sub: 'Any banking app', icon: '📲' },
-            ] as const).map(opt => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setGateway(opt.id as any)}
-                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-colors ${
-                  gateway === opt.id
-                    ? 'border-[var(--primary)] bg-[var(--primary)]/10'
-                    : 'border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)]/40'
-                }`}
-              >
-                <span className="text-xl">{opt.icon}</span>
-                <div>
-                  <span className={`block text-sm font-semibold ${gateway === opt.id ? 'text-[var(--primary)]' : 'text-[var(--foreground)]'}`}>{opt.label}</span>
-                  <span className="block text-xs text-[var(--muted)]">{opt.sub}</span>
-                </div>
-              </button>
-            ))}
+            {GATEWAY_ORDER.map(gw => {
+              const info = gateways[gw];
+              const selected = gateway === gw;
+              const isAvailable = info?.available;
+              return (
+                <button
+                  key={gw}
+                  type="button"
+                  disabled={!isAvailable || gatewaysLoading}
+                  onClick={() => isAvailable && setGateway(gw)}
+                  className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-colors relative ${
+                    selected && isAvailable
+                      ? 'border-[var(--primary)] bg-[var(--primary)]/10'
+                      : isAvailable
+                        ? 'border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)]/40'
+                        : 'border-[var(--border)] bg-[var(--card)] opacity-40 cursor-not-allowed'
+                  }`}
+                >
+                  <span className="text-xl">{info?.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <span className={`block text-sm font-semibold ${
+                      selected && isAvailable ? 'text-[var(--primary)]' : 'text-[var(--foreground)]'
+                    }`}>
+                      {info?.label}
+                    </span>
+                    <span className="block text-xs text-[var(--muted)] truncate">
+                      {isAvailable ? info?.description : 'Unavailable'}
+                    </span>
+                  </div>
+                  {!isAvailable && (
+                    <span className="absolute top-1 right-2 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
+                      Coming soon
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
+          <p className="text-xs text-[var(--muted)] mt-2">
+            All transactions are processed securely. You'll be redirected to complete your payment.
+          </p>
         </div>
 
         {/* Pay Button */}
@@ -481,7 +525,9 @@ export default function CheckoutPage() {
               ? 'Checking availability...'
               : anyUnavailable
                 ? 'Some items unavailable'
-                : `Pay ${formatPrice(subtotal)}`}
+                : !isGatewayAvailable
+                  ? 'Select a payment method'
+                  : `Pay ${formatPrice(subtotal)} with ${gateways[gateway]?.label || gateway}`}
         </button>
 
         <p className="text-xs text-center text-[var(--muted)] mt-3">

@@ -1,13 +1,17 @@
-"""Charon's LLM client — Groq Qwen primary, no fallback.
+"""Charon's LLM client — multi-key Groq + OpenRouter failover.
 
 Architecture:
-  Only provider: Groq Qwen 3.8 27B (fast, cheap, OpenAI-compatible).
-  No local fallback — if Groq is down, Charon returns an error.
+  Primary:   Groq Llama 3.1 8B (fast, 14,400 RPD, good tool calling)
+  Failover:  Groq key 2, Groq key 3 (same model, different accounts)
+  Final:     OpenRouter free tier ($0, unlimited tokens)
 
 Environment variables:
-  - GROQ_API_KEY: Groq API key (REQUIRED)
-  - GROQ_MODEL: cloud model name (default "qwen/qwen3.8-27b")
-  - GROQ_BASE_URL: cloud endpoint (default https://api.groq.com/openai/v1)
+  - GROQ_API_KEY: primary Groq key (REQUIRED)
+  - GROQ_API_KEY_2: second Groq key (optional, for rate limit pooling)
+  - GROQ_API_KEY_3: third Groq key (optional, for rate limit pooling)
+  - GROQ_MODEL: model name (default "llama-3.1-8b-instant")
+  - OPENROUTER_API_KEY: OpenRouter key (optional, final fallback)
+  - OPENROUTER_MODEL: OpenRouter free model (default "openai/gpt-oss-120b:free")
   - REDIS_URL: optional, enables response caching
 """
 
@@ -105,44 +109,60 @@ def _normalize_messages(messages: list[dict]) -> str:
     return json.dumps(messages, sort_keys=True, ensure_ascii=True)
 
 
-SYSTEM_PROMPT = """You are Charon, the automated support agent for Styxproxy.
+SYSTEM_PROMPT = """You are Charon, Styxproxy's customer-facing AI assistant.
 
-Voice and style:
-- Direct, factual, no marketing language.
-- 1–4 sentences for simple questions. Up to 8 sentences for a multi-part question.
-- Use "I" when you speak in first person. Use "you" for the customer.
-- Write in the customer's language (English default; mirror the customer's message).
-- Use relative URLs in answers (start with /, e.g. /manage, /contact).
+## Personality
+- Warm, proactive, honest. Like a knowledgeable friend who knows proxies.
+- Never robotic: no "Certainly!", "As an AI...", "I'd be happy to assist!"
+- Use emojis naturally: 🎉 ✅ 💡 🔒 📦 🚀
 
-Absolute rules (never violate):
-- Never name any upstream provider or describe internal infrastructure.
-- Never give specific delivery times ("10–30 seconds", "5 minutes", etc.). Use vague language ("minutes", "shortly").
-- Never reveal customer PII or ask the customer to share personal data. Never log or transmit the customer's IP address.
-- If you don't know, say so plainly, point the customer to styxproxy.com/contact, and offer to escalate.
-- If the customer wants a refund, replacement, cancellation, reissue, or any account-mutating action, tell them you
-cannot do that directly and offer to escalate to the team.
-- If a tool returns an error, escalate — don't lie about success.
-- Do not write code for the customer. Do not impersonate the team. Do not invent features the company doesn't have.
+## Formatting
+- **Bold** for key info (prices, plan names, order IDs)
+- [links](url) for URLs
+- Bullet points for lists
+- Short paragraphs (1-2 sentences max)
+- End with a question or next-step suggestion
 
-Available actions when relevant:
-- If you can answer from the knowledge base, do so.
-- If the customer mentions a transaction reference (tx_ref) and wants status, you may use it as context.
-- If the customer is upset or the case is sensitive, prefer escalating over guessing.
+## Country Flags
+Always use flag emojis, not codes: 🇳🇬 Nigeria, 🇺🇸 US, 🇬🇧 UK, 🇩🇪 Germany, 🇨🇳 China, 🇦🇪 UAE, 🇬🇭 Ghana, 🇧🇷 Brazil, 🇧🇪 Belgium, 🇦🇫 Afghanistan, 🇦🇷 Argentina. If you don't know the flag, write the full name.
 
-Knowledge base context is provided below. Answer only based on it; if the question is not in the context, escalate.
+## Hard Rules
+- Never name upstream providers or internal infrastructure.
+- Never give specific delivery times. Use "minutes", "shortly".
+- Never log or transmit customer IP addresses.
+- If you can't answer from context, say so and offer to escalate.
+- For refunds/replacements/cancellations → decline and escalate.
+
+## Sales Mode (Telegram/WhatsApp)
+- Identify need → recommend plan → create_order → initiate_payment → confirm delivery
+- After every answer, suggest a relevant next step.
+- Upsell: datacenter → residential, 5GB → 10GB, 1 IP → 10 IPs
+
+## Charon Capabilities (when asked "what can you do")
+"I can help you with:
+- 📋 Browse plans — proxy types, prices, countries
+- 🔍 Compare plans — side-by-side differences
+- 🛒 Create orders — set up your proxy in seconds
+- 💳 Payment — checkout link, retry failed payments
+- 📦 Order lookup — status, credentials, history
+- 📊 Data usage — check remaining GB on residential/mobile
+- 🔄 Renewals — expiring soon? Renew now
+- 🛠️ Setup guides — how to configure any plan
+- 🐛 Troubleshooting — common issues and fixes
+- 👥 Referrals — earn ₦500 per friend you refer
+- 🏢 Bulk pricing — custom quotes for 20+ IPs
+- 💻 Integration docs — code examples for Python, Node, Selenium, etc."
 """
 
 
 def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
-    """Call the Groq LLM API.
+    """Call the LLM with multi-provider failover.
+
+    Order: Redis cache → Groq (key 1) → Groq (key 2) → Groq (key 3) → OpenRouter free.
 
     `messages` is a list of {role, content} dicts. The first message
     is treated as a system message internally; if the caller already
     provided a system message at index 0, we honor it instead.
-
-    Order: check Redis cache → Groq. If Groq fails, the response will
-    have `error` set; never raises. Use `ok` to check before reading
-    content.
     """
     # Cache lookup — skip if REDIS_URL is not set (cache_get is safe)
     message_str = _normalize_messages(messages)
@@ -152,30 +172,86 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
         logger.debug("LLM cache hit for key %s", cache_key)
         return cached
 
-    # Call Groq
-    result = _call_groq(messages, max_tokens)
+    # Try all providers in order
+    result = _try_all_providers(messages, max_tokens)
+
     if result.ok:
         _cache_set(cache_key, result)
         return result
 
-    logger.error("Groq LLM call failed: %s", result.error)
+    logger.error("All LLM providers failed: %s", result.error)
     sentry_sdk.capture_message(
-        f"Charon Groq LLM error: {result.error}",
+        f"Charon LLM all providers failed: {result.error}",
         level="error",
         extras={"model": result.model, "error": result.error},
     )
     return result
 
 
-def _call_groq(messages: list[dict], max_tokens: int) -> LLMResponse:
-    """Call Groq Qwen via OpenAI-compatible endpoint."""
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        return LLMResponse(content="", model="", error="GROQ_API_KEY not set")
+def _try_all_providers(messages: list[dict], max_tokens: int) -> LLMResponse:
+    """Try Groq keys 1-3, then OpenRouter free as final fallback."""
+    # Gather all Groq keys
+    groq_keys = []
+    for env_var in ("GROQ_API_KEY", "GROQ_API_KEY_2", "GROQ_API_KEY_3"):
+        key = os.getenv(env_var, "").strip()
+        if key:
+            groq_keys.append((env_var, key))
 
-    base_url = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
-    model = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+    groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    groq_base = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
 
+    # Try each Groq key
+    for env_var, api_key in groq_keys:
+        resp = _call_openai_compatible(
+            base_url=groq_base,
+            api_key=api_key,
+            model=groq_model,
+            messages=messages,
+            max_tokens=max_tokens,
+        )
+        if resp.ok:
+            logger.debug("LLM success via %s (model=%s)", env_var, groq_model)
+            return resp
+        # Only failover on 429 (rate limit) or 5xx (server error)
+        if resp.error and "429" in resp.error:
+            logger.warning("%s rate limited, trying next key", env_var)
+            continue
+        if resp.error and "5" in resp.error and "xx" in resp.error:
+            logger.warning("%s server error, trying next key", env_var)
+            continue
+        # For other errors (401, 403), try next key
+        if resp.error:
+            logger.warning("%s error: %s, trying next key", env_var, resp.error)
+            continue
+
+    # Final fallback: OpenRouter free
+    or_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+    if or_key:
+        or_model = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
+        or_base = "https://openrouter.ai/api/v1"
+        logger.info("All Groq keys exhausted, falling back to OpenRouter (model=%s)", or_model)
+        resp = _call_openai_compatible(
+            base_url=or_base,
+            api_key=or_key,
+            model=or_model,
+            messages=messages,
+            max_tokens=max_tokens,
+        )
+        if resp.ok:
+            return resp
+
+    return LLMResponse(content="", model="", error="All LLM providers exhausted")
+
+
+def _call_openai_compatible(
+    *,
+    base_url: str,
+    api_key: str,
+    model: str,
+    messages: list[dict],
+    max_tokens: int,
+) -> LLMResponse:
+    """Generic OpenAI-compatible chat completions call."""
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -197,7 +273,7 @@ def _call_groq(messages: list[dict], max_tokens: int) -> LLMResponse:
             timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0),
         )
     except httpx.HTTPError as exc:
-        logger.warning("LLM (Groq) transport error: %s", exc)
+        logger.warning("LLM transport error (%s): %s", base_url, exc)
         return LLMResponse(content="", model=model, error=f"transport error: {exc}")
     return _parse_openai_compatible_response(resp, model)
 

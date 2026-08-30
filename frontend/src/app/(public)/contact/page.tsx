@@ -13,7 +13,7 @@ const faqs = [
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'We accept all major payment methods via Flutterwave: Visa, Mastercard, direct bank transfer, USSD, and QR code. All payments are processed securely. We do not accept crypto.',
+    a: 'We accept multiple payment methods: Flutterwave (card, bank transfer, USSD, QR), Paystack (card, bank transfer, USSD), Stripe (international cards), and Paynow (Bitcoin, USDT, crypto). All transactions are processed securely.',
   },
   {
     q: 'Can I get a refund?',

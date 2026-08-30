@@ -36,7 +36,7 @@ from sqlalchemy import text, func, case
 
 from app.auth import decode_access_token, verify_admin_token
 from app.database import async_session
-from app.limiter import limiter
+from app.limiter import limiter, customer_limiter
 from app.services.charon import agent
 from app.services.charon.agent import Message
 from app.services.charon.knowledge import invalidate_cache
@@ -168,7 +168,6 @@ class CharonLogEntry(BaseModel):
 
 
 @router.post("/reply", response_model=ChatReplyResponse)
-@limiter.limit("30/minute")
 async def post_reply(
     payload: ChatReplyRequest,
     request: Request,
@@ -181,6 +180,15 @@ async def post_reply(
     Streaming is available below for low-latency interactive use.
     """
     import time
+
+    # Per-customer rate limit (5/min per customer_phone)
+    allowed, remaining, reset = await customer_limiter.check(request)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded. Try again in {reset} seconds.",
+            headers={"Retry-After": str(reset)},
+        )
 
     if not payload.user_message.strip():
         raise HTTPException(
