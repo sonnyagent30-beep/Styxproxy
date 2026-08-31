@@ -2,18 +2,18 @@
 # Pinned versions for reproducibility
 
 # Web Framework
-fastapi==0.133.1
-uvicorn[standard]==0.41.0
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
 
 # Database
-sqlalchemy[asyncio]==2.0.51
+sqlalchemy[asyncio]==2.0.52
 asyncpg==0.31.0
 
 # Data Validation
 pydantic[email]==2.13.4
 email-validator>=2.0.0
 reportlab>=4.0.0
-pydantic-settings==2.14.2
+pydantic-settings==2.15.0
 
 # Authentication
 python-jose[cryptography]==3.5.0
@@ -29,16 +29,16 @@ slowapi==0.1.10
 
 # Logging & Monitoring
 structlog==26.1.0
-sentry-sdk==2.64.0
+sentry-sdk==2.68.1
 
 # Utilities
-python-multipart==0.0.27
-python-dotenv==1.2.2
+python-multipart==0.0.32
+python-dotenv==1.2.3
 
 # Observability + Caching
-sentry-sdk[fastapi]==2.64.0
-redis==8.0.1
+sentry-sdk[fastapi]==2.68.1
+redis==8.1.0
 pytest==8.3.3
 pytest-asyncio==0.25.2
 httpx==0.28.1
-PyJWT==2.10.1
+PyJWT==2.13.0
