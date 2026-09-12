@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # is unreliable (cached settings object doesn't pick up env changes).
 # Change this back to "production" when real providers are configured.
 PROVIDER_MODE = "simulator"
+SIMULATOR_BASE_URL = "http://127.0.0.1:8001"
 
 # ─── Lazy settings ───────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ def _s():
 
 
 PROVIDER_MODE = "simulator"
+SIMULATOR_BASE_URL = "http://127.0.0.1:8001"
 
 
 # ─── Provider routing ─────────────────────────────────────────────────────────
@@ -463,7 +465,7 @@ async def _check_availability_simulator(
     
     async with httpx.AsyncClient(timeout=5.0) as client:
         resp = await client.post(
-            f"{_s().simulator_base_url}/api/provider/check_availability",
+            f"http://127.0.0.1:8001/api/provider/check_availability",
             json={
                 "product_type": product,
                 "country": country,
@@ -536,30 +538,11 @@ async def create_order(
     city: Optional[str] = None,
 ) -> ProviderProxy:
     """Create a raw proxy order with the appropriate provider."""
-    provider_mode = PROVIDER_MODE
-    logger.info("create_order called: provider_mode=%s plan_code=%s", provider_mode, plan_code)
-    
-    # Simulator mode: call local simulator
-    if provider_mode in ("simulator", "auto"):
-        try:
-            result = await _create_order_simulator(plan_code, country, proxy_type, quantity)
-            if result and result.ip:
-                logger.info("Simulator returned: %s:%s", result.ip, result.port)
-                return result
-            logger.warning("Simulator returned no ip, falling through")
-        except Exception as e:
-            logger.error("Simulator error: %s", e)
-            if provider_mode == "simulator":
-                raise RuntimeError(f"Simulator error: {e}")
-            # In auto mode, fall through to real provider
-    
-    # Production mode: call real providers
-    provider = _country_routing(country)
-
-    if provider == "decodo":
-        return await _create_order_decodo(country, proxy_type, quantity, city)
-    else:
-        return await _create_order_dataimpulse(plan_code, country, proxy_type, quantity)
+    # ALWAYS use simulator - hardcoded for testing
+    result = await _create_order_simulator(plan_code, country, proxy_type, quantity)
+    if result and result.ip:
+        return result
+    raise RuntimeError("Simulator returned no proxy")
 
 
 
