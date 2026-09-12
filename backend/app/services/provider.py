@@ -1,15 +1,18 @@
 """
 Provider service — proxy provider abstraction layer.
 
+Modes (configured via PROVIDER_MODE env var):
+  - "production" → Real DataImpulse/Decodo APIs (default)
+  - "simulator"  → Local provider simulator (testing)
+  - "auto"       → Try real, fallback to simulator if real fails
+
 Dual-provider routing (S1.2 + S2.8):
   - Nigeria (Lagos, Abuja) → Decodo  (city-level targeting, S2.8)
   - All other countries   → DataImpulse (S1.2 primary)
-
-The calling code throughout the app stays the same; provider selection
-is handled internally based on country.
 """
 
 import asyncio
+import os
 import random
 import socket
 from dataclasses import dataclass
@@ -141,6 +144,20 @@ async def check_availability(
     quantity: int,
 ) -> AvailabilityResult:
     """Check whether a proxy order can be fulfilled right now."""
+    provider_mode = os.getenv("PROVIDER_MODE", "production").lower()
+    
+    # Simulator mode: call local simulator
+    if provider_mode in ("simulator", "auto"):
+        try:
+            result = await _check_availability_simulator(country, proxy_type, quantity)
+            if result.available or provider_mode == "simulator":
+                return result
+        except Exception as e:
+            if provider_mode == "simulator":
+                return AvailabilityResult(available=False, reason=f"simulator_error", estimated_delivery_seconds=0)
+            # In auto mode, fall through to real provider
+    
+    # Production mode: call real providers
     provider = _country_routing(country)
 
     if provider == "decodo":
@@ -235,36 +252,7 @@ async def _check_availability_dataimpulse(
     )
 
 
-# ─── Order Creation ────────────────────────────────────────────────────────────
-
-
-async def create_order(
-    plan_code: str,
-    country: str,
-    proxy_type: str,
-    quantity: int,
-    city: Optional[str] = None,
-) -> ProviderProxy:
-    """Create a raw proxy order with the appropriate provider.
-
-    Routing:
-      - Nigeria (Lagos, Abuja) → Decodo (city-level targeting)
-      - All other countries    → DataImpulse
-
-    Args:
-        plan_code: plan identifier (passed through to provider)
-        country: ISO country name
-        proxy_type: residential | mobile | datacenter
-        quantity: number of proxies
-        city: city name (e.g. "Lagos", "Abuja") — forwarded to Decodo only
-    """
-    provider = _country_routing(country)
-
-    if provider == "decodo":
-        return await _create_order_decodo(country, proxy_type, quantity, city)
-    else:
-        return await _create_order_dataimpulse(plan_code, country, proxy_type, quantity)
-
+# ─── Order Creation (moved to after simulator integration) ──────────────────
 
 async def _create_order_decodo(
     country: str,
@@ -447,6 +435,122 @@ async def rotate_ip(provider_order_id: str, country: str = "Nigeria") -> Provide
             isp="DataImpulse Rotated",
             asn="AS00000",
         )
+
+
+# ─── Simulator Integration ──────────────────────────────────────────────────
+
+_SIMULATOR_BASE = os.getenv("SIMULATOR_BASE_URL", "http://localhost:8001")
+
+
+async def _check_availability_simulator(
+    country: str,
+    proxy_type: str,
+    quantity: int,
+) -> AvailabilityResult:
+    """Check availability via local provider simulator."""
+    product_map = {
+        "residential": "residential",
+        "mobile": "mobile",
+        "datacenter": "datacenter",
+        "isp": "isp",
+    }
+    product = product_map.get(proxy_type.lower(), "datacenter")
+    
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        resp = await client.post(
+            f"{_SIMULATOR_BASE}/api/provider/check_availability",
+            json={
+                "product_type": product,
+                "country": country,
+                "quantity": quantity,
+            },
+        )
+        data = resp.json()
+    
+    return AvailabilityResult(
+        available=data.get("available", False),
+        reason=data.get("reason"),
+        price_ngn=data.get("price_ngn"),
+        estimated_delivery_seconds=data.get("estimated_delivery_seconds", 30),
+    )
+
+
+async def _create_order_simulator(
+    plan_code: str,
+    country: str,
+    proxy_type: str,
+    quantity: int,
+) -> ProviderProxy:
+    """Create order via local provider simulator."""
+    product_map = {
+        "residential": "residential",
+        "mobile": "mobile",
+        "datacenter": "datacenter",
+        "isp": "isp",
+    }
+    product = product_map.get(proxy_type.lower(), "datacenter")
+    
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        resp = await client.post(
+            f"{_SIMULATOR_BASE}/api/provider/create_order",
+            json={
+                "product_type": product,
+                "country": country,
+                "quantity": quantity,
+                "plan_code": plan_code,
+            },
+        )
+        data = resp.json()
+    
+    expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+    if data.get("expires_at"):
+        try:
+            expires_at = datetime.fromisoformat(data["expires_at"])
+        except:
+            pass
+    
+    return ProviderProxy(
+        provider_order_id=data.get("order_id", f"SIM-{random.randint(100000, 999999)}"),
+        ip=data.get("ip", "127.0.0.1"),
+        port=data.get("port", 8080),
+        username=data.get("username", "sim_user"),
+        password=data.get("password", "sim_pass"),
+        protocol=data.get("protocol", "http"),
+        expires_at=expires_at,
+        country=country,
+        isp=f"Simulated {product}",
+        asn="AS00000",
+    )
+
+
+async def create_order(
+    plan_code: str,
+    country: str,
+    proxy_type: str,
+    quantity: int,
+    city: Optional[str] = None,
+) -> ProviderProxy:
+    """Create a raw proxy order with the appropriate provider."""
+    provider_mode = os.getenv("PROVIDER_MODE", "production").lower()
+    
+    # Simulator mode: call local simulator
+    if provider_mode in ("simulator", "auto"):
+        try:
+            result = await _create_order_simulator(plan_code, country, proxy_type, quantity)
+            if result and result.ip:
+                return result
+        except Exception as e:
+            if provider_mode == "simulator":
+                raise RuntimeError(f"Simulator error: {e}")
+            # In auto mode, fall through to real provider
+    
+    # Production mode: call real providers
+    provider = _country_routing(country)
+
+    if provider == "decodo":
+        return await _create_order_decodo(country, proxy_type, quantity, city)
+    else:
+        return await _create_order_dataimpulse(plan_code, country, proxy_type, quantity)
 
 
 

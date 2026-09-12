@@ -59,8 +59,11 @@ class Settings(BaseSettings):
     # ── Minimax (required for AI features) ──────────────────────────────────
     minimax_api_key: str = ""
 
-    # ── Groq (required for AI features) ─────────────────────────────────────
+    # ── Groq (optional LLM failover) ─────────────────────────────────────
     groq_api_key: str = ""
+
+    # ── DeepInfra (primary LLM) ──────────────────────────────────────────
+    deepinfra_api_key: str = ""
 
     # ── Resend (required for email) ─────────────────────────────────────────
     resend_api_key: str = ""
@@ -72,7 +75,9 @@ class Settings(BaseSettings):
     support_email: str = "support@styxproxy.com"
     admin_email: str = "support@styxproxy.com"
 
-    # ── Proxy Provider ───────────────────────────────────────────────────────
+    # ── Provider Simulator ──────────────────────────────────────────────────
+    provider_mode: str = "production"  # "production", "simulator", "auto"
+    simulator_base_url: str = "http://localhost:8001"
     # API credentials for the proxy provider (Proxy-Seller / DataImpulse / etc.)
     proxy_seller_api_key: str = ""
     proxy_seller_base_url: str = "https://api.proxy-seller.com"

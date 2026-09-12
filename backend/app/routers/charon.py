@@ -282,7 +282,7 @@ async def health():
 
     from app.services.charon import scenarios
 
-    cloud_key_set = bool(os.getenv("GROQ_API_KEY"))
+    cloud_key_set = bool(os.getenv("GROQ_API_KEY") or os.getenv("DEEPINFRA_API_KEY"))
     CharonMetrics.llm_configured(cloud_key_set)
 
     s = CharonMetrics.get()

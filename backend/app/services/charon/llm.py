@@ -1,14 +1,16 @@
-"""Charon's LLM client — multi-key Groq + OpenRouter failover.
+"""Charon's LLM client — DeepInfra primary + Groq/OpenRouter failover.
 
 Architecture:
-  Primary:   Groq Llama 3.1 8B (fast, 14,400 RPD, good tool calling)
-  Failover:  Groq key 2, Groq key 3 (same model, different accounts)
-  Final:     OpenRouter free tier ($0, unlimited tokens)
+  Primary:   DeepInfra DeepSeek V4 Flash (fast, 75% prompt cache discount, cheap tokens)
+  Failover:  Groq key 1-3 (if configured)
+  Final:     OpenRouter free tier (if configured)
 
 Environment variables:
-  - GROQ_API_KEY: primary Groq key (REQUIRED)
-  - GROQ_API_KEY_2: second Groq key (optional, for rate limit pooling)
-  - GROQ_API_KEY_3: third Groq key (optional, for rate limit pooling)
+  - DEEPINFRA_API_KEY: DeepInfra API key (REQUIRED for primary)
+  - DEEPINFRA_MODEL: model name (default "deepseek-ai/DeepSeek-V4-Flash-0731")
+  - GROQ_API_KEY: Groq key (optional, failover)
+  - GROQ_API_KEY_2: second Groq key (optional)
+  - GROQ_API_KEY_3: third Groq key (optional)
   - GROQ_MODEL: model name (default "llama-3.1-8b-instant")
   - OPENROUTER_API_KEY: OpenRouter key (optional, final fallback)
   - OPENROUTER_MODEL: OpenRouter free model (default "openai/gpt-oss-120b:free")
@@ -189,7 +191,25 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
 
 
 def _try_all_providers(messages: list[dict], max_tokens: int) -> LLMResponse:
-    """Try Groq keys 1-3, then OpenRouter free as final fallback."""
+    """Try DeepInfra primary, then Groq keys 1-3, then OpenRouter free as final fallback."""
+    # Primary: DeepInfra
+    deepinfra_key = os.getenv("DEEPINFRA_API_KEY", "").strip()
+    if deepinfra_key:
+        deepinfra_model = os.getenv("DEEPINFRA_MODEL", "deepseek-ai/DeepSeek-V4-Flash-0731")
+        deepinfra_base = "https://api.deepinfra.com/v1/openai"
+        resp = _call_openai_compatible(
+            base_url=deepinfra_base,
+            api_key=deepinfra_key,
+            model=deepinfra_model,
+            messages=messages,
+            max_tokens=max_tokens,
+        )
+        if resp.ok:
+            logger.debug("LLM success via DeepInfra (model=%s)", deepinfra_model)
+            return resp
+        if resp.error:
+            logger.warning("DeepInfra error: %s, trying failover", resp.error)
+
     # Gather all Groq keys
     groq_keys = []
     for env_var in ("GROQ_API_KEY", "GROQ_API_KEY_2", "GROQ_API_KEY_3"):
@@ -212,16 +232,8 @@ def _try_all_providers(messages: list[dict], max_tokens: int) -> LLMResponse:
         if resp.ok:
             logger.debug("LLM success via %s (model=%s)", env_var, groq_model)
             return resp
-        # Only failover on 429 (rate limit) or 5xx (server error)
-        if resp.error and "429" in resp.error:
-            logger.warning("%s rate limited, trying next key", env_var)
-            continue
-        if resp.error and "5" in resp.error and "xx" in resp.error:
-            logger.warning("%s server error, trying next key", env_var)
-            continue
-        # For other errors (401, 403), try next key
         if resp.error:
-            logger.warning("%s error: %s, trying next key", env_var, resp.error)
+            logger.warning("%s error: %s, trying next", env_var, resp.error)
             continue
 
     # Final fallback: OpenRouter free
@@ -229,7 +241,7 @@ def _try_all_providers(messages: list[dict], max_tokens: int) -> LLMResponse:
     if or_key:
         or_model = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
         or_base = "https://openrouter.ai/api/v1"
-        logger.info("All Groq keys exhausted, falling back to OpenRouter (model=%s)", or_model)
+        logger.info("All primary providers exhausted, falling back to OpenRouter (model=%s)", or_model)
         resp = _call_openai_compatible(
             base_url=or_base,
             api_key=or_key,
