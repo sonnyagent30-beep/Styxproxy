@@ -17,9 +17,12 @@ When Dante and the provider are deployed on the VPS, only the underlying
 service stubs (app/services/dante.py, app/services/provider.py) need updating.
 """
 
+import logging
 import random
 import string
 from datetime import datetime, timedelta, timezone
+
+logger = logging.getLogger(__name__)
 from typing import Optional
 
 from sqlalchemy import select
@@ -103,24 +106,23 @@ async def get_provider_proxy(
     """
     Get a tested, working proxy from the provider.
     Tries up to MAX_PROVIDER_RETRIES times.
-
-    Returns a dict with keys: {ip, port, username, password, provider_order_id, expires_at}
-
-    Raises RuntimeError if all retries are exhausted.
     """
     from app.services import provider as provider_svc
 
     last_error = None
     for attempt in range(MAX_PROVIDER_RETRIES):
         try:
+            logger.info("get_provider_proxy attempt %d: plan_code=%s country=%s proxy_type=%s", attempt, plan_code, country, proxy_type)
             proxy = await provider_svc.create_order(
                 plan_code=plan_code,
                 country=country,
                 proxy_type=proxy_type,
                 quantity=quantity,
             )
+            logger.info("create_order returned: %s:%s", proxy.ip, proxy.port)
 
             test_result = await provider_svc.test_proxy(proxy)
+            logger.info("test_proxy returned: alive=%s", test_result.alive)
             if test_result.alive:
                 return {
                     "provider_order_id": proxy.provider_order_id,
@@ -137,9 +139,11 @@ async def get_provider_proxy(
                 }
 
             last_error = test_result.error or "proxy_test_failed"
+            logger.warning("Proxy test failed: %s", last_error)
 
         except Exception as e:
             last_error = str(e)
+            logger.error("get_provider_proxy exception: %s", last_error)
 
     raise RuntimeError(f"Provider proxy unavailable after {MAX_PROVIDER_RETRIES} attempts. Last error: {last_error}")
 
