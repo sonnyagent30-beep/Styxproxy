@@ -38,6 +38,11 @@ def _s():
     return _settings
 
 
+def _provider_mode() -> str:
+    """Get provider mode from settings (cached). Always returns a valid string."""
+    return _s().provider_mode.lower()
+
+
 # ─── Provider routing ─────────────────────────────────────────────────────────
 
 # Countries routed to Decodo (city-level targeting)
@@ -147,7 +152,7 @@ async def check_availability(
     quantity: int,
 ) -> AvailabilityResult:
     """Check whether a proxy order can be fulfilled right now."""
-    provider_mode = os.getenv("PROVIDER_MODE", "production").lower()
+    provider_mode = _provider_mode()
     
     # Simulator mode: call local simulator
     if provider_mode in ("simulator", "auto"):
@@ -321,7 +326,7 @@ async def _create_order_dataimpulse(
 async def test_proxy(proxy: ProviderProxy) -> TestResult:
     """Test whether a proxy is alive AND speaks the expected proxy protocol."""
     # Simulator mode: skip actual TCP test for simulated proxies
-    provider_mode = os.getenv("PROVIDER_MODE", "production").lower()
+    provider_mode = _provider_mode()
     if provider_mode == "simulator" or proxy.provider_order_id.startswith("SIM-"):
         # Simulated proxies are fake — return TCP-alive without actual connect
         return TestResult(alive=True, latency_ms=15.0)
@@ -437,8 +442,6 @@ async def rotate_ip(provider_order_id: str, country: str = "Nigeria") -> Provide
 
 # ─── Simulator Integration ──────────────────────────────────────────────────
 
-_SIMULATOR_BASE = os.getenv("SIMULATOR_BASE_URL", "http://localhost:8001")
-
 
 async def _check_availability_simulator(
     country: str,
@@ -456,7 +459,7 @@ async def _check_availability_simulator(
     
     async with httpx.AsyncClient(timeout=5.0) as client:
         resp = await client.post(
-            f"{_SIMULATOR_BASE}/api/provider/check_availability",
+            f"{_s().simulator_base_url}/api/provider/check_availability",
             json={
                 "product_type": product,
                 "country": country,
@@ -490,7 +493,7 @@ async def _create_order_simulator(
     
     async with httpx.AsyncClient(timeout=5.0) as client:
         resp = await client.post(
-            f"{_SIMULATOR_BASE}/api/provider/create_order",
+            f"{_s().simulator_base_url}/api/provider/create_order",
             json={
                 "product_type": product,
                 "country": country,
@@ -529,7 +532,7 @@ async def create_order(
     city: Optional[str] = None,
 ) -> ProviderProxy:
     """Create a raw proxy order with the appropriate provider."""
-    provider_mode = os.getenv("PROVIDER_MODE", "production").lower()
+    provider_mode = _provider_mode()
     logger.info("create_order called: provider_mode=%s plan_code=%s", provider_mode, plan_code)
     
     # Simulator mode: call local simulator
