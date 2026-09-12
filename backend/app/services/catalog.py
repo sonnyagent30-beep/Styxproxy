@@ -146,8 +146,8 @@ class _VirtualPlan:
         self.plan_code = plan_code
         self.sort_order = sort_order
         self.gb_tiers = None
-        self.min_gb = None
-        self.max_gb = None
+        self.min_gb = 5
+        self.max_gb = 50
         self.duration_days = 30
         self.features = []
         self.static_price_multiplier = 1.0

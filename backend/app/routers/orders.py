@@ -154,14 +154,14 @@ async def precheck_order(
     quantity_gb = getattr(request, "quantity_gb", None)
     if pt in ("residential", "mobile"):
         gb = quantity_gb or plan.quantity
-        if gb < plan.min_gb:
+        if gb < (plan.min_gb or 0):
             return PrecheckResponse(
                 available=False,
                 reason=f"minimum_{plan.min_gb}_gb",
                 price_ngn=None,
                 estimated_delivery_seconds=0,
             )
-        if gb > plan.max_gb:
+        if gb > (plan.max_gb or 9999):
             return PrecheckResponse(
                 available=False,
                 reason=f"maximum_{plan.max_gb}_gb",
