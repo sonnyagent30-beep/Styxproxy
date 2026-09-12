@@ -15,7 +15,7 @@ from app.schemas import PaymentInitiateRequest, PaymentInitiateResponse, Payment
 from app.services.audit import log_audit_event
 from app.services.customer import get_or_create_customer
 from app.services.flutterwave import create_flutterwave_invoice, verify_flutterwave_payment
-from app.routers.orders import resolve_plan
+from app.routers.orders import resolve_plan, generate_order_id
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -150,6 +150,26 @@ async def initiate_payment(
         )
 
     payment_id = str(uuid.uuid4())
+
+    # Create a pending order before payment so the webhook can find it
+    # and the thank-you page can poll by payment_reference.
+    from app.models import Order
+    order_id = generate_order_id()
+
+    order = Order(
+        order_id=order_id,
+        platform_account_id=platform_account.id if platform_account else None,
+        customer_phone=customer.phone,
+        plan_type=plan.plan_type.lower(),
+        plan_code=request.plan_code,
+        country=plan.country,
+        quantity=request.quantity,
+        amount_paid_ngn=total_amount,
+        payment_reference=result.get("tx_ref"),  # Flutterwave tx_ref for webhook matching
+        status="pending",
+    )
+    session.add(order)
+    await session.commit()
     await log_audit_event(
         session,
         event_type="payment_initiated",

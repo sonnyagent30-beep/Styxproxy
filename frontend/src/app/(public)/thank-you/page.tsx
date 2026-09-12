@@ -368,8 +368,19 @@ async function generateLocalPDF(order: OrderData, cart: CartItem[], txRef: strin
 
 function ThankYouContent() {
   const searchParams = useSearchParams();
-  const txRef = searchParams.get('tx_ref');
+  const urlTxRef = searchParams.get('tx_ref');
+  const [txRef, setTxRef] = useState<string | null>(urlTxRef);
   const { toast } = useToast();
+
+  // Fallback: if no tx_ref in URL (Flutterwave doesn't append it), use sessionStorage
+  useEffect(() => {
+    if (!txRef) {
+      const stored = sessionStorage.getItem('styxproxy_active_tx');
+      if (stored) {
+        setTxRef(stored);
+      }
+    }
+  }, [txRef]);
 
   const [order, setOrder] = useState<OrderData | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
