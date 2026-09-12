@@ -195,8 +195,8 @@ async def create_credential(
     db_session: AsyncSession,
     order_id: str,
     customer_phone: str,
-    plan_code: str,
-    country: str,
+    plan_code: str = "",
+    country: str = "NG",
     proxy_type: str = "isp",
     quantity: int = 1,
     duration_days: int = 30,
@@ -204,7 +204,7 @@ async def create_credential(
     pool_type: str = "paid",
 ) -> tuple[StyxproxyCredential, str]:
     """
-    Full credential pipeline: provider → test → Dante branding → DB.
+    Full credential pipeline: provider → test → Dante → DB.
 
     Returns (StyxproxyCredential, plaintext_password).
 
@@ -212,6 +212,7 @@ async def create_credential(
     The caller is responsible for delivering the plaintext password
     to the customer (via email, WhatsApp, n8n, etc.).
     """
+    logger.info("create_credential: plan_code=%s country=%s proxy_type=%s", plan_code, country, proxy_type)
     # 1. Get and test a working proxy from the provider
     proxy = await get_provider_proxy(
         plan_code=plan_code,
@@ -219,6 +220,7 @@ async def create_credential(
         proxy_type=proxy_type,
         quantity=quantity,
     )
+    logger.info("Got proxy: %s:%s", proxy["ip"], proxy["port"])
 
     # 2. Register on Dante to get branded credentials
     dante = await register_on_dante(
