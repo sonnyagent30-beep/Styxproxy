@@ -380,6 +380,9 @@ async def create_order(
                 duration_days=30,
             )
         except Exception as credential_err:
+            import traceback
+            tb = traceback.format_exc()
+            logger.error("create_credential FAILED: %s\n%s", credential_err, tb)
             # Provider exhausted (5x retry fails in get_provider_proxy).
             # Mark the order for refund: status="refunded", refund_requested=True.
             # We do NOT yet call the Flutterwave refund API — that's a
@@ -404,6 +407,7 @@ async def create_order(
                     "country": body.country,
                     "amount": total_amount,
                     "error": str(credential_err),
+                    "traceback": tb,
                     "auto_refund": True,
                     "flw_refund_pending": True,
                 },
@@ -880,6 +884,9 @@ async def rotate_proxy(
 
     try:
         import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
         asyncio.create_task(
             trigger_credentials_delivered_webhook(
