@@ -50,7 +50,7 @@ async def initiate_payment(
     plan = await resolve_plan(session, request.plan_code)
     if not plan:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
-    price = plan.price_per_gb if plan.price_per_gb is not None else plan.price_ngn
+    price = float(plan.price_per_gb if plan.price_per_gb is not None else plan.price_ngn)
     # Anonymous checkout: contact fields are OPTIONAL. If neither is given we
     # synthesize a throwaway guest identity so the payment provider's mandatory
     # email field is satisfied without collecting any real PII.
@@ -72,7 +72,7 @@ async def initiate_payment(
             detail="Unable to resolve or create customer",
         )
 
-    total_amount = price * request.quantity
+    total_amount = float(price) * request.quantity
     fw_phone = customer.phone
     fw_email = request.customer_email or f"{customer.phone}@styxproxy.com"
 
