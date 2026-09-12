@@ -263,7 +263,7 @@ class ApiClient {
     customerEmail?: string,
     gateway?: 'flutterwave' | 'paystack' | 'crypto' | 'stripe' | 'paynow',
   ): Promise<ApiResponse<PaymentInitiateResponse>> {
-    return this.request<PaymentInitiateResponse>('/payments/initiate', {
+    return this.request<PaymentInitiateResponse>('/api/payments/initiate', {
       method: 'POST',
       body: JSON.stringify({
         plan_code: planCode,
@@ -283,7 +283,7 @@ class ApiClient {
       description: string;
     }>;
   }>> {
-    return this.request('/payments/gateways');
+    return this.request('/api/payments/gateways');
   }
 
   // Orders
@@ -301,7 +301,7 @@ class ApiClient {
     price_ngn?: number;
     estimated_delivery_seconds: number;
   }>> {
-    return this.request('/orders/precheck', {
+    return this.request('/api/orders/precheck', {
       method: 'POST',
       body: JSON.stringify({
         plan_code: planCode,
@@ -316,7 +316,7 @@ class ApiClient {
 
   // Trials
   async claimTrial(disclaimerAccepted: boolean): Promise<ApiResponse<{ trial_id: number; status: string; styxproxy_credential: { styxproxy_username: string; upstream_proxy_ip: string; upstream_proxy_port: number; expires_at: string } }>> {
-    return this.request('/trials/claim', {
+    return this.request('/api/trials/claim', {
       method: 'POST',
       body: JSON.stringify({ disclaimer_accepted: disclaimerAccepted }),
     });
