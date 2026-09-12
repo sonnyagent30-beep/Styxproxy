@@ -465,7 +465,7 @@ async def _check_availability_simulator(
     
     async with httpx.AsyncClient(timeout=5.0) as client:
         resp = await client.post(
-            f"http://127.0.0.1:8001/api/provider/check_availability",
+            "http://127.0.0.1:8001/api/provider/check_availability",
             json={
                 "product_type": product,
                 "country": country,
@@ -499,7 +499,7 @@ async def _create_order_simulator(
     
     async with httpx.AsyncClient(timeout=5.0) as client:
         resp = await client.post(
-            f"{_s().simulator_base_url}/api/provider/create_order",
+            "http://127.0.0.1:8001/api/provider/create_order",
             json={
                 "product_type": product,
                 "country": country,
