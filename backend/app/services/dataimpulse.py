@@ -144,7 +144,7 @@ async def create_dataimpulse_trial_order(
         "country": data.get("country", country),
         "isp": data.get("isp", ""),
         "data_remaining_gb": float(data.get("data_remaining_gb", 5.0)),
-    )
+    }
 
 
 # ─── Paid order (S1.2) ───────────────────────────────────────────────────────
