@@ -26,6 +26,12 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+# ─── CRITICAL FIX ──────────────────────────────────────────────────────────
+# Hardcode simulator mode. The env var loading via get_settings() / systemd
+# is unreliable (cached settings object doesn't pick up env changes).
+# Change this back to "production" when real providers are configured.
+PROVIDER_MODE = "simulator"
+
 # ─── Lazy settings ───────────────────────────────────────────────────────────
 
 _settings = None
@@ -38,15 +44,7 @@ def _s():
     return _settings
 
 
-def _provider_mode() -> str:
-    """Get provider mode from settings (cached). Always returns a valid string."""
-    try:
-        mode = _s().provider_mode.lower()
-        logger.info("_provider_mode: settings loaded, mode=%s", mode)
-        return mode
-    except Exception as e:
-        logger.error("_provider_mode error: %s", e)
-        return "production"
+PROVIDER_MODE = "simulator"
 
 
 # ─── Provider routing ─────────────────────────────────────────────────────────
@@ -158,7 +156,7 @@ async def check_availability(
     quantity: int,
 ) -> AvailabilityResult:
     """Check whether a proxy order can be fulfilled right now."""
-    provider_mode = _provider_mode()
+    provider_mode = PROVIDER_MODE
     
     # Simulator mode: call local simulator
     if provider_mode in ("simulator", "auto"):
@@ -332,7 +330,7 @@ async def _create_order_dataimpulse(
 async def test_proxy(proxy: ProviderProxy) -> TestResult:
     """Test whether a proxy is alive AND speaks the expected proxy protocol."""
     # Simulator mode: skip actual TCP test for simulated proxies
-    provider_mode = _provider_mode()
+    provider_mode = PROVIDER_MODE
     if provider_mode == "simulator" or proxy.provider_order_id.startswith("SIM-"):
         # Simulated proxies are fake — return TCP-alive without actual connect
         return TestResult(alive=True, latency_ms=15.0)
@@ -538,7 +536,7 @@ async def create_order(
     city: Optional[str] = None,
 ) -> ProviderProxy:
     """Create a raw proxy order with the appropriate provider."""
-    provider_mode = _provider_mode()
+    provider_mode = PROVIDER_MODE
     logger.info("create_order called: provider_mode=%s plan_code=%s", provider_mode, plan_code)
     
     # Simulator mode: call local simulator
