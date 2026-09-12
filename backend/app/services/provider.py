@@ -316,19 +316,14 @@ async def _create_order_dataimpulse(
 
 
 async def test_proxy(proxy: ProviderProxy) -> TestResult:
-    """Test whether a proxy is alive AND speaks the expected proxy protocol.
-
-    Two-step check:
-    1. TCP connect (5s) — verifies the port is open at all
-    2. Protocol handshake — for HTTP proxies, issue a CONNECT to
-       example.com:80 and expect a 2xx response. This catches
-       "router accepts TCP but proxy is dead" false-positives that
-       a pure TCP-connect test misses.
-
-    SOCKS5 protocol test isn't included (no PySocks in requirements, and
-    providers currently emit protocol='http' — the upstream path is
-    http; we re-brand to socks5 for the customer via Dante).
-    """
+    """Test whether a proxy is alive AND speaks the expected proxy protocol."""
+    # Simulator mode: skip actual TCP test for simulated proxies
+    provider_mode = os.getenv("PROVIDER_MODE", "production").lower()
+    if provider_mode == "simulator" or proxy.provider_order_id.startswith("SIM-"):
+        # Simulated proxies are fake — return TCP-alive without actual connect
+        return TestResult(alive=True, latency_ms=15.0)
+    
+    # Production mode: full TCP + protocol test
     connect_start = datetime.now()
     try:
         sock = socket.create_connection(
