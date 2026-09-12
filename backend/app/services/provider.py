@@ -12,6 +12,7 @@ Dual-provider routing (S1.2 + S2.8):
 """
 
 import asyncio
+import logging
 import os
 import random
 import socket
@@ -22,6 +23,8 @@ from typing import Optional
 import httpx
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 # ─── Lazy settings ───────────────────────────────────────────────────────────
 
@@ -527,14 +530,18 @@ async def create_order(
 ) -> ProviderProxy:
     """Create a raw proxy order with the appropriate provider."""
     provider_mode = os.getenv("PROVIDER_MODE", "production").lower()
+    logger.info("create_order called: provider_mode=%s plan_code=%s", provider_mode, plan_code)
     
     # Simulator mode: call local simulator
     if provider_mode in ("simulator", "auto"):
         try:
             result = await _create_order_simulator(plan_code, country, proxy_type, quantity)
             if result and result.ip:
+                logger.info("Simulator returned: %s:%s", result.ip, result.port)
                 return result
+            logger.warning("Simulator returned no ip, falling through")
         except Exception as e:
+            logger.error("Simulator error: %s", e)
             if provider_mode == "simulator":
                 raise RuntimeError(f"Simulator error: {e}")
             # In auto mode, fall through to real provider
