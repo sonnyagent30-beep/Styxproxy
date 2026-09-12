@@ -119,10 +119,10 @@ async def get_provider_proxy(
                 proxy_type=proxy_type,
                 quantity=quantity,
             )
-            logger.info("create_order returned: %s:%s", proxy.ip, proxy.port)
+            logger.info("create_order returned: %s:%s id=%s", proxy.ip, proxy.port, proxy.provider_order_id)
 
             test_result = await provider_svc.test_proxy(proxy)
-            logger.info("test_proxy returned: alive=%s", test_result.alive)
+            logger.info("test_proxy returned: alive=%s latency=%s", test_result.alive, test_result.latency_ms)
             if test_result.alive:
                 return {
                     "provider_order_id": proxy.provider_order_id,
@@ -142,7 +142,7 @@ async def get_provider_proxy(
             logger.warning("Proxy test failed: %s", last_error)
 
         except Exception as e:
-            last_error = str(e)
+            last_error = f"{type(e).__name__}: {e}"
             logger.error("get_provider_proxy exception: %s", last_error)
 
     raise RuntimeError(f"Provider proxy unavailable after {MAX_PROVIDER_RETRIES} attempts. Last error: {last_error}")
