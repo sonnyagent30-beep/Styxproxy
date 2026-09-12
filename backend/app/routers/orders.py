@@ -110,6 +110,16 @@ async def precheck_order(
     plan_code = LEGACY_PLAN_TRANSLATION.get(request.plan_code, request.plan_code)
     plan = await resolve_plan(session, plan_code, country=request.country)
     if not plan:
+        # Fallback: find by plan_type + country (catalog uses virtual codes
+        # from country_plan_types that may not have matching Plan rows)
+        stmt = select(Plan).where(
+            Plan.is_active.is_(True),
+            Plan.plan_type == request.plan_code.split('-')[0].upper(),
+            Plan.country == translate_country(request.country or 'NG'),
+        ).limit(1)
+        result = await session.execute(stmt)
+        plan = result.scalar_one_or_none()
+    if not plan:
         return PrecheckResponse(
             available=False,
             reason="invalid_plan_code",
