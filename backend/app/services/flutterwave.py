@@ -106,7 +106,7 @@ async def create_flutterwave_invoice(
                     "description": description or "Proxy service payment",
                 },
                 # FW v3 requires `redirect_url` (it ignores callback_url).
-                "redirect_url": callback_url or "https://styxproxy.com/thank-you",
+                "redirect_url": (callback_url or "https://styxproxy.com/thank-you") + f"?tx_ref={tx_ref}",
             }
             if payload_meta:
                 json_body["meta"] = payload_meta

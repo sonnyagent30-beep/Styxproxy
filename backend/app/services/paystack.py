@@ -53,7 +53,7 @@ async def create_paystack_transaction(
                 "amount": int(amount_ngn * 100),  # kobo
                 "currency": "NGN",
                 "reference": tx_ref,
-                "callback_url": callback_url,
+                "callback_url": callback_url + f"?tx_ref={tx_ref}",
                 "metadata": (
                     {"device_id": device_id, "description": description}
                     if description

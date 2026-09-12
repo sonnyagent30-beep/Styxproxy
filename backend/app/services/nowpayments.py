@@ -74,7 +74,7 @@ async def create_nowpayments_invoice(
             "pay_currency": "usdttrc20",  # default; payer can switch on invoice page
             "order_id": tx_ref,
             "order_description": description or "Proxy service payment",
-            "success_url": callback_url,
+            "success_url": callback_url + f"?tx_ref={tx_ref}",
             "cancel_url": callback_url,
         }
         if customer_email:
