@@ -367,13 +367,17 @@ async def create_order(
     if body.payment_reference:
         order.status = "paid"
         try:
+            # Extract proxy_type from plan_code (e.g. RESIDENTIAL-NG → residential)
+            proxy_type = (body.plan_code or "isp").split("-")[0].lower()
             credential = await create_credential(
                 session,
                 customer_phone=customer.phone,
                 order_id=order_id,
+                plan_code=body.plan_code,
+                country=body.country,
+                proxy_type=proxy_type,
                 pool_type="paid",
                 duration_days=30,
-                country=body.country,
             )
         except Exception as credential_err:
             # Provider exhausted (5x retry fails in get_provider_proxy).

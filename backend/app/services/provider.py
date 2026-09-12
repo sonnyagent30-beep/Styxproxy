@@ -40,7 +40,13 @@ def _s():
 
 def _provider_mode() -> str:
     """Get provider mode from settings (cached). Always returns a valid string."""
-    return _s().provider_mode.lower()
+    try:
+        mode = _s().provider_mode.lower()
+        logger.info("_provider_mode: settings loaded, mode=%s", mode)
+        return mode
+    except Exception as e:
+        logger.error("_provider_mode error: %s", e)
+        return "production"
 
 
 # ─── Provider routing ─────────────────────────────────────────────────────────

@@ -212,7 +212,7 @@ async def create_credential(
     The caller is responsible for delivering the plaintext password
     to the customer (via email, WhatsApp, n8n, etc.).
     """
-    logger.info("create_credential: plan_code=%s country=%s proxy_type=%s", plan_code, country, proxy_type)
+    logger.info("create_credential: order_id=%s plan_code=%s country=%s proxy_type=%s qty=%d", order_id, plan_code, country, proxy_type, quantity)
     # 1. Get and test a working proxy from the provider
     proxy = await get_provider_proxy(
         plan_code=plan_code,
