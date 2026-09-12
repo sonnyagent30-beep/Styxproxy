@@ -112,13 +112,33 @@ async def precheck_order(
     if not plan:
         # Fallback: find by plan_type + country (catalog uses virtual codes
         # from country_plan_types that may not have matching Plan rows)
+        plan_type_guess = request.plan_code.split('-')[0].upper()
         stmt = select(Plan).where(
             Plan.is_active.is_(True),
-            Plan.plan_type == request.plan_code.split('-')[0].upper(),
+            Plan.plan_type == plan_type_guess,
             Plan.country == translate_country(request.country or 'NG'),
         ).limit(1)
         result = await session.execute(stmt)
         plan = result.scalar_one_or_none()
+    if not plan:
+        # Final fallback: check country_plan_types table directly
+        from sqlalchemy import text
+        cpt_result = await session.execute(text(
+            "SELECT country_code, plan_type, price_per_ip, price_per_gb FROM country_plan_types WHERE country_code = :country AND plan_type = :pt AND enabled = true"
+        ), {"country": (request.country or 'NG').upper(), "pt": request.plan_code.split('-')[0].upper()})
+        cpt_row = cpt_result.mappings().first()
+        if cpt_row:
+            # Build a virtual plan
+            from app.services.catalog import _VirtualPlan
+            plan = _VirtualPlan(
+                country=cpt_row["country_code"].upper(),
+                plan_type=cpt_row["plan_type"].upper(),
+                price_ngn=cpt_row["price_per_ip"] or 0,
+                price_per_gb=cpt_row["price_per_gb"],
+                quantity=1,
+                plan_code=request.plan_code,
+                sort_order=999,
+            )
     if not plan:
         return PrecheckResponse(
             available=False,
