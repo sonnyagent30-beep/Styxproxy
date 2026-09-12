@@ -262,19 +262,14 @@ export default function OrderPage() {
     if (!currentTemplate || !selectedGbTier) return;
 
     const country = selectedCountry ? COUNTRIES[selectedCountry.toUpperCase()] : null;
-    // Build plan code: use COUNTRY_CODE if selected, else GENERIC
-    const planCode = selectedCountry
-      ? (currentTemplate.plan_type === 'dc' || currentTemplate.plan_type === 'isp'
-          ? `${currentTemplate.plan_type.toUpperCase()}-${selectedCountry.toUpperCase()}-${selectedGbTier}IP`
-          : `${currentTemplate.plan_type.toUpperCase().replace('RESIDENTIAL', 'RESI').replace('MOBILE', 'MOB')}-${selectedCountry.toUpperCase()}-${selectedGbTier}GB`)
-      : `${currentTemplate.plan_type.toUpperCase().replace('RESIDENTIAL', 'RESI').replace('MOBILE', 'MOB')}-GENERIC-${selectedGbTier}GB`;
 
-    // Find variant for price if country selected
-    const variant = selectedCountry
-      ? currentTemplate.variants?.find(
-          v => v.country.toUpperCase() === selectedCountry.toUpperCase()
-        )
-      : null;
+
+    // Find variant for country+rotation (rotating preferred, fallback to any)
+    const variant = currentTemplate.variants?.find(
+      v => v.country.toUpperCase() === selectedCountry?.toUpperCase()
+    );
+    // Use the canonical DB plan_code from the catalog variant
+    const planCode = variant?.plan_code || '';
 
     // Calculate per-GB: use variant if found (variant.price / variant.qty), else template base_price_per_gb
     const effectivePricePerGb = variant && variant.quantity > 0
