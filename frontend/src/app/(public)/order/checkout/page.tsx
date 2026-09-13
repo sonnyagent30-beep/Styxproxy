@@ -245,12 +245,16 @@ export default function CheckoutPage() {
         cart.map((item) => {
           const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
             && typeof item.price_per_gb === 'number';
+          const quantity = isPerGb ? (item.quantity_gb || item.quantity) : item.quantity;
           return api.initiatePayment(
             item.plan_code,
             isPerGb ? 1 : item.quantity,
             '',
             trimmedEmail || undefined,
             gateway,
+            item.country_code,
+            item.plan_type,
+            quantity,
           );
         }),
       );

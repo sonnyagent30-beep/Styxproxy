@@ -219,9 +219,9 @@ class ApiClient {
     planCode: string,
     country: string,
     quantity: number = 1,
-    opts?: { quantity_gb?: number; city_id?: number | null; city_name?: string | null },
+    opts?: { quantity_gb?: number; city_id?: number | null; city_name?: string | null; rotation_mode?: string; payment_reference?: string; customer_email?: string },
   ): Promise<ApiResponse<Order>> {
-    return this.request<Order>('/orders', {
+    return this.request<Order>('/api/orders/create', {
       method: 'POST',
       body: JSON.stringify({
         plan_code: planCode,
@@ -230,6 +230,9 @@ class ApiClient {
         quantity_gb: opts?.quantity_gb,
         city_id: opts?.city_id ?? undefined,
         city_name: opts?.city_name ?? undefined,
+        rotation_mode: opts?.rotation_mode ?? undefined,
+        payment_reference: opts?.payment_reference ?? undefined,
+        customer_email: opts?.customer_email ?? undefined,
       }),
     });
   }
@@ -262,6 +265,9 @@ class ApiClient {
     customerPhone: string,
     customerEmail?: string,
     gateway?: 'flutterwave' | 'paystack' | 'crypto' | 'stripe' | 'paynow',
+    countryCode?: string,
+    planType?: string,
+    effectiveQuantity?: number,
   ): Promise<ApiResponse<PaymentInitiateResponse>> {
     return this.request<PaymentInitiateResponse>('/api/payments/initiate', {
       method: 'POST',
@@ -271,6 +277,9 @@ class ApiClient {
         customer_phone: customerPhone || undefined,
         customer_email: customerEmail || undefined,
         gateway: gateway || 'flutterwave',
+        country_code: countryCode || undefined,
+        plan_type: planType || undefined,
+        effective_quantity: effectiveQuantity || undefined,
       }),
     });
   }
