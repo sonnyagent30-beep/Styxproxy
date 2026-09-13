@@ -159,3 +159,35 @@ export function clearOrderHistory(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(ORDERS_KEY);
 }
+
+export function removeFromHistory(txRef: string): void {
+  if (typeof window === 'undefined') return;
+  const history = getOrderHistory();
+  const filtered = history.filter((o) => o.tx_ref !== txRef);
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(filtered));
+}
+
+export function updateHistoryEntry(txRef: string, updates: Partial<OrderHistoryEntry>): void {
+  if (typeof window === 'undefined') return;
+  const history = getOrderHistory();
+  const idx = history.findIndex((o) => o.tx_ref === txRef);
+  if (idx >= 0) {
+    history[idx] = { ...history[idx], ...updates };
+    localStorage.setItem(ORDERS_KEY, JSON.stringify(history));
+  }
+}
+
+/** Remove pending orders older than 30 minutes (abandoned payments) */
+export function cleanupStalePendingOrders(): void {
+  if (typeof window === 'undefined') return;
+  const history = getOrderHistory();
+  const cutoff = Date.now() - 30 * 60 * 1000; // 30 min
+  const filtered = history.filter((o) => {
+    if (o.status === 'pending' || o.status === 'processing') {
+      const created = new Date(o.created_at).getTime();
+      return created > cutoff; // keep only recent
+    }
+    return true; // keep active/fulfilled/refunded
+  });
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(filtered));
+}

@@ -9,8 +9,8 @@ import StatusBanner from '@/components/order/StatusBanner';
 import ActionBar from '@/components/order/ActionBar';
 import OrderTimeline from '@/components/order/OrderTimeline';
 import { getActionsForStatus, getTimelineSteps, getStatusGroup } from '@/lib/order-status';
-import { getOrderHistory, type OrderHistoryEntry } from '@/lib/device-id';
-import { Eye, EyeSlash, Copy, Clock, Check, ArrowRight, WarningCircle, MagnifyingGlass } from '@phosphor-icons/react';
+import { getOrderHistory, type OrderHistoryEntry, cleanupStalePendingOrders } from '@/lib/device-id';
+import { Eye, EyeSlash, Copy, Clock, Check, ArrowRight, WarningCircle, MagnifyingGlass, X } from '@phosphor-icons/react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.styxproxy.com';
 
@@ -80,6 +80,7 @@ function OrderStatusContent() {
   const [rotating, setRotating] = useState(false);
 
   useEffect(() => {
+    cleanupStalePendingOrders();
     setHistory(getOrderHistory());
     const orderId = searchParams.get('order_id');
     if (orderId) {
@@ -320,46 +321,67 @@ function OrderStatusContent() {
 
           {/* Empty State */}
           {!order && !error && !loading && (
-            <div className="text-center py-10">
-              <div className="w-16 h-16 rounded-2xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-center mx-auto mb-4">
-                <MagnifyingGlass className="w-8 h-8 text-[var(--muted)]" />
-              </div>
-              <p className="text-sm text-[var(--muted)]">
-                Enter your order ID or tx_ref above to look up your proxy details.
-              </p>
-            </div>
+          <div className="text-center py-10">
+          <div className="w-16 h-16 rounded-2xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-center mx-auto mb-4">
+            <MagnifyingGlass className="w-8 h-8 text-[var(--muted)]" />
+          </div>
+          <p className="text-sm text-[var(--muted)]">
+            Enter your order ID or tx_ref above to look up your proxy details.
+          </p>
+          </div>
           )}
 
           {/* Recent Orders */}
           {history.length > 0 && !order && (
-            <div className="mt-8">
-              <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Recent Orders (This Device)</h2>
-              <div className="space-y-2">
-                {history.map((h) => (
-                  <button
-                    key={h.tx_ref}
-                    onClick={() => { setSearchInput(h.tx_ref); handleSearch(h.tx_ref); }}
-                    className="w-full text-left bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] rounded-xl p-3 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-mono text-sm font-medium">{h.tx_ref}</span>
-                        <p className="text-xs text-[var(--muted)] mt-0.5">
-                          {h.plan_code} · {h.country} · ₦{h.amount.toLocaleString('en-NG')}
-                        </p>
-                      </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-md ${
-                        h.status === 'active' || h.status === 'fulfilled'
-                          ? 'bg-[var(--success)]/20 text-[var(--success)]'
-                          : 'bg-[var(--warning)]/20 text-[var(--warning)]'
-                      }`}>
-                        {h.status}
-                      </span>
+          <div className="mt-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide">Recent Orders (This Device)</h2>
+            {history.length > 1 && (
+              <button
+                onClick={() => { clearOrderHistory(); setHistory([]); }}
+                className="text-xs text-[var(--muted)] hover:text-[var(--error)] transition-colors"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <div className="space-y-2">
+            {history.map((h) => (
+              <div
+                key={h.tx_ref}
+                className="w-full text-left bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] rounded-xl p-3 transition-colors relative group"
+              >
+                <button
+                  onClick={() => { setSearchInput(h.tx_ref); handleSearch(h.tx_ref); }}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-mono text-sm font-medium">{h.tx_ref}</span>
+                      <p className="text-xs text-[var(--muted)] mt-0.5">
+                        {h.plan_code} · {h.country} · ₦{h.amount.toLocaleString('en-NG')}
+                      </p>
                     </div>
-                  </button>
-                ))}
+                    <span className={`text-xs px-2 py-0.5 rounded-md ${
+                      h.status === 'active' || h.status === 'fulfilled'
+                        ? 'bg-[var(--success)]/20 text-[var(--success)]'
+                        : 'bg-[var(--warning)]/20 text-[var(--warning)]'
+                    }`}>
+                      {h.status}
+                    </span>
+                  </div>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); removeFromHistory(h.tx_ref); setHistory(getOrderHistory()); }}
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-[var(--muted)] hover:text-[var(--error)] transition-all p-1"
+                  title="Remove from history"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            </div>
+            ))}
+          </div>
+          </div>
           )}
         </div>
       </main>
