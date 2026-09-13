@@ -97,7 +97,9 @@ function OrderStatusContent() {
     setError('');
     setOrder(null);
     const trimmedRef = ref.trim();
-    const endpoint = trimmedRef.startsWith('STX-') || trimmedRef.startsWith('stx-')
+    const isPaymentRef = trimmedRef.startsWith('STX-') || trimmedRef.startsWith('stx-')
+      || trimmedRef.startsWith('TXF-') || trimmedRef.startsWith('txf-');
+    const endpoint = isPaymentRef
       ? `${API_BASE_URL}/api/orders/by-payment-reference/${trimmedRef}`
       : `${API_BASE_URL}/api/orders/${trimmedRef}`;
     try {
