@@ -268,6 +268,7 @@ class ApiClient {
     countryCode?: string,
     planType?: string,
     effectiveQuantity?: number,
+    clientReference?: string,
   ): Promise<ApiResponse<PaymentInitiateResponse>> {
     return this.request<PaymentInitiateResponse>('/api/payments/initiate', {
       method: 'POST',
@@ -280,6 +281,7 @@ class ApiClient {
         country_code: countryCode || undefined,
         plan_type: planType || undefined,
         effective_quantity: effectiveQuantity || undefined,
+        client_reference: clientReference || undefined,
       }),
     });
   }

@@ -242,7 +242,7 @@ export default function CheckoutPage() {
       // Fire one initiate per cart item in parallel. allSettled means
       // one item's failure doesn't block the others.
       const results = await Promise.allSettled(
-        cart.map((item) => {
+        cart.map((item, i) => {
           const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
             && typeof item.price_per_gb === 'number';
           const quantity = isPerGb ? (item.quantity_gb || item.quantity) : item.quantity;
@@ -255,6 +255,7 @@ export default function CheckoutPage() {
             item.country_code,
             item.plan_type,
             quantity,
+            txRefs[i],
           );
         }),
       );
