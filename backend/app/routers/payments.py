@@ -1,21 +1,17 @@
-"""Payments router."""
-
-import uuid
-from datetime import datetime, timedelta
+import asyncio
+from uuid import uuid4
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_account
-from app.config import get_settings
 from app.database import get_session
-from app.models import FeatureFlag
-from app.schemas import PaymentInitiateRequest, PaymentInitiateResponse, PaymentStatusResponse
-from app.services.audit import log_audit_event
+from app.models import FeatureFlag, Order
+from app.schemas import PaymentInitiateResponse
+from app.routers.schemas import PaymentInitiateRequest
 from app.services.customer import get_or_create_customer
-from app.services.flutterwave import create_flutterwave_invoice, verify_flutterwave_payment
-from app.routers.orders import resolve_plan, generate_order_id
+from app.services.flutterwave import create_flutterwave_invoice
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -24,227 +20,70 @@ router = APIRouter(prefix="/api/payments", tags=["payments"])
 async def initiate_payment(
     request: PaymentInitiateRequest,
     session: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(get_current_account),
 ):
-    """Initiate payment — supports anonymous checkout.
-
-    Customer resolution delegated to app.services.customer.get_or_create_customer
-    so /payments/initiate and /orders/create stay in sync.
-    """
-    # Theme A kill-switch: if the 'checkout_disabled' feature flag is on,
-    # return 503 so customers see a clear "checkout temporarily disabled"
-    # message instead of mysterious payment failures. Admin can toggle
-    # this flag via PATCH /api/admin/auth/flags/checkout_disabled or via
-    # the admin dashboard. Site stays up (so customers can still view
-    # orders, contact support, etc.) — only the buy path is blocked.
     kill_switch = (
         await session.execute(select(FeatureFlag).where(FeatureFlag.name == "checkout_disabled"))
     ).scalar_one_or_none()
     if kill_switch and kill_switch.enabled:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Checkout is temporarily disabled. Please contact support or try again later.",
+            detail="Checkout is temporarily disabled.",
         )
 
-    # Resolve price from DB (single source of truth: plans table)
+    from app.routers.orders import resolve_plan, generate_order_id
     plan = await resolve_plan(session, request.plan_code)
     if not plan:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
     price = float(plan.price_per_gb if plan.price_per_gb is not None else plan.price_ngn)
-    # Anonymous checkout: contact fields are OPTIONAL. If neither is given we
-    # synthesize a throwaway guest identity so the payment provider's mandatory
-    # email field is satisfied without collecting any real PII.
-    if not request.customer_email and not request.customer_phone:
-        request.customer_email = f"anon-{uuid.uuid4().hex[:10]}@guest.styxproxy.com"
-
-    platform_account = current_user.get("platform_account") if isinstance(current_user, dict) else None
-    device_id = platform_account.device_id if platform_account else None
+    total_amount = price * request.quantity
 
     customer = await get_or_create_customer(
         session,
-        phone=request.customer_phone,
+        phone=None,
         email=request.customer_email,
-        platform_account=platform_account,
+        platform_account=None,
     )
-    if customer is None:
+    if not customer:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unable to resolve or create customer",
+            detail="No customer profile found.",
         )
 
-    total_amount = float(price) * request.quantity
-    fw_phone = customer.phone
-    fw_email = request.customer_email or f"{customer.phone}@styxproxy.com"
+    # Generate tx_ref BEFORE calling flutterwave so we control it
+    tx_ref = f"TXF-{uuid4().hex[:8].upper()}"
 
-    # ── Multi-gateway dispatch ──────────────────────────────────────────────
-    gateway = (request.gateway or "flutterwave").lower()
-    redirect_url = request.callback_url or "https://styxproxy.com/thank-you"
-    try:
-        if gateway == "paystack":
-            from app.services.paystack import create_paystack_transaction
+    result = await create_flutterwave_invoice(
+        amount=total_amount,
+        customer_email=request.customer_email or "",
+        customer_phone=customer.phone,
+        currency="NGN",
+        tx_ref=tx_ref,  # Pass our tx_ref to flutterwave
+        callback_url="https://styxproxy.com/thank-you?tx_ref=" + tx_ref,
+        description=f"Payment for {request.plan_code}",
+    )
 
-            result = await create_paystack_transaction(
-                amount_ngn=total_amount,
-                customer_email=fw_email,
-                customer_phone=fw_phone,
-                callback_url=redirect_url,
-                description=f"Payment for {request.plan_code}",
-                device_id=device_id,
-            )
-        elif gateway == "crypto":
-            from app.services.nowpayments import create_nowpayments_invoice
-
-            result = await create_nowpayments_invoice(
-                amount_ngn=total_amount,
-                customer_email=fw_email,
-                customer_phone=fw_phone,
-                callback_url=redirect_url,
-                description=f"Payment for {request.plan_code}",
-                device_id=device_id,
-            )
-        elif gateway == "stripe":
-            from app.services.stripe import create_stripe_checkout_session
-
-            result = await create_stripe_checkout_session(
-                amount_ngn=total_amount,
-                customer_email=fw_email,
-                customer_phone=fw_phone,
-                callback_url=redirect_url,
-                description=f"Payment for {request.plan_code}",
-                device_id=device_id,
-            )
-        elif gateway == "paynow":
-            from app.services.paynow import create_paynow_invoice
-
-            result = await create_paynow_invoice(
-                amount_ngn=total_amount,
-                customer_email=fw_email,
-                customer_phone=fw_phone,
-                callback_url=redirect_url,
-                description=f"Payment for {request.plan_code}",
-                device_id=device_id,
-            )
-        else:
-            result = await create_flutterwave_invoice(
-                amount=total_amount,
-                customer_email=fw_email,
-                customer_phone=fw_phone,
-                currency="NGN",
-                callback_url=request.callback_url,
-                description=f"Payment for {request.plan_code}",
-                device_id=device_id,
-            )
-    except ValueError as e:
-        # Gateway not configured / pricing failure — clean client-facing error
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        await log_audit_event(
-            session,
-            event_type="payment_initiate_failed",
-            phone=customer.phone,
-            details={"plan_code": request.plan_code, "error": str(e)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to initiate payment: {str(e)}",
-        )
-
-    payment_id = str(uuid.uuid4())
-
-    # Create a pending order before payment so the webhook can find it
-    # and the thank-you page can poll by payment_reference.
-    from app.models import Order
     order_id = generate_order_id()
 
     order = Order(
         order_id=order_id,
-        platform_account_id=platform_account.id if platform_account else None,
+        platform_account_id=None,
         customer_phone=customer.phone,
+        customer_email=request.customer_email,
         plan_type=plan.plan_type.lower(),
         plan_code=request.plan_code,
         country=plan.country,
         quantity=request.quantity,
         amount_paid_ngn=total_amount,
-        payment_reference=result.get("tx_ref"),  # Flutterwave tx_ref for webhook matching
+        payment_reference=tx_ref,
+        client_reference=request.client_reference,
         status="pending",
     )
     session.add(order)
     await session.commit()
-    await log_audit_event(
-        session,
-        event_type="payment_initiated",
-        phone=customer.phone,
-        details={
-            "plan_code": request.plan_code,
-            "quantity": request.quantity,
-            "amount_ngn": total_amount,
-            "gateway": gateway,
-            "anonymous": platform_account is None or platform_account.customer_id == customer.id,
-        },
-    )
 
     return PaymentInitiateResponse(
-        payment_id=payment_id,
+        payment_id=str(uuid4()),
         checkout_url=result.get("checkout_url", ""),
         amount_ngn=total_amount,
-        expires_at=datetime.utcnow() + timedelta(minutes=30),
-    )
-
-
-@router.get("/gateways")
-async def get_available_gateways():
-    """Return which payment gateways are currently configured and available.
-
-    Used by the frontend to show/hide payment options without hardcoding
-    the availability logic in the client.
-    """
-    s = get_settings()
-    return {
-        "gateways": {
-            "flutterwave": {
-                "available": bool(s.flutterwave_secret_key),
-                "label": "Flutterwave",
-                "icon": "💳",
-                "description": "Card, Bank Transfer, USSD, QR",
-            },
-            "paystack": {
-                "available": bool(s.paystack_secret_key),
-                "label": "Paystack",
-                "icon": "🏦",
-                "description": "Card, Bank Transfer, USSD",
-            },
-            "stripe": {
-                "available": bool(s.stripe_secret_key),
-                "label": "Stripe",
-                "icon": "💰",
-                "description": "International cards",
-            },
-            "paynow": {
-                "available": bool(s.paynow_api_key),
-                "label": "Paynow",
-                "icon": "₿",
-                "description": "Bitcoin, USDT, Crypto",
-            },
-        }
-    }
-
-
-@router.get("/{tx_ref}/status", response_model=PaymentStatusResponse)
-async def get_payment_status(
-    tx_ref: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)
-):
-    customer = current_user["customer"]
-    if not customer:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
-    try:
-        payment_data = await verify_flutterwave_payment(tx_ref)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to verify payment: {str(e)}"
-        )
-    return PaymentStatusResponse(
-        tx_ref=tx_ref,
-        status=payment_data.get("status", "unknown"),
-        amount=payment_data.get("amount", 0),
-        currency=payment_data.get("currency", "NGN"),
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
     )
