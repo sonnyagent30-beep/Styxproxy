@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import logging
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
@@ -85,8 +86,9 @@ async def create_flutterwave_invoice(
     callback_url: Optional[str] = None,
     description: Optional[str] = None,
     device_id: Optional[str] = None,
+    tx_ref: Optional[str] = None,
 ) -> dict:
-    tx_ref = f"TXF-{uuid.uuid4().hex[:8].upper()}"
+    tx_ref = tx_ref or f"TXF-{uuid.uuid4().hex[:8].upper()}"
     payload_meta: dict[str, str] = {}
     if device_id:
         payload_meta["device_id"] = device_id
@@ -215,6 +217,35 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                         proxy_port=credential.upstream_proxy_port or 1080,
                         expires_at=credential.expires_at,
                     )
+
+                # ── Deliver credentials via email if customer provided one ──
+                if order.customer_email:
+                    try:
+                        from app.services.email import send_order_active_email
+
+                        await send_order_active_email(
+                            customer_email=order.customer_email,
+                            customer_name=order.customer_email.split("@")[0],
+                            order_id=order.order_id,
+                            tx_ref=tx_ref,
+                            plan_code=order.plan_code or "unknown",
+                            amount=order.amount_paid_ngn or 0,
+                            currency="NGN",
+                            quantity=1,
+                            bun_username=credential.styxproxy_username,
+                            bun_password=plaintext_password,
+                            proxy_ip=credential.upstream_proxy_ip or "",
+                            proxy_port=credential.upstream_proxy_port or 1080,
+                            protocol="socks5",
+                            expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                        )
+                        logger.info("Order email sent to %s", order.customer_email)
+                    except Exception as email_err:
+                        logger.error(
+                            "Failed to send order email to %s: %s",
+                            order.customer_email,
+                            email_err,
+                        )
 
             except RuntimeError as e:
                 # Provider exhausted all 5 retries — customer paid but can't be fulfilled.

@@ -16,6 +16,7 @@ Runs as systemd service: styxproxy-fulfillment-worker.service
 import logging
 import sys
 import traceback
+from datetime import datetime, timedelta, timezone
 
 import redis.asyncio as redis
 from rq.worker import Worker
@@ -108,6 +109,33 @@ async def fulfill_order_job(job_id: str, tx_ref: str, order_id: str, data_payloa
                     expires_at=credential.expires_at,
                 )
                 logger.info(f"[{job_id}] Fulfillment OK: credential_id={credential.id}")
+
+                # ── Deliver credentials via email if customer provided one ────────
+                if order.customer_email:
+                    try:
+                        from app.services.email import send_order_active_email
+
+                        await send_order_active_email(
+                            customer_email=order.customer_email,
+                            customer_name=order.customer_email.split("@")[0],
+                            order_id=order.order_id,
+                            tx_ref=tx_ref,
+                            plan_code=order.plan_code or "unknown",
+                            amount=order.amount_paid_ngn or 0,
+                            currency="NGN",
+                            quantity=1,
+                            bun_username=credential.styxproxy_username,
+                            bun_password=plaintext_password,
+                            proxy_ip=credential.upstream_proxy_ip or "",
+                            proxy_port=credential.upstream_proxy_port or 1080,
+                            protocol="socks5",
+                            expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                        )
+                        logger.info(f"[{job_id}] Order email sent to {order.customer_email}")
+                    except Exception as email_err:
+                        logger.error(
+                            f"[{job_id}] Failed to send order email to {order.customer_email}: {email_err}"
+                        )
 
             except RuntimeError as e:
                 # Provider exhausted retries → auto-refund
