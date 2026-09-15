@@ -38,7 +38,7 @@ logger = logging.getLogger("fulfillment-worker")
 
 def get_redis_conn():
     settings = get_settings()
-    return redis.from_url(settings.redis_url, decode_responses=True)
+    return redis.from_url(settings.redis_url, )
 
 
 async def fulfill_order_job(job_id: str, tx_ref: str, order_id: str, data_payload: dict):
@@ -210,6 +210,6 @@ if __name__ == "__main__":
     redis_url = settings.redis_url
 
     logger.info("Starting fulfillment worker...")
-    conn = SyncRedis.from_url(redis_url, decode_responses=True)
+    conn = SyncRedis.from_url(redis_url, )
     worker = Worker(["fulfillment"], connection=conn)
     worker.work(with_scheduler=False, burst=False)
