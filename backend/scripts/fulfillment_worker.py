@@ -38,7 +38,7 @@ logger = logging.getLogger("fulfillment-worker")
 
 def get_redis_conn():
     settings = get_settings()
-    return redis.from_url(settings.redis_url, )
+    return redis.from_url(settings.redis_url)
 
 
 async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_id: str = "rq"):
@@ -96,18 +96,8 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 order.status = "fulfilled"
                 await db.commit()
 
-                # Deliver credentials
+                # Deliver credentials via n8n webhook
                 await trigger_credentials_delivered_webhook(
-                    order_id=order.order_id,
-                    tx_ref=tx_ref,
-                    phone=order.customer_phone or "",
-                    channel="web",
-                    bun_username=credential.styxproxy_username,
-                    bun_password=plaintext_password,
-                    proxy_ip=credential.upstream_proxy_ip or "",
-                    proxy_port=credential.upstream_proxy_port or 1080,
-                    expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
-                )<longcat_arg_value>                await trigger_credentials_delivered_webhook(
                     order_id=order.order_id,
                     tx_ref=tx_ref,
                     phone=order.customer_phone or "",
@@ -210,6 +200,6 @@ if __name__ == "__main__":
     redis_url = settings.redis_url
 
     logger.info("Starting fulfillment worker...")
-    conn = SyncRedis.from_url(redis_url, )
+    conn = SyncRedis.from_url(redis_url)
     worker = Worker(["fulfillment"], connection=conn)
     worker.work(with_scheduler=False, burst=False)
