@@ -210,22 +210,23 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                         order_id=order.order_id,
                         tx_ref=tx_ref,
                         phone=order.customer_phone or "",
-                        channel=order.channel or "web",
+                        channel="web",
                         bun_username=credential.styxproxy_username,
                         bun_password=plaintext_password,
                         proxy_ip=credential.upstream_proxy_ip or "",
                         proxy_port=credential.upstream_proxy_port or 1080,
-                        expires_at=credential.expires_at,
+                        expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                     )
 
                 # ── Deliver credentials via email if customer provided one ──
-                if order.customer_email:
+                customer_email = event_data.get("customer", {}).get("email")
+                if customer_email:
                     try:
                         from app.services.email import send_order_active_email
 
                         await send_order_active_email(
-                            customer_email=order.customer_email,
-                            customer_name=order.customer_email.split("@")[0],
+                            customer_email=customer_email,
+                            customer_name=customer_email.split("@")[0],
                             order_id=order.order_id,
                             tx_ref=tx_ref,
                             plan_code=order.plan_code or "unknown",
@@ -239,11 +240,11 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                             protocol="socks5",
                             expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                         )
-                        logger.info("Order email sent to %s", order.customer_email)
+                        logger.info("Order email sent to %s", customer_email)
                     except Exception as email_err:
                         logger.error(
                             "Failed to send order email to %s: %s",
-                            order.customer_email,
+                            customer_email,
                             email_err,
                         )
 

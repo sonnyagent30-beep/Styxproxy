@@ -68,14 +68,12 @@ async def initiate_payment(
         order_id=order_id,
         platform_account_id=None,
         customer_phone=customer.phone,
-        customer_email=request.customer_email,
         plan_type=plan.plan_type.lower(),
         plan_code=request.plan_code,
         country=plan.country,
         quantity=request.quantity,
         amount_paid_ngn=total_amount,
         payment_reference=tx_ref,
-        client_reference=request.client_reference,
         status="pending",
     )
     session.add(order)

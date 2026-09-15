@@ -237,7 +237,7 @@ async def create_credential(
     expires_at = proxy.get("expires_at") or (datetime.now(timezone.utc) + timedelta(days=duration_days))
 
     credential = StyxproxyCredential(
-        styxproxy_username=dante["bun_username"],
+        styxproxy_username=dante["styxproxy_username"],
         # set_password() handles encryption transparently
         customer_phone=customer_phone,
         order_id=order_id,
@@ -257,7 +257,7 @@ async def create_credential(
     # Encrypt the proxy password before persisting. set_password() will refuse
     # to write plaintext if CRED_ENCRYPTION_KEY is not configured — that's the
     # whole point of the encrypted column.
-    credential.set_password(dante["bun_password"])
+    credential.set_password(dante["styxproxy_password"])
 
     db_session.add(credential)
     await db_session.commit()

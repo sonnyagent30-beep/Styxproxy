@@ -101,23 +101,35 @@ async def fulfill_order_job(job_id: str, tx_ref: str, order_id: str, data_payloa
                     order_id=order.order_id,
                     tx_ref=tx_ref,
                     phone=order.customer_phone or "",
-                    channel=order.channel or "web",
+                    channel="web",
                     bun_username=credential.styxproxy_username,
                     bun_password=plaintext_password,
                     proxy_ip=credential.upstream_proxy_ip or "",
                     proxy_port=credential.upstream_proxy_port or 1080,
-                    expires_at=credential.expires_at,
+                    expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                )<longcat_arg_value>                await trigger_credentials_delivered_webhook(
+                    order_id=order.order_id,
+                    tx_ref=tx_ref,
+                    phone=order.customer_phone or "",
+                    channel="web",
+                    bun_username=credential.styxproxy_username,
+                    bun_password=plaintext_password,
+                    proxy_ip=credential.upstream_proxy_ip or "",
+                    proxy_port=credential.upstream_proxy_port or 1080,
+                    expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                 )
                 logger.info(f"[{job_id}] Fulfillment OK: credential_id={credential.id}")
 
                 # ── Deliver credentials via email if customer provided one ────────
-                if order.customer_email:
+                # Get email from webhook payload (Flutterwave sends it in data.customer.email)
+                customer_email = data_payload.get("data", {}).get("customer", {}).get("email")
+                if customer_email:
                     try:
                         from app.services.email import send_order_active_email
 
                         await send_order_active_email(
-                            customer_email=order.customer_email,
-                            customer_name=order.customer_email.split("@")[0],
+                            customer_email=customer_email,
+                            customer_name=customer_email.split("@")[0],
                             order_id=order.order_id,
                             tx_ref=tx_ref,
                             plan_code=order.plan_code or "unknown",
@@ -131,10 +143,10 @@ async def fulfill_order_job(job_id: str, tx_ref: str, order_id: str, data_payloa
                             protocol="socks5",
                             expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                         )
-                        logger.info(f"[{job_id}] Order email sent to {order.customer_email}")
+                        logger.info(f"[{job_id}] Order email sent to {customer_email}")
                     except Exception as email_err:
                         logger.error(
-                            f"[{job_id}] Failed to send order email to {order.customer_email}: {email_err}"
+                            f"[{job_id}] Failed to send order email to {customer_email}: {email_err}"
                         )
 
             except RuntimeError as e:
@@ -164,14 +176,13 @@ async def fulfill_order_job(job_id: str, tx_ref: str, order_id: str, data_payloa
             # ── Audit log ───────────────────────────────────────────────
             try:
                 await log_audit_event(
-                    session=db,
-                    user_id=order.user_id,
-                    action="payment.fulfilled",
-                    resource_type="order",
-                    resource_id=order.order_id,
-                    metadata={
+                    db_session=db,
+                    event_type="payment.fulfilled",
+                    phone=order.customer_phone,
+                    order_id=order.order_id,
+                    status=order.status,
+                    details={
                         "tx_ref": tx_ref,
-                        "status": order.status,
                         "fulfillment_error": fulfillment_error,
                         "credential_id": credential.id if credential else None,
                     },
