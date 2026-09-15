@@ -41,7 +41,7 @@ def get_redis_conn():
     return redis.from_url(settings.redis_url, )
 
 
-async def fulfill_order_job(job_id: str, tx_ref: str, order_id: str, data_payload: dict):
+async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_id: str = "rq"):
     """
     RQ job: fulfill an order after payment webhook is received.
 
