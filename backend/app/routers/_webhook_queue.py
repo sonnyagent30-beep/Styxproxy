@@ -45,7 +45,7 @@ async def enqueue_fulfillment(
 
         settings = get_settings()
         import redis as sync_redis
-        conn = sync_redis.from_url(settings.redis_url, decode_responses=True)
+        conn = sync_redis.from_url(settings.redis_url, )
         q = Queue("fulfillment", connection=conn)
 
         job = q.enqueue(
