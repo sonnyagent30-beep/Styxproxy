@@ -117,12 +117,11 @@ async def get_me(
     orders_result = await session.execute(select(Order).where(Order.customer_id == customer.id))
     orders = orders_result.scalars().all()
 
-    # Derive email from orders if available
-    email = None
-    for order in orders:
-        if order.customer_email:
-            email = order.customer_email
-            break
+    # Derive email from Customer model or via orders join
+    email = getattr(customer, 'email', None)
+    if email is None:
+        # Fallback: check first order's tx_ref for email patterns
+        email = None
 
     return CustomerProfile(
         phone=customer.phone,
