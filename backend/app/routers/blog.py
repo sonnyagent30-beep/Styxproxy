@@ -7,7 +7,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, select
+from sqlalchemy import JSONB, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import admin_only
@@ -1024,3 +1024,21 @@ async def schedule_post(
         status=post.status,
         scheduled_at=post.scheduled_at,
     )
+
+
+@router.get("/tags")
+async def list_tags(session: AsyncSession = Depends(get_session)):
+    """List all unique tags from published blog posts."""
+    from sqlalchemy import func, distinct
+    
+    # Get all tags from published posts
+    stmt = select(func.cast(Post.tags, JSONB)).where(Post.status == "published")
+    results = (await session.execute(stmt)).scalars().all()
+    
+    # Flatten and deduplicate
+    tag_set = set()
+    for tags_json in results:
+        if tags_json and isinstance(tags_json, list):
+            tag_set.update(tags_json)
+    
+    return {"tags": sorted(list(tag_set))}
