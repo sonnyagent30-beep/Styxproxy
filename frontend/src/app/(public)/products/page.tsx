@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   Globe, House, HardDrives, DeviceMobile, Lightning, Clock, Check, X,
@@ -321,7 +321,6 @@ export default function ProductsPage() {
     setExpanded(expanded === key ? null : key);
   };
 
-  const [briefingDone] = useState(false);
   const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [briefingProfile, setBriefingProfile] = useState<{ type: string; text: string } | null>(null);
 
@@ -349,7 +348,6 @@ export default function ProductsPage() {
   };
 
   const acceptMission = () => {
-    sessionStorage.setItem('briefingDone', '1');
     setShowBriefingModal(false);
     if (briefingProfile) {
       handleMissionClick(briefingProfile.type);
@@ -357,28 +355,8 @@ export default function ProductsPage() {
   };
 
   const skipBriefing = () => {
-    sessionStorage.setItem('briefingDone', '1');
     setShowBriefingModal(false);
   };
-
-  // showBriefing fires once on mount if not already done
-  useEffect(() => {
-    if (!sessionStorage.getItem('briefingDone')) {
-      const timer = setTimeout(() => {
-        setShowBriefingModal(true);
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  // Escape key closes modal
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showBriefingModal) skipBriefing();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [showBriefingModal]);
 
   return (
     <div className="min-h-screen">
