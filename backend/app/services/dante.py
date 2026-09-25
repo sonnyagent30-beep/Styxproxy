@@ -4,7 +4,7 @@ Dante service — branding gateway on the VPS.
 Dante acts as the auth layer between the customer and the upstream provider proxy.
 - Customer authenticates to Dante with their styxproxy_username / styxproxy_password
 - Dante routes the authenticated request to the upstream proxy (hidden from customer)
-- We can rotate the customer's styxproxy credentials without changing the upstream IP
+- We can rotate the customer's bun credentials without changing the upstream IP
 
 This module provides a clean interface for registering and managing Dante credentials.
 For now, returns realistic stub data so the rest of the system can develop
@@ -14,7 +14,6 @@ implementation here — the calling code throughout the app stays the same.
 Dante API URL and key are configured via environment variables.
 """
 
-import logging
 import random
 import string
 from dataclasses import dataclass
@@ -75,7 +74,7 @@ class DanteRotateResult:
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _random_username(prefix: str = "sty", length: int = 8) -> str:
+def _random_username(prefix: str = "bun", length: int = 8) -> str:
     suffix = "".join(random.choices(ALPHANUM, k=length))
     return f"{prefix}_{suffix}"
 
@@ -158,8 +157,9 @@ async def register_credential(
 
     try:
         await _dante_post("/api/credentials", payload)
-    except Exception as e:
-        logging.getLogger(__name__).warning(f"Dante register_credential failed: {e}")
+    except RuntimeError:
+        # Dante not yet deployed — stub response
+        pass
 
     # Assign a random dante_port for the stub (in production, Dante returns this)
     dante_port = _DANTE_DEFAULT_PORT()
@@ -206,7 +206,7 @@ async def rotate_credential(
 
     try:
         await _dante_post("/api/credentials/rotate", payload)
-        logger = logging.getLogger(__name__)
+    except RuntimeError:
         # Dante not yet deployed — stub response
         pass
 
@@ -220,20 +220,20 @@ async def rotate_credential(
     )
 
 
-async def revoke_credential(styxproxy_username: str) -> bool:
+async def revoke_credential(bun_username: str) -> bool:
     """
     Revoke a credential on Dante — immediately invalidates it.
     Returns True if successful, False otherwise.
     """
     try:
-        await _dante_post("/api/credentials/revoke", {"username": styxproxy_username})
+        await _dante_post("/api/credentials/revoke", {"username": bun_username})
         return True
-        logger = logging.getLogger(__name__)
+    except RuntimeError:
         return False
 
 
 async def update_upstream_ip(
-    styxproxy_username: str,
+    bun_username: str,
     new_upstream_ip: str,
     new_upstream_port: int,
 ) -> bool:
@@ -241,18 +241,18 @@ async def update_upstream_ip(
     Update the upstream proxy IP for an existing Dante credential.
     Used when admin approves a provider IP rotation.
 
-    Customer's styxproxy_username + styxproxy_password remain the same;
+    Customer's bun_username + bun_password remain the same;
     Dante now routes to the new upstream IP.
     """
     payload = {
-        "username": styxproxy_username,
+        "username": bun_username,
         "upstream_host": new_upstream_ip,
         "upstream_port": new_upstream_port,
     }
     try:
         await _dante_post("/api/credentials/update-upstream", payload)
         return True
-        logger = logging.getLogger(__name__)
+    except RuntimeError:
         return False
 
 
@@ -261,5 +261,5 @@ async def health_check() -> bool:
     try:
         await _dante_get("/health")
         return True
-        logger = logging.getLogger(__name__)
+    except RuntimeError:
         return False
