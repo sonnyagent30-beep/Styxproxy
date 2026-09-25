@@ -1,21 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 
-/**
- * Brand logo — uses the official logo-pack lockup PNGs (green rowing S-mark
- * + "styx" green / "proxy" dark wordmark). Light/dark variants swap via CSS
- * so the mark stays legible on both themes.
- *
-      <Image
+export default function Logo({ height = 40 }: { height?: number }) {
+  const width = Math.round(height * (181 / 64));
+
+  return (
+    <Link href="/" className="flex items-center" aria-label="Styxproxy home">
+      <img
         src="/logo.svg"
         alt="Styxproxy"
         width={width}
         height={height}
-        priority
         className="block"
-        style={{ height, width: 'auto' }}
+        style={{ height, width }}
       />
     </Link>
   );
