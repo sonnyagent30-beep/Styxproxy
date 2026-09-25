@@ -14,6 +14,8 @@ interface CartStore {
   setCart: (items: CartItem[]) => void;
 }
 
+let hydrated = false;
+
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
@@ -28,3 +30,11 @@ export const useCartStore = create<CartStore>()(
     { name: 'styxproxy_cart' }
   )
 );
+
+// Hydration guard - prevents SSR mismatch by only loading persisted state on client
+export function useCartHydration() {
+  if (typeof window === 'undefined') return false;
+  if (hydrated) return true;
+  useCartStore.persist.rehydrate().then(() => { hydrated = true; });
+  return hydrated;
+}
