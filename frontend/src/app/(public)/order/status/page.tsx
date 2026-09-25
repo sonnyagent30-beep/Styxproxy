@@ -9,7 +9,7 @@ import StatusBanner from '@/components/order/StatusBanner';
 import ActionBar from '@/components/order/ActionBar';
 import OrderTimeline from '@/components/order/OrderTimeline';
 import { getActionsForStatus, getTimelineSteps, getStatusGroup } from '@/lib/order-status';
-import { getOrderHistory, type OrderHistoryEntry, cleanupStalePendingOrders } from '@/lib/device-id';
+import { getOrderHistory, type OrderHistoryEntry, cleanupStalePendingOrders, clearOrderHistory, removeFromHistory } from '@/lib/device-id';
 import { Eye, EyeSlash, Copy, Clock, Check, ArrowRight, WarningCircle, MagnifyingGlass, X } from '@phosphor-icons/react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.styxproxy.com';

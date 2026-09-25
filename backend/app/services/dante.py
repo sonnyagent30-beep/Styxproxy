@@ -157,7 +157,7 @@ async def register_credential(
 
     try:
         await _dante_post("/api/credentials", payload)
-    except RuntimeError:
+        logger = logging.getLogger(__name__)
         # Dante not yet deployed — stub response
         pass
 
@@ -206,7 +206,7 @@ async def rotate_credential(
 
     try:
         await _dante_post("/api/credentials/rotate", payload)
-    except RuntimeError:
+        logger = logging.getLogger(__name__)
         # Dante not yet deployed — stub response
         pass
 
@@ -228,7 +228,7 @@ async def revoke_credential(styxproxy_username: str) -> bool:
     try:
         await _dante_post("/api/credentials/revoke", {"username": styxproxy_username})
         return True
-    except RuntimeError:
+        logger = logging.getLogger(__name__)
         return False
 
 
@@ -252,7 +252,7 @@ async def update_upstream_ip(
     try:
         await _dante_post("/api/credentials/update-upstream", payload)
         return True
-    except RuntimeError:
+        logger = logging.getLogger(__name__)
         return False
 
 
@@ -261,5 +261,5 @@ async def health_check() -> bool:
     try:
         await _dante_get("/health")
         return True
-    except RuntimeError:
+        logger = logging.getLogger(__name__)
         return False

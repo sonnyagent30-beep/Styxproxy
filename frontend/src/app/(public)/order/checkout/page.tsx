@@ -22,7 +22,7 @@ function itemPrice(item: import('@/types').CartItem): number {
     const qtyGb = item.quantity_gb as number;
     return perGb * qtyGb;
   }
-  return item.price_ngn * item.quantity;
+  return item.price_ngn;
 }
 
 function generateTxRef(): string {
