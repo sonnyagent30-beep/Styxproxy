@@ -34,7 +34,7 @@ async def trigger_credentials_delivered_webhook(
         "tx_ref": "TXF-XXXXXX",
         "phone": "+234...",
         "channel": "whatsapp",
-        "styxproxy_username": "bun_xxxxxx",
+        "styxproxy_username": "styxproxy_xxxxxx",
         "styxproxy_password": "xxxxxx",
         "proxy_ip": "192.168.x.x",
         "proxy_port": 1080,
