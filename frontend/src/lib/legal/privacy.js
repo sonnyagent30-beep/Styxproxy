@@ -6,7 +6,7 @@ const content = `<h1>Privacy Policy</h1>
 <p>We collect different information depending on how you interact with us. This policy is designed to be honest and clear about what we collect and why. By using Styxproxy, you consent to the data practices described in this policy.</p>
 
 <h2>2. Our Service Channels</h2>
-<p>We operate three independent channels: the website, the website chat widget (Charon), and the Telegram bot. Each collects different information.</p>
+<p>We operate three independent channels: the website, the website chat widget (Charon), and the Telegram bot. Each collects different information. Credential delivery is automated via n8n workflows through WhatsApp, Telegram, or email.</p>
 
 <h3>2.1 Website — Anonymous Orders</h3>
 <p>When you order via styxproxy.com, we collect almost nothing.</p>
@@ -82,10 +82,11 @@ const content = `<h1>Privacy Policy</h1>
 
 <h3>5.1 Data Processors</h3>
 <ul>
-<li><strong>Payment processor (Flutterwave)</strong> — Payment data</li>
+<li><strong>Payment processors (Flutterwave and Paystack)</strong> — Payment data</li>
 <li><strong>Telegram</strong> — Chat messages — telegram.org/privacy</li>
 <li><strong>Theorem Reach</strong> — Survey data — theoremreach.com/privacy</li>
 <li><strong>Email service (Resend)</strong> — Transactional emails — resend.com/privacy</li>
+<li><strong>Automation platform (n8n)</strong> — Order fulfilment and credential delivery automation — n8n.io/privacy</li>
 </ul>
 
 <h2>6. Data Retention</h2>
@@ -135,6 +136,12 @@ const content = `<h1>Privacy Policy</h1>
 
 <h2>9. Cookies and Tracking</h2>
 <p><strong>We do not use cookies on our website.</strong> We do not store any cookies in your browser. We do not use third-party tracking pixels or analytics tools that fingerprint visitors.</p>
+<p>We use <strong>localStorage</strong> and <strong>sessionStorage</strong> for essential functionality only:</p>
+<ul>
+<li><strong>localStorage</strong> — Anonymous device identifier (for order history), order history list, in-flight order tracking</li>
+<li><strong>sessionStorage</strong> — Shopping cart, consent flag, optional email for receipt</li>
+</ul>
+<p>These storage mechanisms contain no personally identifiable information. The device identifier is a random UUID with no link to your identity. You can clear this data at any time by clearing your browser site data.</p>
 <p>We use Plausible Analytics — a privacy-first, cookie-free analytics service that collects only aggregate, non-personal website usage data (pages visited, referrer). This data cannot be used to identify individual users and is not shared with any third party. We do not control the cookies or tracking used by Telegram.</p>
 
 <h2>10. Children's Privacy</h2>
@@ -155,6 +162,7 @@ const content = `<h1>Privacy Policy</h1>
 <li><strong>Chat widget:</strong> styxproxy.com (open the chat widget)</li>
 <li><strong>Telegram:</strong> @styxproxy</li>
 <li><strong>Email:</strong> support@styxproxy.com</li>
+<li><strong>WhatsApp:</strong> +234 703 298 1049</li>
 <li><strong>Website:</strong> styxproxy.com</li>
 <li><strong>Order Status page:</strong> styxproxy.com/order/status</li>
 </ul>

@@ -25,7 +25,7 @@ export default function CookiePolicy() {
               <div className="mb-8">
                 <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Legal</p>
                 <h1 className="text-3xl font-black text-[var(--foreground)] mb-2">Cookie Policy</h1>
-                <p className="text-[var(--muted)] text-sm">Effective Date: 2026-07-13 · Last Updated: 2026-07-13</p>
+                <p className="text-[var(--muted)] text-sm">Effective Date: 2026-08-27 · Last Updated: 2026-08-27</p>
               </div>
               <div className="border-t border-[var(--border)] mb-8" />
 

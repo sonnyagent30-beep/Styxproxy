@@ -40,7 +40,7 @@ export default function RefundPolicyPage() {
                   <section className="mb-10">
                     <h2 className="text-xl font-semibold mb-4">1. Overview</h2>
                 <p className="text-[var(--muted)] leading-relaxed">
-                  Styxproxy offers proxy services across ISP, Residential, Mobile 4G, and
+                  All prices are in Nigerian Naira (NGN). Styxproxy offers proxy services across ISP, Residential, Mobile 4G, and
                   Datacenter categories. Because our proxies are delivered instantly and
                   credentials cannot be recalled once issued, our refund policy reflects
                   the nature of digital goods.
@@ -84,6 +84,7 @@ export default function RefundPolicyPage() {
                     ["Order Status Page", "styxproxy.com/order/status — enter your transaction reference and submit a refund request"],
                     ["Telegram", "@styxproxy — send 'Refund request for [your tx_ref]'"],
                     ["Email", "support@styxproxy.com — include your tx_ref and a brief description"],
+                    ["WhatsApp", "+234 703 298 1049 — send your tx_ref and reason for refund request"],
                   ].map(([method, desc]) => (
                     <li key={method} className="flex gap-3 text-[var(--muted)]">
                       <span className="text-[var(--primary)] font-medium shrink-0">{method}:</span>
@@ -168,7 +169,7 @@ export default function RefundPolicyPage() {
                   >
                     support@styxproxy.com
                   </a>{" "}
-                  or via Telegram at{" "}
+                  or via WhatsApp at +234 703 298 1049 or via Telegram at{" "}
                   <a
                     href="https://t.me/StyxproxyBot"
                     target="_blank"

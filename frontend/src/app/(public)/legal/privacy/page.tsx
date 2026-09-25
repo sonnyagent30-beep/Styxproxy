@@ -37,7 +37,7 @@ export default function Privacy() {
               <div className="mb-8">
                 <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Legal</p>
                 <h1 className="text-3xl font-black text-[var(--foreground)] mb-2">Privacy Policy</h1>
-                <p className="text-[var(--muted)] text-sm">Effective Date: 2026-07-01</p>
+                <p className="text-[var(--muted)] text-sm">Effective Date: August 27, 2026</p>
               </div>
               <div className="border-t border-[var(--border)] mb-8" />
               <div

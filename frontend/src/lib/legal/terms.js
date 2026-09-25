@@ -42,7 +42,19 @@ Full ordering and support via Telegram.
 
 ---
 
-## 3. No Account Required (Website)
+## 3. Proxy Types
+
+Styxproxy offers four categories of proxy services:
+- **ISP Proxies** — Static residential IPs from internet service providers
+- **Datacenter Proxies** — High-speed IPs from data center infrastructure
+- **Residential Proxies** — Real IPs from residential networks
+- **Mobile 4G Proxies** — IPs from mobile network operators
+
+All proxy types are subject to the same terms, pricing, and acceptable use policies.
+
+---
+
+## 4. No Account Required (Website)
 
 Customers who order via the website do not create an account. We do not collect:
 - Your name
@@ -55,19 +67,19 @@ Your Flutterwave transaction reference is your only identifier for website order
 
 ---
 
-## 4. Ordering
+## 5. Ordering
 
-### 4.1 How to Order
+### 5.1 How to Order
 
 **Via Website:** Select your product, complete payment via our payment processor (card, bank transfer, USSD, or QR), your credentials are displayed immediately on the confirmation page.
 
 **Via Telegram:** Send your order request to @styxproxy, receive a payment link, complete payment, your credentials are delivered in the same chat.
 
-### 4.2 Payment
+### 5.2 Payment
 
-All payments are processed by Flutterwave. Styxproxy does not store your card details or bank information. A transaction reference (tx_ref) is issued for every payment.
+All payments are processed by Flutterwave and Paystack. All prices are in Nigerian Naira (NGN). Styxproxy does not store your card details or bank information. A transaction reference (tx_ref) is issued for every payment.
 
-### 4.3 Order Fulfilment
+### 5.3 Order Fulfilment
 
 Website orders: credentials are displayed on the confirmation page immediately after payment is confirmed (typically within 30 seconds).
 
@@ -75,7 +87,7 @@ If you are disconnected, do not receive your credentials, or cannot access the c
 
 Chat orders (Telegram): credentials are delivered in Telegram within 2 minutes of payment confirmation.
 
-### 4.4 Retrieving Your Credentials After Payment
+### 5.4 Retrieving Your Credentials After Payment
 
 If you paid but did not receive your credentials:
 
@@ -88,23 +100,23 @@ We recommend bookmarking your order link (provided after payment) or saving your
 
 ---
 
-## 5. Proxy Credentials
+## 6. Proxy Credentials
 
-### 5.1 Authentication Layer
+### 6.1 Authentication Layer
 
 All proxy credentials are issued under Styxproxy's branding. You interact with Styxproxy's proxy infrastructure, not directly with any underlying provider. Styxproxy controls the authentication layer, enabling instant credential revocation on refund, abuse, or expiry.
 
-### 5.2 Credential Delivery
+### 6.2 Credential Delivery
 
-Website: displayed on confirmation page. Chat widget (Charon): delivered in chat when you provide your transaction reference. Telegram: sent in chat. Optional email: sent if you voluntarily provide your email address.
+Website: displayed on confirmation page. Chat widget (Charon): delivered in chat when you provide your transaction reference. Telegram: sent in chat. WhatsApp: sent via WhatsApp if you provide your phone number. Optional email: sent if you voluntarily provide your email address.
 
-### 5.3 Credential Validity
+### 6.3 Credential Validity
 
 Monthly plans: valid until the end of the purchased month. Data plans: valid until data quota is exhausted or plan expires. Credentials are automatically deactivated upon expiry.
 
 ---
 
-## 6. Acceptable Use
+## 7. Acceptable Use
 
 You agree to use Styxproxy proxies only for lawful purposes. See our Acceptable Use Policy for full details.
 
@@ -114,7 +126,7 @@ Violations may result in immediate credential revocation without refund.
 
 ---
 
-## 7. Ban Claims
+## 8. Ban Claims
 
 If your proxy IP is blocked by a website or service:
 
@@ -128,43 +140,44 @@ Ban claims are reviewed by our team. Replacement credentials are issued at our d
 
 ---
 
-## 8. Refunds
+## 9. Refunds
 
-### 8.1 Refund Window
+### 9.1 Refund Window
 
 You may request a refund within 24 hours of receiving your credentials if: the proxy does not work at the time of delivery, or the service is materially different from what was described.
 
-### 8.2 How to Request
+### 9.2 How to Request
 
 Request a refund via styxproxy.com/order/status, by chatting with Charon on the website, via Telegram at @styxproxy, or by emailing support@styxproxy.com. All refund requests are reviewed manually.
 
-### 8.3 Refund Processing
+### 9.3 Refund Processing
 
 Approved refunds are processed within 5–10 business days to your original payment method.
 
-### 8.4 Non-Refundable Circumstances
+### 9.4 Non-Refundable Circumstances
 
 Refunds are not available for: requests made more than 24 hours after delivery, IPs blocked by your target website (ban claim matter), change of mind after the 24-hour window, proxies that stopped working due to misuse, data plans where more than 10% of the quota has been used.
 
 ---
 
-## 9. Data and Expiry
+## 10. Data and Expiry
 
-### 9.1 Monthly Plans
+### 10.1 Monthly Plans
 
 Unused days are not refundable or transferable. Your proxy access ends on the last day of your purchased period.
 
-### 9.2 Data Plans
+### 10.2 Data Plans
 
 Unused data does not roll over. Renewing grants a fresh data quota.
 
 ---
 
-## 10. Support
+## 11. Support
 
 Support is available via:
 - Chat widget (Charon) on styxproxy.com — AI-powered, instant responses
 - Telegram: @styxproxy
+- WhatsApp: +234 703 298 1049
 - Order Status page at styxproxy.com/order/status
 - Email: support@styxproxy.com
 
@@ -172,58 +185,59 @@ Response time: within 2 hours during business hours (9am–6pm WAT, Monday–Sat
 
 ---
 
-## 11. Third-Party Services
+## 12. Third-Party Services
 
-### 11.1 Proxy Infrastructure
+### 12.1 Proxy Infrastructure
 
 Proxy IPs are sourced from vetted third-party infrastructure providers. Styxproxy is not affiliated with, endorsed by, or responsible for the practices of any proxy provider.
 
-### 11.2 Payment Processing
+### 12.2 Payment Processing
 
 All payment processing is handled by Flutterwave. Your payment data is subject to their privacy policy and terms. Styxproxy does not store card details or bank account information.
 
-### 11.3 Free Trial
+### 12.3 Free Trial
 
 The free trial is supported by a third-party rewards provider. Customers who participate may encounter survey offers. Styxproxy is not responsible for third-party survey content.
 
 ---
 
-## 12. Service Availability
+## 13. Service Availability
 
 Styxproxy does not guarantee uninterrupted service. Proxy IPs may be blocked by websites or services at any time. We will make reasonable efforts to notify customers of planned maintenance.
 
 ---
 
-## 13. Limitation of Liability
+## 14. Limitation of Liability
 
 To the maximum extent permitted by applicable law, Styxproxy shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from the use of our services. Our total liability shall not exceed the amount you paid for the affected service.
 
 ---
 
-## 14. Indemnification
+## 15. Indemnification
 
 You agree to indemnify and hold Styxproxy harmless from any claims, damages, or expenses arising from your use of our services in violation of these terms or applicable law.
 
 ---
 
-## 15. Changes to These Terms
+## 16. Changes to These Terms
 
 We may update these terms from time to time. Material changes will be communicated via Telegram, the chat widget, or notice on our website. Changes to pricing take effect immediately for new orders. Changes to other terms take effect 14 days after notification.
 
 ---
 
-## 16. Governing Law
+## 17. Governing Law
 
 These terms are governed by the laws of the Federal Republic of Nigeria. Any disputes shall be subject to the jurisdiction of Nigerian courts.
 
 ---
 
-## 17. Contact
+## 18. Contact
 
 Styxproxy
 - Chat widget: styxproxy.com (open the chat widget)
 - Telegram: @styxproxy
 - Email: support@styxproxy.com
+- WhatsApp: +234 703 298 1049
 - Website: styxproxy.com
 - Order Status page: styxproxy.com/order/status
 
