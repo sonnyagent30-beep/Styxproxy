@@ -140,6 +140,10 @@ class Settings(BaseSettings):
     # ── MiniMax-M2 cloud (Charon primary) ─────────────────────────────────
     # P0-5 (Jul 22 2026): M2 is the Charon primary. Endpoint is api.minimax.io.
     # Set MINIMAX_API_KEY in .env to enable.
+    # ── Longcat2.0 (Charon LLM provider) ─────────────────────────────────
+    longcat_api_key: str = ""
+    longcat_base_url: str = "https://api.longcat.ai/openai/v1"
+    longcat_model: str = "LongCat-2.0"
     minimax_base_url: str = "https://api.minimax.io/v1"
     groq_base_url: str = "https://api.groq.com/openai/v1"
 

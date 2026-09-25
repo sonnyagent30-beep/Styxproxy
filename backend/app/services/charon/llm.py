@@ -1,19 +1,13 @@
-"""Charon's LLM client — DeepInfra primary + Groq/OpenRouter failover.
+"""Charon's LLM client — Longcat2.0 sole provider.
 
 Architecture:
-  Primary:   DeepInfra DeepSeek V4 Flash (fast, 75% prompt cache discount, cheap tokens)
-  Failover:  Groq key 1-3 (if configured)
-  Final:     OpenRouter free tier (if configured)
+  Provider:  Longcat2.0 (OpenAI-compatible API)
+  Cache:     Redis (optional)
 
 Environment variables:
-  - DEEPINFRA_API_KEY: DeepInfra API key (REQUIRED for primary)
-  - DEEPINFRA_MODEL: model name (default "deepseek-ai/DeepSeek-V4-Flash-0731")
-  - GROQ_API_KEY: Groq key (optional, failover)
-  - GROQ_API_KEY_2: second Groq key (optional)
-  - GROQ_API_KEY_3: third Groq key (optional)
-  - GROQ_MODEL: model name (default "llama-3.1-8b-instant")
-  - OPENROUTER_API_KEY: OpenRouter key (optional, final fallback)
-  - OPENROUTER_MODEL: OpenRouter free model (default "openai/gpt-oss-120b:free")
+  - LONGCAT_API_KEY: Longcat2.0 API key (REQUIRED)
+  - LONGCAT_BASE_URL: API base URL (default "https://api.longcat.ai/openai/v1")
+  - LONGCAT_MODEL: model name (default "LongCat-2.0-Preview")
   - REDIS_URL: optional, enables response caching
 """
 
@@ -191,68 +185,27 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
 
 
 def _try_all_providers(messages: list[dict], max_tokens: int) -> LLMResponse:
-    """Try DeepInfra primary, then Groq keys 1-3, then OpenRouter free as final fallback."""
-    # Primary: DeepInfra
-    deepinfra_key = os.getenv("DEEPINFRA_API_KEY", "").strip()
-    if deepinfra_key:
-        deepinfra_model = os.getenv("DEEPINFRA_MODEL", "deepseek-ai/DeepSeek-V4-Flash-0731")
-        deepinfra_base = "https://api.deepinfra.com/v1/openai"
-        resp = _call_openai_compatible(
-            base_url=deepinfra_base,
-            api_key=deepinfra_key,
-            model=deepinfra_model,
-            messages=messages,
-            max_tokens=max_tokens,
-        )
-        if resp.ok:
-            logger.debug("LLM success via DeepInfra (model=%s)", deepinfra_model)
-            return resp
-        if resp.error:
-            logger.warning("DeepInfra error: %s, trying failover", resp.error)
+    """Call Longcat2.0 as the sole LLM provider (OpenAI-compatible)."""
+    longcat_key = os.getenv("LONGCAT_API_KEY", "").strip()
+    if not longcat_key:
+        return LLMResponse(content="", model="", error="LONGCAT_API_KEY not set")
 
-    # Gather all Groq keys
-    groq_keys = []
-    for env_var in ("GROQ_API_KEY", "GROQ_API_KEY_2", "GROQ_API_KEY_3"):
-        key = os.getenv(env_var, "").strip()
-        if key:
-            groq_keys.append((env_var, key))
+    longcat_model = os.getenv("LONGCAT_MODEL", "LongCat-2.0-Preview")
+    longcat_base = os.getenv("LONGCAT_BASE_URL", "https://api.longcat.ai/openai/v1").rstrip("/")
 
-    groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
-    groq_base = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
+    resp = _call_openai_compatible(
+        base_url=longcat_base,
+        api_key=longcat_key,
+        model=longcat_model,
+        messages=messages,
+        max_tokens=max_tokens,
+    )
+    if resp.ok:
+        logger.debug("LLM success via Longcat2.0 (model=%s)", longcat_model)
+        return resp
 
-    # Try each Groq key
-    for env_var, api_key in groq_keys:
-        resp = _call_openai_compatible(
-            base_url=groq_base,
-            api_key=api_key,
-            model=groq_model,
-            messages=messages,
-            max_tokens=max_tokens,
-        )
-        if resp.ok:
-            logger.debug("LLM success via %s (model=%s)", env_var, groq_model)
-            return resp
-        if resp.error:
-            logger.warning("%s error: %s, trying next", env_var, resp.error)
-            continue
-
-    # Final fallback: OpenRouter free
-    or_key = os.getenv("OPENROUTER_API_KEY", "").strip()
-    if or_key:
-        or_model = os.getenv("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
-        or_base = "https://openrouter.ai/api/v1"
-        logger.info("All primary providers exhausted, falling back to OpenRouter (model=%s)", or_model)
-        resp = _call_openai_compatible(
-            base_url=or_base,
-            api_key=or_key,
-            model=or_model,
-            messages=messages,
-            max_tokens=max_tokens,
-        )
-        if resp.ok:
-            return resp
-
-    return LLMResponse(content="", model="", error="All LLM providers exhausted")
+    logger.warning("Longcat2.0 error: %s", resp.error)
+    return resp
 
 
 def _call_openai_compatible(
