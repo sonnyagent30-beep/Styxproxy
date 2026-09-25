@@ -9,6 +9,15 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [mobileOpen]);
+
   const links = [
     { href: '/products', label: 'Products' },
     { href: '/pricing', label: 'Pricing' },
@@ -46,6 +55,7 @@ export default function Header() {
           <button
             className="lg:hidden p-2 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             onClick={() => setMobileOpen(o => !o)}
+            aria-expanded={mobileOpen}
             aria-label="Toggle menu"
           >
             {mobileOpen ? <X weight="bold" className="w-6 h-6" /> : <List weight="bold" className="w-6 h-6" />}
