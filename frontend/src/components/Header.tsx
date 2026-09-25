@@ -1,12 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { List, X } from '@phosphor-icons/react';
+import { useState, useEffect } from 'react';
+import { List, X, Sun, Moon } from '@phosphor-icons/react';
 import Logo from '@/components/Logo';
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('theme') as 'dark' | 'light' | null;
+    const initial = saved || 'dark';
+    setTheme(initial);
+    document.documentElement.classList.toggle('light', initial === 'light');
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    document.documentElement.classList.toggle('light', next === 'light');
+    localStorage.setItem('theme', next);
+  };
 
   const links = [
     { href: '/products', label: 'Products' },
@@ -40,6 +55,15 @@ export default function Header() {
               Get Proxy
             </Link>
           </div>
+
+          {/* Theme toggle */}
+          <button
+            className="p-2 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun weight="bold" className="w-5 h-5" /> : <Moon weight="bold" className="w-5 h-5" />}
+          </button>
 
           {/* Mobile toggle */}
           <button
