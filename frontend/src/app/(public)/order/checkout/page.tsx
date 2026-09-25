@@ -2,6 +2,8 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
+export const metadata = { title: 'Checkout | Styxproxy' };
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';

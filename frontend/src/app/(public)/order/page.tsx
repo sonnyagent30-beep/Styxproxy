@@ -3,6 +3,8 @@
 
 'use client';
 
+export const metadata = { title: 'Order Proxies | Styxproxy' };
+
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
