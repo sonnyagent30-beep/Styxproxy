@@ -91,26 +91,38 @@ async def initiate_payment(
 @router.get("/gateways")
 async def list_gateways(session: AsyncSession = Depends(get_session)):
     """List available payment gateways with their status."""
-    flutterwave = (
-        await session.execute(select(FeatureFlag).where(FeatureFlag.name == "flutterwave_enabled"))
-    ).scalar_one_or_none()
-    paystack = (
-        await session.execute(select(FeatureFlag).where(FeatureFlag.name == "paystack_enabled"))
-    ).scalar_one_or_none()
+    flags = {}
+    for name in ("flutterwave_enabled", "paystack_enabled", "stripe_enabled", "paynow_enabled"):
+        flag = (
+            await session.execute(select(FeatureFlag).where(FeatureFlag.name == name))
+        ).scalar_one_or_none()
+        flags[name] = bool(flag and flag.enabled)
     
     return {
         "gateways": {
             "flutterwave": {
-                "available": bool(flutterwave and flutterwave.enabled),
+                "available": flags["flutterwave_enabled"],
                 "label": "Flutterwave",
-                "icon": "flutterwave",
-                "description": "Pay with NGN, KES, GHS via Flutterwave"
+                "icon": "💳",
+                "description": "Card, Bank Transfer, USSD, QR"
             },
             "paystack": {
-                "available": bool(paystack and paystack.enabled),
+                "available": flags["paystack_enabled"],
                 "label": "Paystack",
-                "icon": "paystack",
-                "description": "Pay with NGN via Paystack"
+                "icon": "🏦",
+                "description": "Card, Bank Transfer, USSD"
+            },
+            "stripe": {
+                "available": flags["stripe_enabled"],
+                "label": "Stripe",
+                "icon": "💰",
+                "description": "International cards"
+            },
+            "paynow": {
+                "available": flags["paynow_enabled"],
+                "label": "Paynow",
+                "icon": "₿",
+                "description": "Bitcoin, USDT, Crypto"
             }
         }
     }
