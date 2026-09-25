@@ -354,7 +354,7 @@ class StyxproxyCredentialBrief(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
-    bun_username: str = Field(..., alias="styxproxy_username", serialization_alias="styxproxy_username")
+    styxproxy_username: str = Field(..., alias="styxproxy_username", serialization_alias="styxproxy_username")
     protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
@@ -618,7 +618,7 @@ class CredentialResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    bun_username: str
+    styxproxy_username: str
     protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
@@ -663,7 +663,7 @@ class TrialClaimRequest(BaseModel):
 class TrialCredentialResponse(BaseModel):
     """Trial credential response."""
 
-    bun_username: str
+    styxproxy_username: str
     protocol: str
     upstream_proxy_ip: str
     upstream_proxy_port: int
@@ -821,7 +821,7 @@ class AdminCredentialResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    bun_username: str = Field(validation_alias="styxproxy_username")
+    styxproxy_username: str = Field(validation_alias="styxproxy_username")
     customer_phone: Optional[str]
     order_id: Optional[str]
     pool_type: str

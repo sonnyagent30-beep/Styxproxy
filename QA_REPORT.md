@@ -5,9 +5,33 @@
 
 ---
 
+## Fixed Today (2026-09-23)
+
+### 1. Critical: API Restart Loop
+**Issue:** `ImportError: cannot import name 'JSONB' from 'sqlalchemy'` — SQLAlchemy 2.x removed `JSONB` from top-level import  
+**Fix:** Moved to `from sqlalchemy.dialects.postgresql import JSONB` in `blog.py`  
+**Status:** ✅ Fixed, committed, pushed, verified live
+
+### 2. Critical: OpenAPI Pydantic ForwardRef Error
+**Issue:** `ForwardRef('Optional[str]')` not resolved in `analytics.py`  
+**Fix:** Changed `Optional[str]` to `str | None` in event_name query param  
+**Status:** ✅ Fixed, committed, verified live (210 paths)
+
+### 3. High: Broken `order.customer_email` Reference
+**Issue:** `order.customer_email` doesn't exist — email is on Customer model  
+**Fix:** Use `customer.email` in `customers.py`  
+**Status:** ✅ Fixed on server and in git
+
+### 4. High: Stuck Paid Orders
+**Issue:** 8 orders stuck in "paid" state with no credentials (from Sep 14-15 bun_username bug)  
+**Fix:** Moved to `failed_manual_review` with descriptive notes  
+**Status:** ✅ DB updated
+
+---
+
 ## ✅ External API Status
 
-**The external API is fully functional.** Initial timeout findings were transient — all endpoints respond correctly now.
+**The external API is fully functional.** All endpoints respond correctly.
 
 | Endpoint | External | Local | Notes |
 |----------|----------|-------|-------|

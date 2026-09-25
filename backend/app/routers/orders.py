@@ -496,7 +496,7 @@ async def create_order(
                         amount=total_amount,
                         currency="NGN",
                         quantity=body.quantity,
-                        bun_username=cred.bun_username,
+                        styxproxy_username=cred.styxproxy_username,
                         proxy_ip=cred.upstream_proxy_ip or "",
                         proxy_port=cred.upstream_proxy_port or 1080,
                         protocol=cred.protocol or "socks5",
@@ -512,7 +512,7 @@ async def create_order(
         if cred:
             cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
-                bun_username=cred.bun_username,
+                styxproxy_username=cred.styxproxy_username,
                 protocol=cred.protocol or "socks5",
                 upstream_proxy_ip=cred.upstream_proxy_ip,
                 upstream_proxy_port=cred.upstream_proxy_port,
@@ -560,7 +560,7 @@ async def list_orders_by_device(
             if cred:
                 cred_brief = StyxproxyCredentialBrief(
                     id=cred.id,
-                    bun_username=cred.bun_username,
+                    styxproxy_username=cred.styxproxy_username,
                     protocol=cred.protocol or "socks5",
                     upstream_proxy_ip=cred.upstream_proxy_ip,
                     upstream_proxy_port=cred.upstream_proxy_port,
@@ -625,7 +625,7 @@ async def get_order_by_payment_reference(
         if cred:
             cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
-                bun_username=cred.bun_username,
+                styxproxy_username=cred.styxproxy_username,
                 protocol=cred.protocol or "socks5",
                 upstream_proxy_ip=cred.upstream_proxy_ip,
                 upstream_proxy_port=cred.upstream_proxy_port,
@@ -680,7 +680,7 @@ async def get_order(
             max_rotations = getattr(cred, "max_rotations", 3) or 3
             cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
-                bun_username=cred.bun_username,
+                styxproxy_username=cred.styxproxy_username,
                 protocol=cred.protocol or "socks5",
                 upstream_proxy_ip=cred.upstream_proxy_ip,
                 upstream_proxy_port=cred.upstream_proxy_port,
@@ -799,7 +799,7 @@ class RotateResponse(BaseModel):
 async def rotate_proxy(
     order_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)
 ):
-    """Rotate Dante credentials (bun_username + bun_password).
+    """Rotate Dante credentials (styxproxy_username + styxproxy_password).
 
     This rotates the Dante layer only -- the upstream provider IP stays the same.
     Max 3 rotations per credential; reject the 4th.
@@ -827,7 +827,7 @@ async def rotate_proxy(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Rotation limit reached ({MAX_ROTATIONS} per proxy)"
         )
 
-    # Call Dante to rotate credentials (same upstream IP, new bun_username + bun_password)
+    # Call Dante to rotate credentials (same upstream IP, new styxproxy_username + styxproxy_password)
     from app.services import dante as dante_svc
 
     new_dante = await dante_svc.rotate_credential(
@@ -894,8 +894,8 @@ async def rotate_proxy(
                 tx_ref=order.payment_reference or "",
                 phone=order.customer_phone or "",
                 channel=order.channel or "web",
-                bun_username=new_dante.new_styxproxy_username,
-                bun_password=new_dante.new_styxproxy_password,
+                styxproxy_username=new_dante.new_styxproxy_username,
+                styxproxy_password=new_dante.new_styxproxy_password,
                 proxy_ip=cred.upstream_proxy_ip or "",
                 proxy_port=cred.upstream_proxy_port or 1080,
                 expires_at=cred.expires_at,
@@ -908,7 +908,7 @@ async def rotate_proxy(
         order_id=order_id,
         styxproxy_credential=StyxproxyCredentialBrief(
             id=cred.id,
-            bun_username=cred.bun_username,
+            styxproxy_username=cred.styxproxy_username,
             protocol=cred.protocol or "socks5",
             upstream_proxy_ip=cred.upstream_proxy_ip,
             upstream_proxy_port=cred.upstream_proxy_port,
@@ -974,8 +974,8 @@ async def deliver_credentials(
         tx_ref=order.payment_reference or "",
         phone=order.customer_phone or "",
         channel="whatsapp",
-        bun_username=credential.bun_username,
-        bun_password="",  # Password not stored in plaintext
+        styxproxy_username=credential.styxproxy_username,
+        styxproxy_password="",  # Password not stored in plaintext
         proxy_ip=credential.upstream_proxy_ip or "",
         proxy_port=credential.upstream_proxy_port or 1080,
         expires_at=credential.expires_at,
@@ -1077,7 +1077,7 @@ async def get_receipt(
         if cred:
             cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
-                bun_username=cred.bun_username,
+                styxproxy_username=cred.styxproxy_username,
                 protocol=cred.protocol or "socks5",
                 upstream_proxy_ip=cred.upstream_proxy_ip,
                 upstream_proxy_port=cred.upstream_proxy_port,

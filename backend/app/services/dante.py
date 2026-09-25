@@ -220,20 +220,20 @@ async def rotate_credential(
     )
 
 
-async def revoke_credential(bun_username: str) -> bool:
+async def revoke_credential(styxproxy_username: str) -> bool:
     """
     Revoke a credential on Dante — immediately invalidates it.
     Returns True if successful, False otherwise.
     """
     try:
-        await _dante_post("/api/credentials/revoke", {"username": bun_username})
+        await _dante_post("/api/credentials/revoke", {"username": styxproxy_username})
         return True
     except RuntimeError:
         return False
 
 
 async def update_upstream_ip(
-    bun_username: str,
+    styxproxy_username: str,
     new_upstream_ip: str,
     new_upstream_port: int,
 ) -> bool:
@@ -241,11 +241,11 @@ async def update_upstream_ip(
     Update the upstream proxy IP for an existing Dante credential.
     Used when admin approves a provider IP rotation.
 
-    Customer's bun_username + bun_password remain the same;
+    Customer's styxproxy_username + styxproxy_password remain the same;
     Dante now routes to the new upstream IP.
     """
     payload = {
-        "username": bun_username,
+        "username": styxproxy_username,
         "upstream_host": new_upstream_ip,
         "upstream_port": new_upstream_port,
     }

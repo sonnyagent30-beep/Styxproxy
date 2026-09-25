@@ -161,8 +161,8 @@ async def _process_trial_impl(
             tx_ref=f"TR-{survey_id}",
             phone=phone or "",
             channel="whatsapp",  # default; n8n workflow can route based on customer preference
-            bun_username=username,
-            bun_password=password_plain,
+            styxproxy_username=username,
+            styxproxy_password=password_plain,
             proxy_ip=dataimpulse_order.get("proxy_ip", ""),
             proxy_port=dataimpulse_order.get("proxy_port", 1080),
             expires_at=trial_session.trial_expires_at,

@@ -35,7 +35,7 @@ async def create_trial(db_session: AsyncSession, phone: str, disclaimer_accepted
     expires_at = datetime.utcnow() + timedelta(hours=TRIAL_DURATION_HOURS)
 
     credential = StyxproxyCredential(
-        bun_username=f"trial_{''.join(random.choices(string.ascii_lowercase, k=8))}",
+        styxproxy_username=f"trial_{''.join(random.choices(string.ascii_lowercase, k=8))}",
         password_hash=get_password_hash("".join(random.choices(string.ascii_letters + string.digits, k=16))),
         customer_phone=phone,
         pool_type="free_trial",

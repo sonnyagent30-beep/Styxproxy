@@ -175,7 +175,7 @@ async def get_analytics_funnel(days: int = 30):
 async def get_analytics_events(
     page: int = 1,
     limit: int = 30,
-    event_name: Optional[str] = None,
+    event_name: str | None = None,
 ):
     """Paginated raw analytics events."""
     offset = (page - 1) * limit

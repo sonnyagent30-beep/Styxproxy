@@ -18,8 +18,8 @@ async def trigger_credentials_delivered_webhook(
     tx_ref: str,
     phone: str,
     channel: str,
-    bun_username: str,
-    bun_password: str,
+    styxproxy_username: str,
+    styxproxy_password: str,
     proxy_ip: str,
     proxy_port: int,
     expires_at: datetime,
@@ -34,8 +34,8 @@ async def trigger_credentials_delivered_webhook(
         "tx_ref": "TXF-XXXXXX",
         "phone": "+234...",
         "channel": "whatsapp",
-        "bun_username": "bun_xxxxxx",
-        "bun_password": "xxxxxx",
+        "styxproxy_username": "bun_xxxxxx",
+        "styxproxy_password": "xxxxxx",
         "proxy_ip": "192.168.x.x",
         "proxy_port": 1080,
         "expires_at": "2026-08-15T12:00:00Z",
@@ -58,8 +58,8 @@ async def trigger_credentials_delivered_webhook(
         "tx_ref": tx_ref,
         "phone": phone,
         "channel": channel,
-        "bun_username": bun_username,
-        "bun_password": bun_password,
+        "styxproxy_username": styxproxy_username,
+        "styxproxy_password": styxproxy_password,
         "proxy_ip": proxy_ip,
         "proxy_port": proxy_port,
         "expires_at": expires_at.isoformat() if isinstance(expires_at, datetime) else expires_at,
@@ -100,7 +100,7 @@ async def _record_failure(
 
     Stored in a Redis list capped at 100 entries (LPUSH + LTRIM).
     Includes order_id, tx_ref, timestamp, error message. Sensitive
-    fields (bun_password) are stripped before storage.
+    fields (styxproxy_password) are stripped before storage.
     """
     try:
         from app.services.observability import get_redis
@@ -110,7 +110,7 @@ async def _record_failure(
             return
 
         # Strip secrets before logging
-        safe_payload = {k: v for k, v in payload.items() if k != "bun_password"}
+        safe_payload = {k: v for k, v in payload.items() if k != "styxproxy_password"}
 
         entry = json.dumps(
             {

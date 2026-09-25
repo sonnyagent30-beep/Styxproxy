@@ -1938,7 +1938,7 @@ async def re_fulfill_order(
         "order_id": order.order_id,
         "status": order.status,
         "credential_id": credential.id,
-        "bun_username": credential.bun_username,
+        "styxproxy_username": credential.styxproxy_username,
         "upstream_proxy_ip": credential.upstream_proxy_ip,
         "upstream_proxy_port": credential.upstream_proxy_port,
         "expires_at": credential.expires_at.isoformat() if credential.expires_at else None,

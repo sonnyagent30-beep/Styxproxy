@@ -1647,8 +1647,8 @@ def _render_proxy_credentials_email(
     amount: float,
     currency: str,
     quantity: int,
-    bun_username: str,
-    bun_password: str,
+    styxproxy_username: str,
+    styxproxy_password: str,
     proxy_ip: str,
     proxy_port: int,
     protocol: str,
@@ -1657,7 +1657,7 @@ def _render_proxy_credentials_email(
 ) -> EmailContent:
     """Render proxy credentials email (order paid + active) - matches receipt design."""
     expires_str = expires_at.strftime("%Y-%m-%d %H:%M UTC") if expires_at else "N/A"
-    full_format = f"http://{bun_username}:{bun_password}@{proxy_ip}:{proxy_port}"
+    full_format = f"http://{styxproxy_username}:{styxproxy_password}@{proxy_ip}:{proxy_port}"
 
     base_styles = _get_base_styles()
 
@@ -1721,11 +1721,11 @@ def _render_proxy_credentials_email(
                     <div class="credentials-header">YOUR PROXY CREDENTIALS</div>
                     <div class="cred-row">
                         <span class="cred-label">Username</span>
-                        <span class="cred-value">{bun_username}</span>
+                        <span class="cred-value">{styxproxy_username}</span>
                     </div>
                     <div class="cred-row">
                         <span class="cred-label">Password</span>
-                        <span class="cred-value">{bun_password}</span>
+                        <span class="cred-value">{styxproxy_password}</span>
                     </div>
                     <div class="cred-row">
                         <span class="cred-label">Proxy Address</span>
@@ -1768,8 +1768,8 @@ Quantity: {quantity}
 Amount Paid: {currency} {amount:,.2f}
 
 === YOUR PROXY CREDENTIALS ===
-Username: {bun_username}
-Password: {bun_password}
+Username: {styxproxy_username}
+Password: {styxproxy_password}
 Proxy: {proxy_ip}:{proxy_port}
 Protocol: {protocol.upper()}
 Full Format: {full_format}
@@ -1804,8 +1804,8 @@ async def send_order_active_email(
     amount: float,
     currency: str,
     quantity: int,
-    bun_username: str,
-    bun_password: str,
+    styxproxy_username: str,
+    styxproxy_password: str,
     proxy_ip: str,
     proxy_port: int,
     protocol: str,
@@ -1824,8 +1824,8 @@ async def send_order_active_email(
         amount=amount,
         currency=currency,
         quantity=quantity,
-        bun_username=bun_username,
-        bun_password=bun_password,
+        styxproxy_username=styxproxy_username,
+        styxproxy_password=styxproxy_password,
         proxy_ip=proxy_ip,
         proxy_port=proxy_port,
         protocol=protocol,
@@ -2321,8 +2321,8 @@ async def send_proxy_credentials_email(
     amount: float,
     currency: str,
     quantity: int,
-    bun_username: str,
-    bun_password: str,
+    styxproxy_username: str,
+    styxproxy_password: str,
     proxy_ip: str,
     proxy_port: int,
     protocol: str,
@@ -2338,8 +2338,8 @@ async def send_proxy_credentials_email(
         amount=amount,
         currency=currency,
         quantity=quantity,
-        bun_username=bun_username,
-        bun_password=bun_password,
+        styxproxy_username=styxproxy_username,
+        styxproxy_password=styxproxy_password,
         proxy_ip=proxy_ip,
         proxy_port=proxy_port,
         protocol=protocol,
@@ -2636,8 +2636,8 @@ async def send_renewal_reminder_email(
 
 async def send_rotation_notification_email(
     customer_email: str,
-    bun_username: str,
-    bun_password: str,
+    styxproxy_username: str,
+    styxproxy_password: str,
     proxy_ip: str,
     proxy_port: int,
     order_id: str,
@@ -2646,8 +2646,8 @@ async def send_rotation_notification_email(
     content = _render_credentials_rotated_email(
         customer_name="Customer",
         order_id=order_id,
-        new_username=bun_username,
-        new_password=bun_password,
+        new_username=styxproxy_username,
+        new_password=styxproxy_password,
         proxy_ip=proxy_ip,
         proxy_port=proxy_port,
         protocol="socks5",
