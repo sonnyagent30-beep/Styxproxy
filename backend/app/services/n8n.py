@@ -13,6 +13,53 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+
+async def deliver_credentials_direct(
+    order_id: str,
+    tx_ref: str,
+    phone: str,
+    channel: str,
+    styxproxy_username: str,
+    styxproxy_password: str,
+    proxy_ip: str,
+    proxy_port: int,
+    expires_at: datetime,
+    receipt_url: Optional[str] = None,
+) -> bool:
+    """Directly deliver credentials via Charon API (bypasses n8n webhook)."""
+    import httpx
+    from app.config import get_settings
+    settings = get_settings()
+    charon_url = f"{settings.api_base_url}/api/v1/charon/reply"
+    
+    message = f"""Your proxy credentials are ready!
+
+Proxy: {proxy_ip}:{proxy_port}
+Username: {styxproxy_username}
+Password: {styxproxy_password}
+Expires: {expires_at}
+
+Receipt: {receipt_url or 'N/A'}"""
+    
+    payload = {
+        'message': message,
+        'phone': phone,
+        'channel': channel,
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(charon_url, json=payload)
+            if resp.status_code == 200:
+                logger.info(f"Credentials delivered directly for order {order_id}")
+                return True
+            else:
+                logger.warning(f"Charon direct delivery failed: {resp.status_code} {resp.text[:200]}")
+                return False
+    except Exception as e:
+        logger.error(f"Charon direct delivery error: {e}")
+        return False
+
 async def trigger_credentials_delivered_webhook(
     order_id: str,
     tx_ref: str,
