@@ -4,7 +4,7 @@ Dante service — branding gateway on the VPS.
 Dante acts as the auth layer between the customer and the upstream provider proxy.
 - Customer authenticates to Dante with their styxproxy_username / styxproxy_password
 - Dante routes the authenticated request to the upstream proxy (hidden from customer)
-- We can rotate the customer's bun credentials without changing the upstream IP
+- We can rotate the customer's styxproxy credentials without changing the upstream IP
 
 This module provides a clean interface for registering and managing Dante credentials.
 For now, returns realistic stub data so the rest of the system can develop
@@ -14,6 +14,7 @@ implementation here — the calling code throughout the app stays the same.
 Dante API URL and key are configured via environment variables.
 """
 
+import logging
 import random
 import string
 from dataclasses import dataclass
@@ -74,7 +75,7 @@ class DanteRotateResult:
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _random_username(prefix: str = "bun", length: int = 8) -> str:
+def _random_username(prefix: str = "sty", length: int = 8) -> str:
     suffix = "".join(random.choices(ALPHANUM, k=length))
     return f"{prefix}_{suffix}"
 
@@ -157,9 +158,8 @@ async def register_credential(
 
     try:
         await _dante_post("/api/credentials", payload)
-        logger = logging.getLogger(__name__)
-        # Dante not yet deployed — stub response
-        pass
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Dante register_credential failed: {e}")
 
     # Assign a random dante_port for the stub (in production, Dante returns this)
     dante_port = _DANTE_DEFAULT_PORT()
