@@ -38,7 +38,7 @@ python-dotenv==1.2.2
 # Observability + Caching
 sentry-sdk[fastapi]==2.64.0
 redis==8.0.1
-pytest==8.3.3
+pytest==9.1.1
 pytest-asyncio==0.25.2
 httpx==0.28.1
 PyJWT==2.10.1
