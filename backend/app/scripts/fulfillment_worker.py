@@ -177,8 +177,8 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                         "credential_id": credential.id if credential else None,
                     },
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Failed to update order status: {e}")
 
             return {
                 "status": order.status,

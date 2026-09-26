@@ -879,8 +879,8 @@ async def rotate_proxy(
         else:
             # Fallback: no customer email available, skip email
             pass
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to send credentials rotated email: {e}")
 
     # Fire n8n webhook for WhatsApp/Telegram delivery
     from app.services.n8n import trigger_credentials_delivered_webhook
@@ -901,8 +901,8 @@ async def rotate_proxy(
                 expires_at=cred.expires_at,
             )
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to trigger credentials delivered webhook: {e}")
 
     return RotateResponse(
         order_id=order_id,
