@@ -111,6 +111,52 @@ def validate_country(country: str) -> str:
     return country.upper()
 
 
+def validate_password_strength(password: str) -> str:
+    """Validate password meets security policy.
+
+    Requirements:
+    - Minimum 12 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    - At least one special character
+    """
+    if len(password) < 12:
+        raise ValueError("Password must be at least 12 characters")
+    if not re.search(r"[A-Z]", password):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", password):
+        raise ValueError("Password must contain at least one lowercase letter")
+    if not re.search(r"[0-9]", password):
+        raise ValueError("Password must contain at least one number")
+    if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]", password):
+        raise ValueError("Password must contain at least one special character")
+    return password
+
+
+def validate_password_strength(password: str) -> str:
+    """Validate password meets security policy.
+
+    Requirements:
+    - Minimum 12 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    - At least one special character
+    """
+    if len(password) < 12:
+        raise ValueError("Password must be at least 12 characters")
+    if not re.search(r"[A-Z]", password):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", password):
+        raise ValueError("Password must contain at least one lowercase letter")
+    if not re.search(r"[0-9]", password):
+        raise ValueError("Password must contain at least one number")
+    if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]', password):
+        raise ValueError("Password must contain at least one special character")
+    return password
+
+
 # ============== Base Schemas ==============
 
 
@@ -678,6 +724,28 @@ class AdminBlockRequest(BaseModel):
     reason: str = Field(..., max_length=500)
 
 
+class AdminBulkBlockRequest(BaseModel):
+    """Request to bulk block customers."""
+
+    customer_ids: list[UUID] = Field(..., min_length=1, max_length=500)
+    reason: str = Field(default="Blocked by admin", max_length=500)
+
+
+class AdminBulkUnblockRequest(BaseModel):
+    """Request to bulk unblock customers."""
+
+    customer_ids: list[UUID] = Field(..., min_length=1, max_length=500)
+
+
+class AdminBulkActionResponse(BaseModel):
+    """Response after a bulk action."""
+
+    success: bool
+    processed: int
+    failed: int
+    details: list[dict[str, Any]]
+
+
 class AdminOrderResponse(BaseModel):
     """Admin order response."""
 
@@ -1023,7 +1091,17 @@ class AdminSetupRequest(BaseModel):
 
     invite_code: str = Field(..., min_length=8, max_length=64)
     email: str = Field(..., pattern=r"^[^@]+@[^@]+\.[^@]+$")
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(..., min_length=12, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        return validate_password_strength(v)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        return validate_password_strength(v)
 
 
 class AdminSetupTOTPResponse(BaseModel):
@@ -1093,13 +1171,19 @@ class AdminMeResponse(BaseModel):
     locked_until: Optional[datetime]
     created_at: datetime
     last_used: Optional[datetime]
+    allowed_ips: Optional[list[str]] = None
 
 
 class AdminChangePasswordRequest(BaseModel):
     """Request to change admin password."""
 
     current_pin: str = Field(..., min_length=8, max_length=128)  # renamed for compat
-    new_pin: str = Field(..., min_length=8, max_length=128)
+    new_pin: str = Field(..., min_length=12, max_length=128)
+
+    @field_validator("new_pin")
+    @classmethod
+    def validate_new_pin(cls, v: str) -> str:
+        return validate_password_strength(v)
 
 
 class AdminChangePasswordResponse(BaseModel):
@@ -1297,6 +1381,20 @@ class AdminLockResponse(BaseModel):
     message: str
 
 
+class AdminIPAllowlistUpdateRequest(BaseModel):
+    """Request to update an admin's IP allowlist."""
+
+    allowed_ips: list[str] = Field(..., description="List of allowed IP addresses (IPv4/IPv6). Empty list = allow all.")
+
+
+class AdminIPAllowlistResponse(BaseModel):
+    """Response after updating an admin's IP allowlist."""
+
+    email: str
+    allowed_ips: list[str]
+    message: str
+
+
 # ============== Password Reset Schemas ==============
 
 
@@ -1316,7 +1414,12 @@ class PasswordResetRequest(BaseModel):
     """Request to reset password with token."""
 
     reset_token: str = Field(..., description="Password reset token")
-    new_password: str = Field(..., min_length=8, max_length=100, description="New password")
+    new_password: str = Field(..., min_length=12, max_length=100, description="New password")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        return validate_password_strength(v)
 
 
 class PasswordResetResponse(BaseModel):
@@ -1868,3 +1971,66 @@ class PermissionChangeRequestAction(BaseModel):
 
     action: str = Field(..., pattern="^(approve|reject)$")
     reviewer_notes: Optional[str] = Field(None, max_length=500)
+
+# ============== Refund Approval Schemas ==============
+
+
+class RefundApprovalResponse(BaseModel):
+    """Response for a refund approval record."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    order_id: str
+    requested_by: str
+    requested_amount: float
+    status: str
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    reviewer_notes: Optional[str] = None
+    created_at: datetime
+
+
+class RefundApprovalListResponse(BaseModel):
+    """List of refund approvals response."""
+
+    approvals: list[RefundApprovalResponse]
+    pagination: dict[str, Any]
+
+
+class RefundApprovalActionRequest(BaseModel):
+    """Request to approve or reject a refund approval."""
+
+    action: str = Field(..., pattern="^(approve|reject)$")
+    reviewer_notes: Optional[str] = Field(None, max_length=500)
+
+
+class RefundApprovalActionResponse(BaseModel):
+    """Response after approving or rejecting a refund approval."""
+
+    id: UUID
+    order_id: str
+    status: str
+    reviewed_by: str
+    reviewed_at: datetime
+    message: str
+
+
+class RefundRequestResponse(BaseModel):
+    """Response when requesting a large refund (202 pending approval)."""
+
+    status: str  # "pending_approval" or "refunded"
+    order_id: str
+    refund_amount: float
+    approval_id: Optional[UUID] = None
+    message: str
+
+
+class AdminRefundThresholdResponse(BaseModel):
+    """Response for the refund threshold setting."""
+
+    key: str
+    value: float
+    description: Optional[str] = None
+
+

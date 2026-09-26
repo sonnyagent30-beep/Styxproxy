@@ -300,7 +300,7 @@ export default function AdminCatalogPage() {
                             </p>
                             {plan.gb_tiers && plan.gb_tiers.length > 0 && (
                               <p className="text-xs text-[var(--muted)]">
-                                {plan.gb_tiers[0]}–{plan.gb_tiers[plan.gb_tiers.length - 1]}GB
+                                {plan.gb_tiers[0] + "–" + plan.gb_tiers[plan.gb_tiers.length - 1] + "GB"}
                               </p>
                             )}
                           </div>

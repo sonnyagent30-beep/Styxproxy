@@ -21,6 +21,10 @@ export default function SettingsPage() {
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [newType, setNewType] = useState<'string' | 'number' | 'boolean' | 'json'>('string');
+  const [ipAllowlist, setIpAllowlist] = useState<string[]>([]);
+  const [newIp, setNewIp] = useState('');
+  const [ipSaving, setIpSaving] = useState(false);
+  const [ipError, setIpError] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -40,6 +44,19 @@ export default function SettingsPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Load IP allowlist from first admin (or current user)
+  useEffect(() => {
+    const loadIpAllowlist = async () => {
+      const result = await api.getAdminMe();
+      if (!result.error && result.data) {
+        // For now, use a default empty allowlist
+        // In a real implementation, you'd have a dedicated endpoint to fetch this
+        setIpAllowlist((result.data as any).allowed_ips || []);
+      }
+    };
+    loadIpAllowlist();
+  }, []);
 
   const handleEdit = (setting: SystemSetting) => {
     setEditingKey(setting.key);
@@ -233,6 +250,81 @@ export default function SettingsPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* IP Allowlist Section */}
+      <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] overflow-hidden mb-6">
+        <div className="p-4 border-b border-[var(--border)]">
+          <h2 className="text-lg font-bold">IP Allowlist</h2>
+          <p className="text-sm text-[var(--muted)]">Restrict admin access to specific IP addresses. Empty = allow all.</p>
+        </div>
+        <div className="p-4">
+          {ipError && (
+            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm" role="alert">
+              {ipError}
+            </div>
+          )}
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              value={newIp}
+              onChange={(e) => setNewIp(e.target.value)}
+              placeholder="e.g., 192.168.1.1"
+              className="flex-1 px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-[var(--primary)]"
+            />
+            <button
+              onClick={async () => {
+                if (!newIp.trim()) return;
+                // Basic IP validation
+                const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
+                if (!ipRegex.test(newIp.trim())) {
+                  setIpError('Invalid IP address format');
+                  return;
+                }
+                setIpError('');
+                setIpAllowlist([...ipAllowlist, newIp.trim()]);
+                setNewIp('');
+              }}
+              className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity"
+            >
+              Add IP
+            </button>
+          </div>
+          {ipAllowlist.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">No IPs configured — access from any IP is allowed.</p>
+          ) : (
+            <div className="space-y-2">
+              {ipAllowlist.map((ip, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+                  <span className="font-mono text-sm">{ip}</span>
+                  <button
+                    onClick={() => setIpAllowlist(ipAllowlist.filter((_, i) => i !== idx))}
+                    className="text-red-400 hover:text-red-300 text-sm"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {ipAllowlist.length > 0 && (
+            <button
+              onClick={async () => {
+                setIpSaving(true);
+                setIpError('');
+                const result = await api.updateIPAllowlist('self', ipAllowlist);
+                if (result.error) {
+                  setIpError(result.error);
+                }
+                setIpSaving(false);
+              }}
+              disabled={ipSaving}
+              className="mt-4 px-4 py-2 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {ipSaving ? 'Saving...' : 'Save IP Allowlist'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Add Setting Modal */}

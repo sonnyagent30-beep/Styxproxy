@@ -76,8 +76,8 @@ export default function AdminAnalyticsPage() {
     );
   }
 
-  const filteredFunnel = funnelData?.steps?.filter(s =>
-    eventFilter === 'all' || s.step === eventFilter
+  const filteredFunnel = funnelData?.stages?.filter(s =>
+    eventFilter === 'all' || s.stage === eventFilter
   ) || [];
 
   const maxCount = Math.max(...(filteredFunnel.map(s => s.count) || [1]));
@@ -134,13 +134,13 @@ export default function AdminAnalyticsPage() {
             <div className="space-y-4">
               {filteredFunnel.map((stage) => {
                 const pct = maxCount > 0 ? (stage.count / maxCount) * 100 : 0;
-                const color = EVENT_COLORS[stage.step] || '#6366f1';
+                const color = EVENT_COLORS[stage.stage] || '#6366f1';
 
                 return (
-                  <div key={stage.step} className="space-y-1">
+                  <div key={stage.stage} className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">
-                        {FUNNEL_STAGE_LABELS[stage.step] || stage.step}
+                        {FUNNEL_STAGE_LABELS[stage.stage] || stage.stage}
                       </span>
                       <div className="flex items-center gap-4 text-[var(--muted)]">
                         <span>{stage.count.toLocaleString()} users</span>

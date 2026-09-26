@@ -138,11 +138,92 @@ export interface PaginatedResponse<T> {
 
 // Charon Admin Types
 export interface CharonConversation {
-  conversation_id: string;
+export interface Conversation {
+  id: string;
+  session_id: string;
+  channel: string;
+  status: string;
   last_message: string;
-  last_message_at: string;
   message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+  conversation_id: string;
+export interface Conversation {
+  id: string;
+  session_id: string;
+  channel: string;
+  status: string;
+  last_message: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+  last_message: string;
+export interface Conversation {
+  id: string;
+  session_id: string;
+  channel: string;
+  status: string;
+  last_message: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+  last_message_at: string;
+export interface Conversation {
+  id: string;
+  session_id: string;
+  channel: string;
+  status: string;
+  last_message: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+  message_count: number;
+export interface Conversation {
+  id: string;
+  session_id: string;
+  channel: string;
+  status: string;
+  last_message: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
   escalated: boolean;
+export interface Conversation {
+  id: string;
+  session_id: string;
+  channel: string;
+  status: string;
+  last_message: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+}
+export interface Conversation {
+  id: string;
+  session_id: string;
+  channel: string;
+  status: string;
+  last_message: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Conversation {
+  id: string;
+  session_id: string;
+  channel: string;
+  status: string;
+  last_message: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CharonLogEntry {

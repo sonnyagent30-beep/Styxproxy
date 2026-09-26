@@ -2641,3 +2641,34 @@ async def send_rotation_notification_email(
         html=content.html,
         text=content.text,
     )
+
+async def send_new_admin_notification_email(
+    new_admin_email: str,
+    role: str,
+    created_by: str,
+    superadmin_emails: list[str],
+) -> None:
+    """Send notification to all superadmins when a new admin is created."""
+    for email in superadmin_emails:
+        try:
+            await send_email(
+                to_email=email,
+                subject=f"[Styxproxy] New Admin Created: {new_admin_email}",
+                html_content=f"""
+                <html lang="en">
+                <body style="font-family: Arial, sans-serif; background: #0a0a0a; color: #f5f5f5; padding: 2rem;">
+                    <h2 style="color: #0AD25A;">New Admin Created</h2>
+                    <p>A new admin account has been created:</p>
+                    <ul>
+                        <li><strong>Email:</strong> {new_admin_email}</li>
+                        <li><strong>Role:</strong> {role}</li>
+                        <li><strong>Created by:</strong> {created_by}</li>
+                    </ul>
+                    <p style="color: #737373; font-size: 0.875rem;">This is an automated notification.</p>
+                </body>
+                </html>
+                """,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to send new admin notification to {email}: {e}")

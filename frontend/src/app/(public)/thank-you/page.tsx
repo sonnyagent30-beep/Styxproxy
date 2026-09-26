@@ -34,6 +34,7 @@ interface OrderData {
     upstream_proxy_port?: number;
     expires_at?: string;
   };
+  user_message?: string | null;
   created_at?: string;
   fulfilled_at?: string;
   expires_at?: string;
@@ -881,7 +882,7 @@ function ThankYouContent() {
               <button
                 onClick={() => {
                   setAttempts(0);
-                  setOrder(undefined);
+                  setOrder(null);
                   setNextAction('poll');
                 }}
                 className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors"

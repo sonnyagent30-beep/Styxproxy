@@ -570,6 +570,9 @@ class AdminAuth(Base):
     # Password reset tokens
     reset_token_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     reset_token_expires: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # IP allowlist — list of allowed IP addresses (IPv4/IPv6 strings).
+    # Null/empty = allow all IPs (default).
+    allowed_ips: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
 
 class AdminInvite(Base):
@@ -1123,6 +1126,37 @@ class PermissionChangeRequest(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+
+class RefundApproval(Base):
+    """Two-person rule for large refunds (Theme C).
+
+    When an admin requests a refund above the configured threshold,
+    a row is created here with status='pending'. A second admin (typically
+    a superadmin) must approve or reject via the admin panel. The refund
+    is only processed after approval.
+    """
+
+    __tablename__ = "refund_approvals"
+    __table_args__ = (
+        Index("idx_refund_approvals_status", "status"),
+        Index("idx_refund_approvals_order", "order_id"),
+        Index("idx_refund_approvals_requested_by", "requested_by"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_id: Mapped[str] = mapped_column(String(20), ForeignKey("orders.order_id"), nullable=False)
+    requested_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    requested_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)  # pending | approved | rejected
+    reviewed_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewer_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class RlsPolicy(Base):
     """Single source of truth for which tables have RLS enabled (Theme C).
 
@@ -1329,3 +1363,40 @@ class CharonMessage(Base):
 
     # Relationships
     conversation: Mapped["CharonConversation"] = relationship("CharonConversation", back_populates="messages")
+
+# ─── Admin Webhook System ────────────────────────────────────────────────────
+
+
+class AdminWebhook(Base):
+    """Admin-configured webhooks for real-time event notifications."""
+
+    __tablename__ = "admin_webhooks"
+    __table_args__ = (Index("idx_admin_webhooks_active", "is_active"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    events: Mapped[list[str]] = mapped_column(ARRAY(String(50)), nullable=False)
+    secret_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AdminWebhookLog(Base):
+    """Log of all webhook delivery attempts."""
+
+    __tablename__ = "admin_webhook_logs"
+    __table_args__ = (
+        Index("idx_admin_webhook_logs_webhook", "webhook_id"),
+        Index("idx_admin_webhook_logs_created", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    webhook_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("admin_webhooks.id"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    response_status: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    response_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    success: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

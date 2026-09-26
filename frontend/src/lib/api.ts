@@ -386,6 +386,34 @@ class ApiClient {
     });
   }
 
+  // ============== Bulk Customer Operations ==============
+
+  async bulkBlockCustomers(customerIds: string[], reason: string = 'Blocked by admin'): Promise<ApiResponse<{ success: boolean; processed: number; failed: number }>> {
+    return this.request('/api/admin/customers/bulk-block', {
+      method: 'POST',
+      body: JSON.stringify({ customer_ids: customerIds, reason }),
+    });
+  }
+
+  async bulkUnblockCustomers(customerIds: string[]): Promise<ApiResponse<{ success: boolean; processed: number; failed: number }>> {
+    return this.request('/api/admin/customers/bulk-unblock', {
+      method: 'POST',
+      body: JSON.stringify({ customer_ids: customerIds }),
+    });
+  }
+
+  getCustomersExportUrl(): string {
+    return `${this.baseUrl}/api/admin/customers/export`;
+  }
+
+  getOrdersExportUrl(filters?: { status?: string; customer_phone?: string }): string {
+    const params = new URLSearchParams();
+    if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
+    if (filters?.customer_phone) params.append('customer_phone', filters.customer_phone);
+    const qs = params.toString();
+    return `${this.baseUrl}/api/admin/orders/export${qs ? '?' + qs : ''}`;
+  }
+
   // Charon Admin
   async getCharonConversations(page: number = 1, limit: number = 20): Promise<ApiResponse<{ conversations: CharonConversation[]; total: number; limit: number; offset: number }>> {
     return this.request(`/api/v1/charon/conversations?page=${page}&limit=${limit}`);
@@ -1163,6 +1191,13 @@ class ApiClient {
     return this.request(`/api/admin/auth/team/${action}`, {
       method: 'POST',
       body: JSON.stringify({ phone }),
+    });
+  }
+
+  async updateIPAllowlist(email: string, allowedIps: string[]): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/auth/team/${encodeURIComponent(email)}/ip-allowlist`, {
+      method: 'PUT',
+      body: JSON.stringify({ allowed_ips: allowedIps }),
     });
   }
 

@@ -6,6 +6,21 @@ import api from '@/lib/api';
 
 type Step = 'invite' | 'credentials' | 'totp';
 
+function getPasswordStrength(password: string): { score: number; label: string; color: string } {
+  let score = 0;
+  if (password.length >= 12) score++;
+  if (password.length >= 16) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[a-z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/?]/.test(password)) score++;
+
+  if (score <= 2) return { score: 1, label: 'Weak', color: 'bg-red-500' };
+  if (score <= 4) return { score: 2, label: 'Fair', color: 'bg-yellow-500' };
+  if (score <= 5) return { score: 3, label: 'Good', color: 'bg-blue-500' };
+  return { score: 4, label: 'Strong', color: 'bg-green-500' };
+}
+
 export default function AdminSetupPage() {
   const router = useRouter();
 
@@ -63,8 +78,24 @@ export default function AdminSetupPage() {
       );
       return;
     }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.');
+    if (password.length < 12) {
+      setError('Password must be at least 12 characters.');
+      return;
+    }
+    if (!/[A-Z]/.test(password)) {
+      setError('Password must contain at least one uppercase letter.');
+      return;
+    }
+    if (!/[a-z]/.test(password)) {
+      setError('Password must contain at least one lowercase letter.');
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError('Password must contain at least one number.');
+      return;
+    }
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/?]/.test(password)) {
+      setError('Password must contain at least one special character.');
       return;
     }
     if (password !== confirmPassword) {
@@ -217,13 +248,42 @@ export default function AdminSetupPage() {
                 <input
                   type="password"
                   required
-                  minLength={8}
+                  minLength={12}
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 8 characters"
+                  placeholder="Min. 12 characters"
                   className="w-full px-4 py-3 rounded-xl bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
                 />
+                {password.length > 0 && (
+                  <div className="mt-2">
+                    <div className="flex gap-1 mb-1">
+                      {[1, 2, 3, 4].map((level) => (
+                        <div
+                          key={level}
+                          className={`h-1 flex-1 rounded-full transition-colors ${
+                            getPasswordStrength(password).score >= level
+                              ? getPasswordStrength(password).color
+                              : 'bg-[var(--border)]'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-xs text-[var(--muted)]">
+                      Strength: {getPasswordStrength(password).label}
+                    </p>
+                  </div>
+                )}
+                <div className="mt-2 p-2 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+                  <p className="text-xs text-[var(--muted)] font-medium mb-1">Password requirements:</p>
+                  <ul className="text-xs text-[var(--muted)] space-y-0.5">
+                    <li className={password.length >= 12 ? 'text-green-400' : ''}>✓ At least 12 characters</li>
+                    <li className={/[A-Z]/.test(password) ? 'text-green-400' : ''}>✓ One uppercase letter</li>
+                    <li className={/[a-z]/.test(password) ? 'text-green-400' : ''}>✓ One lowercase letter</li>
+                    <li className={/[0-9]/.test(password) ? 'text-green-400' : ''}>✓ One number</li>
+                    <li className={/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>\/?]/.test(password) ? 'text-green-400' : ''}>✓ One special character</li>
+                  </ul>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2 text-[var(--muted)]">
@@ -232,7 +292,7 @@ export default function AdminSetupPage() {
                 <input
                   type="password"
                   required
-                  minLength={8}
+                  minLength={12}
                   autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
