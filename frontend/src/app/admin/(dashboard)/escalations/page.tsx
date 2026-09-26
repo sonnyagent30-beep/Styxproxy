@@ -24,16 +24,20 @@ export default function AdminEscalationsPage() {
     setLoading(true);
     setError('');
 
-    const result = await api.getEscalations(page, limit, statusFilter === 'all' ? undefined : statusFilter);
+    try {
+      const result = await api.getEscalations(page, limit, statusFilter === 'all' ? undefined : statusFilter);
 
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setEscalations(result.data?.data || []);
-      setTotal(result.data?.total || 0);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setEscalations(result.data?.data || []);
+        setTotal(result.data?.total || 0);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load escalations');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }, [page, statusFilter]);
 
   useEffect(() => {
@@ -67,23 +71,34 @@ export default function AdminEscalationsPage() {
     if (!selectedEscalation || !replyText.trim()) return;
 
     setSubmitting(true);
-    const result = await api.respondToEscalation(selectedEscalation.id, replyText);
+    try {
+      const result = await api.respondToEscalation(selectedEscalation.id, replyText);
 
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setReplySent(true);
-      setReplyText('');
-      loadData();
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setReplySent(true);
+        setReplyText('');
+        loadData();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to send reply');
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   const handleClose = async (escalation: CharonEscalation) => {
     // Close by sending a reply (empty reply marks as closed on backend)
-    const result = await api.respondToEscalation(escalation.id, '[CLOSED]');
-    if (!result.error) {
-      loadData();
+    try {
+      const result = await api.respondToEscalation(escalation.id, '[CLOSED]');
+      if (result.error) {
+        setError(result.error);
+      } else {
+        loadData();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to close escalation');
     }
   };
 
@@ -129,7 +144,7 @@ export default function AdminEscalationsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={() => setError('')} className="ml-4 text-red-300 hover:text-white">
             Dismiss
@@ -230,11 +245,11 @@ export default function AdminEscalationsPage() {
 
       {/* Detail Modal */}
       {selectedEscalation && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedEscalation(null)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedEscalation(null)} role="dialog" aria-modal="true" aria-labelledby="escalation-detail-title">
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Escalation Details</h2>
+                <h2 className="text-xl font-bold" id="escalation-detail-title">Escalation Details</h2>
                 <button onClick={() => setSelectedEscalation(null)} className="p-2 hover:bg-[var(--card-hover)] rounded-lg">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -35,21 +35,24 @@ export default function AdminConversationsPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<ConversationDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState<'all' | 'escalated' | 'active' | 'rated'>('all');
   const [rating, setRating] = useState<{ [id: string]: number }>({});
 
   const loadConversations = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
-      let url = '/api/v1/charon/conversations?limit=100';
-      if (filter === 'escalated') url += '&escalated=true';
-      if (filter === 'active') url += '&status=active';
-      const result = await api.fetchJson<{ conversations: Conversation[] }>(url);
+      const result = await api.getCharonConversations(1, 100);
       if (result.data) {
-        setConversations(result.data.conversations);
+        let convs = result.data.conversations || [];
+        if (filter === 'escalated') convs = convs.filter(c => c.escalated);
+        if (filter === 'active') convs = convs.filter(c => (c as any).status === 'active');
+        if (filter === 'rated') convs = convs.filter(c => c.rating != null);
+        setConversations(convs);
       }
-    } catch {
-      // silent
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load conversations');
     } finally {
       setLoading(false);
     }
@@ -58,22 +61,62 @@ export default function AdminConversationsPage() {
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
   const selectConversation = async (id: string) => {
-    const result = await api.fetchJson<ConversationDetail>(`/api/v1/charon/conversations/${id}`);
-    if (result.data) setSelected(result.data);
+    try {
+      // Fetch all conversations and find the one we need
+      // (no single-conversation API endpoint available)
+      const result = await api.getCharonConversations(1, 100);
+      if (result.data) {
+        const found = (result.data.conversations || []).find((c: Conversation) => c.conversation_id === id);
+        if (found) {
+          // For detail view, we need to fetch logs for this conversation
+          const logsResult = await api.getCharonLogs(100, 0, id);
+          if (logsResult.data) {
+            setSelected({
+              conversation: found as any,
+              messages: (logsResult.data.logs || []).map((log: any) => ({
+                id: log.conversation_id + '-' + log.ts,
+                role: 'assistant',
+                content: log.response || log.user_message,
+                tool_calls: log.tool_calls || null,
+                tokens_used: 0,
+                ts: log.ts,
+              })),
+            });
+          }
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load conversation');
+    }
   };
 
   const submitRating = async (id: string, value: number) => {
-    await api.fetchJson(`/api/v1/charon/conversations/${id}/rate`, {
-      method: 'POST',
-      body: JSON.stringify({ rating: value }),
-    });
-    setRating(prev => ({ ...prev, [id]: value }));
-    loadConversations();
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') || '' : '';
+      await fetch(`/api/v1/charon/conversations/${id}/rate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ rating: value }),
+      });
+      setRating(prev => ({ ...prev, [id]: value }));
+      loadConversations();
+    } catch (e) {
+      // silent
+    }
   };
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Charon Conversations</h1>
+
+      {error && (
+        <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
+          {error}
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex gap-2 mb-4">

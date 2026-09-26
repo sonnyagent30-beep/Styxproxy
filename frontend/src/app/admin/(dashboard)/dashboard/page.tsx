@@ -101,11 +101,11 @@ export default function AdminDashboardPage() {
         // Defensive: /api/v1/health sometimes returns degraded payloads
         // without the full services object. Treat partial as unknown rather
         // than crashing the dashboard.
-        const services = h.services ?? {};
+        const services = (h.services ?? {}) as Record<string, unknown>;
 
       // Circuit breakers
-      if (healthRes.data && 'circuit_breakers' in healthRes.data) {
-        setCircuitBreakers((healthRes.data as any).circuit_breakers || {});
+      if ('circuit_breakers' in h) {
+        setCircuitBreakers((h as Record<string, unknown>).circuit_breakers as CircuitBreakerState || {});
       }
         setHealth({
           status: h.status ?? 'unknown',
@@ -132,17 +132,22 @@ export default function AdminDashboardPage() {
   const handleResetCharon = async () => {
     setResetting(true);
     setResetMessage(null);
-    const result = await api.resetCharon();
-    if (result.error) {
-      setResetMessage({ type: 'error', text: result.error });
-    } else {
-      setResetMessage({ type: 'success', text: result.data?.message || 'Charon reset' });
-      setResetConfirm(false);
-      // Refresh stats after reset
-      const charonRes = await api.getCharonStats();
-      if (charonRes.data) setCharonStats(charonRes.data);
+    try {
+      const result = await api.resetCharon();
+      if (result.error) {
+        setResetMessage({ type: 'error', text: result.error });
+      } else {
+        setResetMessage({ type: 'success', text: result.data?.message || 'Charon reset' });
+        setResetConfirm(false);
+        // Refresh stats after reset
+        const charonRes = await api.getCharonStats();
+        if (charonRes.data) setCharonStats(charonRes.data);
+      }
+    } catch (e) {
+      setResetMessage({ type: 'error', text: e instanceof Error ? e.message : 'Failed to reset Charon' });
+    } finally {
+      setResetting(false);
     }
-    setResetting(false);
   };
 
   const formatNGN = (amount: number) => {
@@ -190,7 +195,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={loadAll} className="ml-4 text-red-300 hover:text-white">
             Retry
@@ -361,6 +366,7 @@ export default function AdminDashboardPage() {
                 ? 'bg-green-500/10 border border-green-500/20 text-green-400'
                 : 'bg-red-500/10 border border-red-500/20 text-red-400'
             }`}
+            role={resetMessage.type === 'success' ? 'status' : 'alert'}
           >
             {resetMessage.text}
           </div>

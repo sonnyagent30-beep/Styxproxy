@@ -137,31 +137,39 @@ export default function AdminOrdersPage() {
   const handleRefund = async () => {
     if (!refundOrder || !refundReason.trim()) return;
     
-    const result = await api.refundOrder(refundOrder.order_id, refundReason);
-    
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setShowRefundModal(false);
-      setRefundOrder(null);
-      setRefundReason('');
-      loadData();
-      if (selectedOrder?.order_id === refundOrder.order_id) {
-        setSelectedOrder({ ...refundOrder, status: 'refunded' });
+    try {
+      const result = await api.refundOrder(refundOrder.order_id, refundReason);
+      
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setShowRefundModal(false);
+        setRefundOrder(null);
+        setRefundReason('');
+        loadData();
+        if (selectedOrder?.order_id === refundOrder.order_id) {
+          setSelectedOrder({ ...refundOrder, status: 'refunded' });
+        }
       }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to process refund');
     }
   };
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
-    const result = await api.updateOrderStatus(orderId, { status: newStatus });
-    
-    if (result.error) {
-      setError(result.error);
-    } else {
-      loadData();
-      if (selectedOrder?.order_id === orderId) {
-        setSelectedOrder({ ...selectedOrder, status: newStatus as OrderStatus });
+    try {
+      const result = await api.updateOrderStatus(orderId, { status: newStatus });
+      
+      if (result.error) {
+        setError(result.error);
+      } else {
+        loadData();
+        if (selectedOrder?.order_id === orderId) {
+          setSelectedOrder({ ...selectedOrder, status: newStatus as OrderStatus });
+        }
       }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update order status');
     }
   };
 
@@ -226,7 +234,7 @@ export default function AdminOrdersPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={() => setError('')} className="ml-4 text-red-300 hover:text-white">
             Dismiss

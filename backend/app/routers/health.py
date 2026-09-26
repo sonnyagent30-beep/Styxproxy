@@ -333,7 +333,7 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
         },
         # Charon routing policy:
         "charon_routing": {
-            "primary": "groq",
+            "primary": "longcat",
             "fallback": "none",
         },
         # Hint for the frontend: when Charon is impaired, show a fallback

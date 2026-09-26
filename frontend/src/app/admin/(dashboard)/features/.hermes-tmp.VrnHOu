@@ -28,9 +28,9 @@ export default function AdminFeaturesPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
-  const loadData = useCallback(async () => {
+  const loadData = async () => {
     setLoading(true);
     
     const meResult = await api.getAdminMe();

@@ -16,15 +16,19 @@ export default function ProviderCostsPage() {
     setLoading(true);
     setError('');
     
-    const result = await api.getProviderCosts();
-    
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setData(result.data || null);
+    try {
+      const result = await api.getProviderCosts();
+      
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setData(result.data || null);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load provider costs');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -86,7 +90,7 @@ export default function ProviderCostsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={() => setError('')} className="ml-4 text-red-300 hover:text-white">
             Dismiss
