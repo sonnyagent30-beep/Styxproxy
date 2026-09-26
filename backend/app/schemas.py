@@ -622,7 +622,7 @@ class CredentialResponse(BaseModel):
     protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
-    dante_port: Optional[int]
+    socks_port: Optional[int]
     status: str
     expires_at: Optional[datetime]
 
