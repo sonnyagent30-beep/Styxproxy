@@ -280,6 +280,72 @@ def _call_openai_compatible(
     return _parse_openai_compatible_response(resp, model)
 
 
+async def stream_llm(
+    messages: list[dict],
+    max_tokens: int = 600,
+):
+    """Stream LLM response chunks via OpenAI-compatible SSE API.
+
+    Yields text chunks as they arrive. If the provider does not support
+    streaming or the API key is missing, yields nothing (empty generator)
+    so callers can fall back to non-streaming mode.
+    """
+    longcat_key = os.getenv("LONGCAT_API_KEY", "").strip()
+    if not longcat_key:
+        return
+
+    longcat_model = os.getenv("LONGCAT_MODEL", "LongCat-2.0-Preview")
+    longcat_base = os.getenv("LONGCAT_BASE_URL", "https://api.longcat.ai/openai/v1").rstrip("/")
+    timeout = _get_timeout()
+
+    headers = {
+        "Authorization": f"Bearer {longcat_key}",
+        "Content-Type": "application/json",
+    }
+    payload: dict = {
+        "model": longcat_model,
+        "max_tokens": max_tokens,
+        "temperature": 0.2,
+        "stream": True,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            *messages,
+        ],
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=5.0, read=timeout, write=10.0, pool=5.0)) as client:
+            async with client.stream(
+                "POST",
+                f"{longcat_base}/chat/completions",
+                json=payload,
+                headers=headers,
+            ) as resp:
+                if resp.status_code >= 400:
+                    body = await resp.aread()
+                    logger.warning("LLM streaming API error %d: %s", resp.status_code, body[:300])
+                    return
+
+                async for line in resp.aiter_lines():
+                    line = line.strip()
+                    if not line or not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str == "[DONE]":
+                        break
+                    try:
+                        data = json.loads(data_str)
+                        delta = data.get("choices", [{}])[0].get("delta", {})
+                        chunk = delta.get("content", "")
+                        if chunk:
+                            yield chunk
+                    except (json.JSONDecodeError, KeyError, IndexError):
+                        continue
+    except Exception as exc:
+        logger.warning("LLM streaming transport error: %s", exc)
+        return
+
+
 def _parse_openai_compatible_response(resp, model: str) -> LLMResponse:
     """Parse a standard OpenAI-style chat.completion response, with
     error handling and Sentry capture. Vendor-agnostic.

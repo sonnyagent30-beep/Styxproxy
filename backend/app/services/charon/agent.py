@@ -5,7 +5,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -378,6 +378,40 @@ async def reply(
             error="conversation_timeout",
         )
 
+    # ── 0b. Inactivity timeout (30 min) ─────────────────────────────
+    INACTIVITY_TIMEOUT_MIN = 30
+    try:
+        from app.database import async_session
+        from app.models import CharonConversation
+        from sqlalchemy import select
+
+        async with async_session() as session:
+            stmt = select(CharonConversation.last_activity_at).where(
+                CharonConversation.session_id == conversation_id
+            )
+            result = await session.execute(stmt)
+            last_activity = result.scalar_one_or_none()
+            if last_activity:
+                now = datetime.now(timezone.utc)
+                if last_activity.tzinfo is None:
+                    last_activity = last_activity.replace(tzinfo=timezone.utc)
+                elapsed = (now - last_activity).total_seconds()
+                if elapsed > INACTIVITY_TIMEOUT_MIN * 60:
+                    await _save_context_summary(
+                        conversation_id=conversation_id,
+                        summary="",
+                        message_count=0,
+                        last_intent=None,
+                        last_topics=None,
+                        customer_email=customer_email,
+                        customer_phone=customer_phone,
+                    )
+                    messages = [Message(role="user", content=user_message)]
+                    history_dicts = []
+                    logger.info("Conversation reset due to inactivity (%.0f min)", elapsed / 60)
+    except Exception as exc:
+        logger.warning("Failed to check inactivity timeout: %s", exc)
+
     # ── 1. Scenario matcher ──────────────────────────────────────────
     scenario = scenarios.match(user_message)
     if scenario:
@@ -387,6 +421,19 @@ async def reply(
         log_ctx["escalated"] = escalate
         _persist_log(log_ctx)
         return Reply(text=reply_action.text, scenario_id=scenario.id, escalated=escalate, experiment_variant=variant.value)
+
+    # ── 1a. Proactive outreach triggers ──────────────────────────────
+    proactive_msg = await check_proactive_triggers(
+        conversation_id, page_context or {},
+        customer_email=customer_email,
+        customer_phone=customer_phone,
+        customer_name=customer_name,
+    )
+    if proactive_msg:
+        log_ctx["proactive"] = True
+        log_ctx["response"] = proactive_msg
+        _persist_log(log_ctx)
+        return Reply(text=proactive_msg, experiment_variant=variant.value)
 
     # ── 1b. Per-conversation budget cap ─────────────────────────────
     MAX_TOKENS_PER_CONVERSATION = 8000
@@ -399,7 +446,10 @@ async def reply(
         )
 
     # ── 2. LLM with knowledge + tools ──────────────────────────────
-    context_chunks = knowledge.search(user_message, top_k=4)
+    # Feedback loop: if conversation was rated < 3, add extra context
+    conv_rating = await _get_conversation_rating(conversation_id)
+    top_k = 7 if (conv_rating is not None and conv_rating < 3) else 4
+    context_chunks = knowledge.search(user_message, top_k=top_k)
     context_text = knowledge.format_context(context_chunks)
     
     context_summary = await _load_context_summary(conversation_id)
@@ -414,6 +464,9 @@ async def reply(
 
     # ── NEW: Customer context for personalization ───────────────────
     customer_ctx = await _get_customer_context_summary(customer_phone)
+    
+    # ── Multi-language support ──────────────────────────────────────
+    lang_note = detect_language(user_message)
     
     # Charon personality + formatting (compact)
     personality_block = (
@@ -457,6 +510,10 @@ async def reply(
     # Store channel_user_id in context for tool calls
     if channel_user_id:
         system_block += f"\n\nChannel user ID (for create_order): {channel_user_id}"
+
+    # Multi-language: append language note to system prompt
+    if lang_note:
+        system_block += f"\n\n{lang_note}"
 
     # ── 2a. Try a tool-calling loop (multi-step) ────────────────────
     tool_call_result = await _try_tool_call_loop(
@@ -911,3 +968,134 @@ async def _save_context_summary(
             await session.commit()
     except Exception as exc:
         logger.warning("Failed to save context summary: %s", exc)
+
+
+# ─── Proactive Outreach ─────────────────────────────────────────────────────
+
+async def check_proactive_triggers(
+    conversation_id: str,
+    page_context: dict,
+    customer_email: str | None = None,
+    customer_phone: str | None = None,
+    customer_name: str | None = None,
+) -> str | None:
+    """Check proactive outreach triggers based on page context and customer state.
+
+    Returns a proactive message string if a trigger fires, None otherwise.
+    """
+    if not page_context:
+        return None
+
+    page_url = page_context.get("page_url", "") or page_context.get("url", "")
+    page_type = page_context.get("page_type", "")
+    time_on_page = page_context.get("time_on_page_seconds", 0) or page_context.get("duration_seconds", 0)
+    event_type = page_context.get("event_type", "") or page_context.get("trigger", "")
+
+    # Trigger a) checkout page >30s
+    if ("checkout" in page_url or "cart" in page_url or page_type == "checkout") and time_on_page > 30:
+        return "Need help choosing? I can compare plans for you."
+
+    # Trigger b) plan detail page
+    if page_type == "plan_detail" or ("plan" in page_url and ("detail" in page_url or "view" in page_url)):
+        return "Want me to explain how this plan works?"
+
+    # Trigger c) payment just completed
+    if event_type == "payment_completed" or page_context.get("payment_completed"):
+        return "Your order is confirmed! Want setup instructions?"
+    if "payment" in page_url and "success" in page_url:
+        return "Your order is confirmed! Want setup instructions?"
+
+    # Trigger d) proxy expiring <7 days — use detect_renewal tool
+    if customer_phone:
+        try:
+            renew_result = await tools.registry.call("detect_renewal", customer_phone=customer_phone)
+            if renew_result.ok and renew_result.data.get("expiring_soon"):
+                return "Your proxy expires soon. Want to renew?"
+        except Exception:
+            pass
+
+    return None
+
+
+# ─── Conversation Rating (Feedback Loop) ───────────────────────────────────
+
+async def _get_conversation_rating(conversation_id: str) -> int | None:
+    """Get the rating for a conversation (1-5 stars). Returns None if unrated."""
+    try:
+        from app.database import async_session
+        from app.models import CharonConversation
+        from sqlalchemy import select
+
+        async with async_session() as session:
+            stmt = select(CharonConversation.rating).where(
+                CharonConversation.session_id == conversation_id
+            )
+            result = await session.execute(stmt)
+            rating = result.scalar_one_or_none()
+            return rating if rating is not None else None
+    except Exception as exc:
+        logger.warning("Failed to get conversation rating: %s", exc)
+        return None
+
+
+# ─── Multi-language Detection ──────────────────────────────────────────────
+
+_LANG_RANGES = [
+    ("Chinese", r"[\u4e00-\u9fff]"),
+    ("Japanese", r"[\u3040-\u309f\u30a0-\u30ff]"),
+    ("Korean", r"[\uac00-\ud7af]"),
+    ("Arabic", r"[\u0600-\u06ff]"),
+    ("Russian", r"[\u0400-\u04ff]"),
+    ("Hindi", r"[\u0900-\u097f]"),
+    ("Thai", r"[\u0e00-\u0e7f]"),
+    ("Greek", r"[\u0370-\u03ff]"),
+    ("Hebrew", r"[\u0590-\u05ff]"),
+]
+
+_LANG_WORDS = {
+    "Spanish": {"el", "la", "los", "las", "un", "una", "que", "por", "con", "para", "es", "está", "como", "pero", "más", "este", "esta", "no", "sí", "también", "ya", "cuando", "donde", "porque", "quien", "cual", "estoy", "soy", "eres", "somos", "son", "fui", "fue", "ser", "estar", "haber", "tener", "hacer", "poder", "decir", "ir", "ver", "dar", "saber", "querer", "llegar", "pasar", "deber", "poner", "parecer", "quedar", "creer", "hablar", "llevar", "dejar", "seguir", "encontrar", "llamar", "venir", "pensar", "salir", "volver", "tomar", "conocer", "vivir", "sentir", "tratar", "mirar", "contar", "empezar", "esperar", "buscar", "existir", "entrar", "trabajar", "escribir", "perder", "entender", "pedir", "recibir", "recordar", "terminar", "permitir", "aparecer", "conseguir", "comenzar", "servir", "sacar", "necesitar", "mantener", "resultar", "leer", "caer", "cambiar", "presentar", "crear", "abrir", "considerar", "oír", "acabar", "convertir", "ganar", "formar", "traer", "partir", "morir", "aceptar", "realizar", "suponer", "comprender", "lograr", "explicar", "preguntar", "tocar", "reconocer", "estudiar", "alcanzar", "nacer", "dirigir", "correr", "utilizar", "pagar", "ayudar", "jugar", "escuchar", "cumplir", "ofrecer", "descubrir", "levantar", "intentar", "usar"},
+    "French": {"le", "la", "les", "un", "une", "des", "et", "est", "sont", "je", "tu", "il", "elle", "nous", "vous", "ils", "elles", "me", "te", "se", "leur", "ne", "pas", "plus", "si", "en", "qui", "que", "quoi", "dont", "où", "quand", "comment", "pourquoi", "combien", "quel", "quelle", "ce", "cet", "cette", "ces", "avoir", "être", "faire", "dire", "aller", "voir", "savoir", "pouvoir", "falloir", "vouloir", "venir", "devoir", "prendre", "trouver", "donner", "parler", "aimer", "passer", "demander", "tenir", "sembler", "laisser", "rester", "penser", "entendre", "regarder", "répondre", "rendre", "attendre", "sortir", "vivre", "reprendre", "connaître", "croire", "sentir", "atteindre", "revenir", "comprendre", "mettre", "porter", "devenir", "appeler", "partir", "décider", "arriver", "servir", "paraître", "reposer", "retourner", "sembler"},
+    "German": {"der", "die", "das", "ein", "eine", "und", "ist", "sind", "ich", "du", "er", "sie", "es", "wir", "ihr", "mich", "dich", "ihn", "uns", "euch", "mein", "dein", "sein", "ihr", "unser", "euer", "nicht", "kein", "keine", "auch", "nur", "schon", "noch", "sehr", "hier", "dort", "wo", "was", "wer", "wann", "warum", "wie", "welch", "welche", "dieser", "diese", "dieses", "haben", "sein", "werden", "können", "müssen", "wollen", "sollen", "dürfen", "lassen", "machen", "geben", "kommen", "sagen", "wissen", "sehen", "stehen", "finden", "bleiben", "liegen", "denken", "nehmen", "halten", "bringen", "leben", "fahren", "legen", "zeigen", "führen", "sprechen", "spielen", "laufen", "tragen", "stellen", "beginnen", "kennen", "gelten"},
+    "Portuguese": {"o", "a", "os", "as", "um", "uma", "e", "é", "são", "eu", "tu", "ele", "ela", "nós", "vós", "eles", "elas", "me", "te", "se", "não", "sim", "também", "já", "ainda", "mais", "menos", "muito", "pouco", "bem", "mal", "aqui", "ali", "onde", "quando", "como", "porque", "quanto", "quem", "qual", "quais", "este", "esta", "esse", "essa", "ser", "estar", "ter", "haver", "fazer", "poder", "dizer", "ir", "ver", "dar", "saber", "querer", "chegar", "passar", "dever", "pôr", "parecer", "ficar", "crer", "falar", "levar", "deixar", "seguir", "encontrar", "chamar", "vir", "pensar", "sair", "voltar", "tomar", "conhecer", "viver", "sentir", "tratar", "olhar", "contar", "começar", "esperar", "buscar", "existir", "entrar", "trabalhar", "escrever", "perder", "entender", "pedir", "receber", "lembrar", "terminar", "permitir", "aparecer", "conseguir", "servir", "sacar", "necessitar", "manter", "resultar", "ler", "cair", "mudar", "apresentar", "criar", "abrir", "considerar", "ouvir", "acabar", "converter", "ganhar", "formar", "trazer", "partir", "morrer", "aceitar", "realizar", "supor", "compreender", "lograr", "explicar", "perguntar", "tocar", "reconhecer", "estudar", "alcançar", "nascer", "dirigir", "correr", "utilizar", "pagar", "ajudar", "jogar", "escutar", "cumprir", "ofrecer", "descobrir", "levantar", "tentar", "usar"},
+    "Italian": {"il", "lo", "la", "i", "gli", "le", "un", "uno", "una", "e", "è", "sono", "io", "tu", "lui", "lei", "noi", "voi", "loro", "mi", "ti", "si", "ci", "vi", "mio", "tuo", "suo", "nostro", "vostro", "non", "sì", "anche", "già", "ancora", "più", "meno", "molto", "poco", "bene", "male", "qui", "lì", "dove", "quando", "come", "perché", "quanto", "chi", "quale", "quali", "questo", "questa", "quello", "quella", "essere", "avere", "fare", "dire", "andare", "vedere", "sapere", "potere", "volere", "dovere", "venire", "prendere", "trovare", "dare", "parlare", "amare", "passare", "chiedere", "tenere", "sembrare", "lasciare", "restare", "pensare", "sentire", "guardare", "rispondere", "rendere", "attendere", "uscire", "vivere", "riprendere", "conoscere", "credere", "arrivare", "servire", "apparire", "riposare", "tornare", "cominciare", "permettere", "spiegare", "chiamare", "partire", "decidere", "riuscire", "finire", "mancare", "leggere", "cadere", "cambiare", "presentare", "creare", "aprire", "considerare", "compiere", "convertire", "vincere", "formare", "portare", "morire", "accettare", "realizzare", "supporre", "comprendere", "raggiungere", "toccare", "riconoscere", "studiare", "nascere", "dirigere", "correre", "utilizzare", "pagare", "aiutare", "giocare", "ascoltare", "offrire", "scoprire", "provare", "usare"},
+}
+
+
+def detect_language(text: str) -> str | None:
+    """Detect if text is non-English using heuristics.
+
+    Returns a language note string for the system prompt if non-English
+    detected, or None if the text appears to be English.
+    """
+    if not text or len(text.strip()) < 3:
+        return None
+
+    text_lower = text.lower()
+    words = set(re.findall(r"[a-zà-ÿ]+", text_lower))
+
+    # Check character-range heuristics first (CJK, Arabic, Cyrillic, etc.)
+    for lang_name, pattern in _LANG_RANGES:
+        if re.search(pattern, text):
+            return _lang_note(lang_name)
+
+    # Check word-count heuristics for European languages
+    lang_scores: dict[str, int] = {}
+    for lang_name, lang_words in _LANG_WORDS.items():
+        overlap = len(words & lang_words)
+        if overlap >= 3:
+            lang_scores[lang_name] = overlap
+
+    if lang_scores:
+        best_lang = max(lang_scores, key=lambda k: lang_scores[k])
+        if lang_scores[best_lang] >= 3:
+            return _lang_note(best_lang)
+
+    return None
+
+
+def _lang_note(language: str) -> str:
+    """Generate a system-prompt note for the detected language."""
+    return (
+        f"User is writing in {language}. "
+        f"Respond in the same language if possible."
+    )

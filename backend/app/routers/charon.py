@@ -129,6 +129,8 @@ class ChatReplyRequest(BaseModel):
     history: list[ChatMessage] = Field(default_factory=list)
     customer_email: Optional[str] = Field(default=None, description="Customer email for escalation notifications")
     customer_phone: Optional[str] = Field(default=None, description="Customer phone for escalation notifications")
+    customer_name: Optional[str] = Field(default=None, description="Customer name for escalation notifications")
+    page_context: Optional[dict] = Field(default=None, description="Page context for escalation notifications")
 
 
 class ToolCallRecord(BaseModel):
@@ -168,6 +170,7 @@ class CharonLogEntry(BaseModel):
 
 
 @router.post("/reply", response_model=ChatReplyResponse)
+@limiter.limit("30/minute")
 async def post_reply(
     payload: ChatReplyRequest,
     request: Request,
@@ -235,15 +238,66 @@ async def post_reply(
     if result.scenario_id and not result.error:
         CharonMetrics.mark_scenario_hit(result.scenario_id)
 
-    # Send escalation email if the conversation was escalated
+    # Send enhanced escalation email if the conversation was escalated
     if result.escalated and (payload.customer_email or payload.customer_phone):
-        # Build history summary for the email
-        history_summary = "\n".join(f"{m.role}: {m.content[:200]}" for m in history[-5:])
+        # Build full conversation context (last 10 messages) for the email
+        history_lines = []
+        for m in history[-10:]:
+            role_label = m.role.capitalize()
+            content_preview = m.content[:500] if len(m.content) > 500 else m.content
+            history_lines.append(f"[{role_label}]: {content_preview}")
+        history_summary = "\n".join(history_lines) if history_lines else "(no prior messages)"
+
+        # Build customer info block
+        customer_info_parts = []
+        if payload.customer_name:
+            customer_info_parts.append(f"Name: {payload.customer_name}")
+        if payload.customer_email:
+            customer_info_parts.append(f"Email: {payload.customer_email}")
+        if payload.customer_phone:
+            customer_info_parts.append(f"Phone: {payload.customer_phone}")
+        customer_info = "\n".join(customer_info_parts) if customer_info_parts else "Not provided"
+
+        # Build page context block
+        page_ctx_str = ""
+        if payload.page_context:
+            page_ctx_str = "\n".join(f"  {k}: {v}" for k, v in payload.page_context.items())
+        else:
+            page_ctx_str = "  (none)"
+
+        # Determine escalation reason
+        escalation_reason = result.error or "LLM could not resolve the query"
+
+        # Build enhanced email body
+        enhanced_body = f"""Charon Escalation Alert
+
+CONVERSATION ID: {payload.conversation_id or "unknown"}
+CHANNEL: {payload.channel}
+
+─── CUSTOMER INFO ───
+{customer_info}
+
+─── PAGE CONTEXT ───
+{page_ctx_str}
+
+─── ESCALATION REASON ───
+{escalation_reason}
+
+─── LATEST USER MESSAGE ───
+{payload.user_message}
+
+─── CONVERSATION HISTORY (last 10 messages) ───
+{history_summary}
+
+---
+This is an automated alert from Styxproxy's Charon AI assistant.
+Please follow up with the customer within 2 hours.
+"""
         await send_charon_escalation_email(
             conversation_id=payload.conversation_id or "unknown",
             customer_email=payload.customer_email,
             customer_phone=payload.customer_phone,
-            message=payload.user_message,
+            message=enhanced_body,
             history_summary=history_summary,
         )
     
@@ -274,6 +328,225 @@ async def post_reply(
         tokens_used=result.tokens_used,
         error=result.error,
     )
+
+
+@router.post("/reply/stream")
+@limiter.limit("20/minute")
+async def post_reply_stream(
+    payload: ChatReplyRequest,
+    request: Request,
+    _public: None = Depends(public_only),
+):
+    """SSE streaming chat reply.
+
+    Calls agent.reply() and streams the response as Server-Sent Events.
+    If the LLM supports native streaming (stream_llm in llm.py), uses it.
+    Otherwise, simulates streaming by splitting the full response into chunks.
+    """
+    # Per-customer rate limit
+    allowed, remaining, reset = await customer_limiter.check(request)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded. Try again in {reset} seconds.",
+            headers={"Retry-After": str(reset)},
+        )
+
+    if not payload.user_message.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="user_message cannot be empty",
+        )
+
+    # Check daily cost budget
+    budget_allowed, spend, budget = CharonMetrics.check_budget()
+    if not budget_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Charon daily budget exhausted ({spend:.4f}/{budget:.4f} USD). Resets at midnight.",
+        )
+
+    CharonMetrics.mark_request(payload.channel)
+
+    history = [
+        Message(role=m.role, content=m.content) for m in payload.history if m.role in ("system", "user", "assistant")
+    ]
+
+    # Check if native LLM streaming is available
+    from app.services.charon.llm import stream_llm
+
+    async def event_generator():
+        """Yield SSE events: data: {"delta": "chunk"} and data: {"done": true}."""
+        try:
+            # Try native streaming first
+            llm_stream = stream_llm(
+                messages=[{"role": "user", "content": payload.user_message}],
+                max_tokens=500,
+            )
+            got_chunks = False
+            async for chunk in llm_stream:
+                got_chunks = True
+                yield f'data: {json.dumps({"delta": chunk})}\n\n'
+
+            if got_chunks:
+                yield f'data: {json.dumps({"done": True})}\n\n'
+                return
+
+            # Fallback: get full response and simulate streaming
+            result = await agent.reply(
+                channel=payload.channel,
+                conversation_id=payload.conversation_id or "",
+                user_message=payload.user_message,
+                history=history,
+                customer_email=payload.customer_email,
+                customer_phone=payload.customer_phone,
+                customer_name=payload.customer_name,
+                page_context=payload.page_context,
+            )
+
+            # Record metrics
+            if result.escalated:
+                CharonMetrics.mark_escalated(reason=result.error or "scenario_escalate")
+            if result.error:
+                CharonMetrics.mark_llm_error(result.error)
+            elif result.tokens_used:
+                CharonMetrics.mark_success(result.tokens_used, 0)
+                CharonMetrics.record_spend(result.tokens_used)
+
+            # Send escalation email if needed
+            if result.escalated and (payload.customer_email or payload.customer_phone):
+                history_lines = []
+                for m in history[-10:]:
+                    role_label = m.role.capitalize()
+                    content_preview = m.content[:500] if len(m.content) > 500 else m.content
+                    history_lines.append(f"[{role_label}]: {content_preview}")
+                history_summary = "\n".join(history_lines) if history_lines else "(no prior messages)"
+
+                customer_info_parts = []
+                if payload.customer_name:
+                    customer_info_parts.append(f"Name: {payload.customer_name}")
+                if payload.customer_email:
+                    customer_info_parts.append(f"Email: {payload.customer_email}")
+                if payload.customer_phone:
+                    customer_info_parts.append(f"Phone: {payload.customer_phone}")
+                customer_info = "\n".join(customer_info_parts) if customer_info_parts else "Not provided"
+
+                page_ctx_str = ""
+                if payload.page_context:
+                    page_ctx_str = "\n".join(f"  {k}: {v}" for k, v in payload.page_context.items())
+                else:
+                    page_ctx_str = "  (none)"
+
+                escalation_reason = result.error or "LLM could not resolve the query"
+
+                enhanced_body = f"""Charon Escalation Alert
+
+CONVERSATION ID: {payload.conversation_id or "unknown"}
+CHANNEL: {payload.channel}
+
+─── CUSTOMER INFO ───
+{customer_info}
+
+─── PAGE CONTEXT ───
+{page_ctx_str}
+
+─── ESCALATION REASON ───
+{escalation_reason}
+
+─── LATEST USER MESSAGE ───
+{payload.user_message}
+
+─── CONVERSATION HISTORY (last 10 messages) ───
+{history_summary}
+
+---
+This is an automated alert from Styxproxy's Charon AI assistant.
+Please follow up with the customer within 2 hours.
+"""
+                await send_charon_escalation_email(
+                    conversation_id=payload.conversation_id or "unknown",
+                    customer_email=payload.customer_email,
+                    customer_phone=payload.customer_phone,
+                    message=enhanced_body,
+                    history_summary=history_summary,
+                )
+
+            # Persist assistant message
+            await agent._persist_message(
+                payload.conversation_id or "unknown",
+                payload.channel,
+                "assistant",
+                result.text,
+                tool_calls=result.tool_calls,
+                tokens_used=result.tokens_used,
+            )
+
+            # Simulate streaming by splitting into chunks
+            full_text = result.text
+            chunk_size = max(1, len(full_text) // 20)  # ~20 chunks
+            for i in range(0, len(full_text), chunk_size):
+                chunk = full_text[i:i + chunk_size]
+                if chunk:
+                    yield f'data: {json.dumps({"delta": chunk})}\n\n'
+                    await asyncio.sleep(0.05)  # Small delay for visual effect
+
+            yield f'data: {json.dumps({"done": True})}\n\n'
+
+        except Exception as e:
+            logger.error(f"Streaming error: {e}", exc_info=True)
+            yield f'data: {json.dumps({"error": str(e)})}\n\n'
+            yield f'data: {json.dumps({"done": True})}\n\n'
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/trigger-proactive")
+async def trigger_proactive(request: Request):
+    """Trigger proactive outreach based on page events.
+
+    Calls agent.check_proactive_triggers() to determine if a proactive
+    message should be shown to the user based on their browsing behavior.
+    """
+    _public: None = Depends(public_only)
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON body",
+        )
+
+    session_id = body.get("session_id", "")
+    page_url = body.get("page_url", "")
+    trigger_type = body.get("trigger_type", "")
+    metadata = body.get("metadata", {})
+
+    if not session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="session_id is required",
+        )
+
+    # Import check_proactive_triggers from agent
+    from app.services.charon.agent import check_proactive_triggers
+
+    result = await check_proactive_triggers(
+        session_id=session_id,
+        page_url=page_url,
+        trigger_type=trigger_type,
+        metadata=metadata,
+    )
+
+    return {"ok": True, "result": result}
 
 
 @router.get("/health")
@@ -545,6 +818,7 @@ def _sanitize_filename(name: str) -> str:
 
 
 @router.post("/learn", response_model=LearnResponse)
+@limiter.limit("5/hour")
 async def post_learn(
     payload: LearnRequest,
     _public: None = Depends(public_only),
