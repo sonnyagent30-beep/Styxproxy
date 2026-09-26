@@ -96,7 +96,7 @@ class Settings(BaseSettings):
 
     # ── 3proxy port allocation range ─────────────────────────────────────────
     # Allocated from this range when spinning up trial SOCKS5 ports.
-    # Must not overlap with any other Dante/3proxy port allocation.
+    # Must not overlap with any other 3proxy port allocation.
     threeproxy_port_range_start: int = 10000
     threeproxy_port_range_end: int = 50000
 
@@ -104,11 +104,6 @@ class Settings(BaseSettings):
     # Webhook secret for HMAC-SHA256 signature verification on the theorem-reach
     # webhook endpoint. Found in TheoremReach dashboard → integrations → webhooks.
     theorem_reach_webhook_secret: str = ""
-
-    # ── Dante (branding gateway — runs on VPS) ───────────────────────────────
-    dante_api_url: str = "http://localhost:9000"
-    dante_api_key: str = ""
-    dante_default_port: int = 1080
 
     # ── n8n Webhook (for automation triggers) ────────────────────────────────
     n8n_webhook_url: str = "https://n8n.styxproxy.com/webhook/credentials-delivered"
