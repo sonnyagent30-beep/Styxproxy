@@ -8,11 +8,20 @@ Provides transactional email functionality with Styxproxy brand design language:
 - Password reset and admin invites
 
 Design language matches the receipt PDF:
-- Dark theme by default (#0f0f0f background)
-- Light theme via prefers-color-scheme
-- Green accent (#00D060 / #00D060)
+- Dark theme only (maximum email client compatibility)
+- Green accent (#00D060)
 - Card-based layout with dividers
 - Credentials with green border
+
+All templates use:
+- Inline styles only (no CSS variables)
+- Table-based layouts (no flexbox)
+- No prefers-color-scheme media queries
+- lang="en" on all html tags
+- Proper alt text and dimensions on images
+- Unsubscribe link and physical address in footer
+- aria-hidden on decorative elements
+- rel="noopener noreferrer" on external links
 """
 
 import base64
@@ -69,12 +78,12 @@ settings = get_settings()
 
 
 # =============================================================================
-# Logo processing for inline embedding (dual mode support)
+# Logo processing for inline embedding
 # =============================================================================
 
 
-def _get_logo_b64_dark() -> str:
-    """Process and return the dark mode Styxproxy logo as base64 PNG."""
+def _get_logo_b64() -> str:
+    """Process and return the Styxproxy logo as base64 PNG."""
     logo = Image.open(get_logo_path("dark")).convert("RGBA")
     # Resize for email header — 200px wide is enough for header logo
     target_w = 200
@@ -86,416 +95,29 @@ def _get_logo_b64_dark() -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def _get_logo_b64_light() -> str:
-    """Process and return the light mode Styxproxy logo as base64 PNG."""
-    logo = Image.open(get_logo_path("light")).convert("RGBA")
-    target_w = 200
-    ratio = target_w / logo.size[0]
-    target_h = int(logo.size[1] * ratio)
-    resized = logo.resize((target_w, target_h), Image.LANCZOS)
-    buf = io.BytesIO()
-    resized.save(buf, format="PNG", optimize=True)
-    return base64.b64encode(buf.getvalue()).decode()
-
-
-# Cache logos at module load time
-LOGO_DARK_B64 = _get_logo_b64_dark()
-LOGO_LIGHT_B64 = _get_logo_b64_light()
+# Cache logo at module load time
+LOGO_B64 = _get_logo_b64()
 
 
 # =============================================================================
 # Base email template components - matches receipt PDF design language
 # =============================================================================
 def _get_base_styles() -> str:
-    """Get the base CSS styles for all emails - matches receipt PDF design."""
+    """Get the base CSS styles for all emails - matches receipt PDF design.
+
+    Note: Only basic reset styles are included. All other styling is done
+    inline on individual elements for maximum email client compatibility.
+    """
     return """
-        /* Reset and base styles */
+        /* Reset */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        /* Styxproxy Brand Colors - matches receipt PDF */
-        :root {
-            --brand-primary: #00D060;
-            --brand-primary-brighter: #00D060;
-            --brand-accent: #f59e0b;
-            --brand-bg: #0f0f0f;
-            --brand-card: #1a1a1a;
-            --brand-foreground: #f5f5f5;
-            --brand-muted: #9ca3af;
-            --brand-border: #2a2a2a;
-            --brand-divider: #262626;
-        }
-        
-        @media (prefers-color-scheme: light) {
-            :root {
-                --brand-bg: #ffffff;
-                --brand-card: #f9fafb;
-                --brand-foreground: #0f0f0f;
-                --brand-muted: #6b7280;
-                --brand-border: #e5e7eb;
-                --brand-divider: #e5e7eb;
-                --brand-primary: #059669;
-            }
-        }
-        
-        /* Dark theme (default) */
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
             line-height: 1.6;
-            color: var(--brand-foreground);
-            background-color: var(--brand-bg);
+            color: #f5f5f5;
+            background-color: #0f0f0f;
             margin: 0;
             padding: 0;
-        }
-        
-        .email-wrapper {
-            width: 100%;
-            background-color: var(--brand-bg);
-        }
-        
-        .email-container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 0;
-        }
-        
-        /* Top accent bar - 4mm thin green bar */
-        .accent-bar-top {
-            height: 4px;
-            background: linear-gradient(90deg, #00D060 0%, #00D060 50%, #00D060 100%);
-        }
-        
-        /* Bottom accent bar */
-        .accent-bar-bottom {
-            height: 4px;
-            background: linear-gradient(90deg, #00D060 0%, #00D060 50%, #00D060 100%);
-        }
-        
-        /* Header section */
-        .header-section {
-            padding: 24px 24px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .logo-dark { display: block; }
-        .logo-light { display: none; }
-        
-        @media (prefers-color-scheme: light) {
-            .logo-dark { display: none !important; }
-            .logo-light { display: block !important; }
-        }
-        
-        .logo-subtitle {
-            font-size: 10px;
-            color: var(--brand-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 2px;
-        }
-        
-        .header-label {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--brand-primary-brighter);
-            text-align: right;
-        }
-        
-        .header-sublabel {
-            font-size: 9px;
-            color: var(--brand-muted);
-            margin-top: 2px;
-        }
-        
-        /* Horizontal divider */
-        .divider {
-            height: 1px;
-            background-color: var(--brand-divider);
-            margin: 0 24px;
-        }
-        
-        /* Content section */
-        .content-section {
-            padding: 24px;
-        }
-        
-        /* Section label - small uppercase muted */
-        .section-label {
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--brand-muted);
-            margin-bottom: 8px;
-        }
-        
-        /* Main heading - 22pt bold */
-        .main-heading {
-            font-size: 22px;
-            font-weight: 700;
-            color: var(--brand-foreground);
-            margin-bottom: 8px;
-        }
-        
-        .subheading {
-            font-size: 14px;
-            color: var(--brand-muted);
-            margin-bottom: 20px;
-        }
-        
-        /* Pill badges */
-        .pill {
-            display: inline-block;
-            padding: 6px 14px;
-            border-radius: 4.5px;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .pill-green {
-            background-color: #00D060;
-            color: #000000;
-        }
-        
-        .pill-amber {
-            background-color: #f59e0b;
-            color: #000000;
-        }
-        
-        .pill-red {
-            background-color: #ef4444;
-            color: #ffffff;
-        }
-        
-        /* Card - matches receipt PDF: #1a1a1a bg, rounded 3mm corners */
-        .card {
-            background-color: var(--brand-card);
-            border-radius: 3px;
-            padding: 20px;
-            margin: 16px 0;
-        }
-        
-        /* Card row with divider */
-        .card-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--brand-divider);
-        }
-        
-        .card-row:last-child {
-            border-bottom: none;
-        }
-        
-        .card-label {
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--brand-muted);
-        }
-        
-        .card-value {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--brand-foreground);
-            text-align: right;
-        }
-        
-        .card-value-primary {
-            color: var(--brand-primary-brighter);
-        }
-        
-        .card-value-large {
-            font-size: 18px;
-            font-weight: 700;
-        }
-        
-        /* Items section */
-        .items-header {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--brand-divider);
-            margin-bottom: 12px;
-        }
-        
-        .items-label {
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--brand-muted);
-        }
-        
-        .item-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            color: var(--brand-muted);
-            font-size: 13px;
-        }
-        
-        .item-name {
-            color: var(--brand-foreground);
-        }
-        
-        /* Total paid pill */
-        .total-pill {
-            background-color: #00D060;
-            color: #000000;
-            padding: 10px 16px;
-            border-radius: 2px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 16px;
-        }
-        
-        .total-label {
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .total-amount {
-            font-size: 16px;
-            font-weight: 700;
-        }
-        
-        /* Credentials section with green border */
-        .credentials-card {
-            background-color: var(--brand-bg);
-            border: 1px solid var(--brand-primary-brighter);
-            border-radius: 3px;
-            padding: 16px;
-            margin: 16px 0;
-        }
-        
-        .credentials-header {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--brand-primary-brighter);
-            margin-bottom: 16px;
-        }
-        
-        .cred-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--brand-divider);
-        }
-        
-        .cred-row:last-child {
-            border-bottom: none;
-        }
-        
-        .cred-label {
-            font-size: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--brand-muted);
-        }
-        
-        .cred-value {
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--brand-primary-brighter);
-            text-align: right;
-            word-break: break-all;
-        }
-        
-        /* Support section */
-        .support-card {
-            background-color: var(--brand-card);
-            border-radius: 3px;
-            padding: 16px;
-            margin-top: 20px;
-        }
-        
-        .support-title {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--brand-foreground);
-            margin-bottom: 12px;
-        }
-        
-        .support-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            margin-bottom: 6px;
-        }
-        
-        .support-label {
-            color: var(--brand-muted);
-        }
-        
-        .support-link {
-            color: var(--brand-primary-brighter);
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        /* CTA Button */
-        .cta-button {
-            display: inline-block;
-            background: #00D060;
-            color: #000000;
-            font-weight: 700;
-            padding: 14px 28px;
-            border-radius: 4px;
-            text-decoration: none;
-            margin: 16px 0;
-        }
-        
-        .cta-button:hover {
-            background: #00D060;
-        }
-        
-        /* Warning box */
-        .warning-box {
-            background-color: var(--brand-card);
-            border-left: 4px solid #f59e0b;
-            padding: 16px;
-            border-radius: 0 3px 3px 0;
-            margin: 16px 0;
-            font-size: 13px;
-            color: #f59e0b;
-        }
-        
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 20px 24px;
-            color: var(--brand-muted);
-            font-size: 11px;
-        }
-        
-        .footer-auto {
-            font-style: italic;
-            margin-bottom: 8px;
-        }
-        
-        .footer-copyright {
-            color: var(--brand-muted);
         }
     """
 
@@ -579,11 +201,11 @@ async def _send_via_resend(
 
             # Generate unique Message-ID for email identification
             msg_id = f"<{uuid.uuid4()}@styxproxy.com>"
-            
+
             # Generate unsubscribe URL
             unsub_token = hashlib.sha1((recipient.email + ":styxproxy_unsubscribe_v1").encode(), usedforsecurity=False).hexdigest()
             unsub_url = f"https://styxproxy.com/unsubscribe?email={recipient.email}&token={unsub_token}"
-            
+
             response = await client.post(
                 "https://api.resend.com/emails",
                 json={
@@ -735,7 +357,7 @@ async def send_email(
 
             # Generate unique Message-ID for email threading and identification
             msg_id = f"<{uuid.uuid4()}@styxproxy.com>"
-            
+
             unsub_token = hashlib.sha1((to + ":styxproxy_unsubscribe_v1").encode(), usedforsecurity=False).hexdigest()
             unsub_url = f"https://styxproxy.com/unsubscribe?email={to}&token={unsub_token}"
             custom_headers = {
@@ -793,67 +415,70 @@ async def send_email(
 
 
 def _render_header(right_label: str, right_sublabel: str = "") -> str:
-    """Render the email header with logo and label - matches receipt PDF."""
+    """Render the email header with logo and label - table-based layout."""
     return f"""
-        <div class="accent-bar-top"></div>
-        <div class="header-section">
-            <div class="logo-section">
-                <img
-    class="logo-dark"
-    src="data:image/png;base64,{LOGO_DARK_B64}"
-    alt="Styxproxy"
-    width="200"
-    height="58"
-    style="display:block;width:200px;height:auto;"
->
-                <img
-    class="logo-light"
-    src="data:image/jpeg;base64,{LOGO_LIGHT_B64}"
-    alt="Styxproxy"
-    width="200"
-    height="58"
-    style="display:none;width:200px;height:auto;"
->
-                <div class="logo-subtitle">Anonymous Proxy Service</div>
-            </div>
-            <div>
-                <div class="header-label">{right_label}</div>
-                <div class="header-sublabel">{right_sublabel}</div>
-            </div>
-        </div>
-        <div class="divider"></div>
+        <div style="height: 4px; background-color: #00D060;" aria-hidden="true"></div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td style="padding: 24px 24px 20px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                            <td style="vertical-align: middle;">
+                                <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy" width="200" height="58" style="display:block;">
+                                <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Anonymous Proxy Service</div>
+                            </td>
+                            <td style="vertical-align: middle; text-align: right; padding-left: 20px;">
+                                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #00D060;">{right_label}</div>
+                                <div style="font-size: 9px; color: #9ca3af; margin-top: 2px;">{right_sublabel}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+        <div style="height: 1px; background-color: #262626; margin: 0 24px;" aria-hidden="true"></div>
     """
 
 
 def _render_support_footer() -> str:
-    """Render the support footer section - matches receipt PDF."""
+    """Render the support footer section - table-based layout."""
     return """
-        <div class="support-card">
-            <div class="support-title">NEED HELP?</div>
-            <div class="support-row">
-                <span class="support-label">Chat:</span>
-                <a href="https://styxproxy.com/contact" class="support-link">styxproxy.com/contact</a>
-            </div>
-            <div class="support-row">
-                <span class="support-label">Email:</span>
-                <a href="mailto:support@styxproxy.com" class="support-link">support@styxproxy.com</a>
-            </div>
-            <div class="support-row" style="margin-bottom: 0;">
-                <span class="support-label">Web:</span>
-                <a href="https://styxproxy.com" class="support-link">styxproxy.com</a>
-            </div>
-        </div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 16px; margin-top: 20px;">
+            <tr>
+                <td>
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #f5f5f5; margin-bottom: 12px;">NEED HELP?</div>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                            <td style="font-size: 12px; color: #9ca3af; padding-bottom: 6px;">Chat:</td>
+                            <td style="font-size: 12px; text-align: right; padding-bottom: 6px;"><a href="https://styxproxy.com/contact" style="color: #00D060; text-decoration: none; font-weight: 500;" rel="noopener noreferrer">styxproxy.com/contact</a></td>
+                        </tr>
+                        <tr>
+                            <td style="font-size: 12px; color: #9ca3af; padding-bottom: 6px;">Email:</td>
+                            <td style="font-size: 12px; text-align: right; padding-bottom: 6px;"><a href="mailto:support@styxproxy.com" style="color: #00D060; text-decoration: none; font-weight: 500;">support@styxproxy.com</a></td>
+                        </tr>
+                        <tr>
+                            <td style="font-size: 12px; color: #9ca3af;">Web:</td>
+                            <td style="font-size: 12px; text-align: right;"><a href="https://styxproxy.com" style="color: #00D060; text-decoration: none; font-weight: 500;" rel="noopener noreferrer">styxproxy.com</a></td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
     """
 
 
 def _render_footer() -> str:
-    """Render the email footer - matches receipt PDF."""
+    """Render the email footer with unsubscribe link and physical address."""
     return """
-        <div class="footer">
-            <div class="footer-auto">This receipt was generated automatically. No signature required.</div>
-            <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
+        <div role="contentinfo" style="text-align: center; padding: 20px 24px; color: #9ca3af; font-size: 11px;">
+            <div style="font-style: italic; margin-bottom: 8px;">This receipt was generated automatically. No signature required.</div>
+            <div style="margin-bottom: 8px;">
+                <a href="https://styxproxy.com/unsubscribe" style="color: #9ca3af; text-decoration: underline;">Unsubscribe</a>
+            </div>
+            <div style="margin-bottom: 8px;">Styxproxy, Lagos, Nigeria</div>
+            <div style="color: #9ca3af;">&copy; 2026 Styxproxy &mdash; Anonymous proxy service for the discerning.</div>
         </div>
-        <div class="accent-bar-bottom"></div>
+        <div style="height: 4px; background-color: #00D060;" aria-hidden="true"></div>
     """
 
 
@@ -885,73 +510,71 @@ def _render_support_reply_email(
     # Build the greeting
     greeting = f"Hi {customer_name}," if customer_name else "Hi there,"
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>Re: {original_subject}</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
-            <div class="accent-bar-top"></div>
-            <div class="header-section">
-                <div class="logo-section">
-                    <img
-    class="logo-dark"
-    src="data:image/png;base64,{LOGO_DARK_B64}"
-    alt="Styxproxy"
-    width="200"
-    height="58"
-    style="display:block;width:200px;height:auto;"
->
-                    <img
-    class="logo-light"
-    src="data:image/jpeg;base64,{LOGO_LIGHT_B64}"
-    alt="Styxproxy"
-    width="200"
-    height="58"
-    style="display:none;width:200px;height:auto;"
->
-                    <div class="logo-subtitle">Styxproxy Support</div>
-                </div>
-                <div>
-                    <div class="header-label">REPLY</div>
-                </div>
-            </div>
-            <div class="divider"></div>
-            
-            <div class="content-section">
-                <div class="section-label">SUPPORT REPLY</div>
-                <div class="main-heading">{greeting}</div>
-                
-                <div style="color: var(--brand-muted); font-size: 13px; margin-bottom: 16px;">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
+            <div style="height: 4px; background-color: #00D060;" aria-hidden="true"></div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="padding: 24px 24px 20px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="vertical-align: middle;">
+                                    <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy" width="200" height="58" style="display:block;">
+                                    <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Styxproxy Support</div>
+                                </td>
+                                <td style="vertical-align: middle; text-align: right; padding-left: 20px;">
+                                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #00D060;">REPLY</div>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            <div style="height: 1px; background-color: #262626; margin: 0 24px;" aria-hidden="true"></div>
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">SUPPORT REPLY</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">{greeting}</div>
+
+                <div style="color: #9ca3af; font-size: 13px; margin-bottom: 16px;">
                     Re: {original_subject}
                 </div>
-                
-                <div class="card">
-                    {reply_body_html}
-                </div>
-                
-                <p style="color: var(--brand-muted); font-size: 12px; margin-top: 20px;">
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            {reply_body_html}
+                        </td>
+                    </tr>
+                </table>
+
+                <p style="color: #9ca3af; font-size: 12px; margin-top: 20px;">
                     This reply was sent by {admin_name} from Styxproxy Support.
                 </p>
-                
+
                 {_render_support_footer()}
             </div>
-            
-            <div class="footer">
-                <div class="footer-auto">Automated support response</div>
-                <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
+
+            <div role="contentinfo" style="text-align: center; padding: 20px 24px; color: #9ca3af; font-size: 11px;">
+                <div style="font-style: italic; margin-bottom: 8px;">Automated support response</div>
+                <div style="margin-bottom: 8px;">
+                    <a href="https://styxproxy.com/unsubscribe" style="color: #9ca3af; text-decoration: underline;">Unsubscribe</a>
+                </div>
+                <div style="margin-bottom: 8px;">Styxproxy, Lagos, Nigeria</div>
+                <div style="color: #9ca3af;">&copy; 2026 Styxproxy &mdash; Anonymous proxy service for the discerning.</div>
             </div>
-            <div class="accent-bar-bottom"></div>
+            <div style="height: 4px; background-color: #00D060;" aria-hidden="true"></div>
         </div>
     </div>
 </body>
@@ -971,7 +594,7 @@ This reply was sent by {admin_name} from Styxproxy Support.
 
 Need help? Contact us at support@styxproxy.com or visit styxproxy.com
 
-© 2026 Styxproxy
+&copy; 2026 Styxproxy
 """
 
     return EmailContent(
@@ -993,79 +616,114 @@ def _render_contact_form_email(
     phone: Optional[str] = None,
     ip_address: Optional[str] = None,
 ) -> EmailContent:
-    """Render contact form submission email (to admin) - matches receipt design."""
+    """Render contact form submission email (to admin) - table-based layout."""
     phone_html = (
         f"""
-        <div class="card-row">
-            <span class="card-label">Phone</span>
-            <span class="card-value">{phone}</span>
-        </div>
-    """
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                            <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <tr>
+                                        <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Phone</td>
+                                        <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{phone}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>"""
         if phone
         else ""
     )
 
     ip_html = (
         f"""
-        <div class="card-row">
-            <span class="card-label">IP Address</span>
-            <span class="card-value">{ip_address}</span>
-        </div>
-    """
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                            <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <tr>
+                                        <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">IP Address</td>
+                                        <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{ip_address}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>"""
         if ip_address
         else ""
     )
 
     base_styles = _get_base_styles()
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>New Contact Form Submission</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
             {_render_header("CONTACT SUBMISSION", "styxproxy.com")}
-            
-            <div class="content-section">
-                <div class="section-label">NEW MESSAGE</div>
-                <div class="main-heading">New message from {name}</div>
-                
-                <div class="card">
-                    <div class="card-row">
-                        <span class="card-label">Name</span>
-                        <span class="card-value">{name}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Email</span>
-                        <span class="card-value card-value-primary">{email}</span>
-                    </div>
-                    {phone_html}
-                    <div class="card-row">
-                        <span class="card-label">Message</span>
-                    </div>
-                    <div style="padding: 12px 0; color: var(--brand-foreground); font-size: 14px; line-height: 1.6;">
-                        {message.replace(chr(10), "<br>")}
-                    </div>
-                    {ip_html}
-                </div>
-                
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">NEW MESSAGE</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">New message from {name}</div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Name</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{name}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Email</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #00D060; text-align: right;">{email}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            {phone_html}
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Message</div>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div style="padding: 12px 0; color: #f5f5f5; font-size: 14px; line-height: 1.6;">
+                                {message.replace(chr(10), "<br>")}
+                            </div>
+                            {ip_html}
+                        </td>
+                    </tr>
+                </table>
+
                 <div style="text-align: center; margin-top: 20px;">
-                    <a href="https://styxproxy.com/admin/contacts" class="cta-button">View in Admin Panel →</a>
+                    <a href="https://styxproxy.com/admin/contacts" style="display: inline-block; background-color: #00D060; color: #000000; font-weight: 700; padding: 14px 28px; border-radius: 4px; text-decoration: none;" rel="noopener noreferrer">View in Admin Panel</a>
                 </div>
-                
+
                 {_render_support_footer()}
             </div>
-            
+
             {_render_footer()}
         </div>
     </div>
@@ -1082,7 +740,7 @@ Message:
 {message}
 
 Submitted at {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")} UTC
-© 2026 Styxproxy
+&copy; 2026 Styxproxy
 """
 
     return EmailContent(
@@ -1095,48 +753,47 @@ Submitted at {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")} UTC
 def _render_customer_confirmation_email(
     name: str,
 ) -> str:
-    """Render customer confirmation email - matches receipt design."""
+    """Render customer confirmation email - table-based layout."""
     base_styles = _get_base_styles()
 
-    return f"""
-<!DOCTYPE html>
-<html>
+    return f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>Message Received</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
             {_render_header("MESSAGE RECEIVED", "styxproxy.com")}
-            
-            <div class="content-section">
-                <div class="section-label">THANK YOU</div>
-                <div class="main-heading">Thanks for reaching out, {name}.</div>
-                <div class="subheading">We received your message and will respond within 24 hours.</div>
-                
-                <div class="card">
-                    <div style="text-align: center; padding: 20px 0;">
-                        <div style="font-size: 40px; margin-bottom: 16px;">✓</div>
-                        <div style="color: var(--brand-foreground); font-size: 16px;">
-                            Your message has been received. Our team will get back to you as soon as possible.
-                        </div>
-                    </div>
-                </div>
-                
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">THANK YOU</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">Thanks for reaching out, {name}.</div>
+                <div style="font-size: 14px; color: #9ca3af; margin-bottom: 20px;">We received your message and will respond within 24 hours.</div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td style="text-align: center; padding: 20px 0;">
+                            <div style="font-size: 40px; margin-bottom: 16px;" aria-hidden="true">&#10003;</div>
+                            <div style="color: #f5f5f5; font-size: 16px;">
+                                Your message has been received. Our team will get back to you as soon as possible.
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
                 <div style="text-align: center; margin-top: 20px;">
-                    <a href="https://styxproxy.com" class="cta-button">Visit styxproxy.com →</a>
+                    <a href="https://styxproxy.com" style="display: inline-block; background-color: #00D060; color: #000000; font-weight: 700; padding: 14px 28px; border-radius: 4px; text-decoration: none;" rel="noopener noreferrer">Visit styxproxy.com</a>
                 </div>
-                
+
                 {_render_support_footer()}
             </div>
-            
+
             {_render_footer()}
         </div>
     </div>
@@ -1161,70 +818,104 @@ def _render_charon_escalation_email(
     contact_info = ""
     if customer_email:
         contact_info += f"""
-            <div class="card-row">
-                <span class="card-label">Email</span>
-                <span class="card-value card-value-primary">{customer_email}</span>
-            </div>
-        """
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                            <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <tr>
+                                        <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Email</td>
+                                        <td style="font-size: 14px; font-weight: 600; color: #00D060; text-align: right;">{customer_email}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>"""
     if customer_phone:
         contact_info += f"""
-            <div class="card-row">
-                <span class="card-label">Phone</span>
-                <span class="card-value">{customer_phone}</span>
-            </div>
-        """
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                            <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <tr>
+                                        <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Phone</td>
+                                        <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{customer_phone}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>"""
 
     base_styles = _get_base_styles()
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>Charon Escalation</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
             {_render_header("ESCALATION", "Action Required")}
-            
-            <div class="content-section">
-                <div class="section-label">CHARON ESCALATION</div>
-                <div class="main-heading">Charon escalated a conversation</div>
-                <div class="subheading">Immediate attention required</div>
-                
-                <div class="card">
-                    <div class="card-row">
-                        <span class="card-label">Conversation ID</span>
-                        <span class="card-value card-value-primary card-value-large">{conversation_id[:16]}...</span>
-                    </div>
-                    {contact_info}
-                    <div class="card-row">
-                        <span class="card-label">Latest Message</span>
-                    </div>
-                    <div style="padding: 12px 0; color: var(--brand-foreground); font-size: 14px; line-height: 1.6;">
-                        {message.replace(chr(10), "<br>")}
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Conversation History</span>
-                    </div>
-                    <div style="padding: 12px 0; color: var(--brand-muted); font-size: 12px; line-height: 1.6;
-                        font-family: monospace; white-space: pre-wrap;">
-                        {history_summary}
-                    </div>
-                </div>
-                
-                <div class="warning-box">
-                    ⚠️ <strong>Action Required:</strong> Please respond to this conversation as soon as possible.
-                </div>
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">CHARON ESCALATION</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">Charon escalated a conversation</div>
+                <div style="font-size: 14px; color: #9ca3af; margin-bottom: 20px;">Immediate attention required</div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Conversation ID</td>
+                                                <td style="font-size: 18px; font-weight: 700; color: #00D060; text-align: right;">{conversation_id[:16]}...</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            {contact_info}
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Latest Message</div>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div style="padding: 12px 0; color: #f5f5f5; font-size: 14px; line-height: 1.6;">
+                                {message.replace(chr(10), "<br>")}
+                            </div>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <div style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Conversation History</div>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div style="padding: 12px 0; color: #9ca3af; font-size: 12px; line-height: 1.6; font-family: monospace; white-space: pre-wrap;">
+                                {history_summary}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 0 3px 3px 0; margin: 16px 0;">
+                    <tr>
+                        <td style="font-size: 13px; color: #f59e0b;">
+                            <strong>Action Required:</strong> Please respond to this conversation as soon as possible.
+                        </td>
+                    </tr>
+                </table>
             </div>
-            
+
             {_render_footer()}
         </div>
     </div>
@@ -1262,48 +953,55 @@ Escalated at {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")} UTC
 def _render_admin_notification_email(
     title: str,
     details: dict,
-    pill_type: str = "green",
 ) -> EmailContent:
     """Render admin notification email - dynamic title pill."""
     details_html = "".join(
         f"""
-        <div class="card-row">
-            <span class="card-label">{k}</span>
-            <span class="card-value">{v}</span>
-        </div>
-        """
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                            <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <tr>
+                                        <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">{k}</td>
+                                        <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{v}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>"""
         for k, v in details.items()
     )
 
     base_styles = _get_base_styles()
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>{title}</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
             {_render_header(title.upper(), "Admin Notification")}
-            
-            <div class="content-section">
-                <div class="section-label">NOTIFICATION</div>
-                <div class="main-heading">{title}</div>
-                
-                <div class="card">
-                    {details_html}
-                </div>
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">NOTIFICATION</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">{title}</div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            {details_html}
+                        </td>
+                    </tr>
+                </table>
             </div>
-            
+
             {_render_footer()}
         </div>
     </div>
@@ -1338,75 +1036,103 @@ def _render_admin_invite_email(
     invite_code: str,
     expires_in_hours: int,
 ) -> EmailContent:
-    """Render admin invite email - matches receipt design."""
+    """Render admin invite email - table-based layout."""
     setup_link = "https://styxproxy.com/admin/setup"
 
     base_styles = _get_base_styles()
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>Admin Invite</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
             {_render_header("ADMIN INVITE", "styxproxy.com")}
-            
-            <div class="content-section">
-                <div class="section-label">INVITATION</div>
-                <div class="main-heading">You're invited to Styxproxy Admin</div>
-                <div class="subheading">You've been granted access to the admin panel</div>
-                
-                <div class="card">
-                    <div class="card-row">
-                        <span class="card-label">Role</span>
-                        <span class="card-value card-value-primary">{role}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Email</span>
-                        <span class="card-value">{email}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Expires</span>
-                        <span class="card-value">{expires_in_hours} hours</span>
-                    </div>
-                </div>
-                
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">INVITATION</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">You're invited to Styxproxy Admin</div>
+                <div style="font-size: 14px; color: #9ca3af; margin-bottom: 20px;">You've been granted access to the admin panel</div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Role</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #00D060; text-align: right;">{role}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Email</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{email}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Expires</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{expires_in_hours} hours</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
                 <div style="text-align: center; margin-top: 20px;">
-                    <a href="{setup_link}" class="cta-button">Open Setup Page →</a>
+                    <a href="{setup_link}" style="display: inline-block; background-color: #00D060; color: #000000; font-weight: 700; padding: 14px 28px; border-radius: 4px; text-decoration: none;" rel="noopener noreferrer">Open Setup Page</a>
                 </div>
 
-                <div style="margin-top: 20px; padding: 16px; background: var(--brand-bg-elevated);
-                        border: 1px dashed var(--brand-border); border-radius: 8px;">
-                    <p style="margin: 0 0 8px; color: var(--brand-muted); font-size: 12px; text-transform: uppercase;
-                        letter-spacing: 0.5px;">
-                        Your Invite Code
-                    </p>
-                    <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 20px; font-weight: bold;
-                        color: var(--brand-primary-brighter); text-align: center; word-break: break-all;">
-                        {invite_code}
-                    </p>
-                    <p style="margin: 8px 0 0; color: var(--brand-muted); font-size: 12px; text-align: center;">
-                        Type this code in on the setup page. It is also bound to your email
-                        ({email}); the server will reject any other email at the credentials step.
-                    </p>
-                </div>
-                
-                <div class="warning-box">
-                    ⚠️ <strong>Important:</strong> This invite expires
-                       in {expires_in_hours} hours. If you didn't request this, please ignore this email.  # noqa: E501
-                </div>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 20px; padding: 16px; background-color: #0f0f0f; border: 1px dashed #2a2a2a; border-radius: 8px;">
+                    <tr>
+                        <td>
+                            <p style="margin: 0 0 8px; color: #9ca3af; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                Your Invite Code
+                            </p>
+                            <p style="margin: 0; font-family: 'Courier New', monospace; font-size: 20px; font-weight: bold; color: #00D060; text-align: center; word-break: break-all;">
+                                {invite_code}
+                            </p>
+                            <p style="margin: 8px 0 0; color: #9ca3af; font-size: 12px; text-align: center;">
+                                Type this code in on the setup page. It is also bound to your email ({email}); the server will reject any other email at the credentials step.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 0 3px 3px 0; margin: 16px 0;">
+                    <tr>
+                        <td style="font-size: 13px; color: #f59e0b;">
+                            <strong>Important:</strong> This invite expires in {expires_in_hours} hours. If you didn't request this, please ignore this email.
+                        </td>
+                    </tr>
+                </table>
             </div>
-            
+
             {_render_footer()}
         </div>
     </div>
@@ -1453,58 +1179,60 @@ def _render_password_reset_email(
     email: str,
     reset_token: str,
 ) -> EmailContent:
-    """Render password reset email - matches receipt design."""
+    """Render password reset email - table-based layout."""
     reset_link = f"https://styxproxy.com/admin/reset-password?token={reset_token}"
 
     base_styles = _get_base_styles()
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>Password Reset</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
             {_render_header("PASSWORD RESET", "styxproxy.com")}
-            
-            <div class="content-section">
-                <div class="section-label">SECURITY</div>
-                <div class="main-heading">Reset your admin password</div>
-                <div class="subheading">Create a new password for your account</div>
-                
-                <div class="card">
-                    <div style="text-align: center; padding: 20px 0;">
-                        <div style="font-size: 40px; margin-bottom: 16px;">🔐</div>
-                        <div style="color: var(--brand-foreground); font-size: 14px; margin-bottom: 20px;">
-                            We received a request to reset your Styxproxy Admin password.
-                        </div>
-                    </div>
-                </div>
-                
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">SECURITY</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">Reset your admin password</div>
+                <div style="font-size: 14px; color: #9ca3af; margin-bottom: 20px;">Create a new password for your account</div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td style="text-align: center; padding: 20px 0;">
+                            <div style="font-size: 40px; margin-bottom: 16px;" aria-hidden="true">&#128274;</div>
+                            <div style="color: #f5f5f5; font-size: 14px; margin-bottom: 20px;">
+                                We received a request to reset your Styxproxy Admin password.
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
                 <div style="text-align: center; margin-top: 20px;">
-                    <a href="{reset_link}" class="cta-button">Reset Password →</a>
+                    <a href="{reset_link}" style="display: inline-block; background-color: #00D060; color: #000000; font-weight: 700; padding: 14px 28px; border-radius: 4px; text-decoration: none;" rel="noopener noreferrer">Reset Password</a>
                 </div>
-                
-                <p style="color: var(--brand-muted); font-size: 13px; margin-top: 16px; text-align: center;">
-                    Or copy this link: <span style="color: var(--brand-primary-brighter); word-break: break-all;
-                        ">{reset_link}</span>
+
+                <p style="color: #9ca3af; font-size: 13px; margin-top: 16px; text-align: center;">
+                    Or copy this link: <span style="color: #00D060; word-break: break-all;">{reset_link}</span>
                 </p>
-                
-                <div class="warning-box">
-                    ⏱️ <strong>Note:</strong> This link expires in <strong>1 hour</strong>.<br><br>
-                    If you didn't request this, please ignore this email. Your password will remain unchanged.
-                </div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 0 3px 3px 0; margin: 16px 0;">
+                    <tr>
+                        <td style="font-size: 13px; color: #f59e0b;">
+                            <strong>Note:</strong> This link expires in <strong>1 hour</strong>.<br><br>
+                            If you didn't request this, please ignore this email. Your password will remain unchanged.
+                        </td>
+                    </tr>
+                </table>
             </div>
-            
+
             {_render_footer()}
         </div>
     </div>
@@ -1545,63 +1273,99 @@ def _render_order_confirmation_email(
     currency: str,
     quantity: int,
 ) -> EmailContent:
-    """Render order confirmation email (pending payment) - matches receipt design."""
+    """Render order confirmation email (pending payment) - table-based layout."""
     base_styles = _get_base_styles()
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>Order Placed</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
             {_render_header("PAYMENT PENDING", "styxproxy.com")}
-            
-            <div class="content-section">
-                <div class="section-label">ORDER CONFIRMATION</div>
-                <div class="main-heading">Thanks for your order, {customer_name}!</div>
-                <div class="subheading">Complete your payment to activate your proxy</div>
-                
-                <div class="card">
-                    <div class="card-row">
-                        <span class="card-label">Order ID</span>
-                        <span class="card-value card-value-primary card-value-large">{order_id[:16]}...</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Plan</span>
-                        <span class="card-value">{plan_code}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Quantity</span>
-                        <span class="card-value">{quantity} {"unit" if quantity == 1 else "units"}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Amount</span>
-                        <span class="card-value card-value-primary card-value-large">{currency} {amount:,.2f}</span>
-                    </div>
-                </div>
-                
-                <div class="warning-box">
-                    <strong>Next step:</strong> Complete your payment.
-                       Once confirmed, your proxy credentials will be sent to this email automatically.  # noqa: E501
-                </div>
-                
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">ORDER CONFIRMATION</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">Thanks for your order, {customer_name}!</div>
+                <div style="font-size: 14px; color: #9ca3af; margin-bottom: 20px;">Complete your payment to activate your proxy</div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Order ID</td>
+                                                <td style="font-size: 18px; font-weight: 700; color: #00D060; text-align: right;">{order_id[:16]}...</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Plan</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{plan_code}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Quantity</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{quantity} {"unit" if quantity == 1 else "units"}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Amount</td>
+                                                <td style="font-size: 18px; font-weight: 700; color: #00D060; text-align: right;">{currency} {amount:,.2f}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 0 3px 3px 0; margin: 16px 0;">
+                    <tr>
+                        <td style="font-size: 13px; color: #f59e0b;">
+                            <strong>Next step:</strong> Complete your payment. Once confirmed, your proxy credentials will be sent to this email automatically.
+                        </td>
+                    </tr>
+                </table>
+
                 <div style="text-align: center; margin-top: 20px;">
-                    <a href="https://styxproxy.com/pay/{order_id}" class="cta-button">Complete Payment →</a>
+                    <a href="https://styxproxy.com/pay/{order_id}" style="display: inline-block; background-color: #00D060; color: #000000; font-weight: 700; padding: 14px 28px; border-radius: 4px; text-decoration: none;" rel="noopener noreferrer">Complete Payment</a>
                 </div>
-                
+
                 {_render_support_footer()}
             </div>
-            
+
             {_render_footer()}
         </div>
     </div>
@@ -1655,99 +1419,195 @@ def _render_proxy_credentials_email(
     expires_at: datetime,
     payment_method: str = "Card / Bank / USSD / QR",
 ) -> EmailContent:
-    """Render proxy credentials email (order paid + active) - matches receipt design."""
+    """Render proxy credentials email (order paid + active) - table-based layout."""
     expires_str = expires_at.strftime("%Y-%m-%d %H:%M UTC") if expires_at else "N/A"
     full_format = f"http://{styxproxy_username}:{styxproxy_password}@{proxy_ip}:{proxy_port}"
 
     base_styles = _get_base_styles()
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>Your Proxy is Ready</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
             {_render_header("FULFILLED", "styxproxy.com")}
-            
-            <div class="content-section">
-                <div class="section-label">ORDER CONFIRMATION</div>
-                <div class="main-heading">Your proxy is ready, {customer_name}!</div>
-                <div class="subheading">Your payment has been confirmed and proxy is active</div>
-                
-                <div class="card">
-                    <div class="card-row">
-                        <span class="card-label">Transaction Reference</span>
-                        <span class="card-value card-value-primary">{tx_ref}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Order ID</span>
-                        <span class="card-value">{order_id[:16]}...</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Date</span>
-                        <span class="card-value">{datetime.utcnow().strftime("%Y-%m-%d")}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Method</span>
-                        <span class="card-value">{payment_method}</span>
-                    </div>
-                </div>
-                
-                <div class="items-header">
-                    <span class="items-label">ITEMS</span>
-                    <span class="items-label" style="text-align: right;">AMOUNT</span>
-                </div>
-                <div class="item-row">
-                    <span class="item-name">🇳🇬 {plan_code} × {quantity}</span>
-                    <span>{currency} {amount:,.2f}</span>
-                </div>
-                
-                <div class="total-pill">
-                    <span class="total-label">Total Paid</span>
-                    <span class="total-amount">{currency} {amount:,.2f}</span>
-                </div>
-                
-                <div class="credentials-card">
-                    <div class="credentials-header">YOUR PROXY CREDENTIALS</div>
-                    <div class="cred-row">
-                        <span class="cred-label">Username</span>
-                        <span class="cred-value">{styxproxy_username}</span>
-                    </div>
-                    <div class="cred-row">
-                        <span class="cred-label">Password</span>
-                        <span class="cred-value">{styxproxy_password}</span>
-                    </div>
-                    <div class="cred-row">
-                        <span class="cred-label">Proxy Address</span>
-                        <span class="cred-value">{proxy_ip}:{proxy_port}</span>
-                    </div>
-                    <div class="cred-row">
-                        <span class="cred-label">Protocol</span>
-                        <span class="cred-value">{protocol.upper()}</span>
-                    </div>
-                    <div class="cred-row">
-                        <span class="cred-label">Full Format</span>
-                        <span class="cred-value" style="font-size: 11px;">{full_format[:50]}...</span>
-                    </div>
-                    <div class="cred-row">
-                        <span class="cred-label">Expires</span>
-                        <span class="cred-value">{expires_str}</span>
-                    </div>
-                </div>
-                
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">ORDER CONFIRMATION</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">Your proxy is ready, {customer_name}!</div>
+                <div style="font-size: 14px; color: #9ca3af; margin-bottom: 20px;">Your payment has been confirmed and proxy is active</div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Transaction Reference</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #00D060; text-align: right;">{tx_ref}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Order ID</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{order_id[:16]}...</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Date</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{datetime.utcnow().strftime("%Y-%m-%d")}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Method</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{payment_method}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+                    <tr>
+                        <td style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; padding: 12px 0; border-bottom: 1px solid #262626;">ITEMS</td>
+                        <td style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; padding: 12px 0; border-bottom: 1px solid #262626; text-align: right;">AMOUNT</td>
+                    </tr>
+                </table>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                        <td style="padding: 8px 0; color: #9ca3af; font-size: 13px;">{plan_code} x {quantity}</td>
+                        <td style="padding: 8px 0; color: #9ca3af; font-size: 13px; text-align: right;">{currency} {amount:,.2f}</td>
+                    </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #00D060; color: #000000; padding: 10px 16px; border-radius: 2px; margin-top: 16px;">
+                    <tr>
+                        <td style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Total Paid</td>
+                        <td style="font-size: 16px; font-weight: 700; text-align: right;">{currency} {amount:,.2f}</td>
+                    </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #0f0f0f; border: 1px solid #00D060; border-radius: 3px; padding: 16px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #00D060; margin-bottom: 16px;">YOUR PROXY CREDENTIALS</div>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Username</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{styxproxy_username}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Password</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{styxproxy_password}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Proxy Address</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{proxy_ip}:{proxy_port}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Protocol</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right;">{protocol.upper()}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Full Format</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 11px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{full_format[:50]}...</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Expires</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right;">{expires_str}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; border-left: 4px solid #f59e0b; border-radius: 0 3px 3px 0;">
+                                <div style="font-size: 12px; color: #f59e0b;">
+                                    <strong>Security:</strong> Keep these credentials confidential. Do not share them with anyone.
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
                 {_render_support_footer()}
             </div>
-            
+
             {_render_footer()}
         </div>
     </div>
@@ -1784,7 +1644,7 @@ Need help? Contact us at styxproxy.com
 """
 
     return EmailContent(
-        subject=f"[Styxproxy] Payment Confirmed — Your Proxy is Ready! - {order_id[:8]}",
+        subject=f"[Styxproxy] Payment Confirmed - Your Proxy is Ready! - {order_id[:8]}",
         html=html,
         text=text,
     )
@@ -1855,64 +1715,95 @@ def _render_refund_processed_email(
     currency: str,
     reason: str,
 ) -> EmailContent:
-    """Render refund processed email - matches receipt design."""
+    """Render refund processed email - table-based layout."""
     base_styles = _get_base_styles()
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>Refund Processed</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
             {_render_header("REFUND PROCESSED", "styxproxy.com")}
-            
-            <div class="content-section">
-                <div class="section-label">REFUND CONFIRMATION</div>
-                <div class="main-heading">Your refund has been processed, {customer_name}!</div>
-                <div class="subheading">The refund has been initiated to your original payment method</div>
-                
-                <div class="card">
-                    <div class="card-row">
-                        <span class="card-label">Order ID</span>
-                        <span class="card-value">{order_id[:16]}...</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Original Amount</span>
-                        <span class="card-value">{currency} {original_amount:,.2f}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Refund Amount</span>
-                        <span class="card-value card-value-primary
-                       card-value-large">{currency} {refund_amount:,.2f}</span>  # noqa: E501
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Reason</span>
-                        <span class="card-value">{reason}</span>
-                    </div>
-                </div>
-                
-                <div style="background: var(--brand-card); padding: 16px; border-radius: 3px; margin: 16px 0;
-                        border-left: 4px solid #f59e0b;">
-                    <div style="color: #f59e0b; font-size: 13px;">
-                        <strong>Note:</strong> Please allow 5-10 business days
-                       for the refund to appear in your account. The exact timing depends on your bank or payment
-                        provider.  # noqa: E501
-                    </div>
-                </div>
-                
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">REFUND CONFIRMATION</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">Your refund has been processed, {customer_name}!</div>
+                <div style="font-size: 14px; color: #9ca3af; margin-bottom: 20px;">The refund has been initiated to your original payment method</div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Order ID</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{order_id[:16]}...</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Original Amount</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{currency} {original_amount:,.2f}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Refund Amount</td>
+                                                <td style="font-size: 18px; font-weight: 700; color: #00D060; text-align: right;">{currency} {refund_amount:,.2f}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Reason</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{reason}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 0 3px 3px 0; margin: 16px 0;">
+                    <tr>
+                        <td style="font-size: 13px; color: #f59e0b;">
+                            <strong>Note:</strong> Please allow 5-10 business days for the refund to appear in your account. The exact timing depends on your bank or payment provider.
+                        </td>
+                    </tr>
+                </table>
+
                 {_render_support_footer()}
             </div>
-            
+
             {_render_footer()}
         </div>
     </div>
@@ -1959,74 +1850,134 @@ def _render_credentials_rotated_email(
     proxy_port: int,
     protocol: str,
 ) -> EmailContent:
-    """Render credentials rotated email - matches receipt design."""
+    """Render credentials rotated email - table-based layout."""
     full_format = f"http://{new_username}:{new_password}@{proxy_ip}:{proxy_port}"
 
     base_styles = _get_base_styles()
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
     <title>Credentials Rotated</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
             {_render_header("CREDENTIALS ROTATED", "styxproxy.com")}
-            
-            <div class="content-section">
-                <div class="section-label">CREDENTIALS UPDATE</div>
-                <div class="main-heading">Your credentials have been updated, {customer_name}.</div>
-                <div class="subheading">Your proxy credentials have been rotated for security</div>
-                
-                <div class="card">
-                    <div class="card-row">
-                        <span class="card-label">Order ID</span>
-                        <span class="card-value">{order_id[:16]}...</span>
-                    </div>
-                </div>
-                
-                <div class="credentials-card">
-                    <div class="credentials-header">NEW CREDENTIALS</div>
-                    <div class="cred-row">
-                        <span class="cred-label">Username</span>
-                        <span class="cred-value">{new_username}</span>
-                    </div>
-                    <div class="cred-row">
-                        <span class="cred-label">Password</span>
-                        <span class="cred-value">{new_password}</span>
-                    </div>
-                    <div class="cred-row">
-                        <span class="cred-label">Proxy Address</span>
-                        <span class="cred-value">{proxy_ip}:{proxy_port}</span>
-                    </div>
-                    <div class="cred-row">
-                        <span class="cred-label">Protocol</span>
-                        <span class="cred-value">{protocol.upper()}</span>
-                    </div>
-                    <div class="cred-row">
-                        <span class="cred-label">Full Format</span>
-                        <span class="cred-value" style="font-size: 11px;">{full_format[:50]}...</span>
-                    </div>
-                </div>
-                
-                <div class="warning-box">
-                    ⚠️ <strong>Important:</strong> Your password has been changed.
-                       Please update your proxy configuration with the new credentials immediately to avoid service
-                        interruption.  # noqa: E501
-                </div>
-                
+
+            <div role="main" style="padding: 24px;">
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">CREDENTIALS UPDATE</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">Your credentials have been updated, {customer_name}.</div>
+                <div style="font-size: 14px; color: #9ca3af; margin-bottom: 20px;">Your proxy credentials have been rotated for security</div>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Order ID</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{order_id[:16]}...</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #0f0f0f; border: 1px solid #00D060; border-radius: 3px; padding: 16px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #00D060; margin-bottom: 16px;">NEW CREDENTIALS</div>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Username</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{new_username}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Password</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{new_password}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Proxy Address</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right;">{proxy_ip}:{proxy_port}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Protocol</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right;">{protocol.upper()}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Full Format</td>
+                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 11px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{full_format[:50]}...</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; border-left: 4px solid #f59e0b; border-radius: 0 3px 3px 0;">
+                                <div style="font-size: 12px; color: #f59e0b;">
+                                    <strong>Security:</strong> Keep these credentials confidential. Do not share them with anyone.
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 0 3px 3px 0; margin: 16px 0;">
+                    <tr>
+                        <td style="font-size: 13px; color: #f59e0b;">
+                            <strong>Important:</strong> Your password has been changed. Please update your proxy configuration with the new credentials immediately to avoid service interruption.
+                        </td>
+                    </tr>
+                </table>
+
                 {_render_support_footer()}
             </div>
-            
+
             {_render_footer()}
         </div>
     </div>
@@ -2050,8 +2001,7 @@ Protocol: {protocol.upper()}
 Full Format: {full_format}
 =========================
 
-⚠️ IMPORTANT: Your password has been changed. Please update your proxy configuration with the new credentials
-                        immediately.
+IMPORTANT: Your password has been changed. Please update your proxy configuration with the new credentials immediately.
 
 Need help? Contact us at styxproxy.com
 
@@ -2142,13 +2092,11 @@ async def send_charon_escalation_email(
 async def send_admin_notification(
     title: str,
     details: dict,
-    pill_type: str = "green",
 ) -> EmailResult:
     """Send general admin notification email."""
     content = _render_admin_notification_email(
         title=title,
         details=details,
-        pill_type=pill_type,
     )
     admin_recipient = EmailRecipient(email=settings.admin_email, name="Admin")
 
@@ -2169,7 +2117,7 @@ async def send_new_order_notification(
 ) -> EmailResult:
     """Send notification to admin about new order."""
     return await send_admin_notification(
-        title="🛒 New Order",
+        title="New Order",
         details={
             "Order ID": order_id,
             "Customer Phone": customer_phone,
@@ -2177,7 +2125,6 @@ async def send_new_order_notification(
             "Amount": f"{currency} {amount:,.2f}",
             "Status": "Pending Payment",
         },
-        pill_type="amber",
     )
 
 
@@ -2190,7 +2137,7 @@ async def send_order_paid_notification(
 ) -> EmailResult:
     """Send notification to admin when order is paid."""
     return await send_admin_notification(
-        title="✅ Order Paid",
+        title="Order Paid",
         details={
             "Order ID": order_id,
             "Customer Phone": customer_phone,
@@ -2198,7 +2145,6 @@ async def send_order_paid_notification(
             "Amount": f"{currency} {amount:,.2f}",
             "Status": "Paid - Processing",
         },
-        pill_type="green",
     )
 
 
@@ -2211,7 +2157,7 @@ async def send_refund_request_notification(
 ) -> EmailResult:
     """Send notification to admin about refund request."""
     return await send_admin_notification(
-        title="💰 Refund Request",
+        title="Refund Request",
         details={
             "Order ID": order_id,
             "Customer Phone": customer_phone,
@@ -2219,7 +2165,6 @@ async def send_refund_request_notification(
             "Reason": reason,
             "Action Required": "Review and approve/reject",
         },
-        pill_type="amber",
     )
 
 
@@ -2231,14 +2176,13 @@ async def send_refund_approved_notification(
 ) -> EmailResult:
     """Send notification to admin when refund is approved."""
     return await send_admin_notification(
-        title="✅ Refund Approved",
+        title="Refund Approved",
         details={
             "Order ID": order_id,
             "Customer Phone": customer_phone,
             "Amount": f"{currency} {amount:,.2f}",
             "Status": "Refunded",
         },
-        pill_type="green",
     )
 
 
@@ -2460,120 +2404,157 @@ def _render_renewal_reminder_email(
     expires_at: datetime,
     days_remaining: int,
 ) -> EmailContent:
-    """Render renewal reminder email - matching receipt PDF dark/light design."""
+    """Render renewal reminder email - table-based layout."""
     base_styles = _get_base_styles()
     # Calculate dynamic expiry message
     if days_remaining <= 0:
         expiry_headline = "Your proxy has expired"
         expiry_sub = "Renew now to keep your IP and avoid interruption."
-        badge_class = "pill-red"
+        badge_bg = "#ef4444"
         badge_text = "EXPIRED"
     elif days_remaining == 1:
         expiry_headline = "Your proxy expires tomorrow"
         expiry_sub = "Renew now to keep your IP and avoid interruption."
-        badge_class = "pill-red"
+        badge_bg = "#ef4444"
         badge_text = "EXPIRES SOON"
     else:
         expiry_headline = f"Your proxy expires in {days_remaining} days"
         expiry_sub = "Renew now to keep your IP and avoid interruption."
-        badge_class = "pill-amber"
+        badge_bg = "#f59e0b"
         badge_text = f"{days_remaining} DAYS LEFT"
 
     # Format expiry date
     expires_str = expires_at.strftime("%B %d, %Y")
 
-    html = f"""
-<!DOCTYPE html>
-<html>
+    html = f"""<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
-    <title>Your Proxy Expires Soon — Renew Now</title>
+    <title>Your Proxy Expires Soon</title>
     <style>
         {base_styles}
     </style>
 </head>
 <body>
-    <div class="email-wrapper">
-        <div class="email-container">
-            <div class="accent-bar-top"></div>
+    <div style="width: 100%; background-color: #0f0f0f;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0;">
+            <div style="height: 4px; background-color: #00D060;" aria-hidden="true"></div>
 
-            {_render_header("RENEWAL Reminder", "styxproxy.com")}
+            {_render_header("RENEWAL REMINDER", "styxproxy.com")}
 
-            <div class="divider"></div>
+            <div style="height: 1px; background-color: #262626; margin: 0 24px;" aria-hidden="true"></div>
 
-            <div class="content-section">
+            <div role="main" style="padding: 24px;">
                 <!-- Section label -->
-                <div class="section-label">Subscription Alert</div>
+                <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9ca3af; margin-bottom: 8px;">Subscription Alert</div>
 
                 <!-- Main heading -->
-                <div class="main-heading">{expiry_headline}</div>
-                <div class="subheading">{expiry_sub}</div>
+                <div style="font-size: 22px; font-weight: 700; color: #f5f5f5; margin-bottom: 8px;">{expiry_headline}</div>
+                <div style="font-size: 14px; color: #9ca3af; margin-bottom: 20px;">{expiry_sub}</div>
 
                 <!-- Status badge -->
                 <div style="margin-bottom: 20px;">
-                    <span class="pill {badge_class}">{badge_text}</span>
+                    <span style="display: inline-block; padding: 6px 14px; border-radius: 4.5px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background-color: {badge_bg}; color: #000000;">{badge_text}</span>
                 </div>
 
                 <!-- Order details card -->
-                <div class="card">
-                    <div class="card-row">
-                        <span class="card-label">Order ID</span>
-                        <span class="card-value card-value-primary">{order_id}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Plan</span>
-                        <span class="card-value">{plan_code}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Expiry Date</span>
-                        <span class="card-value">{expires_str}</span>
-                    </div>
-                </div>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 20px; margin: 16px 0;">
+                    <tr>
+                        <td>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Order ID</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #00D060; text-align: right;">{order_id}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Plan</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{plan_code}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #262626;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Expiry Date</td>
+                                                <td style="font-size: 14px; font-weight: 600; color: #f5f5f5; text-align: right;">{expires_str}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
 
                 <!-- Warning box -->
-                <div class="warning-box">
-                    <strong>Don't lose your IP.</strong> Once your proxy expires, the IP address
-                    is released back into the pool and may no longer be available when you renew.
-                    Act now to keep the same IP address.
-                </div>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 0 3px 3px 0; margin: 16px 0;">
+                    <tr>
+                        <td style="font-size: 13px; color: #f59e0b;">
+                            <strong>Don't lose your IP.</strong> Once your proxy expires, the IP address is released back into the pool and may no longer be available when you renew. Act now to keep the same IP address.
+                        </td>
+                    </tr>
+                </table>
 
                 <!-- CTA Button -->
                 <div style="text-align: center; margin: 24px 0;">
-                    <a href="https://styxproxy.com/manage" class="cta-button">
-                        Renew Now → styxproxy.com/manage
+                    <a href="https://styxproxy.com/manage" style="display: inline-block; background-color: #00D060; color: #000000; font-weight: 700; padding: 14px 28px; border-radius: 4px; text-decoration: none;" rel="noopener noreferrer">
+                        Renew Now
                     </a>
                 </div>
 
                 <!-- Support section -->
-                <div class="support-card">
-                    <div class="support-title">NEED HELP?</div>
-                    <div class="support-row">
-                        <span class="support-label">Chat:</span>
-                        <a href="https://styxproxy.com/contact" class="support-link">styxproxy.com/contact</a>
-                    </div>
-                    <div class="support-row">
-                        <span class="support-label">Email:</span>
-                        <a href="mailto:support@styxproxy.com" class="support-link">support@styxproxy.com</a>
-                    </div>
-                    <div class="support-row" style="margin-bottom: 0;">
-                        <span class="support-label">Web:</span>
-                        <a href="https://styxproxy.com" class="support-link">styxproxy.com</a>
-                    </div>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1a1a1a; border-radius: 3px; padding: 16px; margin-top: 20px;">
+                    <tr>
+                        <td>
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #f5f5f5; margin-bottom: 12px;">NEED HELP?</div>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="font-size: 12px; color: #9ca3af; padding-bottom: 6px;">Chat:</td>
+                                    <td style="font-size: 12px; text-align: right; padding-bottom: 6px;"><a href="https://styxproxy.com/contact" style="color: #00D060; text-decoration: none; font-weight: 500;" rel="noopener noreferrer">styxproxy.com/contact</a></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-size: 12px; color: #9ca3af; padding-bottom: 6px;">Email:</td>
+                                    <td style="font-size: 12px; text-align: right; padding-bottom: 6px;"><a href="mailto:support@styxproxy.com" style="color: #00D060; text-decoration: none; font-weight: 500;">support@styxproxy.com</a></td>
+                                </tr>
+                                <tr>
+                                    <td style="font-size: 12px; color: #9ca3af;">Web:</td>
+                                    <td style="font-size: 12px; text-align: right;"><a href="https://styxproxy.com" style="color: #00D060; text-decoration: none; font-weight: 500;" rel="noopener noreferrer">styxproxy.com</a></td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div style="height: 1px; background-color: #262626; margin: 0 24px;" aria-hidden="true"></div>
+
+            <div role="contentinfo" style="text-align: center; padding: 20px 24px; color: #9ca3af; font-size: 11px;">
+                <div style="font-style: italic; margin-bottom: 8px;">You received this email because you have an active Styxproxy subscription.</div>
+                <div style="margin-bottom: 8px;">To manage your email preferences, visit your account settings.</div>
+                <div style="margin-bottom: 8px;">
+                    <a href="https://styxproxy.com/unsubscribe" style="color: #9ca3af; text-decoration: underline;">Unsubscribe</a>
                 </div>
+                <div style="margin-bottom: 8px;">Styxproxy, Lagos, Nigeria</div>
+                <div style="color: #9ca3af;">&copy; 2026 Styxproxy &mdash; Anonymous proxy service for the discerning.</div>
             </div>
 
-            <div class="divider"></div>
-
-            <div class="footer">
-                <div class="footer-auto">You received this email because you have an active Styxproxy subscription.</div>
-                <div class="footer-auto">To manage your email preferences, visit your account settings.</div>
-                <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
-            </div>
-
-            <div class="accent-bar-bottom"></div>
+            <div style="height: 4px; background-color: #00D060;" aria-hidden="true"></div>
         </div>
     </div>
 </body>
@@ -2592,10 +2573,10 @@ Don't lose your IP address. Renew now at https://styxproxy.com/manage
 
 If you have questions, contact support@styxproxy.com or visit styxproxy.com/contact
 
-© 2026 Styxproxy
+&copy; 2026 Styxproxy
 """
 
-    subject = f"{expiry_headline} — renew at styxproxy.com/manage"
+    subject = f"{expiry_headline} - renew at styxproxy.com/manage"
     return EmailContent(subject=subject, html=html, text=text)
 
 
