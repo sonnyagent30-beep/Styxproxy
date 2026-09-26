@@ -104,14 +104,19 @@ export default function AdminCharonConversationsPage() {
   const loadConversations = async () => {
     setConversationsLoading(true);
     setConversationsError('');
-    const result = await api.getCharonConversations(1, 100);
-    if (result.error) {
-      setConversationsError(result.error);
-    } else if (result.data) {
-      setConversations(result.data.conversations || []);
-      setConversationsTotal(result.data.total || 0);
+    try {
+      const result = await api.getCharonConversations(1, 100);
+      if (result.error) {
+        setConversationsError(result.error);
+      } else if (result.data) {
+        setConversations(result.data.conversations || []);
+        setConversationsTotal(result.data.total || 0);
+      }
+    } catch (e) {
+      setConversationsError(e instanceof Error ? e.message : "Failed to load conversations");
+    } finally {
+      setConversationsLoading(false);
     }
-    setConversationsLoading(false);
   };
 
   const loadLogs = useCallback(async (offset: number = 0) => {
@@ -124,24 +129,29 @@ export default function AdminCharonConversationsPage() {
     const dateFrom = filterDateFrom || undefined;
     const dateTo = filterDateTo || undefined;
     
-    const result = await api.getCharonLogs(
-      LOG_LIMIT,
-      offset,
-      conversationId,
-      channel,
-      escalated,
-      dateFrom,
-      dateTo
-    );
-    
-    if (result.error) {
-      setLogsError(result.error);
-    } else if (result.data) {
-      setLogs(result.data.logs || []);
-      setLogsTotal(result.data.total || 0);
-      setLogOffset(result.data.offset || 0);
+    try {
+      const result = await api.getCharonLogs(
+        LOG_LIMIT,
+        offset,
+        conversationId,
+        channel,
+        escalated,
+        dateFrom,
+        dateTo
+      );
+      
+      if (result.error) {
+        setLogsError(result.error);
+      } else if (result.data) {
+        setLogs(result.data.logs || []);
+        setLogsTotal(result.data.total || 0);
+        setLogOffset(result.data.offset || 0);
+      }
+    } catch (e) {
+      setLogsError(e instanceof Error ? e.message : "Failed to load logs");
+    } finally {
+      setLogsLoading(false);
     }
-    setLogsLoading(false);
   }, [filterConversationId, selectedConversationId, filterChannel, filterEscalated, filterDateFrom, filterDateTo]);
 
   // Load logs when tab changes to logs or filters change
@@ -196,16 +206,16 @@ export default function AdminCharonConversationsPage() {
       </div>
 
       {conversationsError && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-between">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-between" role="alert">
           <span>{conversationsError}</span>
-          <button onClick={() => setConversationsError('')} className="text-red-300 hover:text-white ml-4">[x]</button>
+          <button onClick={() => setConversationsError('')} className="text-red-300 hover:text-white ml-4" aria-label="Dismiss error">[x]</button>
         </div>
       )}
 
       {logsError && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-between">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-between" role="alert">
           <span>{logsError}</span>
-          <button onClick={() => setLogsError('')} className="text-red-300 hover:text-white ml-4">[x]</button>
+          <button onClick={() => setLogsError('')} className="text-red-300 hover:text-white ml-4" aria-label="Dismiss error">[x]</button>
         </div>
       )}
 
@@ -244,7 +254,11 @@ export default function AdminCharonConversationsPage() {
           </div>
           
           {conversationsLoading ? (
-            <p className="text-center py-8 text-[var(--muted)]">Loading...</p>
+            <div className="space-y-2 animate-pulse">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="h-16 bg-[var(--card-hover)] rounded-lg" />
+              ))}
+            </div>
           ) : conversations.length === 0 ? (
             <p className="text-center py-8 text-[var(--muted)]">No conversations yet</p>
           ) : (
@@ -415,7 +429,11 @@ export default function AdminCharonConversationsPage() {
             </div>
             
             {logsLoading ? (
-              <p className="text-center py-8 text-[var(--muted)]">Loading...</p>
+              <div className="space-y-2 animate-pulse">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-24 bg-[var(--card-hover)] rounded-lg" />
+                ))}
+              </div>
             ) : logs.length === 0 ? (
               <p className="text-center py-8 text-[var(--muted)]">No logs found</p>
             ) : (

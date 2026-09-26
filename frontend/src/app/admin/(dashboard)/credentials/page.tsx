@@ -89,35 +89,43 @@ export default function AdminCredentialsPage() {
   const handleRotate = async () => {
     if (!rotateCredential || !rotateReason.trim()) return;
     
-    const result = await api.rotateCredential(rotateCredential.id, rotateReason);
-    
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setShowRotateModal(false);
-      setRotateCredential(null);
-      setRotateReason('');
-      loadData();
-      // Refresh selected credential if it's the one rotated
-      if (selectedCredential?.id === rotateCredential.id) {
-        const updated = await api.getCredentialDetail(rotateCredential.id);
-        if (updated.data) {
-          setSelectedCredential(updated.data);
+    try {
+      const result = await api.rotateCredential(rotateCredential.id, rotateReason);
+      
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setShowRotateModal(false);
+        setRotateCredential(null);
+        setRotateReason('');
+        loadData();
+        // Refresh selected credential if it's the one rotated
+        if (selectedCredential?.id === rotateCredential.id) {
+          const updated = await api.getCredentialDetail(rotateCredential.id);
+          if (updated.data) {
+            setSelectedCredential(updated.data);
+          }
         }
       }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to rotate credential');
     }
   };
 
   const handleUpdateStatus = async (credentialId: number, newStatus: string) => {
-    const result = await api.updateCredential(credentialId, { status: newStatus });
-    
-    if (result.error) {
-      setError(result.error);
-    } else {
-      loadData();
-      if (selectedCredential?.id === credentialId) {
-        setSelectedCredential({ ...selectedCredential, status: newStatus });
+    try {
+      const result = await api.updateCredential(credentialId, { status: newStatus });
+      
+      if (result.error) {
+        setError(result.error);
+      } else {
+        loadData();
+        if (selectedCredential?.id === credentialId) {
+          setSelectedCredential({ ...selectedCredential, status: newStatus });
+        }
       }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update credential');
     }
   };
 
@@ -281,6 +289,7 @@ export default function AdminCredentialsPage() {
                         }}
                         className="p-2 hover:bg-[var(--card-hover)] rounded-lg transition-colors"
                         title="View details"
+                        aria-label="View credential details"
                       >
                         <svg className="w-5 h-5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -338,10 +347,10 @@ export default function AdminCredentialsPage() {
 
       {/* Rotate Modal */}
       {showRotateModal && rotateCredential && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowRotateModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowRotateModal(false)} role="dialog" aria-modal="true" aria-labelledby="rotate-title">
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-xl font-bold">Rotate Credential</h2>
+              <h2 className="text-xl font-bold" id="rotate-title">Rotate Credential</h2>
               <p className="text-sm text-[var(--muted)]">Username: {rotateCredential.styxproxy_username}</p>
             </div>
             <div className="p-6 space-y-4">
@@ -410,11 +419,11 @@ function CredentialDetailModal({
     : null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="cred-detail-title">
       <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-[var(--border)]">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Credential Details</h2>
+            <h2 className="text-xl font-bold" id="cred-detail-title">Credential Details</h2>
             <button onClick={onClose} className="p-2 hover:bg-[var(--card-hover)] rounded-lg">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -490,11 +499,11 @@ function CredentialDetailModal({
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">Data Used</span>
-                <span>{credential.gb_used.toFixed(2)} GB</span>
+                <span>{(credential.gb_used ?? 0).toFixed(2)} GB</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">Rotations</span>
-                <span>{credential.rotation_count}</span>
+                <span>{(credential.rotation_count ?? 0)}</span>
               </div>
               {credential.last_used_at && (
                 <div className="flex justify-between">

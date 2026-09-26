@@ -33,10 +33,15 @@ export default function AdminBlogPage() {
 
   const loadPosts = async () => {
     setLoading(true);
-    const result = await api.getAdminBlogPosts(1, 100);
-    if (result.error) setError(result.error);
-    else setPosts(result.data?.posts || []);
-    setLoading(false);
+    try {
+      const result = await api.getAdminBlogPosts(1, 100);
+      if (result.error) setError(result.error);
+      else setPosts(result.data?.posts || []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load posts");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,19 +51,24 @@ export default function AdminBlogPage() {
       return;
     }
     setSaving(true);
-    const result = editingPost
-      ? await api.updateBlogPost(editingPost.id, formData)
-      : await api.createBlogPost(formData);
-    if (result.error) {
-      alert(result.error);
+    try {
+      const result = editingPost
+        ? await api.updateBlogPost(editingPost.id, formData)
+        : await api.createBlogPost(formData);
+      if (result.error) {
+        alert(result.error);
+        setSaving(false);
+        return;
+      }
+      setShowModal(false);
+      setEditingPost(null);
+      setFormData(emptyForm);
+      loadPosts();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to save post");
+    } finally {
       setSaving(false);
-      return;
     }
-    setShowModal(false);
-    setEditingPost(null);
-    setFormData(emptyForm);
-    loadPosts();
-    setSaving(false);
   };
 
   const handleEdit = (post: BlogPost) => {
@@ -93,8 +103,12 @@ export default function AdminBlogPage() {
   };
 
   const handleApprove = async (post: BlogPost) => {
-    const result = await api.approvePost(post.id);
-    if (!result.error) loadPosts();
+    try {
+      const result = await api.approvePost(post.id);
+      if (!result.error) loadPosts();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to approve post");
+    }
   };
 
   const handleReject = async (post: BlogPost) => {
@@ -143,7 +157,7 @@ export default function AdminBlogPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
         </div>
       )}
@@ -168,7 +182,11 @@ export default function AdminBlogPage() {
       {/* Posts Table */}
       <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
         {loading ? (
-          <div className="p-8 text-center text-[var(--muted)]">Loading...</div>
+          <div className="space-y-3 animate-pulse">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="p-4 bg-[var(--card-hover)] rounded-xl h-16" />
+            ))}
+          </div>
         ) : filteredPosts.length === 0 ? (
           <div className="p-8 text-center text-[var(--muted)]">No posts yet. Create your first post!</div>
         ) : (

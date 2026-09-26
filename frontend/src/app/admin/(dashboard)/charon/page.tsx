@@ -42,28 +42,37 @@ export default function AdminCharonPage() {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const result = await api.getAllKnowledgeFiles();
-    if (result.error) {
-      setError(result.error);
-    } else if (result.data) {
-      setKnowledgeFiles(result.data.knowledge);
-      setLearnedFiles(result.data.learned);
+    try {
+      const result = await api.getAllKnowledgeFiles();
+      if (result.error) {
+        setError(result.error);
+      } else if (result.data) {
+        setKnowledgeFiles(result.data.knowledge);
+        setLearnedFiles(result.data.learned);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load knowledge files");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
   const handleSelectFile = async (name: string) => {
-    const result = await api.getKnowledgeFile(name);
-    if (result.error) { setError(result.error); return; }
-    const data = result.data!;
-    const { title: t, body: b } = splitTitleBody(data.content);
-    setTitle(t);
-    setContent(b);
-    setEditingName(name);
-    setSaveMessage('');
-    setActiveTab('write');
+    try {
+      const result = await api.getKnowledgeFile(name);
+      if (result.error) { setError(result.error); return; }
+      const data = result.data!;
+      const { title: t, body: b } = splitTitleBody(data.content);
+      setTitle(t);
+      setContent(b);
+      setEditingName(name);
+      setSaveMessage('');
+      setActiveTab('write');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load file");
+    }
   };
 
   const handleNew = () => {
@@ -83,39 +92,50 @@ export default function AdminCharonPage() {
     setSaving(true);
     setSaveMessage('');
 
-    if (editingName) {
-      // Update existing file
-      const data: UpdateKnowledgeRequest = { title: title.trim(), content: content.trim() };
-      const result = await api.updateKnowledgeFile(editingName, data);
-      if (result.error) {
-        setSaveMessage(result.error);
+    try {
+      if (editingName) {
+        // Update existing file
+        const data: UpdateKnowledgeRequest = { title: title.trim(), content: content.trim() };
+        const result = await api.updateKnowledgeFile(editingName, data);
+        if (result.error) {
+          setSaveMessage(result.error);
+        } else {
+          setSaveMessage(`Saved — '${editingName}' updated`);
+          await loadAll();
+        }
       } else {
-        setSaveMessage(`Saved — '${editingName}' updated`);
-        await loadAll();
+        // Create new file
+        const data: LearnRequest = { title: title.trim(), content: content.trim() };
+        const result = await api.learnContent(data);
+        if (result.error) {
+          setSaveMessage(result.error);
+        } else {
+          setSaveMessage(`Created — ${result.data?.filepath}`);
+          setTitle('');
+          setContent('');
+          await loadAll();
+          setActiveTab('files');
+        }
       }
-    } else {
-      // Create new file
-      const data: LearnRequest = { title: title.trim(), content: content.trim() };
-      const result = await api.learnContent(data);
-      if (result.error) {
-        setSaveMessage(result.error);
-      } else {
-        setSaveMessage(`Created — ${result.data?.filepath}`);
-        setTitle('');
-        setContent('');
-        await loadAll();
-        setActiveTab('files');
-      }
+    } catch (e) {
+      setSaveMessage(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleDelete = async (name: string) => {
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    const result = await api.deleteLearnedFile(name);
-    if (!result.error) {
-      if (selectedFile?.name === name) setSelectedFile(null);
-      await loadAll();
+    try {
+      const result = await api.deleteLearnedFile(name);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        if (selectedFile?.name === name) setSelectedFile(null);
+        await loadAll();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete file");
     }
   };
 
@@ -164,7 +184,7 @@ export default function AdminCharonPage() {
       </div>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm" role="alert">
           {error}
         </div>
       )}
@@ -173,7 +193,11 @@ export default function AdminCharonPage() {
       {activeTab === 'files' && (
         <div className="space-y-6">
           {loading ? (
-            <p className="text-[var(--muted)] text-sm">Loading…</p>
+            <div className="space-y-2 animate-pulse">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-12 bg-[var(--card-hover)] rounded-lg" />
+              ))}
+            </div>
           ) : (
             <>
               {/* Static knowledge files */}

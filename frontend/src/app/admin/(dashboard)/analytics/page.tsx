@@ -5,32 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
-import type { ApiResponse } from '@/types';
-
-type FunnelStage = {
-  step: string;
-  count: number;
-  unique_sessions: number;
-};
-
-type FunnelData = {
-  period_start: string;
-  period_end: string;
-  total_sessions: number;
-  steps: FunnelStage[];
-};
-
-type AnalyticsEvent = {
-  id: number;
-  event_name: string;
-  session_id: string | null;
-  customer_phone: string | null;
-  country: string | null;
-  plan_code: string | null;
-  channel: string;
-  meta: Record<string, unknown>;
-  created_at: string;
-};
+import type { ApiResponse, FunnelData, AnalyticsEvent } from '@/types';
 
 const FUNNEL_STAGE_LABELS: Record<string, string> = {
   page_view: 'Page View',
@@ -63,19 +38,29 @@ export default function AdminAnalyticsPage() {
   const limit = 30;
 
   const loadFunnel = useCallback(async () => {
-    const res = await api.getAnalyticsFunnel() as ApiResponse<FunnelData>;
-    if (res.error) {
-      setError(res.error);
-    } else {
-      setFunnelData(res.data || null);
+    try {
+      const res = await api.getAnalyticsFunnel() as ApiResponse<FunnelData>;
+      if (res.error) {
+        setError(res.error);
+      } else {
+        setFunnelData(res.data || null);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load funnel data");
     }
   }, []);
 
   const loadEvents = useCallback(async () => {
-    const res = await api.getAnalyticsEvents(page, limit, eventFilter) as ApiResponse<{ events: AnalyticsEvent[]; total: number }>;
-    if (!res.error) {
-      setEvents(res.data?.events || []);
-      setTotalEvents(res.data?.total || 0);
+    try {
+      const res = await api.getAnalyticsEvents(page, limit, eventFilter) as ApiResponse<{ events: AnalyticsEvent[]; total: number }>;
+      if (res.error) {
+        setError(res.error);
+      } else {
+        setEvents(res.data?.events || []);
+        setTotalEvents(res.data?.total || 0);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load events");
     }
   }, [page, eventFilter]);
 
@@ -109,7 +94,9 @@ export default function AdminAnalyticsPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <label htmlFor="event-filter" className="sr-only">Filter by event type</label>
             <select
+              id="event-filter"
               value={eventFilter}
               onChange={e => { setEventFilter(e.target.value); setPage(1); }}
               className="px-4 py-2 rounded-lg bg-[var(--card)] border border-[var(--border)] text-sm"
@@ -122,6 +109,7 @@ export default function AdminAnalyticsPage() {
             <button
               onClick={() => { setLoading(true); Promise.all([loadFunnel(), loadEvents()]).finally(() => setLoading(false)); }}
               className="px-4 py-2 rounded-lg bg-[var(--card)] border border-[var(--border)] text-sm hover:bg-[var(--card-hover)]"
+              aria-label="Refresh analytics data"
             >
               🔄 Refresh
             </button>
@@ -129,7 +117,7 @@ export default function AdminAnalyticsPage() {
         </div>
 
         {error && (
-          <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm" role="alert">
             {error}
           </div>
         )}

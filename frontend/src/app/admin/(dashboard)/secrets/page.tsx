@@ -99,9 +99,6 @@ export default function SecretsVaultPage() {
     }
   };
 
-  const toggleReveal = (k: string) =>
-    setReveal(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n; });
-
   const Row = ({ row }: { row: SecretRow }) => (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] last:border-0">
       <div className="flex-1 min-w-0">
@@ -149,7 +146,7 @@ export default function SecretsVaultPage() {
             </svg>
             Refresh
           </button>
-          <button onClick={() => { setNewKey(''); setNewValue(''); }}
+          <button onClick={() => { setShowAddModal(true); setNewKey(''); setNewValue(''); }}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -217,7 +214,7 @@ export default function SecretsVaultPage() {
       )}
 
       {/* Add Secret Modal */}
-      {newKey !== '' || newValue !== '' ? (
+      {showAddModal ? (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setNewKey(''); setNewValue(''); }}>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">

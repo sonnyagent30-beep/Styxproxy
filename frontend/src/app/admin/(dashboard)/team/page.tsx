@@ -29,9 +29,9 @@ export default function AdminTeamPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     
     // Get current admin
@@ -67,7 +67,7 @@ export default function AdminTeamPage() {
     }
     
     setLoading(false);
-  };
+  }, []);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,13 +229,13 @@ export default function AdminTeamPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  <th className="text-left p-4 font-medium text-[var(--muted)]">Phone</th>
-                  <th className="text-left p-4 font-medium text-[var(--muted)]">Role</th>
-                  <th className="text-left p-4 font-medium text-[var(--muted)]">2FA</th>
-                  <th className="text-left p-4 font-medium text-[var(--muted)]">Created</th>
-                  <th className="text-left p-4 font-medium text-[var(--muted)]">Last Login</th>
-                  <th className="text-left p-4 font-medium text-[var(--muted)]">Status</th>
-                  <th className="text-left p-4 font-medium text-[var(--muted)]">Actions</th>
+                  <th scope="col" className="text-left p-4 font-medium text-[var(--muted)]">Phone</th>
+                  <th scope="col" className="text-left p-4 font-medium text-[var(--muted)]">Role</th>
+                  <th scope="col" className="text-left p-4 font-medium text-[var(--muted)]">2FA</th>
+                  <th scope="col" className="text-left p-4 font-medium text-[var(--muted)]">Created</th>
+                  <th scope="col" className="text-left p-4 font-medium text-[var(--muted)]">Last Login</th>
+                  <th scope="col" className="text-left p-4 font-medium text-[var(--muted)]">Status</th>
+                  <th scope="col" className="text-left p-4 font-medium text-[var(--muted)]">Actions</th>
                 </tr>
               </thead>
               <tbody>

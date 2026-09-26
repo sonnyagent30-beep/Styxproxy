@@ -79,14 +79,18 @@ export default function AdminCatalogPage() {
     // Fetch all plans across pages (104 total > 100 per page)
     let page = 1;
     let allPlans: Plan[] = [];
-    while (true) {
-      const result = await api.getPlans(page, 100);
-      if (result.error) { setError(result.error); break; }
-      const plans: Plan[] = result.data?.data ?? [];
-      allPlans = allPlans.concat(plans);
-      if (!result.data?.pagination?.has_next) break;
-      page++;
-      if (page > 5) break; // safety cap
+    try {
+      while (true) {
+        const result = await api.getPlans(page, 100);
+        if (result.error) { setError(result.error); break; }
+        const plans: Plan[] = result.data?.data ?? [];
+        allPlans = allPlans.concat(plans);
+        if (!result.data?.pagination?.has_next) break;
+        page++;
+        if (page > 5) break; // safety cap
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load plans");
     }
     if (!allPlans.length && !error) {
       setPlanGroups([]);
@@ -199,12 +203,12 @@ export default function AdminCatalogPage() {
 
       {/* Alerts */}
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm" role="alert">
           {error}
         </div>
       )}
       {success && (
-        <div className="mb-6 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
+        <div className="mb-6 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm" role="status">
           ✓ {success}
         </div>
       )}
@@ -275,6 +279,9 @@ export default function AdminCatalogPage() {
                             isActive ? 'bg-green-500' : 'bg-gray-600'
                           }`}
                           title={isActive ? 'Disable' : 'Enable'}
+                          aria-label={`${isActive ? 'Disable' : 'Enable'} ${plan.country} plan`}
+                          role="switch"
+                          aria-checked={isActive}
                         >
                           <span
                             className={`block w-4 h-4 mt-1 rounded-full bg-white shadow transition-transform ${

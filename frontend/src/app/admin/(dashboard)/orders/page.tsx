@@ -110,7 +110,9 @@ export default function AdminOrdersPage() {
     setSearchResults(null);
     
     // Try to determine if it's an order_id, tx_ref, or phone
-    const lookupData: {order_id?: string; tx_ref?: string; phone?: string} = {};
+    const lookupData: {order_id?: string; tx_ref?: string; phone?: string } = {};
+    // phone is used for lookup but not in the API type — cast as any to avoid TS error
+    const lookupPayload = lookupData as { order_id?: string; tx_ref?: string; phone?: string };
     
     if (searchQuery.startsWith('ADMIN-') || searchQuery.length > 10) {
       lookupData.order_id = searchQuery;
@@ -120,7 +122,7 @@ export default function AdminOrdersPage() {
       lookupData.phone = searchQuery;
     }
     
-    const result = await api.lookupOrder(lookupData);
+    const result = await api.lookupOrder(lookupPayload);
     
     if (result.error) {
       setError(result.error);
@@ -383,6 +385,8 @@ export default function AdminOrdersPage() {
                         }}
                         className="p-2 hover:bg-[var(--card-hover)] rounded-lg transition-colors"
                         title="View details"
+                        aria-label="View order details"
+                        aria-label="View order details"
                       >
                         <svg className="w-5 h-5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -457,10 +461,10 @@ export default function AdminOrdersPage() {
 
       {/* Refund Modal */}
       {showRefundModal && refundOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowRefundModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowRefundModal(false)} role="dialog" aria-modal="true" aria-labelledby="refund-title">
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-xl font-bold">Process Refund</h2>
+              <h2 className="text-xl font-bold" id="refund-title">Process Refund</h2>
               <p className="text-sm text-[var(--muted)]">Order: {refundOrder.order_id}</p>
             </div>
             <div className="p-6 space-y-4">
@@ -531,11 +535,11 @@ function OrderDetailModal({
     : null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="order-detail-title">
       <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-[var(--border)]">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Order Details</h2>
+            <h2 className="text-xl font-bold" id="order-detail-title">Order Details</h2>
             <button onClick={onClose} className="p-2 hover:bg-[var(--card-hover)] rounded-lg">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -651,11 +655,11 @@ function OrderDetailModal({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted)]">Data Used</span>
-                  <span>{order.styxproxy_credential.gb_used.toFixed(2)} GB</span>
+                  <span>{(order.styxproxy_credential.gb_used ?? 0).toFixed(2)} GB</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted)]">Rotations</span>
-                  <span>{order.styxproxy_credential.rotation_count}</span>
+                  <span>{order.styxproxy_credential.rotation_count ?? 0}</span>
                 </div>
                 
                 {/* Proxy Credentials Display */}
@@ -785,11 +789,11 @@ function CreateOrderModal({
   const selectedPlan = plans.find(p => p.plan_code === form.planCode);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="create-order-title">
       <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-[var(--border)]">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Create Order</h2>
+            <h2 className="text-xl font-bold" id="create-order-title">Create Order</h2>
             <button onClick={onClose} className="p-2 hover:bg-[var(--card-hover)] rounded-lg">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -27,7 +27,7 @@ export default function AdminPermissionsPage() {
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [reviewerNotes, setReviewerNotes] = useState('');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -59,13 +59,13 @@ export default function AdminPermissionsPage() {
     }
 
     setLoading(false);
-  };
+  }, []);
 
-  const loadRequests = async (status?: string) => {
+  const loadRequests = useCallback(async (status?: string) => {
     setReqLoading(true);
     setReqError('');
     const result = await api.getPermissionRequests(
-      status === 'all' ? undefined : (status as any),
+      status === 'all' ? undefined : (status as 'pending' | 'approved' | 'rejected' | 'expired'),
     );
     if (result.error) {
       setReqError(result.error);
@@ -73,9 +73,9 @@ export default function AdminPermissionsPage() {
       setRequests(result.data?.requests || []);
     }
     setReqLoading(false);
-  };
+  }, []);
 
-  const handleAction = async (
+  const handleAction = useCallback(async (
     requestId: string,
     action: 'approve' | 'reject',
   ) => {
@@ -83,19 +83,20 @@ export default function AdminPermissionsPage() {
     const result = await api.actionPermissionRequest(requestId, action, reviewerNotes || undefined);
     setActioningId(null);
     if (result.error) {
-      alert('Action failed: ' + result.error);
+      setReqError('Action failed: ' + result.error);
     } else {
       setRequests((prev) => prev.filter((r) => r.id !== requestId));
       setReviewerNotes('');
     }
-  };
+  }, [reviewerNotes]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  }, [loadData]);
+
+  useEffect(() => {
     loadRequests(reqStatusFilter);
-  }, []);
+  }, [reqStatusFilter, loadRequests]);
 
   const isGranted = (code: string): boolean => {
     if (!myPerms) return false;
@@ -290,10 +291,10 @@ export default function AdminPermissionsPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-[var(--surface-2)]">
                       <tr>
-                        <th className="text-left px-4 py-2 font-medium">Status</th>
-                        <th className="text-left px-4 py-2 font-medium">Code</th>
-                        <th className="text-left px-4 py-2 font-medium">Description</th>
-                        <th className="text-left px-4 py-2 font-medium">Sensitivity</th>
+                        <th scope="col" className="text-left px-4 py-2 font-medium">Status</th>
+                        <th scope="col" className="text-left px-4 py-2 font-medium">Code</th>
+                        <th scope="col" className="text-left px-4 py-2 font-medium">Description</th>
+                        <th scope="col" className="text-left px-4 py-2 font-medium">Sensitivity</th>
                       </tr>
                     </thead>
                     <tbody>

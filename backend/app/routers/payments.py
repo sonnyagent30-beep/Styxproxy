@@ -49,8 +49,8 @@ async def initiate_payment(
             detail="No customer profile found.",
         )
 
-    # Generate tx_ref BEFORE calling flutterwave so we control it
-    tx_ref = f"TXF-{uuid4().hex[:8].upper()}"
+    # Use frontend payment_reference if provided (STX- format), otherwise generate our own
+    tx_ref = request.payment_reference or f"TXF-{uuid4().hex[:8].upper()}"
 
     result = await create_flutterwave_invoice(
         amount=total_amount,
