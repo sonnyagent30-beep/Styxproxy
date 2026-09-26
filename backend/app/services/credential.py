@@ -143,44 +143,6 @@ async def get_provider_proxy(
     raise RuntimeError(f"Provider proxy unavailable after {MAX_PROVIDER_RETRIES} attempts. Last error: {last_error}")
 
 
-# ─── Dante Pipeline ───────────────────────────────────────────────────────────
-
-
-async def register_on_dante(
-    upstream_ip: str,
-    upstream_port: int,
-    expires_at: datetime,
-) -> dict:
-    """
-    Register branded credentials on Dante.
-
-    Returns a dict with keys: {styxproxy_username, styxproxy_password, dante_port}
-    The plaintext password is returned so it can be sent to the customer.
-    """
-    from app.services import dante as dante_svc
-
-    styxproxy_username = generate_styxproxy_username()
-    styxproxy_password = generate_styxproxy_password()
-
-    try:
-        dante_cred = await dante_svc.register_credential(
-            upstream_ip=upstream_ip,
-            upstream_port=upstream_port,
-            expires_at=expires_at,
-        )
-        # Use Dante's returned credentials if available
-        styxproxy_username = dante_cred.styxproxy_username
-        styxproxy_password = dante_cred.styxproxy_password
-        dante_port = dante_cred.dante_port
-    except Exception:
-        # Dante not yet deployed — use local generation
-        dante_port = random.randint(9000, 9999)
-
-    return {
-        "styxproxy_username": styxproxy_username,
-        "styxproxy_password": styxproxy_password,
-        "dante_port": dante_port,
-    }
 
 
 # ─── High-level Credential Creation ──────────────────────────────────────────
@@ -220,7 +182,7 @@ async def create_credential(
     # 2. Generate branded credentials locally
     styxproxy_username = generate_styxproxy_username()
     styxproxy_password = generate_styxproxy_password()
-    dante_port = random.randint(9000, 9999)
+    socks_port = random.randint(9000, 9999)
 
     # 3. Build the DB record
     # NOTE: styxproxy_password is stored encrypted (Fernet ciphertext, see
@@ -242,7 +204,7 @@ async def create_credential(
         provider_password=proxy["password"],
         upstream_proxy_ip=proxy["ip"],
         upstream_proxy_port=proxy["port"],
-        dante_port=dante_port,
+        socks_port=socks_port,
         status="active",
         expires_at=expires_at,
     )
@@ -316,7 +278,7 @@ async def replace_credential(
 ) -> Optional[StyxproxyCredential]:
     """
     Revoke old credential and create a new one.
-    For Dante-rotation (styxproxy_username/styxproxy_password change, same upstream IP).
+    For credential rotation (styxproxy_username/styxproxy_password change, same upstream IP).
     """
     old = await get_credential_by_id(db_session, old_credential_id)
     if not old:

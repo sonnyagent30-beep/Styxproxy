@@ -139,7 +139,7 @@ async def _process_trial_impl(
             pool_type="trial",
             upstream_proxy_ip=dataimpulse_order.get("proxy_ip", ""),
             upstream_proxy_port=dataimpulse_order.get("proxy_port", 1080),
-            dante_port=threeproxy_port,
+            socks_port=threeproxy_port,
             status="active",
             expires_at=trial_session.trial_expires_at,
         )
@@ -266,7 +266,7 @@ async def _allocate_threeproxy_port(session: AsyncSession) -> Optional[int]:
     """
     Allocate an unused 3proxy SOCKS5 port from THREEPROXY_PORT_RANGE.
 
-    Scans StyxproxyCredential.dante_port for ports already in use and picks
+    Scans StyxproxyCredential.socks_port for ports already in use and picks
     the first available port in the range. This is a simple first-fit approach;
     for high-concurrency scenarios a dedicated port allocation table would be
     better (see S2.3 n8n workflow notes).
@@ -275,12 +275,12 @@ async def _allocate_threeproxy_port(session: AsyncSession) -> Optional[int]:
     port_start = settings.threeproxy_port_range_start
     port_end = settings.threeproxy_port_range_end
 
-    # Get all currently allocated dante_ports in the range
+    # Get all currently allocated socks_ports in the range
     result = await session.execute(
-        select(StyxproxyCredential.dante_port).where(
-            StyxproxyCredential.dante_port >= port_start,
-            StyxproxyCredential.dante_port <= port_end,
-            StyxproxyCredential.dante_port.isnot(None),
+        select(StyxproxyCredential.socks_port).where(
+            StyxproxyCredential.socks_port >= port_start,
+            StyxproxyCredential.socks_port <= port_end,
+            StyxproxyCredential.socks_port.isnot(None),
         )
     )
     allocated = {row[0] for row in result.fetchall()}

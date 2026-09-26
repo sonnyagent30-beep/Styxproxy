@@ -799,9 +799,9 @@ class RotateResponse(BaseModel):
 async def rotate_proxy(
     order_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)
 ):
-    """Rotate Dante credentials (styxproxy_username + styxproxy_password).
+    """Rotate credentials (styxproxy_username + styxproxy_password).
 
-    This rotates the Dante layer only -- the upstream provider IP stays the same.
+    This rotates the credentials only -- the upstream provider IP stays the same.
     Max 3 rotations per credential; reject the 4th.
     """
     MAX_ROTATIONS = 3
@@ -827,32 +827,28 @@ async def rotate_proxy(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Rotation limit reached ({MAX_ROTATIONS} per proxy)"
         )
 
-    # Call Dante to rotate credentials (same upstream IP, new styxproxy_username + styxproxy_password)
-    from app.services import dante as dante_svc
+    # Generate new branded credentials locally (same upstream IP)
+    from app.services.credential import generate_styxproxy_username, generate_styxproxy_password
 
-    new_dante = await dante_svc.rotate_credential(
-        current_styxproxy_username=cred.styxproxy_username,
-        upstream_ip=cred.upstream_proxy_ip or "",
-        upstream_port=cred.upstream_proxy_port or 1080,
-        expires_at=cred.expires_at or datetime.utcnow(),
-    )
+    new_styxproxy_username = generate_styxproxy_username()
+    new_styxproxy_password = generate_styxproxy_password()
 
     # Update DB with new credentials (encrypt the new password at rest)
-    cred.styxproxy_username = new_dante.new_styxproxy_username
-    cred.set_password(new_dante.new_styxproxy_password)
+    cred.styxproxy_username = new_styxproxy_username
+    cred.set_password(new_styxproxy_password)
     cred.rotation_count = current_count + 1
     await session.commit()
     await session.refresh(cred)
 
     await log_audit_event(
         session,
-        event_type="dante_rotated",
+        event_type="credentials_rotated",
         phone=customer.phone,
         order_id=order_id,
         details={
             "rotation_count": current_count + 1,
             "old_username": cred.styxproxy_username,
-            "new_username": new_dante.new_styxproxy_username,
+            "new_username": new_styxproxy_username,
             "upstream_ip": cred.upstream_proxy_ip,
         },
     )
@@ -868,7 +864,7 @@ async def rotate_proxy(
                 customer_email=customer_email,
                 customer_name=customer_name,
                 order_id=order_id,
-                new_username=new_dante.new_styxproxy_username,
+                new_username=new_styxproxy_username,
                 proxy_ip=cred.upstream_proxy_ip or "",
                 proxy_port=cred.upstream_proxy_port or 1080,
                 protocol=cred.protocol or "socks5",
@@ -891,8 +887,8 @@ async def rotate_proxy(
                 tx_ref=order.payment_reference or "",
                 phone=order.customer_phone or "",
                 channel=order.channel or "web",
-                styxproxy_username=new_dante.new_styxproxy_username,
-                styxproxy_password=new_dante.new_styxproxy_password,
+                styxproxy_username=new_styxproxy_username,
+                styxproxy_password=new_styxproxy_password,
                 proxy_ip=cred.upstream_proxy_ip or "",
                 proxy_port=cred.upstream_proxy_port or 1080,
                 expires_at=cred.expires_at,
