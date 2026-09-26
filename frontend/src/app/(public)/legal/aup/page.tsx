@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Link from 'next/link';
-import LegalContent from '@/components/LegalContent';
 import { content } from '@/lib/legal/aup.js';
 
 export default function AUP() {
@@ -27,7 +26,11 @@ export default function AUP() {
                 <p className="text-[var(--muted)] text-sm">Effective Date: 2026-07-01</p>
               </div>
               <div className="border-t border-[var(--border)] mb-8" />
-              <LegalContent content={content} />
+              <div
+                className="legal-content"
+                dangerouslySetInnerHTML={{ __html: content }}
+                style={{ color: 'var(--muted)', lineHeight: 1.8 }}
+              />
             </div>
           </div>
 

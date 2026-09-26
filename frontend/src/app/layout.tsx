@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { ToastProvider } from "@/components/Toast";
-import ConsentGate from "@/components/ConsentGate";
+import ToastProviderWrapper from "@/components/ToastProviderWrapper";
+import ConsentGateWrapper from "@/components/ConsentGateWrapper";
 
 // Self-hosted via next/font — no external request, no FOUT race against
 // globals.css, and weight 900 included because ~32 components use font-black.
@@ -99,10 +99,10 @@ export default function RootLayout({
       <body className="antialiased">
 
         <a href="#main-content" className="skip-link">Skip to main content</a>
-        <ToastProvider>
-          <ConsentGate />
+        <ToastProviderWrapper>
+          <ConsentGateWrapper />
           {children}
-        </ToastProvider>
+        </ToastProviderWrapper>
 
         {/* Organization JSON-LD — Google Knowledge Graph source for brand */}
         <script
