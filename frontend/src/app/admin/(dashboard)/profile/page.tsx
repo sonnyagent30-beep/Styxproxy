@@ -161,7 +161,7 @@ export default function AdminProfilePage() {
   if (error || !admin) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="p-8 rounded-2xl bg-[var(--card)] border border-red-500/30 text-center">
+        <div className="p-8 rounded-2xl bg-[var(--card)] border border-red-500/30 text-center" role="alert">
           <h2 className="text-xl font-bold text-red-400 mb-2">Error</h2>
           <p className="text-[var(--muted)]">{error || 'Failed to load profile'}</p>
         </div>
@@ -180,7 +180,7 @@ export default function AdminProfilePage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
         </div>
       )}
@@ -219,6 +219,7 @@ export default function AdminProfilePage() {
                     <button
                       onClick={handleTotpDisable}
                       disabled={totpLoading}
+                      aria-label="Disable 2FA"
                       className="text-sm text-red-400 hover:text-red-300"
                     >
                       Disable
@@ -237,6 +238,7 @@ export default function AdminProfilePage() {
                     ) : (
                       <button
                         onClick={() => setShowStepUpModal(true)}
+                        aria-label="Start TOTP step-up"
                         className="text-sm text-[var(--primary)] hover:opacity-80"
                       >
                         Step-up (5 min)
@@ -248,6 +250,7 @@ export default function AdminProfilePage() {
                     <span className="text-[var(--muted)]">✕ Disabled</span>
                     <button
                       onClick={handleTotpSetup}
+                      aria-label="Enable 2FA"
                       className="text-sm text-[var(--primary)] hover:opacity-80"
                     >
                       Enable 2FA
@@ -265,7 +268,7 @@ export default function AdminProfilePage() {
               <p className="text-[var(--muted)]">••••</p>
             </div>
             <button
-              onClick={() => setShowPinModal(true)}
+              onClick={() => setShowPinModal(true)} aria-label="Change PIN"
               className="px-4 py-2 text-sm bg-[var(--card-hover)] hover:bg-[var(--primary)] hover:text-black rounded-lg transition-colors"
             >
               Change PIN

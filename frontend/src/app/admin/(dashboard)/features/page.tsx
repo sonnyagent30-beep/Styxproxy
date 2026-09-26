@@ -89,7 +89,7 @@ export default function AdminFeaturesPage() {
   if (admin?.role !== 'superadmin') {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="p-8 rounded-2xl bg-[var(--card)] border border-red-500/30 text-center">
+        <div className="p-8 rounded-2xl bg-[var(--card)] border border-red-500/30 text-center" role="alert">
           <h2 className="text-xl font-bold text-red-400 mb-2">Access Denied</h2>
           <p className="text-[var(--muted)]">Only SuperAdmins can manage features.</p>
         </div>
@@ -108,7 +108,7 @@ export default function AdminFeaturesPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
         </div>
       )}

@@ -166,7 +166,6 @@ export default function AdminsPage() {
   };
 
   // Stats
-  const totalAdmins = admins.length;
   const superadmins = admins.filter(a => a.role === 'superadmin').length;
   const locked = admins.filter(a => a.locked).length;
 
@@ -174,7 +173,7 @@ export default function AdminsPage() {
     <div className="max-w-7xl mx-auto">
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-xl shadow-lg ${
+        <div role="alert" className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-xl shadow-lg ${
           toast.type === 'success' 
             ? 'bg-green-500/20 border border-green-500/30 text-green-400' 
             : 'bg-red-500/20 border border-red-500/30 text-red-400'
@@ -203,7 +202,7 @@ export default function AdminsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={loadAdmins} className="ml-4 text-red-300 hover:text-white">
             Retry

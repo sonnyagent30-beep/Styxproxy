@@ -27,10 +27,6 @@ export default function AdminTeamPage() {
   const [editRole, setEditRole] = useState<AdminRole>('admin');
   const [editLoading, setEditLoading] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
   const loadData = useCallback(async () => {
     setLoading(true);
     
@@ -68,6 +64,10 @@ export default function AdminTeamPage() {
     
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,7 +214,7 @@ export default function AdminTeamPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={loadData} className="ml-4 text-red-300 hover:text-white">
             Retry

@@ -1,14 +1,28 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toast";
 import ConsentGate from "@/components/ConsentGate";
 
 // Self-hosted via next/font — no external request, no FOUT race against
 // globals.css, and weight 900 included because ~32 components use font-black.
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
+const poppins = localFont({
+  src: [
+    // Latin subset
+    { path: "../../public/fonts/poppins-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-700-normal.woff2", weight: "700", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-800-normal.woff2", weight: "800", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-900-normal.woff2", weight: "900", style: "normal" },
+    // Latin Extended subset
+    { path: "../../public/fonts/poppins-latin-ext-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-ext-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-ext-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-ext-700-normal.woff2", weight: "700", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-ext-800-normal.woff2", weight: "800", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-ext-900-normal.woff2", weight: "900", style: "normal" },
+  ],
   display: "swap",
   variable: "--font-poppins",
 });

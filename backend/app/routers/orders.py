@@ -476,8 +476,8 @@ async def create_order(
                     currency="NGN",
                     quantity=body.quantity,
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f'Failed to send order confirmation email to {customer_email}: {e}')
     elif order.status == "active":
         # Send ONE combined email: order details + credentials together
         if customer_email:
@@ -884,9 +884,6 @@ async def rotate_proxy(
 
     try:
         import asyncio
-        import logging
-
-        logger = logging.getLogger(__name__)
 
         asyncio.create_task(
             trigger_credentials_delivered_webhook(

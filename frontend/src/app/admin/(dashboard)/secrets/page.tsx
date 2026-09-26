@@ -20,7 +20,7 @@ export default function SecretsVaultPage() {
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [busy, setBusy] = useState(false);
-  const [reveal, setReveal] = useState<Set<string>>(new Set());
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,11 +107,11 @@ export default function SecretsVaultPage() {
           {row.set ? row.masked : <span className="italic">not set</span>}
         </p>
       </div>
-      <button onClick={() => { setEditingKey(row.key); setEditValue(''); }} disabled={busy}
+      <button onClick={() => { setEditingKey(row.key); setEditValue(''); }} disabled={busy} aria-label={`Edit ${row.key}`} aria-label={`Edit ${row.key}`}
         className="px-3 py-1.5 text-sm rounded-lg border border-[var(--border)] hover:border-[var(--primary)] transition-colors disabled:opacity-50">
         Edit
       </button>
-      <button onClick={() => remove(row.key)} disabled={busy}
+      <button onClick={() => remove(row.key)} disabled={busy} aria-label={`Remove ${row.key}`} aria-label={`Remove ${row.key}`}
         className="px-3 py-1.5 text-sm rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50">
         Remove
       </button>
@@ -139,21 +139,21 @@ export default function SecretsVaultPage() {
           <p className="text-[var(--muted)]">Manage runtime environment variables. Changes require API restart.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={load} disabled={loading}
+          <button onClick={load} disabled={loading} aria-label="Refresh secrets"
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--card-hover)] transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             Refresh
           </button>
-          <button onClick={() => { setShowAddModal(true); setNewKey(''); setNewValue(''); }}
+          <button onClick={() => { setShowAddModal(true); setNewKey(''); setNewValue(''); }} aria-label="Add new secret"
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Add Secret
           </button>
-          <button onClick={restartApi} disabled={busy}
+          <button onClick={restartApi} disabled={busy} aria-label="Restart API"
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors disabled:opacity-50">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -171,7 +171,7 @@ export default function SecretsVaultPage() {
       )}
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-between">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-between" role="alert">
           <span>{error}</span>
           <button onClick={() => setError('')} className="text-red-300 hover:text-white">Dismiss</button>
         </div>

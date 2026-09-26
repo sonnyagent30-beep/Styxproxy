@@ -134,7 +134,7 @@ export default function AdminPermissionsPage() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4" role="alert">
         <p className="text-red-400 font-semibold">Error loading permissions</p>
         <p className="text-sm text-[var(--muted)] mt-1">{error}</p>
       </div>
@@ -385,7 +385,7 @@ function RequestsTab({
     return <div className="text-[var(--muted)] animate-pulse py-8 text-center">Loading requests…</div>;
   }
   if (error) {
-    return <div className="text-red-400 py-4">{error}</div>;
+    return <div className="text-red-400 py-4" role="alert">{error}</div>;
   }
 
   return (

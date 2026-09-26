@@ -678,7 +678,7 @@ export default function PlanSettingsPage() {
 
       {/* Error */}
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500 text-red-500 text-sm flex items-center justify-between">
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500 text-red-500 text-sm flex items-center justify-between" role="alert">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300 ml-4">✕</button>
         </div>

@@ -25,7 +25,7 @@ export default function AdminRlsPage() {
   const [pendingAction, setPendingAction] = useState<{tableName: string; currentEnabled: boolean} | null>(null);
   const [filter, setFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -48,7 +48,7 @@ export default function AdminRlsPage() {
     if (planR.data) setRolloutPlan(planR.data);
 
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -128,7 +128,7 @@ export default function AdminRlsPage() {
   // SuperAdmin-only gate
   if (admin?.role !== 'superadmin') {
     return (
-      <div className="p-8">
+      <div className="p-8" role="alert">
         <h1 className="text-2xl font-bold text-red-400">Access denied</h1>
         <p className="mt-2 text-gray-300">
           The RLS admin page requires the <code>superadmin</code> role.
@@ -158,7 +158,7 @@ export default function AdminRlsPage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg bg-red-900/40 border border-red-700 p-4 text-red-200">
+        <div className="mb-4 rounded-lg bg-red-900/40 border border-red-700 p-4 text-red-200" role="alert">
           <strong>Error:</strong> {error}
         </div>
       )}
