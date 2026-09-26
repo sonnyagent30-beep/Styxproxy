@@ -110,10 +110,10 @@ async def _check_m2_cloud() -> dict[str, Any]:
     the LLM client will fall back to MiniCPM5 — but the admin status
     panel watches this to alert on M2 outages.
     """
-    api_key = os.getenv("GROQ_API_KEY", "")
+    api_key = os.getenv("LONGCAT_API_KEY", "")
     if not api_key:
-        return {"status": "not_configured", "latency_ms": None, "error": "GROQ_API_KEY not set"}
-    base = settings.groq_base_url.rstrip("/")
+        return {"status": "not_configured", "latency_ms": None, "error": "LONGCAT_API_KEY not set"}
+    base = settings.longcat_base_url.rstrip("/")
     try:
         async with httpx.AsyncClient(timeout=4.0) as client:
             t0 = datetime.utcnow()
@@ -171,7 +171,7 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
     ollama = await _check_ollama()
     m2 = await _check_m2_cloud()
 
-    # Charon availability: Groq must be reachable.
+    # Charon availability: Longcat must be reachable.
     charon_available = m2["status"] == "connected"
 
     # Compute top-level status:
@@ -192,7 +192,7 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
         "services": {
             "database": db,
             "redis": redis,
-            "groq": m2,
+            "longcat": m2,
         },
         # Charon routing policy:
         "charon_routing": {

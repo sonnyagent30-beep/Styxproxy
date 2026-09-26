@@ -32,6 +32,18 @@ from app.models import (
     StyxproxyCredential,
     TrialSession,
 )
+from app.routers.schemas import (
+    AdminBulkBlockRequest,
+    AdminBulkUnblockRequest,
+    AdminBulkActionResponse,
+    RefundApprovalResponse,
+    RefundApprovalListResponse,
+    RefundApprovalActionRequest,
+    RefundApprovalActionResponse,
+    RefundRequestResponse,
+    AdminRefundThresholdResponse,
+)
+
 from app.schemas import (
     PlanSettingsListResponse,
     PlanSettingsResponse,
@@ -42,9 +54,6 @@ from app.schemas import (
     AdminAuditLogResponse,
     AdminAuditLogsResponse,
     AdminBlockRequest,
-    AdminBulkBlockRequest,
-    AdminBulkUnblockRequest,
-    AdminBulkActionResponse,
     AdminCredentialResponse,
     AdminCredentialsResponse,
     AdminCustomerResponse,
@@ -659,7 +668,7 @@ async def refund_order(
         approval = RefundApproval(
             order_id=order_id,
             reason="Large refund requires approval",
-                requested_by=admin_email,
+                
             requested_amount=refund_amount,
             status="pending",
         )
@@ -686,7 +695,7 @@ async def refund_order(
                 amount=refund_amount,
                 currency="NGN",
                 reason="Large refund requires approval",
-                requested_by=admin_email,
+                
             )
         except Exception as e:
             logger.warning(f"Failed to send refund request notification for order {order_id}: {e}")
@@ -750,7 +759,7 @@ async def request_large_refund(
     approval = RefundApproval(
         order_id=order_id,
         reason="Large refund requires approval",
-                requested_by=admin_email,
+                
         requested_amount=refund_amount,
         status="pending",
     )
@@ -777,7 +786,7 @@ async def request_large_refund(
             amount=refund_amount,
             currency="NGN",
             reason="Large refund requires approval",
-                requested_by=admin_email,
+                
         )
     except Exception as e:
         logger.warning(f"Failed to send refund request notification for order {order_id}: {e}")
