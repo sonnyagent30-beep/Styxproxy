@@ -1,11 +1,14 @@
 """Orders router."""
 
+import logging
 import random
 import string
 from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 from slowapi.util import get_remote_address
 
@@ -457,13 +460,16 @@ async def create_order(
 
     # Send admin notification email
     if order.status == "pending":
-        await send_new_order_notification(
-            order_id=order_id,
-            customer_phone=customer.phone,
-            plan_code=body.plan_code,
-            amount=total_amount,
-            currency="NGN",
-        )
+        try:
+            await send_new_order_notification(
+                order_id=order_id,
+                customer_phone=customer.phone,
+                plan_code=body.plan_code,
+                amount=total_amount,
+                currency="NGN",
+            )
+        except Exception as e:
+            logger.warning(f'Failed to send new order notification: {e}')
         # Send order confirmation to customer if email available
         if customer_email:
             try:
@@ -865,6 +871,7 @@ async def rotate_proxy(
                 customer_name=customer_name,
                 order_id=order_id,
                 new_username=new_styxproxy_username,
+                new_password=new_styxproxy_password,
                 proxy_ip=cred.upstream_proxy_ip or "",
                 proxy_port=cred.upstream_proxy_port or 1080,
                 protocol=cred.protocol or "socks5",
