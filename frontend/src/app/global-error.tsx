@@ -3,8 +3,6 @@
 // Last-resort error boundary. Triggers when the root layout itself fails
 // (i.e., when nothing else can render). Must include its own <html>/<body>.
 
-import { useEffect } from 'react';
-
 export default function GlobalError({
   error,
   reset,
@@ -12,10 +10,7 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-     
-    console.error('[GLOBAL error]', error);
-  }, [error]);
+  console.error('[GLOBAL error]', error);
 
   return (
     <html lang="en">

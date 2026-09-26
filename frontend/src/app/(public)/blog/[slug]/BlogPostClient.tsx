@@ -1,6 +1,6 @@
+'use client';
 
 /* eslint-disable prefer-const */
-'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';

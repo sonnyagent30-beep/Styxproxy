@@ -1,6 +1,6 @@
+'use client';
 
 /* eslint-disable react-hooks/refs, react-hooks/rules-of-hooks, react-hooks/set-state-in-effect */
-'use client';
 
 /**
  * ChatWidget — Charon support chatbot with behavioral awareness.

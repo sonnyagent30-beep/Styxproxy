@@ -1,5 +1,5 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';

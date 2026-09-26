@@ -1,6 +1,6 @@
+'use client';
 
 /* eslint-disable react/no-unescaped-entities */
-'use client';
 import Link from 'next/link';
 import { useState } from 'react';
 import TagPill from './TagPill';

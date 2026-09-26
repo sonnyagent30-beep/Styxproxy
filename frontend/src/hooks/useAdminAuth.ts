@@ -1,6 +1,6 @@
+'use client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/refs */
-'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '@/lib/api';

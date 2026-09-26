@@ -1,6 +1,6 @@
+'use client';
 
 /* eslint-disable react-hooks/immutability, react-hooks/set-state-in-effect */
-'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';

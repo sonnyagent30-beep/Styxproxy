@@ -1,5 +1,5 @@
-// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
 'use client';
+// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
 
 import { useState } from 'react';
 import Link from 'next/link';

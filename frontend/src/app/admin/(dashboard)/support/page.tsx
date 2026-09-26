@@ -1,6 +1,6 @@
+'use client';
 
 /* eslint-disable react-hooks/purity, react-hooks/set-state-in-effect, react/no-unescaped-entities */
-'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';

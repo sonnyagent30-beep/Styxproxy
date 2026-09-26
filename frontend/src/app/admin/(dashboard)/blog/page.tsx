@@ -1,7 +1,7 @@
+'use client';
 
 /* eslint-disable react-hooks/immutability */
 
-'use client';
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
