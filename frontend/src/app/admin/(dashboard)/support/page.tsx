@@ -19,14 +19,19 @@ export default function SupportInboxPage() {
   const loadThreads = async () => {
     setLoading(true);
     setError('');
-    const result = await api.getSupportThreads(statusFilter === 'all' ? undefined : statusFilter);
-    if (result.error) {
-      setError(result.error);
-    } else if (result.data) {
-      setThreads(result.data.threads || []);
-      setTotal(result.data.pagination?.total || result.data.pagination?.total_items || 0);
+    try {
+      const result = await api.getSupportThreads(statusFilter === 'all' ? undefined : statusFilter);
+      if (result.error) {
+        setError(result.error);
+      } else if (result.data) {
+        setThreads(result.data.threads || []);
+        setTotal(result.data.pagination?.total || result.data.pagination?.total_items || 0);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load support threads');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -111,6 +116,7 @@ export default function SupportInboxPage() {
           <button
             key={tab.value}
             onClick={() => setStatusFilter(tab.value)}
+            aria-pressed={statusFilter === tab.value}
             className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-colors ${
               statusFilter === tab.value
                 ? 'bg-[var(--primary)] text-black'
@@ -123,16 +129,16 @@ export default function SupportInboxPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
-          <button onClick={loadThreads} className="ml-4 text-red-300 hover:text-white">Retry</button>
+          <button onClick={loadThreads} aria-label="Retry loading support threads" className="ml-4 text-red-300 hover:text-white">Retry</button>
         </div>
       )}
 
       {/* Thread List */}
       <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] overflow-hidden">
         {loading ? (
-          <div className="p-8 space-y-3">
+          <div className="p-8 space-y-3" role="status" aria-label="Loading support threads">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="animate-pulse flex gap-4 items-center">
                 <div className="h-10 w-10 rounded-full bg-[var(--card-hover)]" />

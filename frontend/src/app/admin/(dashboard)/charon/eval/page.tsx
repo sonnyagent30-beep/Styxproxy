@@ -61,6 +61,7 @@ export default function CharonEvalPage() {
           onClick={handleRun}
           disabled={running}
           className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors disabled:opacity-50"
+          aria-label="Run evaluation"
         >
           {running ? 'Running…' : 'Run eval'}
         </button>

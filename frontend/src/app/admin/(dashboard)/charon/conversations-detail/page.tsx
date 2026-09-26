@@ -205,6 +205,7 @@ export default function AdminConversationsPage() {
                           ? 'text-yellow-400'
                           : 'text-[var(--muted)] hover:text-yellow-400'
                       }`}
+                      aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
                     >
                       ★
                     </button>

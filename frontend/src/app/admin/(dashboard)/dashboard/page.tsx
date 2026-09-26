@@ -291,6 +291,7 @@ export default function AdminDashboardPage() {
             onClick={loadAll}
             className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             title="Refresh"
+            aria-label="Refresh dashboard data"
           >
             ↻ Refresh
           </button>

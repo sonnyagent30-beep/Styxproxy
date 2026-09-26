@@ -345,6 +345,7 @@ function FileRow({
       <button
         onClick={e => { e.stopPropagation(); onDelete(file.name); }}
         className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs text-red-400 border border-red-400/30 rounded hover:bg-red-400/10 transition-all"
+        aria-label={`Delete file: ${file.name}`}
       >
         Delete
       </button>
