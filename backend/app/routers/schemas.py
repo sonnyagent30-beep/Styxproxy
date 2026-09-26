@@ -497,7 +497,7 @@ class PaymentInitiateRequest(BaseModel):
     customer_phone: Optional[str] = Field(None, min_length=10, max_length=20)
     customer_email: Optional[str] = Field(None, max_length=255)
     callback_url: Optional[str] = Field(None, max_length=200)
-    client_reference: Optional[str] = Field(None, max_length=100, description="Optional client-generated idempotency key")
+    payment_reference: Optional[str] = Field(None, max_length=100, description="Optional client-generated payment reference (STX-XXXXXX)")
 
     @field_validator("customer_phone")
     @classmethod
