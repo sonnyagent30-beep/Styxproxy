@@ -47,7 +47,7 @@ const features = [
   },
   {
     title: 'Easy rotation',
-    description: 'Rotate IPs instantly via dashboard or API. Dante-based credential rotation means zero downtime.',
+    description: 'Rotate IPs instantly via dashboard or API. Automated credential rotation means zero downtime.',
     icon: <ArrowsClockwise className="w-6 h-6" />,
   },
   {

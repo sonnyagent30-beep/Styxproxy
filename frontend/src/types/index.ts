@@ -65,7 +65,7 @@ export interface StyxproxyCredential {
   upstream_proxy_ip?: string;
   upstream_proxy_port: number;
   styxproxy_password?: string;
-  dante_port?: number;
+  socks_port?: number;
   status: CredentialStatus | string;
   expires_at?: string;
 }
