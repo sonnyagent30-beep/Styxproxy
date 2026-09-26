@@ -508,8 +508,8 @@ async def create_order(
                         protocol=cred.protocol or "socks5",
                         expires_at=cred.expires_at or datetime.utcnow(),
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to send order active email: {e}")
     cred_brief = None
     if order.styxproxy_credential_id:
         cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)

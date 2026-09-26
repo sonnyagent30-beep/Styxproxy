@@ -1,11 +1,14 @@
 """Admin router."""
 
 import json
+import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
@@ -405,8 +408,8 @@ async def refund_order(
                     currency="NGN",
                     reason=body.reason or "Refund processed",
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to send refund email for order {order_id}: {e}")
 
     return {"status": "refunded", "order_id": order_id, "refund_amount": float(order.amount_paid_ngn or 0)}
 
