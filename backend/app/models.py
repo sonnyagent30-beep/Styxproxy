@@ -305,7 +305,7 @@ class StyxproxyCredential(Base):
         String(255), nullable=True
     )  # TEXT (was INET pre-migration 018)
     upstream_proxy_port: Mapped[int] = mapped_column(Integer, default=1080, nullable=False)
-    dante_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    socks_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -1222,41 +1222,6 @@ class CharonBlogChunk(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-
-class DanteUser(Base):
-    """Dante SOCKS proxy user accounts (Theme C).
-
-    Each customer who buys a Styxproxy plan gets a Dante user account
-    on the Contabo fleet. The table tracks credentials, port range,
-    expiry, and bandwidth usage. The dante_auth service (port 1081)
-    looks up users here to authenticate.
-
-    bytes_used is updated by dante-auth on each connection (writes
-    sampled to avoid hot-row contention). Bytes reset is handled by
-    the plan renewal cron (Theme C future work).
-    """
-
-    __tablename__ = "dante_users"
-    __table_args__ = (
-        Index("idx_dante_users_customer", "customer_id"),
-        Index("idx_dante_users_active", "is_active"),
-        Index("idx_dante_users_expires", "expires_at"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    customer_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    username: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    port_range_low: Mapped[int] = mapped_column(Integer, default=10000, nullable=False)
-    port_range_high: Mapped[int] = mapped_column(Integer, default=60000, nullable=False)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    bytes_used: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
-    )
 
 
 class PlanSettings(Base):
