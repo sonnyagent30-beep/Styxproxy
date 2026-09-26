@@ -26,10 +26,6 @@ export default function AdminFeaturesPage() {
     },
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   const loadData = useCallback(async () => {
     setLoading(true);
     
@@ -56,7 +52,11 @@ export default function AdminFeaturesPage() {
     }
     
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSave = async () => {
     setSaving(true);

@@ -1,20 +1,15 @@
 """
-Credential service for Styxproxy Dante credentials.
+Credential service for Styxproxy.
 
 This module has two layers:
 
-1. Low-level (provider + dante services):
+1. Low-level (provider service):
    - get_provider_proxy(): calls provider API, tests, retries up to 5x
-   - register_on_dante(): calls Dante API to get branded styxproxy_username/styxproxy_password
-   These are used directly by the fulfillment flow.
 
 2. High-level (this module):
-   - create_credential(): full pipeline — provider → Dante → DB
+   - create_credential(): full pipeline — provider → DB
    - Returns (StyxproxyCredential, plaintext_password) tuple so the
      fulfillment caller can send the password to the customer via n8n/email.
-
-When Dante and the provider are deployed on the VPS, only the underlying
-service stubs (app/services/dante.py, app/services/provider.py) need updating.
 """
 
 import logging
@@ -204,7 +199,7 @@ async def create_credential(
     pool_type: str = "paid",
 ) -> tuple[StyxproxyCredential, str]:
     """
-    Full credential pipeline: provider → test → Dante → DB.
+    Full credential pipeline: provider → test → DB.
 
     Returns (StyxproxyCredential, plaintext_password).
 
@@ -222,12 +217,10 @@ async def create_credential(
     )
     logger.info("Got proxy: %s:%s", proxy["ip"], proxy["port"])
 
-    # 2. Register on Dante to get branded credentials
-    dante = await register_on_dante(
-        upstream_ip=proxy["ip"],
-        upstream_port=proxy["port"],
-        expires_at=proxy["expires_at"],
-    )
+    # 2. Generate branded credentials locally
+    styxproxy_username = generate_styxproxy_username()
+    styxproxy_password = generate_styxproxy_password()
+    dante_port = random.randint(9000, 9999)
 
     # 3. Build the DB record
     # NOTE: styxproxy_password is stored encrypted (Fernet ciphertext, see
@@ -237,7 +230,7 @@ async def create_credential(
     expires_at = proxy.get("expires_at") or (datetime.now(timezone.utc) + timedelta(days=duration_days))
 
     credential = StyxproxyCredential(
-        styxproxy_username=dante["styxproxy_username"],
+        styxproxy_username=styxproxy_username,
         # set_password() handles encryption transparently
         customer_phone=customer_phone,
         order_id=order_id,
@@ -249,7 +242,7 @@ async def create_credential(
         provider_password=proxy["password"],
         upstream_proxy_ip=proxy["ip"],
         upstream_proxy_port=proxy["port"],
-        dante_port=dante["dante_port"],
+        dante_port=dante_port,
         status="active",
         expires_at=expires_at,
     )
@@ -257,7 +250,7 @@ async def create_credential(
     # Encrypt the proxy password before persisting. set_password() will refuse
     # to write plaintext if CRED_ENCRYPTION_KEY is not configured — that's the
     # whole point of the encrypted column.
-    credential.set_password(dante["styxproxy_password"])
+    credential.set_password(styxproxy_password)
 
     db_session.add(credential)
     await db_session.commit()

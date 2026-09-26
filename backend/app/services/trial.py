@@ -41,7 +41,6 @@ async def create_trial(db_session: AsyncSession, phone: str, disclaimer_accepted
         pool_type="free_trial",
         upstream_proxy_ip="192.168.1.1",
         upstream_proxy_port=1080,
-        dante_port=random.randint(9000, 9999),
         status="active",
         expires_at=expires_at,
     )

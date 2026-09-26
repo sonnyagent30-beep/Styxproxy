@@ -65,11 +65,11 @@ UPSTREAM_GATEWAYS = {
         "upstream_type": "rayobyte_isp",
     },
     "trial": {
-        # Trial uses Contabo dante (free trial path)
+        # Trial uses local SOCKS proxy (free trial path)
         "host": "trial.styxproxy.com",
         "port": 8001,
         "upstream_protocol": "socks5",
-        "upstream_type": "trial_dante",
+        "upstream_type": "trial_local",
     },
 }
 
