@@ -218,6 +218,8 @@ async def post_reply(
         conversation_id=payload.conversation_id or "",
         user_message=payload.user_message,
         history=history,
+        customer_email=payload.customer_email,
+        customer_phone=payload.customer_phone,
     )
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -282,7 +284,7 @@ async def health():
 
     from app.services.charon import scenarios
 
-    cloud_key_set = bool(os.getenv("GROQ_API_KEY") or os.getenv("DEEPINFRA_API_KEY"))
+    cloud_key_set = bool(os.getenv("LONGCAT_API_KEY"))
     CharonMetrics.llm_configured(cloud_key_set)
 
     s = CharonMetrics.get()
@@ -307,6 +309,14 @@ async def health():
         "total_requests": s.total_requests,
         "escalated_replies": s.escalated_replies,
     }
+
+
+@router.post("/reindex")
+async def reindex_knowledge():
+    """Force a full reindex of the knowledge base (files + blog posts + embeddings)."""
+    from app.services.charon.knowledge import reindex
+    stats = reindex()
+    return {"ok": True, **stats}
 
 
 @router.get("/_internal/stats")

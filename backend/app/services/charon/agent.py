@@ -343,6 +343,7 @@ async def reply(
     history: list[Message] | None = None,
     page_context: dict | None = None,
     channel_user_id: str | None = None,
+    customer_email: str | None = None,
     customer_phone: str | None = None,
     customer_name: str | None = None,
 ) -> Reply:
@@ -380,7 +381,7 @@ async def reply(
     # ── 1. Scenario matcher ──────────────────────────────────────────
     scenario = scenarios.match(user_message)
     if scenario:
-        reply_action, escalate = _run_scenario(scenario, messages, conversation_id=conversation_id, customer_email=None, customer_phone=None, customer_message=user_message, history_summary="")
+        reply_action, escalate = _run_scenario(scenario, messages, conversation_id=conversation_id, customer_email=customer_email, customer_phone=customer_phone, customer_message=user_message, history_summary="")
         log_ctx["scenario_id"] = scenario.id
         log_ctx["response"] = reply_action.text
         log_ctx["escalated"] = escalate
@@ -409,7 +410,7 @@ async def reply(
     history_dicts = _serialize_history(messages[-8:])
 
     filtered_context, _ = get_page_context_variant(conversation_id, page_context)
-    page_prompt = get_page_prompt_addition(filtered_context)
+    page_prompt = await get_page_prompt_addition(filtered_context)
 
     # ── NEW: Customer context for personalization ───────────────────
     customer_ctx = await _get_customer_context_summary(customer_phone)
@@ -620,7 +621,7 @@ async def _try_tool_call_loop(
     total_tokens = 0
 
     for iteration in range(max_iterations):
-        llm_resp = call_llm(tool_prompt_messages, max_tokens=400)
+        llm_resp = await call_llm(tool_prompt_messages, max_tokens=400)
         if not llm_resp.ok:
             return None
         total_tokens += llm_resp.tokens_used
@@ -698,7 +699,7 @@ async def _try_tool_call_loop(
                 },
                 *messages,
             ]
-            follow_up = call_llm(follow_up_messages, max_tokens=400)
+            follow_up = await call_llm(follow_up_messages, max_tokens=400)
             if follow_up.ok:
                 total_tokens += follow_up.tokens_used
                 return Reply(
@@ -729,7 +730,7 @@ async def _try_tool_call_loop(
             },
             *messages,
         ]
-        follow_up = call_llm(follow_up_messages, max_tokens=400)
+        follow_up = await call_llm(follow_up_messages, max_tokens=400)
         if follow_up.ok:
             total_tokens += follow_up.tokens_used
             return Reply(

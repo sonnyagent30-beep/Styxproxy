@@ -46,6 +46,7 @@ from app.routers import (
     unsubscribe,
     webhooks,
     admin_secrets,
+    support,
 )
 
 settings = get_settings()
@@ -405,6 +406,7 @@ app.include_router(orders)
 app.include_router(payments)
 app.include_router(webhooks)
 app.include_router(admin_secrets.router)
+app.include_router(support.router)
 app.include_router(credentials)
 app.include_router(trials)
 app.include_router(admin)

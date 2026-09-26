@@ -42,3 +42,7 @@ pytest==8.3.3
 pytest-asyncio==0.25.2
 httpx==0.28.1
 PyJWT==2.10.1
+
+# RAG / Embeddings
+sentence-transformers==3.4.1
+numpy>=1.26.0

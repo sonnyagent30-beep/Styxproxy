@@ -1,18 +1,23 @@
-"""Charon's LLM client — Longcat2.0 sole provider.
+"""Charon's LLM client — Longcat2.0 sole provider with retry logic.
 
 Architecture:
   Provider:  Longcat2.0 (OpenAI-compatible API)
   Cache:     Redis (optional)
+  Retry:     3 attempts with exponential backoff
+  Timeout:   Configurable via environment variables
 
 Environment variables:
   - LONGCAT_API_KEY: Longcat2.0 API key (REQUIRED)
   - LONGCAT_BASE_URL: API base URL (default "https://api.longcat.ai/openai/v1")
   - LONGCAT_MODEL: model name (default "LongCat-2.0-Preview")
+  - LONGCAT_TIMEOUT: request timeout in seconds (default 60)
+  - LONGCAT_RETRIES: number of retry attempts (default 3)
   - REDIS_URL: optional, enables response caching
 """
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -43,7 +48,7 @@ class LLMUnavailable(RuntimeError):
     """Raised when the LLM service cannot be reached or returns no content."""
 
 
-# ─── Redis response cache ──────────────────────────────────────────────────
+# ─── Redis response cache ────────────────────────────────────────────────────────────────
 
 _LLM_CACHE_TTL_SECONDS = 3600  # 1 hour
 _redis_client: redis_sync.Redis | None = None
@@ -151,14 +156,20 @@ Always use flag emojis, not codes: 🇳🇬 Nigeria, 🇺🇸 US, 🇬🇧 UK, �
 """
 
 
-def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
-    """Call the LLM with multi-provider failover.
+def _get_timeout() -> float:
+    """Get configured request timeout from environment."""
+    return float(os.getenv("LONGCAT_TIMEOUT", "60"))
 
-    Order: Redis cache → Groq (key 1) → Groq (key 2) → Groq (key 3) → OpenRouter free.
 
-    `messages` is a list of {role, content} dicts. The first message
-    is treated as a system message internally; if the caller already
-    provided a system message at index 0, we honor it instead.
+def _get_max_retries() -> int:
+    """Get configured max retries from environment."""
+    return int(os.getenv("LONGCAT_RETRIES", "3"))
+
+
+async def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
+    """Call the LLM with retry logic and Redis cache.
+
+    Order: Redis cache → Longcat2.0 (with 3 retries + exponential backoff).
     """
     # Cache lookup — skip if REDIS_URL is not set (cache_get is safe)
     message_str = _normalize_messages(messages)
@@ -168,14 +179,14 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
         logger.debug("LLM cache hit for key %s", cache_key)
         return cached
 
-    # Try all providers in order
-    result = _try_all_providers(messages, max_tokens)
+    # Try Longcat2.0 with retries
+    result = await _try_all_providers(messages, max_tokens)
 
     if result.ok:
         _cache_set(cache_key, result)
         return result
 
-    logger.error("All LLM providers failed: %s", result.error)
+    logger.error("All LLM providers failed after retries: %s", result.error)
     sentry_sdk.capture_message(
         f"Charon LLM all providers failed: {result.error}",
         level="error",
@@ -184,8 +195,8 @@ def call_llm(messages: list[dict], max_tokens: int = 600) -> LLMResponse:
     return result
 
 
-def _try_all_providers(messages: list[dict], max_tokens: int) -> LLMResponse:
-    """Call Longcat2.0 as the sole LLM provider (OpenAI-compatible)."""
+async def _try_all_providers(messages: list[dict], max_tokens: int) -> LLMResponse:
+    """Call Longcat2.0 as the sole LLM provider with retry logic."""
     longcat_key = os.getenv("LONGCAT_API_KEY", "").strip()
     if not longcat_key:
         return LLMResponse(content="", model="", error="LONGCAT_API_KEY not set")
@@ -193,19 +204,44 @@ def _try_all_providers(messages: list[dict], max_tokens: int) -> LLMResponse:
     longcat_model = os.getenv("LONGCAT_MODEL", "LongCat-2.0-Preview")
     longcat_base = os.getenv("LONGCAT_BASE_URL", "https://api.longcat.ai/openai/v1").rstrip("/")
 
-    resp = _call_openai_compatible(
-        base_url=longcat_base,
-        api_key=longcat_key,
-        model=longcat_model,
-        messages=messages,
-        max_tokens=max_tokens,
-    )
-    if resp.ok:
-        logger.debug("LLM success via Longcat2.0 (model=%s)", longcat_model)
-        return resp
+    max_retries = _get_max_retries()
+    timeout = _get_timeout()
 
-    logger.warning("Longcat2.0 error: %s", resp.error)
-    return resp
+    last_error: LLMResponse | None = None
+
+    for attempt in range(1, max_retries + 1):
+        resp = _call_openai_compatible(
+            base_url=longcat_base,
+            api_key=longcat_key,
+            model=longcat_model,
+            messages=messages,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
+
+        if resp.ok:
+            logger.debug("LLM success via Longcat2.0 (model=%s, attempt=%d)", longcat_model, attempt)
+            return resp
+
+        last_error = resp
+
+        # Don't retry on client errors (4xx except 429 rate limit)
+        error_str = resp.error or ""
+        if "API returned 4" in error_str and "429" not in error_str:
+            logger.warning("Non-retryable LLM error (attempt %d): %s", attempt, error_str)
+            return resp
+
+        if attempt < max_retries:
+            # Exponential backoff: 2s, 4s, 8s...
+            backoff = 2 ** attempt
+            logger.warning(
+                "LLM call failed (attempt %d/%d): %s. Retrying in %ds...",
+                attempt, max_retries, error_str, backoff,
+            )
+            await asyncio.sleep(backoff)
+
+    logger.error("Longcat2.0 failed after %d attempts: %s", max_retries, last_error.error if last_error else "unknown")
+    return last_error or LLMResponse(content="", model=longcat_model, error="All retries exhausted")
 
 
 def _call_openai_compatible(
@@ -215,8 +251,9 @@ def _call_openai_compatible(
     model: str,
     messages: list[dict],
     max_tokens: int,
+    timeout: float | None = None,
 ) -> LLMResponse:
-    """Generic OpenAI-compatible chat completions call."""
+    """Generic OpenAI-compatible chat completions call with proper error handling."""
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -235,7 +272,7 @@ def _call_openai_compatible(
             f"{base_url}/chat/completions",
             json=payload,
             headers=headers,
-            timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0),
+            timeout=httpx.Timeout(connect=5.0, read=timeout or 30.0, write=10.0, pool=5.0),
         )
     except httpx.HTTPError as exc:
         logger.warning("LLM transport error (%s): %s", base_url, exc)
@@ -249,6 +286,17 @@ def _parse_openai_compatible_response(resp, model: str) -> LLMResponse:
     """
     if resp.status_code >= 400:
         logger.warning("LLM API error %d: %s", resp.status_code, resp.text[:300])
+
+        # Special handling for rate limit (429)
+        if resp.status_code == 429:
+            retry_after = resp.headers.get("Retry-After", "unknown")
+            logger.warning("LLM rate limited (429). Retry-After: %s", retry_after)
+            return LLMResponse(
+                content="",
+                model=model,
+                error=f"LLM API rate limited (429). Retry-After: {retry_after}",
+            )
+
         if resp.status_code >= 500:
             sentry_sdk.capture_message(
                 f"Charon LLM 5xx error: {resp.status_code}",

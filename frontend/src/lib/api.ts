@@ -971,6 +971,27 @@ class ApiClient {
     return this.request(`/api/v1/admin/support/threads/${threadId}/reopen`, { method: 'POST' });
   }
 
+  // ============== Public Support Tickets ==============
+
+  async createSupportTicket(data: {
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+    order_id?: string;
+  }): Promise<ApiResponse<{ ticket_id: string; status: string; message: string }>> {
+    return this.request<{ ticket_id: string; status: string; message: string }>('/api/v1/support/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async lookupSupportTickets(email: string): Promise<ApiResponse<{ tickets: Array<{ id: string; subject: string; status: string; order_id: string | null; last_message_at: string | null; created_at: string | null }> }>> {
+    return this.request<{ tickets: Array<{ id: string; subject: string; status: string; order_id: string | null; last_message_at: string | null; created_at: string | null }> }>(
+      `/api/v1/support/tickets/lookup?email=${encodeURIComponent(email)}`,
+    );
+  }
+
   // ============== Contact Submissions =============
 
   async getContactSubmissions(page = 1, limit = 20, status?: string): Promise<ApiResponse<ContactSubmissionsResponse>> {
