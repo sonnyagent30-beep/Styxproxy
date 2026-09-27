@@ -370,11 +370,11 @@ export default function ProductsPage() {
           <div className="text-center mb-6">
             <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full border border-green-500/25 bg-green-500/4">
               <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
-              <span className="text-xs font-mono uppercase tracking-widest text-[var(--primary)]">Disguise Catalog</span>
+              <span className="text-xs font-mono uppercase tracking-widest text-[var(--primary)]">Proxy Catalog</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl font-bold mt-6 mb-5 tracking-tight">
-              Not all disguises<br />
+              Not all proxies<br />
               <span className="text-[var(--primary)]">are equal.</span>
             </h1>
 
@@ -382,20 +382,20 @@ export default function ProductsPage() {
               ISP · Residential · Mobile · Datacenter
             </p>
             <p className="text-sm max-w-md mx-auto leading-relaxed text-gray-500">
-              Know the difference before you buy. Your anonymity depends on choosing the right cover.
+              Know the difference before you buy. Each proxy type has distinct advantages.
             </p>
           </div>
 
           {/* Mission quick-nav */}
           <div className="flex items-center justify-center gap-2 sm:gap-3">
             {dbProducts.map((p) => {
-              const label = p.key === 'ISP' ? 'Speed Ops' : p.key === 'RESIDENTIAL' ? 'Identity Ops' : p.key === 'MOBILE' ? 'Verification' : 'Bulk Ops';
+              const label = p.key === 'ISP' ? 'Standard' : p.key === 'RESIDENTIAL' ? 'Premium' : p.key === 'MOBILE' ? 'Mobile' : 'Bulk';
               return (
                 <button
                   key={p.key}
-                  onClick={() => handleMissionClick(p.key)}
+                  onClick={() => handleSelect(p.key)}
                   className={`px-2 sm:px-3 md:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 border whitespace-nowrap ${
-                    selectedMission === p.key
+                    false
                       ? 'bg-[var(--primary)] text-black border-[var(--primary)]'
                       : 'bg-[var(--card)] border-[var(--border)] text-gray-300 hover:border-[var(--primary)] hover:text-[var(--primary)]'
                   }`}
@@ -450,7 +450,7 @@ export default function ProductsPage() {
                         ? 'bg-red-500/8 border border-red-500/20 text-red-500'
                         : 'bg-green-500/8 border border-green-500/20 text-[var(--primary)]'
                     }`}>
-                      {product.coverName}
+                      {product.profileName}
                     </span>
                     <p className="text-xs mt-2 text-[var(--muted)]">
                       {product.tagline}
@@ -502,7 +502,7 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* Right: Visual metrics — 2-col grid (radar + gauge) + loadout stats below */}
+              {/* Right: Visual metrics — 2-col grid (radar + gauge) + performance stats below */}
               <div className="lg:w-72 flex-shrink-0">
                 <div className="grid grid-cols-2 gap-4">
                   {/* Radar chart */}
@@ -538,9 +538,9 @@ export default function ProductsPage() {
                     </div>
                   </div>
 
-                  {/* Cover life gauge */}
+                  {/* IP Lifespan gauge */}
                   <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
-                    <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Cover Life</p>
+                    <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>IP Lifespan</p>
                     <div className="gauge-wrap">
                       <svg className="gauge-svg" viewBox="0 0 120 80">
                         <path className="gauge-track" d="M 15 65 A 45 45 0 0 1 105 65" />
@@ -574,7 +574,7 @@ export default function ProductsPage() {
 
                 {/* Loadout stats */}
                 <div className="mt-4 p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
-                  <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Loadout Stats</p>
+                  <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Performance Stats</p>
                   <div className="space-y-3">
                     <div className="stat-row">
                       <span className="stat-label">Detection</span>
