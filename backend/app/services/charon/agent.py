@@ -544,7 +544,7 @@ async def reply(
         *history_dicts,
     ]
 
-    llm_resp: LLMResponse = call_llm(plain_messages, max_tokens=500)
+    llm_resp: LLMResponse = await call_llm(plain_messages, max_tokens=500)
 
     if llm_resp.ok:
         cleaned = _clean_reply(llm_resp.content)
