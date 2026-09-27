@@ -544,6 +544,7 @@ class PaymentInitiateRequest(BaseModel):
     customer_email: Optional[str] = Field(None, max_length=255)
     callback_url: Optional[str] = Field(None, max_length=200)
     payment_reference: Optional[str] = Field(None, max_length=100, description="Optional client-generated payment reference (STX-XXXXXX)")
+    gateway: str = Field(default="flutterwave", pattern="^(flutterwave|paystack)$", description="Payment gateway to use")
 
     @field_validator("customer_phone")
     @classmethod

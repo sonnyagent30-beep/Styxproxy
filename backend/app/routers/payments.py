@@ -12,6 +12,7 @@ from app.schemas import PaymentInitiateResponse
 from app.routers.schemas import PaymentInitiateRequest
 from app.services.customer import get_or_create_customer
 from app.services.flutterwave import create_flutterwave_invoice
+from app.services.paystack import create_paystack_transaction
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
@@ -52,15 +53,26 @@ async def initiate_payment(
     # Use frontend payment_reference if provided (STX- format), otherwise generate our own
     tx_ref = request.payment_reference or f"TXF-{uuid4().hex[:8].upper()}"
 
-    result = await create_flutterwave_invoice(
-        amount=total_amount,
-        customer_email=request.customer_email or "",
-        customer_phone=customer.phone,
-        currency="NGN",
-        tx_ref=tx_ref,  # Pass our tx_ref to flutterwave
-        callback_url="https://styxproxy.com/thank-you?tx_ref=" + tx_ref,
-        description=f"Payment for {request.plan_code}",
-    )
+    callback_url = "https://styxproxy.com/thank-you?tx_ref=" + tx_ref
+
+    if request.gateway == "paystack":
+        result = await create_paystack_transaction(
+            amount_ngn=total_amount,
+            customer_email=request.customer_email or "",
+            customer_phone=customer.phone or "",
+            callback_url=callback_url,
+            description=f"Payment for {request.plan_code}",
+        )
+    else:
+        result = await create_flutterwave_invoice(
+            amount=total_amount,
+            customer_email=request.customer_email or "",
+            customer_phone=customer.phone,
+            currency="NGN",
+            tx_ref=tx_ref,
+            callback_url=callback_url,
+            description=f"Payment for {request.plan_code}",
+        )
 
     order_id = generate_order_id()
 
