@@ -3,16 +3,26 @@
 import Link from 'next/link';
 
 export default function Logo({ height = 40 }: { height?: number }) {
-  const width = Math.round(height * (181 / 64));
+  const width = Math.round(height * (512 / 181));
 
   return (
     <Link href="/" className="flex items-center" aria-label="Styxproxy home">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/logo.svg"
+        src="/header-logo-dark.png"
         alt="Styxproxy"
         width={width}
         height={height}
-        className="block"
+        className="hidden dark:block"
+        style={{ height, width }}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/header-logo-light.png"
+        alt="Styxproxy"
+        width={width}
+        height={height}
+        className="block dark:hidden"
         style={{ height, width }}
       />
     </Link>

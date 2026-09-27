@@ -119,14 +119,6 @@ export default function HowItWorksClient() {
             </span>
           </div>
 
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-6 mx-auto">
-            <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
-            <span className="text-xs font-medium tracking-widest uppercase text-[var(--muted)]">
-              How It Works
-            </span>
-          </div>
-
           <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight mb-6">
             Proxy in seconds,<br />
             <span className="text-[var(--primary)]">not days.</span>
