@@ -810,6 +810,16 @@ async def rotate_proxy(
     This rotates the credentials only -- the upstream provider IP stays the same.
     Max 3 rotations per credential; reject the 4th.
     """
+    # Feature flag: proxy rotation can be disabled when providers don't support it
+    rotation_flag = (
+        await session.execute(select(FeatureFlag).where(FeatureFlag.name == "proxy_rotation_enabled"))
+    ).scalar_one_or_none()
+    if rotation_flag and not rotation_flag.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Proxy rotation is temporarily disabled. Please contact support for assistance.",
+        )
+
     MAX_ROTATIONS = 3
     customer = current_user["customer"]
     if not customer:
