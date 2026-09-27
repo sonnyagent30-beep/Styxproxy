@@ -1012,6 +1012,82 @@ async def replace_credential_endpoint(credential_id: int, session: AsyncSession 
     return {"status": "replaced", "old_credential_id": credential_id, "new_credential_id": new_credential.id}
 
 
+@router.post(
+    "/credentials/{credential_id}/resend", dependencies=[Depends(require_permission("admin.monitor.providers.read", totp_required=True))]
+)
+async def resend_credential_endpoint(credential_id: int, session: AsyncSession = Depends(get_session)):
+    """Manually resend credentials via n8n webhook and email (if available)."""
+    from app.services.n8n import trigger_credentials_delivered_webhook
+    from app.services.email import send_order_active_email
+
+    cred = (await session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id))).scalar_one_or_none()
+    if not cred:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found")
+
+    # Get the associated order for tx_ref
+    order = None
+    if cred.order_id:
+        order = (await session.execute(select(Order).where(Order.order_id == cred.order_id))).scalar_one_or_none()
+
+    tx_ref = order.payment_reference if order else f"RESEND-{credential_id}"
+    phone = cred.customer_phone or ""
+    channel = "web"
+
+    # Re-send n8n webhook
+    n8n_ok = await trigger_credentials_delivered_webhook(
+        order_id=cred.order_id or f"resend-{credential_id}",
+        tx_ref=tx_ref,
+        phone=phone,
+        channel=channel,
+        styxproxy_username=cred.styxproxy_username,
+        styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else "",
+        proxy_ip=cred.upstream_proxy_ip or "",
+        proxy_port=cred.upstream_proxy_port or 1080,
+        expires_at=cred.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+        receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
+    )
+
+    # Re-send email if customer email is available
+    email_ok = False
+    customer_email = None
+    if order:
+        # Try to get email from customer record
+        from app.models import Customer
+        customer = (await session.execute(select(Customer).where(Customer.phone == cred.customer_phone))).scalar_one_or_none()
+        if customer and customer.email:
+            customer_email = customer.email
+
+    if customer_email:
+        try:
+            email_result = await send_order_active_email(
+                customer_email=customer_email,
+                customer_name=customer_email.split("@")[0],
+                order_id=cred.order_id or f"resend-{credential_id}",
+                tx_ref=tx_ref,
+                plan_code=order.plan_code if order else "unknown",
+                amount=order.amount_paid_ngn if order else 0,
+                currency="NGN",
+                quantity=1,
+                styxproxy_username=cred.styxproxy_username,
+                styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else "",
+                proxy_ip=cred.upstream_proxy_ip or "",
+                proxy_port=cred.upstream_proxy_port or 1080,
+                protocol="socks5",
+                expires_at=cred.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
+            )
+            email_ok = email_result.success
+        except Exception as e:
+            logger.warning(f"Resend email failed for credential {credential_id}: {e}")
+
+    return {
+        "status": "resent",
+        "credential_id": credential_id,
+        "n8n_webhook": "sent" if n8n_ok else "failed",
+        "email": "sent" if email_ok else ("skipped" if not customer_email else "failed"),
+    }
+
+
 @router.get(
     "/credentials", response_model=AdminCredentialsResponse, 
     dependencies=[Depends(require_permission("admin.monitor.providers.read"))]
