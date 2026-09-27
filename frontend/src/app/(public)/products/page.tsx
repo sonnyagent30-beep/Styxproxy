@@ -21,40 +21,40 @@ const FALLBACK_PRODUCTS = [
   {
     key: 'ISP',
     name: 'ISP Proxy',
-    coverName: 'Baseline Identity',
-    tagline: 'Your registered ISP address. Stable, fast, hard to flag.',
-    description: 'Static IP from a real ISP. Looks like a genuine home connection without the bandwidth limits of actual residential. The professional\'s choice for sneaker bots, ticket drops, and automation at scale.',
+    profileName: 'Static IP Profile',
+    tagline: 'Static IP from a real ISP. Stable, fast, and reliable.',
+    description: 'Static IP addresses from real internet service providers. Combines the speed and stability of datacenter infrastructure with the authenticity of a residential connection. Ideal for automation, account management, and high-frequency tasks.',
     price: '₦6,500',
     priceUnit: 'per IP/mo',
     countries: 45,
     uptime: '99.9%',
     latency: '<50ms',
     tags: ['Static IP', 'High Speed'],
-    bestFor: ['Sneaker bots', 'Ticket drops', 'Account creation', 'Automation'],
+    bestFor: ['Account management', 'Web scraping', 'Automation', 'SEO tools'],
     stats: { detection: 70, speed: 80, geo: 65, cost: 85 },
     gauge: { value: '~30d', color: 'warning', typical: '30d', hot: '7d', lowRisk: '90d' },
     radar: [34, 114, 109, 80, 46, 51],
     polygonPoints: '80.0,32.0 116.37,59.0 113.77,99.5 80.0,110.0 72.21,84.5 43.63,59.0',
     hasApiData: false,
     threatView: [
-      { platform: 'Google', risk: 'Low', segments: 4, desc: 'Real ISP allocation. Usually passes reCAPTCHA. Occasional manual review.' },
-      { platform: 'Cloudflare', risk: 'Low', segments: 3, desc: 'Most ISP ranges are whitelisted. Fast passthrough with minimal friction.' },
-      { platform: 'Banks', risk: 'Medium', segments: 3, desc: 'Some banks flag datacenter-adjacent IPs. Works in most regions.' },
+      { platform: 'Google', risk: 'Low', segments: 4, desc: 'Real ISP allocation. Generally passes verification checks with minimal friction.' },
+      { platform: 'Cloudflare', risk: 'Low', segments: 3, desc: 'Most ISP ranges are widely accepted. Smooth access with minimal verification.' },
+      { platform: 'Banks', risk: 'Medium', segments: 3, desc: 'Some financial institutions may flag ISP-adjacent IPs. Works well in most regions.' },
     ],
   },
   {
     key: 'RESIDENTIAL',
     name: 'Residential',
-    coverName: 'Deep Cover',
-    tagline: 'A real home address. Nearly impossible to detect.',
-    description: 'Real IPs from actual home devices worldwide. The gold standard for anonymity. Every request looks like a genuine person browsing from their house. Social media, scraping, brand monitoring — this is the cover that rarely burns.',
+    profileName: 'Residential Profile',
+    tagline: 'Real residential IPs from actual home connections worldwide.',
+    description: 'Real IP addresses from actual residential connections worldwide. Every request appears as genuine home internet traffic, providing the highest level of authenticity. Best for social media management, web scraping, and brand monitoring.',
     price: '₦15,000',
     priceUnit: 'per month',
     countries: 90,
     uptime: '94%',
     latency: '<100ms',
-    tags: ['Real Home IP', 'Highest Anonymity'],
-    bestFor: ['Social media', 'Brand monitoring', 'Web scraping', 'Price aggregation'],
+    tags: ['Real Home IP', 'Highest Detection Resistance'],
+    bestFor: ['Social media management', 'Brand monitoring', 'Web scraping', 'Price aggregation'],
     stats: { detection: 92, speed: 55, geo: 75, cost: 50 },
     gauge: { value: '~45d', color: 'primary', typical: '45d', hot: '14d', lowRisk: '180d' },
     radar: [76, 117, 106, 80, 40, 49],
@@ -62,41 +62,41 @@ const FALLBACK_PRODUCTS = [
     hasApiData: false,
     featured: true,
     threatView: [
-      { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Looks like a real home user. Google sees it as genuine traffic. Best reCAPTCHA pass rate of any proxy type.' },
-      { platform: 'Cloudflare', risk: 'Low', segments: 4, desc: 'Passes all fingerprint checks. Real residential ASNs are broadly whitelisted across platforms.' },
-      { platform: 'Banks', risk: 'Low', segments: 4, desc: 'Most retail banking sites accept residential IPs without friction. No additional friction or flags triggered.' },
+      { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Appears as genuine home internet traffic. Highest trust score among all proxy types.' },
+      { platform: 'Cloudflare', risk: 'Low', segments: 4, desc: 'Passes most verification checks. Residential IP ranges are widely accepted across platforms.' },
+      { platform: 'Banks', risk: 'Low', segments: 4, desc: 'Most retail banking sites accept residential IPs without additional verification.' },
     ],
   },
   {
     key: 'MOBILE',
     name: 'Mobile 4G',
-    coverName: 'Ghost Protocol',
-    tagline: 'Carrier-issued IP. Mobile network-level anonymity.',
-    description: 'Real IPs from mobile carrier networks. No device fingerprint to match. The hardest cover to burn because it carries the full credibility of a mobile subscriber. For high-value operations where every request must look like a genuine mobile user on a real carrier.',
+    profileName: 'Mobile Profile',
+    tagline: 'Carrier-issued IPs from mobile networks worldwide.',
+    description: 'Real IP addresses from mobile carrier networks. Each request carries the full credibility of a mobile subscriber, making it ideal for app testing, ad verification, and mobile-specific tasks.',
     price: '₦20,000',
     priceUnit: 'per month',
     countries: 30,
     uptime: '96%',
     latency: '<80ms',
     tags: ['Carrier IP', 'No Device FP', 'Rotating/Static'],
-    bestFor: ['Ad verification', 'App testing', 'Social media', 'Account mgmt'],
+    bestFor: ['Ad verification', 'App testing', 'Social media', 'Account management'],
     stats: { detection: 96, speed: 60, geo: 88, cost: 38 },
     gauge: { value: '~60d', color: 'primary', typical: '60d', hot: '21d', lowRisk: '180d' },
     radar: [72, 119, 102, 80, 38, 46],
     polygonPoints: '80.0,44.0 129.88,51.2 125.73,106.4 80.0,140.0 47.78,98.6 30.12,51.2',
     hasApiData: false,
     threatView: [
-      { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Carrier IPs are rarely flagged. Mobile ASNs have the highest trust score across Google\'s systems.' },
-      { platform: 'Cloudflare', risk: 'Low', segments: 4, desc: 'Mobile carrier traffic is indistinguishable from regular mobile browsing. Broad platform acceptance.' },
-      { platform: 'Banks', risk: 'Low', segments: 4, desc: 'Mobile banking is the default for billions of users. Carrier IPs blend in perfectly.' },
+      { platform: 'Google', risk: 'Very low', segments: 5, desc: 'Carrier IPs are rarely flagged. Mobile networks have high trust scores across major platforms.' },
+      { platform: 'Cloudflare', risk: 'Low', segments: 4, desc: 'Mobile carrier traffic blends in with regular mobile browsing. Broad platform acceptance.' },
+      { platform: 'Banks', risk: 'Low', segments: 4, desc: 'Mobile banking is the standard for billions of users. Carrier IPs integrate seamlessly.' },
     ],
   },
   {
     key: 'DATACENTER',
     name: 'Datacenter',
-    coverName: 'Fast Lane',
-    tagline: 'Maximum speed. Known datacenter ranges. Accept the tradeoff.',
-    description: 'Fastest throughput at the lowest cost. Datacenter IPs are well-known to detection systems — expect CAPTCHAs on sensitive platforms. For bulk operations, SEO tools, and traffic routing where stealth is not the priority.',
+    profileName: 'Datacenter Profile',
+    tagline: 'Maximum throughput at the lowest cost.',
+    description: 'Fastest throughput at the lowest cost. Datacenter IPs are well-known to some detection systems and may trigger CAPTCHAs on sensitive platforms. Ideal for bulk operations, SEO tools, and traffic routing.',
     price: '₦3,500',
     priceUnit: 'per month',
     countries: 120,
@@ -111,9 +111,9 @@ const FALLBACK_PRODUCTS = [
     hasApiData: false,
     statusDot: 'warn',
     threatView: [
-      { platform: 'Google', risk: 'High', segments: 2, desc: 'Known datacenter ranges are flagged. Expect CAPTCHA failures and manual review triggers.' },
-      { platform: 'Cloudflare', risk: 'Medium', segments: 3, desc: 'Some datacenter IPs blocked by default. Rotate IPs frequently to stay through.' },
-      { platform: 'Banks', risk: 'High', segments: 2, desc: 'Banking fraud systems flag datacenter IPs aggressively. Do not use for account access.' },
+      { platform: 'Google', risk: 'High', segments: 2, desc: 'Known datacenter ranges may be flagged. May require additional verification on some platforms.' },
+      { platform: 'Cloudflare', risk: 'Medium', segments: 3, desc: 'Some datacenter IPs may be blocked by default. Recommend frequent rotation for best results.' },
+      { platform: 'Banks', risk: 'High', segments: 2, desc: 'Some banking systems may flag datacenter IPs. Not recommended for sensitive account access.' },
     ],
   },
 ];
@@ -304,8 +304,6 @@ function parsePolygonPoints(pts: string): { x: number; y: number }[] {
 export default function ProductsPage() {
   const [products, setProducts] = useState<typeof FALLBACK_PRODUCTS>(FALLBACK_PRODUCTS);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [selectedMission, setSelectedMission] = useState<string | null>(null);
-
   // Only show products that have real DB data
   const dbProducts = products.filter((p) => p.hasApiData);
 
@@ -321,11 +319,7 @@ export default function ProductsPage() {
     setExpanded(expanded === key ? null : key);
   };
 
-  const [showBriefingModal, setShowBriefingModal] = useState(false);
-  const [briefingProfile, setBriefingProfile] = useState<{ type: string; text: string } | null>(null);
-
-  const handleMissionClick = (key: string) => {
-    setSelectedMission(key);
+  const handleSelect = (key: string) => {
     const element = document.getElementById(`product-${key}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -337,112 +331,8 @@ export default function ProductsPage() {
     }
   };
 
-  const selectBriefing = (type: string) => {
-    const profiles: Record<string, string> = {
-      ISP: '"Baseline Identity." Fast and stable. ISP speed with home-IP credibility. Ideal for sneaker bots, ticket drops, and high-frequency automation where latency is the enemy.',
-      RESIDENTIAL: '"Deep Cover." Real home IPs from actual devices. Maximum authenticity and the highest ban resistance of any cover. Best for social media management, scraping, and anywhere detection is fatal.',
-      MOBILE: '"Ghost Protocol." Carrier-grade anonymity with no device fingerprint. The hardest cover to burn. For high-value operations where every request must look like a genuine mobile user.',
-      DATACENTER: '"Fast Lane." Maximum throughput at minimum cost. Accept the detection tradeoff — these IPs are well-known. For bulk operations, SEO tools, and traffic routing where stealth is not the priority.',
-    };
-    setBriefingProfile({ type, text: profiles[type] || '' });
-  };
-
-  const acceptMission = () => {
-    setShowBriefingModal(false);
-    if (briefingProfile) {
-      handleMissionClick(briefingProfile.type);
-    }
-  };
-
-  const skipBriefing = () => {
-    setShowBriefingModal(false);
-  };
-
   return (
     <div className="min-h-screen">
-      {/* Briefing Modal */}
-      {showBriefingModal && (
-        <div
-          className="modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Choose your proxy cover"
-        >
-          <div className="modal-box">
-            <button
-              className="modal-close"
-              onClick={skipBriefing}
-              aria-label="Close modal"
-            >
-              <X weight="bold" className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-2 h-2 rounded-full bg-[var(--error)] animate-pulse flex-shrink-0"
-                style={{ boxShadow: '0 0 8px var(--error)' }} />
-              <span className="text-xs uppercase tracking-widest font-mono text-[var(--muted)]">
-                Classified // Eyes Only
-              </span>
-            </div>
-
-            <h2 className="text-2xl font-bold mb-3 leading-tight text-[var(--primary-light)] tracking-tight">
-              Choose your cover.
-            </h2>
-            <p className="text-sm mb-6 leading-relaxed text-[var(--muted)]">
-              Each disguise has a distinct signature. Pick the one that fits your operation.
-            </p>
-
-            <p className="text-xs uppercase tracking-widest font-mono mb-4 text-[var(--muted)]">
-              Primary objective:
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-              {dbProducts.map((p) => (
-                <button
-                  key={p.key}
-                  onClick={() => selectBriefing(p.key)}
-                  className={`p-4 rounded-xl text-left transition-all duration-200 border ${
-                    briefingProfile?.type === p.key
-                      ? 'border-[var(--primary)] bg-[var(--primary)]/10'
-                      : 'border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)]/40'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[var(--primary)]/10 flex-shrink-0">
-                      {(() => { const Icon = ICON_MAP[p.key]; return <Icon weight="fill" className="text-[var(--primary)] w-[18px] h-[18px]" />; })()}
-                    </div>
-                    <div className="font-bold text-sm">{p.name}</div>
-                  </div>
-                  <div className="text-xs leading-relaxed text-[var(--muted)]">{p.tagline}</div>
-                </button>
-              ))}
-            </div>
-
-            {briefingProfile && (
-              <div className="mb-5 p-4 rounded-xl bg-[var(--primary)]/05 border border-[var(--primary)]/20">
-                <div className="text-xs uppercase tracking-widest font-mono mb-2 text-[var(--primary)]">Briefing</div>
-                <div className="text-sm leading-relaxed">{briefingProfile.text}</div>
-              </div>
-            )}
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={acceptMission}
-                disabled={!briefingProfile}
-                className="flex-1 text-center py-3 rounded-xl font-semibold text-black bg-[var(--primary)] hover:bg-[var(--primary-dark)] transition-all duration-200 disabled:opacity-40"
-              >
-                Begin Operation
-              </button>
-              <button
-                onClick={skipBriefing}
-                className="px-6 py-3 rounded-xl border border-[var(--border)] text-[var(--muted)] hover:border-[var(--primary)]/40 transition-all duration-200"
-              >
-                Skip
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Ticker */}
       <div className="ticker-wrap">
@@ -617,7 +507,7 @@ export default function ProductsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   {/* Radar chart */}
                   <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
-                    <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Anonymity Radar</p>
+                    <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Detection Resistance Radar</p>
                     <div className="radar-chart">
                       <svg viewBox="0 0 160 160" className="w-full">
                         {[40, 60, 80, 100].map((r) => (
@@ -732,14 +622,14 @@ export default function ProductsPage() {
                   <span className="text-sm font-normal text-gray-500">/mo</span>
                 </div>
               </div>
-              <Link href="/order" className="btn-primary">Deploy Cover</Link>
+              <Link href="/order" className="btn-primary">Order Now</Link>
               <button 
                 onClick={() => toggleExpand(product.key)}
                 className="btn-ghost"
                 aria-expanded={expanded === product.key}
                 aria-controls={`expand-${product.key}`}
               >
-                What they see <CaretDown weight="bold" className={`expand-icon w-3 h-3 ${expanded === product.key ? 'open' : ''}`} />
+                Detection Profile <CaretDown weight="bold" className={`expand-icon w-3 h-3 ${expanded === product.key ? 'open' : ''}`} />
               </button>
               <div className="text-xs ml-auto hidden lg:block text-gray-500">{product.hasApiData ? `${product.countries} countries available` : '— countries available'}</div>
             </div>
@@ -747,7 +637,7 @@ export default function ProductsPage() {
             {/* Expand section */}
             <div className={`expand-body mt-6 ${expanded === product.key ? 'open' : ''}`} id={`expand-${product.key}`}>
               <div className="p-6 rounded-xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <p className="text-xs uppercase tracking-widest font-mono mb-5" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Adversary Detection View</p>
+                <p className="text-xs uppercase tracking-widest font-mono mb-5" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Platform Compatibility</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {product.threatView.map((threat) => (
                     <div 
@@ -792,8 +682,8 @@ export default function ProductsPage() {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
         <div className="section-divider-glow mb-16" />
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-3" style={{ letterSpacing: '-0.02em' }}>Compare Disguises</h2>
-          <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--muted)' }}>Every cover has trade-offs. Here&apos;s the full breakdown.</p>
+          <h2 className="text-3xl font-bold mb-3" style={{ letterSpacing: '-0.02em' }}>Compare Proxy Types</h2>
+          <p className="text-sm max-w-md mx-auto" style={{ color: 'var(--muted)' }}>Each proxy type has trade-offs. Here&apos;s the full breakdown.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full" style={{ minWidth: '560px' }}>
@@ -806,9 +696,9 @@ export default function ProductsPage() {
               </tr>
             </thead>
             <tbody>
-              {/* Anonymity row */}
+              {/* Detection Resistance row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <td className="px-5 py-4 text-sm font-medium">Anonymity</td>
+                <td className="px-5 py-4 text-sm font-medium">Detection Resistance</td>
                 {dbProducts.map((p) => {
                   const d = p.stats.detection;
                   const label = d >= 90 ? 'Highest' : d >= 75 ? 'Very High' : d >= 50 ? 'High' : 'Low';
@@ -828,9 +718,9 @@ export default function ProductsPage() {
                   return <td key={p.key} className={`px-5 py-4 text-center text-sm ${bold}`} style={{ color }}>{label}</td>;
                 })}
               </tr>
-              {/* Ban Resistance row */}
+              {/* IP Lifespan row */}
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                <td className="px-5 py-4 text-sm font-medium">Ban Resistance</td>
+                <td className="px-5 py-4 text-sm font-medium">IP Lifespan</td>
                 {dbProducts.map((p) => {
                   const color = p.key === 'DATACENTER' ? 'var(--danger)' : 'var(--primary)';
                   const bold = p.key !== 'DATACENTER' ? 'font-semibold' : '';
@@ -874,7 +764,7 @@ export default function ProductsPage() {
         <div className="section-divider-glow mb-16" />
         <div className="text-center">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] mb-5">
-            Ready to cross the Styx?
+            Ready to get started?
           </h2>
           <p className="mb-10 text-lg" style={{ color: 'var(--muted)' }}>Start in seconds. No signup required.</p>
           <Link href="/order"
