@@ -224,7 +224,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                     try:
                         from app.services.email import send_order_active_email
 
-                        await send_order_active_email(
+                        email_result = await send_order_active_email(
                             customer_email=customer_email,
                             customer_name=customer_email.split("@")[0],
                             order_id=order.order_id,
@@ -240,7 +240,10 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                             protocol="socks5",
                             expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                         )
-                        logger.info("Order email sent to %s", customer_email)
+                        if email_result.success:
+                            logger.info("Order email sent to %s", customer_email)
+                        else:
+                            logger.warning("Order email FAILED to %s: %s", customer_email, email_result.error)
                     except Exception as email_err:
                         logger.error(
                             "Failed to send order email to %s: %s",

@@ -117,7 +117,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                     try:
                         from app.services.email import send_order_active_email
 
-                        await send_order_active_email(
+                        email_result = await send_order_active_email(
                             customer_email=customer_email,
                             customer_name=customer_email.split("@")[0],
                             order_id=order.order_id,
@@ -133,7 +133,10 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                             protocol="socks5",
                             expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                         )
-                        logger.info(f"[{job_id}] Order email sent to {customer_email}")
+                        if email_result.success:
+                            logger.info(f"[{job_id}] Order email sent to {customer_email}")
+                        else:
+                            logger.warning(f"[{job_id}] Order email FAILED to {customer_email}: {email_result.error}")
                     except Exception as email_err:
                         logger.error(
                             f"[{job_id}] Failed to send order email to {customer_email}: {email_err}"
