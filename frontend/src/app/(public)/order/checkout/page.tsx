@@ -247,7 +247,7 @@ export default function CheckoutPage() {
             sessionStorage.setItem('styxproxy_active_tx', r.value.data.order_id);
           }
           // Add to order history with backend's order_id and amount
-          const backendAmount = r.value.data.amount_ngn || itemPrice(cart[i]);
+          const backendAmount = r.value.data.amount_ngn;
           addToOrderHistory({
             order_id: r.value.data.order_id,
             tx_ref: r.value.data.order_id,
@@ -406,7 +406,7 @@ export default function CheckoutPage() {
                     })()}
                     {/* Line total */}
                     <span className="font-semibold text-[var(--primary)] w-28 text-right">
-                      {formatPrice(itemPrice(item))}
+                      {formatPrice(item.price_ngn || 0)}
                     </span>
                     {/* Remove */}
                     <button

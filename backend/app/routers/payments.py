@@ -36,7 +36,18 @@ async def initiate_payment(
     if not plan:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
     price = float(plan.price_per_gb if plan.price_per_gb is not None else plan.price_ngn)
-    total_amount = price * request.quantity
+    # Parse quantity from plan code suffix (e.g., "MOBILE-GH-5IP" → 5)
+    quantity = request.quantity
+    if '-' in request.plan_code and request.plan_code.endswith('IP'):
+        parts = request.plan_code.rsplit('-', 2)
+        if len(parts) >= 3:
+            try:
+                suffix_qty = int(parts[1])
+                if suffix_qty > 0:
+                    quantity = suffix_qty
+            except ValueError:
+                pass
+    total_amount = price * quantity
 
     customer = await get_or_create_customer(
         session,
@@ -53,7 +64,12 @@ async def initiate_payment(
     # Use frontend payment_reference if provided (STX- format), otherwise generate our own
     tx_ref = request.payment_reference or f"TXF-{uuid4().hex[:8].upper()}"
 
-    callback_url = "https://styxproxy.com/thank-you?tx_ref=" + tx_ref
+    # Generate order_id first so we can include it in the redirect URL.
+    # Flutterwave/Paystack redirect back to this URL with their own tx_ref,
+    # so we need our order_id as a separate query parameter for lookup.
+    order_id = generate_order_id()
+
+    callback_url = f"https://styxproxy.com/thank-you?order_id={order_id}"
 
     if request.gateway == "paystack":
         result = await create_paystack_transaction(
@@ -73,8 +89,6 @@ async def initiate_payment(
             callback_url=callback_url,
             description=f"Payment for {request.plan_code}",
         )
-
-    order_id = generate_order_id()
 
     order = Order(
         order_id=order_id,
