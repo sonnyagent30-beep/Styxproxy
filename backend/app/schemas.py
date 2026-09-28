@@ -595,6 +595,7 @@ class PaymentInitiateResponse(BaseModel):
     """Payment initiation response."""
 
     payment_id: str
+    order_id: str
     checkout_url: str
     amount_ngn: float
     expires_at: datetime
