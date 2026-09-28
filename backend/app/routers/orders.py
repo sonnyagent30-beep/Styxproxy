@@ -75,9 +75,12 @@ async def resolve_plan(
         if len(parts) >= 3:
             clean_code = f"{parts[0]}-{parts[1]}"
 
-    # Try exact plan_code match (use stripped code)
+    # Use clean_code (suffix stripped) for all lookups
+    lookup_code = clean_code
+
+    # Try exact plan_code match
     stmt = select(Plan).where(
-        Plan.plan_code == clean_code,
+        Plan.plan_code == lookup_code,
         Plan.is_active.is_(True),
     )
     if country:
@@ -87,10 +90,10 @@ async def resolve_plan(
     if plan:
         return plan
 
-    # Fallback: extract plan_type + country from plan_code
+    # Fallback: extract plan_type + country from clean_code
     # Catalog uses virtual codes from country_plan_types (e.g. "RESIDENTIAL-NG")
     # that don't have matching Plan rows
-    plan_type_guess = plan_code.split('-')[0].upper() if '-' in plan_code else plan_code.upper()
+    plan_type_guess = lookup_code.split('-')[0].upper() if '-' in lookup_code else lookup_code.upper()
     stmt = select(Plan).where(
         Plan.is_active.is_(True),
         Plan.plan_type == plan_type_guess,
@@ -98,8 +101,8 @@ async def resolve_plan(
     if country:
         stmt = stmt.where(Plan.country == translate_country(country))
     else:
-        # Extract country from plan_code (e.g. RESIDENTIAL-NG → NG)
-        code_parts = plan_code.split('-')
+        # Extract country from lookup_code (e.g. RESIDENTIAL-NG → NG)
+        code_parts = lookup_code.split('-')
         if len(code_parts) >= 2:
             stmt = stmt.where(Plan.country == code_parts[-1].upper())
     result = await session.execute(stmt)
@@ -111,7 +114,7 @@ async def resolve_plan(
     from sqlalchemy import text
     cpt_result = await session.execute(text(
         "SELECT country_code, plan_type, price_per_ip, price_per_gb FROM country_plan_types WHERE country_code = :country AND plan_type = :pt AND enabled = true"
-    ), {"country": (country or plan_code.split('-')[-1] if '-' in plan_code else 'NG').upper(), "pt": plan_type_guess})
+    ), {"country": (country or lookup_code.split('-')[-1] if '-' in lookup_code else 'NG').upper(), "pt": plan_type_guess})
     cpt_row = cpt_result.mappings().first()
     if cpt_row:
         from app.services.catalog import _VirtualPlan
@@ -121,7 +124,7 @@ async def resolve_plan(
             price_ngn=cpt_row["price_per_ip"] or 0,
             price_per_gb=cpt_row["price_per_gb"],
             quantity=1,
-            plan_code=plan_code,
+            plan_code=lookup_code,
             sort_order=999,
         )
 
