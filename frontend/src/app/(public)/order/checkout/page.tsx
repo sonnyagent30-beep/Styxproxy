@@ -267,6 +267,10 @@ export default function CheckoutPage() {
         const r = results[i];
         if (r.status === 'fulfilled' && r.value.data?.checkout_url) {
           firstCheckoutUrl = r.value.data.checkout_url;
+          // Store the backend-generated order_id for thank-you page and order status lookup
+          if (r.value.data.order_id) {
+            sessionStorage.setItem('styxproxy_order_id', r.value.data.order_id);
+          }
           break;
         }
         if (r.status === 'rejected') {

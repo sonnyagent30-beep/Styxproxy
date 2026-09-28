@@ -276,6 +276,7 @@ class ApiClient {
     customerPhone: string,
     customerEmail?: string,
     gateway?: 'flutterwave' | 'paystack' | 'crypto' | 'stripe' | 'paynow',
+    order_id?: string,
     countryCode?: string,
     planType?: string,
     effectiveQuantity?: number,
