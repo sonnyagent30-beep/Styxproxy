@@ -255,7 +255,7 @@ async def precheck_order(
 
 def generate_order_id() -> str:
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    return f"ORD-{suffix}"
+    return f"STX-{suffix}"
 
 
 @router.post("/create", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)

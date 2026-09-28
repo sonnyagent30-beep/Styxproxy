@@ -93,6 +93,7 @@ async def initiate_payment(
 
     return PaymentInitiateResponse(
         payment_id=str(uuid4()),
+        order_id=order_id,
         checkout_url=result.get("checkout_url", ""),
         amount_ngn=total_amount,
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
