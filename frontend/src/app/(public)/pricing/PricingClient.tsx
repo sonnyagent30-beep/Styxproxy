@@ -80,6 +80,7 @@ const FALLBACK_PRODUCTS = [
     type: 'Real Home IP · Deep Cover',
     price: '₦1,000',
     per: 'GB/mo',
+    _backend_price: 1000,
     badge: 'Top Pick',
     badgeColor: 'var(--primary)',
     badgeBorder: 'var(--primary)',
