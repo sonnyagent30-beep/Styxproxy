@@ -167,9 +167,8 @@ export default function CheckoutPage() {
     if (updated.length === 0) router.replace('/order');
   };
 
-  // Use backend price directly — price_ngn is already the total for each item
-  // (set when adding to cart from catalog data). No local calculation.
-  const subtotal = cart.reduce((sum, i) => sum + (i.price_ngn || 0), 0);
+  // No local price calculation — backend is the single source of truth.
+  // The actual amount is determined by /api/payments/initiate and shown on the payment page.
 
   // Bug walk theme-B fix: aggregate precheck state for the Pay button.
   // Disabled while any item is still checking OR any item is unavailable.
@@ -424,11 +423,11 @@ export default function CheckoutPage() {
             })}
           </div>
 
-          {/* Subtotal */}
+          {/* Price note — actual amount determined by backend */}
           <div className="mt-4 p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
             <div className="flex justify-between items-center">
-              <span className="text-[var(--muted)]">Subtotal</span>
-              <span className="text-xl font-bold">{formatPrice(subtotal)}</span>
+              <span className="text-[var(--muted)]">Payment amount</span>
+              <span className="text-sm text-[var(--muted)]">Confirmed on payment page</span>
             </div>
           </div>
         </div>
@@ -522,7 +521,7 @@ export default function CheckoutPage() {
                 ? 'Some items unavailable'
                 : !isGatewayAvailable
                   ? 'Select a payment method'
-                  : `Pay ${formatPrice(subtotal)} with ${gateways[gateway]?.label || gateway}`}
+                  : `Pay with ${gateways[gateway]?.label || gateway}`}
         </button>
 
         <p className="text-xs text-center text-[var(--muted)] mt-3">
