@@ -12,18 +12,8 @@ import api from '@/lib/api';
 import { tryStartOrder, setInflightOrder, getDeviceId, addToOrderHistory } from '@/lib/device-id';
 import { useCartStore } from '@/store/cart-store';
 
-// Sprint 13: per-GB vs per-IP pricing
-function itemPrice(item: import('@/types').CartItem): number {
-  const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
-    && typeof item.price_per_gb === 'number'
-    && typeof item.quantity_gb === 'number';
-  if (isPerGb) {
-    const perGb = item.price_per_gb as number;
-    const qtyGb = item.quantity_gb as number;
-    return perGb * qtyGb;
-  }
-  return item.price_ngn;
-}
+// Backend is the single source of truth for pricing.
+// amount_ngn is fetched from /api/payments/initiate on page load.
 
 function generateTxRef(): string {
   // Format: STX-XXXXXX (e.g. STYX-A3K9L2)
@@ -177,7 +167,9 @@ export default function CheckoutPage() {
     if (updated.length === 0) router.replace('/order');
   };
 
-  const subtotal = cart.reduce((sum, i) => sum + itemPrice(i), 0);
+  // Use backend price directly — price_ngn is already the total for each item
+  // (set when adding to cart from catalog data). No local calculation.
+  const subtotal = cart.reduce((sum, i) => sum + (i.price_ngn || 0), 0);
 
   // Bug walk theme-B fix: aggregate precheck state for the Pay button.
   // Disabled while any item is still checking OR any item is unavailable.

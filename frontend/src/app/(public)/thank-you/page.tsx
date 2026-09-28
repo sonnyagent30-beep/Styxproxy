@@ -190,7 +190,11 @@ async function generateLocalPDF(order: OrderData, cart: CartItem[], txRef: strin
   let subtotal = 0;
 
   cart.forEach((item) => {
-    const lineTotal = item.price_ngn * item.quantity;
+    // For per-GB items, price_ngn is already the total (per-GB × quantity_gb)
+    // For per-IP items, price_ngn is per-unit, so multiply by quantity
+    const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
+      && typeof item.price_per_gb === 'number';
+    const lineTotal = isPerGb ? item.price_ngn : item.price_ngn * item.quantity;
     subtotal += lineTotal;
 
     doc.setTextColor(...WHITE);
@@ -532,7 +536,13 @@ function ThankYouContent() {
   }, [txRef, attempts]);
 
   // Calculate totals from cart
-  const cartTotal = cart.reduce((sum, item) => sum + item.price_ngn * item.quantity, 0);
+  // For per-GB items, price_ngn is already the total (per-GB × quantity_gb)
+  // For per-IP items, price_ngn is per-unit, so multiply by quantity
+  const cartTotal = cart.reduce((sum, item) => {
+    const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
+      && typeof item.price_per_gb === 'number';
+    return sum + (isPerGb ? item.price_ngn : item.price_ngn * item.quantity);
+  }, 0);
 
   // Handle PDF download
   const handleDownloadPDF = async () => {
