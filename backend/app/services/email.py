@@ -1418,6 +1418,7 @@ def _render_proxy_credentials_email(
     protocol: str,
     expires_at: datetime,
     payment_method: str = "Card / Bank / USSD / QR",
+    receipt_url: str | None = None,
 ) -> EmailContent:
     """Render proxy credentials email (order paid + active) - table-based layout."""
     expires_str = expires_at.strftime("%Y-%m-%d %H:%M UTC") if expires_at else "N/A"
@@ -1601,6 +1602,7 @@ def _render_proxy_credentials_email(
                                     <strong>Security:</strong> Keep these credentials confidential. Do not share them with anyone.
                                 </div>
                             </div>
+                            {f'<div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; border: 1px solid #00D060; border-radius: 3px;"><div style="font-size: 12px; color: #00D060; margin-bottom: 8px;"><strong>DOWNLOAD RECEIPT</strong></div><a href="{receipt_url}" style="color: #00D060; font-size: 13px; text-decoration: underline;">Click here to download your receipt</a></div>' if receipt_url else ''}
                         </td>
                     </tr>
                 </table>
@@ -1638,6 +1640,8 @@ Expires: {expires_str}
 
 You can now use your proxy immediately.
 
+Receipt: {receipt_url or 'Contact support for receipt'}
+
 Need help? Contact us at styxproxy.com
 
 - Styxproxy
@@ -1671,6 +1675,7 @@ async def send_order_active_email(
     protocol: str,
     expires_at: datetime,
     payment_method: str = "Card / Bank / USSD / QR",
+    receipt_url: str | None = None,
 ) -> EmailResult:
     """Send order confirmation + credentials in ONE email when order is paid and proxy is active.
 
@@ -1691,6 +1696,7 @@ async def send_order_active_email(
         protocol=protocol,
         expires_at=expires_at,
         payment_method=payment_method,
+        receipt_url=receipt_url,
     )
     recipient = EmailRecipient(email=customer_email, name=customer_name)
 
@@ -2289,6 +2295,7 @@ async def send_proxy_credentials_email(
         protocol=protocol,
         expires_at=expires_at,
         payment_method=payment_method,
+        receipt_url=receipt_url,
     )
     recipient = EmailRecipient(email=customer_email, name=customer_name)
 

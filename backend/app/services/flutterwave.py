@@ -216,6 +216,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                         proxy_ip=credential.upstream_proxy_ip or "",
                         proxy_port=credential.upstream_proxy_port or 1080,
                         expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                        receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
                     )
 
                 # ── Deliver credentials via email if customer provided one ──
@@ -239,6 +240,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                             proxy_port=credential.upstream_proxy_port or 1080,
                             protocol="socks5",
                             expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                            receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
                         )
                         if email_result.success:
                             logger.info("Order email sent to %s", customer_email)

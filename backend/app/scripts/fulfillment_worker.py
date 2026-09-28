@@ -107,6 +107,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                     proxy_ip=credential.upstream_proxy_ip or "",
                     proxy_port=credential.upstream_proxy_port or 1080,
                     expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                    receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
                 )
                 logger.info(f"[{job_id}] Fulfillment OK: credential_id={credential.id}")
 
@@ -132,6 +133,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                             proxy_port=credential.upstream_proxy_port or 1080,
                             protocol="socks5",
                             expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                            receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
                         )
                         if email_result.success:
                             logger.info(f"[{job_id}] Order email sent to {customer_email}")
