@@ -625,7 +625,11 @@ async def get_order_by_payment_reference(
     """
     stmt = (
         select(Order)
-        .where((Order.payment_reference == payment_reference) | (Order.tx_ref == payment_reference))
+        .where(
+            (Order.payment_reference == payment_reference)
+            | (Order.tx_ref == payment_reference)
+            | (Order.order_id == payment_reference)
+        )
         .order_by(Order.created_at.desc())
         .limit(1)
     )

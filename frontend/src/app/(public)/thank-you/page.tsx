@@ -371,19 +371,26 @@ async function generateLocalPDF(order: OrderData, cart: CartItem[], txRef: strin
 
 function ThankYouContent() {
   const searchParams = useSearchParams();
+  const urlOrderId = searchParams.get('order_id');
   const urlTxRef = searchParams.get('tx_ref');
+  const [orderId, setOrderId] = useState<string | null>(urlOrderId);
   const [txRef, setTxRef] = useState<string | null>(urlTxRef);
   const { toast } = useToast();
 
-  // Fallback: if no tx_ref in URL (Flutterwave doesn't append it), use sessionStorage
+  // Fallback: if no order_id in URL, try sessionStorage then tx_ref
   useEffect(() => {
-    if (!txRef) {
-      const stored = sessionStorage.getItem('styxproxy_active_tx');
-      if (stored) {
-        setTxRef(stored);
+    if (!orderId) {
+      const storedOrderId = sessionStorage.getItem('styxproxy_order_id');
+      if (storedOrderId) {
+        setOrderId(storedOrderId);
+      } else if (!txRef) {
+        const stored = sessionStorage.getItem('styxproxy_active_tx');
+        if (stored) {
+          setTxRef(stored);
+        }
       }
     }
-  }, [txRef]);
+  }, [orderId, txRef]);
 
   const [order, setOrder] = useState<OrderData | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -427,9 +434,13 @@ function ThankYouContent() {
 
     const fetchOrderStatus = async () => {
       try {
+        // If we have order_id from URL or sessionStorage, use it directly
+        if (orderId) {
+          resolvedRef = orderId;
+        }
         let oid = resolvedRef;
-        if (!oid) {
-          // Stage 1: resolve tx_ref → order_id
+        if (!oid && txRef) {
+          // Fallback: resolve tx_ref → order_id via payment reference
           const refRes = await fetch(`/api/orders/by-payment-reference/${txRef}`);
           if (cancelled) return;
           if (refRes.status === 404) {
@@ -445,6 +456,10 @@ function ThankYouContent() {
           }
           oid = refData.order_id;
           resolvedRef = oid;
+        }
+        if (!oid) {
+          setAttempts(prev => prev + 1);
+          return;
         }
 
         // Stage 2: poll the new payment-status endpoint
