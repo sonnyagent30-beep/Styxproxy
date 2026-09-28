@@ -41,12 +41,13 @@ async def initiate_payment(
     if '-' in request.plan_code and request.plan_code.endswith('IP'):
         parts = request.plan_code.rsplit('-', 2)
         if len(parts) >= 3:
-            try:
-                suffix_qty = int(parts[1])
+            # parts[2] is like "5IP" — extract the numeric part
+            import re
+            match = re.match(r'^(\d+)IP$', parts[2])
+            if match:
+                suffix_qty = int(match.group(1))
                 if suffix_qty > 0:
                     quantity = suffix_qty
-            except ValueError:
-                pass
     total_amount = price * quantity
 
     customer = await get_or_create_customer(
