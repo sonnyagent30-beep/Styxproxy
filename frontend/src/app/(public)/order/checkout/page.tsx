@@ -205,29 +205,11 @@ export default function CheckoutPage() {
         sessionStorage.setItem('styxproxy_email', trimmedEmail);
       }
 
-      // Generate one tx_ref per cart item so /thank-you /manage page can
-      // reference each independently.
-      const txRefs = cart.map(() => generateTxRef());
-      sessionStorage.setItem('styxproxy_active_tx', txRefs[0]);
-
-      // Track each pending order in local device history so /manage page
-      // can recover them.
-      for (let i = 0; i < cart.length; i++) {
-        addToOrderHistory({
-          tx_ref: txRefs[i],
-          order_id: txRefs[i],
-          plan_code: cart[i].plan_code,
-          country: cart[i].country_code || 'NG',
-          amount: itemPrice(cart[i]),
-          status: 'pending',
-          created_at: new Date().toISOString(),
-        });
-      }
-
       // Double-payment prevention: if ANY of the cart items has an
       // in-flight tx_ref from the last 5 minutes, refuse and tell the
       // customer to complete or close the existing tab.
       const { tryStartOrder } = await import('@/lib/device-id');
+      const txRefs = cart.map(() => generateTxRef());
       for (let i = 0; i < cart.length; i++) {
         const { is_resume } = tryStartOrder(cart[i].plan_code, () => txRefs[i]);
         if (is_resume) {
@@ -267,10 +249,22 @@ export default function CheckoutPage() {
         const r = results[i];
         if (r.status === 'fulfilled' && r.value.data?.checkout_url) {
           firstCheckoutUrl = r.value.data.checkout_url;
-          // Store the backend-generated order_id for thank-you page and order status lookup
+          // Store the backend-generated order_id and amount for thank-you page and order status lookup
           if (r.value.data.order_id) {
             sessionStorage.setItem('styxproxy_order_id', r.value.data.order_id);
+            sessionStorage.setItem('styxproxy_active_tx', r.value.data.order_id);
           }
+          // Add to order history with backend's order_id and amount
+          const backendAmount = r.value.data.amount_ngn || itemPrice(cart[i]);
+          addToOrderHistory({
+            order_id: r.value.data.order_id,
+            tx_ref: r.value.data.order_id,
+            plan_code: cart[i].plan_code,
+            country: cart[i].country_code || 'NG',
+            amount: backendAmount,
+            status: 'pending',
+            created_at: new Date().toISOString(),
+          });
           break;
         }
         if (r.status === 'rejected') {
