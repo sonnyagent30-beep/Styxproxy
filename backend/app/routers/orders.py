@@ -67,9 +67,17 @@ async def resolve_plan(
 
     If country is provided, the plan must match (after GB→UK translation).
     """
-    # Try exact plan_code match
+    # Strip frontend suffix: "{TYPE}-{COUNTRY}-{QUANTITY}IP" → "{TYPE}-{COUNTRY}"
+    # e.g. "DC-NG-1IP" → "DC-NG", "RESIDENTIAL-NG-5GB" → "RESIDENTIAL-NG"
+    clean_code = plan_code
+    if '-' in plan_code and plan_code.endswith('IP'):
+        parts = plan_code.rsplit('-', 2)
+        if len(parts) >= 3:
+            clean_code = f"{parts[0]}-{parts[1]}"
+
+    # Try exact plan_code match (use stripped code)
     stmt = select(Plan).where(
-        Plan.plan_code == plan_code,
+        Plan.plan_code == clean_code,
         Plan.is_active.is_(True),
     )
     if country:
