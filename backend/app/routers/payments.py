@@ -66,6 +66,22 @@ async def initiate_payment(
             )
         ).scalars().first()
         if existing:
+            # Compare payload hash — if different, return 409
+            import hashlib
+            new_payload = f"{request.plan_code}:{request.quantity}:{request.customer_email or ''}:{request.gateway}"
+            new_hash = hashlib.sha256(new_payload.encode()).hexdigest()[:16]
+            
+            # Check if this is a different payload
+            if existing.plan_code != request.plan_code or existing.amount_paid_ngn != total_amount:
+                logger.warning(
+                    "idempotency key reused with different payload — rejecting",
+                    extra={**log_ctx, "order_id": existing.order_id},
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Idempotency-Key was already used with a different payload",
+                )
+            
             logger.info(
                 "idempotent replay — returning existing order",
                 extra={**log_ctx, "order_id": existing.order_id},
@@ -76,6 +92,7 @@ async def initiate_payment(
                 checkout_url="",
                 amount_ngn=float(existing.amount_paid_ngn or 0),
                 expires_at=existing.expires_at or datetime.now(timezone.utc) + timedelta(minutes=ORDER_TTL_MINUTES),
+                tx_ref=existing.tx_ref or "",
             )
 
     # ── Resolve plan ─────────────────────────────────────────────────────
@@ -176,6 +193,33 @@ async def initiate_payment(
         await session.commit()
     except Exception as e:
         await session.rollback()
+        
+        # Check if this is an IntegrityError from the unique idempotency index
+        from sqlalchemy.exc import IntegrityError
+        if isinstance(e, IntegrityError) and idempotency_key:
+            # Concurrent request won the race — fetch and return the existing order
+            try:
+                existing = (
+                    await session.execute(
+                        select(Order).where(Order.idempotency_key == idempotency_key)
+                    )
+                ).scalars().first()
+                if existing:
+                    logger.info(
+                        "concurrent request won race — returning existing order",
+                        extra={**log_ctx, "order_id": existing.order_id},
+                    )
+                    return PaymentInitiateResponse(
+                        payment_id=str(uuid.uuid4()),
+                        order_id=existing.order_id,
+                        checkout_url="",
+                        amount_ngn=float(existing.amount_paid_ngn or 0),
+                        expires_at=existing.expires_at or datetime.now(timezone.utc) + timedelta(minutes=ORDER_TTL_MINUTES),
+                        tx_ref=existing.tx_ref or "",
+                    )
+            except Exception:
+                pass  # Fall through to error handling
+        
         # Idempotency failure path: attempt to delete partial order
         if idempotency_key:
             try:

@@ -677,6 +677,109 @@ async def get_order_by_payment_reference(
     )
 
 
+# ─── Self-Service Order Lookup (Sprint 025) ─────────────────────────────────
+# Highest-ROI support fix: anonymous customers can look up their order status
+# without login. Email + order_id required. Rate-limited. No credentials returned.
+
+class OrderLookupResponse(BaseModel):
+    """Response for self-service order lookup. No credentials — status only."""
+    order_id: str
+    status: str
+    plan_code: Optional[str] = None
+    plan_type: Optional[str] = None
+    country: Optional[str] = None
+    amount_paid_ngn: Optional[float] = None
+    currency: str = "NGN"
+    created_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    is_fulfilled: bool = False
+    credential_delivery_status: Optional[str] = None  # "delivered" | "pending" | "failed" | None
+    message: str = ""
+
+
+@router.get("/lookup", response_model=OrderLookupResponse)
+@limiter.limit("10/minute", key_func=get_remote_address)
+async def lookup_order(
+    request: Request,
+    email: str,
+    order_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """Self-service order lookup — no auth required.
+    
+    Customers provide email + order_id to check their order status.
+    Returns status + delivery state only — NO credentials.
+    Rate-limited to 10 req/min per IP.
+    """
+    from app.models import Customer
+    
+    # Validate email format
+    email = email.strip().lower()
+    if "@" not in email or " " in email or len(email) > 255:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
+    
+    # Find customer by email (through orders)
+    # The order has customer_phone, which links to customers table
+    stmt = (
+        select(Order, Customer)
+        .outerjoin(Customer, Order.customer_phone == Customer.phone)
+        .where(Order.order_id == order_id)
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    row = result.first()
+    
+    if not row:
+        # Don't leak order existence — same message for all failures
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    
+    order, customer = row
+    
+    # Verify email matches customer
+    if not customer or not customer.email or customer.email.lower() != email:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    
+    # Determine credential delivery status
+    delivery_status = None
+    if order.status in ("fulfilled", "active") and order.styxproxy_credential_id:
+        delivery_status = "delivered"
+    elif order.status == "paid":
+        delivery_status = "pending"
+    elif order.status in ("failed_unfulfilled", "failed_manual_review"):
+        delivery_status = "failed"
+    
+    # Build user-friendly message
+    if order.status in ("fulfilled", "active"):
+        message = "Your proxy is ready. Check your email for credentials."
+    elif order.status == "paid":
+        message = "Payment received — your proxy is being provisioned."
+    elif order.status == "pending":
+        message = "Waiting for payment confirmation."
+    elif order.status == "expired":
+        message = "This order has expired. Please place a new order."
+    elif order.status == "refunded":
+        message = "This order has been refunded. Contact support if you have questions."
+    elif order.status == "cancelled":
+        message = "This order was cancelled."
+    else:
+        message = f"Order status: {order.status}"
+    
+    return OrderLookupResponse(
+        order_id=order.order_id,
+        status=order.status,
+        plan_code=order.plan_code,
+        plan_type=order.plan_type,
+        country=order.country,
+        amount_paid_ngn=float(order.amount_paid_ngn) if order.amount_paid_ngn else None,
+        currency="NGN",
+        created_at=order.created_at,
+        expires_at=order.expires_at,
+        is_fulfilled=order.status in ("fulfilled", "active"),
+        credential_delivery_status=delivery_status,
+        message=message,
+    )
+
+
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(
     order_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)
@@ -1440,104 +1543,3 @@ async def get_receipt_pdf(
         headers={"Content-Disposition": f"attachment; filename=styxproxy-receipt-{tx_ref}.pdf"},
     )
 
-# ─── Self-Service Order Lookup (Sprint 025) ─────────────────────────────────
-# Highest-ROI support fix: anonymous customers can look up their order status
-# without login. Email + order_id required. Rate-limited. No credentials returned.
-
-class OrderLookupResponse(BaseModel):
-    """Response for self-service order lookup. No credentials — status only."""
-    order_id: str
-    status: str
-    plan_code: Optional[str] = None
-    plan_type: Optional[str] = None
-    country: Optional[str] = None
-    amount_paid_ngn: Optional[float] = None
-    currency: str = "NGN"
-    created_at: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
-    is_fulfilled: bool = False
-    credential_delivery_status: Optional[str] = None  # "delivered" | "pending" | "failed" | None
-    message: str = ""
-
-
-@router.get("/lookup", response_model=OrderLookupResponse)
-@limiter.limit("10/minute", key_func=get_remote_address)
-async def lookup_order(
-    request: Request,
-    email: str,
-    order_id: str,
-    session: AsyncSession = Depends(get_session),
-):
-    """Self-service order lookup — no auth required.
-    
-    Customers provide email + order_id to check their order status.
-    Returns status + delivery state only — NO credentials.
-    Rate-limited to 10 req/min per IP.
-    """
-    from app.models import Customer
-    
-    # Validate email format
-    email = email.strip().lower()
-    if "@" not in email or " " in email or len(email) > 255:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
-    
-    # Find customer by email (through orders)
-    # The order has customer_phone, which links to customers table
-    stmt = (
-        select(Order, Customer)
-        .outerjoin(Customer, Order.customer_phone == Customer.phone)
-        .where(Order.order_id == order_id)
-        .limit(1)
-    )
-    result = await session.execute(stmt)
-    row = result.first()
-    
-    if not row:
-        # Don't leak order existence — same message for all failures
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-    
-    order, customer = row
-    
-    # Verify email matches customer
-    if not customer or not customer.email or customer.email.lower() != email:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-    
-    # Determine credential delivery status
-    delivery_status = None
-    if order.status in ("fulfilled", "active") and order.styxproxy_credential_id:
-        delivery_status = "delivered"
-    elif order.status == "paid":
-        delivery_status = "pending"
-    elif order.status in ("failed_unfulfilled", "failed_manual_review"):
-        delivery_status = "failed"
-    
-    # Build user-friendly message
-    if order.status in ("fulfilled", "active"):
-        message = "Your proxy is ready. Check your email for credentials."
-    elif order.status == "paid":
-        message = "Payment received — your proxy is being provisioned."
-    elif order.status == "pending":
-        message = "Waiting for payment confirmation."
-    elif order.status == "expired":
-        message = "This order has expired. Please place a new order."
-    elif order.status == "refunded":
-        message = "This order has been refunded. Contact support if you have questions."
-    elif order.status == "cancelled":
-        message = "This order was cancelled."
-    else:
-        message = f"Order status: {order.status}"
-    
-    return OrderLookupResponse(
-        order_id=order.order_id,
-        status=order.status,
-        plan_code=order.plan_code,
-        plan_type=order.plan_type,
-        country=order.country,
-        amount_paid_ngn=float(order.amount_paid_ngn) if order.amount_paid_ngn else None,
-        currency="NGN",
-        created_at=order.created_at,
-        expires_at=order.expires_at,
-        is_fulfilled=order.status in ("fulfilled", "active"),
-        credential_delivery_status=delivery_status,
-        message=message,
-    )

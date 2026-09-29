@@ -599,6 +599,7 @@ class PaymentInitiateResponse(BaseModel):
     checkout_url: str
     amount_ngn: float
     expires_at: datetime
+    tx_ref: str = ""
 
 
 class PaymentStatusResponse(BaseModel):
