@@ -1,0 +1,8 @@
+[Unit]
+Description=Styxproxy Refund Retry Cron
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/styxproxy/backend/venv/bin/python3 /opt/styxproxy/backend/scripts/refund_retry.py
+User=root

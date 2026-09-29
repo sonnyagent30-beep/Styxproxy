@@ -1,18 +1,17 @@
 """Order expiry cron — runs every 5 minutes via systemd timer.
 
-Expires pending orders older than 30 minutes.
+Expires pending AND paid orders older than 30 minutes.
+Pending: customer never paid. Paid: customer charged but fulfillment stuck.
 """
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-import redis.asyncio as redis
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("order-expiry-cron")
 
 async def expire_old_orders():
-    """Mark pending orders older than 30 minutes as expired."""
+    """Mark pending/paid orders older than 30 minutes as expired."""
     import sys
     sys.path.insert(0, "/opt/styxproxy/backend")
     
@@ -25,9 +24,9 @@ async def expire_old_orders():
             text("""
                 UPDATE orders 
                 SET status = 'expired' 
-                WHERE status = 'pending' 
+                WHERE status IN ('pending', 'paid')
                 AND created_at < :cutoff
-                RETURNING order_id
+                RETURNING order_id, status
             """),
             {"cutoff": cutoff}
         )
@@ -35,9 +34,9 @@ async def expire_old_orders():
         await db.commit()
         
         if expired:
-            logger.info(f"Expired {len(expired)} pending orders: {[r[0] for r in expired]}")
+            logger.info(f"Expired {len(expired)} orders: {[(r[0], r[1]) for r in expired]}")
         else:
-            logger.debug("No pending orders to expire")
+            logger.debug("No orders to expire")
 
 if __name__ == "__main__":
     asyncio.run(expire_old_orders())
