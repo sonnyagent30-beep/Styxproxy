@@ -718,25 +718,17 @@ async def lookup_order(
     if "@" not in email or " " in email or len(email) > 255:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
     
-    # Find customer by email (through orders)
-    # The order has customer_phone, which links to customers table
-    stmt = (
-        select(Order, Customer)
-        .outerjoin(Customer, Order.customer_phone == Customer.phone)
-        .where(Order.order_id == order_id)
-        .limit(1)
-    )
+    # Find order by order_id
+    stmt = select(Order).where(Order.order_id == order_id).limit(1)
     result = await session.execute(stmt)
-    row = result.first()
+    order = result.scalar_one_or_none()
     
-    if not row:
+    if not order:
         # Don't leak order existence — same message for all failures
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     
-    order, customer = row
-    
-    # Verify email matches customer
-    if not customer or not customer.email or customer.email.lower() != email:
+    # Verify email matches order's customer_email
+    if not order.customer_email or order.customer_email.lower() != email:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     
     # Determine credential delivery status

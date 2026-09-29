@@ -263,6 +263,7 @@ async def initiate_payment(
         checkout_url=result.get("checkout_url", ""),
         amount_ngn=total_amount,
         expires_at=expires_at,
+        tx_ref=tx_ref,
     )
 
 
