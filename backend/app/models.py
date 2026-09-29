@@ -230,6 +230,8 @@ class Order(Base):
     emails_sent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # Timestamp of the last renewal reminder email sent (null = never sent).
     reminder_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Payment Flow Rewrite — idempotency key for /api/payments/initiate
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
 
     # Relationships
     platform_account: Mapped[Optional[PlatformAccount]] = relationship("PlatformAccount", back_populates="orders")

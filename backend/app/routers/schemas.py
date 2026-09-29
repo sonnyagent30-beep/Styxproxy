@@ -536,6 +536,10 @@ class PaymentInitiateRequest(BaseModel):
     customer_phone remains the source of truth when present. The Flutterwave
     invoice uses customer_email as the recipient and customer_phone for
     payment-method fraud checks.
+
+    Payment Flow Rewrite (Sprint 025):
+    - payment_reference removed — backend owns tx_ref generation
+    - idempotency_key added — client-generated UUID for safe retries
     """
 
     plan_code: str = Field(..., min_length=1, max_length=50)
@@ -543,7 +547,7 @@ class PaymentInitiateRequest(BaseModel):
     customer_phone: Optional[str] = Field(None, min_length=10, max_length=20)
     customer_email: Optional[str] = Field(None, max_length=255)
     callback_url: Optional[str] = Field(None, max_length=200)
-    payment_reference: Optional[str] = Field(None, max_length=100, description="Optional client-generated payment reference (STX-XXXXXX)")
+    idempotency_key: Optional[str] = Field(None, max_length=64, description="Client-generated UUID for idempotent retries")
     gateway: str = Field(default="flutterwave", pattern="^(flutterwave|paystack)$", description="Payment gateway to use")
 
     @field_validator("customer_phone")

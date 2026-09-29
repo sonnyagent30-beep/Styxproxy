@@ -280,10 +280,15 @@ class ApiClient {
     countryCode?: string,
     planType?: string,
     effectiveQuantity?: number,
-    clientReference?: string,
+    idempotencyKey?: string,
   ): Promise<ApiResponse<PaymentInitiateResponse>> {
+    const headers: Record<string, string> = {};
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
     return this.request<PaymentInitiateResponse>('/api/payments/initiate', {
       method: 'POST',
+      headers,
       body: JSON.stringify({
         plan_code: planCode,
         quantity,
@@ -293,7 +298,6 @@ class ApiClient {
         country_code: countryCode || undefined,
         plan_type: planType || undefined,
         effective_quantity: effectiveQuantity || undefined,
-        client_reference: clientReference || undefined,
       }),
     });
   }

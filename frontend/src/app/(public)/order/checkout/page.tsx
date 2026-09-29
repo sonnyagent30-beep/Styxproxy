@@ -2,7 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatPrice, COUNTRIES } from '@/lib/products';
@@ -10,17 +10,25 @@ import { Flag } from '@/components/ui/Flag';
 import type { CartItem } from '@/types';
 import api from '@/lib/api';
 import { tryStartOrder, setInflightOrder, getDeviceId, addToOrderHistory } from '@/lib/device-id';
-import { useCartStore } from '@/store/cart-store';
+import { useCartartStore } from '@/store/cart-store';
 
 // Backend is the single source of truth for pricing.
 // amount_ngn is fetched from /api/payments/initiate on page load.
 
-function generateTxRef(): string {
-  // Format: STX-XXXXXX (e.g. STYX-A3K9L2)
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/1/I/O confusion
-  let suffix = '';
-  for (let i = 0; i < 6; i++) suffix += chars.charAt(Math.floor(Math.random() * chars.length));
-  return `STX-${suffix}`;
+// Payment Flow Rewrite (Sprint 025):
+// - No client-side tx_ref generation — backend owns it
+// - Idempotency-Key header for safe retries
+// - Payment timeout countdown (15 min)
+
+const PAYMENT_TIMEOUT_SECONDS = 15 * 60; // 15 minutes
+
+function generateIdempotencyKey(): string {
+  // UUID v4 for idempotency key
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 type GatewayId = 'flutterwave' | 'paystack' | 'stripe' | 'paynow';
@@ -48,15 +56,17 @@ export default function CheckoutPage() {
     paynow: { available: true, label: 'Paynow', icon: '₿', description: 'Bitcoin, USDT, Crypto' },
   });
   const [gatewaysLoading, setGatewaysLoading] = useState(true);
-  // Bug walk theme-B fix: precheck state. Map of plan_code → precheck result.
-  // Default {checking: true} until precheck returns. Pay button disabled
-  // until every cart item has available=true.
   const [precheck, setPrecheck] = useState<Record<string, {
     checking: boolean;
     available?: boolean;
     reason?: string;
     etaSeconds?: number;
   }>>({});
+  
+  // Payment timeout countdown
+  const [timeRemaining, setTimeRemaining] = useState(PAYMENT_TIMEOUT_SECONDS);
+  const [timedOut, setTimedOut] = useState(false);
+  const paymentInitiated = useRef(false);
 
   // Fetch available gateways from backend
   useEffect(() => {
@@ -67,13 +77,12 @@ export default function CheckoutPage() {
         if (cancelled || !r.data?.gateways) return;
         const fetched = r.data.gateways as Record<GatewayId, GatewayInfo>;
         setGateways(fetched);
-        // If the currently selected gateway becomes unavailable, switch to the first available one
         if (!fetched[gateway]?.available) {
           const firstAvailable = GATEWAY_ORDER.find(g => fetched[g]?.available);
           if (firstAvailable) setGateway(firstAvailable);
         }
       } catch {
-        // If we can't fetch gateways, assume all are available (fail open — backend will reject if not)
+        // Fail open — backend will reject if not available
       } finally {
         if (!cancelled) setGatewaysLoading(false);
       }
@@ -88,19 +97,14 @@ export default function CheckoutPage() {
     }
   }, [cart, router]);
 
-  // Bug walk theme-B fix: when cart loads or changes, fire a precheck per item.
-  // Precheck tells us if the provider has inventory for that plan+country+qty.
-  // Display "Usually delivered in ~Xs" + warn if any item unavailable.
+  // Precheck per cart item
   useEffect(() => {
     if (cart.length === 0) return;
-
     let cancelled = false;
     const runPrecheck = async () => {
-      // Initialize all to checking state
       const initial: typeof precheck = {};
       cart.forEach(item => { initial[item.plan_code] = { checking: true }; });
       setPrecheck(initial);
-
       for (const item of cart) {
         try {
           const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
@@ -109,44 +113,46 @@ export default function CheckoutPage() {
             item.plan_code,
             item.country_code || 'NG',
             isPerGb ? 1 : item.quantity,
-            {
-              quantity_gb: isPerGb ? item.quantity_gb : undefined,
-              city_id: item.city_id ?? null,
-              city_name: item.city_name ?? null,
-            },
+            { quantity_gb: isPerGb ? item.quantity_gb : undefined, city_id: item.city_id ?? null, city_name: item.city_name ?? null },
           );
           if (cancelled) return;
           if (r.data) {
-            setPrecheck(prev => ({
-              ...prev,
-              [item.plan_code]: {
-                checking: false,
-                available: r.data!.available,
-                reason: r.data!.reason,
-                etaSeconds: r.data!.estimated_delivery_seconds,
-              },
-            }));
+            setPrecheck(prev => ({ ...prev, [item.plan_code]: { checking: false, available: r.data!.available, reason: r.data!.reason, etaSeconds: r.data!.estimated_delivery_seconds } }));
           } else {
-            // Network error or 5xx — treat as available=true so we don't block
-            // the customer from buying. Worst case: backend will fail at
-            // /api/payments/initiate anyway.
-            setPrecheck(prev => ({
-              ...prev,
-              [item.plan_code]: { checking: false, available: true, etaSeconds: 60 },
-            }));
+            setPrecheck(prev => ({ ...prev, [item.plan_code]: { checking: false, available: true, etaSeconds: 60 } }));
           }
         } catch {
           if (cancelled) return;
-          setPrecheck(prev => ({
-            ...prev,
-            [item.plan_code]: { checking: false, available: true, etaSeconds: 60 },
-          }));
+          setPrecheck(prev => ({ ...prev, [item.plan_code]: { checking: false, available: true, etaSeconds: 60 } }));
         }
       }
     };
     runPrecheck();
     return () => { cancelled = true; };
   }, [cart]);
+
+  // Payment timeout countdown
+  useEffect(() => {
+    if (paymentInitiated.current) return;
+    const interval = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          setTimedOut(true);
+          paymentInitiated.current = true;
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   const updateQuantity = (plan_code: string, delta: number) => {
     const updated = cart.map(item => {
@@ -167,55 +173,38 @@ export default function CheckoutPage() {
     if (updated.length === 0) router.replace('/order');
   };
 
-  // No local price calculation — backend is the single source of truth.
-  // The actual amount is determined by /api/payments/initiate and shown on the payment page.
-
-  // Bug walk theme-B fix: aggregate precheck state for the Pay button.
-  // Disabled while any item is still checking OR any item is unavailable.
-  const allChecked = cart.length > 0 && cart.every(
-    item => !precheck[item.plan_code]?.checking,
-  );
-  const anyUnavailable = cart.some(
-    item => precheck[item.plan_code]?.available === false,
-  );
+  const allChecked = cart.length > 0 && cart.every(item => !precheck[item.plan_code]?.checking);
+  const anyUnavailable = cart.some(item => precheck[item.plan_code]?.available === false);
   const isGatewayAvailable = gateways[gateway]?.available;
-  const payDisabled = loading || cart.length === 0 || !allChecked || anyUnavailable || gatewaysLoading || !isGatewayAvailable;
+  const payDisabled = loading || cart.length === 0 || !allChecked || anyUnavailable || gatewaysLoading || !isGatewayAvailable || timedOut;
 
   const handlePay = async () => {
-    if (cart.length === 0 || !isGatewayAvailable) return;
+    if (cart.length === 0 || !isGatewayAvailable || timedOut) return;
     setError('');
     setLoading(true);
+    paymentInitiated.current = true;
 
     try {
-      // Bug walk theme-B fix (#6): handle multi-item cart.
-      // Previously the checkout took only cart[0] and silently dropped
-      // cart[1..N]. Now we fire one /api/payments/initiate per cart item
-      // in parallel and redirect to the FIRST successful checkout_url.
       const trimmedEmail = email.trim();
       if (trimmedEmail) {
         sessionStorage.setItem('styxproxy_email', trimmedEmail);
       }
 
-      // Double-payment prevention: if ANY of the cart items has an
-      // in-flight tx_ref from the last 5 minutes, refuse and tell the
-      // customer to complete or close the existing tab.
+      // Double-payment prevention
       const { tryStartOrder } = await import('@/lib/device-id');
-      const txRefs = cart.map(() => generateTxRef());
+      const idempotencyKey = generateIdempotencyKey();
       for (let i = 0; i < cart.length; i++) {
-        const { is_resume } = tryStartOrder(cart[i].plan_code, () => txRefs[i]);
+        const { is_resume } = tryStartOrder(cart[i].plan_code, () => idempotencyKey);
         if (is_resume) {
-          setError(
-            `Payment already in progress for ${cart[i].name}. Complete or close the existing tab.`,
-          );
+          setError(`Payment already in progress for ${cart[i].name}. Complete or close the existing tab.`);
           setLoading(false);
           return;
         }
       }
 
-      // Fire one initiate per cart item in parallel. allSettled means
-      // one item's failure doesn't block the others.
+      // Fire one initiate per cart item in parallel with Idempotency-Key
       const results = await Promise.allSettled(
-        cart.map((item, i) => {
+        cart.map((item) => {
           const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
             && typeof item.price_per_gb === 'number';
           const quantity = isPerGb ? (item.quantity_gb || item.quantity) : item.quantity;
@@ -228,24 +217,21 @@ export default function CheckoutPage() {
             item.country_code,
             item.plan_type,
             quantity,
-            txRefs[i],
+            idempotencyKey,
           );
         }),
       );
 
-      // Find first successful result with a checkout_url.
       let firstCheckoutUrl = '';
       let lastError = '';
       for (let i = 0; i < results.length; i++) {
         const r = results[i];
         if (r.status === 'fulfilled' && r.value.data?.checkout_url) {
           firstCheckoutUrl = r.value.data.checkout_url;
-          // Store the backend-generated order_id and amount for thank-you page and order status lookup
           if (r.value.data.order_id) {
             sessionStorage.setItem('styxproxy_order_id', r.value.data.order_id);
             sessionStorage.setItem('styxproxy_active_tx', r.value.data.order_id);
           }
-          // Add to order history with backend's order_id and amount
           const backendAmount = r.value.data.amount_ngn;
           addToOrderHistory({
             order_id: r.value.data.order_id,
@@ -259,23 +245,18 @@ export default function CheckoutPage() {
           break;
         }
         if (r.status === 'rejected') {
-          lastError = r.reason?.message || 'payment initiation failed';
+          lastError = r.reason?.message || 'Payment initiation failed';
         } else if (r.status === 'fulfilled' && r.value.error) {
           lastError = r.value.error;
         }
       }
 
       if (firstCheckoutUrl) {
-        // Don't clear in-flight — webhook will clear it on payment confirm
-        // OR 5-min expiry will auto-clear.
         window.location.href = firstCheckoutUrl;
         return;
       }
 
-      // All items failed.
-      setError(
-        `Could not start payment for any items. ${lastError ? `Last error: ${lastError}` : 'Please try again.'}`,
-      );
+      setError(`Could not start payment for any items. ${lastError ? `Last error: ${lastError}` : 'Please try again.'}`);
       setLoading(false);
     } catch {
       setError('Failed to initiate payment. Please try again.');
@@ -299,20 +280,32 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen pt-24 pb-16">
       <div className="max-w-2xl mx-auto px-4">
-        {/* Back link */}
-        <Link
-          href="/order"
-          className="inline-flex items-center text-[var(--muted)] hover:text-[var(--foreground)] mb-6 transition-colors"
-        >
+        <Link href="/order" className="inline-flex items-center text-[var(--muted)] hover:text-[var(--foreground)] mb-6 transition-colors">
           <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back to browse
         </Link>
 
-        <h1 className="text-3xl font-bold mb-8">
-          Checkout
-        </h1>
+        <h1 className="text-3xl font-bold mb-8">Checkout</h1>
+
+        {/* Payment timeout warning */}
+        {timedOut ? (
+          <div className="mb-6 p-4 bg-[var(--error)]/10 border border-[var(--error)]/30 rounded-xl text-center">
+            <p className="text-[var(--error)] font-semibold">Session expired</p>
+            <p className="text-sm text-[var(--muted)] mt-1">Your checkout session has expired. Please go back and try again.</p>
+            <Link href="/order" className="inline-block mt-3 px-6 py-2 bg-[var(--primary)] text-black font-medium rounded-lg">
+              Start New Order
+            </Link>
+          </div>
+        ) : (
+          <div className="mb-4 p-3 bg-[var(--card)] border border-[var(--border)] rounded-xl flex items-center justify-between">
+            <span className="text-sm text-[var(--muted)]">Session expires in</span>
+            <span className={`font-mono font-semibold ${timeRemaining < 60 ? 'text-[var(--error)]' : 'text-[var(--primary)]'}`}>
+              {formatTime(timeRemaining)}
+            </span>
+          </div>
+        )}
 
         {/* Cart Items */}
         <div className="mb-8">
@@ -336,13 +329,10 @@ export default function CheckoutPage() {
                         {(() => {
                           const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
                             && typeof item.price_per_gb === 'number';
-                          if (isPerGb) {
-                            return `${formatPrice(item.price_per_gb as number)}/GB`;
-                          }
+                          if (isPerGb) return `${formatPrice(item.price_per_gb as number)}/GB`;
                           return `${formatPrice(item.price_ngn)} each`;
                         })()}
                       </p>
-                      {/* Bug walk theme-B fix: per-item precheck badge */}
                       {precheck[item.plan_code]?.checking && (
                         <p className="text-xs text-[var(--muted)] mt-1 flex items-center gap-1">
                           <span className="inline-block w-3 h-3 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
@@ -350,9 +340,7 @@ export default function CheckoutPage() {
                         </p>
                       )}
                       {precheck[item.plan_code]?.available === true && precheck[item.plan_code]?.etaSeconds != null && (
-                        <p className="text-xs text-[var(--success)] mt-1">
-                          ✓ Available · Usually delivered in ~{precheck[item.plan_code]!.etaSeconds}s
-                        </p>
+                        <p className="text-xs text-[var(--success)] mt-1">✓ Available · Usually delivered in ~{precheck[item.plan_code]!.etaSeconds}s</p>
                       )}
                       {precheck[item.plan_code]?.available === false && (
                         <p className="text-xs text-[var(--error)] mt-1">
@@ -363,7 +351,6 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    {/* Quantity controls */}
                     {(() => {
                       const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
                         && typeof item.price_per_gb === 'number';
@@ -383,47 +370,27 @@ export default function CheckoutPage() {
                       }
                       return (
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => updateQuantity(item.plan_code, -1)}
-                            className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                            </svg>
+                          <button onClick={() => updateQuantity(item.plan_code, -1)} className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" /></svg>
                           </button>
                           <span className="w-6 text-center font-medium">{item.quantity}</span>
-                          <button
-                            onClick={() => updateQuantity(item.plan_code, 1)}
-                            className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
+                          <button onClick={() => updateQuantity(item.plan_code, 1)} className="w-8 h-8 rounded-lg bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--primary)] flex items-center justify-center transition-colors">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                           </button>
                         </div>
                       );
                     })()}
-                    {/* Line total */}
                     <span className="font-semibold text-[var(--primary)] w-28 text-right">
                       {formatPrice(item.price_ngn || 0)}
                     </span>
-                    {/* Remove */}
-                    <button
-                      onClick={() => removeItem(item.plan_code)}
-                      className="w-8 h-8 rounded-lg hover:bg-[var(--error)]/10 flex items-center justify-center text-[var(--muted)] hover:text-[var(--error)] transition-colors"
-                      title="Remove"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
+                    <button onClick={() => removeItem(item.plan_code)} className="w-8 h-8 rounded-lg hover:bg-[var(--error)]/10 flex items-center justify-center text-[var(--muted)] hover:text-[var(--error)] transition-colors" title="Remove">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>
                 </div>
               );
             })}
           </div>
-
-          {/* Price note — actual amount determined by backend */}
           <div className="mt-4 p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
             <div className="flex justify-between items-center">
               <span className="text-[var(--muted)]">Payment amount</span>
@@ -446,11 +413,8 @@ export default function CheckoutPage() {
               placeholder="your@email.com"
               className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
             />
-            <p className="text-xs text-[var(--muted)] mt-2">
-              We&apos;ll email your receipt after payment. No spam — ever.
-            </p>
+            <p className="text-xs text-[var(--muted)] mt-2">We&apos;ll email your receipt after payment. No spam — ever.</p>
           </div>
-
         </div>
 
         {/* Error */}
@@ -484,9 +448,7 @@ export default function CheckoutPage() {
                 >
                   <span className="text-xl">{info?.icon}</span>
                   <div className="min-w-0 flex-1">
-                    <span className={`block text-sm font-semibold ${
-                      selected && isAvailable ? 'text-[var(--primary)]' : 'text-[var(--foreground)]'
-                    }`}>
+                    <span className={`block text-sm font-semibold ${selected && isAvailable ? 'text-[var(--primary)]' : 'text-[var(--foreground)]'}`}>
                       {info?.label}
                     </span>
                     <span className="block text-xs text-[var(--muted)] truncate">
@@ -494,17 +456,13 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                   {!isAvailable && (
-                    <span className="absolute top-1 right-2 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
-                      Coming soon
-                    </span>
+                    <span className="absolute top-1 right-2 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Coming soon</span>
                   )}
                 </button>
               );
             })}
           </div>
-          <p className="text-xs text-[var(--muted)] mt-2">
-            All transactions are processed securely. You'll be redirected to complete your payment.
-          </p>
+          <p className="text-xs text-[var(--muted)] mt-2">All transactions are processed securely. You'll be redirected to complete your payment.</p>
         </div>
 
         {/* Pay Button */}
@@ -515,13 +473,15 @@ export default function CheckoutPage() {
         >
           {loading
             ? 'Redirecting to payment...'
-            : !allChecked
-              ? 'Checking availability...'
-              : anyUnavailable
-                ? 'Some items unavailable'
-                : !isGatewayAvailable
-                  ? 'Select a payment method'
-                  : `Pay with ${gateways[gateway]?.label || gateway}`}
+            : timedOut
+              ? 'Session expired'
+              : !allChecked
+                ? 'Checking availability...'
+                : anyUnavailable
+                  ? 'Some items unavailable'
+                  : !isGatewayAvailable
+                    ? 'Select a payment method'
+                    : `Pay with ${gateways[gateway]?.label || gateway}`}
         </button>
 
         <p className="text-xs text-center text-[var(--muted)] mt-3">
