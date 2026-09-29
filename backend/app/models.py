@@ -232,6 +232,8 @@ class Order(Base):
     reminder_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     # Payment Flow Rewrite — idempotency key for /api/payments/initiate
     idempotency_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    # Customer email (for self-service order lookup)
+    customer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # Relationships
     platform_account: Mapped[Optional[PlatformAccount]] = relationship("PlatformAccount", back_populates="orders")
