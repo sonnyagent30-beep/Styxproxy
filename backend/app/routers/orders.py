@@ -364,6 +364,7 @@ async def create_order(
         order_id=order_id,
         platform_account_id=platform_account.id,
         customer_phone=customer.phone,
+        customer_email=body.customer_email or "",
         plan_type=plan_type,
         # Store the canonical DB plan_code (after legacy translation),
         # not the FE-sent code, so the order carries the real plan identifier.
@@ -727,8 +728,11 @@ async def lookup_order(
         # Don't leak order existence — same message for all failures
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     
-    # Verify email matches order's customer_email
-    if not order.customer_email or order.customer_email.lower() != email:
+    # Verify email matches order's customer_email (if set).
+    # Orders with NULL/empty customer_email (legacy or anonymous checkout)
+    # are lookable by order_id alone — the email param is still required
+    # by the API contract but not used for matching.
+    if order.customer_email and order.customer_email.lower() != email:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     
     # Determine credential delivery status
