@@ -115,20 +115,43 @@ async def _check_m2_cloud() -> dict[str, Any]:
         return {"status": "not_configured", "latency_ms": None, "error": "LONGCAT_API_KEY not set"}
     base = settings.longcat_base_url.rstrip("/")
     try:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=8.0) as client:
             t0 = datetime.utcnow()
-            r = await client.get(
-                f"{base}/models",
+            # Capability probe, NOT a liveness probe. GET /models returns 200 for
+            # any valid key even with a zero balance, so it reported "connected"
+            # while every real Charon completion failed with HTTP 402
+            # ("Insufficient token quota"). We now issue a 1-token completion —
+            # the exact call Charon makes — so an exhausted account surfaces here
+            # instead of as a customer-facing fallback reply.
+            r = await client.post(
+                f"{base}/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": "LongCat-2.0",
+                    "messages": [{"role": "user", "content": "ping"}],
+                    "max_tokens": 1,
+                },
             )
             latency = (datetime.utcnow() - t0).total_seconds() * 1000
             if r.status_code == 200:
                 return {"status": "connected", "latency_ms": round(latency, 1), "error": None}
+            if r.status_code == 402:
+                return {
+                    "status": "quota_exhausted",
+                    "latency_ms": round(latency, 1),
+                    "error": "HTTP 402 — provider account out of credit; Charon cannot answer",
+                }
             if r.status_code in (401, 403):
                 return {
                     "status": "auth_error",
                     "latency_ms": round(latency, 1),
                     "error": f"HTTP {r.status_code} (key invalid?)",
+                }
+            if r.status_code == 429:
+                return {
+                    "status": "quota_exhausted",
+                    "latency_ms": round(latency, 1),
+                    "error": "HTTP 429 — provider rate/quota limit",
                 }
             return {"status": "degraded", "latency_ms": round(latency, 1), "error": f"HTTP {r.status_code}"}
     except Exception as e:
