@@ -10,7 +10,7 @@ import { Flag } from '@/components/ui/Flag';
 import type { CartItem } from '@/types';
 import api from '@/lib/api';
 import { tryStartOrder, setInflightOrder, getDeviceId, addToOrderHistory } from '@/lib/device-id';
-import { useCartartStore } from '@/store/cart-store';
+import { useCartStore } from '@/store/cart-store';
 
 // Backend is the single source of truth for pricing.
 // amount_ngn is fetched from /api/payments/initiate on page load.
