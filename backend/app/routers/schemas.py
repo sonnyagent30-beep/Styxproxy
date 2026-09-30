@@ -547,7 +547,8 @@ class PaymentInitiateRequest(BaseModel):
     customer_phone: Optional[str] = Field(None, min_length=10, max_length=20)
     customer_email: Optional[str] = Field(None, max_length=255)
     callback_url: Optional[str] = Field(None, max_length=200)
-    idempotency_key: Optional[str] = Field(None, max_length=64, description="Client-generated UUID for idempotent retries")
+    idempotency_key: Optional[str] = Field(default=None, max_length=64, description="Client-generated UUID for idempotent retries")
+    device_id: Optional[str] = Field(default=None, max_length=64, description="Browser device UUID; supplies a stable identity when no email/phone is given")
     gateway: str = Field(default="flutterwave", pattern="^(flutterwave|paystack)$", description="Payment gateway to use")
 
     @field_validator("customer_phone")

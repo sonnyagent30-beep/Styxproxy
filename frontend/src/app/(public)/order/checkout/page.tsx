@@ -9,7 +9,7 @@ import { formatPrice, COUNTRIES } from '@/lib/products';
 import { Flag } from '@/components/ui/Flag';
 import type { CartItem } from '@/types';
 import api from '@/lib/api';
-import { tryStartOrder, setInflightOrder, getDeviceId, addToOrderHistory } from '@/lib/device-id';
+import { tryStartOrder, setInflightOrder, clearInflightOrder, getDeviceId, addToOrderHistory } from '@/lib/device-id';
 import { useCartStore } from '@/store/cart-store';
 
 // Backend is the single source of truth for pricing.
@@ -49,6 +49,10 @@ export default function CheckoutPage() {
   const [gateway, setGateway] = useState<GatewayId>('flutterwave');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Name of the item holding an in-flight payment lock, if any. Drives the
+  // "Cancel and start over" control — without it a failed/abandoned payment
+  // left the device permanently locked out with no in-app way out.
+  const [inflight, setInflight] = useState<string | null>(null);
   const [gateways, setGateways] = useState<Record<GatewayId, GatewayInfo>>({
     flutterwave: { available: true, label: 'Flutterwave', icon: '💳', description: 'Card, Bank Transfer, USSD, QR' },
     paystack: { available: true, label: 'Paystack', icon: '🏦', description: 'Card, Bank Transfer, USSD' },
@@ -191,12 +195,16 @@ export default function CheckoutPage() {
       }
 
       // Double-payment prevention
-      const { tryStartOrder } = await import('@/lib/device-id');
       const idempotencyKey = generateIdempotencyKey();
+      const deviceId = getDeviceId();
       for (let i = 0; i < cart.length; i++) {
         const { is_resume } = tryStartOrder(cart[i].plan_code, () => idempotencyKey);
         if (is_resume) {
-          setError(`Payment already in progress for ${cart[i].name}. Complete or close the existing tab.`);
+          setInflight(cart[i].name);
+          setError(
+            `A payment for ${cart[i].name} is already in progress on this device. ` +
+            `If you don't see it, it may have been abandoned — you can cancel it and start again.`,
+          );
           setLoading(false);
           return;
         }
@@ -218,6 +226,7 @@ export default function CheckoutPage() {
             item.plan_type,
             quantity,
             idempotencyKey,
+            deviceId,
           );
         }),
       );
@@ -256,12 +265,30 @@ export default function CheckoutPage() {
         return;
       }
 
+      // No checkout URL — release the in-flight lock. Without this, a failed
+      // attempt (gateway 4xx, network blip, declined init) left the lock set
+      // and every subsequent attempt on this device was refused as "already
+      // in progress" — a hard sales trap with no in-app recovery.
+      clearInflightOrder();
+      setInflight(null);
+
       setError(`Could not start payment for any items. ${lastError ? `Last error: ${lastError}` : 'Please try again.'}`);
       setLoading(false);
     } catch {
+      clearInflightOrder();
+      setInflight(null);
       setError('Failed to initiate payment. Please try again.');
       setLoading(false);
     }
+  };
+
+  /** Release the in-flight lock so the customer can retry immediately. */
+  const handleCancelInflight = () => {
+    import('@/lib/device-id').then(({ clearInflightOrder }) => {
+      clearInflightOrder();
+      setInflight(null);
+      setError('');
+    });
   };
 
   if (cart.length === 0) {
@@ -420,7 +447,16 @@ export default function CheckoutPage() {
         {/* Error */}
         {error && (
           <div className="mb-4 p-3 rounded-lg bg-[var(--error)]/10 border border-[var(--error)]/20 text-[var(--error)] text-sm">
-            {error}
+            <p>{error}</p>
+            {inflight && (
+              <button
+                type="button"
+                onClick={handleCancelInflight}
+                className="mt-2 underline underline-offset-2 font-medium hover:opacity-80"
+              >
+                Cancel this payment and start over
+              </button>
+            )}
           </div>
         )}
 

@@ -119,17 +119,23 @@ async def initiate_payment(
     total_amount = price * quantity
 
     # ── Get or create customer ───────────────────────────────────────────
+    # An anonymous customer (no email, no phone) is a first-class case here:
+    # the checkout UI says "No signup required" and labels email optional, so
+    # the device_id supplies a stable identity instead of rejecting them.
     customer = await get_or_create_customer(
         session,
         phone=None,
         email=request.customer_email,
         platform_account=None,
+        device_id=request.device_id,
     )
     if not customer:
         logger.warning("no customer profile", extra=log_ctx)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No customer profile found.",
+            # Customer-safe wording. "No customer profile found" is our schema
+            # leaking through to the checkout page; the real reason goes to logs.
+            detail="We couldn't start that payment. Please try again.",
         )
 
     # ── Backend-owned tx_ref ─────────────────────────────────────────────

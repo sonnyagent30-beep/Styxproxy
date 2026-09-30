@@ -281,6 +281,7 @@ class ApiClient {
     planType?: string,
     effectiveQuantity?: number,
     idempotencyKey?: string,
+    deviceId?: string,
   ): Promise<ApiResponse<PaymentInitiateResponse>> {
     const headers: Record<string, string> = {};
     if (idempotencyKey) {
@@ -298,6 +299,8 @@ class ApiClient {
         country_code: countryCode || undefined,
         plan_type: planType || undefined,
         effective_quantity: effectiveQuantity || undefined,
+        // Anonymous checkout support: the backend needs SOME stable identity.
+        device_id: deviceId || undefined,
       }),
     });
   }
