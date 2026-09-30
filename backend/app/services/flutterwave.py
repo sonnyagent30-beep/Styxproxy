@@ -97,7 +97,12 @@ async def create_flutterwave_invoice(
         try:
             json_body: dict[str, Any] = {
                 "tx_ref": tx_ref,
-                "amount": amount * 100 if currency == "NGN" else amount,
+                # Flutterwave v3 (`POST /v3/payments`) takes `amount` in the MAJOR
+                # unit of `currency` — NGN naira, NOT kobo. Multiplying here made a
+                # N5,000 order render as N500,000 on the Flutterwave checkout page.
+                # (Paystack is the opposite: its `amount` IS the subunit/kobo. Do not
+                # "fix" paystack.py to match this file — see the comment there.)
+                "amount": amount,
                 "currency": currency,
                 # Omit obviously-synthetic anonymous placeholder phones — FW rejects them.
                 **({"customer": {"email": customer_email}}
@@ -184,6 +189,11 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
             # ── Step 2: Mark order paid ────────────────────────────────────────
             order.status = "paid"
             order.amount_paid_ngn = data.get("amount")
+            # NOTE: Flutterwave v3 webhooks report `amount` in the MAJOR unit
+            # (NGN), identical to what we POST to /v3/payments. Do NOT divide by
+            # 100 here. Corroborated in production by order ORD-8C637M: a N2,500
+            # order sent as 250000 landed as amount_paid_ngn=250000, i.e. the
+            # webhook echoed the major unit we charged.
             await db_session.commit()
 
             # ── Step 3: Attempt fulfillment ────────────────────────────────────

@@ -50,6 +50,9 @@ async def create_paystack_transaction(
             },
             json={
                 "email": customer_email,
+                # Paystack's `amount` IS the currency SUBUNIT (kobo) — this is the
+                # opposite convention from Flutterwave v3. N5000 must be sent as
+                # 500000. Removing the *100 here would undercharge by 100x.
                 "amount": int(amount_ngn * 100),  # kobo
                 "currency": "NGN",
                 "reference": tx_ref,
