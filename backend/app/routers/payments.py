@@ -58,7 +58,72 @@ async def initiate_payment(
             detail="Checkout is temporarily disabled.",
         )
 
+    # ── Resolve plan + price ─────────────────────────────────────────────
+    # NOTE: this MUST run before the idempotency check below. The 409 guard
+    # compares the request payload against the stored order, and the replay
+    # path returns the ORIGINAL invoice amount — not today's price. Reading
+    # `total_amount` before it was assigned (the historical bug at this file's
+    # line 75) made every retry carrying an Idempotency-Key raise
+    # UnboundLocalError -> 500, and the friendly 409 underneath it was
+    # unreachable dead code.
+    from app.routers.orders import resolve_plan, generate_order_id
+
+    plan = await resolve_plan(session, request.plan_code)
+    if not plan:
+        logger.warning("invalid plan code", extra=log_ctx)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
+
+    # Sprint 13 pricing model — identical to /api/orders/create so the two
+    # endpoints can never disagree about what a plan costs:
+    #   residential/mobile: price_per_gb x quantity_gb
+    #   datacenter/ISP:     price_ngn    x quantity (per-IP)
+    plan_type = (plan.plan_type or "").lower()
+    if plan_type in ("residential", "mobile"):
+        if plan.price_per_gb is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Plan has no price_per_gb configured. Admin must set it in /admin/plans.",
+            )
+        gb = request.quantity_gb or plan.quantity or 1
+        if gb < plan.min_gb:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Minimum purchase is {plan.min_gb} GB (you sent {gb})",
+            )
+        if gb > plan.max_gb:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Maximum purchase is {plan.max_gb} GB (you sent {gb})",
+            )
+        total_amount = float(plan.price_per_gb) * gb
+    else:
+        if plan.price_ngn is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Plan has no price_ngn configured",
+            )
+        price = float(plan.price_ngn)
+
+        # Parse quantity from plan code suffix (e.g., "MOBILE-GH-5IP" -> 5)
+        quantity = request.quantity
+        if '-' in request.plan_code and request.plan_code.endswith('IP'):
+            parts = request.plan_code.rsplit('-', 2)
+            if len(parts) >= 3:
+                match = re.match(r'^(\d+)IP$', parts[2])
+                if match:
+                    suffix_qty = int(match.group(1))
+                    if suffix_qty > 0:
+                        quantity = suffix_qty
+
+        total_amount = price * quantity
+
     # ── Idempotency check ────────────────────────────────────────────────
+    # Replay semantics: an idempotent retry must return the ORIGINAL order and
+    # the ORIGINAL amount. Comparing `existing.amount_paid_ngn` against a
+    # freshly computed `total_amount` is wrong — if an admin edits a price
+    # between the two attempts, a genuine retry would be rejected as a
+    # "different payload". Compare request identity instead (plan, quantity,
+    # email, gateway), which is what the key actually promises.
     if idempotency_key:
         existing = (
             await session.execute(
@@ -66,13 +131,32 @@ async def initiate_payment(
             )
         ).scalars().first()
         if existing:
-            # Compare payload hash — if different, return 409
-            import hashlib
-            new_payload = f"{request.plan_code}:{request.quantity}:{request.customer_email or ''}:{request.gateway}"
-            new_hash = hashlib.sha256(new_payload.encode()).hexdigest()[:16]
-            
-            # Check if this is a different payload
-            if existing.plan_code != request.plan_code or existing.amount_paid_ngn != total_amount:
+            # A dead order must not lock the key forever. If the original
+            # attempt expired, was cancelled or failed, release the key and
+            # fall through to create a fresh order — otherwise the cart is
+            # permanently unpayable on that device.
+            still_live = (
+                existing.status in ("pending", "processing", "active")
+                and existing.expires_at is not None
+                and existing.expires_at > datetime.now(timezone.utc)
+            )
+            if not still_live:
+                logger.info(
+                    "idempotency key held by a dead order — releasing and creating a new one",
+                    extra={**log_ctx, "order_id": existing.order_id, "status": existing.status},
+                )
+                existing = None
+
+        if existing:
+            same_payload = (
+                existing.plan_code == request.plan_code
+                and (existing.customer_email or "") == (request.customer_email or "")
+                and int(existing.quantity or 1) == int(request.quantity)
+                # provider is NULL on every order written before this fix, so
+                # only enforce the gateway match when we actually recorded one.
+                and (not existing.provider or existing.provider == request.gateway)
+            )
+            if not same_payload:
                 logger.warning(
                     "idempotency key reused with different payload — rejecting",
                     extra={**log_ctx, "order_id": existing.order_id},
@@ -81,7 +165,7 @@ async def initiate_payment(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="Idempotency-Key was already used with a different payload",
                 )
-            
+
             logger.info(
                 "idempotent replay — returning existing order",
                 extra={**log_ctx, "order_id": existing.order_id},
@@ -95,42 +179,39 @@ async def initiate_payment(
                 tx_ref=existing.tx_ref or "",
             )
 
-    # ── Resolve plan ─────────────────────────────────────────────────────
-    from app.routers.orders import resolve_plan, generate_order_id
-
-    plan = await resolve_plan(session, request.plan_code)
-    if not plan:
-        logger.warning("invalid plan code", extra=log_ctx)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid plan code")
-
-    price = float(plan.price_per_gb if plan.price_per_gb is not None else plan.price_ngn)
-
-    # Parse quantity from plan code suffix (e.g., "MOBILE-GH-5IP" → 5)
-    quantity = request.quantity
-    if '-' in request.plan_code and request.plan_code.endswith('IP'):
-        parts = request.plan_code.rsplit('-', 2)
-        if len(parts) >= 3:
-            match = re.match(r'^(\d+)IP$', parts[2])
-            if match:
-                suffix_qty = int(match.group(1))
-                if suffix_qty > 0:
-                    quantity = suffix_qty
-
-    total_amount = price * quantity
-
     # ── Get or create customer ───────────────────────────────────────────
     # An anonymous customer (no email, no phone) is a first-class case here:
     # the checkout UI says "No signup required" and labels email optional, so
     # the device_id supplies a stable identity instead of rejecting them.
+    #
+    # The UI's promise must not depend on the client remembering to send
+    # device_id. When neither identity field is present, fall back to a
+    # per-attempt synthetic identity derived from the idempotency key (or a
+    # fresh UUID). Previously this returned 400 "We couldn't start that
+    # payment." on a page that explicitly told the buyer no signup was
+    # required — i.e. every no-signup buyer who blocked or stripped
+    # localStorage was refused at the last step.
+    effective_device_id = request.device_id or f"anon-{idempotency_key or uuid.uuid4().hex}"
     customer = await get_or_create_customer(
         session,
         phone=None,
         email=request.customer_email,
         platform_account=None,
-        device_id=request.device_id,
+        device_id=effective_device_id,
     )
     if not customer:
-        logger.warning("no customer profile", extra=log_ctx)
+        # Last resort: a per-attempt guest identity. Same rule as above —
+        # never refuse a buyer at the final step for lacking an identifier
+        # the product never asked them for.
+        customer = await get_or_create_customer(
+            session,
+            phone=None,
+            email=None,
+            platform_account=None,
+            device_id=f"anon-{uuid.uuid4().hex}",
+        )
+    if not customer:
+        logger.error("could not establish any customer identity", extra=log_ctx)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             # Customer-safe wording. "No customer profile found" is our schema
@@ -144,11 +225,12 @@ async def initiate_payment(
     # ── Gateway-facing contact ───────────────────────────────────────────
     # Flutterwave v3 hard-requires customer.email; Paystack requires it too.
     # An anonymous order has none, so synthesize a stable device-derived
-    # placeholder. The receipt email is only sent when the customer supplied a
+    # placeholder from the SAME identity used for the customer row above —
+    # using request.device_id here meant a request that arrived without one
+    # cleared the customer check and then died at the gateway on an empty
+    # email (502). The receipt email is only sent when the customer supplied a
     # real address, so this can never be delivered to anyone.
-    gateway_email = request.customer_email or (
-        placeholder_email_from_device(request.device_id) if request.device_id else ""
-    )
+    gateway_email = request.customer_email or placeholder_email_from_device(effective_device_id)
 
     # ── Generate order_id ────────────────────────────────────────────────
     order_id = generate_order_id()
@@ -195,10 +277,20 @@ async def initiate_payment(
         plan_type=plan.plan_type.lower(),
         plan_code=request.plan_code,
         country=plan.country,
+        # quantity stays the IP count: the fulfillment worker reads
+        # order.quantity to decide how many credentials to mint, and a 5 GB
+        # residential plan is ONE gateway carrying 5 GB, not five gateways.
         quantity=request.quantity,
+        # The GB the customer actually bought lives here, so nothing that
+        # drives credential creation can confuse GB with IP count.
+        data_total_gb=(request.quantity_gb if plan_type in ("residential", "mobile") else None),
         amount_paid_ngn=total_amount,
         payment_reference=tx_ref,
         tx_ref=tx_ref,
+        # Record which gateway this invoice was raised on. Every order written
+        # before this had provider = NULL, which is why gateway reconciliation
+        # could never be answered from our side.
+        provider=request.gateway,
         status="pending",
         idempotency_key=idempotency_key,
         expires_at=expires_at,

@@ -544,6 +544,9 @@ class PaymentInitiateRequest(BaseModel):
 
     plan_code: str = Field(..., min_length=1, max_length=50)
     quantity: int = Field(default=1, ge=1)
+    # Sprint 13 pricing: residential/mobile are priced per GB, so the GB count
+    # has to reach the backend or the charge is price_per_gb × 1.
+    quantity_gb: Optional[int] = Field(None, ge=1, le=10000, description="GB to buy for residential/mobile plans")
     customer_phone: Optional[str] = Field(None, min_length=10, max_length=20)
     customer_email: Optional[str] = Field(None, max_length=255)
     callback_url: Optional[str] = Field(None, max_length=200)

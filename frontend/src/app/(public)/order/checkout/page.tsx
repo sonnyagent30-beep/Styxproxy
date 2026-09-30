@@ -210,24 +210,26 @@ export default function CheckoutPage() {
         }
       }
 
-      // Fire one initiate per cart item in parallel with Idempotency-Key
+      // Fire one initiate per cart item in parallel. Each item gets its OWN
+      // idempotency key: sharing one key across items made item 2+ collide
+      // with item 1's stored payload and 409.
       const results = await Promise.allSettled(
         cart.map((item) => {
           const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
             && typeof item.price_per_gb === 'number';
-          const quantity = isPerGb ? (item.quantity_gb || item.quantity) : item.quantity;
-          return api.initiatePayment(
-            item.plan_code,
-            isPerGb ? 1 : item.quantity,
-            '',
-            trimmedEmail || undefined,
+          return api.initiatePayment({
+            planCode: item.plan_code,
+            // Residential/mobile are priced per GB, so quantity stays 1 (one
+            // gateway) and the GB count travels in quantity_gb. The backend
+            // multiplies price_per_gb x quantity_gb; sending GB in `quantity`
+            // made the API bill a single GB.
+            quantity: isPerGb ? 1 : item.quantity,
+            quantityGb: isPerGb ? (item.quantity_gb || item.min_gb || 5) : undefined,
+            customerEmail: trimmedEmail || undefined,
             gateway,
-            item.country_code,
-            item.plan_type,
-            quantity,
-            idempotencyKey,
+            idempotencyKey: generateIdempotencyKey(),
             deviceId,
-          );
+          });
         }),
       );
 

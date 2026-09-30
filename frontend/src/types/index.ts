@@ -82,6 +82,8 @@ export interface Customer {
 
 export interface PaymentInitiateResponse {
   payment_id: string;
+  order_id: string;
+  tx_ref: string;
   checkout_url: string;
   amount_ngn: number;
   expires_at: string;
@@ -137,73 +139,20 @@ export interface PaginatedResponse<T> {
 }
 
 // Charon Admin Types
+// Shape mirrors the backend `ConversationSummary` in app/routers/charon.py.
+// This block was previously corrupted by six nested duplicate `Conversation`
+// interfaces injected inside `CharonConversation` (a TS1131/TS1128 syntax
+// error that survived every deploy because next.config.ts sets
+// typescript.ignoreBuildErrors = true). Field list taken from the backend
+// model, not guessed.
 export interface CharonConversation {
-export interface Conversation {
-  id: string;
-  session_id: string;
-  channel: string;
-  status: string;
-  last_message: string;
-  message_count: number;
-  created_at: string;
-  updated_at: string;
-}
   conversation_id: string;
-export interface Conversation {
-  id: string;
-  session_id: string;
-  channel: string;
-  status: string;
   last_message: string;
-  message_count: number;
-  created_at: string;
-  updated_at: string;
-}
-  last_message: string;
-export interface Conversation {
-  id: string;
-  session_id: string;
-  channel: string;
-  status: string;
-  last_message: string;
-  message_count: number;
-  created_at: string;
-  updated_at: string;
-}
   last_message_at: string;
-export interface Conversation {
-  id: string;
-  session_id: string;
-  channel: string;
-  status: string;
-  last_message: string;
   message_count: number;
-  created_at: string;
-  updated_at: string;
-}
-  message_count: number;
-export interface Conversation {
-  id: string;
-  session_id: string;
-  channel: string;
-  status: string;
-  last_message: string;
-  message_count: number;
-  created_at: string;
-  updated_at: string;
-}
   escalated: boolean;
-export interface Conversation {
-  id: string;
-  session_id: string;
-  channel: string;
-  status: string;
-  last_message: string;
-  message_count: number;
-  created_at: string;
-  updated_at: string;
 }
-}
+
 export interface Conversation {
   id: string;
   session_id: string;

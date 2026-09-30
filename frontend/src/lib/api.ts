@@ -270,37 +270,39 @@ class ApiClient {
   }
 
   // Payments
-  async initiatePayment(
-    planCode: string,
-    quantity: number,
-    customerPhone: string,
-    customerEmail?: string,
-    gateway?: 'flutterwave' | 'paystack' | 'crypto' | 'stripe' | 'paynow',
-    order_id?: string,
-    countryCode?: string,
-    planType?: string,
-    effectiveQuantity?: number,
-    idempotencyKey?: string,
-    deviceId?: string,
-  ): Promise<ApiResponse<PaymentInitiateResponse>> {
+  //
+  // Single options object, NOT positional args. The previous 11-positional
+  // signature had exactly one caller which omitted `order_id`, so every later
+  // argument shifted by one and the API silently mischarged (per-GB price sent
+  // as the GB count, idempotency UUID sent as the quantity). Nothing threw —
+  // the cart just billed 1/5 of the right amount. Positional args across a
+  // network boundary will break again the next time someone inserts one.
+  async initiatePayment(opts: {
+    planCode: string;
+    quantity: number;
+    quantityGb?: number;
+    customerPhone?: string;
+    customerEmail?: string;
+    gateway?: 'flutterwave' | 'paystack' | 'crypto' | 'stripe' | 'paynow';
+    idempotencyKey?: string;
+    deviceId?: string;
+  }): Promise<ApiResponse<PaymentInitiateResponse>> {
     const headers: Record<string, string> = {};
-    if (idempotencyKey) {
-      headers['Idempotency-Key'] = idempotencyKey;
+    if (opts.idempotencyKey) {
+      headers['Idempotency-Key'] = opts.idempotencyKey;
     }
     return this.request<PaymentInitiateResponse>('/api/payments/initiate', {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        plan_code: planCode,
-        quantity,
-        customer_phone: customerPhone || undefined,
-        customer_email: customerEmail || undefined,
-        gateway: gateway || 'flutterwave',
-        country_code: countryCode || undefined,
-        plan_type: planType || undefined,
-        effective_quantity: effectiveQuantity || undefined,
+        plan_code: opts.planCode,
+        quantity: opts.quantity,
+        quantity_gb: opts.quantityGb || undefined,
+        customer_phone: opts.customerPhone || undefined,
+        customer_email: opts.customerEmail || undefined,
+        gateway: opts.gateway || 'flutterwave',
         // Anonymous checkout support: the backend needs SOME stable identity.
-        device_id: deviceId || undefined,
+        device_id: opts.deviceId || undefined,
       }),
     });
   }
