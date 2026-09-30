@@ -2278,9 +2278,18 @@ async def send_proxy_credentials_email(
     protocol: str,
     expires_at: datetime,
     payment_method: str = "Card / Bank / USSD / QR",
+    receipt_url: str | None = None,
 ) -> EmailResult:
-    """Send proxy credentials email to customer (order paid + active)."""
-    content = _render_proxy_credentials_email(
+    """Send proxy credentials email to customer (order paid + active).
+
+    Alias for :func:`send_order_active_email`, which is the canonical entry point
+    used by the fulfilment worker, the payment webhooks and the admin resend
+    endpoint. This function previously duplicated that body and drifted from it —
+    it passed a ``receipt_url`` that was never a parameter here, so every call
+    raised ``NameError``. It now delegates, so the two names cannot diverge again.
+    """
+    return await send_order_active_email(
+        customer_email=customer_email,
         customer_name=customer_name,
         order_id=order_id,
         tx_ref=tx_ref,
@@ -2296,14 +2305,6 @@ async def send_proxy_credentials_email(
         expires_at=expires_at,
         payment_method=payment_method,
         receipt_url=receipt_url,
-    )
-    recipient = EmailRecipient(email=customer_email, name=customer_name)
-
-    return await _send_via_resend(
-        recipient=recipient,
-        subject=content.subject,
-        html=content.html,
-        text=content.text,
     )
 
 

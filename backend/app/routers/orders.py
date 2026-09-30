@@ -20,7 +20,7 @@ from app.auth import get_current_account
 from app.database import get_session
 from app.dependencies.idempotency import check_idempotency
 from app.limiter import limiter
-from app.models import Customer, Order, Plan, StyxproxyCredential
+from app.models import Customer, FeatureFlag, Order, Plan, StyxproxyCredential
 from app.schemas import (
     OrderCancelRequest,
     OrderCancelResponse,
