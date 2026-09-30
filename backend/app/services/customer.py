@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Customer, PlatformAccount
+from app.services.referral import generate_referral_code
 
 
 def placeholder_phone_from_email(email: str) -> str:
@@ -49,6 +50,28 @@ def placeholder_phone_from_device(device_id: str) -> str:
     """
     digest = hashlib.sha256(f"device:{device_id}".encode("utf-8")).hexdigest()[:12]
     return f"+anond{digest}@styxproxy.local"
+
+
+def placeholder_email_from_device(device_id: str) -> str:
+    """Synthesize a gateway-acceptable email for a fully-anonymous checkout.
+
+    Flutterwave v3 rejects a payment whose `customer.email` is absent or empty
+    ("Customer email is required") — a phone number alone is not enough. Our own
+    checkout UI calls email optional, so an anonymous order needs a syntactically
+    valid placeholder to reach the hosted checkout page at all.
+
+    Uses the RFC 2606 reserved `example.com` domain, which is explicitly
+    non-routable and can never receive mail. NOTE: do not use the
+    `styxproxy.local` domain used by the phone placeholders here — Paystack
+    validates email format strictly and rejects `.local` outright
+    ("email must be a valid email", HTTP 400), while Flutterwave happens to
+    accept it. `example.com` is accepted by both.
+
+    The hash is derived from the device UUID, so it is stable per device,
+    contains no real customer data, and is never deliverable.
+    """
+    digest = hashlib.sha256(f"device:{device_id}".encode("utf-8")).hexdigest()[:12]
+    return f"guest-anond{digest}@example.com"
 
 
 async def get_or_create_customer(
@@ -127,7 +150,6 @@ async def get_or_create_customer(
 
     # ── New customer — generate referral code and optionally link referrer ──
     from app.services.referral import (
-        generate_referral_code,
         resolve_referrer_by_code,
         upsert_referral_credit_pending,
     )

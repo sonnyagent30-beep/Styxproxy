@@ -20,7 +20,7 @@ from app.database import get_session
 from app.models import FeatureFlag, Order
 from app.schemas import PaymentInitiateResponse
 from app.routers.schemas import PaymentInitiateRequest
-from app.services.customer import get_or_create_customer
+from app.services.customer import get_or_create_customer, placeholder_email_from_device
 from app.services.flutterwave import create_flutterwave_invoice
 from app.services.paystack import create_paystack_transaction
 
@@ -141,6 +141,15 @@ async def initiate_payment(
     # ── Backend-owned tx_ref ─────────────────────────────────────────────
     tx_ref = f"TXF-{uuid.uuid4().hex[:12].upper()}"
 
+    # ── Gateway-facing contact ───────────────────────────────────────────
+    # Flutterwave v3 hard-requires customer.email; Paystack requires it too.
+    # An anonymous order has none, so synthesize a stable device-derived
+    # placeholder. The receipt email is only sent when the customer supplied a
+    # real address, so this can never be delivered to anyone.
+    gateway_email = request.customer_email or (
+        placeholder_email_from_device(request.device_id) if request.device_id else ""
+    )
+
     # ── Generate order_id ────────────────────────────────────────────────
     order_id = generate_order_id()
 
@@ -151,7 +160,7 @@ async def initiate_payment(
         if request.gateway == "paystack":
             result = await create_paystack_transaction(
                 amount_ngn=total_amount,
-                customer_email=request.customer_email or "",
+                customer_email=gateway_email,
                 customer_phone=customer.phone or "",
                 callback_url=callback_url,
                 description=f"Payment for {request.plan_code}",
@@ -159,7 +168,7 @@ async def initiate_payment(
         else:
             result = await create_flutterwave_invoice(
                 amount=total_amount,
-                customer_email=request.customer_email or "",
+                customer_email=gateway_email,
                 customer_phone=customer.phone,
                 currency="NGN",
                 tx_ref=tx_ref,
