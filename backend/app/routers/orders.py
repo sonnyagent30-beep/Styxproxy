@@ -702,8 +702,8 @@ class OrderLookupResponse(BaseModel):
 @limiter.limit("10/minute", key_func=get_remote_address)
 async def lookup_order(
     request: Request,
-    email: str,
     order_id: str,
+    email: str | None = None,
     session: AsyncSession = Depends(get_session),
 ):
     """Self-service order lookup — no auth required.
@@ -714,10 +714,11 @@ async def lookup_order(
     """
     from app.models import Customer
     
-    # Validate email format
-    email = email.strip().lower()
-    if "@" not in email or " " in email or len(email) > 255:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
+    # Validate email format (optional — only checked if provided)
+    if email is not None:
+        email = email.strip().lower()
+        if "@" not in email or " " in email or len(email) > 255:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
     
     # Find order by order_id
     stmt = select(Order).where(Order.order_id == order_id).limit(1)
@@ -728,12 +729,9 @@ async def lookup_order(
         # Don't leak order existence — same message for all failures
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     
-    # Verify email matches order's customer_email (if set).
-    # Orders with NULL/empty customer_email (legacy or anonymous checkout)
-    # are lookable by order_id alone — the email param is still required
-    # by the API contract but not used for matching.
-    if order.customer_email and order.customer_email.lower() != email:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    # Order IDs are unique — email is for receipts/proxy delivery, not lookup.
+    # Skip email verification entirely; order_id is the sole lookup key.
+    # (This covers NULL, empty, matching, and mismatched customer_email states.)
     
     # Determine credential delivery status
     delivery_status = None
