@@ -194,7 +194,37 @@ class Order(Base):
     plan_code: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     country: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     quantity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # ── amount_paid_ngn is an INVOICE amount, NOT capture evidence ──────────
+    # It is written when the order is raised, before any money moves, and it is
+    # populated on 100% of rows — including all cancelled/refunded/expired ones.
+    # Summing it yields what we ASKED FOR, never what we RECEIVED. Do not cite
+    # it as revenue, as exposure, or as proof a customer paid.
     amount_paid_ngn: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    # ── Real capture record (gate item 2, t_c0b38088) ───────────────────────
+    # Written ONLY from a gateway's own response, via app/services/capture.py.
+    # All nullable and un-backfilled: for a historical row we cannot know what
+    # was captured, and a fabricated value is worse than a null.
+    #
+    #   captured_at       — when the money actually arrived. NULL on `pending`.
+    #   gateway_status    — the GATEWAY's view: pending/success/failed/refunded.
+    #                       Distinct from `status`, which is our workflow state.
+    #   gateway_amount_ngn— amount the gateway reported it charged, normalised
+    #                       to naira. Never re-derived from amount_paid_ngn.
+    #   gateway_currency  — ISO code as the gateway reported it.
+    #   gateway_reference — the reference the gateway itself echoed/charged.
+    captured_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    gateway_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    gateway_amount_ngn: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    gateway_currency: Mapped[Optional[str]] = mapped_column(String(3), nullable=True)
+    gateway_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # Gateway's own refund response id, written by the refund path. Landed in
+    # the same migration as the capture columns so item 3 (t_f765263b) does not
+    # add a conflicting second one. Null for every order not refunded.
+    gateway_refund_id: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, index=True
+    )
     payment_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     tx_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)

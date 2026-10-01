@@ -382,6 +382,23 @@ async def create_order(
     session.add(order)
     if body.payment_reference:
         order.status = "paid"
+        # NOTE: deliberately NO record_capture() here. This path marks an order
+        # paid purely because the CLIENT supplied a payment_reference — no
+        # gateway was consulted and nothing confirmed an amount. Writing a
+        # capture record would mean trusting an unverified client assertion as
+        # proof of money, which is the exact failure this column exists to
+        # eliminate: a row that reads as "captured" while no money ever arrived.
+        #
+        # So this order stays gateway_status=NULL and captured_at=NULL, and
+        # `was_captured()` correctly reports it as unproven. That is the honest
+        # state — flag it here so nobody "fixes" the gap by adding a fabricated
+        # capture. A genuine payment arrives through /api/payments/initiate,
+        # whose webhook writes the real record.
+        logger.warning(
+            "order marked paid from a client-supplied payment_reference with no "
+            "gateway verification — no capture evidence recorded",
+            extra={"order_id": order_id, "payment_reference": body.payment_reference},
+        )
         try:
             # Extract proxy_type from plan_code (e.g. RESIDENTIAL-NG → residential)
             proxy_type = (body.plan_code or "isp").split("-")[0].lower()
