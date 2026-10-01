@@ -37,6 +37,7 @@ from app.services.flutterwave import (
     process_payment_webhook,
     verify_flutterwave_signature,
 )
+from app.services.origin import describe_origin, resolve_origin
 
 logger = logging.getLogger(__name__)
 
@@ -162,16 +163,34 @@ async def flutterwave_webhook(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     """Receive and process Flutterwave payment webhooks."""
-    log_ctx = {"provider": "flutterwave"}
+    # Origin is resolved FIRST, before any rejection, so that a call rejected
+    # for a bad signature still leaves evidence that it happened and who sent it.
+    # Before this, a wrong FLUTTERWAVE_WEBHOOK_SECRET produced 401s with no audit
+    # row and no handler log — indistinguishable from "no traffic ever arrived".
+    origin = resolve_origin(request)
+    log_ctx = {"provider": "flutterwave", **origin}
     settings = get_settings()
     payload_bytes = await request.body()
 
     # Verify signature
     if not verif_hash:
-        logger.warning("missing Verif-Hash header", extra=log_ctx)
+        logger.warning("missing Verif-Hash header (%s)", describe_origin(origin), extra=log_ctx)
+        await log_audit_event(
+            session,
+            event_type="flutterwave_webhook_rejected",
+            details={**log_ctx, "reason": "missing_verif_hash"},
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Verif-Hash header")
     if not verify_flutterwave_signature(payload_bytes, verif_hash, settings.flutterwave_webhook_secret):
-        logger.warning("invalid Flutterwave signature", extra=log_ctx)
+        logger.warning("invalid Flutterwave signature (%s)", describe_origin(origin), extra=log_ctx)
+        # Written on the rejection path on purpose. The rotation canary needs to
+        # tell "gateway called and we said no" apart from "gateway never called",
+        # and this 401 is precisely what a bad secret looks like in production.
+        await log_audit_event(
+            session,
+            event_type="flutterwave_webhook_rejected",
+            details={**log_ctx, "reason": "invalid_signature"},
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Flutterwave signature")
 
     try:
@@ -265,14 +284,23 @@ async def paystack_webhook(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     """Paystack charge.success webhook — same fulfillment path as Flutterwave."""
-    log_ctx = {"provider": "paystack"}
     from app.services.paystack import verify_paystack_signature
+
+    # Resolved before the signature check for the same reason as Flutterwave:
+    # a 401 from a mis-set secret must still be attributable to a caller.
+    origin = resolve_origin(request)
+    log_ctx = {"provider": "paystack", **origin}
 
     settings = get_settings()
     payload_bytes = await request.body()
 
     if not x_paystack_signature or not verify_paystack_signature(payload_bytes, x_paystack_signature):
-        logger.warning("invalid Paystack signature", extra=log_ctx)
+        logger.warning("invalid Paystack signature (%s)", describe_origin(origin), extra=log_ctx)
+        await log_audit_event(
+            session,
+            event_type="paystack_webhook_rejected",
+            details={**log_ctx, "reason": "invalid_signature" if x_paystack_signature else "missing_signature"},
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Paystack signature")
 
     try:
@@ -406,12 +434,19 @@ async def nowpayments_ipn(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     """NOWPayments IPN callback — payment_status.finished/confirmed marks paid."""
-    log_ctx = {"provider": "nowpayments"}
     from app.services.nowpayments import verify_nowpayments_signature
+
+    origin = resolve_origin(request)
+    log_ctx = {"provider": "nowpayments", **origin}
 
     payload_bytes = await request.body()
     if not x_nowpayments_sig or not verify_nowpayments_signature(payload_bytes, x_nowpayments_sig):
-        logger.warning("invalid NOWPayments signature", extra=log_ctx)
+        logger.warning("invalid NOWPayments signature (%s)", describe_origin(origin), extra=log_ctx)
+        await log_audit_event(
+            session,
+            event_type="nowpayments_webhook_rejected",
+            details={**log_ctx, "reason": "invalid_signature" if x_nowpayments_sig else "missing_signature"},
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid NOWPayments signature")
 
     try:
@@ -487,15 +522,21 @@ async def theorem_reach_webhook(
     x_signature: Optional[str] = Header(None, alias="X-Signature"),
 ) -> dict[str, Any]:
     """Receive TheoremReach survey completion webhooks."""
-    log_ctx = {"provider": "theorem-reach"}
+    origin = resolve_origin(request)
+    log_ctx = {"provider": "theorem-reach", **origin}
     settings = get_settings()
     payload_bytes = await request.body()
 
     if not x_signature:
-        logger.warning("missing X-Signature header", extra=log_ctx)
+        logger.warning("missing X-Signature header (%s)", describe_origin(origin), extra=log_ctx)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing X-Signature header")
     if not _verify_theorem_reach_signature(payload_bytes, x_signature, settings.theorem_reach_webhook_secret):
-        logger.warning("invalid X-Signature", extra=log_ctx)
+        logger.warning("invalid X-Signature (%s)", describe_origin(origin), extra=log_ctx)
+        await log_audit_event(
+            session,
+            event_type="theorem_reach_webhook_rejected",
+            details={**log_ctx, "reason": "invalid_signature"},
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid X-Signature")
 
     try:

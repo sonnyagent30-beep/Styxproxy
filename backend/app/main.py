@@ -262,21 +262,35 @@ async def log_requests(request: Request, call_next):
 
     start_time = time.perf_counter()
 
+    # Effective client address, honouring X-Forwarded-For for requests that came
+    # through nginx. Without this the peer is 127.0.0.1 for EVERY proxied
+    # request, which is useless for attribution. See app/services/origin.py for
+    # the trust note (classification only — never used for authorisation).
+    peer = request.client.host if request.client else "unknown"
+    xff = request.headers.get("x-forwarded-for")
+    client_ip = xff.split(",")[0].strip() if xff else peer
+
     logger.info(
         "Request started",
         method=request.method,
         path=request.url.path,
-        client=request.client.host if request.client else "unknown",
+        client=client_ip,
+        client_peer=peer,
     )
 
     response = await call_next(request)
 
     elapsed_ms = round((time.perf_counter() - start_time) * 1000, 1)
 
+    # client is repeated on the completed line on purpose. The started line is
+    # emitted before the handler runs, so when someone is investigating why a
+    # request was REJECTED, the completed line is the one they land on — and it
+    # previously carried no client at all (kanban t_4271b61e).
     logger.info(
         "Request completed",
         method=request.method,
         path=request.url.path,
+        client=client_ip,
         status_code=response.status_code,
         elapsed_ms=elapsed_ms,
     )
