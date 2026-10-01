@@ -1,0 +1,83 @@
+# Known-failing backend tests, as of t_2af95a6b (2026-10-01).
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# The backend-test job in .github/workflows/ci.yml carried
+# `continue-on-error: true`, so a failing pytest run could not fail the
+# workflow. 19-21 tests were red for the entire life of the tree and every PR
+# stayed green. Removing the flag outright would turn main permanently red on
+# the first push, so instead the suite is gated against this baseline:
+#
+#   * a test that fails and is NOT listed here  ->  the job fails
+#   * a test that is listed here                ->  reported, tolerated
+#   * a listed test that now passes             ->  reported as a warning, so
+#                                                  the entry gets deleted
+#
+# This is a ratchet, not an excuse. Entries may only be REMOVED, never added,
+# and scripts/ci_backend_gate.py enforces that: adding an entry fails the job
+# unless it also carries a reason. That is the opposite of the
+# "pre-existing, ignore it" framing that hid this in the first place.
+#
+# Each entry below was verified to fail on `main` @ 036eca9d against a
+# Postgres 16 database built by `alembic upgrade head`. The audit that
+# classified them is docs/QA_T46761765_FAILURE_AUDIT.md (branch
+# qa/t_46761765-failure-audit); its finding was 0 real production defects,
+# 1 real test defect with a security consequence (already fixed on
+# qa/t_46761765-failure-audit), and the rest defective tests.
+#
+# OWNER: t_9edcc69c repairs the defective test files, t_ee78caa8 the duplicate
+# PaymentInitiateRequest. Entries should disappear as those land.
+#
+# FORMAT: one "path::Class::test" per line, `#` comments and blank lines
+# ignored.
+
+# --- test_auth.py: monkeypatches app.routers.auth.get_session, but
+#     app/routers/__init__.py rebinds `auth` to the APIRouter object, so the
+#     patch never lands on the module. Owner: t_9edcc69c.
+tests/test_auth.py::TestRevokeTOTPSession::test_revoke_totp_session_forbidden_for_other_admin
+tests/test_auth.py::TestRevokeTOTPSession::test_revoke_totp_session_not_found
+tests/test_auth.py::TestRevokeTOTPSession::test_revoke_totp_session_success
+
+# --- test_credential_delivery_contract.py: asserts the old n8n webhook
+#     payload shape. 5 tests, all on main. Owner: t_9edcc69c.
+tests/test_credential_delivery_contract.py::test_direct_delivery_payload_satisfies_chat_reply_request
+tests/test_credential_delivery_contract.py::test_empty_phone_does_not_become_none
+tests/test_credential_delivery_contract.py::test_payload_uses_the_documented_field_names
+tests/test_credential_delivery_contract.py::test_user_message_is_always_a_string
+tests/test_credential_delivery_contract.py::test_webhook_failure_is_reported_as_failure
+
+# --- test_paystack_reference_join.py: FakeRequest predates resolve_origin(),
+#     which reads request.client.host; the fake has neither .client nor
+#     .headers. 6 tests. Owner: t_9edcc69c.
+tests/test_paystack_reference_join.py::test_already_fulfilled_order_is_not_re_fulfilled
+tests/test_paystack_reference_join.py::test_expired_order_still_rejects_before_fulfillment
+tests/test_paystack_reference_join.py::test_legacy_order_recovers_via_provider_order_id
+tests/test_paystack_reference_join.py::test_matching_charge_success_fulfills_and_leaves_pending
+tests/test_paystack_reference_join.py::test_unmatched_charge_success_does_not_return_a_bare_200
+tests/test_paystack_reference_join.py::test_unmatched_webhook_is_not_marked_processed
+
+# --- test_routers_orders.py: MockSession.execute() takes 1 arg but
+#     resolve_plan calls execute(stmt, params); the assertion also predates a
+#     production message change. Owner: t_9edcc69c.
+tests/test_routers_orders.py::test_create_order_invalid_plan_code
+
+# --- test_routers_payments.py: both assert auth guarantees the product
+#     deliberately abandoned (anonymous checkout, 48d8b780) or a route that
+#     moved. Owner: t_9edcc69c.
+tests/test_routers_payments.py::test_get_payment_status_requires_auth
+tests/test_routers_payments.py::test_initiate_payment_requires_auth
+
+# --- test_routers_products.py: /api/products is a DEAD endpoint (QA-3,
+#     t_6edcf426) that nothing in the frontend calls; the storefront uses
+#     /api/catalog. These 3 also need the plans table to carry
+#     price_per_gb/min_gb/max_gb/gb_tiers, which no migration creates —
+#     tracked as schema drift in t_2af95a6b's handoff. Owner: t_6edcf426.
+tests/test_routers_products.py::test_list_products_returns_all
+tests/test_routers_products.py::test_products_have_required_fields
+tests/test_routers_products.py::test_products_prices_are_correct
+
+# --- test_schemas.py: asserts customer_phone is required, but it is
+#     deliberately Optional since anonymous checkout (48d8b780). This test
+#     was also MASKING QA-1: it imports the dead duplicate
+#     PaymentInitiateRequest. Owner: t_ee78caa8.
+tests/test_schemas.py::TestPaymentInitiateRequest::test_customer_phone_required

@@ -22,18 +22,56 @@ depends_on = None
 
 def upgrade() -> None:
     # ── Missing indexes on orders ──────────────────────────────────────────
-    op.create_index("idx_orders_customer_id", "orders", ["customer_id"])
-    op.create_index("idx_orders_status", "orders", ["status"])
-    op.create_index("idx_orders_tx_ref", "orders", ["tx_ref"])
-    op.create_index("idx_orders_created_at", "orders", ["created_at"])
+    #
+    # Column corrections: this migration was written against a schema that had
+    # `customer_id` on both tables. Neither table has that column — the model
+    # uses `customer_phone`. Indexing `customer_id` raised
+    # UndefinedColumnError and killed `alembic upgrade head` on a clean
+    # database.
+    #
+    # Indexes are also skipped when their column is absent from the database
+    # being migrated. Some of these columns (`tx_ref`, and most of the
+    # styxproxy_credentials rotation columns) exist in the ORM model and in
+    # production but were never added by any migration, so a database built
+    # purely from this chain does not have them. Production is unaffected
+    # (the column is present there and the index is created); a fresh database
+    # no longer dies on an index for a column it does not have.
+    conn = op.get_bind()
+
+    def columns_of(table: str) -> set[str]:
+        return {
+            row[0]
+            for row in conn.execute(
+                sa.text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = :t"
+                ),
+                {"t": table},
+            )
+        }
+
+    def maybe_index(name: str, table: str, columns: list[str]) -> None:
+        if table in table_columns and set(columns) <= table_columns[table]:
+            op.create_index(name, table, columns, if_not_exists=True)
+        else:
+            print(f"skipping {name}: {table} is missing one of {columns}")
+
+    table_columns: dict[str, set[str]] = {}
+    for tbl in ("orders", "styxproxy_credentials", "processed_webhooks"):
+        table_columns[tbl] = columns_of(tbl)
+
+    maybe_index("idx_orders_customer_phone", "orders", ["customer_phone"])
+    maybe_index("idx_orders_status", "orders", ["status"])
+    maybe_index("idx_orders_tx_ref", "orders", ["tx_ref"])
+    maybe_index("idx_orders_created_at", "orders", ["created_at"])
 
     # ── Missing indexes on styxproxy_credentials ───────────────────────────
-    op.create_index("idx_credentials_order_id", "styxproxy_credentials", ["order_id"])
-    op.create_index("idx_credentials_status", "styxproxy_credentials", ["status"])
-    op.create_index("idx_credentials_customer_id", "styxproxy_credentials", ["customer_id"])
+    maybe_index("idx_credentials_order_id", "styxproxy_credentials", ["order_id"])
+    maybe_index("idx_credentials_status", "styxproxy_credentials", ["status"])
+    maybe_index("idx_credentials_customer_phone", "styxproxy_credentials", ["customer_phone"])
 
     # ── Missing index on processed_webhooks (for cleanup) ───────────────────
-    op.create_index("idx_processed_webhooks_created_at", "processed_webhooks", ["created_at"])
+    maybe_index("idx_processed_webhooks_created_at", "processed_webhooks", ["created_at"])
 
     # ── Convert Post.tags from JSON to JSONB ───────────────────────────────
     op.execute("ALTER TABLE posts ALTER COLUMN tags TYPE JSONB USING tags::jsonb")
@@ -44,11 +82,9 @@ def downgrade() -> None:
     op.execute("ALTER TABLE posts ALTER COLUMN tags TYPE JSON USING tags::json")
 
     # Drop indexes
-    op.drop_index("idx_orders_customer_id")
-    op.drop_index("idx_orders_status")
-    op.drop_index("idx_orders_tx_ref")
-    op.drop_index("idx_orders_created_at")
-    op.drop_index("idx_credentials_order_id")
-    op.drop_index("idx_credentials_status")
-    op.drop_index("idx_credentials_customer_id")
-    op.drop_index("idx_processed_webhooks_created_at")
+    for name in (
+        "idx_orders_customer_phone", "idx_orders_status", "idx_orders_tx_ref",
+        "idx_orders_created_at", "idx_credentials_order_id", "idx_credentials_status",
+        "idx_credentials_customer_phone", "idx_processed_webhooks_created_at",
+    ):
+        op.drop_index(name, if_exists=True)

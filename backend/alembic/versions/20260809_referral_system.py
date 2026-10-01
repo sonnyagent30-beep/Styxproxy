@@ -29,14 +29,19 @@ def upgrade() -> None:
         ADD COLUMN IF NOT EXISTS referral_credit_revoked_ngn DECIMAL(12,2) NOT NULL DEFAULT 0;
     """))
 
-    conn.execute(sa.text("""
-        COMMENT ON COLUMN customers.name IS 'Referral code — customer chosen name';
-        COMMENT ON COLUMN customers.referral_credit_ngn IS 'Earned referral credit (NGN)';
-        COMMENT ON COLUMN customers.referred_by IS 'Phone of person who referred this customer';
-        COMMENT ON COLUMN customers.referral_count_monthly IS 'Referrals credited this calendar month';
-        COMMENT ON COLUMN customers.referral_count_total IS 'Total referrals credited ever';
-        COMMENT ON COLUMN customers.referral_credit_revoked_ngn IS 'Credit revoked due to refund clawback';
-    """))
+    # One statement per execute(): asyncpg sends these as prepared statements
+    # and rejects a batch of several with
+    # "cannot insert multiple commands into a prepared statement", which killed
+    # `alembic upgrade head` on a clean database.
+    for comment in (
+        "COMMENT ON COLUMN customers.name IS 'Referral code — customer chosen name'",
+        "COMMENT ON COLUMN customers.referral_credit_ngn IS 'Earned referral credit (NGN)'",
+        "COMMENT ON COLUMN customers.referred_by IS 'Phone of person who referred this customer'",
+        "COMMENT ON COLUMN customers.referral_count_monthly IS 'Referrals credited this calendar month'",
+        "COMMENT ON COLUMN customers.referral_count_total IS 'Total referrals credited ever'",
+        "COMMENT ON COLUMN customers.referral_credit_revoked_ngn IS 'Credit revoked due to refund clawback'",
+    ):
+        conn.execute(sa.text(comment))
 
     # ── orders table ────────────────────────────────────────────────────────────
     conn.execute(sa.text("""
@@ -64,12 +69,13 @@ def upgrade() -> None:
         );
     """))
 
-    conn.execute(sa.text("""
-        COMMENT ON TABLE referral_abuse_events IS
-            'Audit log for referral abuse: self-referrals, velocity breaches, refund clawbacks';
-        COMMENT ON COLUMN referral_abuse_events.abuse_type IS
-            'self_referral | velocity_breach | refund_clawback | duplicate_referral';
-    """))
+    for comment in (
+        "COMMENT ON TABLE referral_abuse_events IS"
+        " 'Audit log for referral abuse: self-referrals, velocity breaches, refund clawbacks'",
+        "COMMENT ON COLUMN referral_abuse_events.abuse_type IS"
+        " 'self_referral | velocity_breach | refund_clawback | duplicate_referral'",
+    ):
+        conn.execute(sa.text(comment))
 
     # ── Indexes ────────────────────────────────────────────────────────────────
     conn.execute(sa.text(

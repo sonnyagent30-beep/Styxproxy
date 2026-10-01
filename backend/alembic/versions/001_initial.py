@@ -17,6 +17,13 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # alembic stamps each applied revision id into version_num, which alembic
+    # creates as varchar(32). Two revision ids in this tree are longer than 32
+    # chars (003_add_admin_invites_feature_flags is 35), so stamping them raises
+    # StringDataRightTruncationError and `upgrade head` dies partway. Widen the
+    # column before anything else runs.
+    op.execute('ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)')
+
     # customers
     op.create_table(
         'customers',
@@ -85,7 +92,10 @@ def upgrade() -> None:
         sa.Column('payment_reference', sa.String(100), nullable=True),
         sa.Column('provider', sa.String(50), nullable=True),
         sa.Column('provider_order_id', sa.String(100), nullable=True),
-        sa.Column('bunche_credential_id', sa.Integer, sa.ForeignKey('bunche_credentials.id'), nullable=True),
+        # FK to bunche_credentials is added after that table exists (see
+        # _add_deferred_credentials_fk). The two tables reference each other,
+        # so neither can be created with its FK inline.
+        sa.Column('bunche_credential_id', sa.Integer, nullable=True),
         sa.Column('status', sa.String(50), default='pending', nullable=False),
         sa.Column('ip_tested', sa.Boolean, default=False, nullable=False),
         sa.Column('ip_test_result', sa.String(10), nullable=True),
@@ -138,6 +148,18 @@ def upgrade() -> None:
     op.create_index('idx_bunche_cred_status', 'bunche_credentials', ['status'])
     op.create_index('idx_bunche_cred_pool', 'bunche_credentials', ['pool_type'])
     op.create_index('idx_bunche_cred_expires', 'bunche_credentials', ['expires_at'])
+
+    # Deferred FK: orders.bunche_credential_id -> bunche_credentials.id.
+    # orders and bunche_credentials reference each other, so this constraint
+    # cannot be declared inline on either create_table. Creating it here, after
+    # both tables exist, is what makes `alembic upgrade head` reach head at all.
+    op.create_foreign_key(
+        'fk_orders_bunche_credential_id',
+        'orders',
+        'bunche_credentials',
+        ['bunche_credential_id'],
+        ['id'],
+    )
 
     # free_trials
     op.create_table(
