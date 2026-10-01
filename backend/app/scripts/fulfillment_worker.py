@@ -102,7 +102,17 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             # Quantity from order (not hardcoded)
             quantity = order.quantity or 1
 
-            amount = data_payload.get("amount", 0)
+            # Refund amount for the auto-refund path below.
+            #
+            # This used to be `data_payload.get("amount", 0)` — a TOP-LEVEL key.
+            # No gateway puts the amount there: Flutterwave sends it at
+            # `data.amount` and Paystack at `data.amount` (in kobo), so this
+            # read always yielded 0 and the auto-refund was issued for NGN 0 —
+            # a failed fulfillment marked "refunded" with no money moved and the
+            # customer told nothing. The order row is authoritative and is
+            # already the source used for the support-ticket notification below,
+            # so use it here too.
+            amount = float(order.amount_paid_ngn or 0)
 
             # ── Fulfill ──────────────────────────────────────────────────
             fulfillment_error = None
@@ -308,18 +318,32 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 )
 
                 settings = get_settings()
-                try:
-                    await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
-                    order.status = "refunded"
-                    order.refund_requested = True
-                    order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
-                    await db.commit()
-                    logger.info("auto-refund issued", extra=log_ctx)
-                except Exception as refund_error:
+                if not amount:
+                    # Never issue a NGN 0 refund and then mark the order
+                    # "refunded" — that reports money returned when none moved.
+                    # Leave the order failed_unfulfilled with the reason
+                    # recorded so a human can refund it properly.
                     logger.error(
-                        "refund failed — order stays failed_unfulfilled",
-                        extra={**log_ctx, "refund_error": str(refund_error)},
+                        "auto-refund skipped: order has no recorded amount",
+                        extra={**log_ctx, "order_id": order_id, "error": fulfillment_error},
                     )
+                    order.refund_reason = (
+                        f"Auto-refund blocked: no recorded amount on order ({fulfillment_error})"
+                    )
+                    await db.commit()
+                else:
+                    try:
+                        await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
+                        order.status = "refunded"
+                        order.refund_requested = True
+                        order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
+                        await db.commit()
+                        logger.info("auto-refund issued", extra={**log_ctx, "amount": amount})
+                    except Exception as refund_error:
+                        logger.error(
+                            "refund failed — order stays failed_unfulfilled",
+                            extra={**log_ctx, "refund_error": str(refund_error)},
+                        )
 
                 # Create support ticket
                 try:
