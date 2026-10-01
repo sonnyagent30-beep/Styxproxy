@@ -21,6 +21,108 @@ settings = get_settings()
 PAYSTACK_BASE = "https://api.paystack.co"
 
 
+class PaystackRefundError(RuntimeError):
+    """Paystack was asked to refund and did not confirm the money movement.
+
+    Raised instead of returning a partial result so that no caller can flip an
+    order to `refunded` on a response that does not actually mean "money back".
+    """
+
+
+async def refund_paystack_transaction(
+    reference: str,
+    amount_ngn: float,
+    reason: str | None = None,
+    secret_key: str | None = None,
+) -> dict[str, Any]:
+    """Refund a Paystack transaction. Returns the gateway's refund payload.
+
+    Paystack refunds against a numeric TRANSACTION ID, so the reference we hold
+    (TXP-/TXF-) is first resolved via `GET /transaction/verify/{reference}`.
+    That verify call is also the only way to learn the amount Paystack actually
+    charged and whether it was already refunded — both of which we must not
+    guess at.
+
+    Amount is sent in KOBO, the same subunit convention as
+    `create_paystack_transaction` (Flutterwave is the opposite — major units).
+
+    Raises `PaystackRefundError` on any non-confirmation: unconfigured gateway,
+    unknown reference, transaction not successful, already refunded, or an HTTP
+    error. On success the returned dict carries at least `id` and `status`.
+    """
+    secret = secret_key if secret_key is not None else settings.paystack_secret_key
+    if not secret:
+        raise PaystackRefundError("Paystack gateway is not configured (no secret key)")
+    if not reference:
+        raise PaystackRefundError("no Paystack reference to refund")
+    amount_ngn = float(amount_ngn or 0)
+    if amount_ngn <= 0:
+        raise PaystackRefundError(f"refund amount must be > 0 (got {amount_ngn})")
+
+    headers = {"Authorization": f"Bearer {secret}", "Content-Type": "application/json"}
+    async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
+        try:
+            verify_resp = await client.get(f"{PAYSTACK_BASE}/transaction/verify/{reference}", headers=headers)
+        except httpx.HTTPError as e:
+            raise PaystackRefundError(f"Paystack verify failed for {reference}: {e}") from e
+        if verify_resp.status_code != 200:
+            raise PaystackRefundError(
+                f"Paystack verify returned {verify_resp.status_code} for {reference}: {verify_resp.text[:300]}"
+            )
+        try:
+            tx = (verify_resp.json().get("data") or {})
+        except ValueError as e:
+            raise PaystackRefundError(f"Paystack verify returned non-JSON for {reference}") from e
+
+        if tx.get("status") != "success":
+            raise PaystackRefundError(
+                f"Paystack transaction {tx.get('id', reference)} is '{tx.get('status')}', not 'success' — refusing to refund"
+            )
+        if tx.get("refunded"):
+            raise PaystackRefundError(f"Paystack transaction {tx.get('id', reference)} is already fully refunded")
+
+        tx_id = tx.get("id")
+        if not tx_id:
+            raise PaystackRefundError(f"Paystack verify returned no transaction id for {reference}")
+
+        charged_ngn = float(tx.get("amount") or 0) / 100.0
+        if charged_ngn <= 0:
+            raise PaystackRefundError(
+                f"Paystack reports no captured amount for {reference} — capture cannot be proven, refusing to refund"
+            )
+        if amount_ngn > charged_ngn:
+            # Refunding more than was captured would be declined by Paystack, but
+            # fail loudly here rather than after a round trip.
+            raise PaystackRefundError(
+                f"refund amount {amount_ngn} exceeds captured amount {charged_ngn} for {reference}"
+            )
+
+        payload: dict[str, Any] = {"amount": int(round(amount_ngn * 100)), "currency": "NGN"}
+        if reason:
+            payload["merchant_note"] = reason[:200]
+        try:
+            refund_resp = await client.post(f"{PAYSTACK_BASE}/transaction/{tx_id}/refund", headers=headers, json=payload)
+        except httpx.HTTPError as e:
+            raise PaystackRefundError(f"Paystack refund call failed for {tx_id}: {e}") from e
+
+        if refund_resp.status_code != 200:
+            raise PaystackRefundError(
+                f"Paystack refund returned {refund_resp.status_code} for {tx_id}: {refund_resp.text[:300]}"
+            )
+        try:
+            body = refund_resp.json()
+        except ValueError as e:
+            raise PaystackRefundError(f"Paystack refund returned non-JSON for {tx_id}") from e
+
+        if body.get("status") is not True:
+            raise PaystackRefundError(f"Paystack refund rejected for {tx_id}: {body.get('message', 'unknown')}")
+
+        data = body.get("data") or {}
+        if not data.get("id"):
+            raise PaystackRefundError(f"Paystack refund response carried no refund id for {tx_id}")
+        return data
+
+
 def verify_paystack_signature(payload_bytes: bytes, signature: str) -> bool:
     """Paystack signs webhooks with HMAC-SHA512(secret_key, raw_body)."""
     if not settings.paystack_secret_key or not signature:
