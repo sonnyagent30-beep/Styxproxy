@@ -93,6 +93,38 @@ jobs:
           cd backend
           alembic upgrade head
 
+      - name: Check schema parity (migrations vs models)
+        # `alembic upgrade head` succeeding is NOT proof the schema is usable.
+        # It says the chain ran, not that the result satisfies app/models.py.
+        # Those were different until t_e7fbfe21: the chain reached head while
+        # leaving 14 model tables uncreated and 11 tables missing columns, so
+        # on a clean database admin login raised
+        # `column admin_auth.email does not exist` and residential orders hit
+        # `column plans.price_per_gb does not exist`.
+        #
+        # It stayed invisible because production was grown by
+        # Base.metadata.create_all in app/main.py's lifespan, not by alembic.
+        # This step is what stops that class of drift returning: any model
+        # change without a matching revision fails the build.
+        #
+        # Runs against the same migrated database the tests use, so it is a
+        # check of the real artifact rather than a separate schema build.
+        env:
+          DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
+          TESTING: "1"
+          JWT_SECRET: test-jwt-secret-not-real-32chars-long
+          ADMIN_TOKEN: test-admin-token-not-real
+          FLUTTERWAVE_SECRET_KEY: test-flw-key
+          FLUTTERWAVE_PUBLIC_KEY: test-flw-pub
+          FLUTTERWAVE_WEBHOOK_SECRET: test-webhook-secret
+          MINIMAX_API_KEY: test-minimax-key
+          OPS_JWT_SECRET: test-ops-jwt-secret-not-real-32chars
+          THEOREM_REACH_WEBHOOK_SECRET: test-theorem-webhook
+          SCHEMA_DRIFT_DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
+        run: |
+          cd backend
+          python scripts/schema_drift_report.py
+
       - name: Run tests (gated)
         # NOT continue-on-error. Previously this step AND the job both carried
         # `continue-on-error: true`, so a failing pytest run could not fail the
@@ -115,6 +147,10 @@ jobs:
           MINIMAX_API_KEY: test-minimax-key
           TESTING: "1"
           LOG_LEVEL: DEBUG
+          # Opts tests/test_schema_parity.py in. Without it that file skips,
+          # and the regression guard for migration drift silently stops
+          # guarding. Point it at the same migrated database the suite uses.
+          SCHEMA_DRIFT_DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
         run: |
           cd backend
           python scripts/ci_backend_gate.py

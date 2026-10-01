@@ -62,7 +62,13 @@ async def report() -> int:
         if table.name not in db_tables:
             missing_tables.append(table.name)
             continue
-        gap = sorted({c.name for c in table.columns} - db_tables[table.name])
+        # Compare case-insensitively. An unquoted identifier in DDL is folded
+        # to lower case by Postgres, so a model attribute like
+        # referral_credits.credit_amount_nGN lands as credit_amount_ngn. A
+        # case-sensitive comparison reports that as missing forever, which
+        # would make this report useless as a CI gate.
+        actual = {c.lower() for c in db_tables[table.name]}
+        gap = sorted({c.name for c in table.columns if c.name.lower() not in actual})
         if gap:
             missing_columns[table.name] = gap
 
@@ -74,6 +80,16 @@ async def report() -> int:
     for name in sorted(missing_columns):
         print(f"  - {name}: {missing_columns[name]}")
 
+    # Exit non-zero when the migrated schema does not satisfy the models, so
+    # this can gate CI instead of only being read. `alembic upgrade head`
+    # succeeding is not sufficient: it says the chain ran, not that the schema
+    # is usable. That distinction is what this card existed to close.
+    total = len(missing_tables) + len(missing_columns)
+    if total:
+        print(f"\nDRIFT: {total} schema object(s) missing. See backend/docs/SCHEMA_DRIFT.md")
+        return 1
+
+    print("\nNO DRIFT: migrated schema satisfies app/models.py")
     return 0
 
 
