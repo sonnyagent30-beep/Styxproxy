@@ -1,14 +1,20 @@
 # Schema drift: `alembic upgrade head` vs `app/models.py`
 
-**Status as of t_2af95a6b (2026-10-01), branch `devops/ci-gate-t_2af95a6b`.**
+**Status as of t_2af95a6b (2026-10-01), branch `devops/ci-gate-t_2af95a6b`,
+re-verified against `main` @ 01ec239b.**
 
 ## The short version
 
-`alembic upgrade head` now succeeds on a clean Postgres 16 (exit 0, all 27
-revisions) after nine defects were fixed. But reaching `head` is not the same
-as producing the schema the application expects. The migration chain and
-`app/models.py` still disagree substantially, and that disagreement is why
-three tests in `tests/test_routers_products.py` remain red.
+`alembic upgrade head` now succeeds on a clean Postgres 16 (exit 0, 29 upgrade
+steps across a 31-revision chain, single head) after nine defects were fixed.
+But reaching `head` is not the same as producing the schema the application
+expects. The migration chain and `app/models.py` still disagree substantially:
+14 model tables are never created, and 11 more are missing columns.
+
+That disagreement is currently **latent rather than visible** — the one code
+path that read the missing columns (`/api/products`) was deleted by
+`t_6edcf426`, which removed the symptom without touching the cause. Treat the
+numbers below as a live landmine, not a closed issue.
 
 This document records the gap so it is not rediscovered from scratch. It is
 **not** fixed here — closing it is a separate, larger piece of work.
@@ -64,23 +70,35 @@ Measured by comparing `Base.metadata` against a database built purely by
 
 ## What this breaks
 
-`plans.price_per_gb` and its siblings are the reason three tests are red:
+`plans.price_per_gb` and its siblings are why `/api/products` could not work
+against a migrated database. It selected the full `Plan` model and the migrated
+table does not have those columns:
 
 ```
-tests/test_routers_products.py::test_list_products_returns_all
-tests/test_routers_products.py::test_products_have_required_fields
-tests/test_routers_products.py::test_products_prices_are_correct
+UndefinedColumnError: column plans.price_per_gb does not exist
 ```
 
-They fail with `UndefinedColumnError: column plans.price_per_gb does not exist`
-— not an assertion mismatch. `/api/products` selects the full `Plan` model, and
-the migrated table does not have those columns.
+That is not an assertion mismatch — it is a hard query failure, and it was one
+of the reasons three `tests/test_routers_products.py` tests were red.
 
-That endpoint is separately dead (QA-3, card `t_6edcf426`): it returns
-`{"products": []}` in production and nothing in the frontend calls it — the
-storefront uses `/api/catalog`, which is live and serves 33 enabled plans. So
-these three tests are in the known-failure baseline for two independent
-reasons, and both need fixing before the entries can be removed.
+**As of `main` @ 01ec239b this specific breakage is gone, but not because the
+drift was fixed.** Card `t_6edcf426` deleted the dead `/api/products` route
+outright, along with its test file. The `plans` drift is still there in the
+table list above; nothing reads those columns yet, which is why it is latent
+rather than visible.
+
+The endpoint was independently dead: it returned `{"products": []}` in
+production and nothing in the frontend called it — the storefront uses
+`/api/catalog`, which is live and serves 33 enabled plans. So the drift and the
+dead endpoint were two separate problems that happened to overlap.
+
+**This is the important part for whoever picks up the drift:** deleting the
+consumer hid the symptom. Any future code that selects `Plan` columns
+(`price_per_gb`, `min_gb`, `max_gb`, `gb_tiers`, `rotation_mode`,
+`static_price_multiplier`, `supports_city`, `supports_country_change`) against
+a database built by `alembic upgrade head` will hit the same
+`UndefinedColumnError`. The storefront's `/api/catalog` is the thing to check
+against the `Plan` model before trusting it on a clean build.
 
 ## What was fixed in t_2af95a6b
 
@@ -126,9 +144,10 @@ change. It needs a decision that is not the devops caller's to make:
    safer default because it does not touch production), or accept that
    migrations are a historical record only and generate a clean schema some
    other way.
-2. Only then can `tests/test_routers_products.py` be un-baselined, and only
-   then can `/api/products` be judged dead-or-not with real evidence
-   (`t_6edcf426`).
+2. Treat the deleted `/api/products` route as a warning, not a fix. Its test
+   file is gone and the CI baseline entries are gone with it, so nothing in CI
+   exercises those `Plan` columns any more. The drift is still real; the
+   symptom just lost its only witness.
 
 Until then, the `20260827_missing_indexes` guards make the chain tolerant: it
 skips an index whose column is absent and prints what it skipped, rather than

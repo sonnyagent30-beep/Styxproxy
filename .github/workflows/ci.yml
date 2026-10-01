@@ -70,9 +70,10 @@ jobs:
       - name: Run database migrations
         # NOT continue-on-error. The stale "migration 001 has FK ordering bug"
         # TODO that sat here is resolved as of t_2af95a6b: `alembic upgrade head`
-        # now reaches head on a clean Postgres 16 (verified, exit 0, all 27
-        # revisions). Nine distinct defects were fixed to get there — see the
-        # card handoff and backend/alembic/versions/ for the per-revision notes.
+        # now reaches head on a clean Postgres 16 (verified, exit 0, 29 upgrade
+        # steps, single head). Nine distinct defects were fixed to get there —
+        # see the card handoff and backend/alembic/versions/ for the
+        # per-revision notes.
         #
         # This step MUST block. Every DB-dependent test depends on it, and when
         # it was allowed to fail silently the suite ran against a database with

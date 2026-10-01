@@ -13,23 +13,30 @@
 #   * a listed test that now passes             ->  reported as a warning, so
 #                                                  the entry gets deleted
 #
-# This is a ratchet, not an excuse. Entries may only be REMOVED, never added,
-# and scripts/ci_backend_gate.py enforces that: adding an entry fails the job
-# unless it also carries a reason. That is the opposite of the
-# "pre-existing, ignore it" framing that hid this in the first place.
+# This is a ratchet, not an excuse. Entries may only be REMOVED, never added
+# silently, and scripts/ci_backend_gate.py enforces that: an entry with no
+# written reason fails the job. That is the specific failure mode this card
+# exists to stop — the "pre-existing, ignore it" framing is what let the suite
+# rot while CI stayed green.
 #
-# Each entry below was verified to fail on `main` @ 036eca9d against a
-# Postgres 16 database built by `alembic upgrade head`. The audit that
-# classified them is docs/QA_T46761765_FAILURE_AUDIT.md (branch
-# qa/t_46761765-failure-audit); its finding was 0 real production defects,
-# 1 real test defect with a security consequence (already fixed on
-# qa/t_46761765-failure-audit), and the rest defective tests.
+# Re-derived against `main` @ 01ec239b, on a clean Postgres 16.15 built by
+# `alembic upgrade head`. The audit that classified most of these is
+# docs/QA_T46761765_FAILURE_AUDIT.md (branch qa/t_46761765-failure-audit):
+# 0 real production defects, 1 real test defect with a security consequence
+# (already fixed), the rest defective tests.
 #
-# OWNER: t_9edcc69c repairs the defective test files, t_ee78caa8 the duplicate
-# PaymentInitiateRequest. Entries should disappear as those land.
+# The list is re-verified against whatever main is at the time, so it will
+# drift as sibling cards land. The gate reports entries that now PASS as
+# STALE — delete those. The three `test_routers_products` entries that were
+# here earlier are already gone: t_6edcf426 deleted the dead /api/products
+# route, so the tests no longer exist.
+#
+# OWNERS: t_9edcc69c (QA-4 defective tests) and t_ee78caa8 (QA-1 duplicate
+# PaymentInitiateRequest) are in flight; entries should disappear as they land.
 #
 # FORMAT: one "path::Class::test" per line, `#` comments and blank lines
-# ignored.
+# ignored. A reason block (a comment containing a marker word) covers every
+# entry up to the next blank line.
 
 # --- test_auth.py: monkeypatches app.routers.auth.get_session, but
 #     app/routers/__init__.py rebinds `auth` to the APIRouter object, so the
@@ -56,6 +63,17 @@ tests/test_paystack_reference_join.py::test_matching_charge_success_fulfills_and
 tests/test_paystack_reference_join.py::test_unmatched_charge_success_does_not_return_a_bare_200
 tests/test_paystack_reference_join.py::test_unmatched_webhook_is_not_marked_processed
 
+# --- test_relay_credential_decryption.py: ORDER-DEPENDENT — passes when the
+#     file runs alone (17 passed) and fails inside the full suite.
+#     app/services/crypto.py caches a module-level `_fernet_instance`; an
+#     earlier test reaches it before CRED_ENCRYPTION_KEY is in the
+#     environment, the cache latches to None, and get_password() then returns
+#     None for a correctly encrypted row. The test sets the env var too late to
+#     matter. Introduced with the relay credential work (f36f8dff) and
+#     reproduced on clean main @ 01ec239b, so it is NOT a consequence of
+#     t_2af95a6b. Owner: unassigned — needs a card.
+tests/test_relay_credential_decryption.py::test_model_accessor_tolerates_both_shapes
+
 # --- test_routers_orders.py: MockSession.execute() takes 1 arg but
 #     resolve_plan calls execute(stmt, params); the assertion also predates a
 #     production message change. Owner: t_9edcc69c.
@@ -66,15 +84,6 @@ tests/test_routers_orders.py::test_create_order_invalid_plan_code
 #     moved. Owner: t_9edcc69c.
 tests/test_routers_payments.py::test_get_payment_status_requires_auth
 tests/test_routers_payments.py::test_initiate_payment_requires_auth
-
-# --- test_routers_products.py: /api/products is a DEAD endpoint (QA-3,
-#     t_6edcf426) that nothing in the frontend calls; the storefront uses
-#     /api/catalog. These 3 also need the plans table to carry
-#     price_per_gb/min_gb/max_gb/gb_tiers, which no migration creates —
-#     tracked as schema drift in t_2af95a6b's handoff. Owner: t_6edcf426.
-tests/test_routers_products.py::test_list_products_returns_all
-tests/test_routers_products.py::test_products_have_required_fields
-tests/test_routers_products.py::test_products_prices_are_correct
 
 # --- test_schemas.py: asserts customer_phone is required, but it is
 #     deliberately Optional since anonymous checkout (48d8b780). This test
