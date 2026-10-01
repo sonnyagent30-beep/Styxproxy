@@ -391,8 +391,7 @@ Collection: Styxproxy API
 │   ├── POST /api/admin/auth/setup (use invite → create admin)
 │   ├── POST /api/admin/auth/login (email + password + TOTP)
 │   ├── POST /api/admin/auth/logout
-│   ├── GET  /api/admin/auth/me
-│   └── POST /api/admin/auth/refresh
+│   └── GET  /api/admin/auth/me
 ├── Blog
 │   ├── GET  /api/blog/posts (public, paginated)
 │   ├── GET  /api/blog/posts/{slug} (public)

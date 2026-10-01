@@ -58,10 +58,6 @@ CHECKER = SCRIPTS / "check_first_party_imports.py"
 # TODO(t_5d7bbe76): each of these is a follow-up card. When one is fixed, delete
 # its entry and the checker will keep enforcing the rest.
 KNOWN_UNRESOLVED = {
-    # app/routers/auth.py:1455 -- function-local, so app.main still imports, but
-    # POST /api/admin/auth/refresh raises ImportError -> 500 on every call. The
-    # model does not exist in app/models.py at all.
-    ("app/routers/auth.py", "AdminRefreshToken"),
     # app/routers/customers.py:14 -- module scope. Not reachable from app.main
     # (routers/__init__.py does not import it), so nothing loads this module and
     # nothing notices. ConsentEvent is not defined in app/models.py.

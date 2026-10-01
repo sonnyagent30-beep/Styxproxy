@@ -1444,79 +1444,26 @@ async def check_feature_flag(
     return FeatureFlagCheckResponse(name=flag_name, enabled=enabled)
 
 
-@router.post("/refresh")
-async def refresh_token(
-    request: Request,
-    session: AsyncSession = Depends(get_session),
-):
-    """Refresh access token using a valid refresh token."""
-    import secrets
-    import hashlib
-    from app.models import AdminRefreshToken
+# NOTE(t_8f73c118): POST /refresh used to live here and was removed.
+#
+# It looked implemented but could never work. Its body did
+# `from app.models import AdminRefreshToken` inside the function, and that model was
+# never defined -- so every call raised ImportError -> 500. The import was
+# function-local, which is exactly why `import app.main` stayed green and neither a
+# startup gate nor scripts/import_closure_audit.py could ever see it.
+#
+# Adding the model + migration was the alternative and was rejected on evidence:
+#   - No login route ever issues a refresh token. AdminLoginResponse has no
+#     refresh_token field; /login, /login/email and /setup return access_token only.
+#   - Nothing writes the table. Production 162.35.184.69 has admin_refresh_tokens
+#     holding 0 rows, with no ORM mapping and no alembic migration.
+#   - No caller. The frontend keeps admin_token in localStorage/a 24h cookie and has
+#     no 401-refresh path; no n8n workflow and no Postman request hits the route.
+#
+# So the table would stay empty forever and the route could only ever return 401.
+# tests/test_admin_refresh_route_removed.py asserts the absence is deliberate.
+#
+# If admin session refresh ever becomes a real requirement it needs an issuer first:
+# mint a refresh token at login, map the model, add the migration, then the route.
+# Do not re-add the route without that issuer -- it will be dead on arrival again.
 
-    body = await request.json()
-    refresh_token = body.get("refresh_token")
-
-    if not refresh_token:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Refresh token required",
-        )
-
-    # Hash the provided token and look it up
-    token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-    stmt = select(AdminRefreshToken).where(
-        AdminRefreshToken.token_hash == token_hash,
-        AdminRefreshToken.revoked_at.is_(None),
-        AdminRefreshToken.expires_at > datetime.now(timezone.utc),
-    )
-    result = await session.execute(stmt)
-    token_record = result.scalar_one_or_none()
-
-    if not token_record:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
-        )
-
-    # Get the admin
-    stmt = select(AdminAuth).where(AdminAuth.email == token_record.admin_email)
-    result = await session.execute(stmt)
-    admin = result.scalar_one_or_none()
-
-    if not admin:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Admin not found",
-        )
-
-    # Revoke old refresh token
-    token_record.revoked_at = datetime.now(timezone.utc)
-
-    # Generate new tokens
-    new_access_token = create_access_token(
-        sub=admin.email,
-        platform="admin",
-        phone=admin.email,
-        role=admin.role,
-        expires_delta=timedelta(hours=8),
-    )
-
-    new_refresh_token = secrets.token_urlsafe(64)
-    new_token_hash = hashlib.sha256(new_refresh_token.encode()).hexdigest()
-
-    # Store new refresh token
-    new_token_record = AdminRefreshToken(
-        admin_email=admin.email,
-        token_hash=new_token_hash,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
-    )
-    session.add(new_token_record)
-    await session.commit()
-
-    return {
-        "access_token": new_access_token,
-        "refresh_token": new_refresh_token,
-        "token_type": "bearer",
-        "expires_in": 28800,
-    }
