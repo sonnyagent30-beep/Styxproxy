@@ -39,6 +39,11 @@ from app.database import async_session
 from app.limiter import limiter, customer_limiter
 from app.services.charon import agent
 from app.services.charon.agent import Message
+from app.services.charon.credential_guard import (
+    CharonTextGuard,
+    inspect_text,
+    redact_mapping,
+)
 from app.services.charon.knowledge import invalidate_cache
 from app.services.charon.stats import CharonMetrics
 from app.services.email import send_charon_escalation_email
@@ -133,6 +138,68 @@ class ChatReplyRequest(BaseModel):
     page_context: Optional[dict] = Field(default=None, description="Page context for escalation notifications")
 
 
+def _screen_inbound_text(payload: ChatReplyRequest) -> CharonTextGuard:
+    """Refuse machine credential deliveries; redact anything else, in place.
+
+    `user_message` is the CUSTOMER CHAT PROMPT, and everything downstream of it
+    is both at rest and in flight to a third-party LLM: `agent.reply()`
+    persists it to `charon_messages` (agent.py `_persist_message`) and appends it
+    to the `messages` list that `llm.py` POSTs to api.longcat.ai. This handler
+    additionally embeds it verbatim in the escalation email body below.
+
+    So the value is screened ONCE here and the payload is MUTATED, rather than
+    screening only the argument passed to `agent.reply()`. Anything that reads
+    `payload.user_message` / `payload.history` / `payload.page_context` later in
+    this function — the escalation email, the assistant persist, the stream
+    variant — then gets the screened text by construction instead of by
+    remembering to screen it a second time.
+
+    422 (not 400) for the machine-bundle case, so an n8n execution carrying
+    credentials goes visibly red instead of being reported as a successful
+    notification. Verified live: fulfillment is already unconditional email and
+    the n8n call is a best-effort notification fired AFTER delivery
+    (`app/scripts/fulfillment_worker.py`), so refusing it cannot cost a customer
+    their credentials.
+    """
+    guard = inspect_text(payload.user_message)
+    if guard.must_reject:
+        logger.error(
+            "refused a machine credential-delivery payload on /charon/reply: "
+            "labels=%s channel=%s. This endpoint persists to charon_messages and "
+            "forwards to an external LLM provider — deliver credentials by email "
+            "or an admin-authenticated channel, never here.",
+            sorted(guard.secret_labels),
+            payload.channel,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "This endpoint is a customer chat surface and cannot be used to "
+                "deliver credentials. It stores messages and forwards them to an "
+                "AI provider."
+            ),
+        )
+
+    if guard.has_secret:
+        logger.warning(
+            "redacted labelled secret value(s) from a Charon user_message "
+            "before persisting/forwarding: labels=%s channel=%s",
+            sorted(guard.secret_labels),
+            payload.channel,
+        )
+        payload.user_message = guard.redacted
+
+    for message in payload.history:
+        screened = inspect_text(message.content)
+        if screened.has_secret:
+            message.content = screened.redacted
+
+    if payload.page_context:
+        payload.page_context = redact_mapping(payload.page_context)
+
+    return guard
+
+
 class ToolCallRecord(BaseModel):
     tool: str
     params: dict
@@ -198,6 +265,9 @@ async def post_reply(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="user_message cannot be empty",
         )
+
+    # Before ANY downstream use: persistence, LLM call, escalation email.
+    _screen_inbound_text(payload)
 
     from app.services.charon.stats import CharonMetrics
 
@@ -357,6 +427,11 @@ async def post_reply_stream(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="user_message cannot be empty",
         )
+
+    # Same screen as /reply. The streaming variant is a separate handler with its
+    # own agent.reply() call and its own escalation-email block, so screening only
+    # the non-streaming one would leave an identical hole on a sibling route.
+    _screen_inbound_text(payload)
 
     # Check daily cost budget
     budget_allowed, spend, budget = CharonMetrics.check_budget()

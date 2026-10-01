@@ -15,6 +15,7 @@ import sentry_sdk
 
 from app.services.charon.page_templates import get_page_prompt_addition
 from app.services.charon.ab_framework import get_variant, get_page_context_variant, record_outcome
+from app.services.charon.credential_guard import inspect_text, redact_mapping
 from app.services.charon.escalation_persist import persist_escalation_sync
 from . import knowledge, scenarios, tools
 from .llm import LLMResponse, call_llm
@@ -350,7 +351,33 @@ async def reply(
     """End-to-end Charon reply."""
     conversation_id = conversation_id or str(uuid.uuid4())
     variant = get_variant(conversation_id)
-    
+
+    # Defence in depth. `app/routers/charon.py` already screens
+    # `ChatReplyRequest.user_message` before calling in, and that is the choke
+    # point for HTTP traffic. This is the SECOND gate, at the point where the text
+    # is provably both persisted and LLM-bound, so a future non-HTTP caller
+    # (a proactive trigger, a new router, a script) cannot reintroduce the leak
+    # by skipping the router. Redaction is idempotent, so double application is
+    # a no-op rather than a double-mangle.
+    guard = inspect_text(user_message)
+    if guard.has_secret:
+        logger.warning(
+            "credential_guard: redacted labelled secret value(s) before "
+            "persist+LLM: labels=%s conversation_id=%s",
+            sorted(guard.secret_labels),
+            conversation_id,
+        )
+        user_message = guard.redacted
+    if history:
+        history = [
+            Message(role=m.role, content=inspect_text(m.content).redacted)
+            if m.role in ("user", "assistant")
+            else m
+            for m in history
+        ]
+    if page_context:
+        page_context = redact_mapping(page_context)
+
     # Persist user message
     await _persist_message(conversation_id, channel, "user", user_message, page_context=page_context)
     
