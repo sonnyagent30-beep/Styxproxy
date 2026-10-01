@@ -130,6 +130,59 @@ jobs:
         run: |
           cd backend
           alembic upgrade head || true
+      - name: Import gate — app.main MUST import
+        env:
+          DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
+          TESTING: "1"
+          JWT_SECRET: test-jwt-secret-not-real-32chars-long
+          ADMIN_TOKEN: test-admin-token-not-real
+          FLUTTERWAVE_SECRET_KEY: test-flw-key
+          FLUTTERWAVE_PUBLIC_KEY: test-flw-pub
+          FLUTTERWAVE_WEBHOOK_SECRET: test-webhook-secret
+          WHATSAPP_ACCESS_TOKEN: test-wa-token
+          WHATSAPP_PHONE_NUMBER_ID: test-phone-id
+          MINIMAX_API_KEY: test-minimax-key
+          REDIS_URL: redis://localhost:6379/0
+          SENTRY_DSN: ""
+        run: |
+          cd backend
+          # Hard gate. No `|| true`, no continue-on-error.
+          # A backend that cannot be imported cannot serve traffic; this must be
+          # the check that blocks a deploy. 3,250 crash-loops passed the old
+          # suite because nothing ever imported the app.
+          python -c "import app.main; print('app.main imported OK')"
+      - name: Contract gate — Charon payload matches ChatReplyRequest
+        env:
+          DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
+          TESTING: "1"
+          JWT_SECRET: test-jwt-secret-not-real-32chars-long
+          ADMIN_TOKEN: test-admin-token-not-real
+          FLUTTERWAVE_SECRET_KEY: test-flw-key
+          FLUTTERWAVE_PUBLIC_KEY: test-flw-pub
+          FLUTTERWAVE_WEBHOOK_SECRET: test-webhook-secret
+          WHATSAPP_ACCESS_TOKEN: test-wa-token
+          WHATSAPP_PHONE_NUMBER_ID: test-phone-id
+          MINIMAX_API_KEY: test-minimax-key
+          REDIS_URL: redis://localhost:6379/0
+          SENTRY_DSN: ""
+        run: |
+          cd backend
+          # Guards the exact drift that 422'd the delivery leg: both callers sent
+          # {message, phone}; ChatReplyRequest declares {user_message, customer_phone}.
+          # Pydantic silently DROPS undeclared keys, so nothing errored at build
+          # time - it only surfaced as a 422 on a live execution.
+          python - <<'PY'
+          from app.routers.charon import ChatReplyRequest
+          fields = set(ChatReplyRequest.model_fields)
+          stale = {"message", "phone"}
+          required_now = {"user_message", "customer_phone"}
+          still_present = stale & fields
+          assert not still_present, f"stale placeholder fields still declared: {sorted(still_present)}"
+          missing = required_now - fields
+          assert not missing, f"ChatReplyRequest missing delivery fields: {sorted(missing)}"
+          assert ChatReplyRequest.model_fields["user_message"].is_required(), "user_message must stay required"
+          print("charon contract OK -", sorted(fields))
+          PY
       - name: Run pytest
         env:
           DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
@@ -146,7 +199,7 @@ jobs:
           SENTRY_DSN: ""
         run: |
           cd backend
-          pytest tests/ -v --tb=short || true
+          pytest tests/ -v --tb=short
 
   deploy-backend:
     name: Deploy Backend to Production
