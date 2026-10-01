@@ -18,6 +18,7 @@ from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Customer, Order
+from app.services.credential_delivery import is_placeholder_email
 from app.services.email import send_renewal_reminder_email
 
 logger = logging.getLogger(__name__)
@@ -90,15 +91,21 @@ async def check_and_send_renewal_reminder(
         logger.warning("Cannot send renewal reminder for order %s — no customer record", order.order_id)
         return False
 
-    customer_email = getattr(customer, "email", None)
+    # The customer's address lives on the ORDER row. `customers` has no email
+    # column at all (see app/models.py Customer), so reading customer.email here
+    # always returned None and every reminder silently failed to send. Prefer the
+    # order row, then fall back to a customer attribute for any future column.
+    customer_email = (getattr(order, "customer_email", None) or "").strip()
     if not customer_email:
+        customer_email = (getattr(customer, "email", None) or "").strip()
+    if is_placeholder_email(customer_email):
         logger.warning(
-            "Cannot send renewal reminder for order %s — customer has no email",
+            "Cannot send renewal reminder for order %s — no deliverable customer email",
             order.order_id,
         )
         return False
 
-    customer_name = customer.name or "Customer"
+    customer_name = getattr(customer, "name", None) or "Customer"
 
     try:
         result = await send_renewal_reminder_email(

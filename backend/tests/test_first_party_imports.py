@@ -66,9 +66,6 @@ KNOWN_UNRESOLVED = {
     # (routers/__init__.py does not import it), so nothing loads this module and
     # nothing notices. ConsentEvent is not defined in app/models.py.
     ("app/routers/customers.py", "ConsentEvent"),
-    # app/scripts/send_renewal_reminders.py:22 -- module scope, run by cron.
-    # app/database.py defines get_session, not get_session_context.
-    ("app/scripts/send_renewal_reminders.py", "get_session_context"),
 }
 
 
