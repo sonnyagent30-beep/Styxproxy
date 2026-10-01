@@ -221,16 +221,75 @@ async def paystack_webhook(
         logger.info("duplicate Paystack webhook — already processed", extra=log_ctx)
         return {"status": "already_processed", "webhook_id": webhook_id}
 
-    # Order expiry check
+    # Order lookup. The primary join is the reference, which is what the
+    # gateway echoes back. `provider_order_id` (the gateway's own numeric
+    # transaction id) is the fallback for orders whose stored reference never
+    # reached the gateway — the defect that made every Paystack order
+    # unfulfillable, and the only way an already-created straggler can still be
+    # matched and fulfilled.
     from app.models import Order
     order = (await session.execute(select(Order).where(Order.payment_reference == tx_ref))).scalar_one_or_none()
+    if order is None and event_data.get("id") is not None:
+        provider_tx_id = str(event_data["id"])
+        order = (
+            await session.execute(
+                select(Order).where(
+                    Order.provider_order_id == provider_tx_id,
+                    Order.provider == "paystack",
+                )
+            )
+        ).scalar_one_or_none()
+        if order is not None:
+            logger.warning(
+                "Paystack webhook matched on provider_order_id — stored reference was wrong",
+                extra={**log_ctx, "order_id": order.order_id,
+                       "stored_reference": order.payment_reference},
+            )
+            await log_audit_event(
+                session,
+                event_type="paystack_webhook_matched_on_provider_order_id",
+                order_id=order.order_id,
+                details={**log_ctx, "stored_reference": order.payment_reference,
+                         "provider_order_id": provider_tx_id},
+            )
     if order and order.status == "expired":
         logger.warning("order expired — rejecting Paystack webhook", extra={**log_ctx, "order_id": order.order_id})
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order has expired")
 
     if event_type == "charge.success" and tx_ref:
-        if order and order.status not in ("fulfilled", "active"):
+        if order is None:
+            # A signed charge.success with no order means a customer paid and we
+            # did nothing — the exact failure this handler previously hid behind
+            # a bare 200. Surfacing it loudly matters more than the 2xx:
+            # Paystack retries non-2xx deliveries (every 3 min for the first 4
+            # tries, then hourly for up to 72h), so this gives a late-committing
+            # order a real chance to be picked up on retry. Deliberately NOT
+            # marking the webhook processed, so the retry is not rejected as a
+            # duplicate. The retry window is bounded by MAX_PAYLOAD_AGE_SECONDS
+            # above, after which the payload is rejected outright — so this
+            # cannot loop forever.
+            logger.error(
+                "Paystack charge.success matched no order — payment received but unfulfilled",
+                extra={**log_ctx, "provider_tx_id": str(event_data.get("id", "")),
+                       "amount_kobo": event_data.get("amount")},
+            )
+            await log_audit_event(
+                session,
+                event_type="paystack_webhook_unmatched_charge_success",
+                details={**log_ctx, "provider_tx_id": str(event_data.get("id", "")),
+                         "amount_kobo": event_data.get("amount"),
+                         "action": "no_fulfillment"},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No order matches this payment reference",
+            )
+        if order.status not in ("fulfilled", "active"):
             order.status = "paid"
+            # NOTE: amount_paid_ngn records the INVOICE amount and is populated
+            # on every row, including cancelled/expired/refunded ones. It is not
+            # evidence that money was captured — there is no capture-status
+            # column. Do not cite it as proof of payment.
             order.amount_paid_ngn = (event_data.get("amount") or 0) / 100
             await session.commit()
             try:

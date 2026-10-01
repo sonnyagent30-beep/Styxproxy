@@ -841,6 +841,144 @@ class AdminRefundRequest(BaseModel):
     full_refund: bool = True
 
 
+# ── Refund approval + threshold models ──────────────────────────────────
+# NOTE: these six are duplicated in app/routers/schemas.py. admin.py imports
+# them from app.schemas, but they were only ever added to app/routers/schemas.py,
+# so `import app.routers.admin` raised ImportError at startup and every test
+# module that touches app.routers failed to collect. Mirrored here so the two
+# files agree — keep them in sync.
+#
+# (Same duplication hazard already documented on ReceiptCredentialPublic above.)
+
+
+class RefundApprovalResponse(BaseModel):
+    """Response for a refund approval record."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    order_id: str
+    requested_by: str
+    requested_amount: float
+    status: str
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    reviewer_notes: Optional[str] = None
+    created_at: datetime
+
+
+class RefundApprovalActionRequest(BaseModel):
+    """Request to approve or reject a refund approval."""
+
+    action: str = Field(..., pattern="^(approve|reject)$")
+    reviewer_notes: Optional[str] = Field(None, max_length=500)
+
+
+class RefundApprovalActionResponse(BaseModel):
+    """Response after approving or rejecting a refund approval."""
+
+    id: UUID
+    order_id: str
+    status: str
+    reviewed_by: str
+    reviewed_at: datetime
+    message: str
+
+
+class RefundApprovalListResponse(BaseModel):
+    """List of refund approvals response."""
+
+    approvals: list[RefundApprovalResponse]
+    pagination: dict[str, Any]
+
+
+class RefundRequestResponse(BaseModel):
+    """Response when requesting a large refund (202 pending approval)."""
+
+    status: str  # "pending_approval" or "refunded"
+    order_id: str
+    refund_amount: float
+    approval_id: Optional[UUID] = None
+    message: str
+
+
+class AdminRefundThresholdResponse(BaseModel):
+    """Response for the refund threshold setting."""
+
+    key: str
+    value: float
+    description: Optional[str] = None
+
+
+# ── Unauthenticated-response + admin allowlist models ───────────────────
+# NOTE: duplicated in app/routers/schemas.py; auth.py and orders.py import
+# them from app.schemas. Same hazard as the refund models above.
+
+
+class CredentialStatusPublic(BaseModel):
+    """Credential shape for UNAUTHENTICATED responses.
+
+    Deliberately carries only ``status``. A credential's username and upstream
+    gateway address are enough to fingerprint and attempt a connection
+    against a specific proxy, so serving them from an endpoint that needs no
+    auth turns any leaked payment reference into working proxy details.
+
+    This exists because closing that leak in ONE response model
+    (``ReceiptCredentialPublic``) left ``StyxproxyCredentialBrief`` intact and
+    still embedded in ``OrderResponse`` — which serves the unauthenticated
+    ``/by-payment-reference`` and ``/by-device`` routes. The data was removed
+    from the receipt page and still served from the API. Fix the class: any
+    route without auth uses this, so there is one shape to audit.
+    """
+
+    status: str
+
+
+class PublicOrderResponse(BaseModel):
+    """Order response for endpoints that require NO auth.
+
+    Identical to :class:`OrderResponse` except the credential block is
+    :class:`CredentialStatusPublic`. Used by ``/by-payment-reference`` and
+    ``/by-device``, both of which are unauthenticated and therefore must never
+    disclose proxy login details to whoever holds the reference.
+
+    Do not add credential fields here. If a route needs them, that route needs
+    auth.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    order_id: str
+    status: str
+    plan_type: Optional[str]
+    country: Optional[str]
+    amount_paid_ngn: Optional[float]
+    styxproxy_credential: Optional[CredentialStatusPublic]
+    created_at: datetime
+    expires_at: Optional[datetime]
+    customer_name: Optional[str] = None
+    is_renewable: Optional[bool] = False
+    rotation_count: Optional[int] = 0
+    max_rotations: Optional[int] = 3
+    emails_sent: Optional[int] = None
+    reminder_sent_at: Optional[datetime] = None
+    referral_tx_ref: Optional[str] = None
+
+
+class AdminIPAllowlistUpdateRequest(BaseModel):
+    """Request to update an admin's IP allowlist."""
+
+    allowed_ips: list[str] = Field(..., description="List of allowed IP addresses (IPv4/IPv6). Empty list = allow all.")
+
+
+class AdminIPAllowlistResponse(BaseModel):
+    """Response after updating an admin's IP allowlist."""
+
+    email: str
+    allowed_ips: list[str]
+    message: str
+
+
 class AdminCredentialResponse(BaseModel):
     """Admin credential response."""
 

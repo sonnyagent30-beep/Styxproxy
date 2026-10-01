@@ -258,12 +258,16 @@ async def initiate_payment(
     # ── Create gateway transaction ───────────────────────────────────────
     try:
         if request.gateway == "paystack":
+            # tx_ref MUST be passed: the webhook joins on orders.payment_reference
+            # using whatever reference Paystack echoes back, so the reference we
+            # send here is the reference the order row has to carry.
             result = await create_paystack_transaction(
                 amount_ngn=total_amount,
                 customer_email=gateway_email,
                 customer_phone=customer.phone or "",
                 callback_url=callback_url,
                 description=f"Payment for {request.plan_code}",
+                tx_ref=tx_ref,
             )
         else:
             result = await create_flutterwave_invoice(
@@ -285,6 +289,27 @@ async def initiate_payment(
             detail=f"Payment gateway error: {str(e)}",
         )
 
+    # ── Reconcile against the gateway's own answer ──────────────────────
+    # Persist the reference the gateway CONFIRMED, not merely the one we
+    # asked for. A gateway that echoes back a different reference has charged
+    # that other value, and storing our request instead leaves the charged
+    # reference recorded nowhere — which is precisely what makes the payment
+    # unreconcilable after the fact. Falling back to the requested reference
+    # keeps callers that don't return one working unchanged.
+    gateway_reference = result.get("tx_ref") or tx_ref
+    provider_order_id = result.get("provider_order_id")
+    if gateway_reference != tx_ref:
+        logger.error(
+            "gateway returned a different reference than requested — storing the gateway's",
+            extra={
+                **log_ctx,
+                "requested_reference": tx_ref,
+                "gateway_reference": gateway_reference,
+                "order_id": order_id,
+            },
+        )
+    tx_ref = gateway_reference
+
     # ── Create order ─────────────────────────────────────────────────────
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=ORDER_TTL_MINUTES)
     order = Order(
@@ -305,6 +330,10 @@ async def initiate_payment(
         amount_paid_ngn=total_amount,
         payment_reference=tx_ref,
         tx_ref=tx_ref,
+        # The gateway's own transaction id. The webhook falls back to this when
+        # the reference does not join, which is the only way an order created
+        # before the reference was persisted can still be recovered.
+        provider_order_id=provider_order_id,
         # Record which gateway this invoice was raised on. Every order written
         # before this had provider = NULL, which is why gateway reconciliation
         # could never be answered from our side.

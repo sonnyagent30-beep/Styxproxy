@@ -131,7 +131,12 @@ async def create_flutterwave_invoice(
             return {
                 "payment_id": data.get("data", {}).get("id"),
                 "checkout_url": data.get("data", {}).get("link"),
-                "tx_ref": tx_ref,
+                # Echo the gateway's own reference back so the caller persists
+                # what was actually charged, not just what was requested.
+                "tx_ref": data.get("data", {}).get("tx_ref") or tx_ref,
+                "provider_order_id": (
+                    str(data["data"]["id"]) if data.get("data", {}).get("id") is not None else None
+                ),
             }
         except httpx.HTTPError as e:
             from app.services.audit import log_audit_event
