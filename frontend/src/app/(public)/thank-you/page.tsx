@@ -27,6 +27,10 @@ interface OrderData {
   is_renewable?: boolean;
   rotation_count?: number;
   max_rotations?: number;
+  // Full details for the BUYER on this page only — it is rendered right after
+  // their own payment from the order-status poll keyed to their order. This is
+  // deliberately NOT the public receipt shape: generateReceiptPDF receives a
+  // status-only projection so no emailed/forwardable PDF contains credentials.
   styxproxy_credential?: {
     bun_username?: string;
     styxproxy_username?: string;
@@ -34,6 +38,7 @@ interface OrderData {
     upstream_proxy_ip?: string;
     upstream_proxy_port?: number;
     expires_at?: string;
+    status?: string;
   };
   user_message?: string | null;
   created_at?: string;
@@ -165,6 +170,7 @@ function ThankYouContent() {
             upstream_proxy_ip: data.credential.proxy_host,
             upstream_proxy_port: data.credential.proxy_port_socks5,
             expires_at: data.expires_at || undefined,
+            status: data.credential.status,
           } : undefined,
         };
         setOrder(orderData);
@@ -236,7 +242,16 @@ function ThankYouContent() {
 
   const handleDownloadPDF = async () => {
     if (order && cart.length > 0) {
-      await generateReceiptPDF(order, cart, txRef!, `styxproxy-receipt-${txRef}.pdf`);
+      // Project to status-only before generating. The PDF is an emailed,
+      // forwardable, storable artefact — it must not contain proxy credentials,
+      // even though this page shows them to the buyer in the browser.
+      const receiptSafeOrder = {
+        ...order,
+        styxproxy_credential: order.styxproxy_credential
+          ? { status: order.styxproxy_credential.status }
+          : undefined,
+      };
+      await generateReceiptPDF(receiptSafeOrder, cart, txRef!, `styxproxy-receipt-${txRef}.pdf`);
     }
   };
 

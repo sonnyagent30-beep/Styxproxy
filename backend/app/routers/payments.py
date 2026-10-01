@@ -84,12 +84,30 @@ async def initiate_payment(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Plan has no price_per_gb configured. Admin must set it in /admin/plans.",
             )
-        gb = request.quantity_gb or plan.quantity or 1
-        if gb < plan.min_gb:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Minimum purchase is {plan.min_gb} GB (you sent {gb})",
+        # Backward compatibility with a client that predates `quantity_gb`.
+        # That client sent the GB count under `quantity` while putting a UUID
+        # in `effective_quantity` (an 11-positional-arg shift), so there is no
+        # trustworthy GB in the request. Hard-failing it with
+        # "Minimum purchase is N GB (you sent 1)" took checkout to 100% for
+        # every stale tab and cached chunk, which is a worse outcome than
+        # billing the plan's bundled GB. Charge the bundled quantity and log
+        # it loudly so the stale client is identifiable instead of silent.
+        gb = request.quantity_gb
+        if gb is None:
+            gb = plan.quantity or plan.min_gb or 1
+            logger.warning(
+                "initiate received no quantity_gb — charging bundled GB (stale client)",
+                extra={**log_ctx, "assumed_gb": gb, "plan_code": request.plan_code},
             )
+        if gb < plan.min_gb:
+            # Never silently bill above what was asked for: clamp UP to the
+            # plan minimum so the customer is charged at least the minimum,
+            # which is what the checkout UI quoted them.
+            logger.warning(
+                "quantity_gb below plan minimum — clamping to minimum",
+                extra={**log_ctx, "requested_gb": gb, "min_gb": plan.min_gb},
+            )
+            gb = plan.min_gb
         if gb > plan.max_gb:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

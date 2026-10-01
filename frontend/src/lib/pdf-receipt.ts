@@ -12,11 +12,10 @@ interface CartItem {
 }
 
 interface Credential {
-  styxproxy_username?: string;
-  styxproxy_password?: string;
-  upstream_proxy_ip?: string;
-  upstream_proxy_port?: number;
-  expires_at?: string;
+  // The PUBLIC receipt endpoint discloses credential STATUS only — no username,
+  // password, IP or port. Those are delivered by email / authenticated lookup.
+  // See ReceiptCredentialPublic in backend/app/routers/schemas.py.
+  status?: string;
 }
 
 export interface ReceiptOrder {
@@ -261,7 +260,10 @@ export async function generateReceiptPDF(
   doc.setFontSize(11);
   doc.text(`N${subtotal.toLocaleString('en-NG')}`, W - 19, totalY + 7.5, { align: 'right' });
 
-  // ── Credentials card (if available) ─────────────────────
+  // ── Credential status card (if available) ─────────────────────
+  // Deliberately does NOT print username / password / IP / port. The public
+  // receipt endpoint returns status only — see ReceiptCredentialPublic. A PDF is
+  // emailed, forwarded and stored; it must not become a credential artefact.
   if (order?.styxproxy_credential) {
     const cred = order.styxproxy_credential;
     const credSectionY = totalY + 16;
@@ -269,10 +271,10 @@ export async function generateReceiptPDF(
     doc.setTextColor(...colors.primary);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.text('YOUR PROXY CREDENTIALS', 15, credSectionY);
+    doc.text('PROXY ACCESS', 15, credSectionY);
 
     const credCardTop = credSectionY + 5;
-    const credCardH = 80;
+    const credCardH = 42;
     const credCardBottom = credCardTop + credCardH;
 
     doc.setFillColor(...colors.bg);
@@ -282,71 +284,23 @@ export async function generateReceiptPDF(
     doc.setDrawColor(...colors.border);
     doc.setLineWidth(0.2);
 
-    const rowH = 16;
-    let rowTop = credCardTop + 5;
+    const rowTop = credCardTop + 6;
 
-    // Row 1: USERNAME | PASSWORD
     doc.setTextColor(...colors.muted);
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('USERNAME', 20, rowTop + 3);
-    doc.text('PASSWORD', W / 2 + 5, rowTop + 3);
+    doc.text('CREDENTIAL STATUS', 20, rowTop + 3);
     doc.setTextColor(...colors.primary);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text(cred.styxproxy_username || 'N/A', 20, rowTop + 10);
-    doc.text(cred.styxproxy_password || 'N/A', W / 2 + 5, rowTop + 10);
-    doc.setDrawColor(...colors.border);
-    doc.line(20, rowTop + 13, W - 20, rowTop + 13);
-    rowTop += rowH;
+    doc.text(String(cred.status || 'active').toUpperCase(), 20, rowTop + 12);
 
-    // Row 2: PROXY ADDRESS | PROTOCOL
     doc.setTextColor(...colors.muted);
-    doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PROXY ADDRESS', 20, rowTop + 3);
-    doc.text('PROTOCOL', W / 2 + 5, rowTop + 3);
-    doc.setTextColor(...colors.primary);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${cred.upstream_proxy_ip || 'N/A'}:${cred.upstream_proxy_port || ''}`, 20, rowTop + 10);
-    doc.text('HTTP / SOCKS5', W / 2 + 5, rowTop + 10);
-    doc.setDrawColor(...colors.border);
-    doc.line(20, rowTop + 13, W - 20, rowTop + 13);
-    rowTop += rowH;
-
-    // Row 3: FULL FORMAT (full width)
-    doc.setTextColor(...colors.muted);
-    doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text('FULL FORMAT', 20, rowTop + 3);
-    doc.setTextColor(...colors.light);
-    doc.setFontSize(7.5);
-    doc.setFont('courier', 'normal');
-    const fullStr = `http://${cred.styxproxy_username || 'user'}:${cred.styxproxy_password || 'pass'}@${cred.upstream_proxy_ip || '0.0.0.0'}:${cred.upstream_proxy_port || 8080}`;
-    const lines = doc.splitTextToSize(fullStr, W - 40);
-    doc.text(lines, 20, rowTop + 10);
-    doc.setDrawColor(...colors.border);
-    doc.line(20, rowTop + 13, W - 20, rowTop + 13);
-    rowTop += rowH;
-
-    // Row 4: EXPIRES | AUTO-RENEW
-    doc.setTextColor(...colors.muted);
-    doc.setFontSize(6.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text('EXPIRES', 20, rowTop + 3);
-    doc.text('AUTO-RENEW', W / 2 + 5, rowTop + 3);
-    doc.setTextColor(...colors.foreground);
-    doc.setFontSize(9);
+    doc.setFontSize(6);
     doc.setFont('helvetica', 'normal');
-    doc.text(
-      cred.expires_at
-        ? new Date(cred.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })
-        : 'N/A',
-      20,
-      rowTop + 10
-    );
-    doc.text('On (manage to disable)', W / 2 + 5, rowTop + 10);
+    const note = 'Your proxy credentials were sent to the email address on this order.';
+    const noteLines = doc.splitTextToSize(note, W - 40);
+    doc.text(noteLines, 20, rowTop + 21);
 
     const supY = credCardBottom + 16;
     drawSupportSection(doc, supY, W, colors);

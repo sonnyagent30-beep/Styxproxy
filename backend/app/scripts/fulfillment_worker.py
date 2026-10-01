@@ -123,9 +123,14 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 await db.commit()
 
                 # ── Deliver credentials via n8n webhook ───────────────────
+                # The helper now returns whether the webhook ACTUALLY
+                # succeeded. It previously always returned True, so this flag
+                # was set unconditionally and the direct-email fallback below
+                # could never run — n8n could fail every single time and the
+                # worker still logged "delivered".
                 n8n_success = False
                 try:
-                    await trigger_credentials_delivered_webhook(
+                    n8n_success = await trigger_credentials_delivered_webhook(
                         order_id=order.order_id,
                         tx_ref=tx_ref,
                         phone=order.customer_phone or "",
@@ -137,9 +142,15 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                         expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                         receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
                     )
-                    n8n_success = True
-                    logger.info("n8n webhook delivered", extra=log_ctx)
+                    if n8n_success:
+                        logger.info("n8n webhook delivered", extra=log_ctx)
+                    else:
+                        logger.warning(
+                            "n8n webhook did not succeed — falling back to direct email",
+                            extra=log_ctx,
+                        )
                 except Exception as n8n_err:
+                    n8n_success = False
                     logger.error(
                         "n8n webhook failed — falling back to direct email",
                         extra={**log_ctx, "error": str(n8n_err)},

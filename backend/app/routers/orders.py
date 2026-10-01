@@ -30,6 +30,7 @@ from app.schemas import (
     OrderResponse,
     PrecheckRequest,
     PrecheckResponse,
+    ReceiptCredentialPublic,
     ReceiptOrderResponse,
     StyxproxyCredentialBrief,
 )
@@ -1197,14 +1198,9 @@ async def get_receipt(
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
         if cred:
-            cred_brief = StyxproxyCredentialBrief(
-                id=cred.id,
-                styxproxy_username=cred.styxproxy_username,
-                protocol=cred.protocol or "socks5",
-                upstream_proxy_ip=cred.upstream_proxy_ip,
-                upstream_proxy_port=cred.upstream_proxy_port,
-                status=cred.status,
-            )
+            # PUBLIC + UNAUTHENTICATED: status only. Never username/IP/port/password.
+            # See ReceiptCredentialPublic for the reasoning.
+            cred_brief = ReceiptCredentialPublic(status=cred.status)
 
     customer_name = customer.name if customer and customer.name else None
 

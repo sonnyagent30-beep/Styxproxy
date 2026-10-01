@@ -241,14 +241,46 @@ async def test_mobile_charges_per_gb(env):
 
 
 @pytest.mark.asyncio
+async def test_stale_client_without_quantity_gb_still_checks_out(env):
+    """A pre-fix client must not be able to take checkout down.
+
+    The backend shipped before the frontend did, and hard-failing the legacy
+    payload with "Minimum purchase is 5 GB (you sent 1)" made EVERY checkout
+    400 for any stale tab or cached chunk. Deploy order must not decide
+    whether the product sells.
+    """
+    env.plan["plan"] = FakePlan("RESIDENTIAL", price_ngn=None, price_per_gb=1000.0,
+                              quantity=5, min_gb=5, max_gb=50)
+    session = FakeSession()
+    # Exactly what the old frontend sent: quantity 1, a UUID in
+    # effective_quantity, and no quantity_gb.
+    resp = await call(session, plan_code="RESIDENTIAL-NG", quantity=1)
+    assert resp.order_id == "STX-NEW01"
+    assert len(env.gateway_calls) == 1
+    # Falls back to the bundled 5 GB, charged at the correct per-GB rate.
+    assert env.gateway_calls[0]["amount"] == 5000.0
+
+
+@pytest.mark.asyncio
+async def test_gb_below_minimum_clamps_up_never_underbills(env):
+    """Clamping to the minimum must not become charging less than quoted."""
+    env.plan["plan"] = FakePlan("RESIDENTIAL", price_ngn=None, price_per_gb=1000.0,
+                              min_gb=5, max_gb=50)
+    session = FakeSession()
+    await call(session, plan_code="RESIDENTIAL-NG", quantity=1, quantity_gb=2)
+    assert env.gateway_calls[0]["amount"] == 5000.0
+
+
+@pytest.mark.asyncio
 async def test_residential_rejects_below_min_gb(env):
     from fastapi import HTTPException
 
     env.plan["plan"] = FakePlan("RESIDENTIAL", price_ngn=None, price_per_gb=1000.0)
     session = FakeSession()
     with pytest.raises(HTTPException) as exc:
-        await call(session, plan_code="RESI-NG", quantity=1, quantity_gb=1)
+        await call(session, plan_code="RESI-NG", quantity=1, quantity_gb=999)
     assert exc.value.status_code == 400
+    assert "Maximum" in str(exc.value.detail)
     assert env.gateway_calls == []
 
 

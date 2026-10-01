@@ -22,13 +22,12 @@ interface OrderData {
   customer_name?: string | null;
   created_at?: string;
   expires_at?: string;
+  // The public receipt endpoint is UNAUTHENTICATED and discloses no proxy
+  // connection details — only whether a credential exists and its status.
+  // `tx_ref` is the payment reference (it appears in gateway dashboards, access
+  // logs and emailed links), so it is not a secret and must never be treated as
+  // a bearer token for proxy access.
   styxproxy_credential?: {
-    styxproxy_username?: string;
-    styxproxy_password?: string;
-    upstream_proxy_ip?: string;
-    upstream_proxy_port?: number;
-    protocol?: string;
-    expires_at?: string;
     status?: string;
   };
 }
@@ -134,20 +133,10 @@ function ReceiptContent() {
 
   // Handle copy credentials
   const handleCopyCredentials = async () => {
-    if (!order?.styxproxy_credential) return;
-    const cred = order.styxproxy_credential;
-    const text = [
-      `Username: ${cred.styxproxy_username || ''}`,
-      `Password: ${cred.styxproxy_password || ''}`,
-      `Proxy: ${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
-      `Full: http://${cred.styxproxy_username || ''}:${cred.styxproxy_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
-    ].join('\n');
-    try {
-      await navigator.clipboard.writeText(text);
-      toast({ type: 'success', title: 'Copied!', message: 'Credentials copied to clipboard.' });
-    } catch {
-      toast({ type: 'error', title: 'Copy failed', message: 'Use Ctrl+C / Cmd+C instead.' });
-    }
+    // Credential details are NOT on this page by design (see the type above).
+    // Copy is intentionally not offered here; the receipt proves payment and the
+    // credential arrives by email / an authenticated lookup.
+    return;
   };
 
   if (loading) {
@@ -245,60 +234,26 @@ function ReceiptContent() {
           </div>
         </div>
 
-        {/* Credentials Card - Show if available */}
-        {order?.styxproxy_credential && (
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Proxy Credentials</h2>
-              <button
-                onClick={handleCopyCredentials}
-                className="text-xs px-3 py-1.5 bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 text-[var(--primary)] border border-[var(--primary)]/30 rounded-lg transition-colors flex items-center gap-1.5"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                Copy
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm text-[var(--muted)]">Username</label>
-                <p className="font-mono text-lg">{order.styxproxy_credential.styxproxy_username}</p>
-              </div>
-              <div>
-                <label className="text-sm text-[var(--muted)]">Protocol</label>
-                <p className="font-mono text-sm">HTTP / SOCKS5</p>
-              </div>
-              <div>
-                <label className="text-sm text-[var(--muted)]">Proxy Address</label>
-                <p className="font-mono text-lg">
-                  {order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
-                </p>
-              </div>
-              <div>
-                <label className="text-sm text-[var(--muted)]">Password</label>
-                <p className="font-mono text-sm">{order.styxproxy_credential.styxproxy_password || 'N/A'}</p>
-              </div>
-              <div>
-                <label className="text-sm text-[var(--muted)]">Full Format</label>
-                <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
-                  http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password || 'YOUR_PASSWORD'}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
-                </p>
-              </div>
-              <div>
-                <label className="text-sm text-[var(--muted)]">Expires</label>
-                <p className="font-medium">
-                  {order.styxproxy_credential.expires_at
-                    ? new Date(order.styxproxy_credential.expires_at).toLocaleDateString('en-NG', {
-                        year: 'numeric', month: 'long', day: 'numeric',
-                      })
-                    : 'N/A'}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Credentials status — the public endpoint deliberately discloses no
+                    username / IP / port / password. See ReceiptCredentialPublic. */}
+                {order?.styxproxy_credential && (
+                  <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
+                    <h2 className="text-lg font-semibold mb-2">Proxy Access</h2>
+                    <p className="text-sm text-[var(--muted)] leading-relaxed">
+                      Your proxy credentials were sent to the email address on this order. This receipt
+                      confirms your payment; for security it does not display connection details on a
+                      public page.
+                    </p>
+                    <div className="mt-4">
+                      <label className="text-sm text-[var(--muted)]">Credential status</label>
+                      <p className="font-mono text-sm">{order.styxproxy_credential.status || 'active'}</p>
+                    </div>
+                    <p className="text-xs text-[var(--muted)] mt-4">
+                      Can&apos;t find the email? Contact support with your payment reference and we&apos;ll
+                      resend it.
+                    </p>
+                  </div>
+                )}
 
         {/* Actions */}
         <div className="space-y-3">
