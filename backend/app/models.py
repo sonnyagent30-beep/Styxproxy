@@ -245,6 +245,16 @@ class Order(Base):
     replacement_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     refund_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     refund_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # The gateway's OWN refund id for this order (Paystack refund id, Flutterwave
+    # refund id). Written only after the gateway confirms the money movement.
+    # NULL means "we never got a gateway confirmation" — which, before this
+    # column existed, was indistinguishable from "refunded" (all 46 legacy
+    # `refunded` rows are NULL here: administrative status flips, not refunds).
+    # Without it a refund cannot be reconciled against the gateway afterwards.
+    gateway_refund_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    gateway_refund_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    gateway_refund_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    gateway_refunded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     fulfilled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
