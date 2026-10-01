@@ -11,6 +11,7 @@ import httpx
 
 from app.config import get_settings
 from app.services.credential import create_credential
+from app.services.credential_delivery import resolve_customer_email
 from app.services.n8n import trigger_credentials_delivered_webhook
 
 logger = logging.getLogger(__name__)
@@ -215,22 +216,22 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                 order.status = "fulfilled"
                 await db_session.commit()
 
-                if credential.expires_at:
-                    await trigger_credentials_delivered_webhook(
-                        order_id=order.order_id,
-                        tx_ref=tx_ref,
-                        phone=order.customer_phone or "",
-                        channel="web",
-                        styxproxy_username=credential.styxproxy_username,
-                        styxproxy_password=plaintext_password,
-                        proxy_ip=credential.upstream_proxy_ip or "",
-                        proxy_port=credential.upstream_proxy_port or 1080,
-                        expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
-                        receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
-                    )
+                # ── Deliver the credential ────────────────────────────────
+                # Email is the delivery channel and is attempted unconditionally.
+                # The n8n webhook is fired afterwards as a notification and its
+                # result is recorded, never obeyed — see the same fix in
+                # app/scripts/fulfillment_worker.py for the full rationale. The
+                # short version: the live workflow has no send node, so a "success"
+                # from it means nothing was delivered, and gating email on it made
+                # the only working channel unreachable.
+                #
+                # This inline path runs when the RQ enqueue fails, so it is the
+                # path taken when the worker is down. It had the same wrong email
+                # source as the worker (event_data["customer"]["email"], the
+                # Flutterwave shape only) and would have silently delivered nothing
+                # for a Paystack order.
+                customer_email, email_source = resolve_customer_email(order, event_data)
 
-                # ── Deliver credentials via email if customer provided one ──
-                customer_email = event_data.get("customer", {}).get("email")
                 if customer_email:
                     try:
                         from app.services.email import send_order_active_email
@@ -253,14 +254,44 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                             receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
                         )
                         if email_result.success:
-                            logger.info("Order email sent to %s", customer_email)
+                            logger.info("Order email sent to %s (via %s)", customer_email, email_source)
                         else:
-                            logger.warning("Order email FAILED to %s: %s", customer_email, email_result.error)
+                            logger.error(
+                                "Order email REJECTED by provider to %s: %s",
+                                customer_email,
+                                email_result.error,
+                            )
                     except Exception as email_err:
                         logger.error(
                             "Failed to send order email to %s: %s",
                             customer_email,
                             email_err,
+                        )
+                else:
+                    logger.error(
+                        "NO DELIVERABLE EMAIL — order fulfilled and credentials minted, "
+                        "but the customer cannot be reached (source=%s). Manual delivery required.",
+                        email_source,
+                    )
+
+                if credential.expires_at:
+                    try:
+                        await trigger_credentials_delivered_webhook(
+                            order_id=order.order_id,
+                            tx_ref=tx_ref,
+                            phone=order.customer_phone or "",
+                            channel="web",
+                            styxproxy_username=credential.styxproxy_username,
+                            styxproxy_password=plaintext_password,
+                            proxy_ip=credential.upstream_proxy_ip or "",
+                            proxy_port=credential.upstream_proxy_port or 1080,
+                            expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                            receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
+                        )
+                        logger.info("n8n notified for order %s", order.order_id)
+                    except Exception as n8n_err:
+                        logger.warning(
+                            "n8n notification raised — delivery is unaffected: %s", n8n_err
                         )
 
             except RuntimeError as e:
