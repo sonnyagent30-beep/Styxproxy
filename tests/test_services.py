@@ -9,8 +9,24 @@ from app.services.audit import log_audit_event
 from datetime import datetime, timedelta
 
 
-# ─── Flutterwave ───────────────────────────────────────────────
+# ─── Flutterwave ───────────────────────────────────────────────────────
+# VOID — kanban t_604d405d. These tests are NOT failing; they are worthless.
+#
+# Each signs a payload with a hardcoded literal secret and verifies it against
+# that same literal. That is a tautology: it can only ever confirm that HMAC-SHA256
+# agrees with itself. It cannot fail when the secret configured on the platform
+# differs from the one on the gateway — the only mismatch that matters — so these
+# tests stayed green through a secret that was known to be wrong.
+#
+# They are kept, un-xfailed, because they still exercise the HMAC comparison
+# itself (including the tamper case). What they must NOT be read as: evidence
+# that webhook signature verification is wired to the real configured secret.
+#
+# Replacement coverage that DOES read the configured secret, and would fail on a
+# rotation mismatch, lives in tests/test_flutterwave_webhook_contract.py.
 class TestVerifyFlutterwaveSignature:
+    """VOID as proof of a working configured secret — see t_604d405d."""
+
     def test_valid_signature(self):
         payload = b'{"event":"charge.completed"}'
         secret = "my_webhook_secret"

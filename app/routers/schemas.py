@@ -17,6 +17,32 @@ from pydantic import (
 
 from app.schemas import resolve_display_author
 
+# ── Single source of truth for the shared models ────────────────────────
+# These ten models were DEFINED here and separately copied into app/schemas.py
+# (or, in the case of the security-shaped ones, only ever defined here), and
+# then imported from app.schemas by admin.py / auth.py / orders.py. Two copies
+# of a Pydantic model are two distinct classes: a test asserting
+# `PublicOrderResponse.styxproxy_credential is CredentialStatusPublic` fails
+# purely because the annotation resolved to the other copy, and a fix applied to
+# one file silently does not reach the other — which is exactly how the
+# unauthenticated-credential leak survived being "closed" in one model.
+#
+# Re-exported from app.schemas so there is ONE class per model and `is`
+# identity holds. The definitions below are deleted; if you need to change one
+# of these, change it in app/schemas.py.
+from app.schemas import (  # noqa: F401  (re-exported, not unused)
+    AdminIPAllowlistResponse,
+    AdminIPAllowlistUpdateRequest,
+    AdminRefundThresholdResponse,
+    CredentialStatusPublic,
+    PublicOrderResponse,
+    RefundApprovalActionRequest,
+    RefundApprovalActionResponse,
+    RefundApprovalListResponse,
+    RefundApprovalResponse,
+    RefundRequestResponse,
+)
+
 # ============== Enums ==============
 
 
@@ -1414,20 +1440,6 @@ class AdminLockResponse(BaseModel):
     message: str
 
 
-class AdminIPAllowlistUpdateRequest(BaseModel):
-    """Request to update an admin's IP allowlist."""
-
-    allowed_ips: list[str] = Field(..., description="List of allowed IP addresses (IPv4/IPv6). Empty list = allow all.")
-
-
-class AdminIPAllowlistResponse(BaseModel):
-    """Response after updating an admin's IP allowlist."""
-
-    email: str
-    allowed_ips: list[str]
-    message: str
-
-
 # ============== Password Reset Schemas ==============
 
 
@@ -2006,64 +2018,5 @@ class PermissionChangeRequestAction(BaseModel):
     reviewer_notes: Optional[str] = Field(None, max_length=500)
 
 # ============== Refund Approval Schemas ==============
-
-
-class RefundApprovalResponse(BaseModel):
-    """Response for a refund approval record."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    order_id: str
-    requested_by: str
-    requested_amount: float
-    status: str
-    reviewed_by: Optional[str] = None
-    reviewed_at: Optional[datetime] = None
-    reviewer_notes: Optional[str] = None
-    created_at: datetime
-
-
-class RefundApprovalListResponse(BaseModel):
-    """List of refund approvals response."""
-
-    approvals: list[RefundApprovalResponse]
-    pagination: dict[str, Any]
-
-
-class RefundApprovalActionRequest(BaseModel):
-    """Request to approve or reject a refund approval."""
-
-    action: str = Field(..., pattern="^(approve|reject)$")
-    reviewer_notes: Optional[str] = Field(None, max_length=500)
-
-
-class RefundApprovalActionResponse(BaseModel):
-    """Response after approving or rejecting a refund approval."""
-
-    id: UUID
-    order_id: str
-    status: str
-    reviewed_by: str
-    reviewed_at: datetime
-    message: str
-
-
-class RefundRequestResponse(BaseModel):
-    """Response when requesting a large refund (202 pending approval)."""
-
-    status: str  # "pending_approval" or "refunded"
-    order_id: str
-    refund_amount: float
-    approval_id: Optional[UUID] = None
-    message: str
-
-
-class AdminRefundThresholdResponse(BaseModel):
-    """Response for the refund threshold setting."""
-
-    key: str
-    value: float
-    description: Optional[str] = None
 
 

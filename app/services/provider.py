@@ -513,7 +513,7 @@ async def _create_order_simulator(
     if data.get("expires_at"):
         try:
             expires_at = datetime.fromisoformat(data["expires_at"])
-        except:
+        except (ValueError, TypeError):
             pass
     
     return ProviderProxy(

@@ -1,4 +1,18 @@
-"""Tests for webhooks router."""
+"""Tests for webhooks router.
+
+VOID as proof of a working configured secret — kanban t_604d405d.
+
+`test_flutterwave_webhook_rejects_invalid_signature` below sends the literal
+string "invalid_sig" and asserts a 401. It never reads the configured secret,
+so it passed unchanged when the platform secret was known-wrong, and it will
+pass unchanged after any rotation. It proves the endpoint rejects a bad
+signature; it does not prove the configured secret is the gateway's.
+
+It is retained because the 401 assertion is still worth having. The coverage
+that actually reads the configured secret — and therefore fails when the
+platform secret does not match the gateway's — is in
+tests/test_flutterwave_webhook_contract.py.
+"""
 import hashlib, hmac, json, pytest
 from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient, ASGITransport
