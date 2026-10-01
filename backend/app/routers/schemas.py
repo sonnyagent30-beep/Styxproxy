@@ -278,27 +278,6 @@ class MergeRequestResponse(BaseModel):
     created_at: datetime
 
 
-# ============== Products Schemas ==============
-
-
-class ProductResponse(BaseModel):
-    """Product response."""
-
-    plan_code: str
-    plan_type: str
-    country: str
-    price_ngn: float
-    quantity: int
-    duration_days: int
-    features: list[str]
-
-
-class ProductsResponse(BaseModel):
-    """Products list response."""
-
-    products: list[ProductResponse]
-
-
 # ============== Plans Schemas ==============
 
 

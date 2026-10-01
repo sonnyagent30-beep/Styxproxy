@@ -223,8 +223,8 @@ RLS is currently **DISABLED** on all tables. The `rls_policy` table exists and t
 | Endpoint | Purpose |
 |---|---|
 | `GET /health` | Basic health |
-| `GET /products` | Plan catalog |
-| `GET /catalog` | BE-driven plan templates |
+| `GET /catalog` | BE-driven plan templates (the storefront's pricing source) |
+| `GET /countries` | Country list. **Known defect:** reads the abandoned `plans` table, so it returns `[]` live — see the note below |
 | `GET /api/blog/posts` | Blog posts |
 | `GET /api/public/checkout-status` | Checkout disabled flag |
 | `POST /api/webhooks/flutterwave` | Flutterwave payment webhook |
@@ -234,6 +234,26 @@ RLS is currently **DISABLED** on all tables. The `rls_policy` table exists and t
 | `GET /api/blog/categories` | Blog categories |
 
 **Finding [INFO]:** The public endpoint surface is reasonable. Flutterwave webhook is HMAC-verified. No IDOR-visible on precheck/initiate (order_id not yet assigned).
+
+**Removed — `GET /api/products`:** returned `200 {"products":[]}` and had zero callers
+across the frontend, n8n workflows and Cloudflare workers. It read `plans`, a table the
+admin dashboard stopped writing (pricing moved to `country_plan_types`, served by
+`/api/catalog`). Its two tests asserted seed prices from `alembic/versions/005_add_plans.py`
+that the test DB never receives — `app/main.py` runs `Base.metadata.create_all`, which creates
+tables but no rows — so the suite could not distinguish a correct products query from a
+wrong one. Deleted with the router, the client method, the Next.js rewrite, and the Postman
+request. See `docs/API-CONTRACT.md`.
+
+**Finding [HIGH, open] — `GET /api/countries` has the same root cause and IS live:**
+`app/routers/catalog.py:103` reads `select(Plan.country).where(Plan.is_active)` — the same
+abandoned `plans` table — so it returns `{"countries":[]}` in production. Unlike
+`/api/products`, `frontend/src/components/Hero.tsx:110` calls it and silently falls back to
+the hardcoded `PRODUCT_COUNTRIES` list on empty. Consequence: the homepage globe map is driven
+by a stale hardcoded table while the admin dashboard that defines what is sellable writes to
+`country_plan_types`. Disabling a country in the dashboard does not remove it from the public
+homepage. The fix is to read `country_plan_types` the way `app/services/catalog.py:209`
+already does. **Not fixed here** — out of scope for the `/api/products` deletion, needs its
+own card.
 
 ---
 

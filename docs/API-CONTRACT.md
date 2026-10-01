@@ -76,7 +76,13 @@ Or for Pydantic 422:
 ## Auth header
 
 `Authorization: Bearer <jwt>` for all `/api/admin/*` and `/api/auth/*`.
-No header needed for `/api/public/*`, `/api/health`, `/api/products`, `/api/blog`.
+No header needed for `/api/public/*`, `/api/health`, `/api/catalog`, `/api/countries`, `/api/blog`.
+
+> **Removed:** `GET /api/products` returned `200 {"products":[]}` and nothing called
+> it. It read the `plans` table, which the admin dashboard no longer writes — pricing
+> lives in `country_plan_types` and is served by `GET /api/catalog`. Deleted rather
+> than seeded: a second unmaintained pricing read path is what caused the drift.
+> Use `/api/catalog`.
 
 ## Rate limits
 

@@ -20,7 +20,6 @@ from app.routers.payment_status import router as payment_status
 from app.routers.payments import router as payments
 from app.routers.permissions import router as permissions
 from app.routers.platform import router as platform
-from app.routers.products import router as products
 from app.routers.proxies import router as proxies
 from app.routers.rls import router as rls
 from app.routers.session import router as session

@@ -37,7 +37,6 @@ from app.routers import (
     payments,
     permissions,
     platform,
-    products,
     proxies,
     rls,
     session,
@@ -414,7 +413,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(health)
 app.include_router(platform)
 app.include_router(proxies)
-app.include_router(products)
 app.include_router(orders)
 app.include_router(payments)
 app.include_router(webhooks)

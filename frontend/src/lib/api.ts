@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getDeviceId } from '@/lib/device-id';
 import type {
-  Product,
   Order,
   OrderPaymentStatus,
   CatalogResponse,
@@ -206,11 +205,6 @@ class ApiClient {
         error: error instanceof Error ? error.message : 'Unknown error occurred' 
       };
     }
-  }
-
-  // Products
-  async getProducts(): Promise<ApiResponse<Product[]>> {
-    return this.request<Product[]>('/products');
   }
 
   // Catalog (BE-driven) — single source of truth for plan templates
