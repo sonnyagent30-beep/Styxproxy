@@ -932,6 +932,61 @@ class Country(Base):
     )
 
 
+class CountryPlanType(Base):
+    """Sellable (country, plan_type) matrix — the ONE definition of what we sell.
+
+    This table had NO ORM model and NO migration, even though it is the
+    authoritative answer to "what is sellable" and is read by
+    `services/catalog.py`, `routers/orders.py`, `routers/admin.py` and the
+    Charon tools. Production has it (created out-of-band by hand), so every
+    read path worked there — but a fresh database built from this repository
+    had no such table and `GET /api/catalog` / `GET /api/countries` raised
+    `UndefinedTable`.
+
+    The existing tests could not catch that because every one of them fakes
+    the session, so the missing table never surfaced as a failure.
+
+    Declaring it here is what makes it appear: `main.py`'s lifespan runs
+    `Base.metadata.create_all` on every boot, and `create_all` is the ONLY
+    provisioning path that actually works in this repository —
+    `alembic upgrade head` fails on the very first revision (`001_initial`
+    creates `orders` with FKs to tables it has not created yet), so the
+    migration chain cannot provision a clean database at all.
+
+    Every column, default, constraint name and index name below is copied
+    from the live production table (`\\d+ country_plan_types`) rather than
+    invented. Index names are declared explicitly because `create_all` would
+    otherwise generate `ix_country_plan_types_*` and leave the production
+    names (`idx_cpt_enabled` / `idx_cpt_plan_type`) as a second, divergent set.
+
+    `cpt_unique` is load-bearing, not cosmetic: `routers/admin.py` upserts
+    with a bare `ON CONFLICT DO NOTHING`, which needs a unique constraint on
+    (country_code, plan_type) to resolve to.
+    """
+
+    __tablename__ = "country_plan_types"
+    __table_args__ = (
+        UniqueConstraint("country_code", "plan_type", name="cpt_unique"),
+        Index("idx_cpt_enabled", "enabled"),
+        Index("idx_cpt_plan_type", "plan_type"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False)
+    plan_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    price_per_ip: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    price_per_gb: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    provider_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    is_special: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+
+
 class Post(Base):
     """Blog posts table - CMS for blog articles with approval workflow."""
 
