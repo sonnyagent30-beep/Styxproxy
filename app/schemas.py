@@ -523,8 +523,32 @@ class PrecheckResponse(BaseModel):
     estimated_delivery_seconds: int = 30
 
 
+class ReceiptCredentialPublic(BaseModel):
+    """Non-sensitive credential status for the UNAUTHENTICATED public receipt.
+
+    SECURITY: served by GET /api/orders/{tx_ref}/receipt, which has no auth.
+    `tx_ref` is NOT a secret — it is the payment reference, printed in
+    Flutterwave's dashboard, gateway callbacks, nginx access logs, emailed
+    receipt links and support threads. So this response must never carry
+    anything that helps someone USE the proxy: no username, no upstream
+    IP/port, no password. Status only.
+
+    NOTE: this class is duplicated in app/routers/schemas.py. Both files define
+    ReceiptOrderResponse and orders.py imports from app.schemas — keep them in
+    sync or the import fails at startup.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str
+
+
 class ReceiptOrderResponse(BaseModel):
-    """Receipt response - order with credential data for public receipt page."""
+    """Receipt response for the PUBLIC, UNAUTHENTICATED receipt page.
+
+    Proves payment. Deliberately does NOT disclose proxy connection details —
+    see ReceiptCredentialPublic.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -539,7 +563,7 @@ class ReceiptOrderResponse(BaseModel):
     customer_name: Optional[str] = None
     created_at: datetime
     expires_at: Optional[datetime] = None
-    styxproxy_credential: Optional[StyxproxyCredentialBrief] = None
+    styxproxy_credential: Optional[ReceiptCredentialPublic] = None
 
 
 # ============== Payments Schemas ==============

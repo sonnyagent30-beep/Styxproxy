@@ -4,7 +4,7 @@ RQ worker for Styxproxy webhook fulfillment queue.
 
 Payment Flow Rewrite (Sprint 025):
 - Reads proxy_type and quantity from the order (not hardcoded)
-- n8n fallback to direct email on failure
+- credential delivery by email; n8n is notified afterwards and never gates it
 - Auto-refund with support ticket on fulfillment failure
 - Structured logging at every step
 
@@ -35,6 +35,17 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("fulfillment-worker")
+
+# The email resolver now lives in app/services/credential_delivery.py, shared
+# with the inline fallback in app/services/flutterwave.py. Re-exported here
+# because this module is the historical home and its tests import these names
+# from here; keeping the aliases means moving the implementation did not break
+# callers or the suite.
+from app.services.credential_delivery import (  # noqa: E402
+    PLACEHOLDER_EMAIL_DOMAINS,
+    is_placeholder_email as _is_placeholder_email,
+    resolve_customer_email,
+)
 
 
 def get_redis_conn():
@@ -91,12 +102,27 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             # Quantity from order (not hardcoded)
             quantity = order.quantity or 1
 
-            amount = data_payload.get("amount", 0)
+            # Refund amount for the auto-refund path below.
+            #
+            # This used to be `data_payload.get("amount", 0)` — a TOP-LEVEL key.
+            # No gateway puts the amount there: Flutterwave sends it at
+            # `data.amount` and Paystack at `data.amount` (in kobo), so this
+            # read always yielded 0 and the auto-refund was issued for NGN 0 —
+            # a failed fulfillment marked "refunded" with no money moved and the
+            # customer told nothing. The order row is authoritative and is
+            # already the source used for the support-ticket notification below,
+            # so use it here too.
+            amount = float(order.amount_paid_ngn or 0)
 
             # ── Fulfill ──────────────────────────────────────────────────
             fulfillment_error = None
             credential = None
             plaintext_password = None
+            # Which channel actually emitted the credential, or None. Declared
+            # out here so the audit event and the job's return value can always
+            # answer "did this customer get their proxy?" without reading logs.
+            delivered_via: str | None = None
+            delivery_error: str | None = None
 
             try:
                 # Create the correct number of credentials
@@ -122,10 +148,112 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 order.status = "fulfilled"
                 await db.commit()
 
-                # ── Deliver credentials via n8n webhook ───────────────────
-                n8n_success = False
+                # ── Deliver the credential ─────────────────────────────────
+                # Email is the delivery channel. The n8n webhook is a
+                # NOTIFICATION, never a gate on delivery.
+                #
+                # This used to be `if not n8n_success: send email`, which made
+                # email conditional on a channel that cannot deliver. The live
+                # workflow `Sy0H7iuGMaDg1Af5` is Webhook → Parse Payload → Call
+                # Charon and has no send node; Charon returns an escalation
+                # string with HTTP 200 when Longcat is out of credit (402). So
+                # the n8n execution was recorded `success`, `n8n_success` was
+                # True, and the email branch was unreachable — the one path
+                # that could actually deliver a credential was suppressed by a
+                # failure that looked healthy. Verified live 2026-10-01: n8n
+                # executions 166/167/168 all `success`, `lastNodeExecuted:
+                # "Call Charon"`, customer credentials POSTed to a Charon with
+                # `charon_available: false` and `charon_routing.fallback: none`.
+                #
+                # Design rule this encodes: credential delivery must never
+                # depend on an LLM being funded, or on an automation platform
+                # being up. Delivery is unconditional; notification is best
+                # effort and is reported, never obeyed.
+                customer_email, email_source = resolve_customer_email(order, data_payload)
+
+                if customer_email:
+                    try:
+                        from app.services.email import send_order_active_email
+
+                        email_result = await send_order_active_email(
+                            customer_email=customer_email,
+                            customer_name=customer_email.split("@")[0],
+                            order_id=order.order_id,
+                            tx_ref=tx_ref,
+                            plan_code=order.plan_code or "unknown",
+                            amount=order.amount_paid_ngn or 0,
+                            currency="NGN",
+                            quantity=quantity,
+                            styxproxy_username=credential.styxproxy_username,
+                            styxproxy_password=plaintext_password,
+                            proxy_ip=credential.upstream_proxy_ip or "",
+                            proxy_port=credential.upstream_proxy_port or 1080,
+                            protocol="socks5",
+                            expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                            receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
+                        )
+                        # send_order_active_email returns EmailResult and does NOT
+                        # raise on provider failure, so the old code logged
+                        # "fallback email sent" even when Resend rejected the send.
+                        # Inspect the result instead of assuming success.
+                        if email_result.success:
+                            delivered_via = "email"
+                            logger.info(
+                                "credential delivered by email",
+                                extra={
+                                    **log_ctx,
+                                    "email": customer_email,
+                                    "email_source": email_source,
+                                    "message_id": email_result.message_id,
+                                },
+                            )
+                        else:
+                            delivery_error = email_result.error or email_result.status
+                            logger.error(
+                                "credential email REJECTED by provider — NOT delivered",
+                                extra={
+                                    **log_ctx,
+                                    "email": customer_email,
+                                    "email_source": email_source,
+                                    "status": email_result.status,
+                                    "error": email_result.error,
+                                },
+                            )
+                    except Exception as email_err:
+                        delivery_error = str(email_err)
+                        logger.error(
+                            "credential email raised — NOT delivered",
+                            extra={
+                                **log_ctx,
+                                "email": customer_email,
+                                "email_source": email_source,
+                                "error": str(email_err),
+                            },
+                        )
+                else:
+                    # Previously a silent skip. The order is fulfilled with
+                    # credentials minted, but nobody was ever reached and no log
+                    # line said so.
+                    delivery_error = "no_deliverable_email"
+                    logger.error(
+                        "NO DELIVERABLE EMAIL — order fulfilled and credentials "
+                        "minted, but the customer cannot be reached. "
+                        "Credentials must be delivered manually.",
+                        extra={
+                            **log_ctx,
+                            "email_source": email_source,
+                            "order_row_email": getattr(order, "customer_email", None),
+                        },
+                    )
+
+                # ── Notify n8n (best effort, never a gate) ─────────────────
+                # Fires AFTER delivery and its result is recorded, never obeyed.
+                # Previously this ran first and its return value decided whether
+                # email happened at all. Ordering it after delivery means a slow
+                # or hung n8n cannot delay the credential reaching the customer,
+                # and a Charon 402 cannot suppress it.
                 try:
-                    await trigger_credentials_delivered_webhook(
+                    n8n_ok = await trigger_credentials_delivered_webhook(
                         order_id=order.order_id,
                         tx_ref=tx_ref,
                         phone=order.customer_phone or "",
@@ -137,47 +265,46 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                         expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                         receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
                     )
-                    n8n_success = True
-                    logger.info("n8n webhook delivered", extra=log_ctx)
+                    if n8n_ok:
+                        logger.info("n8n notified", extra=log_ctx)
+                    else:
+                        # Loud on purpose. A silently-failing notification is how
+                        # this defect hid in the first place: n8n reported success
+                        # while delivering nothing at all.
+                        logger.warning(
+                            "n8n notification failed — delivery is unaffected "
+                            "(this workflow has no send node)",
+                            extra=log_ctx,
+                        )
                 except Exception as n8n_err:
-                    logger.error(
-                        "n8n webhook failed — falling back to direct email",
+                    logger.warning(
+                        "n8n notification raised — delivery is unaffected",
                         extra={**log_ctx, "error": str(n8n_err)},
                     )
 
-                # ── Fallback: direct email if n8n failed ──────────────────
-                if not n8n_success:
-                    customer_email = data_payload.get("data", {}).get("customer", {}).get("email")
-                    if customer_email:
-                        try:
-                            from app.services.email import send_order_active_email
-                            await send_order_active_email(
-                                customer_email=customer_email,
-                                customer_name=customer_email.split("@")[0],
-                                order_id=order.order_id,
-                                tx_ref=tx_ref,
-                                plan_code=order.plan_code or "unknown",
-                                amount=order.amount_paid_ngn or 0,
-                                currency="NGN",
-                                quantity=quantity,
-                                styxproxy_username=credential.styxproxy_username,
-                                styxproxy_password=plaintext_password,
-                                proxy_ip=credential.upstream_proxy_ip or "",
-                                proxy_port=credential.upstream_proxy_port or 1080,
-                                protocol="socks5",
-                                expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
-                                receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
-                            )
-                            logger.info("fallback email sent", extra={**log_ctx, "email": customer_email})
-                        except Exception as email_err:
-                            logger.error(
-                                "fallback email also failed",
-                                extra={**log_ctx, "error": str(email_err)},
-                            )
+                if delivered_via is None:
+                    # The order is 'fulfilled' in the DB but nothing reached the
+                    # customer. Carried in the return value and the audit event so
+                    # it is queryable, not only visible in a log.
+                    logger.error(
+                        "FULFILLED BUT NOT DELIVERED — manual delivery required",
+                        extra={
+                            **log_ctx,
+                            "delivery_error": delivery_error,
+                            "email_source": email_source,
+                        },
+                    )
 
                 logger.info(
                     "fulfillment completed",
-                    extra={**log_ctx, "credential_id": credential.id, "proxy_type": proxy_type, "quantity": quantity},
+                    extra={
+                        **log_ctx,
+                        "credential_id": credential.id,
+                        "proxy_type": proxy_type,
+                        "quantity": quantity,
+                        "delivered_via": delivered_via,
+                        "delivery_error": delivery_error,
+                    },
                 )
 
             except RuntimeError as e:
@@ -191,22 +318,39 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 )
 
                 settings = get_settings()
-                try:
-                    await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
-                    order.status = "refunded"
-                    order.refund_requested = True
-                    order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
-                    await db.commit()
-                    logger.info("auto-refund issued", extra=log_ctx)
-                except Exception as refund_error:
+                if not amount:
+                    # Never issue a NGN 0 refund and then mark the order
+                    # "refunded" — that reports money returned when none moved.
+                    # Leave the order failed_unfulfilled with the reason
+                    # recorded so a human can refund it properly.
                     logger.error(
-                        "refund failed — order stays failed_unfulfilled",
-                        extra={**log_ctx, "refund_error": str(refund_error)},
+                        "auto-refund skipped: order has no recorded amount",
+                        extra={**log_ctx, "order_id": order_id, "error": fulfillment_error},
                     )
+                    order.refund_reason = (
+                        f"Auto-refund blocked: no recorded amount on order ({fulfillment_error})"
+                    )
+                    await db.commit()
+                else:
+                    try:
+                        await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
+                        order.status = "refunded"
+                        order.refund_requested = True
+                        order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
+                        await db.commit()
+                        logger.info("auto-refund issued", extra={**log_ctx, "amount": amount})
+                    except Exception as refund_error:
+                        logger.error(
+                            "refund failed — order stays failed_unfulfilled",
+                            extra={**log_ctx, "refund_error": str(refund_error)},
+                        )
 
                 # Create support ticket
                 try:
-                    customer_email = data_payload.get("data", {}).get("customer", {}).get("email", "")
+                    # Was reading data_payload["data"]["customer"]["email"] and
+                    # binding it to customer_email, which this call never uses —
+                    # dead code carrying the same wrong assumption as the delivery
+                    # path above.
                     from app.services.email import send_refund_request_notification
                     await send_refund_request_notification(
                         order_id=order_id,
@@ -245,6 +389,10 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                         "credential_id": credential.id if credential else None,
                         "proxy_type": proxy_type,
                         "quantity": quantity,
+                        # The delivery channel, so "fulfilled" is distinguishable
+                        # from "delivered" in the audit trail.
+                        "delivered_via": delivered_via,
+                        "delivery_error": delivery_error,
                     },
                 )
             except Exception as e:
@@ -254,6 +402,12 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 "status": order.status,
                 "order_id": order_id,
                 "fulfillment_error": fulfillment_error,
+                # status == "fulfilled" does NOT mean delivered. These two fields
+                # are the difference, and they are what QA should assert on
+                # (never orders.emails_sent — that is a renewal-reminder counter
+                # written only by renewal.py, not a delivery record).
+                "delivered_via": delivered_via,
+                "delivery_error": delivery_error,
             }
 
         except Exception:
