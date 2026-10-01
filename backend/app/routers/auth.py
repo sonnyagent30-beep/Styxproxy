@@ -24,13 +24,15 @@ from app.config import get_settings
 from app.database import get_session
 from app.limiter import limiter
 from app.models import AdminAuth, AdminInvite, AdminTotpSession, FeatureFlag
+from app.routers.schemas import (
+    AdminIPAllowlistResponse,
+    AdminIPAllowlistUpdateRequest,
+)
 from app.schemas import (
     AdminChangePasswordRequest,
     AdminChangePasswordResponse,
     AdminChangeTOTPRequest,
     AdminChangeTOTPResponse,
-    AdminIPAllowlistUpdateRequest,
-    AdminIPAllowlistResponse,
     AdminInviteCreateRequest,
     AdminInviteCreateResponse,
     AdminInviteResponse,
