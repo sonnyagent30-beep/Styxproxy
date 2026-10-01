@@ -367,27 +367,45 @@ def test_relay_unit_declares_the_encryption_key():
 
     The unit was previously absent from the repo entirely, so a re-deploy could
     silently drop the key and reject every encrypted credential again.
+
+    The key must come from a KEY-ONLY file (/opt/styxproxy-relay/relay.env),
+    NOT from /opt/styxproxy/.env. Two independent reasons, both paid for in
+    production:
+      * systemd applies EnvironmentFile= AFTER Environment= regardless of
+        line order, so .env's postgresql+asyncpg:// DATABASE_URL would
+        override the unit's plain postgresql:// URL — which asyncpg cannot
+        parse, and the relay exits 1 in a Restart=always crash loop.
+      * .env holds every app secret; the relay needs exactly one of them.
+
+    This assertion deliberately matches only real directive lines: the unit's
+    comments legitimately MENTION the forbidden path to explain why it is
+    forbidden, and a substring match over the whole file cannot tell a
+    directive from a comment.
     """
     unit = REPO_ROOT / "backend" / "relay" / "styxproxy-relay-paid.service"
     assert unit.exists(), "relay systemd unit missing from the repo"
-    text = unit.read_text()
-    assert "EnvironmentFile=/opt/styxproxy/.env" in text
-    assert "/opt/styxproxy-relay/relay_paid.py" in text
+    directives = [
+        ln.strip()
+        for ln in unit.read_text().splitlines()
+        if ln.strip().startswith("EnvironmentFile=")
+    ]
+    assert directives, (
+        "relay unit sets no EnvironmentFile=, so CRED_ENCRYPTION_KEY is never "
+        "supplied and every Fernet-encrypted credential is rejected."
+    )
+    assert "EnvironmentFile=/opt/styxproxy-relay/relay.env" in directives, (
+        f"relay unit must load the key-only env file "
+        f"/opt/styxproxy-relay/relay.env; got {directives!r}"
+    )
+    assert "EnvironmentFile=/opt/styxproxy/.env" not in directives, (
+        "relay unit must NOT load /opt/styxproxy/.env: systemd applies "
+        "EnvironmentFile= after Environment=, so its postgresql+asyncpg:// "
+        "DATABASE_URL overrides the unit's own DSN, asyncpg cannot parse it, "
+        "and the relay crash-loops."
+    )
+    assert "/opt/styxproxy-relay/relay_paid.py" in unit.read_text()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "LIVE PRODUCTION DEFECT, unresolved — this is the reason the paid relay "
-        "authenticates nobody. The unit connects as role `styxproxy` while "
-        "styxproxy_credentials has FORCEd RLS granted only to `styxproxy_app`, "
-        "so refresh() caches 0 users and every credential is rejected. Tracked "
-        "on kanban t_1c4a4582; needs a reviewed decision between granting "
-        "`styxproxy` a SELECT policy and repointing the unit at `styxproxy_app`. "
-        "strict=True so this XPASSes the moment the role is corrected and the "
-        "xfail marker has to be removed."
-    ),
-)
 def test_relay_unit_dsn_role_must_see_credentials():
     """Guard: the relay's DB role must actually see credential rows.
 
@@ -406,10 +424,12 @@ def test_relay_unit_dsn_role_must_see_credentials():
     ran as `styxproxy` and saw 0.
 
     This test is static by design (it cannot open a production DB from CI). It
-    pins the two facts that made the failure possible, so that changing either
-    role or the unit's DSN is a deliberate act:
-      1. the RLS on the credentials table is FORCEd, and
-      2. the relay unit does not name the policy-owning role in its DSN.
+    accepts EITHER deliberate resolution and fails when NEITHER is present:
+      * the unit names the policy-owning role in its DSN, or
+      * a migration grants the unit's own role a SELECT policy on
+        styxproxy_credentials (what production does — migration 026).
+    Removing the migration or repointing the DSN therefore fails here, which is
+    the point: that change is no longer a silent production outage.
     """
     unit = (REPO_ROOT / "backend" / "relay" / "styxproxy-relay-paid.service").read_text()
     m = re.search(r'Environment="DATABASE_URL=([^"]+)"', unit)
@@ -420,18 +440,68 @@ def test_relay_unit_dsn_role_must_see_credentials():
     userinfo = dsn.split("://", 1)[1].split("@", 1)[0]
     role = userinfo.split(":", 1)[0]
 
-    # The role that owns the RLS policy, per backend/db/migrations.
+    # The role the app's own policy is granted to, per backend/db/migrations.
     policy_owner = "styxproxy_app"
 
-    if role != policy_owner:
-        # Not automatically wrong — but it MUST be a deliberate, reviewed choice,
-        # so the mismatch is stated loudly rather than discovered in production.
-        pytest.fail(
-            f"The relay unit connects as DB role {role!r}, but "
-            f"styxproxy_credentials has FORCEd RLS whose only policy "
-            f"(creds_app_all) is granted to {policy_owner!r}. A relay running as "
-            f"{role!r} sees ZERO credential rows: refresh() caches no users and "
-            f"every customer is rejected with no error logged. Either grant "
-            f"{role!r} a SELECT policy on styxproxy_credentials, or point the "
-            f"unit at {policy_owner!r} — and say which, in the unit's comments."
-        )
+    if role == policy_owner:
+        # Route (b): the unit points at the policy-owning role. Fine.
+        return
+
+    # Route (a): the unit keeps its own narrower role, and that role is granted
+    # its own SELECT policy on the credentials table. This is what production
+    # actually runs (migration 026) — least privilege, and it keeps the app
+    # role's password out of a unit file.
+    #
+    # Match the whole CREATE POLICY statement so the command and the role are
+    # read from the SAME policy. Matching them independently would let a
+    # `FOR UPDATE ... TO styxproxy` policy satisfy a naive "does any policy
+    # grant this role" test while still leaving refresh() blind.
+    migrations = REPO_ROOT / "backend" / "db" / "migrations"
+    policy_re = re.compile(
+        r"CREATE\s+POLICY\s+(?P<name>\S+)\s+ON\s+styxproxy_credentials\b"
+        r"(?P<opts>[^;]*);",
+        re.IGNORECASE | re.DOTALL,
+    )
+    granting = []
+    for path in sorted(migrations.glob("*.sql")):
+        if not path.is_file():
+            continue
+        for stmt in policy_re.finditer(path.read_text()):
+            opts = stmt.group("opts")
+            to_m = re.search(
+                r"\bTO\s+(?P<roles>[A-Za-z_][\w$]*(?:\s*,\s*[A-Za-z_][\w$]*)*)",
+                opts,
+                re.IGNORECASE,
+            )
+            if not to_m:
+                continue
+            roles = {r.strip().strip('"') for r in to_m.group("roles").split(",")}
+            if role in roles:
+                granting.append((path, stmt.group("name"), opts))
+
+    if granting:
+        # The policy must actually permit SELECT. `FOR SELECT` does; a bare
+        # policy with no FOR (i.e. FOR ALL) does too. `FOR UPDATE` alone does
+        # NOT — the relay reads credentials in refresh(), so without SELECT it
+        # caches 0 users and rejects every customer with no error logged.
+        for path, name, opts in granting:
+            for_m = re.search(r"\bFOR\s+(?P<cmd>\w+)", opts, re.IGNORECASE)
+            cmd = (for_m.group("cmd").upper() if for_m else "ALL")
+            assert cmd in ("SELECT", "ALL"), (
+                f"{path.name} policy {name!r} grants {role!r} FOR {cmd} on "
+                f"styxproxy_credentials, which does not permit SELECT. The relay "
+                f"reads credentials in refresh(); without SELECT it caches 0 users "
+                f"and rejects every customer, with no error anywhere."
+            )
+        return
+
+    pytest.fail(
+        f"The relay unit connects as DB role {role!r}, but no policy in "
+        f"backend/db/migrations grants that role SELECT on styxproxy_credentials, "
+        f"and it is not the policy-owning role {policy_owner!r}. "
+        f"styxproxy_credentials has FORCEd RLS, so a role with grants but no "
+        f"matching policy sees ZERO rows with NO error: refresh() caches no users "
+        f"and every customer is rejected. Either add a SELECT policy for {role!r} "
+        f"(migration 026, the route production uses) or point the unit at "
+        f"{policy_owner!r}."
+    )
