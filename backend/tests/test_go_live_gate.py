@@ -105,6 +105,42 @@ def test_flutterwave_secret_empty_is_failure_not_unknown():
         p.unlink(missing_ok=True)
 
 
+def test_env_is_read_from_disk_even_when_gating_on_a_git_ref(tmp_path: Path):
+    """--env must NOT be read through `git show`.
+
+    The deployed env lives outside the repo. When the gate routes it through
+    `git show <ref>:<path>` (the --git-ref default is origin/main), relative_to()
+    raises ValueError and the check degrades to UNKNOWN -- so item 5 could never
+    pass, no matter what Secret Hash was installed. That hides a real defect
+    behind a plausible-looking UNKNOWN.
+
+    Regression: the direct-call tests above all ran with _GIT_REF=None, so they
+    never exercised this path. This one drives the real CLI.
+    """
+    env = tmp_path / "deployed.env"
+    env.write_text("FLUTTERWAVE_WEBHOOK_SECRET=" + "a" * 32 + "\n")
+    r = _run("--json", "--env", str(env))
+    payload = json.loads(r.stdout)
+    by_item = {c["item"]: c for c in payload["checks"]}
+    # Readable => decided. It must PASS on a valid 32-hex hash, not be UNKNOWN.
+    assert by_item["5"]["status"] == "pass", by_item["5"]["detail"]
+    # The precondition must be decidable too, for the same reason.
+    assert by_item["0"]["status"] == "pass", by_item["0"]["detail"]
+
+
+def test_env_bad_secret_still_fails_through_the_cli(tmp_path: Path):
+    """Negative control for the above: a bad secret must still FAIL, not UNKNOWN.
+
+    Guards against 'fixing' the read path by making the check permissive.
+    """
+    env = tmp_path / "deployed.env"
+    env.write_text("FLUTTERWAVE_WEBHOOK_SECRET=Danifab@6158\n")
+    payload = json.loads(_run("--json", "--env", str(env)).stdout)
+    by_item = {c["item"]: c for c in payload["checks"]}
+    assert by_item["5"]["status"] == "fail"
+    assert "32 hex" in by_item["5"]["detail"]
+
+
 # ── Item 0: live-key detection ─────────────────────────────────────────────────
 
 def test_live_key_detection():

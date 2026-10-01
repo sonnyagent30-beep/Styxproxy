@@ -97,6 +97,26 @@ def _read(path: Path) -> str | None:
         return None
 
 
+def _read_env(path: str) -> str | None:
+    """Read an --env file from the FILESYSTEM, never from git.
+
+    The deployed env (/opt/styxproxy/.env) lives outside the repo, so routing
+    it through `git show <ref>:<path>` raises ValueError on relative_to() and
+    returns None. That made checks 0 and 5 report "env file unreadable" no
+    matter what the secret contained -- so the documented invocation
+    (`--env /opt/styxproxy/.env`, with --git-ref defaulting to origin/main)
+    could NEVER satisfy item 5, even after the correct Secret Hash was
+    installed. The gate was fail-closed for the wrong reason: it was checking
+    git, not the deployed secret.
+
+    Code checks still read from _GIT_REF; only the env is read from disk.
+    """
+    try:
+        return Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+
 def _tree_ok(*parts: str) -> bool:
     if _GIT_REF is None:
         return all((BACKEND / p).exists() for p in parts)
@@ -252,9 +272,9 @@ def check_flutterwave_webhook_secret(env_path: str | None) -> Check:
     p = Path(env_path)
     if not p.exists():
         return Check("5", title, None, f"env file not found: {p}")
-    src = _read(p)
+    src = _read_env(env_path)
     if src is None:
-        return Check("5", title, None, f"env file unreadable: {p}")
+        return Check("5", title, None, f"env file unreadable: {env_path}")
     m = re.search(r"^FLUTTERWAVE_WEBHOOK_SECRET=(.*)$", src, re.M)
     if not m:
         return Check("5", title, None, "FLUTTERWAVE_WEBHOOK_SECRET not present in env file")
@@ -274,7 +294,7 @@ def check_no_live_keys(env_path: str | None) -> Check:
     title = "No live gateway key is installed (gate precondition)"
     if not env_path:
         return Check("0", title, None, "no --env supplied: cannot confirm key mode")
-    src = _read(Path(env_path))
+    src = _read_env(env_path)
     if src is None:
         return Check("0", title, None, f"env file unreadable: {env_path}")
     live = []
