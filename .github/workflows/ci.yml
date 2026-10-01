@@ -82,6 +82,15 @@ jobs:
           cd backend
           alembic upgrade head
 
+      - name: Schema gate — ORM vs database
+        # Deliberately NOT continue-on-error. This is the check whose absence
+        # let a deploy ship six `orders` columns production did not have while
+        # /health returned 200 (that endpoint only runs SELECT 1). It runs
+        # real full-model queries, so it must be blocking.
+        run: |
+          cd backend
+          python3 scripts/schema_gate.py
+
       - name: Run tests
         # TODO: migration 001 has FK ordering bug. Allow failure here so
         # the rest of the workflow can run.

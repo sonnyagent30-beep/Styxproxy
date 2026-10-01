@@ -77,6 +77,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await conn.run_sync(Base.metadata.create_all)
 
     # Ensure all orders columns exist (idempotent, for migrations that may have failed)
+    startup_ddl_ok = False
     try:
         from sqlalchemy import text
         async with engine.begin() as conn:
@@ -134,8 +135,66 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     text(f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
                 )
             logger.info("Orders table columns verified/updated")
+            startup_ddl_ok = True
     except Exception as e:
-        logger.warning(f"Orders column migration skipped: {e}")
+        # Do NOT swallow this. On 2026-10-01 this except logged a *warning*
+        # for every single boot while the underlying ALTER had never once
+        # succeeded: the app connects as `styxproxy_app`, which does not own
+        # `orders`, so Postgres rejected the very first statement with
+        # "InsufficientPrivilegeError: must be owner of table orders". A
+        # warning is indistinguishable from the success log line in an
+        # aggregated log, so the failure was invisible for as long as the
+        # table had been owned by another role.
+        #
+        # We deliberately do NOT raise here: the app is live and serving, and
+        # crashing on boot turns a partial breakage into a total outage (and
+        # systemd has Restart=always, so it would loop). Instead we log at
+        # ERROR, record the failure on app.state, verify the real schema, and
+        # surface it through /api/v1/health — where a deploy gate can see it.
+        startup_ddl_ok = False
+        logger.error(
+            "Orders column DDL FAILED — the app role cannot ALTER this table",
+            error=str(e),
+            role_hint=(
+                "The app connects as a non-owner role. Schema changes are a "
+                "migration responsibility; see docs/PRODUCTION_MIGRATIONS.md"
+            ),
+        )
+
+    # Verify the ORM against the live database with real queries.
+    #
+    # This is the check whose absence caused the 2026-10-01 incident: six
+    # `orders` columns shipped in models.py without reaching production, and
+    # every orders query raised UndefinedColumnError while /api/v1/health
+    # returned 200 (it only runs SELECT 1). Information-schema diffing plus a
+    # full-model SELECT per mapper is what actually proves agreement.
+    from app.schema_guard import check_schema
+
+    async with engine.connect() as conn:
+        schema_drift = await check_schema(conn)
+
+    app.state.schema_drift = schema_drift
+    if schema_drift.ok:
+        logger.info(
+            "Schema verified against live database",
+            models_checked=schema_drift.models_checked,
+            startup_ddl_applied=startup_ddl_ok,
+        )
+    else:
+        logger.error(
+            "SCHEMA DRIFT: the ORM declares columns the database does not have. "
+            "Requests touching these tables will fail with UndefinedColumnError. "
+            "This is NOT a health-check condition that SELECT 1 can detect.",
+            detail=schema_drift.summary(),
+            missing_columns=schema_drift.missing_columns[:50],
+            missing_tables=schema_drift.missing_tables[:50],
+            broken_models=schema_drift.broken_models[:50],
+            remediation=(
+                "Apply the pending migration as the table owner "
+                "(see docs/PRODUCTION_MIGRATIONS.md). backend/scripts/schema_gate.py "
+                "verifies this and exits non-zero."
+            ),
+        )
 
     # Seed initial trigger weights if they don't exist
     from sqlalchemy import text

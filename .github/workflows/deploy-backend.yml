@@ -228,10 +228,27 @@ jobs:
 
             echo "=== Step 5: Run migrations as postgres ==="
             cd /opt/styxproxy/backend
-            # Run alembic (best-effort)
+            # Run alembic (best-effort — but LOUD about failure).
+            #
+            # This used to be `set +e` + `alembic upgrade heads 2>&1 | tail -20`,
+            # which discarded both the exit code and the error text, so alembic
+            # has been failing silently on every deploy since 2026-08-27.
+            # `set -o pipefail` restores the exit code; `|| true` keeps the
+            # deploy from hard-failing (production's schema is create_all-
+            # managed and alembic is known to fail there — see
+            # docs/PRODUCTION_MIGRATIONS.md) while the Deploy gate below is
+            # what actually enforces schema correctness.
             set +e
+            set -o pipefail
             /opt/styxproxy/backend/venv/bin/alembic upgrade heads 2>&1 | tail -20
+            ALEMBIC_RC=$?
+            set +o pipefail
             set -e
+            if [ $ALEMBIC_RC -ne 0 ]; then
+              echo "::warning::alembic upgrade heads exited $ALEMBIC_RC. Production schema is"
+              echo "::warning::create_all-managed and alembic is known to fail here. Verify"
+              echo "::warning::with scripts/schema_gate.py in the Deploy gate step."
+            fi
             
             # Add any missing columns that alembic might not handle
             sudo -u postgres psql -d styxproxy -c "
@@ -249,6 +266,33 @@ jobs:
         run: |
           echo "Waiting 30s for boot..."
           sleep 30
+
+      - name: Deploy gate — real ORM query against the live DB
+        run: |
+          # WHY THIS EXISTS, and why the HTTP health check below is not enough:
+          # on 2026-10-01 a deploy shipped six `orders` columns that production
+          # did not have. Every orders query raised UndefinedColumnError while
+          # /api/v1/health returned 200 for the entire duration, because that
+          # endpoint only runs `SELECT 1`. A curl of /health is not a deploy
+          # gate.
+          #
+          # OPS_JWT_SECRET lives in the systemd unit's Environment= line, NOT
+          # in .env, so Settings validation fails without this eval.
+          eval "$(grep -E '^Environment="' /etc/systemd/system/styxproxy-api.service \
+            | sed -E 's/^Environment="(.*)"$/export \1/')"
+          cd /opt/styxproxy/backend
+          set +e
+          ./venv/bin/python scripts/schema_gate.py
+          GATE=$?
+          set -e
+          if [ $GATE -ne 0 ]; then
+            echo "::error::DEPLOY GATE FAILED — the ORM declares columns the database"
+            echo "::error::does not have. Requests touching those tables will fail with"
+            echo "::error::UndefinedColumnError even though /health returns 200."
+            echo "::error::See docs/PRODUCTION_MIGRATIONS.md"
+            exit 1
+          fi
+          echo "Deploy gate passed: ORM and live database agree."
 
       - name: Health check — fail-fast
         run: |

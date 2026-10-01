@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -171,7 +171,7 @@ async def health_check(session: AsyncSession = Depends(get_session)):
 
 
 @router.get("/api/v1/health")
-async def deep_health(session: AsyncSession = Depends(get_session)):
+async def deep_health(request: Request, session: AsyncSession = Depends(get_session)):
     """Deep health check — DB + Redis + LiteLLM + Ollama + M2 cloud.
 
     Use this for the admin status panel and the ChatWidget fallback
@@ -208,6 +208,39 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
     else:
         overall = "healthy"
 
+    # Schema drift is a first-class health signal.
+    #
+    # On 2026-10-01 this endpoint returned 200 for the entire duration of a
+    # real outage: models.py declared six `orders` columns production did not
+    # have, every orders query raised UndefinedColumnError, and this endpoint
+    # only ever ran `SELECT 1`. A 200 from here is therefore NOT evidence
+    # that a deploy is sound — which is why backend/scripts/schema_gate.py
+    # exists and runs real ORM queries.
+    #
+    # `schema_drift.ok` is False when the check could not run at all
+    # (fail-closed), so an unreachable database cannot present as healthy.
+    schema_drift = getattr(request.app.state, "schema_drift", None)
+    if schema_drift is None:
+        # Startup verification has not run (or the app.state was lost).
+        # Treat as unknown-and-therefore-not-ok rather than assuming fine.
+        schema_block = {
+            "ok": False,
+            "status": "unknown",
+            "detail": "schema verification has not run",
+        }
+        overall = "degraded" if overall == "healthy" else overall
+    else:
+        schema_block = {
+            "ok": schema_drift.ok,
+            "status": "ok" if schema_drift.ok else "drift",
+            "detail": schema_drift.summary(),
+            "missing_tables": schema_drift.missing_tables,
+            "missing_columns": schema_drift.missing_columns,
+            "models_checked": schema_drift.models_checked,
+        }
+        if not schema_drift.ok:
+            overall = "unhealthy"
+
     return {
         "status": overall,
         "version": "1.0.0",
@@ -225,6 +258,9 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
         # Hint for the frontend: when Charon is impaired, show a fallback
         # UI instead of a broken spinner. True means Charon can answer.
         "charon_available": charon_available,
+        # ORM vs live-database agreement. A 200 response does NOT imply
+        # schema integrity — check this before trusting a deploy.
+        "schema": schema_block,
         # Theme C (Jul 28): DB connection pool stats so the admin panel
         # can alert at 80% utilization. Read from the SQLAlchemy engine's
         # pool — synchronous getters, safe to call from async.
