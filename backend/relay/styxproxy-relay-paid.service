@@ -1,0 +1,27 @@
+[Unit]
+Description=Styxproxy Paid Proxy Relay (Postgres-backed SOCKS5 + HTTP)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+Environment="PYTHONUNBUFFERED=1"
+Environment="DATABASE_URL=postgresql://styxproxy:changeme@127.0.0.1:5432/styxproxy"
+Environment="LISTEN_HOST=0.0.0.0"
+Environment="LISTEN_PORT_SOCKS=11080"
+Environment="LISTEN_PORT_HTTP=18080"
+Environment="LOG_LEVEL=INFO"
+# Required: the relay decrypts styxproxy_password (Fernet) before comparing it
+# to the customer's typed password. Without this key every encrypted credential
+# is rejected at auth. The relay also falls back to parsing this file itself.
+EnvironmentFile=/opt/styxproxy/.env
+ExecStart=/opt/styxproxy/backend/venv/bin/python3 -u /opt/styxproxy-relay/relay_paid.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/styxproxy-relay-paid.log
+StandardError=append:/var/log/styxproxy-relay-paid.err.log
+
+[Install]
+WantedBy=multi-user.target

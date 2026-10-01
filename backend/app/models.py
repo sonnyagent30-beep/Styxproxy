@@ -270,13 +270,18 @@ class StyxproxyCredential(Base):
     def get_password(self) -> Optional[str]:
         """Decrypt and return the plaintext proxy password.
 
-        Returns None if the password is not set, encryption is not configured,
-        or decryption fails (wrong key / tampered ciphertext).
+        Tolerates legacy rows that hold raw UTF-8 plaintext (written before the
+        column was encrypted, or by a writer that bypassed set_password), so
+        those customers are not locked out.
+
+        Returns None if the password is not set, or if it is ciphertext that
+        cannot be decrypted (missing/mismatched CRED_ENCRYPTION_KEY, or a
+        tampered value).
         """
         # Imported lazily to avoid a circular import at module load time.
-        from app.services.crypto import decrypt_credential
+        from app.services.crypto import decrypt_credential_compat
 
-        return decrypt_credential(self.styxproxy_password)
+        return decrypt_credential_compat(self.styxproxy_password)
 
     def set_password(self, plaintext: str) -> None:
         """Encrypt and store the proxy password.

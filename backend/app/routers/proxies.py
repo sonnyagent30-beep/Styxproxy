@@ -131,14 +131,10 @@ async def get_proxy_details(
     if not cred:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proxy not found")
 
-    # Decode password from bytea
-    password = ""
-    if cred.styxproxy_password:
-        password = (
-            cred.styxproxy_password.decode("utf-8", errors="replace")
-            if isinstance(cred.styxproxy_password, bytes)
-            else str(cred.styxproxy_password)
-        )  # noqa: E501
+    # Decrypt via the model accessor — it handles both Fernet ciphertext and
+    # legacy raw-plaintext rows. Decoding the column directly would return a
+    # 120-char "gAAAA..." blob to the customer as their password.
+    password = cred.get_password() or ""
 
     return ProxyFullDetails(
         id=cred.id,

@@ -144,14 +144,10 @@ async def get_order_payment_status(
         )
         cred = cred_result.scalar_one_or_none()
         if cred:
-            # Decode password (bytea)
-            plaintext_pw = ""
-            if cred.styxproxy_password:
-                plaintext_pw = (
-                    cred.styxproxy_password.decode("utf-8", errors="replace")
-                    if isinstance(cred.styxproxy_password, bytes)
-                    else str(cred.styxproxy_password)
-                )
+            # Decrypt via the model accessor — it handles both Fernet ciphertext
+            # and legacy raw-plaintext rows. Decoding the column directly would
+            # hand the customer a 120-char "gAAAA..." blob as their password.
+            plaintext_pw = cred.get_password() or ""
 
             credential_payload = PaymentStatusCredential(
                 credential_id=cred.id,

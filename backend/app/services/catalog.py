@@ -510,7 +510,8 @@ async def create_order_with_credential(
     # Create styxproxy_credential
     credential = StyxproxyCredential(
         styxproxy_username=our_username,
-        styxproxy_password=our_password.encode("utf-8"),
+        # Encrypted by set_password() below — do NOT pass styxproxy_password
+        # plaintext here or the credential is written unencrypted.
         customer_phone=customer_phone,
         order_id=order_id,
         pool_type=plan_type,
@@ -534,6 +535,9 @@ async def create_order_with_credential(
         location_changes_reset_at=datetime.now(timezone.utc).date(),
         rotation_mode_changes_reset_at=datetime.now(timezone.utc).date(),
     )
+    # Encrypt before persistence. set_password() refuses to write plaintext when
+    # CRED_ENCRYPTION_KEY is missing, which is the point of the encrypted column.
+    credential.set_password(our_password)
     session.add(credential)
     await session.flush()
 
