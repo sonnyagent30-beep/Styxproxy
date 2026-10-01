@@ -147,17 +147,42 @@ def resolve_origin(request: Request) -> dict[str, Any]:
       ``origin_scope`` coarse bucket, see _classify
       ``origin_seen``  True when an address was found at all
 
-    Honours ``X-Forwarded-For`` because every gateway call arrives through
-    nginx, which sets ``client`` to 127.0.0.1 and would make all traffic look
+    Honours the proxy headers because every gateway call arrives through nginx,
+    which sets ``client`` to 127.0.0.1 and would make all traffic look
     self-originated — destroying the very distinction this exists to provide.
 
-    TRUST NOTE: ``X-Forwarded-For`` is client-settable. That is acceptable here
-    and only here, because this function never makes an authorisation decision:
-    it only classifies for observability. Spoofing the header can make a
-    gateway call *look* self-originated, so a missing live event should still be
-    read alongside the nginx access log (which is not spoofable) before a
-    secret rotation is declared broken. ``origin_via`` records which source
-    supplied the address so a reader can tell the two apart.
+    PRECEDENCE (``X-Real-IP`` before ``X-Forwarded-For``)
+    ----------------------------------------------------
+    nginx sets BOTH on this vhost, and they are not equally trustworthy
+    (styxproxy.conf:44-45):
+
+        proxy_set_header X-Real-IP       $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    ``$remote_addr`` is the socket peer and is NOT client-settable.
+    ``$proxy_add_x_forwarded_for`` APPENDS ``$remote_addr`` to whatever the
+    client already sent — so the leftmost entry is attacker-controlled. Reading
+    XFF first means anyone who can reach an unauthenticated webhook can forge
+    the classification, in either direction.
+
+    The direction that matters is SUPPRESSION. If a caller forges XFF with one
+    of our own addresses (WEBHOOK_SELF_ORIGIN_IPS), a genuinely external event
+    classifies ``self_host`` / ``origin_self_originated=true``. The canary counts
+    only ``origin_scope='public'`` rejections, so it does not count that row and
+    the verdict falls through to NO SIGNAL — reintroducing by hand exactly the
+    "rejected but indistinguishable from silence" failure this module exists to
+    close. Preferring ``$remote_addr`` removes the forgery from the common path.
+
+    TRUST NOTE: the XFF fallback is still client-settable, and it is only
+    reachable when ``X-Real-IP`` is absent — i.e. a request that bypassed nginx
+    and hit port 8000 directly (bound 0.0.0.0, so genuinely reachable). That
+    residual is acceptable only because this function never makes an
+    authorisation decision: it classifies for observability, nothing else.
+    A ``scope=public`` row is therefore evidence the endpoint was *reached*,
+    not proof of *who* reached it. ``origin_via`` records which header supplied
+    the address so a reader can see which case they are in, and for a
+    high-stakes conclusion cross-check ``/var/log/styxproxy-nginx-access.log``,
+    whose ``$remote_addr`` is not spoofable.
     """
     peer = request.client.host if request.client else None
 
@@ -165,12 +190,17 @@ def resolve_origin(request: Request) -> dict[str, Any]:
     xff_first = forwarded.split(",")[0].strip() if forwarded else None
     x_real = (request.headers.get("x-real-ip") or "").strip() or None
 
-    # Prefer the leftmost X-Forwarded-For entry (the original client), fall back
-    # to X-Real-IP, then to the transport peer.
-    if xff_first:
-        ip, via = xff_first, "xff"
-    elif x_real:
+    # Precedence is X-Real-IP, then X-Forwarded-For, then the transport peer.
+    # X-Real-IP first is deliberate and load-bearing: nginx OVERWRITES it with
+    # $remote_addr, while $proxy_add_x_forwarded_for only APPENDS to the
+    # client-supplied value, leaving XFF's leftmost entry attacker-controlled.
+    # Preferring XFF would let any caller of an unauthenticated webhook forge
+    # its classification. The XFF branch still matters for requests that skip
+    # nginx and arrive directly on port 8000, which carry no X-Real-IP at all.
+    if x_real:
         ip, via = x_real, "x-real-ip"
+    elif xff_first:
+        ip, via = xff_first, "xff"
     elif peer:
         ip, via = peer, "peer"
     else:
