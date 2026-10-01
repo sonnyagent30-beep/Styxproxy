@@ -12,6 +12,7 @@ is the point: they must keep working even when the environment is incomplete.
 """
 from __future__ import annotations
 
+import ast
 import subprocess
 import sys
 from pathlib import Path
@@ -66,18 +67,83 @@ def test_rq_is_declared_in_pyproject_dependencies():
 def test_no_undeclared_imports_outside_known_exceptions():
     """Repo-wide audit: no third-party import lacks a declared distribution.
 
-    weasyprint is a known, tracked exception (t_a193b8fd): it is imported lazily inside
-    a request handler and is not installed in production at all, so pinning it here
-    would assert a dependency the deploy target does not have. Everything else must
-    be declared.
+    This was previously carrying an exception for weasyprint, which was imported
+    lazily by the server-side receipt-PDF route and was never installed on
+    production. That route has since been removed (see t_4acded30) -- receipts
+    are generated client-side with the already-declared jspdf -- so there is no
+    longer any undeclared import to except, and the exemption is gone. If a new
+    one appears this test must fail.
     """
     result = _run("import_closure_audit.py", ".")
     undeclared = [
         line
         for line in result.stdout.splitlines()
-        if "undeclared third-party import" in line and "weasyprint" not in line
+        if "undeclared third-party import" in line
     ]
     assert not undeclared, "undeclared third-party imports found:\n" + "\n".join(undeclared)
+
+
+def test_no_weasyprint_import_remains():
+    """WeasyPrint must not creep back in.
+
+    It needs native pango/cairo/gdk-pixbuf libraries that the production host
+    does not have, so an import of it -- lazy or otherwise -- is a route that can
+    only 500 in production. Receipts are rendered in the browser with jspdf.
+
+    Parsed with ast rather than grepped, so prose mentions of the word in a
+    docstring (including in this file and in the audit scripts) do not trip it;
+    only a real import statement counts.
+    """
+    offenders: list[str] = []
+    unparseable: list[str] = []
+    for sub in ("app", "scripts", "tests"):
+        for path in sorted((BACKEND / sub).rglob("*.py")):
+            if ".venv" in path.parts or "__pycache__" in path.parts:
+                continue
+            rel = path.relative_to(BACKEND)
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            except SyntaxError:
+                # Pre-existing broken files are not this test's business, but
+                # they do blind the scan, so surface them rather than hide them.
+                unparseable.append(str(rel))
+                continue
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    names = [a.name for a in node.names]
+                elif isinstance(node, ast.ImportFrom):
+                    names = [node.module or ""]
+                else:
+                    continue
+                if any(n.split(".")[0].lower() == "weasyprint" for n in names):
+                    offenders.append(f"{rel}:{node.lineno}")
+    assert not offenders, "weasyprint is imported in backend source: " + ", ".join(offenders)
+    if unparseable:
+        print(f"note: {len(unparseable)} file(s) skipped as unparseable: {unparseable}")
+
+
+def test_orders_router_has_no_pdf_route():
+    """The retired server-side receipt-PDF route must not be reinstated.
+
+    It could only ever 500 in production (WeasyPrint absent). The frontend
+    generates the PDF client-side with jspdf via src/lib/pdf-receipt.ts.
+    """
+    router = BACKEND / "app" / "routers" / "orders.py"
+    tree = ast.parse(router.read_text(encoding="utf-8"), filename=str(router))
+    # NOTE: must match AsyncFunctionDef too -- the original get_receipt_pdf was
+    # `async def`, and matching FunctionDef alone silently misses every async
+    # route (caught by the negative control, not by inspection).
+    pdf_routes = [
+        f"line {node.lineno}"
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(
+            isinstance(d, ast.Constant) and isinstance(d.value, str) and d.value.endswith("/pdf")
+            for dec in node.decorator_list
+            for d in getattr(dec, "args", [])
+        )
+    ]
+    assert not pdf_routes, f"server-side /pdf route is back: {', '.join(pdf_routes)}"
 
 
 def test_requirements_file_parses_as_valid_pins():

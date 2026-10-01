@@ -54,7 +54,6 @@
 | `/api/orders/{order_id}/rotate` | POST | JWT | Rotate credentials |
 | `/api/orders/{order_id}/deliver` | POST | JWT | Manual credential delivery trigger |
 | `/api/orders/{order_id}/receipt` | GET | None | Public receipt data |
-| `/api/orders/{order_id}/pdf` | GET | None | PDF receipt download |
 
 ### 2.2 Backend — Webhooks
 

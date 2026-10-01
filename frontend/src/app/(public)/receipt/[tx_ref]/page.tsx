@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
+import { generateReceiptPDF } from '@/lib/pdf-receipt';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.styxproxy.com';
 
@@ -73,32 +74,49 @@ function ReceiptContent() {
     fetchOrder();
   }, [txRef]);
 
-  // Handle PDF download from backend
+  // Generate the PDF in the browser via the shared jsPDF generator
+  // (src/lib/pdf-receipt.ts) -- the same code path /thank-you uses.
+  //
+  // There is deliberately no server-side PDF endpoint: the backend route that
+  // rendered receipts with WeasyPrint was removed because WeasyPrint was never
+  // installed on production and needs native pango/cairo libraries the host
+  // does not have, so the endpoint could only ever 500. jspdf is already a
+  // declared, installed frontend dependency, so this path cannot regress the
+  // same way.
   const handleDownloadPDF = async () => {
-    if (!txRef) return;
-    
+    if (!txRef || !order) return;
+
+    // The generator takes cart line-items. This page is reached from a URL, so
+    // there is no in-memory cart to reuse -- rebuild a single line from the
+    // order itself. price_ngn is per-unit, and the generator prints
+    // price_ngn * quantity as the line total, so derive the unit price to keep
+    // the printed TOTAL PAID equal to the amount actually charged.
+    const quantity = order.quantity || 1;
+    const total = Number(order.amount_paid_ngn || 0);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orders/${txRef}/pdf`);
-      if (!response.ok) {
-        toast({ type: 'error', title: 'Download failed', message: 'Could not generate PDF' });
-        return;
-      }
-      
-      // Get blob and download
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `styxproxy-receipt-${txRef}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-      
+      await generateReceiptPDF(
+        {
+          order_id: order.order_id,
+          status: order.status,
+          customer_name: order.customer_name,
+          styxproxy_credential: order.styxproxy_credential,
+        },
+        [
+          {
+            name: order.plan_code || 'Proxy',
+            quantity,
+            price_ngn: total / quantity,
+          },
+        ],
+        txRef,
+        `styxproxy-receipt-${txRef}.pdf`,
+      );
+
       toast({ type: 'success', title: 'Downloaded', message: 'Receipt PDF downloaded' });
     } catch (err) {
       toast({ type: 'error', title: 'Download failed', message: 'Could not download PDF' });
-      console.error('Error downloading PDF:', err);
+      console.error('Error generating PDF:', err);
     }
   };
 
