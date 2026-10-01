@@ -7,16 +7,51 @@ Wants=postgresql.service
 Type=simple
 User=root
 Group=root
+
+# !! BLOCKER — this relay currently authenticates NOBODY. Read before deploying.
+#
+# Two independent defects, both required for a customer to connect:
+#
+# 1. WRONG DB ROLE (not yet fixed). The DSN below connects as role
+#    `styxproxy`. `styxproxy_credentials` has FORCEd row-level security whose
+#    only policy (`creds_app_all`) is granted to `styxproxy_app`. The
+#    `styxproxy` role holds SELECT/UPDATE grants it can never exercise,
+#    because RLS filters every row: `SELECT` returns 0 with NO error. So
+#    RelayAuth.refresh() caches zero users and every credential is rejected.
+#    Verified on production 2026-10-01: relay role sees 0 rows,
+#    styxproxy_app sees 35.
+#
+#    Note `styxproxy_relay_entries` has NO RLS, which is why bandwidth metering
+#    kept working and this failure was invisible in the logs.
+#
+#    Fix options (pick one deliberately, do not do it by accident):
+#      (a) grant `styxproxy` a SELECT-only policy on styxproxy_credentials
+#          (least privilege; the relay only reads credentials and updates
+#          bandwidth counters), or
+#      (b) point this DSN at `styxproxy_app` — but that writes that role's
+#          password into a unit file.
+#
+# 2. CIPHERTEXT COMPARISON (fixed in relay_paid.py, not yet deployed because of
+#    #1). refresh() used to cache the raw styxproxy_password column, which holds
+#    ~120 bytes of Fernet ciphertext for every credential minted through
+#    set_password(). verify() compared the customer's 16-char password against
+#    it, so a correct password was always rejected. The relay now decrypts
+#    first and tolerates legacy raw-plaintext rows.
+#
+# The DSN below MUST be plain postgresql://, not the postgresql+asyncpg:// form
+# in /opt/styxproxy/.env — asyncpg.connect() cannot parse the SQLAlchemy
+# dialect and the relay exits 1 at startup. For the same reason this unit must
+# NOT use `EnvironmentFile=/opt/styxproxy/.env`: systemd applies
+# EnvironmentFile= AFTER Environment= regardless of line order, so the file
+# would override DATABASE_URL below and stop the service. CRED_ENCRYPTION_KEY
+# is supplied by the key-only /opt/styxproxy-relay/relay.env for that reason.
 Environment="PYTHONUNBUFFERED=1"
-Environment="DATABASE_URL=postgresql://styxproxy:changeme@127.0.0.1:5432/styxproxy"
+Environment="DATABASE_URL=postgresql://styxproxy:REPLACE_ME@127.0.0.1:5432/styxproxy"
 Environment="LISTEN_HOST=0.0.0.0"
 Environment="LISTEN_PORT_SOCKS=11080"
 Environment="LISTEN_PORT_HTTP=18080"
 Environment="LOG_LEVEL=INFO"
-# Required: the relay decrypts styxproxy_password (Fernet) before comparing it
-# to the customer's typed password. Without this key every encrypted credential
-# is rejected at auth. The relay also falls back to parsing this file itself.
-EnvironmentFile=/opt/styxproxy/.env
+EnvironmentFile=/opt/styxproxy-relay/relay.env
 ExecStart=/opt/styxproxy/backend/venv/bin/python3 -u /opt/styxproxy-relay/relay_paid.py
 Restart=always
 RestartSec=5

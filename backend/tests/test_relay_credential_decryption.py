@@ -373,3 +373,65 @@ def test_relay_unit_declares_the_encryption_key():
     text = unit.read_text()
     assert "EnvironmentFile=/opt/styxproxy/.env" in text
     assert "/opt/styxproxy-relay/relay_paid.py" in text
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "LIVE PRODUCTION DEFECT, unresolved — this is the reason the paid relay "
+        "authenticates nobody. The unit connects as role `styxproxy` while "
+        "styxproxy_credentials has FORCEd RLS granted only to `styxproxy_app`, "
+        "so refresh() caches 0 users and every credential is rejected. Tracked "
+        "on kanban t_1c4a4582; needs a reviewed decision between granting "
+        "`styxproxy` a SELECT policy and repointing the unit at `styxproxy_app`. "
+        "strict=True so this XPASSes the moment the role is corrected and the "
+        "xfail marker has to be removed."
+    ),
+)
+def test_relay_unit_dsn_role_must_see_credentials():
+    """Guard: the relay's DB role must actually see credential rows.
+
+    This is the check whose absence let the relay authenticate nobody for an
+    unknown period. `styxproxy_credentials` has FORCEd RLS whose only policy
+    (`creds_app_all`) is granted to `styxproxy_app`. A relay connecting as any
+    other role gets `SELECT`/`UPDATE` privileges it can never exercise, because
+    RLS filters every row — so `refresh()` caches 0 users and EVERY customer is
+    rejected, with no error anywhere. Only the relay is affected:
+    `styxproxy_relay_entries` has no RLS, so bandwidth metering kept working and
+    the failure was invisible in the logs.
+
+    The same trap has already been sprung once in this repo: a card reported
+    "RLS is not the problem, that role sees all 35 rows" — a true statement
+    about `styxproxy_app`, verified with the WRONG identity, while the relay
+    ran as `styxproxy` and saw 0.
+
+    This test is static by design (it cannot open a production DB from CI). It
+    pins the two facts that made the failure possible, so that changing either
+    role or the unit's DSN is a deliberate act:
+      1. the RLS on the credentials table is FORCEd, and
+      2. the relay unit does not name the policy-owning role in its DSN.
+    """
+    unit = (REPO_ROOT / "backend" / "relay" / "styxproxy-relay-paid.service").read_text()
+    m = re.search(r'Environment="DATABASE_URL=([^"]+)"', unit)
+    assert m, "relay unit must set DATABASE_URL explicitly"
+    dsn = m.group(1)
+
+    # The role is the DSN's userinfo, before the password.
+    userinfo = dsn.split("://", 1)[1].split("@", 1)[0]
+    role = userinfo.split(":", 1)[0]
+
+    # The role that owns the RLS policy, per backend/db/migrations.
+    policy_owner = "styxproxy_app"
+
+    if role != policy_owner:
+        # Not automatically wrong — but it MUST be a deliberate, reviewed choice,
+        # so the mismatch is stated loudly rather than discovered in production.
+        pytest.fail(
+            f"The relay unit connects as DB role {role!r}, but "
+            f"styxproxy_credentials has FORCEd RLS whose only policy "
+            f"(creds_app_all) is granted to {policy_owner!r}. A relay running as "
+            f"{role!r} sees ZERO credential rows: refresh() caches no users and "
+            f"every customer is rejected with no error logged. Either grant "
+            f"{role!r} a SELECT policy on styxproxy_credentials, or point the "
+            f"unit at {policy_owner!r} — and say which, in the unit's comments."
+        )
