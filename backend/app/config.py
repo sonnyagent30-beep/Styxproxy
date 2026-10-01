@@ -108,6 +108,26 @@ class Settings(BaseSettings):
     # ── n8n Webhook (for automation triggers) ────────────────────────────────
     n8n_webhook_url: str = "https://n8n.styxproxy.com/webhook/credentials-delivered"
 
+    # ── Our own public API host ──────────────────────────────────────────────
+    # The backend's own externally-reachable address. Used where the API has to
+    # call itself over HTTP — currently `deliver_credentials_direct` posting to
+    # /api/v1/charon/reply (the Charon fallback that bypasses n8n).
+    #
+    # Why a new setting rather than reusing an existing one:
+    #   - `n8n_webhook_url` carries the *n8n* host, not ours.
+    #   - the receipt/credential URLs are built as f-strings at each call site
+    #     (https://styxproxy.com/receipt/{tx_ref}) and carry no base-URL field
+    #     to read from — there is no existing setting that holds our public host.
+    #   - `proxy_seller_base_url` / `simulator_base_url` / `longcat_base_url` are
+    #     all third-party hosts.
+    # So no existing field carries the public API host, and adding one is the
+    # minimum correct fix rather than a redundant third base-URL knob.
+    #
+    # This function previously read `settings.api_base_url`, which was never
+    # defined on Settings: it raised AttributeError on 100% of calls, so the
+    # "fallback" never worked at all (t_4007d162).
+    api_base_url: str = "https://api.styxproxy.com"
+
     # ── Sentry ───────────────────────────────────────────────────────────────
     sentry_dsn: str = ""
     sentry_traces_sample_rate: float = 0.1

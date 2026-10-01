@@ -26,12 +26,33 @@ async def deliver_credentials_direct(
     expires_at: datetime,
     receipt_url: Optional[str] = None,
 ) -> bool:
-    """Directly deliver credentials via Charon API (bypasses n8n webhook)."""
-    import httpx
-    from app.config import get_settings
-    settings = get_settings()
-    charon_url = f"{settings.api_base_url}/api/v1/charon/reply"
-    
+    """Directly deliver credentials via Charon API (bypasses n8n webhook).
+
+    This is the *fallback* path, so it must never raise. The contract is
+    `-> bool` and the caller records that bool in the delivery ledger — a
+    raised exception either aborts fulfilment or, behind a bare `except`,
+    gets swallowed into a false "delivered" row. Both outcomes are the
+    "told it succeeded, actually failed" defect this function exists to
+    avoid, so config resolution (which can fail) lives *inside* the try
+    alongside the transport call.
+
+    The URL was previously built from `settings.api_base_url`, a field that
+    was never defined on Settings. Because that line sat outside the try, it
+    raised AttributeError on 100% of calls and the fallback never once
+    delivered anything (t_4007d162).
+    """
+    try:
+        settings = get_settings()
+        charon_url = f"{settings.api_base_url}/api/v1/charon/reply"
+    except Exception as e:
+        # Config/import failure. Log loudly — this means the fallback is dead
+        # in this deployment — and report failure rather than propagating.
+        logger.error(
+            f"Charon direct delivery cannot start for order {order_id}: {e}. "
+            "Check that API_BASE_URL is set and app.config imports cleanly."
+        )
+        return False
+
     message = f"""Your proxy credentials are ready!
 
 Proxy: {proxy_ip}:{proxy_port}
@@ -57,7 +78,7 @@ Receipt: {receipt_url or 'N/A'}"""
         'customer_phone': str(phone or ""),
         'channel': str(channel or "internal"),
     }
-    
+
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(charon_url, json=payload)
