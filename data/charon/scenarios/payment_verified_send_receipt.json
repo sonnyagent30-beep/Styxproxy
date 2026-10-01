@@ -1,0 +1,29 @@
+{
+  "id": "payment_verified_send_receipt",
+  "name": "Payment verified — send receipt",
+  "trigger": [
+    "payment is verified",
+    "payment has been verified",
+    "i.?ve verified my payment",
+    "payment confirmed on my end",
+    "i sent proof",
+    "i sent screenshot",
+    "proof sent",
+    "proof submitted",
+    "i submitted proof",
+    "proof of payment",
+    "screenshot of payment",
+    "payment screenshot",
+    "here is the proof",
+    "payment receipt",
+    "payment verified here",
+    "you can verify the payment"
+  ],
+  "actions": [
+    {
+      "type": "reply",
+      "text": "Thank you \u2014 let me pull up your receipt now."
+    }
+  ],
+  "notes": "When the customer says their payment has been verified or proof has been submitted, Charon acknowledges and asks for their transaction reference to send the official receipt. The LLM then calls generate_receipt_link to build the receipt PDF URL and delivers it to the customer. The receipt URL is styxproxy.com/preview?tx_ref=<tx_ref>."
+}

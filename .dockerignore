@@ -1,0 +1,9 @@
+# Tests, scripts, and alembic tooling are not needed at runtime
+backend/tests/
+backend/scripts/
+backend/alembic/
+**/__pycache__
+**/*.pyc
+.git
+.gitignore
+*.md

@@ -1,0 +1,311 @@
+"""
+Credential service for Styxproxy.
+
+This module has two layers:
+
+1. Low-level (provider service):
+   - get_provider_proxy(): calls provider API, tests, retries up to 5x
+
+2. High-level (this module):
+   - create_credential(): full pipeline — provider → DB
+   - Returns (StyxproxyCredential, plaintext_password) tuple so the
+     fulfillment caller can send the password to the customer via n8n/email.
+"""
+
+import logging
+import random
+import string
+from datetime import datetime, timedelta, timezone
+
+logger = logging.getLogger(__name__)
+from typing import Optional
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Order, StyxproxyCredential
+
+# ─── Constants ────────────────────────────────────────────────────────────────
+
+MAX_PROVIDER_RETRIES = 5
+STUB_PROXY_POOL = {
+    "NG": [{"ip": "185.199.228.45", "port": 1080}],
+    "UK": [{"ip": "178.62.34.56", "port": 1080}],
+    "US": [{"ip": "104.248.12.34", "port": 1080}],
+    "DEFAULT": [{"ip": "104.248.12.34", "port": 1080}],
+}
+
+
+# ─── Helpers ───────────────────────────────────────────────────────────────────
+
+
+def generate_styxproxy_username(phone: Optional[str] = None, order_id: Optional[str] = None) -> str:
+    """Generate a Styxproxy proxy username.
+
+    With phone+order_id: ``sty_{last4phone}{order_suffix}{rand8}`` (used
+    historically and by tests). With no args: ``sty_{rand8}``.
+    """
+    if phone and order_id:
+        phone_suffix = phone.replace("+", "").replace(" ", "")[-4:]
+        order_suffix = "".join(c for c in order_id if c.isalnum())[-4:]
+        rand = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+        return f"sty_{phone_suffix}{order_suffix}{rand}"
+    suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    return f"sty_{suffix}"
+
+
+def generate_styxproxy_password() -> str:
+    return "".join(random.choices(string.ascii_letters + string.digits, k=16))
+
+
+def generate_temp_password(length: int = 16) -> str:
+    """Generate a temporary alphanumeric password of the given length.
+
+    Used for share-by-link / short-lived credentials. Letters + digits only,
+    no symbols to keep copy/paste safe across all clients.
+    """
+    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
+
+
+def get_available_proxy(country: str) -> dict:
+    """Return a stub proxy for the given country, falling back to DEFAULT.
+
+    Format: {ip, port, username, password}. Wraps the internal pool so
+    tests (and any future code that needs a quick proxy reference) can use
+    the same data shape.
+    """
+    return _stub_proxy(country)
+
+
+def _stub_proxy(country: str):
+    """Return a stub proxy from the hardcoded pool (used when provider is offline)."""
+    pool = STUB_PROXY_POOL.get(country.upper(), STUB_PROXY_POOL["DEFAULT"])
+    p = random.choice(pool)
+    return {
+        "ip": p["ip"],
+        "port": p["port"],
+        "username": f"raw_{random.randint(10000, 99999)}",
+        "password": f"rawpass_{random.randint(100000, 999999)}",
+    }
+
+
+# ─── Provider Proxy Pipeline ───────────────────────────────────────────────────
+
+
+async def get_provider_proxy(
+    plan_code: str,
+    country: str,
+    proxy_type: str = "isp",
+    quantity: int = 1,
+) -> dict:
+    """
+    Get a tested, working proxy from the provider.
+    Tries up to MAX_PROVIDER_RETRIES times.
+    """
+    from app.services import provider as provider_svc
+
+    last_error = None
+    for attempt in range(MAX_PROVIDER_RETRIES):
+        try:
+            logger.info("get_provider_proxy attempt %d: plan_code=%s country=%s proxy_type=%s", attempt, plan_code, country, proxy_type)
+            proxy = await provider_svc.create_order(
+                plan_code=plan_code,
+                country=country,
+                proxy_type=proxy_type,
+                quantity=quantity,
+            )
+            logger.info("create_order returned: %s:%s id=%s", proxy.ip, proxy.port, proxy.provider_order_id)
+
+            test_result = await provider_svc.test_proxy(proxy)
+            logger.info("test_proxy returned: alive=%s latency=%s", test_result.alive, test_result.latency_ms)
+            if test_result.alive:
+                return {
+                    "provider_order_id": proxy.provider_order_id,
+                    "ip": proxy.ip,
+                    "port": proxy.port,
+                    "username": proxy.username,
+                    "password": proxy.password,
+                    "protocol": proxy.protocol,
+                    "expires_at": proxy.expires_at,
+                    "country": proxy.country,
+                    "isp": proxy.isp,
+                    "asn": proxy.asn,
+                    "latency_ms": test_result.latency_ms,
+                }
+
+            last_error = test_result.error or "proxy_test_failed"
+            logger.warning("Proxy test failed: %s", last_error)
+
+        except Exception as e:
+            last_error = f"{type(e).__name__}: {e}"
+            logger.error("get_provider_proxy exception: %s", last_error)
+
+    raise RuntimeError(f"Provider proxy unavailable after {MAX_PROVIDER_RETRIES} attempts. Last error: {last_error}")
+
+
+
+
+# ─── High-level Credential Creation ──────────────────────────────────────────
+
+
+async def create_credential(
+    db_session: AsyncSession,
+    order_id: str,
+    customer_phone: str,
+    plan_code: str = "",
+    country: str = "NG",
+    proxy_type: str = "isp",
+    quantity: int = 1,
+    duration_days: int = 30,
+    protocol: str = "socks5",
+    pool_type: str = "paid",
+) -> tuple[StyxproxyCredential, str]:
+    """
+    Full credential pipeline: provider → test → DB.
+
+    Returns (StyxproxyCredential, plaintext_password).
+
+    The plaintext password is NOT stored in the DB — only the hash is.
+    The caller is responsible for delivering the plaintext password
+    to the customer (via email, WhatsApp, n8n, etc.).
+    """
+    logger.info("create_credential: order_id=%s plan_code=%s country=%s proxy_type=%s qty=%d", order_id, plan_code, country, proxy_type, quantity)
+    # 1. Get and test a working proxy from the provider
+    proxy = await get_provider_proxy(
+        plan_code=plan_code,
+        country=country,
+        proxy_type=proxy_type,
+        quantity=quantity,
+    )
+    logger.info("Got proxy: %s:%s", proxy["ip"], proxy["port"])
+
+    # 2. Generate branded credentials locally
+    styxproxy_username = generate_styxproxy_username()
+    styxproxy_password = generate_styxproxy_password()
+    socks_port = random.randint(9000, 9999)
+
+    # 3. Build the DB record
+    # NOTE: styxproxy_password is stored encrypted (Fernet ciphertext, see
+    # app/services/crypto.py). The customer's *account* password (in
+    # customers.password_hash) is bcrypt-hashed; the proxy auth token is
+    # encrypted-with-recoverable-key — distinct domains.
+    expires_at = proxy.get("expires_at") or (datetime.now(timezone.utc) + timedelta(days=duration_days))
+
+    credential = StyxproxyCredential(
+        styxproxy_username=styxproxy_username,
+        # set_password() handles encryption transparently
+        customer_phone=customer_phone,
+        order_id=order_id,
+        pool_type=pool_type,
+        protocol=protocol,
+        provider_name="proxy-seller",
+        provider_order_id=proxy["provider_order_id"],
+        provider_username=proxy["username"],
+        provider_password=proxy["password"],
+        upstream_proxy_ip=proxy["ip"],
+        upstream_proxy_port=proxy["port"],
+        socks_port=socks_port,
+        status="active",
+        expires_at=expires_at,
+    )
+
+    # Encrypt the proxy password before persisting. set_password() will refuse
+    # to write plaintext if CRED_ENCRYPTION_KEY is not configured — that's the
+    # whole point of the encrypted column.
+    credential.set_password(styxproxy_password)
+
+    db_session.add(credential)
+    await db_session.commit()
+    await db_session.refresh(credential)
+
+    # Plaintext can be returned from the credential itself for downstream use
+    # (n8n webhook, email) since we just encrypted it and have the key in memory.
+    return credential, credential.get_password() or ""
+
+
+# ─── Read helpers ─────────────────────────────────────────────────────────────
+
+
+async def get_credential_by_order(
+    db_session: AsyncSession,
+    order_id: str,
+) -> Optional[StyxproxyCredential]:
+    return (
+        await db_session.execute(select(StyxproxyCredential).where(StyxproxyCredential.order_id == order_id))
+    ).scalar_one_or_none()
+
+
+async def get_credential_by_id(
+    db_session: AsyncSession,
+    credential_id: int,
+) -> Optional[StyxproxyCredential]:
+    return (
+        await db_session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id))
+    ).scalar_one_or_none()
+
+
+async def get_active_credentials_by_phone(
+    db_session: AsyncSession,
+    phone: str,
+) -> list[StyxproxyCredential]:
+    result = await db_session.execute(
+        select(StyxproxyCredential).where(
+            StyxproxyCredential.customer_phone == phone,
+            StyxproxyCredential.status == "active",
+        )
+    )
+    return list(result.scalars().all())
+
+
+async def revoke_credential(
+    db_session: AsyncSession,
+    credential_id: int,
+    reason: str = "manual",
+) -> Optional[StyxproxyCredential]:
+    credential = await get_credential_by_id(db_session, credential_id)
+    if credential:
+        credential.status = "revoked"
+        credential.revoked_at = datetime.now(timezone.utc)
+        credential.revoke_reason = reason
+        await db_session.commit()
+    return credential
+
+
+async def replace_credential(
+    db_session: AsyncSession,
+    old_credential_id: int,
+    reason: str = "ban_reported",
+) -> Optional[StyxproxyCredential]:
+    """
+    Revoke old credential and create a new one.
+    For credential rotation (styxproxy_username/styxproxy_password change, same upstream IP).
+    """
+    old = await get_credential_by_id(db_session, old_credential_id)
+    if not old:
+        return None
+
+    order = (await db_session.execute(select(Order).where(Order.order_id == old.order_id))).scalar_one_or_none()
+    if not order:
+        return None
+
+    await revoke_credential(db_session, old_credential_id, reason)
+
+    if not old.order_id:
+        return None
+
+    new_cred, _ = await create_credential(
+        db_session=db_session,
+        order_id=old.order_id,
+        customer_phone=old.customer_phone or "",
+        plan_code=order.plan_code or "unknown",
+        country=order.country or "NG",
+        duration_days=30,
+        protocol=old.protocol or "socks5",
+        pool_type=old.pool_type or "paid",
+    )
+
+    order.styxproxy_credential_id = new_cred.id
+    order.replacement_count += 1
+    await db_session.commit()
+
+    return new_cred

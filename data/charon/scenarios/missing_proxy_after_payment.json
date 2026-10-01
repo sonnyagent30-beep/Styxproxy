@@ -1,0 +1,28 @@
+{
+  "id": "missing_proxy_after_payment",
+  "name": "Missing proxy after payment",
+  "trigger": [
+    "i paid but i didn.?t get my proxy",
+    "i made payment but no proxy",
+    "paid and no proxy",
+    "paid but no credentials",
+    "paid but haven.?t received my proxy",
+    "made payment but haven.?t got my proxy",
+    "transfer successful but no proxy",
+    "flutterwave paid but no proxy",
+    "payment done but no proxy",
+    "i.?ve paid but haven.?t received anything",
+    "txn successful but no proxy",
+    "payment confirmed but no proxy",
+    "paid but no delivery",
+    "transfer confirmed but no credentials",
+    "my payment went through but no proxy"
+  ],
+  "actions": [
+    {
+      "type": "reply",
+      "text": "I understand — let me look that up right now. If you have your Flutterwave transaction reference (usually something like TXF-1234), please share it so I can find your order and get your proxy delivered."
+    }
+  ],
+  "notes": "This scenario fires when the customer says they paid but didn't receive their proxy. It reassures them and prompts them to share their tx_ref. The LLM then picks up from here — sees the tx_ref in the next message — and calls lookup_order to find and deliver their credentials."
+}

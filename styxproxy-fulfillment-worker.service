@@ -1,0 +1,22 @@
+[Unit]
+Description=Styxproxy Fulfillment Queue Worker
+After=network.target redis-server.service postgresql.service
+Wants=redis-server.service postgresql.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/styxproxy/backend
+Environment="PYTHONUNBUFFERED=1"
+EnvironmentFile=/opt/styxproxy/.env
+ExecStart=/opt/styxproxy/backend/venv/bin/python3 /opt/styxproxy/backend/scripts/fulfillment_worker.py
+Restart=always
+RestartSec=5
+# Watchdog: if no heartbeat in 5min, restart
+WatchdogSec=300
+StandardOutput=append:/var/log/styxproxy-fulfillment-worker.log
+StandardError=append:/var/log/styxproxy-fulfillment-worker.err.log
+
+[Install]
+WantedBy=multi-user.target

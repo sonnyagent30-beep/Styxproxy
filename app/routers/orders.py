@@ -1,0 +1,1539 @@
+"""Orders router."""
+
+import logging
+import random
+import string
+from datetime import datetime, timedelta
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+
+logger = logging.getLogger(__name__)
+from pydantic import BaseModel
+from slowapi.util import get_remote_address
+
+# Reportlab imports for PDF generation
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth import get_current_account
+from app.database import get_session
+from app.dependencies.idempotency import check_idempotency
+from app.limiter import limiter
+from app.models import Customer, Order, Plan, StyxproxyCredential
+from app.schemas import (
+    OrderCancelRequest,
+    OrderCancelResponse,
+    OrderCreateRequest,
+    OrderReportDeadRequest,
+    OrderReportDeadResponse,
+    OrderResponse,
+    PrecheckRequest,
+    PrecheckResponse,
+    ReceiptOrderResponse,
+    StyxproxyCredentialBrief,
+)
+from app.services.audit import log_audit_event
+from app.services.credential import create_credential
+from app.services.customer import get_or_create_customer
+from app.services.email import (
+    send_credentials_rotated_email,
+    send_new_order_notification,
+    send_order_active_email,
+    send_order_confirmation_email,
+    send_refund_request_notification,
+)
+from app.services.provider import check_availability
+
+router = APIRouter(prefix="/api/orders", tags=["orders"])
+
+# ─── Plan resolution (DB-driven, Sprint 13) ──────────────────────────────────
+# Plans are managed by superadmin via /admin/plans. The FE never sends prices;
+# it sends plan_code and the BE resolves price + type from the plans table.
+# The legacy PRODUCT_PRICES + PLAN_TYPE_MAP dicts were removed Jul 30 2026 —
+# keeping a fallback for the brief moment the FE sends a legacy code.
+
+
+async def resolve_plan(
+    session: AsyncSession,
+    plan_code: str,
+    country: Optional[str] = None,
+) -> Optional[Plan]:
+    """Look up a plan by plan_code. Returns None if not found or inactive.
+
+    Used by /precheck and /create to validate the customer-selected plan
+    and resolve (price, plan_type, country) from the DB. Superadmin manages
+    pricing via /admin/plans — this is the single source of truth.
+
+    If country is provided, the plan must match (after GB→UK translation).
+    """
+    # Strip frontend suffix: "{TYPE}-{COUNTRY}-{QUANTITY}IP" → "{TYPE}-{COUNTRY}"
+    # e.g. "DC-NG-1IP" → "DC-NG", "RESIDENTIAL-NG-5GB" → "RESIDENTIAL-NG"
+    clean_code = plan_code
+    if '-' in plan_code and plan_code.endswith('IP'):
+        parts = plan_code.rsplit('-', 2)
+        if len(parts) >= 3:
+            clean_code = f"{parts[0]}-{parts[1]}"
+
+    # Use clean_code (suffix stripped) for all lookups
+    lookup_code = clean_code
+
+    # Try exact plan_code match
+    stmt = select(Plan).where(
+        Plan.plan_code == lookup_code,
+        Plan.is_active.is_(True),
+    )
+    if country:
+        stmt = stmt.where(Plan.country == translate_country(country))
+    result = await session.execute(stmt)
+    plan = result.scalar_one_or_none()
+    if plan:
+        return plan
+
+    # Fallback: extract plan_type + country from clean_code
+    # Catalog uses virtual codes from country_plan_types (e.g. "RESIDENTIAL-NG")
+    # that don't have matching Plan rows
+    plan_type_guess = lookup_code.split('-')[0].upper() if '-' in lookup_code else lookup_code.upper()
+    stmt = select(Plan).where(
+        Plan.is_active.is_(True),
+        Plan.plan_type == plan_type_guess,
+    )
+    if country:
+        stmt = stmt.where(Plan.country == translate_country(country))
+    else:
+        # Extract country from lookup_code (e.g. RESIDENTIAL-NG → NG)
+        code_parts = lookup_code.split('-')
+        if len(code_parts) >= 2:
+            stmt = stmt.where(Plan.country == code_parts[-1].upper())
+    result = await session.execute(stmt)
+    plan = result.scalar_one_or_none()
+    if plan:
+        return plan
+
+    # Final fallback: create virtual plan from country_plan_types
+    from sqlalchemy import text
+    cpt_result = await session.execute(text(
+        "SELECT country_code, plan_type, price_per_ip, price_per_gb FROM country_plan_types WHERE country_code = :country AND plan_type = :pt AND enabled = true"
+    ), {"country": (country or lookup_code.split('-')[-1] if '-' in lookup_code else 'NG').upper(), "pt": plan_type_guess})
+    cpt_row = cpt_result.mappings().first()
+    if cpt_row:
+        from app.services.catalog import _VirtualPlan
+        return _VirtualPlan(
+            country=cpt_row["country_code"].upper(),
+            plan_type=cpt_row["plan_type"].upper(),
+            price_ngn=cpt_row["price_per_ip"] or 0,
+            price_per_gb=cpt_row["price_per_gb"],
+            quantity=1,
+            plan_code=lookup_code,
+            sort_order=999,
+        )
+
+    return None
+
+
+# Legacy codes → DB plan_codes. The FE hardcoded these for ~6 months before
+# we shipped the catalog-driven flow (commit fd7559c). During the deprecation
+# window we accept the legacy codes and translate to the real DB plans.
+# After /admin/plans is the primary UI, this can be removed in a follow-up.
+LEGACY_PLAN_TRANSLATION = {
+    "ISP-NG-1": "RESI-NG-5GB",  # legacy ISP code → residential NG
+    "ISP-NG-2": "RESI-NG-10GB",
+    "DC-NG-1": "DC-US-5GB",  # legacy DC NG → DC US (closest)
+    "RESIDENTIAL-UK-1": "RESI-UK-5GB",
+    "RESIDENTIAL-US-1": "RESI-US-5GB",
+    "MOBILE-DE-1": "MOB-US-5GB",
+    "MOBILE-JP-1": "MOB-US-5GB",
+}
+
+# Customer-facing country codes (ISO alpha-2) → DB plan country codes (legacy)
+# The catalog (commit fd7559c) shows "GB" to customers but the plans table
+# stores "UK" (legacy naming). The BE endpoints accept both.
+COUNTRY_TRANSLATION = {
+    "GB": "UK",  # residential plans
+}
+
+
+def translate_country(country: str) -> str:
+    return COUNTRY_TRANSLATION.get(country.upper(), country.upper())
+
+
+@router.post("/precheck", response_model=PrecheckResponse)
+async def precheck_order(
+    request: PrecheckRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Check if an order can be fulfilled - provider availability, pricing, delivery estimate."""
+    # Resolve plan from DB (with legacy fallback for the deprecation window)
+    plan_code = LEGACY_PLAN_TRANSLATION.get(request.plan_code, request.plan_code)
+    plan = await resolve_plan(session, plan_code, country=request.country)
+    if not plan:
+        # Fallback: find by plan_type + country (catalog uses virtual codes
+        # from country_plan_types that may not have matching Plan rows)
+        plan_type_guess = request.plan_code.split('-')[0].upper()
+        stmt = select(Plan).where(
+            Plan.is_active.is_(True),
+            Plan.plan_type == plan_type_guess,
+            Plan.country == translate_country(request.country or 'NG'),
+        ).limit(1)
+        result = await session.execute(stmt)
+        plan = result.scalar_one_or_none()
+    if not plan:
+        # Final fallback: check country_plan_types table directly
+        from sqlalchemy import text
+        cpt_result = await session.execute(text(
+            "SELECT country_code, plan_type, price_per_ip, price_per_gb FROM country_plan_types WHERE country_code = :country AND plan_type = :pt AND enabled = true"
+        ), {"country": (request.country or 'NG').upper(), "pt": request.plan_code.split('-')[0].upper()})
+        cpt_row = cpt_result.mappings().first()
+        if cpt_row:
+            # Build a virtual plan
+            from app.services.catalog import _VirtualPlan
+            plan = _VirtualPlan(
+                country=cpt_row["country_code"].upper(),
+                plan_type=cpt_row["plan_type"].upper(),
+                price_ngn=cpt_row["price_per_ip"] or 0,
+                price_per_gb=cpt_row["price_per_gb"],
+                quantity=1,
+                plan_code=request.plan_code,
+                sort_order=999,
+            )
+    if not plan:
+        return PrecheckResponse(
+            available=False,
+            reason="invalid_plan_code",
+            estimated_delivery_seconds=0,
+        )
+
+    # plan_type from the DB row, not a hardcoded map
+    proxy_type = plan.plan_type.lower()
+    pt = proxy_type
+
+    # Sprint 13 pricing model
+    quantity_gb = getattr(request, "quantity_gb", None)
+    if pt in ("residential", "mobile"):
+        gb = quantity_gb or plan.quantity
+        if gb < (plan.min_gb or 0):
+            return PrecheckResponse(
+                available=False,
+                reason=f"minimum_{plan.min_gb}_gb",
+                price_ngn=None,
+                estimated_delivery_seconds=0,
+            )
+        if gb > (plan.max_gb or 9999):
+            return PrecheckResponse(
+                available=False,
+                reason=f"maximum_{plan.max_gb}_gb",
+                price_ngn=None,
+                estimated_delivery_seconds=0,
+            )
+        computed_price = float(plan.price_per_gb or 0) * gb
+    else:
+        computed_price = float(plan.price_ngn or 0) * request.quantity
+
+    # Country mapping for provider
+    country_map = {"NG": "Nigeria", "UK": "United Kingdom", "US": "United States", "DE": "Germany", "JP": "Japan"}
+    provider_country = country_map.get(request.country.upper(), request.country)
+
+    # Call provider availability check
+    result = await check_availability(
+        plan_code=request.plan_code,
+        country=provider_country,
+        proxy_type=proxy_type,
+        quantity=request.quantity,
+    )
+
+    # Override BE-computed price with our DB price (single source of truth).
+    # If provider check returned no price, fall back to our computed value.
+    final_price = computed_price if computed_price > 0 else (result.price_ngn or computed_price)
+
+    return PrecheckResponse(
+        available=result.available,
+        reason=result.reason,
+        price_ngn=final_price,
+        estimated_delivery_seconds=result.estimated_delivery_seconds,
+    )
+
+
+def generate_order_id() -> str:
+    suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return f"STX-{suffix}"
+
+
+@router.post("/create", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute", key_func=get_remote_address)
+async def create_order(
+    request: Request,  # Sprint 5: required by slowapi (must be first param)
+    body: OrderCreateRequest,  # Sprint 5: renamed from 'request' to avoid shadowing
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_account),
+    idempotency_key: Optional[str] = Depends(check_idempotency),
+):
+    # Get the JWT-resolved customer (existing customers keep their phone)
+    customer = current_user.get("customer")
+    platform_account = current_user.get("platform_account")
+    device_id = current_user.get("device_id")
+
+    # For anonymous checkout — fall back to request body to resolve/create
+    # the Customer row (mirrors /payments/initiate). If JWT-derived
+    # customer exists, prefer it (real phone + last_used_at history).
+    if customer is None:
+        customer = await get_or_create_customer(
+            session,
+            phone=None,
+            email=body.customer_email,
+            platform_account=platform_account,
+            referred_by_code=body.referred_by_code,
+        )
+        if customer is None:
+            # No customer_email supplied AND no JWT customer — reject with
+            # the SAME message current behavior used so FE scripts get the
+            # same hint.
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No customer profile found",
+            )
+
+    # Resolve price + plan_type from the DB (single source of truth —
+    # /admin/plans is the only place prices are edited).
+    plan_code = LEGACY_PLAN_TRANSLATION.get(body.plan_code, body.plan_code)
+    plan = await resolve_plan(session, plan_code, country=body.country)
+    if not plan:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid plan {plan_code} for country {body.country}",
+        )
+
+    # Sprint 13 pricing model:
+    # - residential/mobile: price_per_gb × quantity_gb (customer picks GB)
+    # - datacenter/ISP:     price_ngn × quantity (per-IP)
+    pt = plan.plan_type.lower()
+    if pt in ("residential", "mobile"):
+        # Use per-GB pricing
+        gb = body.quantity_gb or plan.quantity  # default to plan's bundled GB
+        if gb < plan.min_gb:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Minimum purchase is {plan.min_gb} GB (you sent {gb})",
+            )
+        if gb > plan.max_gb:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Maximum purchase is {plan.max_gb} GB (you sent {gb})",
+            )
+        if plan.price_per_gb is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Plan has no price_per_gb configured. Admin must set it in /admin/plans.",
+            )
+        price_per_gb = float(plan.price_per_gb)
+        total_amount = price_per_gb * gb
+        effective_quantity = gb  # store GB as the order quantity
+    else:
+        # DC/ISP: per-IP pricing
+        if plan.price_ngn is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Plan has no price_ngn configured",
+            )
+        price_per_ip = float(plan.price_ngn)
+        total_amount = price_per_ip * body.quantity
+        effective_quantity = body.quantity
+
+    # In-flight payment check: prevent double payments on the same device
+    # If there's a 'pending' order for this device in the last 5 minutes, block
+    if device_id:
+        cutoff = datetime.utcnow() - timedelta(minutes=5)
+        inflight_stmt = select(Order).where(
+            Order.platform_account_id == platform_account.id,
+            Order.status == "pending",
+            Order.created_at >= cutoff,
+        )
+        inflight = (await session.execute(inflight_stmt)).scalars().first()
+        if inflight is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Payment already in progress for order {inflight.order_id}."
+                    " Complete or cancel it before starting a new one."
+                ),
+            )
+
+    order_id = generate_order_id()
+    # plan_type from DB row, not a guess from the plan_code prefix
+    plan_type = plan.plan_type.lower()
+    order = Order(
+        order_id=order_id,
+        platform_account_id=platform_account.id,
+        customer_phone=customer.phone,
+        customer_email=body.customer_email or "",
+        plan_type=plan_type,
+        # Store the canonical DB plan_code (after legacy translation),
+        # not the FE-sent code, so the order carries the real plan identifier.
+        plan_code=plan_code,
+        country=plan.country,
+        quantity=effective_quantity,  # GB for residential/mobile, IPs for DC/ISP
+        amount_paid_ngn=total_amount,
+        payment_reference=body.payment_reference,
+        # Sprint 13: city picker (residential/mobile only)
+        city_id=body.city_id if pt in ("residential", "mobile") else None,
+        city_name=body.city_name if pt in ("residential", "mobile") else None,
+        status="pending",
+    )
+    session.add(order)
+    if body.payment_reference:
+        order.status = "paid"
+        try:
+            # Extract proxy_type from plan_code (e.g. RESIDENTIAL-NG → residential)
+            proxy_type = (body.plan_code or "isp").split("-")[0].lower()
+            credential = await create_credential(
+                session,
+                customer_phone=customer.phone,
+                order_id=order_id,
+                plan_code=body.plan_code,
+                country=body.country,
+                proxy_type=proxy_type,
+                pool_type="paid",
+                duration_days=30,
+            )
+        except Exception as credential_err:
+            import traceback
+            tb = traceback.format_exc()
+            logger.error("create_credential FAILED: %s\n%s", credential_err, tb)
+            # Provider exhausted (5x retry fails in get_provider_proxy).
+            # Mark the order for refund: status="refunded", refund_requested=True.
+            # We do NOT yet call the Flutterwave refund API — that's a
+            # separate ticket (FLUTTERWAVE_WEBHOOK_SECRET plus refund endpoint
+            # are both unwired). Marking it here lets admin queue process
+            # the actual money movement via existing /admin/orders/{id}/refund.
+            order.status = "refunded"
+            order.refund_requested = True
+            order.refund_reason = (
+                f"Auto-refund: provider could not deliver a working proxy after "
+                f"5 retries. Underlying error: {type(credential_err).__name__}: {credential_err}"
+            )
+            await session.commit()
+
+            await log_audit_event(
+                session,
+                event_type="credential_provider_exhausted",
+                phone=customer.phone,
+                order_id=order_id,
+                details={
+                    "plan_code": body.plan_code,
+                    "country": body.country,
+                    "amount": total_amount,
+                    "error": str(credential_err),
+                    "traceback": tb,
+                    "auto_refund": True,
+                    "flw_refund_pending": True,
+                },
+            )
+
+            # Notify admin so ops sees the failure immediately.
+            try:
+                await send_refund_request_notification(
+                    order_id=order_id,
+                    customer_phone=customer.phone,
+                    reason=f"Provider exhausted: {credential_err}",
+                    amount=total_amount,
+                    currency="NGN",
+                )
+            except Exception:
+                # Notification failure should not block the refund itself.
+                pass
+
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=(
+                    f"Order {order_id} could not be fulfilled — provider unavailable. "
+                    "Auto-refund queued. Admin will process your refund within 24 hours."
+                ),
+            )
+
+        order.styxproxy_credential_id = credential.id
+        order.status = "active"
+    await session.commit()
+    await session.refresh(order)
+    await log_audit_event(
+        session,
+        event_type="order_created",
+        phone=customer.phone,
+        order_id=order_id,
+        details={
+            "plan_code": body.plan_code,
+            "country": body.country,
+            "amount": total_amount,
+            "status": order.status,
+        },
+    )
+
+    # Get customer name and email for customer emails
+    customer_name = customer.name if customer else "Customer"
+    customer_email = getattr(customer, "email", None)  # Use customer email if available
+
+    # Send admin notification email
+    if order.status == "pending":
+        try:
+            await send_new_order_notification(
+                order_id=order_id,
+                customer_phone=customer.phone,
+                plan_code=body.plan_code,
+                amount=total_amount,
+                currency="NGN",
+            )
+        except Exception as e:
+            logger.warning(f'Failed to send new order notification: {e}')
+        # Send order confirmation to customer if email available
+        if customer_email:
+            try:
+                await send_order_confirmation_email(
+                    customer_email=customer_email,
+                    customer_name=customer_name,
+                    order_id=order_id,
+                    plan_code=body.plan_code,
+                    amount=total_amount,
+                    currency="NGN",
+                    quantity=body.quantity,
+                )
+            except Exception as e:
+                logger.warning(f'Failed to send order confirmation email to {customer_email}: {e}')
+    elif order.status == "active":
+        # Send ONE combined email: order details + credentials together
+        if customer_email:
+            cred = None
+            if order.styxproxy_credential_id:
+                cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+                cred_result = await session.execute(cred_stmt)
+                cred = cred_result.scalar_one_or_none()
+            if cred:
+                try:
+                    await send_order_active_email(
+                        customer_email=customer_email,
+                        customer_name=customer_name,
+                        order_id=order_id,
+                        plan_code=body.plan_code,
+                        amount=total_amount,
+                        currency="NGN",
+                        quantity=body.quantity,
+                        styxproxy_username=cred.styxproxy_username,
+                        proxy_ip=cred.upstream_proxy_ip or "",
+                        proxy_port=cred.upstream_proxy_port or 1080,
+                        protocol=cred.protocol or "socks5",
+                        expires_at=cred.expires_at or datetime.utcnow(),
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send order active email: {e}")
+    cred_brief = None
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+        cred_result = await session.execute(cred_stmt)
+        cred = cred_result.scalar_one_or_none()
+        if cred:
+            cred_brief = StyxproxyCredentialBrief(
+                id=cred.id,
+                styxproxy_username=cred.styxproxy_username,
+                protocol=cred.protocol or "socks5",
+                upstream_proxy_ip=cred.upstream_proxy_ip,
+                upstream_proxy_port=cred.upstream_proxy_port,
+                status=cred.status,
+            )
+    return OrderResponse(
+        order_id=order.order_id,
+        status=order.status,
+        plan_type=order.plan_type,
+        country=order.country,
+        amount_paid_ngn=order.amount_paid_ngn,
+        styxproxy_credential=cred_brief,
+        created_at=order.created_at,
+        expires_at=order.expires_at,
+        referral_tx_ref=order.referral_tx_ref,
+    )
+
+
+@router.get("/by-device", response_model=list[OrderResponse])
+async def list_orders_by_device(
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_account),
+):
+    """List all orders for the current device/platform account.
+
+    Lets anonymous web customers see their past orders without login.
+    Sorted by created_at DESC (newest first).
+    """
+    platform_account = current_user["platform_account"]
+    stmt = (
+        select(Order)
+        .where(Order.platform_account_id == platform_account.id)
+        .order_by(Order.created_at.desc())
+        .limit(50)
+    )
+    orders = (await session.execute(stmt)).scalars().all()
+
+    # Build brief responses
+    results = []
+    for order in orders:
+        cred_brief = None
+        if order.styxproxy_credential_id:
+            cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+            cred = (await session.execute(cred_stmt)).scalar_one_or_none()
+            if cred:
+                cred_brief = StyxproxyCredentialBrief(
+                    id=cred.id,
+                    styxproxy_username=cred.styxproxy_username,
+                    protocol=cred.protocol or "socks5",
+                    upstream_proxy_ip=cred.upstream_proxy_ip,
+                    upstream_proxy_port=cred.upstream_proxy_port,
+                    status=cred.status,
+                )
+        customer = current_user.get("customer")
+        results.append(
+            OrderResponse(
+                order_id=order.order_id,
+                status=order.status,
+                plan_type=order.plan_type,
+                country=order.country,
+                amount_paid_ngn=order.amount_paid_ngn,
+                styxproxy_credential=cred_brief,
+                created_at=order.created_at,
+                expires_at=order.expires_at,
+                customer_name=customer.name if customer and customer.name else None,
+                referral_tx_ref=order.referral_tx_ref,
+            )
+        )
+    return results
+
+
+@router.get("/by-payment-reference/{payment_reference}", response_model=OrderResponse)
+async def get_order_by_payment_reference(
+    payment_reference: str,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Look up order by the FE-generated payment reference (STX-XXXXXX).
+
+    Used by /thank-you polling. Requires no auth — the payment reference
+    itself is a sufficiently strong opaque token (32^6 entropy ≈ 60 bits).
+    Bug walk theme-B fix: previously the FE polled /api/orders/{txRef}
+    which matched @router.get('/{order_id}') and returned 404 because the
+    BE Order.order_id format is ORD-XXXXXX (not STX-). The customer
+    spent 5 minutes in Loading spinner before timing out.
+
+    Lookup falls back to Order.tx_ref because Flutterwave webhooks set
+    that field for fully-paid orders (the FE txRef and the BE tx_ref
+    are different fields; FE generates STX-XXXXXX pre-payment,
+    Flutterwave stamps its own internal tx_ref post-payment).
+
+    Returns Order + StyxproxyCredential brief so /thank-you can show the
+    customer their credentials without a second round-trip.
+    """
+    stmt = (
+        select(Order)
+        .where(
+            (Order.payment_reference == payment_reference)
+            | (Order.tx_ref == payment_reference)
+            | (Order.order_id == payment_reference)
+        )
+        .order_by(Order.created_at.desc())
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    cred_brief = None
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+        cred_result = await session.execute(cred_stmt)
+        cred = cred_result.scalar_one_or_none()
+        if cred:
+            cred_brief = StyxproxyCredentialBrief(
+                id=cred.id,
+                styxproxy_username=cred.styxproxy_username,
+                protocol=cred.protocol or "socks5",
+                upstream_proxy_ip=cred.upstream_proxy_ip,
+                upstream_proxy_port=cred.upstream_proxy_port,
+                status=cred.status,
+            )
+
+    # customer_name lookup (optional — anonymous orders don't have it
+    # available if customer.row was deleted)
+    customer_name = None
+    if order.customer_phone:
+        cust_stmt = select(Customer).where(Customer.phone == order.customer_phone)
+        cust_result = await session.execute(cust_stmt)
+        cust = cust_result.scalar_one_or_none()
+        if cust and cust.name:
+            customer_name = cust.name
+
+    return OrderResponse(
+        order_id=order.order_id,
+        status=order.status,
+        plan_type=order.plan_type,
+        country=order.country,
+        amount_paid_ngn=order.amount_paid_ngn,
+        styxproxy_credential=cred_brief,
+        created_at=order.created_at,
+        expires_at=order.expires_at,
+        customer_name=customer_name,
+        is_renewable=order.status == "active" and order.expires_at is not None,
+    )
+
+
+# ─── Self-Service Order Lookup (Sprint 025) ─────────────────────────────────
+# Highest-ROI support fix: anonymous customers can look up their order status
+# without login. Email + order_id required. Rate-limited. No credentials returned.
+
+class OrderLookupResponse(BaseModel):
+    """Response for self-service order lookup. No credentials — status only."""
+    order_id: str
+    status: str
+    plan_code: Optional[str] = None
+    plan_type: Optional[str] = None
+    country: Optional[str] = None
+    amount_paid_ngn: Optional[float] = None
+    currency: str = "NGN"
+    created_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    is_fulfilled: bool = False
+    credential_delivery_status: Optional[str] = None  # "delivered" | "pending" | "failed" | None
+    message: str = ""
+
+
+@router.get("/lookup", response_model=OrderLookupResponse)
+@limiter.limit("10/minute", key_func=get_remote_address)
+async def lookup_order(
+    request: Request,
+    order_id: str,
+    email: str | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Self-service order lookup — no auth required.
+    
+    Customers provide email + order_id to check their order status.
+    Returns status + delivery state only — NO credentials.
+    Rate-limited to 10 req/min per IP.
+    """
+    from app.models import Customer
+    
+    # Validate email format (optional — only checked if provided)
+    if email is not None:
+        email = email.strip().lower()
+        if "@" not in email or " " in email or len(email) > 255:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
+    
+    # Find order by order_id
+    stmt = select(Order).where(Order.order_id == order_id).limit(1)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        # Don't leak order existence — same message for all failures
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    
+    # Order IDs are unique — email is for receipts/proxy delivery, not lookup.
+    # Skip email verification entirely; order_id is the sole lookup key.
+    # (This covers NULL, empty, matching, and mismatched customer_email states.)
+    
+    # Determine credential delivery status
+    delivery_status = None
+    if order.status in ("fulfilled", "active") and order.styxproxy_credential_id:
+        delivery_status = "delivered"
+    elif order.status == "paid":
+        delivery_status = "pending"
+    elif order.status in ("failed_unfulfilled", "failed_manual_review"):
+        delivery_status = "failed"
+    
+    # Build user-friendly message
+    if order.status in ("fulfilled", "active"):
+        message = "Your proxy is ready. Check your email for credentials."
+    elif order.status == "paid":
+        message = "Payment received — your proxy is being provisioned."
+    elif order.status == "pending":
+        message = "Waiting for payment confirmation."
+    elif order.status == "expired":
+        message = "This order has expired. Please place a new order."
+    elif order.status == "refunded":
+        message = "This order has been refunded. Contact support if you have questions."
+    elif order.status == "cancelled":
+        message = "This order was cancelled."
+    else:
+        message = f"Order status: {order.status}"
+    
+    return OrderLookupResponse(
+        order_id=order.order_id,
+        status=order.status,
+        plan_code=order.plan_code,
+        plan_type=order.plan_type,
+        country=order.country,
+        amount_paid_ngn=float(order.amount_paid_ngn) if order.amount_paid_ngn else None,
+        currency="NGN",
+        created_at=order.created_at,
+        expires_at=order.expires_at,
+        is_fulfilled=order.status in ("fulfilled", "active"),
+        credential_delivery_status=delivery_status,
+        message=message,
+    )
+
+
+@router.get("/{order_id}", response_model=OrderResponse)
+async def get_order(
+    order_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)
+):
+    customer = current_user["customer"]
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+    stmt = select(Order).where(Order.order_id == order_id, Order.customer_phone == customer.phone)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    cred_brief = None
+    rotation_count = 0
+    max_rotations = 3
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+        cred_result = await session.execute(cred_stmt)
+        cred = cred_result.scalar_one_or_none()
+        if cred:
+            rotation_count = getattr(cred, "rotation_count", 0) or 0
+            max_rotations = getattr(cred, "max_rotations", 3) or 3
+            cred_brief = StyxproxyCredentialBrief(
+                id=cred.id,
+                styxproxy_username=cred.styxproxy_username,
+                protocol=cred.protocol or "socks5",
+                upstream_proxy_ip=cred.upstream_proxy_ip,
+                upstream_proxy_port=cred.upstream_proxy_port,
+                status=cred.status,
+            )
+    is_renewable = order.status == "active" and order.expires_at is not None
+    return OrderResponse(
+        order_id=order.order_id,
+        status=order.status,
+        plan_type=order.plan_type,
+        country=order.country,
+        amount_paid_ngn=order.amount_paid_ngn,
+        styxproxy_credential=cred_brief,
+        created_at=order.created_at,
+        expires_at=order.expires_at,
+        customer_name=customer.name if customer and customer.name else None,
+        is_renewable=is_renewable,
+        rotation_count=rotation_count,
+        max_rotations=max_rotations,
+    )
+
+
+@router.post("/{order_id}/cancel", response_model=OrderCancelResponse)
+async def cancel_order(
+    order_id: str,
+    request: OrderCancelRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_account),
+):
+    customer = current_user["customer"]
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+    stmt = select(Order).where(Order.order_id == order_id, Order.customer_phone == customer.phone)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    if order.status in ["cancelled", "refunded"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order already cancelled or refunded")
+    order.status = "cancelled"
+    order.refund_requested = True
+    order.refund_reason = request.reason
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+        cred_result = await session.execute(cred_stmt)
+        cred = cred_result.scalar_one_or_none()
+        if cred:
+            cred.status = "revoked"
+    await session.commit()
+    await log_audit_event(
+        session,
+        event_type="order_cancelled",
+        phone=customer.phone,
+        order_id=order_id,
+        details={"reason": request.reason},
+    )
+
+    # Send admin notification for refund request
+    await send_refund_request_notification(
+        order_id=order_id,
+        customer_phone=customer.phone,
+        reason=request.reason,
+        amount=float(order.amount_paid_ngn or 0),
+        currency="NGN",
+    )
+
+    return OrderCancelResponse(
+        order_id=order_id, status="cancelled", refund_processed=True, refund_amount_ngn=order.amount_paid_ngn
+    )
+
+
+@router.post("/{order_id}/report-dead", response_model=OrderReportDeadResponse)
+async def report_dead_ip(
+    order_id: str,
+    request: OrderReportDeadRequest,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_account),
+):
+    customer = current_user["customer"]
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+    stmt = select(Order).where(Order.order_id == order_id, Order.customer_phone == customer.phone)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    if order.status != "active":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order is not active")
+    order.ban_reported = True
+    order.screenshot_url = request.screenshot_url
+    order.status = "pending_verification"
+    order.ban_verified = "pending"
+    await session.commit()
+    await log_audit_event(
+        session,
+        event_type="ip_ban_reported",
+        phone=customer.phone,
+        order_id=order_id,
+        details={"screenshot_url": request.screenshot_url, "issue_description": request.issue_description},
+    )
+    return OrderReportDeadResponse(
+        order_id=order_id, ban_reported=True, status="pending_verification", replacement_estimate_hours=24
+    )
+
+
+class RotateResponse(BaseModel):
+    order_id: str
+    styxproxy_credential: StyxproxyCredentialBrief
+    rotation_count: int
+    max_rotations: int
+
+    model_config = {"from_attributes": True}
+
+
+@router.post("/{order_id}/rotate", response_model=RotateResponse)
+async def rotate_proxy(
+    order_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)
+):
+    """Rotate credentials (styxproxy_username + styxproxy_password).
+
+    This rotates the credentials only -- the upstream provider IP stays the same.
+    Max 3 rotations per credential; reject the 4th.
+    """
+    # Feature flag: proxy rotation can be disabled when providers don't support it
+    rotation_flag = (
+        await session.execute(select(FeatureFlag).where(FeatureFlag.name == "proxy_rotation_enabled"))
+    ).scalar_one_or_none()
+    if rotation_flag and not rotation_flag.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Proxy rotation is temporarily disabled. Please contact support for assistance.",
+        )
+
+    MAX_ROTATIONS = 3
+    customer = current_user["customer"]
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+    stmt = select(Order).where(Order.order_id == order_id, Order.customer_phone == customer.phone)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    if not order.styxproxy_credential_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No credential to rotate")
+    cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+    cred_result = await session.execute(cred_stmt)
+    cred = cred_result.scalar_one_or_none()
+    if not cred:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found")
+
+    current_count = getattr(cred, "rotation_count", 0) or 0
+    if current_count >= MAX_ROTATIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Rotation limit reached ({MAX_ROTATIONS} per proxy)"
+        )
+
+    # Generate new branded credentials locally (same upstream IP)
+    from app.services.credential import generate_styxproxy_username, generate_styxproxy_password
+
+    new_styxproxy_username = generate_styxproxy_username()
+    new_styxproxy_password = generate_styxproxy_password()
+
+    # Update DB with new credentials (encrypt the new password at rest)
+    cred.styxproxy_username = new_styxproxy_username
+    cred.set_password(new_styxproxy_password)
+    cred.rotation_count = current_count + 1
+    await session.commit()
+    await session.refresh(cred)
+
+    await log_audit_event(
+        session,
+        event_type="credentials_rotated",
+        phone=customer.phone,
+        order_id=order_id,
+        details={
+            "rotation_count": current_count + 1,
+            "old_username": cred.styxproxy_username,
+            "new_username": new_styxproxy_username,
+            "upstream_ip": cred.upstream_proxy_ip,
+        },
+    )
+
+    # Send new credentials to customer via email
+    # Get customer name and email for customer emails
+    customer_name = customer.name if customer else "Customer"
+    customer_email = getattr(customer, "email", None)
+
+    try:
+        if customer_email:
+            await send_credentials_rotated_email(
+                customer_email=customer_email,
+                customer_name=customer_name,
+                order_id=order_id,
+                new_username=new_styxproxy_username,
+                new_password=new_styxproxy_password,
+                proxy_ip=cred.upstream_proxy_ip or "",
+                proxy_port=cred.upstream_proxy_port or 1080,
+                protocol=cred.protocol or "socks5",
+            )
+        else:
+            # Fallback: no customer email available, skip email
+            pass
+    except Exception as e:
+        logger.warning(f"Failed to send credentials rotated email: {e}")
+
+    # Fire n8n webhook for WhatsApp/Telegram delivery
+    from app.services.n8n import trigger_credentials_delivered_webhook
+
+    try:
+        import asyncio
+
+        asyncio.create_task(
+            trigger_credentials_delivered_webhook(
+                order_id=order_id,
+                tx_ref=order.payment_reference or "",
+                phone=order.customer_phone or "",
+                channel=order.channel or "web",
+                styxproxy_username=new_styxproxy_username,
+                styxproxy_password=new_styxproxy_password,
+                proxy_ip=cred.upstream_proxy_ip or "",
+                proxy_port=cred.upstream_proxy_port or 1080,
+                expires_at=cred.expires_at,
+            )
+        )
+    except Exception as e:
+        logger.warning(f"Failed to trigger credentials delivered webhook: {e}")
+
+    return RotateResponse(
+        order_id=order_id,
+        styxproxy_credential=StyxproxyCredentialBrief(
+            id=cred.id,
+            styxproxy_username=cred.styxproxy_username,
+            protocol=cred.protocol or "socks5",
+            upstream_proxy_ip=cred.upstream_proxy_ip,
+            upstream_proxy_port=cred.upstream_proxy_port,
+            status=cred.status,
+        ),
+        rotation_count=cred.rotation_count,
+        max_rotations=MAX_ROTATIONS,
+    )
+
+
+# ─── Credential Delivery ─────────────────────────────────────────────────────
+
+
+class DeliverResponse(BaseModel):
+    """Response for manual credential delivery trigger."""
+
+    order_id: str
+    webhook_triggered: bool
+    message: str
+
+
+@router.post("/{order_id}/deliver", response_model=DeliverResponse)
+async def deliver_credentials(
+    order_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_account),
+):
+    """
+    Manual trigger endpoint to send credentials to n8n webhook.
+
+    Useful for testing or retrying failed deliveries.
+    POST /api/orders/{order_id}/deliver
+    """
+    from app.services.n8n import trigger_credentials_delivered_webhook
+
+    customer = current_user["customer"]
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+
+    # Get order with credential
+    stmt = select(Order).where(Order.order_id == order_id, Order.customer_phone == customer.phone)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    if not order.styxproxy_credential_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No credential found for this order")
+
+    # Get credential
+    cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+    cred_result = await session.execute(cred_stmt)
+    credential = cred_result.scalar_one_or_none()
+    if not credential:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found")
+
+    if not credential.expires_at:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Credential has no expiration date")
+
+    # Trigger webhook
+    await trigger_credentials_delivered_webhook(
+        order_id=order.order_id,
+        tx_ref=order.payment_reference or "",
+        phone=order.customer_phone or "",
+        channel="whatsapp",
+        styxproxy_username=credential.styxproxy_username,
+        styxproxy_password="",  # Password not stored in plaintext
+        proxy_ip=credential.upstream_proxy_ip or "",
+        proxy_port=credential.upstream_proxy_port or 1080,
+        expires_at=credential.expires_at,
+    )
+
+    await log_audit_event(
+        session,
+        event_type="credentials_deliver_triggered",
+        phone=customer.phone,
+        order_id=order_id,
+        details={"tx_ref": order.payment_reference},
+    )
+
+    return DeliverResponse(
+        order_id=order_id,
+        webhook_triggered=True,
+        message="Credentials delivery webhook triggered successfully",
+    )
+
+
+# ─── Receipt & PDF Endpoints ───────────────────────────────────────────────────
+
+
+def _hex_to_rgb(hex_color: str):
+    """Convert hex color to RGB tuple (0-1 range)."""
+    hex_color = hex_color.lstrip("#")
+    return tuple(int(hex_color[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+PRIMARY_COLOR = _hex_to_rgb("#0AD25A")
+BG_COLOR = _hex_to_rgb("#0a0a0a")
+CARD_COLOR = _hex_to_rgb("#1a1a1a")
+MUTED_COLOR = _hex_to_rgb("#9CA3AF")
+DIM_COLOR = _hex_to_rgb("#6B7280")
+WHITE_COLOR = _hex_to_rgb("#ffffff")
+LIGHT_COLOR = _hex_to_rgb("#D1D5DB")
+BORDER_COLOR = _hex_to_rgb("#262626")
+
+
+async def _build_receipt_data(session: AsyncSession, tx_ref: str) -> Optional[dict]:
+    """Fetch order data for receipt by tx_ref (payment reference)."""
+    stmt = (
+        select(Order, Customer)
+        .outerjoin(Customer, Order.customer_phone == Customer.phone)
+        .where((Order.tx_ref == tx_ref) | (Order.payment_reference == tx_ref))
+        .limit(1)
+    )
+
+    result = await session.execute(stmt)
+    row = result.first()
+
+    if not row:
+        return None
+
+    order, customer = row
+
+    # Get credential if exists
+    cred = None
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+        cred_result = await session.execute(cred_stmt)
+        cred = cred_result.scalar_one_or_none()
+
+    return {
+        "order": order,
+        "customer": customer,
+        "credential": cred,
+    }
+
+
+@router.get("/{tx_ref}/receipt", response_model=ReceiptOrderResponse)
+async def get_receipt(
+    tx_ref: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """Get order data for public receipt page (no auth required)."""
+    # Query by tx_ref or payment_reference
+    stmt = (
+        select(Order, Customer)
+        .outerjoin(Customer, Order.customer_phone == Customer.phone)
+        .where((Order.tx_ref == tx_ref) | (Order.payment_reference == tx_ref))
+        .limit(1)
+    )
+
+    result = await session.execute(stmt)
+    row = result.first()
+
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    order, customer = row
+
+    # Get credential if exists
+    cred_brief = None
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+        cred_result = await session.execute(cred_stmt)
+        cred = cred_result.scalar_one_or_none()
+        if cred:
+            cred_brief = StyxproxyCredentialBrief(
+                id=cred.id,
+                styxproxy_username=cred.styxproxy_username,
+                protocol=cred.protocol or "socks5",
+                upstream_proxy_ip=cred.upstream_proxy_ip,
+                upstream_proxy_port=cred.upstream_proxy_port,
+                status=cred.status,
+            )
+
+    customer_name = customer.name if customer and customer.name else None
+
+    return ReceiptOrderResponse(
+        order_id=order.order_id,
+        tx_ref=order.tx_ref or order.payment_reference,
+        status=order.status,
+        plan_type=order.plan_type,
+        plan_code=order.plan_code,
+        country=order.country,
+        quantity=order.quantity,
+        amount_paid_ngn=order.amount_paid_ngn,
+        customer_name=customer_name,
+        created_at=order.created_at,
+        expires_at=order.expires_at,
+        styxproxy_credential=cred_brief,
+    )
+
+
+@router.get("/{tx_ref}/pdf")
+async def get_receipt_pdf(
+    tx_ref: str,
+    session: AsyncSession = Depends(get_session),
+):
+    """Generate and download a dark-themed PDF receipt."""
+
+    # Query by tx_ref or payment_reference
+    from sqlalchemy import select
+
+    from app.models import Customer, Order, StyxproxyCredential
+
+    stmt = (
+        select(Order, Customer)
+        .outerjoin(Customer, Order.customer_phone == Customer.phone)
+        .where((Order.tx_ref == tx_ref) | (Order.payment_reference == tx_ref))
+        .limit(1)
+    )
+
+    result = await session.execute(stmt)
+    row = result.first()
+
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")  # noqa: F823
+
+    order, customer = row
+
+    # Get credential if exists
+    cred = None
+    if order.styxproxy_credential_id:
+        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
+        cred_result = await session.execute(cred_stmt)
+        cred = cred_result.scalar_one_or_none()
+
+    # ── Build PDF using HTML/CSS (matches email template design) ─────
+    from weasyprint import HTML as _WeasyHTML
+
+    from app.services.email import (
+        LOGO_DARK_B64,
+        _get_base_styles,
+    )
+
+    currency = "NGN"
+    amount = float(order.amount_paid_ngn or 0)
+    quantity = order.quantity or 1
+    plan_label = f"{order.plan_code or 'Proxy'} - {order.country or 'N/A'}"
+    date_str = order.created_at.strftime("%B %d, %Y") if order.created_at else "—"
+    oid = order.order_id or "N/A"
+    if cred:
+        # The credential model stores styxproxy_password as Fernet ciphertext.
+        # get_password() decrypts transparently; returns None if encryption is
+        # not configured or ciphertext is tampered.
+        cred_username = cred.styxproxy_username or "N/A"
+        cred_password_display = cred.get_password() or "N/A"
+        cred_ip = cred.upstream_proxy_ip or "N/A"
+        cred_port = cred.upstream_proxy_port or 8080
+        cred_full = f"http://{cred_username}:{cred_password_display}@{cred_ip}:{cred_port}"
+        cred_expires = cred.expires_at.strftime("%B %d, %Y") if cred.expires_at else "N/A"
+    else:
+        cred_username = cred_password_display = cred_ip = "—"
+        cred_port = 0
+        cred_full = "—"
+        cred_expires = "—"
+
+    base_styles = _get_base_styles()
+
+    # Build credentials block (only if credential exists)
+    credentials_html = ""
+    if cred:
+        credentials_html = f"""
+        <div class="credentials-card">
+            <div class="credentials-header">YOUR PROXY CREDENTIALS</div>
+            <div class="cred-row">
+                <span class="cred-label">Username</span>
+                <span class="cred-value">{cred_username}</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Password</span>
+                <span class="cred-value">{cred_password_display}</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Proxy Address</span>
+                <span class="cred-value">{cred_ip}:{cred_port}</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Protocol</span>
+                <span class="cred-value">HTTP / SOCKS5</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Full Format</span>
+                <span class="cred-value" style="font-size: 11px;">{cred_full}</span>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Expires</span>
+                <span class="cred-value">{cred_expires}</span>
+            </div>
+        </div>"""
+
+    # Receipt-specific style overrides — match the reference PDF look
+    receipt_styles = """
+        /* Receipt-specific overrides on top of email base styles */
+        body { background-color: #000; }
+        .accent-bar-top { height: 6px; }
+        .accent-bar-bottom { height: 6px; }
+        .email-container {
+            max-width: 760px;
+            padding: 0 24px;
+        }
+        .header-section {
+            padding: 20px 0 16px;
+            align-items: flex-start;
+        }
+        .header-section .logo-section img {
+            width: 160px;
+            height: auto;
+        }
+        .logo-subtitle {
+            font-size: 10px;
+            white-space: nowrap;
+        }
+        .header-label {
+            font-size: 12px;
+            letter-spacing: 1.5px;
+        }
+        .header-sublabel {
+            font-size: 9px;
+        }
+        .divider { margin: 0 0 8px; }
+        .main-heading {
+            font-size: 24px;
+            letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+        .subheading { font-size: 13px; margin-bottom: 12px; }
+        .card { padding: 14px 18px; border-radius: 4px; margin: 8px 0; }
+        .card-row { padding: 8px 0; }
+        .card-label {
+            font-size: 10px;
+            letter-spacing: 1px;
+        }
+        .card-value { font-size: 14px; }
+        .card-value.card-value-primary {
+            color: #0AD25A;
+            font-weight: 700;
+        }
+        .total-pill {
+            padding: 14px 20px;
+            border-radius: 3px;
+            background: #0AD25A;
+        }
+        .total-label { font-size: 11px; }
+        .total-amount { font-size: 18px; color: #000; }
+        .credentials-card {
+            border: 1.5px solid #0AD25A;
+            border-radius: 4px;
+            padding: 12px 18px;
+        }
+        .credentials-header {
+            color: #0AD25A;
+            font-size: 11px;
+            letter-spacing: 1.2px;
+            margin-bottom: 4px;
+        }
+        .cred-row {
+            padding: 6px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+        .cred-label {
+            font-size: 10px;
+            letter-spacing: 1px;
+            flex-shrink: 0;
+        }
+        .cred-value {
+            font-family: 'Courier New', Courier, monospace;
+            color: #0AD25A;
+            font-size: 13px;
+            text-align: right;
+            margin-left: 16px;
+        }
+        .support-card {
+            padding: 16px 20px;
+            border-radius: 4px;
+            margin-top: 16px;
+        }
+        .support-title {
+            margin-bottom: 8px;
+        }
+        .support-row {
+            margin-bottom: 4px;
+        }
+        .footer { font-size: 10px; padding: 12px 0; }
+        /* Receipt page layout — single page, A4 */
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        .email-wrapper {
+            background-color: #000;
+        }
+    """
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Styxproxy Receipt — {tx_ref}</title>
+    <style>{base_styles}{receipt_styles}</style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="accent-bar-top"></div>
+            <div class="header-section">
+                <div class="logo-section">
+                    <img class="logo-dark" src="data:image/png;base64,{LOGO_DARK_B64}"
+     alt="Styxproxy" width="200" height="58"
+     style="display:block;width:200px;height:auto;">
+                    <div class="logo-subtitle">Anonymous Proxy Service</div>
+                </div>
+                <div>
+                    <div class="header-label">PAYMENT RECEIPT</div>
+                    <div class="header-sublabel">styxproxy.com</div>
+                    <div class="header-sublabel">Issued: {date_str}</div>
+                </div>
+            </div>
+            <div class="divider"></div>
+
+            <div class="content-section">
+                <div class="section-label">ORDER CONFIRMATION</div>
+                <div class="main-heading">Thank you, customer.</div>
+                <div class="subheading">Your proxy is ready to use. Below are your credentials.</div>
+
+                <div class="card">
+                    <div class="card-row">
+                        <span class="card-label">Transaction Reference</span>
+                        <span class="card-value card-value-primary">{tx_ref}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Order ID</span>
+                        <span class="card-value">{oid[:24]}{'…' if len(oid) > 24 else ''}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Date</span>
+                        <span class="card-value">{date_str}</span>
+                    </div>
+                    <div class="card-row">
+                        <span class="card-label">Method</span>
+                        <span class="card-value">Card / Bank / USSD / QR</span>
+                    </div>
+                </div>
+
+                <div class="items-header">
+                    <span class="items-label">ITEMS</span>
+                    <span class="items-label" style="text-align: right;">AMOUNT</span>
+                </div>
+                <div class="item-row">
+                    <span class="item-name">{plan_label} × {quantity}</span>
+                    <span>{currency} {amount:,.0f}</span>
+                </div>
+
+                <div class="total-pill">
+                    <span class="total-label">Total Paid</span>
+                    <span class="total-amount">{currency} {amount:,.0f}</span>
+                </div>
+
+                {credentials_html}
+
+                <div class="support-card">
+                    <div class="support-title">NEED HELP?</div>
+                    <div class="support-row">
+                        <span class="support-label">Chat:</span>
+                        <a href="https://styxproxy.com/contact" class="support-link">styxproxy.com/contact</a>
+                    </div>
+                    <div class="support-row">
+                        <span class="support-label">Email:</span>
+                        <a href="mailto:support@styxproxy.com" class="support-link">support@styxproxy.com</a>
+                    </div>
+                    <div class="support-row" style="margin-bottom: 0;">
+                        <span class="support-label">Web:</span>
+                        <a href="https://styxproxy.com" class="support-link">styxproxy.com</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <div class="footer-auto">This receipt was generated automatically. No signature required.</div>
+                <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
+            </div>
+            <div class="accent-bar-bottom"></div>
+        </div>
+    </div>
+</body>
+</html>"""
+
+    pdf_bytes = _WeasyHTML(string=html).write_pdf()
+    import io as _io
+
+    buffer = _io.BytesIO(pdf_bytes or b"")
+
+    from fastapi.responses import StreamingResponse
+
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=styxproxy-receipt-{tx_ref}.pdf"},
+    )
+
