@@ -83,17 +83,22 @@ echo "--- 2a. REJECTED events — the signal that catches a bad secret ---"
 # This is the case the canary exists for: traffic WAS attempted and we said no.
 # A wrong FLUTTERWAVE_WEBHOOK_SECRET yields 401s and no charge.completed rows,
 # which without these rows looks identical to "no traffic at all".
-#   scope=public     -> not us: a genuine external caller
+#   scope=public     -> not us: an external caller
 #   scope=self_host/private/loopback -> our own curl, not evidence of anything
+#   via=x-real-ip    -> nginx's $remote_addr; NOT client-settable, so trustworthy
+#   via=xff          -> came from X-Forwarded-For, which a client CAN set, so it
+#                       proves the route was reached but NOT who reached it.
+#                       Only reachable when nginx is bypassed (direct to :8000).
 ssh -i "$SSH_KEY" -o ConnectTimeout=15 "$HOST" \
-  "sudo -u postgres psql -d $DB -At -F'|' -c \"
+"sudo -u postgres psql -d $DB -At -F'|' -c \"
     select event_type,
            coalesce(details->>'reason','-') as reason,
            coalesce(details->>'origin_scope','-') as scope,
+           coalesce(details->>'origin_via','-') as via,
            count(*), max(timestamp)
     from customer_audit_log
     where event_type like '%webhook_rejected'
-    group by 1,2,3 order by 5 desc;\""
+    group by 1,2,3,4 order by 6 desc;\""
 
 echo
 echo "--- 2b. NEW audit rows since the snapshot (the primary signal) ---"
@@ -154,10 +159,27 @@ if [ "$PHASE" = "verify" ]; then
     echo "     @styxproxy.local QA order? Only a real customer order proves the"
     echo "     live gateway event got in."
   elif [ "${REJECTS:-0}" -gt 0 ]; then
+    # NOTE ON WHAT THIS DOES AND DOES NOT PROVE.
+    # origin_scope='public' means an address that is not one of ours reached the
+    # route. It does NOT prove the payment gateway did: a caller can still forge
+    # X-Forwarded-For on the direct-to-:8000 path, which carries no X-Real-IP,
+    # and be classified public. Since t_4271b61e prefers X-Real-IP ($remote_addr,
+    # not client-settable), that forgery is only reachable when nginx is bypassed
+    # — but it is not impossible, so this verdict states it rather than
+    # overclaiming. Confirm against section 2a/3 and the nginx log before
+    # declaring a secret rotation broken.
     echo "REJECTED, NOT SILENT: $REJECTS non-self flutterwave_webhook_rejected"
-    echo "  row(s) in the last 15min. The gateway called and we returned 401."
-    echo "  -> The configured secret does NOT match the gateway. Fix .env and"
-    echo "     restart before the customer is charged and unfulfilled."
+    echo "  row(s) in the last 15min. SOMETHING non-self reached the route and we"
+    echo "  returned 401."
+    echo "  -> Strongest suspect is still a FLUTTERWAVE_WEBHOOK_SECRET that does not"
+    echo "     match the gateway. Before acting on that, confirm the caller was the"
+    echo "     GATEWAY and not a forged-header probe: check origin_via in section 2a"
+    echo "     ('x-real-ip' is nginx's \$remote_addr and cannot be forged from"
+    echo "     outside; 'xff' means the address came from a client-settable header"
+    echo "     and is NOT proof of who called), and compare section 2 with"
+    echo "     /var/log/styxproxy-nginx-access.log, whose \$remote_addr is not"
+    echo "     spoofable. Only a 'x-real-ip' row from a known Flutterwave range is"
+    echo "     a genuine gateway rejection."
   else
     echo "NO SIGNAL: zero webhook_charge.completed and zero non-self rejection"
     echo "  rows in the last 15 minutes."
