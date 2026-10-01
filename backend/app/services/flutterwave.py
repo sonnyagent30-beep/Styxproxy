@@ -11,8 +11,10 @@ import httpx
 
 from app.config import get_settings
 from app.services.capture import (
+    GATEWAY_STATUS_REFUNDED,
     GATEWAY_STATUS_SUCCESS,
     UNIT_MAJOR,
+    CaptureContractError,
     gateway_captured_at,
     record_capture,
 )
@@ -390,14 +392,94 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                         order_id=order.order_id,
                         details={"reason": fulfillment_error, "tx_ref": tx_ref},
                     )
+                    # Route the auto-refund through the SAME dispatch the admin
+                    # path uses (services/refunds.py). This block used to call
+                    # _flutterwave_refund directly, discard the response, and
+                    # then flip order.status = "refunded" — so an auto-refund
+                    # left no refund id anywhere and could not be reconciled.
+                    # It also hardcoded Flutterwave regardless of the order's
+                    # actual provider. refund_at_gateway() dispatches on
+                    # order.provider, raises unless the gateway confirms, and
+                    # returns the gateway's own refund id.
                     try:
-                        await _flutterwave_refund(tx_ref, data.get("amount", 0), settings.flutterwave_secret_key)
+                        from app.services.refunds import refund_at_gateway
+
+                        result = await refund_at_gateway(
+                            order,
+                            reason=f"Auto-refund: provider unavailable — {fulfillment_error}",
+                            # An auto-refund refunds what the gateway actually
+                            # charged, which this webhook just recorded on the
+                            # order. Fall back to the webhook payload amount
+                            # rather than the invoice amount.
+                            amount_ngn=(
+                                float(order.gateway_amount_ngn)
+                                if order.gateway_amount_ngn is not None
+                                else (float(data["amount"]) if data.get("amount") else None)
+                            ),
+                        )
+                        # Gateway confirmed. Only NOW is the order refunded.
+                        order.gateway_refund_id = result.gateway_refund_id
+                        order.gateway_refund_status = result.gateway_status
+                        order.gateway_refund_amount = result.amount_ngn
+                        order.gateway_refunded_at = datetime.now(timezone.utc)
                         order.status = "refunded"
                         order.refund_requested = True
                         order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
+                        try:
+                            record_capture(
+                                order,
+                                provider=result.provider,
+                                gateway_status=GATEWAY_STATUS_REFUNDED,
+                                gateway_amount=result.amount_ngn,
+                                amount_unit=UNIT_MAJOR,
+                            )
+                        except CaptureContractError as capture_error:
+                            # The refund itself already went through at the
+                            # gateway; the capture row is bookkeeping. Log it and
+                            # keep the confirmed refund rather than rolling back.
+                            logger.warning(
+                                "Auto-refund confirmed at gateway for order %s but capture "
+                                "annotation failed: %s",
+                                order.order_id,
+                                capture_error,
+                            )
                         await db_session.commit()
+                        await log_audit_event(
+                            db_session,
+                            event_type="auto_refund_confirmed",
+                            phone=order.customer_phone,
+                            order_id=order.order_id,
+                            details={
+                                "reason": fulfillment_error,
+                                "tx_ref": tx_ref,
+                                "provider": result.provider,
+                                "gateway_refund_id": result.gateway_refund_id,
+                                "gateway_refund_status": result.gateway_status,
+                                "amount_ngn": result.amount_ngn,
+                            },
+                        )
                     except Exception as refund_error:
-                        logger.warning("Flutterwave refund call failed for tx_ref=%s: %s", tx_ref, refund_error)
+                        # Gateway did NOT confirm. The order deliberately stays
+                        # actionable (NOT 'refunded') so it is never reported as
+                        # money returned when it was not.
+                        logger.warning(
+                            "Auto-refund did NOT complete for order %s (tx_ref=%s): %s "
+                            "— order left actionable, not marked refunded",
+                            order.order_id,
+                            tx_ref,
+                            refund_error,
+                        )
+                        await log_audit_event(
+                            db_session,
+                            event_type="auto_refund_failed",
+                            phone=order.customer_phone,
+                            order_id=order.order_id,
+                            details={
+                                "reason": fulfillment_error,
+                                "tx_ref": tx_ref,
+                                "error": str(refund_error),
+                            },
+                        )
             else:
                 await log_audit_event(
                     db_session,

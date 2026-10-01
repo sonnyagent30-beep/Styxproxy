@@ -245,13 +245,17 @@ class Order(Base):
     replacement_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     refund_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     refund_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    # The gateway's OWN refund id for this order (Paystack refund id, Flutterwave
-    # refund id). Written only after the gateway confirms the money movement.
-    # NULL means "we never got a gateway confirmation" — which, before this
-    # column existed, was indistinguishable from "refunded" (all 46 legacy
-    # `refunded` rows are NULL here: administrative status flips, not refunds).
-    # Without it a refund cannot be reconciled against the gateway afterwards.
-    gateway_refund_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    # gateway_refund_id is declared in the capture block above — it is owned by
+    # gate item 2's migration (20261001_order_capture_columns) so the two cards
+    # cannot produce conflicting ADD COLUMNs for the same name. Its semantics:
+    # the gateway's OWN refund id for this order, written only after the gateway
+    # confirms the money movement. NULL means "we never got a gateway
+    # confirmation" — which, before the column existed, was indistinguishable
+    # from "refunded" (all 46 legacy `refunded` rows are NULL there:
+    # administrative status flips, not refunds).
+    #
+    # The three refund-evidence columns below are item 3's own (t_f765263b),
+    # added in 20261001_refund_gateway_evidence.
     gateway_refund_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     gateway_refund_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
     gateway_refunded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
