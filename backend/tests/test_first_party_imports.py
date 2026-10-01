@@ -25,13 +25,20 @@ Importing app.main is still the stronger check, and the CI gate in
 ci/import-gate-and-charon-contract adds it. This test earns its place by covering
 what that gate structurally cannot see:
 
-  * app/routers/customers.py and app/scripts/send_renewal_reminders.py are not
-    reachable from app.main, so no entry-point import can ever notice they are
-    broken -- but the cron job has a systemd/cron unit and the router has an
-    OpenAPI operation.
+  * app/scripts/send_renewal_reminders.py is not reachable from app.main, so no
+    entry-point import can ever notice it is broken -- but the cron job has a
+    systemd/cron unit and runs daily.
   * app/routers/auth.py:1455 imports AdminRefreshToken *inside* a function body.
     The module imports fine; the route 500s on first call. A startup gate is
     blind to this by construction.
+
+app/routers/customers.py was the third instance of this and is now deleted
+(t_99e82016). It was a "customer GDPR self-service" router that nothing had ever
+imported, so it was absent from the OpenAPI schema and served nothing -- while
+reading to anyone auditing the repo as a working feature. Fixing its
+`ConsentEvent` import was not a viable alternative: it carried four independent
+defects, and registering it would have published a `DELETE /api/me` erasure
+endpoint that violates a live foreign key. That card holds the evidence.
 
 These are pure stdlib and need no installed dependencies, so they keep working in
 the incomplete environments they exist to catch.
@@ -57,15 +64,17 @@ CHECKER = SCRIPTS / "check_first_party_imports.py"
 #
 # TODO(t_5d7bbe76): each of these is a follow-up card. When one is fixed, delete
 # its entry and the checker will keep enforcing the rest.
+#
+# app/routers/customers.py was on this list and its entry is now removed: the file
+# is deleted outright (t_99e82016). The `ConsentEvent` model it wanted never
+# existed in app/models.py, even though migration 019 created the consent_events
+# *table* -- so the import was not a wrong path, it was a model that was never
+# written. Adding the model would have left the rest of that router broken too.
 KNOWN_UNRESOLVED = {
     # app/routers/auth.py:1455 -- function-local, so app.main still imports, but
     # POST /api/admin/auth/refresh raises ImportError -> 500 on every call. The
     # model does not exist in app/models.py at all.
     ("app/routers/auth.py", "AdminRefreshToken"),
-    # app/routers/customers.py:14 -- module scope. Not reachable from app.main
-    # (routers/__init__.py does not import it), so nothing loads this module and
-    # nothing notices. ConsentEvent is not defined in app/models.py.
-    ("app/routers/customers.py", "ConsentEvent"),
     # app/scripts/send_renewal_reminders.py:22 -- module scope, run by cron.
     # app/database.py defines get_session, not get_session_context.
     ("app/scripts/send_renewal_reminders.py", "get_session_context"),
