@@ -13,63 +13,28 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-
-async def deliver_credentials_direct(
-    order_id: str,
-    tx_ref: str,
-    phone: str,
-    channel: str,
-    styxproxy_username: str,
-    styxproxy_password: str,
-    proxy_ip: str,
-    proxy_port: int,
-    expires_at: datetime,
-    receipt_url: Optional[str] = None,
-) -> bool:
-    """Directly deliver credentials via Charon API (bypasses n8n webhook)."""
-    import httpx
-    from app.config import get_settings
-    settings = get_settings()
-    charon_url = f"{settings.api_base_url}/api/v1/charon/reply"
-    
-    message = f"""Your proxy credentials are ready!
-
-Proxy: {proxy_ip}:{proxy_port}
-Username: {styxproxy_username}
-Password: {styxproxy_password}
-Expires: {expires_at}
-
-Receipt: {receipt_url or 'N/A'}"""
-
-    # ChatReplyRequest (app/routers/charon.py) declares `user_message` as a
-    # required str and `customer_phone` for the contact. This payload used to
-    # send `message` and `phone`, which are NOT fields on the model — every
-    # call returned 422 "user_message: Field required" and the direct-delivery
-    # fallback silently failed. Field names are a contract; drift is silent
-    # until something 422s in production.
-    #
-    # Every value is coerced to str: user_message is typed `str`, and JS-style
-    # `+` concatenation over a None or int field (proxy_port is an int) puts a
-    # non-string into it, which is the other half of "Input should be a valid
-    # string".
-    payload = {
-        'user_message': str(message),
-        'customer_phone': str(phone or ""),
-        'channel': str(channel or "internal"),
-    }
-    
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(charon_url, json=payload)
-            if resp.status_code == 200:
-                logger.info(f"Credentials delivered directly for order {order_id}")
-                return True
-            else:
-                logger.warning(f"Charon direct delivery failed: {resp.status_code} {resp.text[:200]}")
-                return False
-    except Exception as e:
-        logger.error(f"Charon direct delivery error: {e}")
-        return False
+# `deliver_credentials_direct` was REMOVED here (2026-10-01, t_2a4daeda). It was
+# dead code with zero callers anywhere in app/ — only the contract test
+# referenced it — and it could not have worked: it read `settings.api_base_url`,
+# which is not a field on Settings (config.py), so it raised AttributeError on
+# its first statement, before the `try:` even began.
+#
+# It was NOT fixed, because fixing it would have been worse than deleting it.
+# Its whole body built one string containing the customer's proxy username and
+# PLAINTEXT PASSWORD and posted it as ChatReplyRequest.user_message. That
+# field is the customer chat prompt: app/services/charon/agent.py persists it,
+# appends it to the message list, and llm.py forwards the conversation to an
+# external provider (https://api.longcat.ai/chat/completions). So the "fix"
+# would have wired live customer credentials into a third-party LLM request.
+# Deleting the function removes that path; it does not close one.
+#
+# Credential delivery is email, and that is deliberate: see
+# send_order_active_email in app/services/email.py, called from
+# app/scripts/fulfillment_worker.py. n8n is notified afterwards as best-effort
+# and its result is recorded but never branched on (73bde0a).
+#
+# tests/test_credential_delivery_contract.py pins the absence, so this cannot
+# be reintroduced as dead code by a future change.
 
 async def trigger_credentials_delivered_webhook(
     order_id: str,
