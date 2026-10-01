@@ -1,8 +1,11 @@
 """Webhooks router — Payment Flow Rewrite (Sprint 025).
 
 Key changes:
-- Replay window checks for ALL providers (Paystack, NOWPayments added)
-- Reject ALL duplicate webhooks regardless of age (409 Conflict)
+- Replay protection via IDEMPOTENCY on the gateway event id, not via a timestamp
+  age cap. See the note above MAX_FUTURE_SKEW_SECONDS for why the age cap was
+  removed: it could not distinguish a genuine gateway retry from a replay
+  attack, because both carry the same original created_at.
+- Reject duplicates regardless of age (200 already_processed)
 - Structured logging at every step
 - Order expiry check before fulfillment
 """
@@ -39,76 +42,117 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 
-# Maximum age of a webhook payload before we consider it a replay attack.
-# 5 minutes = 300s gives generous headroom for clock drift + retry latency.
-MAX_PAYLOAD_AGE_SECONDS = 300
+# Maximum tolerated SKEW for a future-dated payload, in seconds. 5 minutes
+# absorbs ordinary clock drift between us and the gateway.
+MAX_FUTURE_SKEW_SECONDS = 300
+
+# There is deliberately NO maximum age.
+#
+# An earlier version of this module rejected any payload older than 300s,
+# reasoning that a stale timestamp indicated a replay attack. That is wrong, and
+# wrong in the most expensive direction: a gateway RETRY re-delivers the original
+# event carrying its ORIGINAL created_at, so the timestamp of a genuine retry is
+# indistinguishable from the timestamp of a replay. The cap could not tell them
+# apart, so it discarded both.
+#
+#   Flutterwave  3 retries at 30-minute intervals  -> retry #1 is ~1800s old
+#   Paystack     3min x4, then hourly for up to 72h  -> retries up to 72h old
+#   NOWPayments  re-sends on every status change    -> old created_at throughout
+#
+# The order was paid, the customer paid real money, and the platform answered 400
+# and never fulfilled. The same cap also broke FIRST delivery for any customer
+# who took longer than 5 minutes on the checkout page, because created_at is set
+# when the charge is created, not when the webhook is sent.
+#
+# Replay protection is the idempotency layer, which keys on the gateway's own
+# event id with a unique constraint on processed_webhooks.webhook_id:
+# is_webhook_processed() / mark_webhook_processed(). A captured payload replayed
+# a thousand times fulfils exactly once. That is the correct tool; an age
+# comparison never was.
+#
+# MAX_PAYLOAD_AGE_SECONDS is retained as a name only, so existing imports and
+# tests that build a stale timestamp keep working. It no longer gates anything.
+MAX_PAYLOAD_AGE_SECONDS = 300  # noqa: N816 - historical name, retained for imports
+
+
+def _parse_timestamp(value: Any) -> Optional[_dt.datetime]:
+    """Parse a provider timestamp into an aware UTC datetime, or None.
+
+    Accepts ISO-8601 strings (Flutterwave, NOWPayments) and epoch seconds or
+    milliseconds (Paystack). Returns None for anything unparseable, which callers
+    treat as an impossible timestamp and reject.
+    """
+    if isinstance(value, bool) or value is None:
+        return None
+
+    if isinstance(value, (int, float)):
+        ts = float(value)
+        if ts > 1e12:  # milliseconds
+            ts /= 1000
+        try:
+            return _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc)
+        except (ValueError, TypeError, OSError, OverflowError):
+            return None
+
+    if not isinstance(value, str) or not value.strip():
+        return None
+
+    try:
+        parsed = _dt.datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=_dt.timezone.utc)
+    return parsed
+
+
+def _is_timestamp_plausible(created_at: Optional[_dt.datetime]) -> bool:
+    """Return True unless the timestamp is missing, unparseable, or in the future.
+
+    No lower bound on age. A payload from three hours ago is a normal gateway
+    retry; a payload from three days ago is a normal Paystack retry. Idempotency,
+    not the clock, decides whether it is processed.
+    """
+    if created_at is None:
+        return False
+    age = (_dt.datetime.now(_dt.timezone.utc) - created_at).total_seconds()
+    return age >= -MAX_FUTURE_SKEW_SECONDS
+
+
+def _extract_timestamp(payload: dict, timestamp_key: str = "created_at") -> Optional[_dt.datetime]:
+    """Pull the event timestamp out of a provider payload and parse it.
+
+    Tries the nested ``data`` object first (Flutterwave, Paystack), then the top
+    level (NOWPayments, which sends a flat body). Returns None when the timestamp
+    is absent or unparseable.
+    """
+    keys = (timestamp_key, "created", "createdAt", "created_at", "paid_at")
+
+    data = payload.get("data")
+    sources = [data, payload] if isinstance(data, dict) else [payload]
+
+    for source in sources:
+        for key in keys:
+            raw = source.get(key)
+            if raw:
+                return _parse_timestamp(raw)
+
+    return None
 
 
 def _is_payload_fresh(payload: dict, timestamp_key: str = "created_at") -> bool:
-    """Return True if the webhook payload is recent enough to be from a live event.
+    """Plausibility check for ISO-8601 providers (Flutterwave, NOWPayments).
 
-    Generic replay-window check for all providers. Looks for a timestamp
-    in the payload and rejects if older than MAX_PAYLOAD_AGE_SECONDS.
+    Name kept for import compatibility; the semantics are "is this timestamp
+    possible", not "is this timestamp recent".
     """
-    # Try common timestamp locations
-    data = payload.get("data", payload)
-    
-    created_at_raw = None
-    if isinstance(data, dict):
-        created_at_raw = data.get(timestamp_key) or data.get("created") or data.get("createdAt")
-    
-    if not created_at_raw:
-        # Try top-level
-        created_at_raw = payload.get(timestamp_key) or payload.get("created") or payload.get("createdAt")
-    
-    if not created_at_raw or not isinstance(created_at_raw, str):
-        return False
-    
-    try:
-        cleaned = created_at_raw.replace("Z", "+00:00")
-        created_at = _dt.datetime.fromisoformat(cleaned)
-    except (ValueError, TypeError):
-        return False
-    
-    if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=_dt.timezone.utc)
-    
-    now = _dt.datetime.now(_dt.timezone.utc)
-    age = (now - created_at).total_seconds()
-    return 0 <= age <= MAX_PAYLOAD_AGE_SECONDS
+    return _is_timestamp_plausible(_extract_timestamp(payload, timestamp_key))
 
 
 def _is_payload_fresh_epoch(payload: dict) -> bool:
-    """Check freshness for providers that send epoch timestamps (Paystack, NOWPayments)."""
-    data = payload.get("data", payload)
-    
-    ts = None
-    if isinstance(data, dict):
-        ts = data.get("created_at") or data.get("createdAt") or data.get("paid_at")
-    
-    if not ts:
-        ts = payload.get("created_at") or payload.get("createdAt") or payload.get("paid_at")
-    
-    if not ts:
-        return False
-    
-    try:
-        if isinstance(ts, (int, float)):
-            # Epoch seconds or milliseconds
-            if ts > 1e12:  # milliseconds
-                ts = ts / 1000
-            created_at = _dt.datetime.fromtimestamp(ts, tz=_dt.timezone.utc)
-        else:
-            cleaned = str(ts).replace("Z", "+00:00")
-            created_at = _dt.datetime.fromisoformat(cleaned)
-            if created_at.tzinfo is None:
-                created_at = created_at.replace(tzinfo=_dt.timezone.utc)
-    except (ValueError, TypeError, OSError):
-        return False
-    
-    now = _dt.datetime.now(_dt.timezone.utc)
-    age = (now - created_at).total_seconds()
-    return 0 <= age <= MAX_PAYLOAD_AGE_SECONDS
+    """Plausibility check for epoch-timestamp providers (Paystack, NOWPayments)."""
+    return _is_timestamp_plausible(_extract_timestamp(payload))
 
 
 @router.post("/flutterwave", status_code=status.HTTP_200_OK)
@@ -137,17 +181,24 @@ async def flutterwave_webhook(
 
     event_type = payload.get("event", "")
     event_data = payload.get("data", {})
-    webhook_id = str(event_data.get("id", ""))
     tx_ref = event_data.get("tx_ref", "")
+    # Single dedupe key used for BOTH the check below and the mark further down.
+    # These used to differ when `id` was absent: the check was skipped entirely
+    # (falsy webhook_id) while the mark fell back to tx_ref. Now that idempotency
+    # is the only replay protection, a key that does not gate the check is a
+    # key that does not protect anything.
+    webhook_id = str(event_data.get("id") or tx_ref)
     log_ctx.update({"event": event_type, "tx_ref": tx_ref, "webhook_id": webhook_id})
 
-    # Replay window check
+    # Plausibility check — rejects only impossible timestamps (missing,
+    # unparseable, or future-dated). Old is fine: a gateway retry carries the
+    # original created_at. See the module-level note on MAX_FUTURE_SKEW_SECONDS.
     if not _is_payload_fresh(payload):
-        logger.warning("webhook outside replay window", extra=log_ctx)
+        logger.warning("webhook timestamp not plausible", extra=log_ctx)
         await log_audit_event(session, event_type="flutterwave_webhook_replay_rejected", details=log_ctx)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload outside replay window")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload has no plausible timestamp")
 
-    # Duplicate check — reject ALL duplicates regardless of age
+    # Duplicate check — the real replay protection
     if webhook_id and await is_webhook_processed(session, webhook_id):
         logger.info("duplicate webhook — already processed", extra=log_ctx)
         return {"status": "already_processed", "webhook_id": webhook_id}
@@ -199,7 +250,8 @@ async def flutterwave_webhook(
             await log_audit_event(session, event_type="webhook_processing_error", details={**log_ctx, "error": str(e)})
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Webhook processing failed: {e}")
 
-    # Mark as processed
+    # Mark as processed. Uses the same key as the duplicate check above, so a
+    # redelivery is guaranteed to be seen by that check.
     await mark_webhook_processed(session, webhook_id=webhook_id or tx_ref, provider="flutterwave", event_type=event_type, extra_data={"tx_ref": tx_ref, "status": event_data.get("status")})
     await log_audit_event(session, event_type=f"webhook_{event_type}", details=log_ctx)
 
@@ -234,10 +286,12 @@ async def paystack_webhook(
     webhook_id = f"ps_{event_data.get('id', tx_ref)}"
     log_ctx.update({"event": event_type, "tx_ref": tx_ref, "webhook_id": webhook_id})
 
-    # Replay window check (NEW — Paystack didn't have this before)
+    # Plausibility check — rejects only impossible timestamps, never merely old
+    # ones. Paystack retries for up to 72h, so an age cap here would discard
+    # almost every retry it sends.
     if not _is_payload_fresh_epoch(payload):
-        logger.warning("Paystack webhook outside replay window", extra=log_ctx)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload outside replay window")
+        logger.warning("Paystack webhook timestamp not plausible", extra=log_ctx)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload has no plausible timestamp")
 
     # Duplicate check — reject ALL duplicates
     if await is_webhook_processed(session, webhook_id):
@@ -288,9 +342,13 @@ async def paystack_webhook(
             # tries, then hourly for up to 72h), so this gives a late-committing
             # order a real chance to be picked up on retry. Deliberately NOT
             # marking the webhook processed, so the retry is not rejected as a
-            # duplicate. The retry window is bounded by MAX_PAYLOAD_AGE_SECONDS
-            # above, after which the payload is rejected outright — so this
-            # cannot loop forever.
+            # duplicate.
+            #
+            # The retry loop terminates because Paystack stops retrying after
+            # 72h, not because of a local age cap. It used to be bounded by
+            # MAX_PAYLOAD_AGE_SECONDS, which meant the 409 path was unreachable
+            # in practice for any retry the gateway actually sends — the cap
+            # rejected the payload before this branch could ever run.
             logger.error(
                 "Paystack charge.success matched no order — payment received but unfulfilled",
                 extra={**log_ctx, "provider_tx_id": str(event_data.get("id", "")),
@@ -369,10 +427,13 @@ async def nowpayments_ipn(
     if not tx_ref:
         return {"status": "ignored", "reason": "no order_id"}
 
-    # Replay window check (NEW — NOWPayments didn't have this before)
+    # Plausibility check — rejects only impossible timestamps. NOWPayments
+    # re-sends an IPN on every status change carrying the original created_at,
+    # so a crypto payment sitting in `waiting` for an hour delivers a
+    # one-hour-old payload by design.
     if not _is_payload_fresh_epoch(payload):
-        logger.warning("NOWPayments webhook outside replay window", extra=log_ctx)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload outside replay window")
+        logger.warning("NOWPayments webhook timestamp not plausible", extra=log_ctx)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload has no plausible timestamp")
 
     # Duplicate check — reject ALL duplicates
     if await is_webhook_processed(session, webhook_id):
@@ -442,19 +503,20 @@ async def theorem_reach_webhook(
     except json.JSONDecodeError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid JSON payload")
 
-    # Replay window check
+    # Plausibility check. TheoremReach is not a payment gateway and has no
+    # documented retry schedule, but the same logic applies: this only rejects
+    # timestamps that could not be real, never merely old ones.
     timestamp_ms = payload.get("event_metadata", {}).get("timestamp_ms")
     if not timestamp_ms:
         logger.warning("TheoremReach webhook missing timestamp", extra=log_ctx)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload outside replay window")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload has no plausible timestamp")
     try:
         ts = _dt.datetime.fromtimestamp(int(timestamp_ms) / 1000, tz=_dt.timezone.utc)
-        age = (_dt.datetime.now(_dt.timezone.utc) - ts).total_seconds()
-        if not (0 <= age <= MAX_PAYLOAD_AGE_SECONDS):
-            logger.warning("TheoremReach webhook outside replay window", extra=log_ctx)
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload outside replay window")
-    except (ValueError, TypeError, OSError):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload outside replay window")
+    except (ValueError, TypeError, OSError, OverflowError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload has no plausible timestamp")
+    if not _is_timestamp_plausible(ts):
+        logger.warning("TheoremReach webhook timestamp is not plausible", extra=log_ctx)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload has no plausible timestamp")
 
     event_type = payload.get("event_type", "")
     details = payload.get("details", {})

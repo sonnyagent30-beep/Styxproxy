@@ -26,6 +26,12 @@ echo "=============================================================="
 
 echo
 echo "--- 1. Audit-row counts (event_type) ---"
+# flutterwave_webhook_replay_rejected is retained as the event name for
+# implausible-timestamp rejections (was: "outside replay window", 300s cap).
+# Since kanban t_c33b5e96 there is NO age cap, so a non-zero count here now means
+# a genuinely impossible timestamp (missing/unparseable/future-dated), NOT a slow
+# gateway retry. A count that used to mean "payments were being discarded" now
+# means something much rarer — if it is non-zero on live traffic, read the rows.
 ssh -i "$SSH_KEY" -o ConnectTimeout=15 "$HOST" \
   "sudo -u postgres psql -d $DB -At -F'|' -c \"
     select event_type, count(*) from customer_audit_log
