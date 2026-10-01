@@ -211,3 +211,15 @@ jobs:
           test -f .github/workflows/ci.yml
           test -f .github/workflows/gitleaks.yml
           echo "All required files present"
+
+      # Offline (no venv, no install), so it can gate every PR cheaply.
+      # Catches a package declared in pyproject.toml but absent from
+      # requirements.txt -- the class of bug that left `alembic` declared but
+      # never installed on the production path. See t_8649483f.
+      - name: Verify runtime deps are pinned in requirements.txt
+        run: python3 backend/scripts/verify_runtime_deps.py
+
+      # Import-driven audit, kept alongside the check above because it catches the
+      # complementary failure: a module-scope import of an undeclared package.
+      - name: Import closure audit
+        run: python3 backend/scripts/import_closure_audit.py backend
