@@ -262,13 +262,23 @@ async def log_requests(request: Request, call_next):
 
     start_time = time.perf_counter()
 
-    # Effective client address, honouring X-Forwarded-For for requests that came
-    # through nginx. Without this the peer is 127.0.0.1 for EVERY proxied
+    # Effective client address, honouring the proxy headers for requests that
+    # came through nginx. Without this the peer is 127.0.0.1 for EVERY proxied
     # request, which is useless for attribution. See app/services/origin.py for
     # the trust note (classification only — never used for authorisation).
+    #
+    # X-Real-IP is preferred for the same reason it is there: nginx overwrites
+    # it with $remote_addr, whereas $proxy_add_x_forwarded_for only appends to
+    # the client-supplied value, so XFF's leftmost entry is forgeable. Reading
+    # XFF first here would let a caller decide what this line says — and would
+    # also disagree with the origin recorded on the audit row by the handler,
+    # which resolves with the same precedence. Both orders were verified to
+    # keep the XFF-only path (direct to :8000, bypassing nginx) working.
     peer = request.client.host if request.client else "unknown"
+    x_real = (request.headers.get("x-real-ip") or "").strip()
     xff = request.headers.get("x-forwarded-for")
-    client_ip = xff.split(",")[0].strip() if xff else peer
+    xff_first = xff.split(",")[0].strip() if xff else ""
+    client_ip = x_real or xff_first or peer
 
     logger.info(
         "Request started",

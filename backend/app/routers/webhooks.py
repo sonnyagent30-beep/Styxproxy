@@ -555,6 +555,14 @@ async def theorem_reach_webhook(
 
     if not x_signature:
         logger.warning("missing X-Signature header (%s)", describe_origin(origin), extra=log_ctx)
+        # Same reasoning as the Flutterwave handler: a missing signature is a
+        # rejection that must leave evidence, or "gateway called and we said
+        # no" stays indistinguishable from "nothing ever arrived".
+        await _log_rejection(
+            session,
+            event_type="theorem_reach_webhook_rejected",
+            details={**log_ctx, "reason": "missing_signature"},
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing X-Signature header")
     if not _verify_theorem_reach_signature(payload_bytes, x_signature, settings.theorem_reach_webhook_secret):
         logger.warning("invalid X-Signature (%s)", describe_origin(origin), extra=log_ctx)

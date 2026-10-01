@@ -24,10 +24,21 @@ The real gaps, and what each test below pins:
   3. rejected (401) events wrote no audit row at all          -> test_invalid_signature_writes_audit_row
   4. accepted events wrote no origin in the audit row         -> test_accepted_event_records_origin
   5. raw IPs persisted in breach of the audit privacy policy  -> test_raw_ip_is_never_persisted
+  6. header precedence let a caller forge its own origin      -> test_x_real_ip_beats_forged_xff
 
 Each test below fails if its guarded behaviour is removed. Test 3 is the one
 that matters most: an invalid signature returning 401 without leaving a trace is
 exactly case (b) being invisible.
+
+Guard 6 exists because the original resolution order read X-Forwarded-For
+first. nginx appends ``$remote_addr`` to a client-supplied XFF rather than
+replacing it, so XFF's leftmost entry is forgeable while X-Real-IP is not.
+A caller forging XFF with one of our own addresses made genuine external
+rejections classify ``self_host``; the canary counts only ``origin_scope =
+'public'``, so those rows went uncounted and the verdict degraded to NO
+SIGNAL — the exact failure this file exists to prevent, reachable
+unauthenticated. Those two tests assert the direction that mattered:
+a spoofed XFF must NOT be able to make an external caller look self-originated.
 """
 
 import json
@@ -115,6 +126,63 @@ def test_xff_beats_loopback_peer():
 def test_xff_leftmost_entry_wins():
     """The leftmost XFF entry is the original client, not an intermediate proxy."""
     ctx = resolve_origin(make_request({"x-forwarded-for": "54.76.248.30, 10.0.0.1"}))
+    assert ctx["origin_via"] == "xff"
+    assert ctx["origin_scope"] == "public"
+
+
+def test_x_real_ip_beats_forged_xff():
+    """Guard: a client-supplied XFF must not be able to choose the origin.
+
+    nginx OVERWRITES X-Real-IP with $remote_addr but only APPENDS $remote_addr
+    to X-Forwarded-For, so XFF's leftmost entry is whatever the caller sent.
+    Reading XFF first let anyone reach this unauthenticated route and forge a
+    classification.
+
+    The forgery that matters is suppression: claiming to be one of our own
+    addresses makes a genuinely external event classify self_host, and the
+    canary counts only origin_scope='public', so the row is skipped and the
+    verdict falls through to NO SIGNAL. That is the failure this whole file
+    exists to prevent.
+    """
+    import app.config as config_mod
+
+    real_get_settings = config_mod.get_settings
+
+    class FakeSettings:
+        webhook_self_origin_ips = "162.35.184.69"
+
+    config_mod.get_settings = lambda: FakeSettings()
+    try:
+        # Honest nginx headers: the real caller is external, XFF is forged with
+        # our own prod address to try to force self_host.
+        # 54.76.248.30 rather than a TEST-NET address: Python's ipaddress
+        # treats 198.51.100.0/24 as private, which would classify `private` and
+        # test the wrong thing.
+        ctx = resolve_origin(
+            make_request(
+                {
+                    "x-real-ip": "54.76.248.30",
+                    "x-forwarded-for": "162.35.184.69",
+                }
+            )
+        )
+    finally:
+        config_mod.get_settings = real_get_settings
+
+    # Classified from the trustworthy header, so the forgery is ignored.
+    assert ctx["origin_via"] == "x-real-ip", f"trusted header ignored: {ctx}"
+    assert ctx["origin_scope"] == "public", f"forged XFF suppressed the signal: {ctx}"
+    assert ctx["origin_self_originated"] is False
+
+
+def test_xff_still_used_when_no_x_real_ip():
+    """The XFF fallback is real, not dead code: requests that skip nginx.
+
+    Port 8000 is bound 0.0.0.0, so a direct caller bypasses nginx entirely and
+    arrives with no X-Real-IP. That path must keep working, or direct traffic
+    would silently degrade to the loopback peer and look self-originated.
+    """
+    ctx = resolve_origin(make_request({"x-forwarded-for": "54.76.248.30"}))
     assert ctx["origin_via"] == "xff"
     assert ctx["origin_scope"] == "public"
 
@@ -335,6 +403,89 @@ async def test_missing_header_writes_audit_row():
 
 
 @pytest.mark.asyncio
+async def test_accepted_event_records_origin():
+    """Guard 4: a SUCCESSFUL webhook also records who sent it.
+
+    The rejection paths were the urgent gap, but origin belongs on the accepted
+    row too — that row is what proves a live gateway event actually landed, which
+    is the positive signal the canary reports as SIGNAL PRESENT. Without origin
+    on it, the canary could say "something arrived" but not "a gateway arrived".
+    """
+    import hashlib
+    import hmac
+    from datetime import datetime, timezone
+
+    from app.config import get_settings
+    from app.database import get_session
+
+    # created_at is required by the plausibility check: a payload without a
+    # plausible timestamp is rejected 400 before any accepted-path audit row.
+    payload = {
+        "event": "charge.completed",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "data": {"id": "telemetry-accepted-1", "status": "successful"},
+    }
+    body = json.dumps(payload).encode()
+    secret = get_settings().flutterwave_webhook_secret
+    verif = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+
+    recorder = RecordingSession()
+    app.dependency_overrides[get_session] = lambda: recorder
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                WEBHOOK_URL,
+                content=body,
+                headers={"Verif-Hash": verif, "x-real-ip": "54.76.248.30"},
+            )
+        assert resp.status_code == 200, f"accepted path did not accept: {resp.status_code} {resp.text}"
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    details = [d for d in recorder.audit_details() if d]
+    # The success row is log_audit_event(event_type=f"webhook_{event_type}",
+    # details=log_ctx), so it carries event="charge.completed" plus log_ctx's
+    # origin fields. Match on the specific event rather than "any row".
+    accepted = [d for d in details if d.get("event") == "charge.completed"]
+    assert accepted, f"no accepted audit row; got {details}"
+    assert accepted[0].get("origin_seen") is True, f"accepted row carried no origin: {accepted[0]}"
+    assert accepted[0].get("origin_via") == "x-real-ip", f"unexpected origin source: {accepted[0]}"
+
+
+@pytest.mark.asyncio
+async def test_theorem_reach_missing_signature_writes_audit_row():
+    """A 401 for a missing X-Signature must be attributable too.
+
+    The Flutterwave handler covers both its rejection branches (missing header
+    and bad signature). theorem-reach covered only bad signature, so a missing
+    header produced a 401 with no audit row — the same silent-rejection gap
+    this file exists to close, just on a different route.
+    """
+    from app.database import get_session
+
+    recorder = RecordingSession()
+    app.dependency_overrides[get_session] = lambda: recorder
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                "/api/webhooks/theorem-reach",
+                content=json.dumps({"event_type": "survey_complete"}),
+                headers={"x-real-ip": "54.76.248.30"},
+            )
+        assert resp.status_code == 401, f"expected 401, got {resp.status_code}"
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    details = [d for d in recorder.audit_details() if d]
+    rejected = [d for d in details if d.get("reason") == "missing_signature"]
+    assert rejected, f"no missing_signature audit row on theorem-reach; got {details}"
+    assert rejected[0]["origin_scope"] == "public"
+    assert rejected[0]["origin_self_originated"] is False
+
+
+@pytest.mark.asyncio
 async def test_paystack_rejection_writes_audit_row():
     """Same guarantee for the Paystack route (card asked for it 'ideally')."""
     from app.database import get_session
@@ -453,6 +604,55 @@ async def test_middleware_prefers_xff_over_loopback_peer():
 
     line = [c for c in captured if c.get("path") == WEBHOOK_URL]
     assert line and line[0].get("client") == "34.254.131.32", f"got {line}"
+
+
+@pytest.mark.asyncio
+async def test_middleware_prefers_x_real_ip_over_forged_xff():
+    """Guard for the log_requests middleware's own precedence.
+
+    The middleware resolves client independently of services/origin.py, so the
+    resolver's precedence guard does NOT cover it: re-inverting main.py alone
+    left this file fully green. Without this test the Request started/completed
+    lines and the audit row can disagree about who called, and a caller could
+    dictate what the log line says.
+
+    Proven to fail: re-inverting only main.py's precedence fails here.
+    """
+    import app.main as main_mod
+
+    captured: list[dict] = []
+    real_info = main_mod.logger.info
+
+    def spy(event, **kw):
+        if event == "Request completed":
+            captured.append(kw)
+        return real_info(event, **kw)
+
+    main_mod.logger.info = spy
+    from app.database import get_session
+
+    recorder = RecordingSession()
+    app.dependency_overrides[get_session] = lambda: recorder
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            await client.post(
+                WEBHOOK_URL,
+                content=json.dumps({"event": "charge.completed"}),
+                headers={
+                    "Verif-Hash": "0" * 64,
+                    "x-real-ip": "54.76.248.30",
+                    "x-forwarded-for": "162.35.184.69",
+                },
+            )
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+        main_mod.logger.info = real_info
+
+    line = [c for c in captured if c.get("path") == WEBHOOK_URL]
+    assert line, f"no completed line for the webhook route: {captured}"
+    # Must reflect the trustworthy header, not the forged one.
+    assert line[0].get("client") == "54.76.248.30", f"forged XFF chosen over X-Real-IP: {line[0]}"
 
 
 @pytest.mark.asyncio
