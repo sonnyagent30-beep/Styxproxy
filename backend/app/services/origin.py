@@ -111,10 +111,20 @@ def _self_ips() -> tuple[str, ...]:
     Config-driven so a deploy to a new host does not silently reclassify that
     host's traffic as gateway traffic. Parsed defensively: a malformed entry is
     dropped rather than breaking request handling.
-    """
-    from app.config import get_settings
 
-    raw = getattr(get_settings(), "webhook_self_origin_ips", "") or ""
+    Never raises. Settings validation can fail for unrelated reasons (a missing
+    OPS_JWT_SECRET, say), and this function runs on the live payment path before
+    the handler reads its own settings — an observability helper must never be
+    able to reject a customer's webhook. If settings cannot be read we fall
+    back to classifying by range alone, which is the conservative direction:
+    it can only ever under-report a signal, never invent one.
+    """
+    try:
+        from app.config import get_settings
+
+        raw = getattr(get_settings(), "webhook_self_origin_ips", "") or ""
+    except Exception:  # noqa: BLE001 - deliberate: see docstring
+        return ()
     out: list[str] = []
     for chunk in raw.replace(",", " ").split():
         chunk = chunk.strip()

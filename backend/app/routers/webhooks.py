@@ -149,6 +149,32 @@ def _is_payload_fresh_epoch(payload: dict) -> bool:
     return _is_timestamp_plausible(_extract_timestamp(payload))
 
 
+async def _log_rejection(
+    session: Optional[AsyncSession],
+    event_type: str,
+    details: dict[str, Any],
+) -> None:
+    """Record a rejected webhook, never at the cost of the 401 itself.
+
+    The rejection audit row is the whole point of this change — it is what lets
+    the rotation canary tell "rejected" from "never arrived". But it is
+    telemetry, and telemetry must not be able to break the payment path. If the
+    write fails (DB down, permissions, a session object without `add`), the
+    caller must still get its 401: a 500 would tell the gateway the endpoint is
+    broken and change its retry behaviour, which is strictly worse than losing
+    one audit row. So the failure is logged loudly and swallowed.
+    """
+    try:
+        await log_audit_event(session, event_type=event_type, details=details)
+    except Exception as audit_err:  # noqa: BLE001 - deliberate, see docstring
+        logger.error(
+            "FAILED to write webhook rejection audit row (%s): %s",
+            describe_origin(details),
+            audit_err,
+            exc_info=True,
+        )
+
+
 @router.post("/flutterwave", status_code=status.HTTP_200_OK)
 async def flutterwave_webhook(
     request: Request,
@@ -168,7 +194,7 @@ async def flutterwave_webhook(
     # Verify signature
     if not verif_hash:
         logger.warning("missing Verif-Hash header (%s)", describe_origin(origin), extra=log_ctx)
-        await log_audit_event(
+        await _log_rejection(
             session,
             event_type="flutterwave_webhook_rejected",
             details={**log_ctx, "reason": "missing_verif_hash"},
@@ -179,7 +205,7 @@ async def flutterwave_webhook(
         # Written on the rejection path on purpose. The rotation canary needs to
         # tell "gateway called and we said no" apart from "gateway never called",
         # and this 401 is precisely what a bad secret looks like in production.
-        await log_audit_event(
+        await _log_rejection(
             session,
             event_type="flutterwave_webhook_rejected",
             details={**log_ctx, "reason": "invalid_signature"},
@@ -273,7 +299,7 @@ async def paystack_webhook(
 
     if not x_paystack_signature or not verify_paystack_signature(payload_bytes, x_paystack_signature):
         logger.warning("invalid Paystack signature (%s)", describe_origin(origin), extra=log_ctx)
-        await log_audit_event(
+        await _log_rejection(
             session,
             event_type="paystack_webhook_rejected",
             details={**log_ctx, "reason": "invalid_signature" if x_paystack_signature else "missing_signature"},
@@ -406,7 +432,7 @@ async def nowpayments_ipn(
     payload_bytes = await request.body()
     if not x_nowpayments_sig or not verify_nowpayments_signature(payload_bytes, x_nowpayments_sig):
         logger.warning("invalid NOWPayments signature (%s)", describe_origin(origin), extra=log_ctx)
-        await log_audit_event(
+        await _log_rejection(
             session,
             event_type="nowpayments_webhook_rejected",
             details={**log_ctx, "reason": "invalid_signature" if x_nowpayments_sig else "missing_signature"},
@@ -480,7 +506,7 @@ async def theorem_reach_webhook(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing X-Signature header")
     if not _verify_theorem_reach_signature(payload_bytes, x_signature, settings.theorem_reach_webhook_secret):
         logger.warning("invalid X-Signature (%s)", describe_origin(origin), extra=log_ctx)
-        await log_audit_event(
+        await _log_rejection(
             session,
             event_type="theorem_reach_webhook_rejected",
             details={**log_ctx, "reason": "invalid_signature"},

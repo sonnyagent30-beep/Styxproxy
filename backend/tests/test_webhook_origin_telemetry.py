@@ -158,6 +158,90 @@ def test_garbage_header_is_unknown_not_crash():
     assert ctx["origin_hash"] is not None  # still hashed, for correlation
 
 
+@pytest.mark.asyncio
+async def test_audit_write_failure_still_returns_401():
+    """A failed audit write must NOT turn the 401 into a 500.
+
+    This is the failure mode the guard exists for. If the rejection audit write
+    raises — DB down, permissions, a session missing `add` — the gateway must
+    still receive a clean 401. A 500 tells it the endpoint is broken and changes
+    its retry behaviour, which is far worse than losing one audit row.
+    """
+    from app.database import get_session
+
+    class BrokenSession:
+        async def commit(self):
+            return None
+
+        # No `add` — exactly the AttributeError a degraded session produces.
+
+    app.dependency_overrides[get_session] = lambda: BrokenSession()
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                WEBHOOK_URL,
+                content=json.dumps({"event": "charge.completed"}),
+                headers={"Verif-Hash": "0" * 64, "x-forwarded-for": "54.76.248.30"},
+            )
+        assert resp.status_code == 401, f"expected 401, got {resp.status_code}"
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+
+@pytest.mark.asyncio
+async def test_settings_failure_cannot_break_the_webhook_path():
+    """resolve_origin must never raise, even if settings are unloadable.
+
+    This runs on the live payment path before the handler reads its own
+    settings. A missing OPS_JWT_SECRET makes get_settings() raise
+    ValidationError; if that propagated, every customer's webhook would 500
+    for a purely observational reason. Classification degrades to range-only.
+    """
+    import app.config as config_mod
+
+    real_get_settings = config_mod.get_settings
+
+    def boom():
+        raise RuntimeError("settings unavailable")
+
+    config_mod.get_settings = boom
+    try:
+        ctx = resolve_origin(make_request({"x-forwarded-for": "54.76.248.30"}))
+    finally:
+        config_mod.get_settings = real_get_settings
+
+    # Still classified, still hashed — just without the self-IP overrides.
+    assert ctx["origin_scope"] == "public"
+    assert ctx["origin_hash"] is not None
+
+
+def test_self_ip_config_marks_our_own_address(monkeypatch):
+    """A configured self address classifies as self_host, not public.
+
+    Without this, our own curls from the prod host would classify `public` and
+    the canary would report a false SIGNAL PRESENT.
+    """
+    import app.config as config_mod
+
+    real_get_settings = config_mod.get_settings
+
+    class FakeSettings:
+        webhook_self_origin_ips = "162.35.184.69 84.247.132.12"
+
+    config_mod.get_settings = lambda: FakeSettings()
+    try:
+        ours = resolve_origin(make_request({"x-forwarded-for": "162.35.184.69"}))
+        gateway = resolve_origin(make_request({"x-forwarded-for": "54.76.248.30"}))
+    finally:
+        config_mod.get_settings = real_get_settings
+
+    assert ours["origin_scope"] == "self_host"
+    assert ours["origin_self_originated"] is True
+    assert gateway["origin_scope"] == "public"
+    assert gateway["origin_self_originated"] is False
+
+
 def test_ipv6_global_classifies_as_public():
     """A globally routable v6 address is a non-self origin."""
     ctx = resolve_origin(make_request({"x-forwarded-for": "2606:4700:4700::1111"}))
