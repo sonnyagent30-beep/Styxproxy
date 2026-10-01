@@ -67,21 +67,29 @@ being fixed is the machine bundle, which this module detects exactly.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 REDACTED = "[REDACTED]"
 
-# Delivery-bundle companion labels. The n8n body emits all of these alongside the
-# password; a human support message essentially never does, and that difference
-# is what separates "reject this" from "redact this and answer".
+# Delivery-bundle companion labels, used only as a COUNT. A single companion
+# (`Username: stx_user`) is something a customer types; a bundle of them is not.
 _BUNDLE_COMPANION = re.compile(
-    r"(?im)^[^\S\n]*(?:proxy|proxy[_\s-]?ip|proxy[_\s-]?port|username|user|host|port"
-    r"|expires|expires[_\s-]?at)\s*[:=]"
+    r"(?im)^[^\S\n]*(?P<label>"
+    r"proxy|proxy[_\s-]?ip|proxy[_\s-]?port|username|user|host|port"
+    r"|expires|expires[_\s-]?at"
+    r")\s*[:=]"
 )
 
-# The literal phrasing the n8n node uses. Checked separately from the companion
-# labels because a bundle whose only secret label got reworded still reads as a
-# machine notification.
+# How many distinct companion labels make a message a machine bundle. Two, not
+# one: a customer pasting their own login block writes `Username:` and
+# `Password:` and nothing else, and refusing that is a support regression — the
+# exact failure the two-tier design exists to avoid. The n8n delivery body emits
+# Proxy, Username, Password AND Expires, so it clears two comfortably.
+_MIN_BUNDLE_COMPANIONS = 2
+
+# The literal phrasing the n8n node uses. Checked separately because a bundle
+# whose labels got reworded still reads as a machine notification, and because
+# this phrasing alone is unambiguous — no customer writes it.
 _DELIVERY_PREAMBLE = re.compile(r"proxy\s+credentials\s+are\s+ready", re.IGNORECASE)
 
 # A labelled secret assignment. Two groups matter for correctness:
@@ -188,8 +196,12 @@ def inspect_text(text: str | None) -> CharonTextGuard:
 
     redacted = _SECRET_ASSIGNMENT.sub(_sub, original)
 
-    machine = bool(hits) and bool(
-        _BUNDLE_COMPANION.search(redacted) or _DELIVERY_PREAMBLE.search(redacted)
+    companions = {
+        m.group("label").strip().lower() for m in _BUNDLE_COMPANION.finditer(redacted)
+    }
+    machine = bool(hits) and (
+        len(companions) >= _MIN_BUNDLE_COMPANIONS
+        or bool(_DELIVERY_PREAMBLE.search(redacted))
     )
 
     return CharonTextGuard(

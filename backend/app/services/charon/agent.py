@@ -873,15 +873,25 @@ def _safe_parse_tool_json(content: str) -> dict | None:
 
 
 def _persist_log(ctx: dict) -> None:
+    """Append one conversation record to the JSONL log.
+
+    `ctx` carries `user_message`, and this file is served back verbatim by the
+    unauthenticated `GET /charon/logs` and `GET /charon/conversations`. So the
+    value is screened HERE, at the write, rather than relying on every future
+    caller having passed through the router's ingress guard first. This is the
+    second of the two gates; `_read_logs` screens on the way out as well, which
+    is what protects the records already on disk.
+    """
+    safe = redact_mapping(ctx)
     log_dir = os.getenv("CHARON_LOG_DIR", "/tmp")
     log_path = os.path.join(log_dir, "charon.log")
     try:
         os.makedirs(log_dir, exist_ok=True)
         with open(log_path, "a") as fh:
-            fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), **ctx}) + "\n")
+            fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), **safe}) + "\n")
     except OSError:
         pass
-    logger.info("charon.reply", extra={"charon": ctx})
+    logger.info("charon.reply", extra={"charon": safe})
 
 
 async def _persist_message(

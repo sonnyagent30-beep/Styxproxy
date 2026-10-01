@@ -47,6 +47,7 @@ path. Changing the live workflow is t_8a9c42a4's lane (devops), not the app repo
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import urllib.error
@@ -355,7 +356,18 @@ def test_repo_snapshot_carries_no_credential():
     and what anyone re-imports to rebuild the workflow. While it carries the
     password it propagates the defect to the next person who rebuilds from it,
     even after the live workflow is fixed.
+
+    It is now the credential-FREE target shape rather than an export of the
+    live (still-leaky) workflow, so a re-import is safe. That is a deliberate
+    divergence from production, recorded in the snapshot's own `notes`; the live
+    workflow is devops' to change (t_8a9c42a4).
     """
+    assert SNAPSHOT.exists(), (
+        f"{SNAPSHOT} is missing. The checked-in workflow snapshot is the copy a "
+        f"human greps and a human re-imports; without it the only record of this "
+        f"contract is the live n8n database."
+    )
+
     snapshot = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
     offenders = [
         node.get("name")
@@ -368,8 +380,47 @@ def test_repo_snapshot_carries_no_credential():
 
     assert not offenders, (
         f"repo snapshot node(s) {offenders} carry a credential field name. "
-        f"Refresh it from the live workflow after the live fix lands, so the "
-        f"snapshot stops being a re-importable copy of the leak."
+        f"This file is re-importable: importing it would rebuild the leak."
+    )
+
+
+def test_repo_snapshot_sends_order_context_not_credentials():
+    """The snapshot's positive shape, so the check above cannot pass vacuously.
+
+    Asserting the ABSENCE of a token is only meaningful if the file is
+    structurally the thing we think it is. This pins that the Charon node posts
+    a non-empty `user_message` naming the order, and uses the model's real field
+    names — the same drift the live-workflow assertions guard.
+    """
+    snapshot = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    node = _charon_node(snapshot["nodes"])
+    body = node["parameters"]["jsonBody"]
+
+    assert body.startswith("={{JSON.stringify("), (
+        "jsonBody must keep the ={{JSON.stringify( wrapper. A plain JSON string "
+        "containing {{ makes n8n send the braces literally."
+    )
+    assert "user_message" in body, "snapshot must send the model's field name"
+    assert "customer_phone" in body, (
+        "'customer_phone', not 'phone' - Pydantic ignores unknown keys, so a "
+        "wrong name is a silent drop, not a 422"
+    )
+    # Key boundaries, not bare substrings. `"message:" not in body` is wrong in a
+    # way that reads like a passing guard: `user_message:` CONTAINS `message:`,
+    # so the check can only ever fail — the corrected body trips it too. Match a
+    # key in object-literal position (after `{` or `,`, followed by `:`) so
+    # `user_message` and `message` are distinguishable.
+    import re as _re
+
+    keys = set(_re.findall(r"[{,]\s*([A-Za-z_$][\w$]*)\s*:", body))
+    assert "message" not in keys, f"legacy 'message' key in the body: {sorted(keys)}"
+    assert "phone" not in keys, f"legacy 'phone' key in the body: {sorted(keys)}"
+    assert keys == {"user_message", "customer_phone", "channel"}, (
+        f"expected exactly the three delivery keys, got {sorted(keys)}"
+    )
+    assert "$json.order_id" in body and "$json.tx_ref" in body, (
+        "the snapshot should carry order context so the backend can resolve the "
+        "order, rather than the credential itself"
     )
 
 
@@ -471,3 +522,349 @@ def test_charon_node_matcher_ignores_a_get_and_a_different_url():
 
     with pytest.raises(AssertionError, match="no POST node targeting charon/reply"):
         _charon_node([wrong_method, wrong_url])
+
+
+# ── 4. the guard is actually WIRED IN, on both routes ──────────────────────
+#
+# A correct guard that nothing calls is the same as no guard. These assert the
+# wiring by BEHAVIOUR (call the screening function with the real model and check
+# what the model looks like afterwards), not by grepping for the call site — a
+# grep passes on a call inside a branch that never executes.
+
+
+def test_screening_refuses_the_live_delivery_payload():
+    """`post_reply` must 422 the exact payload n8n sends today.
+
+    The value is the production body verbatim. Before this guard existed the same
+    payload persisted to `charon_messages` and was POSTed to api.longcat.ai.
+    """
+    import pytest as _pytest
+    from fastapi import HTTPException
+
+    from app.routers.charon import ChatReplyRequest, _screen_inbound_text
+
+    payload = ChatReplyRequest(
+        user_message=(
+            "Your proxy credentials are ready!\n\nProxy: 198.51.100.7:1080\n"
+            "Username: stx_real_user\nPassword: realpass\n"
+            "Expires: 2026-10-30T00:00:00Z"
+        ),
+        customer_phone="+2348000000000",
+        channel="whatsapp",
+    )
+
+    with _pytest.raises(HTTPException) as excinfo:
+        _screen_inbound_text(payload)
+
+    assert excinfo.value.status_code == 422, (
+        f"expected 422 so the n8n execution goes visibly red, got "
+        f"{excinfo.value.status_code}"
+    )
+    assert "realpass" not in str(excinfo.value.detail), (
+        "the refusal message must not echo the secret back"
+    )
+
+
+def test_screening_redacts_in_place_on_the_model_not_just_the_return_value():
+    """The payload object itself must be clean.
+
+    This is the property the handler depends on: everything downstream reads
+    `payload.user_message` again — `agent.reply()`, the escalation email body,
+    the assistant persist. Screening only the return value would leave the
+    escalation email mailing the customer's password to staff.
+    """
+    from app.routers.charon import ChatReplyRequest, _screen_inbound_text
+
+    payload = ChatReplyRequest(
+        user_message="my login details are\nUsername: stx_user\nPassword: hunter2",
+        customer_phone="+2348000000000",
+        page_context={"plan_code": "NG-RES-5", "note": "Password: leaked-in-ctx"},
+    )
+
+    _screen_inbound_text(payload)
+
+    assert "hunter2" not in payload.user_message, (
+        f"the model still carries the secret: {payload.user_message!r}"
+    )
+    assert "leaked-in-ctx" not in str(payload.page_context), (
+        f"page_context still carries the secret: {payload.page_context!r}"
+    )
+    # The non-secret context must survive, or the guard is destroying data.
+    assert payload.page_context["plan_code"] == "NG-RES-5"
+
+
+def test_screening_covers_history_entries():
+    """`history` is caller-supplied and is forwarded to the LLM verbatim.
+
+    `post_reply` builds `Message(role=m.role, content=m.content)` from it with no
+    filtering, so a password in a history entry reaches the model exactly as one
+    in `user_message` would.
+    """
+    from app.routers.charon import ChatMessage, ChatReplyRequest, _screen_inbound_text
+
+    payload = ChatReplyRequest(
+        user_message="hello",
+        history=[ChatMessage(role="user", content="Password: historysecret")],
+    )
+
+    _screen_inbound_text(payload)
+
+    assert "historysecret" not in payload.history[0].content
+
+
+def _screened_handler_names() -> set[str]:
+    """Names of the coroutine handlers in charon.py that call the screen.
+
+    AST, not a substring count, for two reasons that both bit this card already:
+    a substring count matches the identifier inside the helper's own docstring
+    and inside comments (so the expected number is a guess about prose), and it
+    cannot say WHICH handler screens. Naming the enclosing function is what makes
+    the assertion about coverage rather than about a magic integer.
+    """
+    import ast
+
+    tree = ast.parse((BACKEND / "app" / "routers" / "charon.py").read_text(encoding="utf-8"))
+
+    screened: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for inner in ast.walk(node):
+            if (
+                isinstance(inner, ast.Call)
+                and isinstance(inner.func, ast.Name)
+                and inner.func.id == "_screen_inbound_text"
+            ):
+                screened.add(node.name)
+                break
+    return screened
+
+
+def test_every_handler_that_takes_a_user_message_screens_it():
+    """Coverage, by handler name.
+
+    The two handlers that accept a `ChatReplyRequest` and forward its
+    `user_message` to the LLM are `post_reply` and `post_reply_stream`. Each has
+    its own `agent.reply()` call, its own escalation-email block and (on the
+    stream route) its own native-LLM path. Screening one and not the other leaves
+    an identical hole on a sibling route.
+
+    This is stated as a set of NAMES so that a third route added later without the
+    call is a visible diff against this test rather than a silent regression.
+    """
+    screened = _screened_handler_names()
+
+    assert {"post_reply", "post_reply_stream"} <= screened, (
+        f"handlers calling _screen_inbound_text: {sorted(screened)}. Both "
+        f"post_reply and post_reply_stream accept a ChatReplyRequest and forward "
+        f"its user_message to an LLM-backed path, so both must screen."
+    )
+    assert "_screen_inbound_text" not in screened, (
+        "precondition broken: the helper screens itself, which would make the "
+        "coverage assertion above meaningless"
+    )
+
+
+def test_the_screen_coverage_check_detects_a_missing_route_call():
+    """NEGATIVE CONTROL for the AST coverage check.
+
+    Built by removing one call from a real source string, so this proves the
+    check is sensitive to the exact defect it guards rather than passing on any
+    tree that happens to contain the helper.
+    """
+    import ast
+
+    def screened_in(source: str) -> set[str]:
+        tree = ast.parse(source)
+        found: set[str] = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for inner in ast.walk(node):
+                if (
+                    isinstance(inner, ast.Call)
+                    and isinstance(inner.func, ast.Name)
+                    and inner.func.id == "_screen_inbound_text"
+                ):
+                    found.add(node.name)
+                    break
+        return found
+
+    vulnerable = """
+async def post_reply(payload):
+    await _screen_inbound_text(payload)
+
+async def post_reply_stream(payload):
+    return payload
+"""
+    assert screened_in(vulnerable) == {"post_reply"}, (
+        "precondition: a stream route without the call must be detectable"
+    )
+    assert "post_reply_stream" not in screened_in(vulnerable)
+
+
+# ── 5. the JSONL log, which is served back UNAUTHENTICATED ────────────────
+#
+# Found while fixing item 1, and more severe than it. `/charon/logs` and
+# `/charon/conversations` are `public_only` (no auth) and `_get_conversations()`
+# puts `log["user_message"]` straight into `last_message`. Verified live on
+# 2026-10-01 with no credentials of any kind:
+#
+#   $ curl -s "https://api.styxproxy.com/api/v1/charon/conversations?limit=1"
+#   HTTP 200 ... "last_message":"Your proxy credentials are ready!\n\nProxy:
+#   1.2.3.4:1080\nUsername: sty_e2e\nPassword: pw\nExpires: 2030-..."
+#
+# 12 of the 50 most recent conversations carry a password in that field, served
+# to anyone on the internet. So the ingress guard alone is not sufficient: the
+# 17 records already on disk keep leaking until the READ path is screened too.
+
+
+def test_log_reader_redacts_passwords_already_on_disk(tmp_path, monkeypatch):
+    """`_read_logs` must screen on the way OUT.
+
+    This is the assertion that matters for the existing exposure. Redacting only
+    on write would leave every record already in `/tmp/charon.log` readable, and
+    those records are the ones actually being served today.
+    """
+    import importlib
+    import json as _json
+
+    # `from app.routers import charon` yields the APIRouter, not the module:
+    # `app/routers/__init__.py` rebinds the name to the router object. A plain
+    # import makes `_read_logs` an AttributeError, which in a test that expects
+    # a redaction failure reads as "the log reader is gone", not "the guard is
+    # missing". importlib is the codebase convention for exactly this.
+    charon_router = importlib.import_module("app.routers.charon")
+
+    log_file = tmp_path / "charon.log"
+    log_file.write_text(
+        _json.dumps(
+            {
+                "ts": "2026-10-01T08:43:18Z",
+                "channel": "web",
+                "conversation_id": "sess-1",
+                "user_message": (
+                    "Your proxy credentials are ready!\n\nProxy: 1.2.3.4:1080\n"
+                    "Username: sty_e2e\nPassword: pw\nExpires: 2030-01-01"
+                ),
+            }
+        )
+        + "\n"
+        + _json.dumps(
+            {
+                "ts": "2026-10-01T09:00:00Z",
+                "channel": "web",
+                "conversation_id": "sess-2",
+                "user_message": "how much is 5GB?",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(charon_router, "CHARON_LOG_PATH", str(log_file))
+
+    records = charon_router._read_logs(limit=100)
+
+    assert len(records) == 2, "precondition: both log lines were read"
+    assert "pw" not in records[0]["user_message"], (
+        f"the password survived the read path: {records[0]['user_message']!r}. "
+        f"This endpoint is unauthenticated."
+    )
+    assert "Password: [REDACTED]" in records[0]["user_message"]
+    # Non-secret fields must be untouched, or the log becomes useless.
+    assert records[0]["conversation_id"] == "sess-1"
+    assert records[0]["channel"] == "web"
+    assert records[1]["user_message"] == "how much is 5GB?", (
+        "an ordinary message must pass through byte-identical"
+    )
+
+
+@pytest.mark.asyncio
+async def test_log_writer_redacts_before_writing(tmp_path, monkeypatch):
+    """`_persist_log` must screen at the WRITE too.
+
+    Screening only on read means the secret is still written to disk, still lands
+    in any log shipper, and still sits in a backup. Two gates, because they fail
+    independently: this one protects the file, the read one protects the rows
+    that predate it.
+
+    async because `app.routers.charon` wraps `_persist_log` in an event hook that
+    calls `asyncio.create_task(_broadcast_event(...))` to fan out to SSE
+    subscribers. Called synchronously it raises `RuntimeError: no running event
+    loop`, which surfaces as a harness error rather than a redaction failure — so
+    the test would have looked like a broken test instead of a broken guard.
+    Exercising it as async also covers the SSE egress the hook creates.
+    """
+    import importlib
+
+    from app.services.charon import agent
+
+    # Import the router so its SSE event hook is installed, then call whatever
+    # `_persist_log` the agent module currently holds (possibly the wrapper).
+    importlib.import_module("app.routers.charon")
+
+    log_file = tmp_path / "charon.log"
+    monkeypatch.setenv("CHARON_LOG_DIR", str(tmp_path))
+
+    agent._persist_log(
+        {
+            "channel": "whatsapp",
+            "conversation_id": "sess-9",
+            "user_message": "Proxy: 1.2.3.4:1080\nPassword: writetest",
+        }
+    )
+
+    # Let the create_task'd broadcast run, so the hook's own screening is
+    # exercised rather than skipped at teardown.
+    await asyncio.sleep(0)
+
+    written = log_file.read_text(encoding="utf-8")
+    assert "writetest" not in written, f"the secret reached the log file: {written!r}"
+    assert "Password: [REDACTED]" in written
+
+
+def test_conversation_summaries_derive_from_screened_logs(tmp_path, monkeypatch):
+    """`last_message` is the field the public endpoint actually returns.
+
+    `_get_conversations` truncates `log["user_message"]` to 100 chars into
+    `last_message`. Truncation is not redaction — a 100-char window of the
+    production delivery body still contains `Password: <value>`. This asserts
+    through the real function rather than through `_read_logs`, so the property
+    is pinned where it is consumed.
+    """
+    import importlib
+    import json as _json
+
+    # `from app.routers import charon` yields the APIRouter, not the module:
+    # `app/routers/__init__.py` rebinds the name to the router object. A plain
+    # import makes `_read_logs` an AttributeError, which in a test that expects
+    # a redaction failure reads as "the log reader is gone", not "the guard is
+    # missing". importlib is the codebase convention for exactly this.
+    charon_router = importlib.import_module("app.routers.charon")
+
+    log_file = tmp_path / "charon.log"
+    log_file.write_text(
+        _json.dumps(
+            {
+                "ts": "2026-10-01T08:43:18Z",
+                "channel": "web",
+                "conversation_id": "sess-1",
+                "user_message": (
+                    "Your proxy credentials are ready!\n\nProxy: 1.2.3.4:1080\n"
+                    "Username: sty_e2e\nPassword: summarysecret\nExpires: 2030"
+                ),
+                "escalated": True,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(charon_router, "CHARON_LOG_PATH", str(log_file))
+
+    summaries = charon_router._get_conversations()
+
+    assert summaries, "precondition: a conversation was derived from the log"
+    assert "summarysecret" not in summaries[0].last_message, (
+        f"the public /charon/conversations payload would carry the password: "
+        f"{summaries[0].last_message!r}"
+    )

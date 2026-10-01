@@ -678,7 +678,25 @@ async def _internal_stats():
 
 
 def _read_logs(limit: int = 1000) -> list[dict]:
-    """Read logs from the JSONL file."""
+    """Read logs from the JSONL file.
+
+    Every string is screened on the way OUT, not only on the way in. These two
+    reasons are independent and both are live:
+
+      1. Future writes. `agent._persist_log` records `user_message`, and the
+         ingress guard in `post_reply` now redacts before that — but the log
+         writer is a separate path and a non-HTTP caller reaches it too.
+      2. The 17 rows ALREADY on disk. Redacting on write does not touch history.
+         `/tmp/charon.log` holds real `Password: ...` lines from 2026-09-30 to
+         2026-10-01, and `GET /api/v1/charon/logs` and
+         `GET /api/v1/charon/conversations` are UNAUTHENTICATED and return that
+         text verbatim — verified live, HTTP 200 with no credentials, leaking
+         `Username: sty_e2e / Password: pw` to any caller on the internet.
+
+    So screening at the read boundary is what actually closes the exposure for
+    the rows that are already persisted, and it also means a future writer that
+    forgets to screen cannot create a new disclosure.
+    """
     logs = []
     if not os.path.exists(CHARON_LOG_PATH):
         return logs
@@ -692,7 +710,7 @@ def _read_logs(limit: int = 1000) -> list[dict]:
                 continue
     except OSError:
         pass
-    return logs
+    return [redact_mapping(log) for log in logs]
 
 
 def _get_conversations() -> list[ConversationSummary]:
@@ -844,8 +862,11 @@ def _install_event_hook():
 
     def hooked_persist(ctx: dict):
         original_persist(ctx)
-        # Broadcast to SSE subscribers
-        asyncio.create_task(_broadcast_event("charon.log", ctx))
+        # Broadcast to SSE subscribers. Screened here too, and independently of
+        # the write above: `GET /api/v1/charon/stream` is an SSE endpoint with no
+        # `public_only` dependency and no auth at all, so the raw `ctx` would go
+        # straight to any caller who opens the stream.
+        asyncio.create_task(_broadcast_event("charon.log", redact_mapping(ctx)))
 
     agent_module._persist_log = hooked_persist
 
