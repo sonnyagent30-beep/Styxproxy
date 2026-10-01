@@ -15,7 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_account
 from app.database import get_session
 from app.schemas_catalog import OrderCreateRequest, OrderCreateResponse, ProductTemplatesResponse
-from app.services.catalog import create_order_with_credential, list_catalog
+from app.services.catalog import (
+    create_order_with_credential,
+    list_catalog,
+    list_enabled_country_codes,
+)
 
 router = APIRouter(prefix="/api", tags=["catalog"])
 
@@ -102,31 +106,39 @@ class CountriesResponse(BaseModel):
 
 @router.get("/countries", response_model=CountriesResponse)
 async def get_countries(session: AsyncSession = Depends(get_session)):
-    """Return all countries that have at least one active plan in the plans table.
+    """Return every country that is currently enabled for sale.
 
-    The plans table is the admin-controlled source of truth: a country is
-    "enabled" for sale exactly when an active plan row exists for it.
+    Source of truth is `country_plan_types` — the table the admin dashboard
+    writes when it enables or disables a (country, plan_type). This used to read
+    `plans`, a table the dashboard stopped writing, so it returned
+    `{"countries":[]}` in production while `/api/catalog` returned a full
+    catalog. Because Hero.tsx treats an empty list as "no data" rather than an
+    error, that silently left the homepage globe rendering the hardcoded
+    PRODUCT_COUNTRIES table: disabling a country in the dashboard did nothing.
+
+    A country enabled for sale is always returned, even if its `countries`
+    reference row is missing — a sellable country must never be invisible just
+    because display metadata is absent.
     """
-    from app.models import Country, Plan
-    from sqlalchemy import select
+    from app.models import Country
 
-    plan_result = await session.execute(
-        select(Plan.country).where(Plan.is_active)
-    )
-    country_codes: set[str] = {c.upper() for (c,) in plan_result.fetchall() if c}
+    country_codes = await list_enabled_country_codes(session)
 
+    country_infos: list[CountryInfo] = []
     if country_codes:
-        country_result = await session.execute(
+        result = await session.execute(
             select(Country).where(Country.code.in_(country_codes))
         )
-        countries_rows = country_result.scalars().all()
-    else:
-        countries_rows = []
-
-    country_infos = []
-    for c in countries_rows:
-        country_infos.append(CountryInfo(
-            code=c.code, name=c.name, flag_emoji=c.flag_emoji, region=c.region
-        ))
+        by_code = {c.code: c for c in result.scalars().all()}
+        for code in country_codes:
+            row = by_code.get(code)
+            country_infos.append(
+                CountryInfo(
+                    code=code,
+                    name=row.name if row else code,
+                    flag_emoji=row.flag_emoji if row else "",
+                    region=row.region if row else None,
+                )
+            )
 
     return CountriesResponse(countries=country_infos)

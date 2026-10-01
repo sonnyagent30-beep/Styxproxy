@@ -244,16 +244,42 @@ tables but no rows — so the suite could not distinguish a correct products que
 wrong one. Deleted with the router, the client method, the Next.js rewrite, and the Postman
 request. See `docs/API-CONTRACT.md`.
 
-**Finding [HIGH, open] — `GET /api/countries` has the same root cause and IS live:**
-`app/routers/catalog.py:103` reads `select(Plan.country).where(Plan.is_active)` — the same
-abandoned `plans` table — so it returns `{"countries":[]}` in production. Unlike
-`/api/products`, `frontend/src/components/Hero.tsx:110` calls it and silently falls back to
-the hardcoded `PRODUCT_COUNTRIES` list on empty. Consequence: the homepage globe map is driven
-by a stale hardcoded table while the admin dashboard that defines what is sellable writes to
-`country_plan_types`. Disabling a country in the dashboard does not remove it from the public
-homepage. The fix is to read `country_plan_types` the way `app/services/catalog.py:209`
-already does. **Not fixed here** — out of scope for the `/api/products` deletion, needs its
-own card.
+**Resolved (t_cb0b0b8b) — `GET /api/countries` had the same root cause and WAS live:**
+`app/routers/catalog.py:103` read `select(Plan.country).where(Plan.is_active)` — the same
+abandoned `plans` table — so it returned `{"countries":[]}` in production. Unlike
+`/api/products`, `frontend/src/components/Hero.tsx:110` called it and silently fell back to
+the hardcoded `PRODUCT_COUNTRIES` list on empty, because an empty array is a *successful*
+response and `.catch()` never fired. Consequence: the homepage globe map was driven by a stale
+hardcoded table while the admin dashboard that defines what is sellable writes to
+`country_plan_types`. Disabling a country in the dashboard did not remove it from the homepage.
+
+Fixed by making `country_plan_types` the single definition of sellability. `load_enabled_
+country_plan_types()` / `list_enabled_country_codes()` in `app/services/catalog.py` own the
+query, and both `/api/catalog` and `/api/countries` read through it, so the two public endpoints
+cannot drift apart the way `/api/products` and `/api/countries` did. The legacy `plans` table is
+deliberately NOT unioned back in: its rows are stale by definition, and unioning them would let a
+dashboard-disabled country reappear.
+
+Verified against a copy of the production database: the endpoint returns 11 countries (was `[]`),
+and disabling a country's rows in `country_plan_types` removes it from the response immediately.
+
+Two further defects were fixed alongside, both of which let the original regression ship
+unnoticed:
+
+- **An enabled country could be dropped for want of display metadata.** The old code joined
+  against `countries` and returned only matching rows. An enabled country with no reference row
+  vanished. Now the code set from `country_plan_types` is authoritative and the `countries` table
+  only supplies name/flag/region.
+- **The frontend could not tell "empty" from "error".** `Hero.tsx` collapsed a non-2xx response, a
+  malformed body and a genuinely-empty list into one `.catch()`, and `GlobeMap` treated an empty
+  `Set` as "no data". `enabledCountries` is now three-state (`undefined`/`null` = unknown, `Set` =
+  authoritative including empty), so a broken endpoint reports to Sentry instead of quietly
+  rendering the hardcoded table.
+
+Covered by `tests/test_routers_catalog.py` (9 tests), including an AST guard asserting no router
+selects a `Plan` *column* for a pricing/availability read — the structural shape that caused this.
+Selecting the whole `Plan` entity stays allowed: `routers/orders.py` needs it to fulfil an order
+that already exists.
 
 ---
 

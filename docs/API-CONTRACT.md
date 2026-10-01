@@ -84,6 +84,26 @@ No header needed for `/api/public/*`, `/api/health`, `/api/catalog`, `/api/count
 > than seeded: a second unmaintained pricing read path is what caused the drift.
 > Use `/api/catalog`.
 
+> **Corrected:** `GET /api/countries` read that same abandoned `plans` table and so
+> returned `{"countries":[]}` in production while `/api/catalog` returned a full
+> catalog. It now reads `country_plan_types` — the table the admin dashboard writes —
+> through the same helper `/api/catalog` uses, so the two cannot disagree.
+>
+> Response shape is unchanged:
+> ```json
+> { "countries": [ { "code": "NG", "name": "Nigeria",
+>                    "flag_emoji": "🇳🇬", "region": "Africa" } ] }
+> ```
+> `code` is the authoritative list of sellable countries. `name`, `flag_emoji` and
+> `region` are display metadata from the `countries` reference table and may be
+> absent (`flag_emoji` then `""`) — a country enabled for sale is always listed
+> regardless of whether display metadata exists, and `code` is never omitted.
+>
+> Consumers must distinguish an empty list from a failed request. An empty
+> `countries` array is a valid 200: it means the dashboard has everything disabled.
+> Do not treat `[]` as "unknown" and fall back to a hardcoded country list — that
+> failure mode is what let this defect reach production unnoticed.
+
 ## Rate limits
 
 | Endpoint group | Limit |

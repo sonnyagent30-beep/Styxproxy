@@ -36,12 +36,21 @@ interface GlobeMapProps {
    */
   productType?: string;
   /**
-   * Optional set of country codes (ISO 2-letter) that the admin has toggled ON.
-   * When provided, only countries in this set are shown (intersected with
-   * productType filter).  When omitted, all countries in PRODUCT_COUNTRIES
-   * are shown (backward-compatible behaviour).
+   * Country codes (ISO 2-letter) the admin has toggled ON, from /api/countries.
+   *
+   * Three distinct states, and collapsing them is what broke the storefront:
+   *   undefined — not provided / caller has no data → fall back
+   *   null      — fetch failed, so we genuinely do not know → fall back
+   *   Set       — authoritative answer from the admin dashboard. An EMPTY Set
+   *               means the dashboard has everything disabled and must render
+   *               as "nothing is for sale", NOT as "no data, use the fallback".
+   *
+   * The previous `enabledCountries && enabledCountries.size > 0` check treated
+   * an empty Set as no-data, so a broken /api/countries (which returned
+   * `{"countries":[]}`) silently fell back to the hardcoded PRODUCT_COUNTRIES
+   * table and the dashboard's availability controls did nothing.
    */
-  enabledCountries?: Set<string>;
+  enabledCountries?: Set<string> | null;
 }
 
 export default function GlobeMap({ productType, enabledCountries }: GlobeMapProps = {}) {
@@ -103,8 +112,9 @@ export default function GlobeMap({ productType, enabledCountries }: GlobeMapProp
       base = codes.map(c => COUNTRIES[c]).filter(Boolean);
     }
 
-    // When enabledCountries is provided, filter to only those codes
-    if (enabledCountries && enabledCountries.size > 0) {
+    // When enabledCountries is an authoritative Set (even empty), filter to
+    // exactly those codes. null/undefined means "no data" → keep `base`.
+    if (enabledCountries) {
       return base.filter(c => enabledCountries.has(c.code));
     }
 
@@ -257,7 +267,9 @@ export default function GlobeMap({ productType, enabledCountries }: GlobeMapProp
             const enabled = !productType || productType === 'ALL'
               ? [...new Set(Object.values(catalogCountries ?? {}).flat())]
               : (catalogCountries?.[productType] ?? PRODUCT_COUNTRIES[productType] ?? []);
-            const alsoEnabled = enabledCountries && enabledCountries.size > 0 ? enabledCountries : null;
+            // null/undefined = no admin data, so don't narrow further. An empty Set is
+            // authoritative "nothing is for sale" and highlights no country.
+            const alsoEnabled = enabledCountries ?? null;
             const ok = enabled.includes(iso ?? '') && (!alsoEnabled || alsoEnabled.has(iso ?? ''));
             return ok ? 'rgba(34,197,94,0.35)' : 'rgba(0,0,0,0)';
           }}

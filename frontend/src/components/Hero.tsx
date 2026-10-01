@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { CaretDown, WhatsappLogo, TelegramLogo, Lightning, Shield, Lock, Globe, Clock, Headset, House, DeviceMobile, HardDrives, Desktop, Check } from '@phosphor-icons/react';
 
 import GlobeErrorBoundary from '@/components/GlobeErrorBoundary';
+import { reportError } from '@/lib/sentry';
 
 const GlobeMap = dynamic(() => import('@/components/GlobeMap'), { ssr: false });
 
@@ -102,20 +103,53 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 export default function Hero() {
   const [typewriterIdx, setTypewriterIdx] = useState(0);
   const [activeTab, setActiveTab] = useState('ALL');
-  const [enabledCountries, setEnabledCountries] = useState<Set<string>>(new Set());
+  // null  = we do not know yet, or the fetch failed  → GlobeMap falls back to
+  //         its own /api/catalog-derived list.
+  // Set   = authoritative answer from the admin dashboard, INCLUDING an empty
+  //         set (dashboard has everything disabled). GlobeMap must render that
+  //         as "nothing is for sale", not as "no data".
+  const [enabledCountries, setEnabledCountries] = useState<Set<string> | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
 
-  // Fetch admin-enabled countries from the backend and pass to GlobeMap
+  // Fetch admin-enabled countries from the backend and pass to GlobeMap.
+  //
+  // The empty-array trap this guards against: an empty `countries` array is a
+  // *successful* response, so `.catch()` never fires. Treating "[]" as an error
+  // silently re-enabled the hardcoded PRODUCT_COUNTRIES fallback and made the
+  // admin dashboard's availability controls do nothing on the homepage — which
+  // is exactly how a regression in /api/countries shipped unnoticed. So:
+  //   non-2xx / unparseable body → error → stay null (fallback, but reported)
+  //   200 with a countries array  → authoritative, even when empty
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/countries')
-      .then(r => r.json())
-      .then(data => {
-        const codes = (data.countries ?? []).map((c: { code: string }) => c.code);
-        setEnabledCountries(new Set(codes));
+      .then(r => {
+        if (!r.ok) throw new Error(`/api/countries responded ${r.status}`);
+        return r.json();
       })
-      .catch(() => {
-        // On error, leave enabledCountries empty — GlobeMap falls back to PRODUCT_COUNTRIES
+      .then((data: { countries?: { code: string }[] }) => {
+        if (cancelled) return;
+        if (!Array.isArray(data?.countries)) {
+          throw new Error('/api/countries returned no countries array');
+        }
+        setEnabledCountries(new Set(data.countries.map(c => c.code)));
+        if (data.countries.length === 0) {
+          // Legitimate only if the dashboard truly disabled everything. It is
+          // also the signature of the /api/countries regression this replaced,
+          // so make it visible instead of letting the fallback paper over it.
+          reportError(
+            new Error('/api/countries returned zero enabled countries'),
+            { component: 'Hero', endpoint: '/api/countries' }
+          );
+        }
+      })
+      .catch(err => {
+        if (cancelled) return;
+        // Leave null → GlobeMap falls back. But do not fail silently: a broken
+        // availability endpoint must be visible in Sentry, not just a stale map.
+        reportError(err, { component: 'Hero', endpoint: '/api/countries' });
       });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
