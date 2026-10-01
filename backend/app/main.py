@@ -115,6 +115,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 ("referral_tx_ref", "VARCHAR(100)"),
                 ("emails_sent", "INTEGER DEFAULT 0"),
                 ("reminder_sent_at", "TIMESTAMP WITH TIME ZONE"),
+                # Fixture marker (t_9abad0e6). Deliberately NO default: a
+                # default would mark every existing row as a real order
+                # without anyone classifying it. NULL = not yet classified.
+                ("is_test_data", "BOOLEAN"),
             ]
             for col_name, col_type in columns_to_add:
                 await conn.execute(

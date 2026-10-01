@@ -235,6 +235,13 @@ class Order(Base):
     # Customer email (for self-service order lookup)
     customer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
+    # Fixture marker — see alembic/versions/024_orders_is_test_data.py.
+    # Tri-state on purpose: True = known fixture, False = known real,
+    # NULL = not yet classified. Never give this column a server default;
+    # a default would silently mark every existing row "real".
+    # Query with `IS FALSE` for real rows (explicit, and it states intent).
+    is_test_data: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+
     # Relationships
     platform_account: Mapped[Optional[PlatformAccount]] = relationship("PlatformAccount", back_populates="orders")
     styxproxy_credential: Mapped[Optional["StyxproxyCredential"]] = relationship(
