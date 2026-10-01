@@ -36,6 +36,63 @@ logging.basicConfig(
 )
 logger = logging.getLogger("fulfillment-worker")
 
+# RFC 2606 reserved domains used for anonymous-checkout placeholders. A send
+# addressed here is accepted by the provider and reported as "sent", but it can
+# never reach a human — so a delivery to one of these is a silent credential
+# loss, not a delivery.
+PLACEHOLDER_EMAIL_DOMAINS = ("example.com", "example.org", "example.net")
+
+
+def _is_placeholder_email(email: str | None) -> bool:
+    """True if the address is a non-routable anonymous-checkout placeholder."""
+    if not email:
+        return True
+    domain = email.rsplit("@", 1)[-1].strip().lower()
+    return domain in PLACEHOLDER_EMAIL_DOMAINS
+
+
+def resolve_customer_email(order, data_payload: dict) -> tuple[str | None, str]:
+    """Resolve the customer's real email for credential delivery.
+
+    Returns ``(email, source)``; ``email`` is None when no deliverable address
+    exists, and ``source`` says where the answer came from for logging.
+
+    The order row is authoritative: it holds the address the customer actually
+    typed at checkout. The gateway payload is only a fallback, because its
+    ``customer.email`` is whatever was sent to the gateway — for an anonymous
+    checkout that is a synthesized ``guest-anond…@example.com`` placeholder, not
+    a real address.
+
+    Payload shape is not uniform across providers, and ``data_payload`` is the
+    full webhook body as received, so each provider nests differently:
+
+    * Flutterwave — ``data.customer.email``
+    * Paystack — ``data.email`` / ``data.customer_email`` (no ``customer`` object)
+    * NOWPayments — no customer email at all
+    """
+    row_email = (getattr(order, "customer_email", None) or "").strip()
+    if row_email and not _is_placeholder_email(row_email):
+        return row_email, "order.customer_email"
+
+    data = data_payload.get("data") or {}
+    if not isinstance(data, dict):
+        data = {}
+
+    gateway_email = ""
+    customer_obj = data.get("customer")
+    if isinstance(customer_obj, dict):
+        gateway_email = customer_obj.get("email") or ""
+    if not gateway_email:
+        gateway_email = data.get("customer_email") or data.get("email") or ""
+
+    gateway_email = gateway_email.strip()
+    if gateway_email and not _is_placeholder_email(gateway_email):
+        return gateway_email, "gateway_payload"
+
+    # A placeholder or missing address: the customer paid without giving us a
+    # real email, so there is nobody to deliver to.
+    return None, "none"
+
 
 def get_redis_conn():
     settings = get_settings()
@@ -168,11 +225,11 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
 
                 # ── Fallback: direct email if n8n failed ──────────────────
                 if not n8n_success:
-                    customer_email = data_payload.get("data", {}).get("customer", {}).get("email")
+                    customer_email, email_source = resolve_customer_email(order, data_payload)
                     if customer_email:
                         try:
                             from app.services.email import send_order_active_email
-                            await send_order_active_email(
+                            email_result = await send_order_active_email(
                                 customer_email=customer_email,
                                 customer_name=customer_email.split("@")[0],
                                 order_id=order.order_id,
@@ -189,12 +246,52 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                                 expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                                 receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
                             )
-                            logger.info("fallback email sent", extra={**log_ctx, "email": customer_email})
+                            # send_order_active_email returns EmailResult; it does not
+                            # raise on provider failure, so the previous code logged
+                            # "fallback email sent" even when Resend rejected the send.
+                            # Inspect the result instead of assuming success.
+                            if email_result.success:
+                                logger.info(
+                                    "fallback email sent",
+                                    extra={
+                                        **log_ctx,
+                                        "email": customer_email,
+                                        "email_source": email_source,
+                                        "message_id": email_result.message_id,
+                                    },
+                                )
+                            else:
+                                logger.error(
+                                    "fallback email REJECTED by provider — "
+                                    "credentials were NOT delivered",
+                                    extra={
+                                        **log_ctx,
+                                        "email": customer_email,
+                                        "email_source": email_source,
+                                        "status": email_result.status,
+                                        "error": email_result.error,
+                                    },
+                                )
                         except Exception as email_err:
                             logger.error(
                                 "fallback email also failed",
                                 extra={**log_ctx, "error": str(email_err)},
                             )
+                    else:
+                        # Previously a silent skip: the customer was marked
+                        # fulfilled with credentials minted, but no address was
+                        # ever resolved, so nothing reached them and no log line
+                        # said so.
+                        logger.error(
+                            "NO DELIVERABLE EMAIL — order fulfilled and credentials "
+                            "minted, but the customer cannot be reached. "
+                            "Credentials must be delivered manually.",
+                            extra={
+                                **log_ctx,
+                                "email_source": email_source,
+                                "order_row_email": getattr(order, "customer_email", None),
+                            },
+                        )
 
                 logger.info(
                     "fulfillment completed",
@@ -241,7 +338,10 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
 
                 # Create support ticket
                 try:
-                    customer_email = data_payload.get("data", {}).get("customer", {}).get("email", "")
+                    # Was reading data_payload["data"]["customer"]["email"] and
+                    # binding it to customer_email, which this call never uses —
+                    # dead code carrying the same wrong assumption as the delivery
+                    # path above.
                     from app.services.email import send_refund_request_notification
                     await send_refund_request_notification(
                         order_id=order_id,
