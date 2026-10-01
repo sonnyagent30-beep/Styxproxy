@@ -119,6 +119,65 @@ def decrypt_credential(ciphertext: Optional[bytes]) -> Optional[str]:
         return None
 
 
+# Every Fernet token is urlsafe-base64 of a 0x80 version byte followed by a
+# big-endian timestamp, so they always begin with these four characters. The
+# prefix is what lets us tell an encrypted value from a legacy plaintext one
+# without attempting a decrypt first.
+FERNET_PREFIX = b"gAAAA"
+
+
+def decrypt_credential_compat(ciphertext: Optional[bytes]) -> Optional[str]:
+    """Decrypt a stored credential, tolerating legacy raw-plaintext rows.
+
+    The `styxproxy_password` column was encrypted retroactively, but not every
+    writer went through the encrypting setter. Rows written before encryption
+    existed — and rows written afterwards by a writer that bypassed it — hold
+    raw UTF-8 plaintext. Reading those with `decrypt_credential()` alone returns
+    None, which silently locks those customers out.
+
+    The two shapes are distinguished by the Fernet token prefix rather than by
+    "decrypt failed, so it must be plaintext":
+
+    - value carries the Fernet prefix -> it IS ciphertext. Decrypt it, and on
+      failure return None and log loudly. Falling back to "treat it as
+      plaintext" here would mask a wrong/missing CRED_ENCRYPTION_KEY by
+      comparing the customer's input against the ciphertext blob — the exact
+      bug this function exists to fix.
+    - value does not -> legacy raw plaintext. Return it decoded as UTF-8.
+
+    Returns None for NULL input and for values that are neither shape.
+    """
+    if ciphertext is None:
+        return None
+    if isinstance(ciphertext, str):
+        ciphertext = ciphertext.encode("utf-8")
+    if not ciphertext:
+        return None
+
+    if ciphertext.startswith(FERNET_PREFIX):
+        return decrypt_credential(ciphertext)
+
+    try:
+        return ciphertext.decode("utf-8")
+    except UnicodeDecodeError:
+        logger.error(
+            "styxproxy_password is neither Fernet ciphertext (no %s prefix) nor "
+            "valid UTF-8 — refusing to guess. Length=%d.",
+            FERNET_PREFIX.decode(),
+            len(ciphertext),
+        )
+        return None
+
+
+def is_encrypted_credential(ciphertext: Optional[bytes]) -> bool:
+    """True if the stored value is Fernet ciphertext rather than legacy plaintext."""
+    if not ciphertext:
+        return False
+    if isinstance(ciphertext, str):
+        ciphertext = ciphertext.encode("utf-8")
+    return ciphertext.startswith(FERNET_PREFIX)
+
+
 def mask_credential(plaintext: Optional[str], visible_chars: int = 3) -> str:
     """Mask a credential for display in API responses (e.g. 'sty_********').
 

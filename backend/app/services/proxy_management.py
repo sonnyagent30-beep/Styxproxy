@@ -180,7 +180,10 @@ async def rotate_credential_password(
         raise ValueError(f"rate_limit_exceeded:{next_allowed.isoformat()}")
 
     new_password = generate_proxy_password()
-    cred.styxproxy_password = new_password.encode("utf-8")
+    # Encrypt via the model setter — assigning the raw bytes here would silently
+    # downgrade an encrypted credential to plaintext and lock the customer out
+    # of the relay (which compares against the decrypted value).
+    cred.set_password(new_password)
     cred.password_rotated_at = datetime.now(timezone.utc)
     cred.password_rotations_today += 1
 
@@ -417,7 +420,7 @@ async def force_password_rotation_admin(session: AsyncSession, credential_id: in
         raise ValueError("credential_not_found")
 
     new_password = generate_proxy_password()
-    cred.styxproxy_password = new_password.encode("utf-8")
+    cred.set_password(new_password)
     cred.password_rotated_at = datetime.now(timezone.utc)
     # NOTE: do NOT increment password_rotations_today — admin rotation is unlimited
 
