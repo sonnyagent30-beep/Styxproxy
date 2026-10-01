@@ -5,6 +5,12 @@ with actual platform_account_id filtering.
 
 Before: RLS was effectively a no-op.
 After:  customers only see their own orders/credentials at the DB level.
+
+Note: the credential policies originally joined `orders.id =
+styxproxy_credentials.order_id`. `orders` has no `id` column — its primary key
+is `order_id` (001_initial.py:84) — so this raised UndefinedColumnError and
+killed `alembic upgrade head` on a clean database. Corrected to
+`orders.order_id`.
 """
 
 from alembic import op
@@ -80,7 +86,7 @@ def upgrade() -> None:
             USING (
                 EXISTS (
                     SELECT 1 FROM orders
-                    WHERE orders.id = styxproxy_credentials.order_id
+                    WHERE orders.order_id = styxproxy_credentials.order_id
                     AND orders.platform_account_id::text = current_setting('app.current_platform_account_id', true)
                 )
             )
@@ -93,14 +99,14 @@ def upgrade() -> None:
             USING (
                 EXISTS (
                     SELECT 1 FROM orders
-                    WHERE orders.id = styxproxy_credentials.order_id
+                    WHERE orders.order_id = styxproxy_credentials.order_id
                     AND orders.platform_account_id::text = current_setting('app.current_platform_account_id', true)
                 )
             )
             WITH CHECK (
                 EXISTS (
                     SELECT 1 FROM orders
-                    WHERE orders.id = styxproxy_credentials.order_id
+                    WHERE orders.order_id = styxproxy_credentials.order_id
                     AND orders.platform_account_id::text = current_setting('app.current_platform_account_id', true)
                 )
             )
@@ -112,7 +118,7 @@ def upgrade() -> None:
             USING (
                 EXISTS (
                     SELECT 1 FROM orders
-                    WHERE orders.id = styxproxy_credentials.order_id
+                    WHERE orders.order_id = styxproxy_credentials.order_id
                     AND orders.platform_account_id::text = current_setting('app.current_platform_account_id', true)
                 )
             )

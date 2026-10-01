@@ -17,7 +17,11 @@ concurrency:
 jobs:
   backend-test:
     name: Backend tests
-    continue-on-error: true
+    # NOT continue-on-error. This job previously carried
+    # `continue-on-error: true` at both job and step level, which is why 21
+    # tests could stay red for the entire life of the tree with every PR
+    # green. See backend/scripts/ci_backend_gate.py for the ratchet that keeps
+    # known failures tolerated without letting new ones through.
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -64,9 +68,15 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run database migrations
-        # TODO Sprint 11: migration 001 has FK ordering bug. Allow failure here so
-        # the rest of the workflow can run.
-        continue-on-error: true
+        # NOT continue-on-error. The stale "migration 001 has FK ordering bug"
+        # TODO that sat here is resolved as of t_2af95a6b: `alembic upgrade head`
+        # now reaches head on a clean Postgres 16 (verified, exit 0, all 27
+        # revisions). Nine distinct defects were fixed to get there — see the
+        # card handoff and backend/alembic/versions/ for the per-revision notes.
+        #
+        # This step MUST block. Every DB-dependent test depends on it, and when
+        # it was allowed to fail silently the suite ran against a database with
+        # no `alembic_version` and an empty `plans` table.
         env:
           DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
           TESTING: "1"
@@ -82,10 +92,15 @@ jobs:
           cd backend
           alembic upgrade head
 
-      - name: Run tests
-        # TODO: migration 001 has FK ordering bug. Allow failure here so
-        # the rest of the workflow can run.
-        continue-on-error: true
+      - name: Run tests (gated)
+        # NOT continue-on-error. Previously this step AND the job both carried
+        # `continue-on-error: true`, so a failing pytest run could not fail the
+        # workflow at all.
+        #
+        # The gate fails the build on any test that fails and is not listed in
+        # backend/ci_known_failures.txt, and refuses baseline entries added
+        # without a written reason. It also reports entries that now pass so
+        # they can be deleted. Do not replace this with a bare `pytest` call.
         env:
           DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
           REDIS_URL: redis://localhost:6379/0
@@ -101,10 +116,20 @@ jobs:
           LOG_LEVEL: DEBUG
         run: |
           cd backend
-          pytest tests/ --tb=short -q
+          python scripts/ci_backend_gate.py
 
   backend-lint:
-    name: Backend lint (ruff)
+    name: Backend lint (ruff) [advisory]
+    # ADVISORY — deliberately non-gating, decided in t_2af95a6b.
+    #
+    # Measured on main @ 036eca9d: `ruff check app/ --select=E,F,I` reports 507
+    # errors and `ruff format --check` would reformat 53 files. Gating this now
+    # would make main permanently red on the first push, which is the exact
+    # outcome t_2af95a6b was created to prevent.
+    #
+    # It is still non-ignored: the `|| true` below is what keeps it advisory.
+    # Remove the `|| true` and the job-level continue-on-error together, once
+    # the counts reach zero. Owner: unassigned — needs a cleanup card.
     continue-on-error: true
     runs-on: ubuntu-latest
     steps:
@@ -125,7 +150,13 @@ jobs:
         run: ruff format --check backend/app/ || true
 
   backend-typecheck:
-    name: Backend typecheck (mypy)
+    name: Backend typecheck (mypy) [advisory]
+    # ADVISORY — deliberately non-gating, decided in t_2af95a6b.
+    #
+    # Measured on main @ 036eca9d: mypy reports 141 errors across 33 files.
+    # Same reasoning as backend-lint: gating now turns main permanently red.
+    # Remove the `|| true` and the job-level continue-on-error together, once
+    # the count reaches zero. Owner: unassigned — needs a cleanup card.
     continue-on-error: true
     runs-on: ubuntu-latest
     steps:
@@ -149,7 +180,13 @@ jobs:
         continue-on-error: true
 
   frontend-lint:
-    name: Frontend lint (eslint)
+    name: Frontend lint (eslint) [advisory]
+    # ADVISORY — deliberately non-gating, decided in t_2af95a6b.
+    #
+    # Currently BROKEN, not merely red: `npm run lint` dies with
+    # ERR_MODULE_NOT_FOUND for 'eslint-config-next/core-web-vitals' imported
+    # from eslint.config.mjs, so no lint result is produced at all. Measured on
+    # main @ 036eca9d. Owner: unassigned — needs a cleanup card.
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -168,11 +205,19 @@ jobs:
         run: npm ci
 
       - name: Lint
+        # ADVISORY — see the job-level note above. Remove this continue-on-error
+        # once `npm run lint` runs successfully and reports zero problems.
         continue-on-error: true
         run: npm run lint
 
   frontend-typecheck:
-    name: Frontend typecheck (tsc)
+    name: Frontend typecheck (tsc) [advisory]
+    # ADVISORY — deliberately non-gating, decided in t_2af95a6b.
+    #
+    # Measured on main @ 036eca9d: `npx tsc --noEmit` reports 80 TypeScript
+    # errors (e.g. src/lib/api.ts:943 "Cannot find name 'CatalogTemplate'",
+    # src/lib/api.ts:1296 "Duplicate function implementation"). Gating now
+    # turns main permanently red. Owner: unassigned — needs a cleanup card.
     continue-on-error: true
     runs-on: ubuntu-latest
     defaults:

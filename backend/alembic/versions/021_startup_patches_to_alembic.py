@@ -30,15 +30,19 @@ def upgrade() -> None:
         sa.Column("device_id", sa.String(64), nullable=True),
     )
     # Index already defined in model __table_args__; create it only if not present.
-    # SQLite (tests) doesn't support IF NOT EXISTS for CREATE INDEX, so we guard
-    # with postgresql_only.  Tests that define the column manually should also
-    # create the index as part of their fixture.
+    #
+    # `postgresql_only=True` was removed here: it is not a valid SQLAlchemy
+    # Index argument, so op.create_index raised
+    # ArgumentError: Argument 'postgresql_only' is not accepted by dialect
+    # 'postgresql' before emitting any SQL, killing `alembic upgrade head` on a
+    # clean database. `if_not_exists=True` is a real alembic kwarg and is what
+    # actually makes the create idempotent; this workflow only ever runs
+    # against Postgres, so no dialect guard is needed.
     op.create_index(
         "idx_platform_device",
         "platform_accounts",
         ["device_id"],
         if_not_exists=True,
-        postgresql_only=True,
     )
 
     # ── styxproxy_credentials: rotation tracking ─────────────────────────────

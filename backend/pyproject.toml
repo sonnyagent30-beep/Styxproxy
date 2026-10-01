@@ -18,6 +18,12 @@ dependencies = [
     "reportlab>=4.0.0",
     "pydantic-settings==2.14.2",
     "python-jose[cryptography]==3.5.0",
+    # app/services/ops_auth.py:6 does `import jwt` (PyJWT), which is a
+    # different distribution from python-jose above (its module is `jose`).
+    # It was undeclared, so a clean `pip install -e ".[dev]"` left 15 test
+    # modules failing at import with ModuleNotFoundError: No module named
+    # 'jwt' — masked in CI by continue-on-error on the backend-test job.
+    "pyjwt>=2.8",
     "passlib[bcrypt]==1.7.4",
     "bcrypt==4.3.0",
     "pyotp>=2.9.0",
@@ -44,6 +50,19 @@ dev = [
     "black==25.1.0",
     "pre-commit==4.0.1",
 ]
+
+[tool.setuptools.packages.find]
+# Without this, setuptools' flat-layout auto-discovery scans backend/ and finds
+# eight top-level packages (app, db, alembic, alloy, relay, systemd, data,
+# litellm) and hard-fails the build with
+#   "Multiple top-level packages discovered in a flat-layout"
+# That made `pip install -e ".[dev]"` fail outright in the backend-test job —
+# the step that installs the very dependencies the tests need. It went unnoticed
+# because the job carried `continue-on-error: true` (see ci.yml).
+#
+# The installable package is `app` only; the rest are data/config directories
+# that are not meant to be importable distributions.
+include = ["app*"]
 
 [tool.ruff]
 line-length = 120

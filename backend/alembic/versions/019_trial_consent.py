@@ -62,19 +62,18 @@ def upgrade() -> None:
 
     # ── Part 3: Customer consent columns ────────────────────────────────────────
     # These are already in the SQLAlchemy model but may not exist in prod DB.
-    # safe to run on both fresh and existing DBs (Postgres ignores no-op ALTER).
-    op.add_column(
-        "customers",
-        sa.Column("consent_given", sa.Boolean(), server_default="false", nullable=False),
-    )
-    op.add_column(
-        "customers",
-        sa.Column("consent_version", sa.String(20), nullable=True),
-    )
-    op.add_column(
-        "customers",
-        sa.Column("consent_at", sa.DateTime(timezone=True), nullable=True),
-    )
+    #
+    # 001_initial ALREADY creates all three (001_initial.py:48-50), so on a
+    # database built from this chain the plain `add_column` below raised
+    # DuplicateColumnError and killed `alembic upgrade head`. The original
+    # comment here claimed "Postgres ignores no-op ALTER" — it does not.
+    # ADD COLUMN without IF NOT EXISTS errors on an existing column. Guarded
+    # with IF NOT EXISTS, which is a no-op on production and on 001-built DBs.
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS consent_given BOOLEAN NOT NULL DEFAULT false")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS consent_version VARCHAR(20)")
+    op.execute("ALTER TABLE customers ADD COLUMN IF NOT EXISTS consent_at TIMESTAMPTZ")
+
+    op.execute("UPDATE customers SET consent_given = false WHERE consent_given IS NULL")
 
 
 def downgrade() -> None:
