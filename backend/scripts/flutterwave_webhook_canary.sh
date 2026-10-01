@@ -8,10 +8,35 @@
 #
 # WHY THE ORIGIN SPLIT IS MANDATORY
 # A bare webhook count is unverified. Production logs contain test traffic
-# indistinguishable from gateway traffic: the single non-self 200 from
-# 102.89.33.53 was a hand-rolled curl against a qa-webhook-final@styxproxy.local
-# order. Every count below is reported WITH its origin table, or it is not a
-# finding.
+# indistinguishable from gateway traffic: every self-originated call is a
+# hand-rolled curl against a qa-*@styxproxy.local order. Every count below is
+# reported WITH its origin table, or it is not a finding.
+#
+# ── CORRECTION 2026-10-01 (kanban t_4271b61e) ─────────────────────────────────
+# An earlier version of this script reported that no log source recorded a
+# client IP for the webhook route, and told the reader that a blank origin
+# section meant the canary could not be trusted. That diagnosis was wrong on
+# both counts, and pointed at the wrong files:
+#
+#   - `journalctl -u styxproxy-api` contains NO application output at all,
+#     because the unit sets StandardOutput=append:/var/log/styxproxy-api.log.
+#     This is true of every route, not just webhooks.
+#   - /var/log/nginx/access.log has no webhook lines because the
+#     api.styxproxy.com server block overrides it with its own
+#     access_log /var/log/styxproxy-nginx-access.log.
+#
+# Both files DO carry origin, and the middleware already logged `client` on the
+# "Request started" line. The genuine gaps, since closed by t_4271b61e, were:
+#   1. no `client` on the "Request completed" line (the one you read when
+#      investigating a rejection),
+#   2. no origin on any handler log line or audit row, and
+#   3. NO audit row at all on the 401 rejection paths — so a bad secret
+#      produced the same silence as "no traffic ever arrived".
+#
+# t_4271b61e adds `*_webhook_rejected` audit rows (section 2a) carrying
+# origin_scope, which is what now distinguishes a rejected event from an absent
+# one. Raw IPs are never persisted: rows carry a SHA-256 pseudonym plus a
+# coarse scope, per the customer_hash convention in services/audit.py.
 set -uo pipefail
 
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/styxproxy-interserver}"
@@ -39,24 +64,39 @@ ssh -i "$SSH_KEY" -o ConnectTimeout=15 "$HOST" \
     group by event_type order by event_type;\""
 
 echo
-echo "--- 2. ORIGIN SPLIT: non-self source IPs hitting the webhook route ---"
-echo "    (a webhook row with only self-originated traffic = NO live event yet)"
-# NOTE: as of this writing neither uvicorn's journal nor nginx's access.log
-# records a client IP for /api/webhooks/*. Verified on prod 2026-10-01:
-#   - journalctl -u styxproxy-api shows no client/remote field at all
-#   - nginx access.log has 0 lines matching 'webhooks/flutterwave'
-# So this section CAN legitimately come back empty on a healthy system, and an
-# empty result here is NOT evidence of a working secret. Section 2b is the
-# signal that actually exists; if 2b is also empty, treat the canary as
-# UNVERIFIED rather than as a pass, and add client-IP logging first.
+echo "--- 2. ORIGIN SPLIT: source IPs hitting the webhook route ---"
+echo "    (only self-originated traffic = NO live gateway event yet)"
 ssh -i "$SSH_KEY" -o ConnectTimeout=15 "$HOST" \
-  "journalctl -u styxproxy-api --since '-6h' --no-pager 2>/dev/null \
-   | grep -oE '\"(client_host|origin_ip|remote_addr|client)\": *\"?[0-9a-fA-F.:]+\"?' \
-   | grep -oE '[0-9a-fA-F.:]+\$?' | sort | uniq -c | sort -rn | head -20"
-echo "    (if the above is blank, see note — blank is NOT a pass)"
+  "echo '  -- api log (/var/log/styxproxy-api.log) --';
+   grep 'Request started' /var/log/styxproxy-api.log 2>/dev/null \
+     | grep '/api/webhooks/' \
+     | grep -oE '\"client\": \"[^\"]+\"' | sort | uniq -c | sort -rn | head -20;
+   echo '  -- nginx log (/var/log/styxproxy-nginx-access.log) --';
+   grep 'webhooks/' /var/log/styxproxy-nginx-access.log 2>/dev/null \
+     | awk '{print \$1}' | sort | uniq -c | sort -rn | head -20"
+echo "    NOTE: 127.0.0.1 is nginx on this host, not a gateway. So is the host's"
+echo "    own egress IP. A non-self IP here means an external caller reached the"
+echo "    route — before any charge, that is worth a look."
 
 echo
-echo "--- 2b. NEW audit rows since the snapshot (the signal that exists) ---"
+echo "--- 2a. REJECTED events — the signal that catches a bad secret ---"
+# This is the case the canary exists for: traffic WAS attempted and we said no.
+# A wrong FLUTTERWAVE_WEBHOOK_SECRET yields 401s and no charge.completed rows,
+# which without these rows looks identical to "no traffic at all".
+#   scope=public     -> not us: a genuine external caller
+#   scope=self_host/private/loopback -> our own curl, not evidence of anything
+ssh -i "$SSH_KEY" -o ConnectTimeout=15 "$HOST" \
+  "sudo -u postgres psql -d $DB -At -F'|' -c \"
+    select event_type,
+           coalesce(details->>'reason','-') as reason,
+           coalesce(details->>'origin_scope','-') as scope,
+           count(*), max(timestamp)
+    from customer_audit_log
+    where event_type like '%webhook_rejected'
+    group by 1,2,3 order by 5 desc;\""
+
+echo
+echo "--- 2b. NEW audit rows since the snapshot (the primary signal) ---"
 # webhook_charge.completed rows are the ground truth. Comparing the count
 # before rotation against the count now tells us whether a live event landed.
 ssh -i "$SSH_KEY" -o ConnectTimeout=15 "$HOST" \
@@ -74,23 +114,26 @@ echo "       real gateway traffic from our own QA curls ---"
 ssh -i "$SSH_KEY" -o ConnectTimeout=15 "$HOST" \
   "sudo -u postgres psql -d $DB -At -F'|' -c \"
     select a.event_type, a.timestamp, coalesce(o.order_id,'(no order)'),
-           coalesce(o.customer_phone,'-'), coalesce(o.status,'-')
+           coalesce(o.customer_phone,'-'), coalesce(o.status,'-'),
+           coalesce(a.details->>'origin_scope','-')
     from customer_audit_log a
     left join orders o on o.payment_reference = a.details->>'tx_ref'
     where a.event_type like 'webhook_%' or a.event_type like 'flutterwave%'
     order by a.timestamp desc limit 15;\""
 
 echo
-echo "--- 4. Access-log line count (access.log / uvicorn) ---"
+echo "--- 4. Access-log line counts ---"
 ssh -i "$SSH_KEY" -o ConnectTimeout=15 "$HOST" \
-  "for f in /var/log/nginx/access.log /opt/styxproxy/backend/access.log; do
+  "for f in /var/log/styxproxy-api.log /var/log/styxproxy-nginx-access.log \
+            /var/log/nginx/access.log; do
      [ -f \"\$f\" ] && echo \"\$f: \$(wc -l < \"\$f\") lines\"
-   done"
+   done
+   echo 'webhook lines in nginx log:'
+   grep -c 'webhooks/' /var/log/styxproxy-nginx-access.log 2>/dev/null || echo 0"
 
 echo
 echo "--- 5. Verdict ---"
-# The verdict is driven by NEW customer_audit_log rows, not by a log grep.
-# Grepping for a non-self IP cannot work today (see the note in section 2).
+# The verdict is driven by audit rows, not by a log grep.
 if [ "$PHASE" = "verify" ]; then
   NEWROWS=$(ssh -i "$SSH_KEY" -o ConnectTimeout=15 "$HOST" \
     "sudo -u postgres psql -d $DB -At -c \"
@@ -98,19 +141,31 @@ if [ "$PHASE" = "verify" ]; then
       where event_type = 'webhook_charge.completed'
         and timestamp > now() - interval '15 minutes';\"" 2>/dev/null || echo 0)
 
+  REJECTS=$(ssh -i "$SSH_KEY" -o ConnectTimeout=15 "$HOST" \
+    "sudo -u postgres psql -d $DB -At -c \"
+      select count(*) from customer_audit_log
+      where event_type = 'flutterwave_webhook_rejected'
+        and details->>'origin_scope' = 'public'
+        and timestamp > now() - interval '15 minutes';\"" 2>/dev/null || echo 0)
+
   if [ "${NEWROWS:-0}" -gt 0 ]; then
     echo "SIGNAL PRESENT: $NEWROWS webhook_charge.completed row(s) in the last 15min."
     echo "  -> Cross-check section 3: is the tx_ref a REAL customer order, or a"
     echo "     @styxproxy.local QA order? Only a real customer order proves the"
     echo "     live gateway event got in."
+  elif [ "${REJECTS:-0}" -gt 0 ]; then
+    echo "REJECTED, NOT SILENT: $REJECTS non-self flutterwave_webhook_rejected"
+    echo "  row(s) in the last 15min. The gateway called and we returned 401."
+    echo "  -> The configured secret does NOT match the gateway. Fix .env and"
+    echo "     restart before the customer is charged and unfulfilled."
   else
-    echo "NO SIGNAL: zero webhook_charge.completed rows in the last 15 minutes."
-    echo "  UNVERIFIED, not a pass — this canary cannot currently distinguish"
-    echo "  'no traffic yet' from 'secret rejected every event', because no log"
-    echo "  source records the origin IP for this route."
-    echo "  If a real charge was made and nothing landed, the configured secret"
-    echo "  does NOT match the gateway. Surface this NOW, not at the next standup."
-    echo "  Recommended: add client-IP logging to the webhook route before rotation."
+    echo "NO SIGNAL: zero webhook_charge.completed and zero non-self rejection"
+    echo "  rows in the last 15 minutes."
+    echo "  UNVERIFIED, not a pass. No external caller reached this route at all,"
+    echo "  so this cannot distinguish 'no charge made yet' from 'gateway never"
+    echo "  got through'. If you are certain a real charge was made, check"
+    echo "  section 2: if no non-self IP appears there either, the event never"
+    echo "  reached this host (DNS/CDN/firewall), so the secret is NOT implicated."
   fi
 else
   echo "Snapshot taken. Re-run with 'verify' within 15min of the first live charge."

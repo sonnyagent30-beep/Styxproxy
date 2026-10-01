@@ -152,6 +152,18 @@ class Settings(BaseSettings):
     # ── Logging ─────────────────────────────────────────────────────────────
     log_level: str = "INFO"
 
+    # ── Webhook origin classification ───────────────────────────────────────
+    # Addresses that are us, not a payment gateway. Used ONLY to classify
+    # inbound webhook traffic for observability (see services/origin.py), never
+    # for authorisation — so a spoofed X-Forwarded-For can mislabel a caller but
+    # cannot bypass anything. Space or comma separated.
+    #
+    # Must include the production host's own public address. Behind nginx the
+    # peer is 127.0.0.1 and the X-Forwarded-For leftmost entry is the real
+    # caller; if our own egress IP is absent from this list, our own curls get
+    # classified `public` and the rotation canary reports a false SIGNAL.
+    webhook_self_origin_ips: str = ""
+
     # ── Derived ────────────────────────────────────────────────────────────
     @property
     def is_production(self) -> bool:
