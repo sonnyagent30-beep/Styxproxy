@@ -110,6 +110,7 @@ from app.services.email import (
     send_refund_processed_email,
 )
 from app.services.n8n import clear_failures, get_failure_stats, get_failures
+from app.services.refunds import GatewayRefundError, refund_at_gateway
 from app.services.permissions import require_permission
 from app.services.referral import (
     backfill_referral_codes,
@@ -586,7 +587,48 @@ async def _process_refund(
     reason: str,
     http_request: Request,
 ) -> dict:
-    """Shared refund processing logic (status update, credential revoke, notifications)."""
+    """Refund an order AT THE GATEWAY, then record the result.
+
+    The gateway is asked FIRST. `status='refunded'` is written only after it
+    confirms, and the gateway's own refund id is persisted alongside it.
+
+    Previously this function flipped the status, revoked the credential and
+    emailed the customer without ever contacting a gateway — so a customer was
+    told their money had been returned when none of it had moved. All 46
+    `refunded` rows in production are such flips (payment_reference set, tx_ref
+    NULL: the gateway was never consulted).
+
+    On any gateway failure the order is left exactly as it was — actionable,
+    not `refunded` — the failure is written to the audit log, and
+    `GatewayRefundError` propagates so the caller surfaces it to the admin.
+    """
+    try:
+        refund = await refund_at_gateway(order, reason=reason or "Refund requested by admin")
+    except GatewayRefundError as e:
+        # Money did NOT move. Leave the order untouched and actionable; record
+        # why so an operator can retry once the gateway is reachable.
+        await write_audit_log(
+            session,
+            admin_email=admin_email,
+            action="refund_failed",
+            resource_type="order",
+            resource_id=order.order_id,
+            details={
+                "reason": reason,
+                "error": str(e),
+                "provider": order.provider,
+                "order_status_unchanged": order.status,
+            },
+            request=http_request,
+        )
+        logger.error("Gateway refund FAILED for order %s: %s", order.order_id, e)
+        raise
+
+    # ── Gateway confirmed. Now, and only now, is the order refunded. ─────────
+    order.gateway_refund_id = refund.gateway_refund_id
+    order.gateway_refund_status = refund.gateway_status
+    order.gateway_refund_amount = refund.amount_ngn
+    order.gateway_refunded_at = datetime.now(timezone.utc)
     order.status = "refunded"
     order.refund_requested = True
     order.refund_reason = reason
@@ -606,7 +648,14 @@ async def _process_refund(
         action="refund_order",
         resource_type="order",
         resource_id=order.order_id,
-        details={"reason": reason},
+        details={
+            "reason": reason,
+            "provider": refund.provider,
+            "gateway_refund_id": refund.gateway_refund_id,
+            "gateway_refund_status": refund.gateway_status,
+            "reference": refund.reference,
+            "amount": refund.amount_ngn,
+        },
         request=http_request,
     )
 
@@ -614,7 +663,7 @@ async def _process_refund(
     await send_refund_approved_notification(
         order_id=order.order_id,
         customer_phone=order.customer_phone or "",
-        amount=float(order.amount_paid_ngn or 0),
+        amount=float(refund.amount_ngn or 0),
         currency="NGN",
     )
 
@@ -633,15 +682,21 @@ async def _process_refund(
                     customer_email=customer_email,
                     customer_name=customer.name if customer.name else "Customer",
                     order_id=order.order_id,
-                    original_amount=float(order.amount_paid_ngn or 0),
-                    refund_amount=float(order.amount_paid_ngn or 0),
+                    original_amount=float(refund.amount_ngn or 0),
+                    refund_amount=float(refund.amount_ngn or 0),
                     currency="NGN",
                     reason=reason or "Refund processed",
                 )
             except Exception as e:
                 logger.warning(f"Failed to send refund email for order {order.order_id}: {e}")
 
-    return {"status": "refunded", "order_id": order.order_id, "refund_amount": float(order.amount_paid_ngn or 0)}
+    return {
+        "status": "refunded",
+        "order_id": order.order_id,
+        "refund_amount": float(refund.amount_ngn or 0),
+        "gateway_refund_id": refund.gateway_refund_id,
+        "provider": refund.provider,
+    }
 
 
 @router.post("/orders/{order_id}/refund", dependencies=[Depends(require_permission("admin.orders.refund", totp_required=True))])
@@ -708,13 +763,26 @@ async def refund_order(
             message=f"Refund of ₦{refund_amount:,.0f} exceeds threshold (₦{threshold:,.0f}). Second admin approval required.",
         )
 
-    # Small refund — process immediately
-    result = await _process_refund(session, order, admin_email, body.reason, http_request)
+    # Small refund — process immediately. A gateway failure must NOT be
+    # reported as a refund: the order keeps its current status and the admin
+    # gets a 502 naming the gateway error.
+    try:
+        result = await _process_refund(session, order, admin_email, body.reason, http_request)
+    except GatewayRefundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                f"Gateway refund failed — the order was NOT marked refunded and the customer "
+                f"was NOT notified. Reason: {e}"
+            ),
+        )
     return RefundRequestResponse(
         status="refunded",
         order_id=result["order_id"],
         refund_amount=result["refund_amount"],
-        message="Refund processed successfully.",
+        message=(
+            f"Refund processed successfully. Gateway refund id: {result['gateway_refund_id']}."
+        ),
     )
 
 
@@ -864,14 +932,27 @@ async def approve_refund(
     if order.status in ["refunded", "cancelled"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order already refunded or cancelled")
 
-    # Update approval record
+    # Update approval record — AFTER the refund is confirmed. Marking this
+    # `approved` first would, on a gateway failure, leave an approval that says
+    # "approved" for a refund that never moved money (and _process_refund's own
+    # commits would persist that).
+    # Process the refund
+    try:
+        result = await _process_refund(session, order, admin_email, f"Large refund approved by {admin_email}", http_request)
+    except GatewayRefundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                f"Gateway refund failed — the order was NOT marked refunded, the customer was "
+                f"NOT notified, and this approval is still pending so it can be retried. Reason: {e}"
+            ),
+        )
+
     approval.status = "approved"
     approval.reviewed_by = admin_email
     approval.reviewed_at = datetime.now(timezone.utc)
     approval.reviewer_notes = body.reviewer_notes
-
-    # Process the refund
-    await _process_refund(session, order, admin_email, f"Large refund approved by {admin_email}", http_request)
+    await session.commit()
 
     return RefundApprovalActionResponse(
         id=approval.id,
@@ -879,7 +960,10 @@ async def approve_refund(
         status="approved",
         reviewed_by=admin_email,
         reviewed_at=approval.reviewed_at,
-        message=f"Refund of ₦{float(approval.requested_amount):,.0f} approved and processed.",
+        message=(
+            f"Refund of ₦{float(result['refund_amount']):,.0f} approved and processed. "
+            f"Gateway refund id: {result['gateway_refund_id']}."
+        ),
     )
 
 
