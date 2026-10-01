@@ -115,6 +115,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 ("referral_tx_ref", "VARCHAR(100)"),
                 ("emails_sent", "INTEGER DEFAULT 0"),
                 ("reminder_sent_at", "TIMESTAMP WITH TIME ZONE"),
+                # Real capture record (gate item 2, t_c0b38088). NULLABLE and
+                # never backfilled: for the 238 historical rows we cannot know
+                # what was actually captured, and a fabricated capture value is
+                # worse than a null because it reads as evidence. These stay
+                # NULL until a gateway response writes them, via
+                # app/services/capture.py.
+                ("captured_at", "TIMESTAMP WITH TIME ZONE"),
+                ("gateway_status", "VARCHAR(20)"),
+                ("gateway_amount_ngn", "NUMERIC(12, 2)"),
+                ("gateway_currency", "VARCHAR(3)"),
+                ("gateway_reference", "VARCHAR(100)"),
+                # Gateway refund id — gate item 3 (t_f765263b).
+                ("gateway_refund_id", "VARCHAR(100)"),
             ]
             for col_name, col_type in columns_to_add:
                 await conn.execute(

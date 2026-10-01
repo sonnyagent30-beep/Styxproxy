@@ -10,6 +10,12 @@ from typing import Any, Optional
 import httpx
 
 from app.config import get_settings
+from app.services.capture import (
+    GATEWAY_STATUS_SUCCESS,
+    UNIT_MAJOR,
+    gateway_captured_at,
+    record_capture,
+)
 from app.services.credential import create_credential
 from app.services.n8n import trigger_credentials_delivered_webhook
 
@@ -128,15 +134,21 @@ async def create_flutterwave_invoice(
             )
             response.raise_for_status()
             data = response.json()
+            fw_data = data.get("data", {}) or {}
             return {
-                "payment_id": data.get("data", {}).get("id"),
-                "checkout_url": data.get("data", {}).get("link"),
+                "payment_id": fw_data.get("id"),
+                "checkout_url": fw_data.get("link"),
                 # Echo the gateway's own reference back so the caller persists
                 # what was actually charged, not just what was requested.
-                "tx_ref": data.get("data", {}).get("tx_ref") or tx_ref,
+                "tx_ref": fw_data.get("tx_ref") or tx_ref,
                 "provider_order_id": (
-                    str(data["data"]["id"]) if data.get("data", {}).get("id") is not None else None
+                    str(fw_data["id"]) if fw_data.get("id") is not None else None
                 ),
+                # The gateway's OWN amount + currency. Flutterwave v3 reports the
+                # MAJOR unit (NGN), the opposite of Paystack's kobo — the caller
+                # is told which by persisting with UNIT_MAJOR.
+                "gateway_amount": fw_data.get("amount"),
+                "gateway_currency": fw_data.get("currency"),
             }
         except httpx.HTTPError as e:
             from app.services.audit import log_audit_event
@@ -193,12 +205,26 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
 
             # ── Step 2: Mark order paid ────────────────────────────────────────
             order.status = "paid"
+            # amount_paid_ngn is the INVOICE amount — populated on every row,
+            # including cancelled/expired/refunded ones. It is never evidence of
+            # payment. The capture record written below is.
             order.amount_paid_ngn = data.get("amount")
-            # NOTE: Flutterwave v3 webhooks report `amount` in the MAJOR unit
-            # (NGN), identical to what we POST to /v3/payments. Do NOT divide by
-            # 100 here. Corroborated in production by order ORD-8C637M: a N2,500
+            # Flutterwave v3 webhooks report `amount` in the MAJOR unit (NGN),
+            # identical to what we POST to /v3/payments. Do NOT divide by 100
+            # here. Corroborated in production by order ORD-8C637M: a N2,500
             # order sent as 250000 landed as amount_paid_ngn=250000, i.e. the
             # webhook echoed the major unit we charged.
+            record_capture(
+                order,
+                provider="flutterwave",
+                gateway_status=GATEWAY_STATUS_SUCCESS,
+                gateway_amount=data.get("amount"),
+                amount_unit=UNIT_MAJOR,
+                gateway_reference=tx_ref,
+                gateway_currency=data.get("currency"),
+                gateway_transaction_id=data.get("id"),
+                captured_at=gateway_captured_at(data),
+            )
             await db_session.commit()
 
             # ── Step 3: Attempt fulfillment ────────────────────────────────────

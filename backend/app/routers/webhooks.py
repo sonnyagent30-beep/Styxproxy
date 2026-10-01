@@ -21,6 +21,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.database import get_session
 from app.services.audit import log_audit_event
+from app.services.capture import (
+    GATEWAY_STATUS_SUCCESS,
+    UNIT_MAJOR,
+    UNIT_MINOR,
+    gateway_captured_at,
+    record_capture,
+)
 from app.services.flutterwave import (
     is_webhook_processed,
     mark_webhook_processed,
@@ -156,7 +163,23 @@ async def flutterwave_webhook(
     if event_type == "charge.completed" and (event_data.get("status") == "successful"):
         if order and order.status not in ("fulfilled", "active"):
             order.status = "paid"
+            # amount_paid_ngn is the INVOICE amount and is populated on every
+            # row, including cancelled/expired/refunded ones. It is not evidence
+            # that money was captured — the capture record below is.
             order.amount_paid_ngn = event_data.get("amount")
+            # Flutterwave v3 reports `amount` in the MAJOR unit (NGN), same as
+            # what we POST to /v3/payments. Do NOT divide by 100 here.
+            record_capture(
+                order,
+                provider="flutterwave",
+                gateway_status=GATEWAY_STATUS_SUCCESS,
+                gateway_amount=event_data.get("amount"),
+                amount_unit=UNIT_MAJOR,
+                gateway_reference=tx_ref,
+                gateway_currency=event_data.get("currency"),
+                gateway_transaction_id=event_data.get("id"),
+                captured_at=gateway_captured_at(event_data),
+            )
             await session.commit()
 
             try:
@@ -288,9 +311,22 @@ async def paystack_webhook(
             order.status = "paid"
             # NOTE: amount_paid_ngn records the INVOICE amount and is populated
             # on every row, including cancelled/expired/refunded ones. It is not
-            # evidence that money was captured — there is no capture-status
-            # column. Do not cite it as proof of payment.
+            # evidence that money was captured. The capture record below is.
             order.amount_paid_ngn = (event_data.get("amount") or 0) / 100
+            # Paystack's `amount` IS the currency SUBUNIT (kobo), so it is
+            # normalised to naira here — see UNIT_MINOR. (Flutterwave is the
+            # opposite convention; do not "fix" one to match the other.)
+            record_capture(
+                order,
+                provider="paystack",
+                gateway_status=GATEWAY_STATUS_SUCCESS,
+                gateway_amount=event_data.get("amount"),
+                amount_unit=UNIT_MINOR,
+                gateway_reference=tx_ref,
+                gateway_currency=event_data.get("currency"),
+                gateway_transaction_id=event_data.get("id"),
+                captured_at=gateway_captured_at(event_data),
+            )
             await session.commit()
             try:
                 from app.routers._webhook_queue import enqueue_fulfillment
@@ -353,6 +389,22 @@ async def nowpayments_ipn(
     if payment_status in ("finished", "confirmed"):
         if order and order.status not in ("fulfilled", "active"):
             order.status = "paid"
+            # NOWPayments settles in crypto, so there is no single fiat figure
+            # the gateway "charged" in naira. Amounts here are the crypto amount
+            # actually received (see services/nowpayments.py), which is why the
+            # capture record stores the gateway's own currency rather than
+            # assuming NGN. A confirmed settlement IS capture evidence.
+            record_capture(
+                order,
+                provider="nowpayments",
+                gateway_status=GATEWAY_STATUS_SUCCESS,
+                gateway_amount=payload.get("actually_paid") or payload.get("pay_amount"),
+                amount_unit=UNIT_MAJOR,
+                gateway_reference=tx_ref,
+                gateway_currency=payload.get("pay_currency"),
+                gateway_transaction_id=payload.get("payment_id"),
+                captured_at=gateway_captured_at(payload),
+            )
             await session.commit()
             try:
                 from app.routers._webhook_queue import enqueue_fulfillment

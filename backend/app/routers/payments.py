@@ -20,6 +20,12 @@ from app.database import get_session
 from app.models import FeatureFlag, Order
 from app.schemas import PaymentInitiateResponse
 from app.routers.schemas import PaymentInitiateRequest
+from app.services.capture import (
+    GATEWAY_STATUS_PENDING,
+    UNIT_MAJOR,
+    UNIT_MINOR,
+    record_capture,
+)
 from app.services.customer import get_or_create_customer, placeholder_email_from_device
 from app.services.flutterwave import create_flutterwave_invoice
 from app.services.paystack import create_paystack_transaction
@@ -341,6 +347,27 @@ async def initiate_payment(
         status="pending",
         idempotency_key=idempotency_key,
         expires_at=expires_at,
+    )
+    # Record what the gateway says it will charge, as PENDING capture evidence,
+    # straight from the gateway's own initialize response. This is not a
+    # capture — no money has moved yet, so gateway_status stays `pending` and
+    # `captured_at` stays NULL; the webhook promotes it to `success`. Writing it
+    # here means the amount we expect to be charged is on the row before the
+    # customer reaches checkout, so a later divergence is visible.
+    #
+    # Never fall back to `total_amount` (our invoice arithmetic) if the gateway
+    # omitted the figure: amount_paid_ngn already holds that, and letting it
+    # stand in as a gateway figure is precisely the confusion this column
+    # exists to remove.
+    record_capture(
+        order,
+        provider=request.gateway,
+        gateway_status=GATEWAY_STATUS_PENDING,
+        gateway_amount=result.get("gateway_amount"),
+        amount_unit=(UNIT_MINOR if request.gateway == "paystack" else UNIT_MAJOR),
+        gateway_reference=result.get("tx_ref") or tx_ref,
+        gateway_currency=result.get("gateway_currency"),
+        gateway_transaction_id=result.get("provider_order_id"),
     )
     session.add(order)
 
