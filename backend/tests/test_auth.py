@@ -1,4 +1,5 @@
 """Tests for auth module."""
+import importlib
 import pytest
 from unittest.mock import patch, MagicMock
 from datetime import timedelta
@@ -131,137 +132,169 @@ class TestJWTBearer:
         assert exc_info.value.status_code == 401
 
 
-class TestRevokeTOTPSession:
-    """Tests for DELETE /api/admin/auth/sessions/{session_id}."""
 
-    def _make_client(self, monkeypatch):
-        """Build an async httpx client for the revocation endpoint with a valid JWT."""
-        from unittest.mock import AsyncMock
-        from httpx import ASGITransport, AsyncClient
-        from app.routers.auth import router
+
+class TestRevokeTOTPSession:
+    """Tests for DELETE /api/admin/auth/sessions/{session_id}.
+
+    These needed two repairs beyond the obvious `importlib` one, both found by
+    running them:
+
+    1. ``ASGITransport(app=router)`` cannot work. FastAPI's route handler reads
+       ``request.scope["fastapi_middleware_astack"]``, which is only injected by
+       the ``AsyncExitStackMiddleware`` that a *FastAPI application* installs. An
+       ``APIRouter`` has no middleware stack, so every request died with
+       ``AssertionError: fastapi_middleware_astack not found in request scope``.
+       The app is what must be handed to the transport.
+
+    2. ``monkeypatch.setattr(auth_module, "get_session", ...)`` never took effect
+       even once the module resolved, because the router's dependencies were
+       built at import time and already hold a reference to the real
+       ``get_session``. FastAPI's supported seam is
+       ``app.dependency_overrides[get_session]``. ``require_viewer`` needs the
+       same treatment — it runs a DB query of its own, and letting it through
+       reaches a live Postgres connection.
+    """
+
+    ADMIN_EMAIL = "admin@example.com"
+
+    def _build(self, monkeypatch, totp_session):
+        """Wire the app to mocks and return (token, admin_email, mock_db)."""
+        from unittest.mock import AsyncMock, MagicMock
+        from app.main import app
+        from app.routers.auth import require_viewer
+        from app.database import get_session
         from app.auth import create_access_token
         from datetime import timedelta
 
-        admin_email = "admin@example.com"
+        auth_module = importlib.import_module("app.routers.auth")
+
         token = create_access_token(
-            sub=admin_email,
+            sub=self.ADMIN_EMAIL,
             platform="admin",
-            phone=admin_email,
+            phone=self.ADMIN_EMAIL,
             role="admin",
             expires_delta=timedelta(hours=1),
         )
 
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = totp_session
+        mock_db.execute.return_value = mock_result
+
         async def mock_get_session():
-            yield AsyncMock()
+            yield mock_db
 
-        import app.routers.auth as auth_module
-        monkeypatch.setattr(auth_module, "get_session", mock_get_session)
+        async def mock_require_viewer():
+            return {
+                "email": self.ADMIN_EMAIL,
+                "role": "admin",
+                "admin": MagicMock(),
+            }
 
-        return token, admin_email, ASGITransport(app=router)
+        app.dependency_overrides.clear()
+        app.dependency_overrides[get_session] = mock_get_session
+        app.dependency_overrides[require_viewer] = mock_require_viewer
+        monkeypatch.setattr(auth_module, "write_audit_log", AsyncMock())
+
+        return token, mock_db
+
+    def _client(self, app):
+        from httpx import ASGITransport, AsyncClient
+
+        return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
     @pytest.mark.asyncio
     async def test_revoke_totp_session_not_found(self, monkeypatch):
         """Returns 404 when the session does not exist."""
         import uuid
-        from unittest.mock import AsyncMock, MagicMock
-        from httpx import ASGITransport, AsyncClient
+        from unittest.mock import MagicMock
+        from app.main import app
 
-        token, admin_email, transport = self._make_client(monkeypatch)
+        token, _ = self._build(monkeypatch, None)
+        try:
+            async with self._client(app) as client:
+                response = await client.delete(
+                    f"/api/admin/auth/sessions/{uuid.uuid4()}",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+        finally:
+            app.dependency_overrides.clear()
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
-        mock_db.execute.return_value = mock_result
-
-        import app.routers.auth as auth_module
-        from contextlib import asynccontextmanager
-
-        @asynccontextmanager
-        async def mock_get_session():
-            yield mock_db
-
-        monkeypatch.setattr(auth_module, "get_session", mock_get_session)
-
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.delete(
-                f"/api/admin/auth/sessions/{uuid.uuid4()}",
-                headers={"Authorization": f"Bearer {token}"},
-            )
         assert response.status_code == 404
+        assert response.json()["detail"] == "Session not found"
 
     @pytest.mark.asyncio
     async def test_revoke_totp_session_forbidden_for_other_admin(self, monkeypatch):
         """Returns 403 when the session belongs to a different admin."""
         import uuid
-        from unittest.mock import AsyncMock, MagicMock
-        from httpx import ASGITransport, AsyncClient
+        from unittest.mock import MagicMock
+        from app.main import app
 
-        token, admin_email, transport = self._make_client(monkeypatch)
+        row = MagicMock()
+        row.admin_email = "other@example.com"
+        row.revoked_at = None
 
-        mock_session_row = MagicMock()
-        mock_session_row.admin_email = "other@example.com"
-        mock_session_row.revoked_at = None
+        token, _ = self._build(monkeypatch, row)
+        try:
+            async with self._client(app) as client:
+                response = await client.delete(
+                    f"/api/admin/auth/sessions/{uuid.uuid4()}",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+        finally:
+            app.dependency_overrides.clear()
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_session_row
-        mock_db.execute.return_value = mock_result
-
-        import app.routers.auth as auth_module
-        from contextlib import asynccontextmanager
-
-        @asynccontextmanager
-        async def mock_get_session():
-            yield mock_db
-
-        monkeypatch.setattr(auth_module, "get_session", mock_get_session)
-
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.delete(
-                f"/api/admin/auth/sessions/{uuid.uuid4()}",
-                headers={"Authorization": f"Bearer {token}"},
-            )
         assert response.status_code == 403
+        assert "does not belong to you" in response.json()["detail"]
+        # Ownership must be enforced BEFORE the row is mutated, otherwise a
+        # cross-admin revoke would still succeed in marking the row revoked.
+        assert row.revoked_at is None
 
     @pytest.mark.asyncio
     async def test_revoke_totp_session_success(self, monkeypatch):
         """Sets revoked_at and returns 200 when session belongs to requesting admin."""
         import uuid
-        from unittest.mock import AsyncMock, MagicMock
-        from httpx import ASGITransport, AsyncClient
+        from unittest.mock import MagicMock
+        from app.main import app
 
-        token, admin_email, transport = self._make_client(monkeypatch)
+        row = MagicMock()
+        row.admin_email = self.ADMIN_EMAIL
+        row.revoked_at = None
+        row.device_fingerprint = "fp_abc123"
+        row.ip_address = None
 
-        mock_session_row = MagicMock()
-        mock_session_row.admin_email = admin_email
-        mock_session_row.revoked_at = None
-        mock_session_row.device_fingerprint = "fp_abc123"
-        mock_session_row.ip_address = None
+        token, mock_db = self._build(monkeypatch, row)
+        try:
+            async with self._client(app) as client:
+                response = await client.delete(
+                    f"/api/admin/auth/sessions/{uuid.uuid4()}",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+        finally:
+            app.dependency_overrides.clear()
 
-        mock_db = AsyncMock()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_session_row
-        mock_db.execute.return_value = mock_result
-        mock_db.commit = AsyncMock()
-
-        import app.routers.auth as auth_module
-        monkeypatch.setattr(auth_module, "write_audit_log", AsyncMock())
-
-        from contextlib import asynccontextmanager
-
-        @asynccontextmanager
-        async def mock_get_session():
-            yield mock_db
-
-        monkeypatch.setattr(auth_module, "get_session", mock_get_session)
-
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.delete(
-                f"/api/admin/auth/sessions/{uuid.uuid4()}",
-                headers={"Authorization": f"Bearer {token}"},
-            )
         assert response.status_code == 200
         data = response.json()
         assert data["message"] == "Session revoked successfully"
-        assert mock_session_row.revoked_at is not None
+        assert row.revoked_at is not None
         mock_db.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_revoke_totp_session_invalid_uuid_is_400(self, monkeypatch):
+        """A non-UUID session_id is a client error, not a 404 or a 500."""
+        from unittest.mock import MagicMock
+        from app.main import app
+
+        token, _ = self._build(monkeypatch, MagicMock())
+        try:
+            async with self._client(app) as client:
+                response = await client.delete(
+                    "/api/admin/auth/sessions/not-a-uuid",
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid session ID"

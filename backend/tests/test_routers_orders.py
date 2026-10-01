@@ -26,15 +26,28 @@ class MockSession:
     def __init__(self, scalar_one_or_none=None, scalars_all=None):
         self._scalar_one_or_none = scalar_one_or_none
         self._scalars_all = scalars_all or []
+        # Recorded rather than dropped, so a test can assert that a rejected
+        # request persisted nothing.
+        self.added = []
 
-    async def execute(self, stmt):
-        return MagicMock(
+    async def execute(self, stmt, params=None):
+        # `params` is not optional: resolve_plan()'s final fallback query is a
+        # text() statement with bound params (app/routers/orders.py), so this
+        # mock must accept the second positional argument or every test that
+        # drives resolve_plan() to that branch dies with a TypeError.
+        #
+        # mappings() must answer too — that branch reads cpt_result.mappings()
+        # .first() to build a _VirtualPlan. Returning None means "no catalog
+        # row", which is what an unknown plan code should look like.
+        result = MagicMock(
             scalar_one_or_none=MagicMock(return_value=self._scalar_one_or_none),
-            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=self._scalars_all)))
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=self._scalars_all))),
         )
+        result.mappings.return_value.first.return_value = None
+        return result
 
     def add(self, obj):
-        pass
+        self.added.append(obj)
 
     async def commit(self):
         pass
@@ -66,6 +79,12 @@ async def test_create_order_requires_auth():
 
 @pytest.mark.asyncio
 async def test_create_order_invalid_plan_code():
+    """An unknown plan_code must be rejected with 400, never created.
+
+    Load-bearing: mutation-proven to be the only test in the suite that fails
+    when `create_order` stops rejecting an unresolvable plan. While it was red
+    on a stale assertion, that coverage was silently gone.
+    """
     session = MockSession()
     app.dependency_overrides.clear()
     app.dependency_overrides[get_session] = lambda: session
@@ -81,7 +100,13 @@ async def test_create_order_invalid_plan_code():
     finally:
         app.dependency_overrides.clear()
     assert response.status_code == 400
-    assert "Invalid plan code" in response.json()["detail"]
+    # The message names the offending code and country so the storefront can
+    # tell the customer which selection was wrong.
+    detail = response.json()["detail"]
+    assert "INVALID-PLAN" in detail
+    assert "NG" in detail
+    # Nothing may be persisted on the rejected path.
+    assert session.added == []
 
 
 @pytest.mark.asyncio

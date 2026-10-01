@@ -385,11 +385,28 @@ class FakeWebhookSession:
 
 
 class FakeRequest:
-    def __init__(self, payload: dict):
+    """Minimal Request stand-in.
+
+    Carries `.client` and `.headers` because the webhook path calls
+    `resolve_origin()` (app/services/origin.py), which reads
+    `request.client.host`, `X-Real-IP` and `X-Forwarded-For`. Without them
+    every webhook test in this file dies with AttributeError before it reaches
+    the payment logic. `client`/`headers` default to the anonymous, headerless
+    shape so a caller only supplies them when it means to.
+    """
+
+    def __init__(self, payload: dict, client=None, headers=None):
         self._body = json.dumps(payload).encode()
+        self.client = client
+        self.headers = headers or {}
 
     async def body(self):
         return self._body
+
+
+def fake_peer(host: str = "198.51.100.7"):
+    """A socket-peer stand-in for `request.client` (TEST-NET-2, never routable)."""
+    return type("P", (), {"host": host})()
 
 
 @pytest.fixture
@@ -427,10 +444,10 @@ def webhook_env(monkeypatch):
     )
 
 
-async def _post(payload, session, secret):
+async def _post(payload, session, secret, peer_host="198.51.100.7", headers=None):
     body = json.dumps(payload).encode()
     return await webhooks_mod.paystack_webhook(
-        request=FakeRequest(payload),
+        request=FakeRequest(payload, client=fake_peer(peer_host), headers=headers or {}),
         x_paystack_signature=paystack_signature(body, secret),
         session=session,
     )
