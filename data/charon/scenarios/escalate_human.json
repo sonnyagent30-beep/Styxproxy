@@ -2,11 +2,11 @@
   "id": "escalate_human",
   "name": "Customer asks for a human / agent / live support",
   "trigger": [
-    "(talk|chat|speak).*(human|person|agent|someone|someone real|real person|live agent|live person)",
-    "(need|want|require|ask for).*(human|agent|rep|representative)",
-    "^(.*)\\bhuman\\b(.*)$",
-    "^(.*)\\blive agent\\b(.*)$",
-    "^(.*)\\breal person\\b(.*)$"
+    "(talk|chat|speak|connect).*(human|person|agent|someone|real person|live agent|live person|support team|customer service)",
+    "(need|want|require|ask for|request).*(human|agent|rep|representative|live person|live agent)",
+    "\\b(real human|real person|live agent|live person|human agent|human support|human representative)\\b",
+    "\\b(can|could) (i|we) (talk|chat|speak) (to|with) (a |an )?(human|person|agent|someone|rep)\\b",
+    "\\b(escalate|transfer|connect) (me|us) (to|with) (a |an )?(human|agent|person|rep)\\b"
   ],
   "actions": [
     {
