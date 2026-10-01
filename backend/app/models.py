@@ -1404,3 +1404,58 @@ class AdminWebhookLog(Base):
     success: Mapped[bool] = mapped_column(Boolean, nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class CredentialNotification(Base):
+    """Send ledger for credential delivery.
+
+    This table was created by migration 019 as a per-credential notification
+    *preference* ("when this credential changes, notify this target over this
+    channel"). It had zero rows and zero references in ``app/`` — nothing read
+    or wrote it, so there was no persisted record of whether a customer's
+    credentials were ever sent, accepted, or rejected.
+
+    It is now also the record of what actually happened. Migration 026 added
+    ``status``/``error``/``order_id``/``message_id`` for that; the original
+    columns alone cannot express an outcome, because ``target`` is NOT NULL
+    and describes where to send, and ``enabled`` is a preference flag rather
+    than a result.
+
+    ``status`` is one of:
+
+    * ``sent``       — provider accepted the message
+    * ``failed``     — provider rejected it (``EmailResult.success`` is false)
+    * ``no_address`` — no deliverable address could be resolved at all
+    * ``skipped``    — a send was not attempted
+
+    Rows with a NULL ``status`` are preference rows, not send records, and are
+    excluded from the partial indexes in migration 026.
+    """
+
+    __tablename__ = "credential_notifications"
+    __table_args__ = (
+        # Matches the production index (idx_notifications_credential).
+        Index("idx_notifications_credential", "credential_id", "enabled"),
+        # Added by migration 026.
+        Index("idx_notifications_order", "order_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    credential_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("styxproxy_credentials.id", ondelete="CASCADE"), nullable=False
+    )
+    notification_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    channel: Mapped[str] = mapped_column(String(20), default="sms", nullable=False)
+    target: Mapped[str] = mapped_column(String(255), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # ─── Send outcome (migration 026) ───────────────────────────────────
+    # Nullable: rows predating 026 are preferences, not send records.
+    order_id: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    message_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # Relationships
+    credential: Mapped["StyxproxyCredential"] = relationship("StyxproxyCredential")

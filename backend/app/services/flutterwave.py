@@ -12,6 +12,12 @@ import httpx
 from app.config import get_settings
 from app.services.credential import create_credential
 from app.services.credential_delivery import resolve_customer_email
+from app.services.credential_ledger import (
+    STATUS_FAILED,
+    STATUS_NO_ADDRESS,
+    record_credential_send,
+    record_email_result,
+)
 from app.services.n8n import trigger_credentials_delivered_webhook
 
 logger = logging.getLogger(__name__)
@@ -253,25 +259,57 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                             expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                             receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
                         )
+                        ledger_id = await record_email_result(
+                            db_session,
+                            email_result,
+                            credential_id=credential.id,
+                            order_id=order.order_id,
+                            target=customer_email,
+                        )
                         if email_result.success:
                             logger.info("Order email sent to %s (via %s)", customer_email, email_source)
                         else:
                             logger.error(
-                                "Order email REJECTED by provider to %s: %s",
+                                "Order email REJECTED by provider to %s: %s (ledger_id=%s)",
                                 customer_email,
                                 email_result.error,
+                                ledger_id,
                             )
                     except Exception as email_err:
+                        # A raised exception is a distinct failure from a provider
+                        # rejection, and was recorded nowhere.
+                        await record_credential_send(
+                            db_session,
+                            credential_id=credential.id if credential else 0,
+                            order_id=order.order_id,
+                            target=customer_email,
+                            status=STATUS_FAILED,
+                            error=f"{type(email_err).__name__}: {email_err}",
+                        )
                         logger.error(
                             "Failed to send order email to %s: %s",
                             customer_email,
                             email_err,
                         )
                 else:
+                    ledger_id = await record_credential_send(
+                        db_session,
+                        credential_id=credential.id if credential else 0,
+                        order_id=order.order_id,
+                        target=None,
+                        status=STATUS_NO_ADDRESS,
+                        error=(
+                            "no deliverable email: order row customer_email="
+                            f"{getattr(order, 'customer_email', None)!r}, gateway "
+                            "payload carried no routable address"
+                        ),
+                    )
                     logger.error(
                         "NO DELIVERABLE EMAIL — order fulfilled and credentials minted, "
-                        "but the customer cannot be reached (source=%s). Manual delivery required.",
+                        "but the customer cannot be reached (source=%s, ledger_id=%s). "
+                        "Manual delivery required.",
                         email_source,
+                        ledger_id,
                     )
 
                 if credential.expires_at:

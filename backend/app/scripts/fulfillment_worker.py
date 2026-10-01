@@ -14,6 +14,7 @@ Usage:
 Runs as systemd service: styxproxy-fulfillment-worker.service
 """
 
+import asyncio
 import logging
 import sys
 import traceback
@@ -27,6 +28,13 @@ sys.path.insert(0, "/opt/styxproxy/backend")
 
 from app.config import get_settings
 from app.database import async_session as AsyncSessionLocal
+from app.services.credential_ledger import (
+    STATUS_FAILED,
+    STATUS_NO_ADDRESS,
+    ensure_ledger_columns,
+    record_credential_send,
+    record_email_result,
+)
 from app.services.flutterwave import _flutterwave_refund
 from app.services.n8n import trigger_credentials_delivered_webhook
 
@@ -196,6 +204,13 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                         # raise on provider failure, so the old code logged
                         # "fallback email sent" even when Resend rejected the send.
                         # Inspect the result instead of assuming success.
+                        ledger_id = await record_email_result(
+                            db,
+                            email_result,
+                            credential_id=credential.id,
+                            order_id=order.order_id,
+                            target=customer_email,
+                        )
                         if email_result.success:
                             delivered_via = "email"
                             logger.info(
@@ -205,6 +220,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                                     "email": customer_email,
                                     "email_source": email_source,
                                     "message_id": email_result.message_id,
+                                    "ledger_id": ledger_id,
                                 },
                             )
                         else:
@@ -217,10 +233,22 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                                     "email_source": email_source,
                                     "status": email_result.status,
                                     "error": email_result.error,
+                                    "ledger_id": ledger_id,
                                 },
                             )
                     except Exception as email_err:
+                        # A raised exception is a different failure from a provider
+                        # rejection, and was recorded nowhere. Ledger it so the order
+                        # is not left with no recorded delivery attempt.
                         delivery_error = str(email_err)
+                        await record_credential_send(
+                            db,
+                            credential_id=credential.id if credential else 0,
+                            order_id=order.order_id,
+                            target=customer_email,
+                            status=STATUS_FAILED,
+                            error=f"{type(email_err).__name__}: {email_err}",
+                        )
                         logger.error(
                             "credential email raised — NOT delivered",
                             extra={
@@ -234,7 +262,23 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                     # Previously a silent skip. The order is fulfilled with
                     # credentials minted, but nobody was ever reached and no log
                     # line said so.
+                    #
+                    # Record it. `target` is NOT NULL and there is no address, so
+                    # the ledger writes an explicit sentinel rather than a
+                    # fabricated one.
                     delivery_error = "no_deliverable_email"
+                    ledger_id = await record_credential_send(
+                        db,
+                        credential_id=credential.id if credential else 0,
+                        order_id=order.order_id,
+                        target=None,
+                        status=STATUS_NO_ADDRESS,
+                        error=(
+                            "no deliverable email: order row customer_email="
+                            f"{getattr(order, 'customer_email', None)!r}, gateway "
+                            "payload carried no routable address"
+                        ),
+                    )
                     logger.error(
                         "NO DELIVERABLE EMAIL — order fulfilled and credentials "
                         "minted, but the customer cannot be reached. "
@@ -243,6 +287,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                             **log_ctx,
                             "email_source": email_source,
                             "order_row_email": getattr(order, "customer_email", None),
+                            "ledger_id": ledger_id,
                         },
                     )
 
@@ -424,6 +469,24 @@ if __name__ == "__main__":
     redis_url = settings.redis_url
 
     logger.info("Starting fulfillment worker...")
+
+    # This process never runs app.main's lifespan startup patches, so the
+    # ledger columns are verified here — before the first job rather than after
+    # the first silent ledger failure.
+    try:
+
+        async def _verify_ledger() -> None:
+            async with AsyncSessionLocal() as session:
+                await ensure_ledger_columns(session)
+
+        asyncio.run(_verify_ledger())
+    except Exception:
+        logger.error(
+            "ledger column check could not run at startup; credential send "
+            "outcomes may not be recorded until migration 026 is applied",
+            exc_info=True,
+        )
+
     conn = SyncRedis.from_url(redis_url)
     worker = Worker(["fulfillment"], connection=conn)
     worker.work(with_scheduler=False, burst=False)

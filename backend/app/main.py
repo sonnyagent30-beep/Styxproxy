@@ -124,6 +124,32 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.warning(f"Orders column migration skipped: {e}")
 
+    # credential_notifications gained the outcome columns (status/error/
+    # order_id/message_id) in migration 026. Without them every credential-send
+    # ledger write fails — in the worker and in the inline Flutterwave fallback
+    # alike — and those writes are caught and logged, so the ledger would be
+    # silently empty rather than loudly broken. Idempotent, and wrapped so a
+    # permissions problem degrades to a warning instead of blocking startup.
+    try:
+        from sqlalchemy import text
+
+        async with engine.begin() as conn:
+            for col_name, col_type in (
+                ("order_id", "VARCHAR(20)"),
+                ("status", "VARCHAR(20)"),
+                ("error", "TEXT"),
+                ("message_id", "VARCHAR(255)"),
+            ):
+                await conn.execute(
+                    text(
+                        "ALTER TABLE credential_notifications "
+                        f"ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                    )
+                )
+        logger.info("credential_notifications ledger columns verified/updated")
+    except Exception as e:
+        logger.warning(f"credential_notifications column migration skipped: {e}")
+
     # Seed initial trigger weights if they don't exist
     from sqlalchemy import text
 
