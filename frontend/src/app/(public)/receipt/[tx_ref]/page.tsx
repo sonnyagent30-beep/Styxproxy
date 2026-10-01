@@ -2,7 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
@@ -35,7 +35,19 @@ interface OrderData {
 
 function ReceiptContent() {
   const searchParams = useSearchParams();
-  const txRef = searchParams.get('tx_ref');
+  // Read the ref from the ROUTE segment. This page lives at
+  // receipt/[tx_ref]/page.tsx, and every receipt URL the system generates is
+  // the path form (https://styxproxy.com/receipt/{tx_ref}) — fulfilment
+  // worker, both gateway services, the admin resend endpoint and the Charon
+  // tools all emit it, and it is what ships inside the credential email.
+  //
+  // It used to read only `?tx_ref=`, which the route never provides, so every
+  // emailed link rendered "Receipt Not Found / No transaction reference
+  // provided" even though the data endpoint returned 200. The query form is
+  // kept as a fallback so a hand-edited `?tx_ref=` link still works.
+  const params = useParams<{ tx_ref?: string | string[] }>();
+  const routeTxRef = Array.isArray(params.tx_ref) ? params.tx_ref[0] : params.tx_ref;
+  const txRef = routeTxRef || searchParams.get('tx_ref');
   const { toast } = useToast();
 
   const [order, setOrder] = useState<OrderData | null>(null);
