@@ -170,8 +170,15 @@ async def _send_via_resend(
     subject: str,
     html: str,
     text: Optional[str] = None,
+    order_id: Optional[str] = None,
 ) -> EmailResult:
-    """Send email via Resend API."""
+    """Send email via Resend API.
+
+    ``order_id`` is threaded through so every ledger line this function writes is
+    attributable to an order. Without it a failed send is only identifiable by
+    the email subject, which truncates the order id to its first 8 characters
+    (``order_id[:8]``) and collides across orders sharing a prefix.
+    """
     if not settings.resend_api_key:
         logger.warning("RESEND_API_KEY not configured, skipping email send")
         _append_delivery_log(
@@ -181,6 +188,7 @@ async def _send_via_resend(
                 "subject": subject,
                 "status": "skipped_no_key",
                 "error": "RESEND_API_KEY missing",
+                "order_id": order_id,
             }
         )
         return EmailResult(
@@ -242,6 +250,7 @@ async def _send_via_resend(
                         "subject": subject,
                         "status": "api_error",
                         "error": f"{response.status_code}: {error_body[:200]}",
+                        "order_id": order_id,
                     }
                 )
                 return EmailResult(
@@ -258,6 +267,7 @@ async def _send_via_resend(
                     "subject": subject,
                     "status": "queued",
                     "message_id": data.get("id"),
+                    "order_id": order_id,
                 }
             )
             return EmailResult(
@@ -274,6 +284,7 @@ async def _send_via_resend(
                 "subject": subject,
                 "status": "http_error",
                 "error": str(e),
+                "order_id": order_id,
             }
         )
         return EmailResult(
@@ -290,6 +301,7 @@ async def _send_via_resend(
                 "subject": subject,
                 "status": "unexpected_error",
                 "error": str(e),
+                "order_id": order_id,
             }
         )
         return EmailResult(
@@ -1705,6 +1717,7 @@ async def send_order_active_email(
         subject=content.subject,
         html=content.html,
         text=content.text,
+        order_id=order_id,
     )
 
 

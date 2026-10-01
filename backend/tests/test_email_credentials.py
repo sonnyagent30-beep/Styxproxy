@@ -50,11 +50,15 @@ def _capturing_send():
     """Patch _send_via_resend so the test exercises rendering but makes no HTTP call."""
     captured = {}
 
-    async def _fake(recipient, subject, html, text=None):
+    # Mirrors the real signature. ``order_id`` is threaded through by
+    # send_order_active_email so the delivery ledger can attribute a send to an
+    # order; this double must accept it (and records it) to stay faithful.
+    async def _fake(recipient, subject, html, text=None, order_id=None):
         captured["recipient"] = recipient
         captured["subject"] = subject
         captured["html"] = html
         captured["text"] = text
+        captured["order_id"] = order_id
         return EmailResult(success=True, message_id="<test@test>", status="sent")
 
     return captured, patch("app.services.email._send_via_resend", side_effect=_fake)
