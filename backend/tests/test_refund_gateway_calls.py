@@ -17,6 +17,7 @@ fail. A guard that passes on both the broken and the fixed tree proves nothing.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -34,7 +35,13 @@ ADMIN = BACKEND / "app" / "routers" / "admin.py"
 
 
 def _order(**overrides):
-    """A stand-in order row. Defaults are a refundable Paystack order."""
+    """A stand-in order row. Defaults are a refundable, CAPTURED Paystack order.
+
+    `gateway_amount_ngn` is set because gate item 2 (t_c0b38088) has landed:
+    a real captured order carries it. Tests about the no-capture case must pass
+    `gateway_amount_ngn=None, captured_at=None, gateway_status=None`
+    explicitly via `_no_capture()`.
+    """
     base = dict(
         order_id="ORD-TEST1",
         status="fulfilled",
@@ -42,7 +49,12 @@ def _order(**overrides):
         tx_ref="TXP-ABCD1234",
         payment_reference="TXP-ABCD1234",
         amount_paid_ngn=2500.0,
-        customer_phone="+2348000000000",
+        captured_at="2026-10-01T09:00:00Z",
+        gateway_status="success",
+        gateway_amount_ngn=2500.0,
+        gateway_currency="NGN",
+        gateway_reference="TXP-ABCD1234",
+        customer_phone="+234****0000",
         styxproxy_credential_id=None,
         gateway_refund_id=None,
         gateway_refund_status=None,
@@ -53,6 +65,22 @@ def _order(**overrides):
     )
     base.update(overrides)
     return SimpleNamespace(**base)
+
+
+def _no_capture(**overrides):
+    """An order with NO capture evidence — only the invoice amount.
+
+    Models a historical row: we do not know whether this order ever captured,
+    so a refund cannot be established from local data.
+    """
+    return _order(
+        captured_at=None,
+        gateway_status=None,
+        gateway_amount_ngn=None,
+        gateway_currency=None,
+        gateway_reference=None,
+        **overrides,
+    )
 
 
 class _FakeSession:
@@ -181,23 +209,81 @@ def test_order_without_any_reference_cannot_be_refunded():
 def test_refund_amount_prefers_capture_record_over_invoice_amount():
     """amount_paid_ngn is the INVOICE amount. Capture, when present, wins."""
     order = _order(amount_paid_ngn=9999.0)
-    order.captured_amount_ngn = 2500.0
-    order.captured_at = "2026-10-01T00:00:00Z"
+    order.gateway_amount_ngn = 2500.0
 
     from app.services.refunds import _resolve_captured_amount
 
     amount, source = _resolve_captured_amount(order)
     assert amount == 2500.0
-    assert source == "captured_amount_ngn"
+    assert source == "gateway_amount_ngn"
 
 
 def test_invoice_fallback_is_labelled_not_silent():
-    """No capture column yet (item 2, t_c0b38088) => say so rather than imply proof."""
+    """No capture record => the source is named, never implied to be capture."""
     from app.services.refunds import _resolve_captured_amount
 
-    amount, source = _resolve_captured_amount(_order(amount_paid_ngn=2500.0))
+    amount, source = _resolve_captured_amount(_no_capture(amount_paid_ngn=2500.0))
     assert amount == 2500.0
     assert source == "invoice_fallback"
+
+
+def test_refund_refuses_invoice_amount_by_default():
+    """Requirement 4, enforced: the capture record, or nothing.
+
+    Gate item 2 landed, so `gateway_amount_ngn` exists. An order with no
+    capture evidence therefore cannot have its refund amount established from
+    local data, and `refund_at_gateway` must refuse rather than quietly refund
+    the invoice amount — which is what the old `allow_invoice_fallback=True`
+    default permitted.
+    """
+    with pytest.raises(GatewayRefundError) as exc:
+        asyncio.run(refund_at_gateway(_no_capture(), reason="r"))
+    assert "refusing to refund on the invoice amount" in str(exc.value)
+
+
+def test_refund_uses_gateway_captured_amount_not_invoice_amount(monkeypatch):
+    """The end-to-end amount contract: capture wins over the invoice figure.
+
+    Reuses item 4's (t_b18feedc) Paystack HTTP harness rather than inventing a
+    second mocking style, so this asserts the real wire payload: the kobo
+    figure sent to `POST /transaction/{id}/refund` is derived from the CAPTURED
+    amount (2500.00 => 250000 kobo), not the invoice amount (9999.00).
+    """
+    from tests.test_paystack_refund import _install, _refund_ok, _verify_ok
+
+    monkeypatch.setattr(
+        "app.services.paystack.settings.paystack_secret_key", "«redacted:sk_test_…»"
+    )
+    client = _install(monkeypatch, _verify_ok(amount_kobo=250_000), _refund_ok(refund_id=9001))
+
+    order = _order(amount_paid_ngn=9999.0, gateway_amount_ngn=2500.0)
+    result = asyncio.run(refund_at_gateway(order, reason="r"))
+
+    assert len(client.posts) == 1, "the gateway was never asked to refund"
+    _, _, payload = client.posts[0]
+    assert payload["amount"] == 250_000, f"refunded the wrong amount: {payload}"
+    assert result.amount_ngn == 2500.0
+    assert result.gateway_refund_id == "9001"
+
+
+def test_refund_refuses_amount_above_what_the_gateway_captured(monkeypatch):
+    """A capture record claiming more than Paystack charged is a red flag.
+
+    The gateway's own verify response is the authority on what was taken, so a
+    local capture figure larger than it must not be sent.
+    """
+    from tests.test_paystack_refund import _install, _refund_ok, _verify_ok
+
+    monkeypatch.setattr(
+        "app.services.paystack.settings.paystack_secret_key", "«redacted:sk_test_…»"
+    )
+    client = _install(monkeypatch, _verify_ok(amount_kobo=100_000), _refund_ok())
+
+    order = _order(gateway_amount_ngn=5000.0)
+    with pytest.raises(GatewayRefundError) as exc:
+        asyncio.run(refund_at_gateway(order, reason="r"))
+    assert "exceeds captured amount" in str(exc.value)
+    assert client.posts == [], "a rejected refund must not reach the gateway"
 
 
 # ── Paystack refund service ────────────────────────────────────────────────────
@@ -390,6 +476,102 @@ def test_ops_refund_failure_leaves_order_untouched():
     assert exc.value.status_code == 502
     assert order.status == "fulfilled"
     assert order.gateway_refund_id is None
+
+
+# ── Third refund site: the Flutterwave webhook auto-refund ─────────────────────
+#
+# `services/flutterwave.py` auto-refunds when the provider is unavailable. That
+# block called `_flutterwave_refund` directly, DISCARDED the response, then
+# flipped `order.status = "refunded"` — and hardcoded Flutterwave regardless of
+# the order's actual provider. So an auto-refund left no refund id anywhere and
+# could not be reconciled. It now routes through the same `refund_at_gateway`
+# dispatch as the admin and ops paths.
+#
+# These assert the SHAPE of the fix by inspecting the source rather than
+# executing the whole webhook: that block is nested four levels deep inside
+# `process_flutterwave_payment`, behind a credential-creation failure, and
+# driving it end-to-end would mock half the fulfillment pipeline — at which
+# point the test proves the mocks, not the refund.
+
+
+def _auto_refund_code() -> str:
+    """The auto-refund block as CODE ONLY, via ast.unparse.
+
+    Two things this must survive: comments (a comment explaining why
+    `order.status = "refunded"` is dangerous must not satisfy an assertion
+    looking for that assignment), and the fact that the block is nested four
+    levels deep inside `process_flutterwave_payment`. Parsing the real AST and
+    re-emitting it drops every comment by construction and gives an exact,
+    indentation-normalised slice of executable code.
+
+    Note `ast.unparse` normalises string quotes to single, so assertions here
+    match on the attribute name and must not pin the quote style.
+    """
+    import ast
+
+    from app.services import flutterwave as flw
+
+    path = inspect.getsourcefile(flw)
+    assert path is not None, "cannot locate flutterwave.py source"
+    tree = ast.parse(Path(path).read_text())
+
+    found: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.If):
+            continue
+        if "fulfillment_error.startswith" not in ast.unparse(node.test):
+            continue
+        found.append(ast.unparse(node))
+    assert found, "the provider-unavailable auto-refund block was not found in flutterwave.py"
+    return "\n".join(found)
+
+
+def test_auto_refund_goes_through_the_shared_dispatch():
+    """The auto-refund must use refund_at_gateway, not a direct gateway call."""
+    code = _auto_refund_code()
+    assert "refund_at_gateway" in code, "auto-refund bypasses the shared refund dispatch"
+    # The old direct call, whose result was thrown away.
+    assert "_flutterwave_refund" not in code, (
+        "auto-refund still calls the gateway directly and discards its result"
+    )
+
+
+def test_auto_refund_persists_the_gateway_refund_id():
+    """A refund that stores no refund id cannot be reconciled afterwards."""
+    code = _auto_refund_code()
+    for field in (
+        "gateway_refund_id",
+        "gateway_refund_status",
+        "gateway_refund_amount",
+        "gateway_refunded_at",
+    ):
+        assert field in code, f"auto-refund never persists {field}"
+
+
+def test_auto_refund_flips_status_only_after_the_gateway_confirms():
+    """The harm: status must not outrun the gateway.
+
+    `refund_at_gateway(...)` must be called before `order.status = "refunded"`
+    is assigned, so an unconfirmed gateway leaves the order actionable.
+    """
+    code = _auto_refund_code()
+    gateway_call = code.index("refund_at_gateway(")
+    status_flip = code.index("order.status = ")
+    assert status_flip > gateway_call, (
+        "order.status is set to refunded BEFORE the gateway is asked — a status flip "
+        "that outruns the gateway is the exact harm this card exists to remove"
+    )
+    assert "'refunded'" in code[status_flip : status_flip + 40], (
+        f"expected the status assignment to set 'refunded', found: {code[status_flip:][:60]!r}"
+    )
+
+
+def test_auto_refund_is_provider_aware():
+    """It used to hardcode Flutterwave regardless of the order's provider."""
+    code = _auto_refund_code()
+    assert "flutterwave" not in code.lower(), (
+        "auto-refund hardcodes the Flutterwave gateway instead of dispatching on order.provider"
+    )
 
 
 # ── Gate check 3: positive + negative control ──────────────────────────────────

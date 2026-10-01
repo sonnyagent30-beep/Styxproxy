@@ -143,12 +143,19 @@ async def refund_at_gateway(
     reason: str,
     provider: Optional[str] = None,
     amount_ngn: Optional[float] = None,
-    allow_invoice_fallback: bool = True,
+    allow_invoice_fallback: bool = False,
 ) -> GatewayRefund:
     """Refund `order` at its gateway and return the gateway's refund id.
 
     Raises `GatewayRefundError` unless the gateway confirmed. Callers must treat
     a raise as "money did not move" and leave the order actionable.
+
+    `allow_invoice_fallback` defaults to **False**: `amount_paid_ngn` is the
+    invoice amount, populated on cancelled/expired rows too, so refunding on it
+    means refunding an amount the gateway never confirmed we took. It defaults
+    True only while the capture column (t_c0b38088) is absent; now that
+    `gateway_amount_ngn` exists, a caller wanting the old behaviour must opt in
+    explicitly and say why.
     """
     provider_name = (provider or getattr(order, "provider", None) or "").strip().lower()
     if not provider_name:
@@ -178,8 +185,8 @@ async def refund_at_gateway(
             )
         if source == "invoice_fallback":
             logger.warning(
-                "refund for order %s using INVOICE amount %s — no capture record exists "
-                "(capture column lands with t_c0b38088); amount is not gateway-confirmed",
+                "refund for order %s using INVOICE amount %s — no capture record exists; "
+                "amount is not gateway-confirmed",
                 getattr(order, "order_id", "?"),
                 captured,
             )
