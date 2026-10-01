@@ -820,6 +820,7 @@ def _sanitize_filename(name: str) -> str:
 @router.post("/learn", response_model=LearnResponse)
 @limiter.limit("5/hour")
 async def post_learn(
+    request: Request,
     payload: LearnRequest,
     _public: None = Depends(public_only),
 ):
