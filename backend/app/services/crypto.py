@@ -35,11 +35,30 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Lazily-initialized Fernet instance. We don't fail at import time because the
-# settings module may be loaded in contexts (CLI scripts, tests) where the
-# encryption key isn't required. The first call to encrypt/decrypt validates
-# the key.
+# Lazily-initialized Fernet instance, cached together with the key value it was
+# built from. We don't fail at import time because the settings module may be
+# loaded in contexts (CLI scripts, tests) where the encryption key isn't
+# required. The first call to encrypt/decrypt validates the key.
+#
+# The cache is keyed on the key value, NOT on the instance alone. Caching the
+# instance alone means a Fernet built for key A survives a configuration change
+# to key B, so a key rotation inside a long-lived process keeps decrypting under
+# the old key and every read fails. Storing the source key alongside makes the
+# cache self-invalidating: a changed, added, or removed key re-resolves.
 _fernet_instance: Optional[Fernet] = None
+_fernet_cache_key: Optional[str] = None
+
+
+def reset_fernet_cache() -> None:
+    """Drop the cached Fernet instance so the next call re-reads configuration.
+
+    Only needed when CRED_ENCRYPTION_KEY is changed without a process restart
+    (tests, and any future in-process rotation tooling). Normal operation
+    re-resolves on its own, because the cache is keyed on the key value.
+    """
+    global _fernet_instance, _fernet_cache_key
+    _fernet_instance = None
+    _fernet_cache_key = None
 
 
 def _get_fernet() -> Optional[Fernet]:
@@ -48,24 +67,27 @@ def _get_fernet() -> Optional[Fernet]:
     Returns None if the key is missing — callers should treat this as "no
     encryption available" and refuse to read/write the encrypted column.
     """
-    global _fernet_instance
-    if _fernet_instance is not None:
-        return _fernet_instance
+    global _fernet_instance, _fernet_cache_key
 
-    # Use get_settings() rather than a module-level cache so test fixtures and
-    # env-driven reloads see the latest value.
+    # get_settings() is itself lru_cached, so this is a dict lookup on the hot
+    # path, and it is what makes the cache below self-invalidating.
     settings = get_settings()
     key = settings.cred_encryption_key
+
+    if _fernet_instance is not None and _fernet_cache_key == key:
+        return _fernet_instance
+
     if not key:
         logger.warning(
             "CRED_ENCRYPTION_KEY not configured — credential encryption is "
             "disabled. styxproxy_password will NOT be encrypted at rest."
         )
         _fernet_instance = None
+        _fernet_cache_key = None
         return None
 
     try:
-        _fernet_instance = Fernet(key.encode("ascii"))
+        fernet = Fernet(key.encode("ascii"))
     except (ValueError, TypeError) as e:
         logger.error(
             "CRED_ENCRYPTION_KEY is malformed (must be a Fernet key, base64-url-safe "
@@ -73,8 +95,11 @@ def _get_fernet() -> Optional[Fernet]:
             e,
         )
         _fernet_instance = None
+        _fernet_cache_key = None
         return None
 
+    _fernet_instance = fernet
+    _fernet_cache_key = key
     return _fernet_instance
 
 

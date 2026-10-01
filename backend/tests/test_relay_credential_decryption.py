@@ -68,6 +68,45 @@ def fernet(relay):
     return Fernet(TEST_KEY.encode("ascii"))
 
 
+@pytest.fixture
+def configured_cipher_key():
+    """Install TEST_KEY as the live CRED_ENCRYPTION_KEY for one test.
+
+    Two caches stand between os.environ and crypto._get_fernet(), and a test
+    that sets the env var without clearing both silently reads a stale world:
+
+      * get_settings() is @lru_cache()d, so a Settings object built by an
+        earlier test keeps whatever the env held at that moment — for every
+        subsequent get_settings() call in the process.
+      * crypto._get_fernet() memoises a Fernet instance, so a key already
+        resolved is reused until the key value changes.
+
+    Setting os.environ alone is therefore not enough, which is what made
+    test_model_accessor_tolerates_both_shapes order-dependent: it passed alone
+    and returned None in a full-suite run, because some earlier test had already
+    built a Settings with no CRED_ENCRYPTION_KEY.
+
+    Restores the prior env value and both caches on teardown, so this test
+    cannot leak configuration into the rest of the suite.
+    """
+    from app.config import get_settings
+    from app.services import crypto
+
+    previous = os.environ.get("CRED_ENCRYPTION_KEY")
+    os.environ["CRED_ENCRYPTION_KEY"] = TEST_KEY
+    get_settings.cache_clear()
+    crypto.reset_fernet_cache()
+    try:
+        yield TEST_KEY
+    finally:
+        if previous is None:
+            os.environ.pop("CRED_ENCRYPTION_KEY", None)
+        else:
+            os.environ["CRED_ENCRYPTION_KEY"] = previous
+        get_settings.cache_clear()
+        crypto.reset_fernet_cache()
+
+
 # ─── decrypt_stored_password: the two shapes ────────────────────────────────
 
 
@@ -338,18 +377,17 @@ def test_no_reader_decodes_the_column_without_decrypting():
     assert offenders == [], f"ciphertext-leaking readers: {offenders}"
 
 
-def test_model_accessor_tolerates_both_shapes():
+def test_model_accessor_tolerates_both_shapes(configured_cipher_key):
     """`get_password()` must serve legacy and encrypted rows identically."""
     from cryptography.fernet import Fernet
 
     f = Fernet(TEST_KEY.encode("ascii"))
-    os.environ["CRED_ENCRYPTION_KEY"] = TEST_KEY
 
     from app.models import StyxproxyCredential
 
     legacy = StyxproxyCredential(styxproxy_username="sty_legacy")
-    legacy.styxproxy_password = b"ihX0Al0VuH3auUZJ"
-    assert legacy.get_password() == "ihX0Al0VuH3auUZJ"
+    legacy.styxproxy_password = b"ihX0Al0VuH3auZJ"
+    assert legacy.get_password() == "ihX0Al0VuH3auZJ"
 
     modern = StyxproxyCredential(styxproxy_username="sty_modern")
     modern.styxproxy_password = f.encrypt(b"52bIYPGD02CXEKpL")
@@ -360,6 +398,91 @@ def test_model_accessor_tolerates_both_shapes():
     fresh.set_password("SxNFOVp3no2JQNIb")
     assert fresh.styxproxy_password.startswith(b"gAAAA")
     assert fresh.get_password() == "SxNFOVp3no2JQNIb"
+
+
+def test_cipher_key_change_is_not_served_from_a_stale_cache():
+    """A key change must take effect in a process that already resolved a key.
+
+    Negative control for the module-level Fernet cache. With a cache that stores
+    only the instance, the Fernet built for the first key is returned forever:
+    the second key is never consulted, so data written under the NEW key cannot
+    be read back — every credential silently fails to decrypt, which surfaces as
+    "wrong password" rather than "wrong key".
+
+    Written to fail on the pre-fix tree: the old code returned the identical
+    object for both keys, so decrypting with it raises InvalidToken.
+    """
+    from cryptography.fernet import Fernet
+
+    from app.config import get_settings
+    from app.services import crypto
+
+    first = Fernet.generate_key().decode("ascii")
+    second = Fernet.generate_key().decode("ascii")
+
+    previous = os.environ.get("CRED_ENCRYPTION_KEY")
+    try:
+        os.environ["CRED_ENCRYPTION_KEY"] = first
+        get_settings.cache_clear()
+        crypto.reset_fernet_cache()
+
+        f_first = crypto._get_fernet()
+        assert f_first is not None
+        ciphertext = f_first.encrypt(b"52bIYPGD02CXEKpL")
+
+        # Rotate the key in-process, the way a config reload would.
+        os.environ["CRED_ENCRYPTION_KEY"] = second
+        get_settings.cache_clear()
+
+        f_second = crypto._get_fernet()
+        assert f_second is not None, "no Fernet for the rotated key"
+        assert f_second is not f_first, "stale Fernet served for a changed key"
+
+        # Round-trip under the NEW key — the property the stale cache broke.
+        fresh_ciphertext = f_second.encrypt(b"rotated-secret")
+        assert f_second.decrypt(fresh_ciphertext) == b"rotated-secret"
+
+        # The old key's data is correctly no longer readable under the new key.
+        with pytest.raises(Exception):
+            f_second.decrypt(ciphertext)
+    finally:
+        if previous is None:
+            os.environ.pop("CRED_ENCRYPTION_KEY", None)
+        else:
+            os.environ["CRED_ENCRYPTION_KEY"] = previous
+        get_settings.cache_clear()
+        crypto.reset_fernet_cache()
+
+
+def test_missing_key_after_a_working_key_does_not_keep_serving_the_old_one():
+    """Removing CRED_ENCRYPTION_KEY must disable crypto, not fall back.
+
+    If a resolved instance outlived the key, an operator removing the key would
+    still see credentials decrypting — encryption would be silently still on
+    after being turned off. Returns None instead.
+    """
+    from app.config import get_settings
+    from app.services import crypto
+
+    previous = os.environ.get("CRED_ENCRYPTION_KEY")
+    try:
+        os.environ["CRED_ENCRYPTION_KEY"] = TEST_KEY
+        get_settings.cache_clear()
+        crypto.reset_fernet_cache()
+        assert crypto._get_fernet() is not None
+
+        os.environ.pop("CRED_ENCRYPTION_KEY", None)
+        get_settings.cache_clear()
+
+        assert crypto._get_fernet() is None
+        assert crypto.encrypt_credential("x") is None
+    finally:
+        if previous is None:
+            os.environ.pop("CRED_ENCRYPTION_KEY", None)
+        else:
+            os.environ["CRED_ENCRYPTION_KEY"] = previous
+        get_settings.cache_clear()
+        crypto.reset_fernet_cache()
 
 
 def test_relay_unit_declares_the_encryption_key():
