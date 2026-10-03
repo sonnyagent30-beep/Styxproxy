@@ -35,6 +35,13 @@ STUB_PROXY_POOL = {
     "DEFAULT": [{"ip": "104.248.12.34", "port": 1080}],
 }
 
+# Placeholder country values that must never reach the provider. The cart
+# stores 'GENERIC' for a country-less residential/mobile order, and an empty
+# string is what a missing country looks like after a template fallback. The
+# simulator accepts BOTH and happily mints a credential, so a customer can be
+# sold a proxy for a country that was never chosen — with no error and no alert.
+_UNRESOLVED_COUNTRY_SENTINELS = {"", "GENERIC", "ANY", "NONE", "NULL", "UNDEFINED"}
+
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -170,10 +177,24 @@ async def create_credential(
     to the customer (via email, WhatsApp, n8n, etc.).
     """
     logger.info("create_credential: order_id=%s plan_code=%s country=%s proxy_type=%s qty=%d", order_id, plan_code, country, proxy_type, quantity)
+
+    # ── Refuse an unresolved country BEFORE calling the provider ─────────────
+    # The provider accepts '' and 'GENERIC' and mints a working credential, so
+    # a country-less order silently sells a proxy for a country nobody chose.
+    # This is the chokepoint every fulfilment path goes through (webhook,
+    # worker, ops reprocess), so the check here cannot be bypassed by a caller.
+    country_norm = (country or "").strip().upper()
+    if country_norm in _UNRESOLVED_COUNTRY_SENTINELS:
+        raise ValueError(
+            f"Refusing to create a credential with an unresolved country "
+            f"({country!r}). A real country code is required — the customer "
+            f"must choose a location before payment."
+        )
+
     # 1. Get and test a working proxy from the provider
     proxy = await get_provider_proxy(
         plan_code=plan_code,
-        country=country,
+        country=country_norm,
         proxy_type=proxy_type,
         quantity=quantity,
     )
