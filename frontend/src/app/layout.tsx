@@ -84,7 +84,16 @@ export default function RootLayout({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://styxproxy.com';
   
   return (
-    <html lang="en" className={poppins.variable}>
+    <html lang="en" className={poppins.variable} suppressHydrationWarning>
+      {/* Pre-paint theme resolution — MUST stay inline and before <body>.
+          Sets .light/.dark on <html> from the device preference (or the admin's
+          stored override) BEFORE first paint, so there is no wrong-theme flash.
+          Kept in sync with AdminThemeToggle (localStorage key + class names). */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){try{var t=localStorage.getItem('styxproxy_admin_theme');var dark=(t==='dark')||((!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.remove('light','dark');r.classList.add(dark?'dark':'light');}catch(e){document.documentElement.classList.add('dark');}})();`,
+        }}
+      />
       <body className="antialiased">
 
         <a href="#main-content" className="skip-link">Skip to main content</a>

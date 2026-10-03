@@ -1,7 +1,13 @@
 @import "tailwindcss";
 
+/* Tailwind v4: make the `dark:` variant follow the CLASS, not the device.
+   Without this, `dark:` utilities follow prefers-color-scheme while the colour
+   tokens follow .light/.dark, so an admin override produces a mismatched page
+   (e.g. dark tokens + light logo). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
   --background: #000000;
   --foreground: #f5f5f5;
   --primary: #0AD25A;
@@ -1589,6 +1595,7 @@ button {
 }
 /* Explicit theme classes (set by AdminThemeToggle via JS) */
 :root.light {
+  color-scheme: light;
   --background: #fafafa;
   --foreground: #0a0a0a;
   --primary: #0b7a34;
@@ -1616,6 +1623,7 @@ button {
 }
 
 :root.dark {
+  color-scheme: dark;
   --background: #000000;
   --foreground: #f5f5f5;
   --primary: #0AD25A;
