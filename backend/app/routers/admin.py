@@ -2611,7 +2611,7 @@ async def re_fulfill_order(
 
     Returns the new credential brief + new order status.
     """
-    from app.services.credential import create_credential
+    from app.services.credential import create_credential, resolve_country_for_credential
 
     order = (
         await session.execute(select(Order).where(Order.order_id == order_id))
@@ -2643,7 +2643,7 @@ async def re_fulfill_order(
             order_id=order.order_id,
             customer_phone=order.customer_phone or "",
             plan_code=order.plan_code or "unknown",
-            country=order.country or "NG",
+            country=resolve_country_for_credential(order.country),
             proxy_type="isp",
             quantity=1,
             duration_days=30,

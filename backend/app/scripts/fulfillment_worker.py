@@ -70,7 +70,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             from sqlalchemy import select
             from app.models import Order
             from app.services.audit import log_audit_event
-            from app.services.credential import create_credential
+            from app.services.credential import create_credential, resolve_country_for_credential
 
             # ── Load order ────────────────────────────────────────────────
             order = (
@@ -136,7 +136,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                         order_id=order.order_id,
                         customer_phone=order.customer_phone or "",
                         plan_code=order.plan_code or "unknown",
-                        country=order.country or "NG",
+                        country=resolve_country_for_credential(order.country),
                         proxy_type=proxy_type,
                         quantity=1,
                         duration_days=30,

@@ -19,7 +19,7 @@ from app.services.capture import (
     gateway_captured_at,
     record_capture,
 )
-from app.services.credential import create_credential
+from app.services.credential import create_credential, resolve_country_for_credential
 from app.services.credential_delivery import resolve_customer_email
 from app.services.n8n import trigger_credentials_delivered_webhook
 
@@ -267,7 +267,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                     order_id=order.order_id,
                     customer_phone=order.customer_phone or "",
                     plan_code=order.plan_code or "unknown",
-                    country=order.country or "NG",
+                    country=resolve_country_for_credential(order.country),
                     proxy_type="isp",
                     quantity=1,
                     duration_days=30,

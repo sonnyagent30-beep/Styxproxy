@@ -264,7 +264,7 @@ async def ops_reprocess_order(
     exception. So the endpoint refused the exact failure class it exists to
     recover, and a paid order in that state could not be requeued at all.
     """
-    from app.services.credential import create_credential
+    from app.services.credential import create_credential, resolve_country_for_credential
 
     # Look up order
     result = await session.execute(select(Order).where(Order.order_id == order_id))
@@ -290,7 +290,7 @@ async def ops_reprocess_order(
             order_id=order.order_id,
             customer_phone=order.customer_phone or "",
             plan_code=order.plan_code or "unknown",
-            country=order.country or "NG",
+            country=resolve_country_for_credential(order.country),
             proxy_type="isp",
             quantity=1,
             duration_days=30,
