@@ -10,7 +10,7 @@ import { reportError } from '@/lib/sentry';
 
 const GlobeMap = dynamic(() => import('@/components/GlobeMap'), { ssr: false });
 
-const TYPEWRITER_WORDS = ['untraceable', 'unrestricted', 'verified', 'instant', 'anonymous'];
+const TYPEWRITER_WORDS = ['unknown', 'unrestricted', 'verified', 'instant', 'anonymous'];
 
 const PRODUCT_TABS: { key: string; label: string; icon: typeof Desktop }[] = [
   { key: 'ALL',   label: 'All',          icon: Globe },
@@ -227,7 +227,7 @@ export default function Hero() {
           {/* Sub */}
           <p className="text-center text-lg sm:text-xl text-[var(--muted)] max-w-2xl mb-10 leading-relaxed">
             ISP, Residential, Mobile &amp; Datacenter proxies — delivered in seconds.
-            <br className="hidden sm:block" />Leave no footprint.
+            <br className="hidden sm:block" />Charon doesn&apos;t ask your name.
           </p>
 
           {/* CTAs */}
@@ -308,7 +308,7 @@ export default function Hero() {
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Built for those who
               <br />
-              <span className="text-[var(--muted)]">move in silence.</span>
+              <span className="text-[var(--muted)]">travel unnamed.</span>
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -372,7 +372,7 @@ export default function Hero() {
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Four ways to
               <br />
-              <span className="text-[var(--muted)]">stay invisible.</span>
+              <span className="text-[var(--muted)]">change where you appear.</span>
             </h2>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
