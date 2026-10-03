@@ -44,7 +44,13 @@ const GATEWAY_ORDER: GatewayId[] = ['flutterwave', 'paystack', 'stripe', 'paynow
 
 export default function CheckoutClient() {
   const router = useRouter();
-  const { items: cart, total: cartTotal, setCart } = useCartStore();
+  // `total` in the cart store is a FUNCTION (`total: () => number`), so it must
+  // be called. Destructuring it as `total: cartTotal` and passing `cartTotal`
+  // to formatPrice passed the function itself, and
+  // Intl.NumberFormat.format(function) yields NaN — which rendered as "₦NaN"
+  // for the payment amount on the checkout page.
+  const { items: cart, total: cartTotalFn, setCart } = useCartStore();
+  const cartTotal = cartTotalFn();
   const [email, setEmail] = useState('');
   const [gateway, setGateway] = useState<GatewayId>('flutterwave');
   const [loading, setLoading] = useState(false);

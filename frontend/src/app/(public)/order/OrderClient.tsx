@@ -264,12 +264,24 @@ export default function OrderClient() {
     const country = selectedCountry ? COUNTRIES[selectedCountry.toUpperCase()] : null;
 
 
-    // Find variant for country+rotation (rotating preferred, fallback to any)
+    // Country is OPTIONAL. Find the variant for the chosen country; with no
+    // country selected there is no variant, so fall back to the TEMPLATE's
+    // plan type and per-GB price.
+    //
+    // `planCode` used to be `variant?.plan_code || ''`. With no country the
+    // variant is undefined, so plan_code became the EMPTY STRING — and
+    // POST /api/payments/initiate rejects it with 422 "String should have at
+    // least 1 character". Because `price_per_gb` was also undefined the
+    // checkout total rendered as ₦NaN. A country-less residential purchase is a
+    // supported flow and must not produce an empty plan_code.
     const variant = currentTemplate.variants?.find(
       v => v.country.toUpperCase() === selectedCountry?.toUpperCase()
     );
-    // Use the canonical DB plan_code from the catalog variant
-    const planCode = variant?.plan_code || '';
+    // Canonical DB plan_code from the variant; the template-level code
+    // (e.g. "RESIDENTIAL") is a valid, resolvable plan code when there is no
+    // country-specific variant.
+    const planCode =
+      variant?.plan_code || currentTemplate.plan_type.toUpperCase();
 
     // Calculate per-GB: use variant if found (variant.price / variant.qty), else template base_price_per_gb
     const effectivePricePerGb = variant && variant.quantity > 0
