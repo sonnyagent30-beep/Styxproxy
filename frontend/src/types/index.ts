@@ -55,8 +55,6 @@ export interface StyxproxyCredential {
   id: string;
   bun_username?: string;
   styxproxy_username?: string;
-  provider_username?: string;
-  provider_password?: string;
   provider_name?: string;
   pool_type?: string;
   customer_phone?: string;
@@ -434,8 +432,6 @@ export interface CredentialDetail extends StyxproxyCredential {
   last_used_at?: string | null;
   usage_log?: Array<{ ts: string; ip?: string; bytes_in?: number; bytes_out?: number }>;
   customer_phone?: string;
-  provider_username?: string;
-  provider_password?: string;
   provider_name?: string;
   pool_type?: string;
   protocol?: string;

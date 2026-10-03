@@ -15,6 +15,7 @@ from app.config import get_settings
 from app.database import get_session
 from app.models import ProcessedWebhook, SupportMessage, SupportThread
 from app.services.email import send_email
+from app.utils.html_sanitize import sanitize_html
 import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
@@ -409,6 +410,10 @@ async def receive_resend_webhook(
     if not thread and references:
         thread = await _find_thread_by_references(session, references)
 
+    # Sanitize HTML to prevent stored XSS — anyone emailing support with an
+    # <img onerror> payload can otherwise run script in an admin's browser.
+    safe_html = sanitize_html(html) if html else None
+
     if thread:
         # Add to existing thread
         await _add_message_to_thread(
@@ -418,7 +423,7 @@ async def receive_resend_webhook(
             to_email=SUPPORT_EMAIL,
             subject=subject,
             body_text=text,
-            body_html=html,
+            body_html=safe_html,
             email_id=email_id,
             in_reply_to=in_reply_to,
             references=references,
@@ -441,7 +446,7 @@ async def receive_resend_webhook(
             to_email=SUPPORT_EMAIL,
             subject=subject,
             body_text=text,
-            body_html=html,
+            body_html=safe_html,
             email_id=email_id,
             in_reply_to=in_reply_to,
             references=references,
@@ -469,7 +474,7 @@ async def receive_resend_webhook(
         from_name=from_name,
         subject=subject,
         body_text=text,
-        body_html=html,
+        body_html=safe_html,
     )
 
     await session.commit()

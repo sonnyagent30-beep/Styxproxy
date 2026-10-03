@@ -26,8 +26,6 @@ export const StyxproxyCredentialSchema = z.object({
   id: z.string(),
   bun_username: z.string().optional(),
   styxproxy_username: z.string().optional(),
-  provider_username: z.string().optional(),
-  provider_password: z.string().optional(),
   provider_name: z.string().optional(),
   pool_type: PoolTypeSchema.optional(),
   customer_phone: PhoneSchema.optional(),

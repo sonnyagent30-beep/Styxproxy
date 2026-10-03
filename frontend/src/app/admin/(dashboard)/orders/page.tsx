@@ -539,7 +539,7 @@ function OrderDetailModal({
   };
 
   const proxyString = order.styxproxy_credential 
-    ? `${order.styxproxy_credential.protocol}://${order.styxproxy_credential.provider_username || order.styxproxy_credential.styxproxy_username}:${order.styxproxy_credential.provider_password || 'password'}@${order.styxproxy_credential.upstream_proxy_ip}:${order.styxproxy_credential.upstream_proxy_port}`
+    ? `${order.styxproxy_credential.protocol}://${order.styxproxy_credential.styxproxy_username}:${order.styxproxy_credential.styxproxy_password || 'password'}@${order.styxproxy_credential.upstream_proxy_ip}:${order.styxproxy_credential.upstream_proxy_port}`
     : null;
 
   return (
@@ -684,12 +684,12 @@ function OrderDetailModal({
                   {showPasswords ? (
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-[var(--muted)]">Provider User</span>
-                        <span className="font-mono">{order.styxproxy_credential.provider_username || 'N/A'}</span>
+                        <span className="text-[var(--muted)]">Username</span>
+                        <span className="font-mono">{order.styxproxy_credential.styxproxy_username || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-[var(--muted)]">Provider Pass</span>
-                        <span className="font-mono">{order.styxproxy_credential.provider_password || 'N/A'}</span>
+                        <span className="text-[var(--muted)]">Password</span>
+                        <span className="font-mono">{order.styxproxy_credential.styxproxy_password || 'N/A'}</span>
                       </div>
                       {proxyString && (
                         <div className="mt-2">

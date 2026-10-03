@@ -334,10 +334,22 @@ class StyxproxyCredentialBrief(BaseModel):
 
     id: int
     styxproxy_username: str = Field(..., alias="styxproxy_username", serialization_alias="styxproxy_username")
+    styxproxy_password: Optional[str] = None  # Customer-facing password (decrypted for support)
     protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
     status: str
+
+    @field_validator('styxproxy_password', mode='before')
+    @classmethod
+    def decrypt_password(cls, v):
+        """Decrypt the binary password column to plaintext for support use."""
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            from app.services.crypto import decrypt_credential_compat
+            return decrypt_credential_compat(v)
+        return v
 
 
 class OrderCreateRequest(BaseModel):
@@ -965,6 +977,7 @@ class AdminCredentialResponse(BaseModel):
 
     id: int
     styxproxy_username: str = Field(validation_alias="styxproxy_username")
+    styxproxy_password: Optional[str] = None  # Customer-facing password (decrypted for support)
     customer_phone: Optional[str]
     order_id: Optional[str]
     pool_type: str
@@ -972,6 +985,17 @@ class AdminCredentialResponse(BaseModel):
     upstream_proxy_ip: Optional[str]
     status: str
     expires_at: Optional[datetime]
+
+    @field_validator('styxproxy_password', mode='before')
+    @classmethod
+    def decrypt_password(cls, v):
+        """Decrypt the binary password column to plaintext for support use."""
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            from app.services.crypto import decrypt_credential_compat
+            return decrypt_credential_compat(v)
+        return v
 
 
 class AdminCredentialsResponse(BaseModel):

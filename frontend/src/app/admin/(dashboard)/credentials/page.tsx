@@ -414,8 +414,8 @@ function CredentialDetailModal({
     navigator.clipboard.writeText(text);
   };
 
-  const proxyString = credential.provider_username 
-    ? `${credential.protocol}://${credential.provider_username}:${credential.provider_password || 'password'}@${credential.upstream_proxy_ip}:${credential.upstream_proxy_port}`
+  const proxyString = credential.styxproxy_username 
+    ? `${credential.protocol}://${credential.styxproxy_username}:${credential.styxproxy_password || 'password'}@${credential.upstream_proxy_ip}:${credential.upstream_proxy_port}`
     : null;
 
   return (
@@ -535,14 +535,14 @@ function CredentialDetailModal({
               {showPasswords ? (
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-[var(--muted)]">Provider Username</span>
+                    <span className="text-[var(--muted)]">Username</span>
                     <div className="flex items-center gap-2">
                       <code className="px-2 py-1 rounded bg-[var(--background)] text-sm">
-                        {credential.provider_username || 'N/A'}
+                        {credential.styxproxy_username || 'N/A'}
                       </code>
-                      {credential.provider_username && (
+                      {credential.styxproxy_username && (
                         <button
-                          onClick={() => copyToClipboard(credential.provider_username!)}
+                          onClick={() => copyToClipboard(credential.styxproxy_username!)}
                           className="p-1 hover:bg-[var(--card)] rounded"
                           title="Copy"
                         >
@@ -554,9 +554,9 @@ function CredentialDetailModal({
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[var(--muted)]">Provider Password</span>
+                    <span className="text-[var(--muted)]">Password</span>
                     <code className="px-2 py-1 rounded bg-[var(--background)] text-sm">
-                      {credential.provider_password || 'N/A'}
+                      {credential.styxproxy_password || 'N/A'}
                     </code>
                   </div>
                   

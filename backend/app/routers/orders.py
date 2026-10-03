@@ -549,6 +549,7 @@ async def create_order(
             cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
                 styxproxy_username=cred.styxproxy_username,
+                styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
                 protocol=cred.protocol or "socks5",
                 upstream_proxy_ip=cred.upstream_proxy_ip,
                 upstream_proxy_port=cred.upstream_proxy_port,
@@ -597,6 +598,7 @@ async def list_orders_by_device(
                 cred_brief = StyxproxyCredentialBrief(
                     id=cred.id,
                     styxproxy_username=cred.styxproxy_username,
+                    styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
                     protocol=cred.protocol or "socks5",
                     upstream_proxy_ip=cred.upstream_proxy_ip,
                     upstream_proxy_port=cred.upstream_proxy_port,
@@ -666,6 +668,7 @@ async def get_order_by_payment_reference(
             cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
                 styxproxy_username=cred.styxproxy_username,
+                styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
                 protocol=cred.protocol or "socks5",
                 upstream_proxy_ip=cred.upstream_proxy_ip,
                 upstream_proxy_port=cred.upstream_proxy_port,
@@ -817,6 +820,7 @@ async def get_order(
             cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
                 styxproxy_username=cred.styxproxy_username,
+                styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
                 protocol=cred.protocol or "socks5",
                 upstream_proxy_ip=cred.upstream_proxy_ip,
                 upstream_proxy_port=cred.upstream_proxy_port,
@@ -1049,6 +1053,7 @@ async def rotate_proxy(
         styxproxy_credential=StyxproxyCredentialBrief(
             id=cred.id,
             styxproxy_username=cred.styxproxy_username,
+            styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
             protocol=cred.protocol or "socks5",
             upstream_proxy_ip=cred.upstream_proxy_ip,
             upstream_proxy_port=cred.upstream_proxy_port,
