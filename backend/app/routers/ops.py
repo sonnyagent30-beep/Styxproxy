@@ -253,10 +253,16 @@ async def ops_reprocess_order(
     session: AsyncSession = Depends(get_session),
     jwt_payload: dict = Depends(require_ops_role("ops-control")),
 ) -> dict[str, Any]:
-    """Re-trigger fulfillment for failed_unfulfilled orders.
+    """Re-trigger fulfillment for a paid order whose fulfillment failed.
 
     Re-runs create_credential() and marks order fulfilled on success.
     Marks order failed_unfulfilled again on error. Logs to admin_audit_log.
+
+    Accepts BOTH terminal failure statuses. The previous guard was
+    `if order.status != "failed_unfulfilled"`, which refused
+    `failed_manual_review` — the status the webhook sets for a non-provider
+    exception. So the endpoint refused the exact failure class it exists to
+    recover, and a paid order in that state could not be requeued at all.
     """
     from app.services.credential import create_credential
 
@@ -266,8 +272,15 @@ async def ops_reprocess_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status != "failed_unfulfilled":
-        raise HTTPException(status_code=400, detail=f"Cannot reprocess order with status '{order.status}'")
+    REPROCESSABLE = {"failed_unfulfilled", "failed_manual_review"}
+    if order.status not in REPROCESSABLE:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot reprocess order with status '{order.status}'. "
+                f"Reprocessable statuses: {sorted(REPROCESSABLE)}"
+            ),
+        )
 
     admin_email = jwt_payload.get("sub", "ops-service")
 
