@@ -76,7 +76,7 @@ export default function LatestBlogPosts({ initialPosts = [] }: Props) {
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {initialPosts.map((post) => {
+          {posts.map((post) => {
             const readTime = estimateReadTime(post.content || post.excerpt || '');
             return (
               <article

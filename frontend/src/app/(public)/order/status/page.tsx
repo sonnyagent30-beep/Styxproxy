@@ -3,8 +3,6 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 import StatusBanner from '@/components/order/StatusBanner';
 import ActionBar from '@/components/order/ActionBar';
 import OrderTimeline from '@/components/order/OrderTimeline';
@@ -156,8 +154,7 @@ function OrderStatusContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1 px-4 pt-32 pb-16">
+      <main className="flex-1 px-4 pt-16 pb-16">
         <div className="max-w-2xl mx-auto">
           {/* Search Card */}
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
@@ -385,7 +382,6 @@ function OrderStatusContent() {
           )}
         </div>
       </main>
-      <Footer />
     </div>
   );
 }

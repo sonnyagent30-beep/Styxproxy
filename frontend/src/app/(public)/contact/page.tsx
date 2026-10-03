@@ -54,9 +54,30 @@ export default function ContactPage() {
     if (!form.name || !form.email || !form.message) return;
     setLoading(true);
     setError('');
-    await new Promise(r => setTimeout(r, 1000));
-    setSent(true);
-    setLoading(false);
+    try {
+      const res = await fetch('/api/v1/contact/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          message: form.message,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSent(true);
+      } else {
+        const msg = typeof data.detail === 'string' ? data.detail
+          : typeof data.error === 'string' ? data.error
+          : 'Failed to send message. Please try again.';
+        setError(msg);
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

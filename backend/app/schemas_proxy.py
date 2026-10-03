@@ -20,8 +20,6 @@ class ProxySummary(BaseModel):
     status: str
     expires_at: Optional[datetime] = None
     last_used_at: Optional[datetime] = None
-    last_ip_address: Optional[str] = None
-    last_ip_country: Optional[str] = None
     assigned_static_ip: Optional[str] = None
     assigned_static_session_id: Optional[str] = None
     bandwidth_alert_pct: int = 80
@@ -85,8 +83,6 @@ class ProxyUsageResponse(BaseModel):
     bandwidth_alert_pct: int
     bytes_used: int
     last_used_at: Optional[datetime] = None
-    last_ip_address: Optional[str] = None
-    last_ip_country: Optional[str] = None
     days_remaining: int
     expires_at: Optional[datetime] = None
     status: str
@@ -131,7 +127,6 @@ class AdminProxySummary(BaseModel):
     created_at: datetime
     expires_at: Optional[datetime] = None
     last_used_at: Optional[datetime] = None
-    last_ip_address: Optional[str] = None
     gb_used: float = 0.0
     gb_total: float = 0.0
 

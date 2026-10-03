@@ -304,14 +304,28 @@ function parsePolygonPoints(pts: string): { x: number; y: number }[] {
 export default function ProductsPage() {
   const [products, setProducts] = useState<typeof FALLBACK_PRODUCTS>(FALLBACK_PRODUCTS);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   // Only show products that have real DB data
   const dbProducts = products.filter((p) => p.hasApiData);
 
   // Fetch catalog from API on mount
-  useEffect(() => {
-    fetchCatalog().then((data) => {
+  const loadCatalog = async () => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const data = await fetchCatalog();
       setProducts(data);
-    });
+    } catch (err) {
+      console.error('[Products] Failed to load catalog:', err);
+      setFetchError('Could not load product catalog. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCatalog();
   }, []);
 
 
@@ -416,7 +430,37 @@ export default function ProductsPage() {
 
       {/* Product Cards */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        {dbProducts.map((product) => (
+        {loading && (
+          <div className="text-center py-20">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-full border-4 border-[var(--primary)] border-t-transparent animate-spin" />
+            <p className="text-[var(--muted)]">Loading product catalog…</p>
+          </div>
+        )}
+        {!loading && fetchError && (
+          <div className="text-center py-20">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[var(--error)]/10 border border-[var(--error)]/20 flex items-center justify-center">
+              <Warning className="w-8 h-8 text-[var(--error)]" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Unable to load products</h2>
+            <p className="text-[var(--muted)] mb-6">{fetchError}</p>
+            <button onClick={loadCatalog} className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors">
+              Try Again
+            </button>
+          </div>
+        )}
+        {!loading && !fetchError && dbProducts.length === 0 && (
+          <div className="text-center py-20">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[var(--card)] border border-[var(--border)] flex items-center justify-center">
+              <HardDrives className="w-8 h-8 text-[var(--muted)]" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">No products available</h2>
+            <p className="text-[var(--muted)] mb-6">Products are being configured. Please check back soon.</p>
+            <button onClick={loadCatalog} className="px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl transition-colors">
+              Refresh
+            </button>
+          </div>
+        )}
+        {!loading && !fetchError && dbProducts.map((product) => (
           <div
             key={product.key}
             id={`product-${product.key}`}

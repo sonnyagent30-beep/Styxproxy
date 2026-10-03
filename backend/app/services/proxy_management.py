@@ -147,8 +147,6 @@ async def get_credential_usage(session: AsyncSession, credential_id: int, custom
         "bandwidth_alert_pct": cred.bandwidth_alert_pct,
         "bytes_used": cred.gb_used,  # approximate; relay tracks exact bytes
         "last_used_at": cred.last_used_at,
-        "last_ip_address": str(cred.last_ip_address) if cred.last_ip_address else None,
-        "last_ip_country": cred.last_ip_country,
         "days_remaining": days_remaining,
         "expires_at": cred.expires_at,
         "status": cred.status,

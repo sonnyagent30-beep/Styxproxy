@@ -383,10 +383,6 @@ class StyxproxyCredential(Base):
     # Bandwidth alerting (alert customer when usage exceeds N% of plan)
     bandwidth_alert_pct: Mapped[int] = mapped_column(Integer, default=80, nullable=False)
 
-    # Last seen (for activity feeds)
-    last_ip_country: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
-    last_ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)  # IPv6 max 45 chars
-
     # ─── Rotation mode + static IP pinning (added Jul 30) ────────────────
     # rotating = pool, IP changes per request (Rayobyte -country-XX password)
     # static   = pinned IP via Rayobyte -session-XXXX-country-XX password

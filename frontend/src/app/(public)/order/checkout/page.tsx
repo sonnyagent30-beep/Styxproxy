@@ -423,8 +423,9 @@ export default function CheckoutPage() {
           <div className="mt-4 p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
             <div className="flex justify-between items-center">
               <span className="text-[var(--muted)]">Payment amount</span>
-              <span className="text-sm text-[var(--muted)]">Confirmed on payment page</span>
+              <span className="text-lg font-bold text-[var(--primary)]">{formatPrice(cartTotal)}</span>
             </div>
+            <p className="text-xs text-[var(--muted)] mt-1 text-right">Confirmed on payment page</p>
           </div>
         </div>
 
