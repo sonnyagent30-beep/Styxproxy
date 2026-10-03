@@ -6,7 +6,7 @@ import { Broadcast, House, DeviceMobile, HardDrives, CaretDown } from '@phosphor
 
 export default function AboutClient() {
   return (
-    <main className="flex-1 relative overflow-hidden">
+    <section className="flex-1 relative overflow-hidden">
       {/* Hero background layers */}
       <div className="absolute inset-0 hero-bg-grid" />
       <div className="absolute inset-0 hero-bg-rings" />
@@ -275,6 +275,6 @@ export default function AboutClient() {
           </p>
         </section>
       </article>
-    </main>
+    </section>
   );
 }

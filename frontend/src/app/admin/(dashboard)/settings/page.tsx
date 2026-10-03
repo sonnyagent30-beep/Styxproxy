@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import type { SystemSetting, SystemSettingsResponse } from '@/types';
+import { useModalAccessibility } from '@/hooks/useModalAccessibility';
 
 export default function SettingsPage() {
   const [data, setData] = useState<SystemSettingsResponse | null>(null);
@@ -25,6 +26,10 @@ export default function SettingsPage() {
   const [newIp, setNewIp] = useState('');
   const [ipSaving, setIpSaving] = useState(false);
   const [ipError, setIpError] = useState('');
+
+  // Modal accessibility hooks
+  const addModal = useModalAccessibility(showAddModal, () => setShowAddModal(false));
+  const confirmModal = useModalAccessibility(showConfirmModal, () => setShowConfirmModal(false));
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -329,10 +334,10 @@ export default function SettingsPage() {
 
       {/* Add Setting Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)} role="dialog" aria-modal="true" aria-labelledby="add-setting-title" ref={addModal.modalRef} onKeyDown={addModal.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-xl font-bold">Add Setting</h2>
+              <h2 className="text-xl font-bold" id="add-setting-title">Add Setting</h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
@@ -391,10 +396,10 @@ export default function SettingsPage() {
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowConfirmModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowConfirmModal(false)} role="dialog" aria-modal="true" aria-labelledby="confirm-change-title" ref={confirmModal.modalRef} onKeyDown={confirmModal.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-xl font-bold">Confirm Change</h2>
+              <h2 className="text-xl font-bold" id="confirm-change-title">Confirm Change</h2>
             </div>
             <div className="p-6 space-y-4">
               <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">

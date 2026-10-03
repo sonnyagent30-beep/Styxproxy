@@ -6,6 +6,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import type { AdminTeamMember, AdminMeResponse, AdminRole, AdminInvitesListResponse } from '@/types';
+import { useModalAccessibility } from '@/hooks/useModalAccessibility';
+import { useToast } from '@/components/Toast';
+import ConfirmModal from '@/components/ConfirmModal';
 
 export default function AdminTeamPage() {
   const [admin, setAdmin] = useState<AdminMeResponse | null>(null);
@@ -26,6 +29,17 @@ export default function AdminTeamPage() {
   const [editingMember, setEditingMember] = useState<AdminTeamMember | null>(null);
   const [editRole, setEditRole] = useState<AdminRole>('admin');
   const [editLoading, setEditLoading] = useState(false);
+
+  // Modal accessibility hooks
+  const inviteModal = useModalAccessibility(showInviteModal, () => setShowInviteModal(false));
+  const editRoleModal = useModalAccessibility(!!editingMember, () => setEditingMember(null));
+
+  // Toast
+  const { toast } = useToast();
+
+  // Confirm modals
+  const [deleteInviteConfirm, setDeleteInviteConfirm] = useState<{ id: number; email: string } | null>(null);
+  const [lockConfirm, setLockConfirm] = useState<{ member: AdminTeamMember; action: 'lock' | 'unlock' } | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -102,9 +116,9 @@ export default function AdminTeamPage() {
     const result = await api.updateTeamMemberRole(editingMember.admin_phone, editRole);
     
     if (result.error) {
-      alert(result.error);
+      toast({ type: 'error', title: 'Error', message: result.error });
     } else {
-      // Reload team data
+      toast({ type: 'success', title: 'Role Updated', message: 'Team member role updated successfully' });
       loadData();
     }
     
@@ -114,24 +128,37 @@ export default function AdminTeamPage() {
 
   const handleLockToggle = async (member: AdminTeamMember) => {
     const action = member.locked_until ? 'unlock' : 'lock';
+    setLockConfirm({ member, action });
+  };
+
+  const confirmLockToggle = async () => {
+    if (!lockConfirm) return;
+    const { member, action } = lockConfirm;
     const result = await api.lockTeamMember(member.admin_phone, action);
     
     if (!result.error) {
+      toast({ type: 'success', title: action === 'lock' ? 'Locked' : 'Unlocked', message: `Admin ${action}ed successfully` });
       loadData();
     } else {
-      alert(result.error);
+      toast({ type: 'error', title: 'Error', message: result.error });
     }
+    setLockConfirm(null);
   };
 
   const handleDeleteInvite = async (inviteId: number) => {
-    if (!confirm('Are you sure you want to delete this invite?')) return;
-    
-    const result = await api.deleteAdminInvite(inviteId);
+    setDeleteInviteConfirm({ id: inviteId, email: '' });
+  };
+
+  const confirmDeleteInvite = async () => {
+    if (!deleteInviteConfirm) return;
+    const result = await api.deleteAdminInvite(deleteInviteConfirm.id);
     if (!result.error) {
+      toast({ type: 'success', title: 'Deleted', message: 'Invite deleted successfully' });
       loadData();
     } else {
-      alert(result.error);
+      toast({ type: 'error', title: 'Error', message: result.error });
     }
+    setDeleteInviteConfirm(null);
   };
 
   const formatDate = (dateStr: string) => {
@@ -365,9 +392,9 @@ export default function AdminTeamPage() {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="invite-admin-title" ref={inviteModal.modalRef} onKeyDown={inviteModal.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4">Invite New Admin</h3>
+            <h3 className="text-xl font-bold mb-4" id="invite-admin-title">Invite New Admin</h3>
             
             <form onSubmit={handleInvite} className="space-y-4">
               {inviteMessage && (
@@ -429,9 +456,9 @@ export default function AdminTeamPage() {
 
       {/* Edit Role Modal */}
       {editingMember && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="edit-role-title" ref={editRoleModal.modalRef} onKeyDown={editRoleModal.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4">Edit Role</h3>
+            <h3 className="text-xl font-bold mb-4" id="edit-role-title">Edit Role</h3>
             
             <p className="text-[var(--muted)] mb-4">
               Change role for <span className="font-mono text-[var(--foreground)]">{editingMember.admin_phone}</span>
@@ -471,6 +498,30 @@ export default function AdminTeamPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Invite Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!deleteInviteConfirm}
+        title="Delete Invite"
+        message="Are you sure you want to delete this invite?"
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={confirmDeleteInvite}
+        onCancel={() => setDeleteInviteConfirm(null)}
+      />
+
+      {/* Lock/Unlock Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!lockConfirm}
+        title={lockConfirm?.action === 'lock' ? 'Lock Admin' : 'Unlock Admin'}
+        message={lockConfirm?.action === 'lock'
+          ? `Lock ${lockConfirm?.member.admin_phone}? They will not be able to log in until unlocked.`
+          : `Unlock ${lockConfirm?.member.admin_phone}? They will be able to log in again.`}
+        confirmLabel={lockConfirm?.action === 'lock' ? 'Lock' : 'Unlock'}
+        variant={lockConfirm?.action === 'lock' ? 'warning' : 'info'}
+        onConfirm={confirmLockToggle}
+        onCancel={() => setLockConfirm(null)}
+      />
     </div>
   );
 }

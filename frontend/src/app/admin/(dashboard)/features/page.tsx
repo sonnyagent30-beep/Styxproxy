@@ -141,6 +141,9 @@ export default function AdminFeaturesPage() {
                 </div>
                 <button
                   onClick={() => setFeatures(f => ({ ...f, telegram: { ...f.telegram, enabled: !f.telegram.enabled } }))}
+                  role="switch"
+                  aria-checked={features.telegram.enabled}
+                  aria-label="Toggle Telegram"
                   className={`w-14 h-8 rounded-full transition-colors ${
                     features.telegram.enabled ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'
                   }`}
@@ -176,6 +179,9 @@ export default function AdminFeaturesPage() {
                 </div>
                 <button
                   onClick={() => setFeatures(f => ({ ...f, whatsapp: { ...f.whatsapp, enabled: !f.whatsapp.enabled } }))}
+                  role="switch"
+                  aria-checked={features.whatsapp.enabled}
+                  aria-label="Toggle WhatsApp"
                   className={`w-14 h-8 rounded-full transition-colors ${
                     features.whatsapp.enabled ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'
                   }`}

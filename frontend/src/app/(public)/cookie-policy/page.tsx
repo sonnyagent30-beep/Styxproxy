@@ -15,7 +15,7 @@ export default function CookiePolicy() {
       <div className="hero-orb hero-orb-1" />
       <div className="hero-orb hero-orb-2" />
 
-      <main className="relative z-10 flex-1 pt-28 pb-20">
+      <section className="relative z-10 flex-1 pt-28 pb-20">
         <div className="max-w-2xl mx-auto px-6">
 
           {/* Article card */}
@@ -135,7 +135,7 @@ export default function CookiePolicy() {
             </Link>
           </div>
         </div>
-      </main>
+      </section>
     </div>
   );
 }

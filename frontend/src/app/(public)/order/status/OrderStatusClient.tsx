@@ -154,7 +154,7 @@ function OrderStatusContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-1 px-4 pt-16 pb-16">
+      <section className="flex-1 px-4 pt-16 pb-16">
         <div className="max-w-2xl mx-auto">
           {/* Search Card */}
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
@@ -381,7 +381,7 @@ function OrderStatusContent() {
           </div>
           )}
         </div>
-      </main>
+      </section>
     </div>
   );
 }

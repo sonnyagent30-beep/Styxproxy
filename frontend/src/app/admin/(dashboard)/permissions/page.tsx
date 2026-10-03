@@ -342,11 +342,7 @@ export default function AdminPermissionsPage() {
       {!isSuperAdmin && (
         <div className="rounded-xl bg-blue-500/10 border border-blue-500/30 p-4">
           <p className="text-sm text-blue-400">
-            ℹ️ Only superadmins can grant / revoke permissions. Contact{' '}
-            <a href="mailto:oyebiyiayomide30@gmail.com" className="underline">
-              oyebiyiayomide30@gmail.com
-            </a>{' '}
-            if you need additional permissions.
+            ℹ️ Only superadmins can grant / revoke permissions. Contact your superadmin if you need additional permissions.
           </p>
         </div>
       )}

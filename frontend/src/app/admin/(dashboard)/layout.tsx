@@ -10,6 +10,25 @@ import type { AdminMeResponse } from '@/types';
 import AdminThemeToggle from '@/components/AdminThemeToggle';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import ShortcutHelpModal from '@/components/ShortcutHelpModal';
+import {
+  ChartBar,
+  Package,
+  Users,
+  Key,
+  CurrencyDollar,
+  TrendUp,
+  Brain,
+  CheckCircle,
+  Warning,
+  Envelope,
+  Note,
+  Shield,
+  User,
+  MagnifyingGlass,
+  Globe,
+  Gear,
+  Lock,
+} from '@phosphor-icons/react';
 
 export default function AdminDashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -73,28 +92,28 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
   const isSuperAdmin = admin?.role === 'superadmin';
 
   const navItems = [
-    { href: '/admin/dashboard', label: 'Dashboard', icon: '\uD83D\uDCCA' },
-    { href: '/admin/orders', label: 'Orders', icon: '\uD83D\uDCE6' },
-    { href: '/admin/customers', label: 'Customers', icon: '\uD83D\uDC65' },
-    { href: '/admin/credentials', label: 'Credentials', icon: '\uD83D\uDD11' },
-    { href: '/admin/plans', label: 'Plans', icon: '\uD83D\uDCB0' },
-    { href: '/admin/analytics', label: 'Analytics', icon: '\uD83D\uDCC8' },
-    { href: '/admin/charon', label: 'Charon', icon: '\uD83E\uDDE0' },
-    { href: '/admin/charon/eval', label: 'Charon Eval', icon: '\u2705' },
-    { href: '/admin/escalations', label: 'Escalations', icon: '\uD83D\uDEA8' },
-    { href: '/admin/support', label: 'Support', icon: '\u2709\uFE0F' },
-    { href: '/admin/blog', label: 'Blog', icon: '\uD83D\uDCDD' },
+    { href: '/admin/dashboard', label: 'Dashboard', icon: ChartBar },
+    { href: '/admin/orders', label: 'Orders', icon: Package },
+    { href: '/admin/customers', label: 'Customers', icon: Users },
+    { href: '/admin/credentials', label: 'Credentials', icon: Key },
+    { href: '/admin/plans', label: 'Plans', icon: CurrencyDollar },
+    { href: '/admin/analytics', label: 'Analytics', icon: TrendUp },
+    { href: '/admin/charon', label: 'Charon', icon: Brain },
+    { href: '/admin/charon/eval', label: 'Charon Eval', icon: CheckCircle },
+    { href: '/admin/escalations', label: 'Escalations', icon: Warning },
+    { href: '/admin/support', label: 'Support', icon: Envelope },
+    { href: '/admin/blog', label: 'Blog', icon: Note },
     ...(isSuperAdmin ? [
-      { href: '/admin/admins', label: 'Admins', icon: '\uD83D\uDEE1\uFE0F' },
-      { href: '/admin/team', label: 'Team', icon: '\uD83D\uDC64' },
-      { href: '/admin/audit-log', label: 'Audit', icon: '\uD83D\uDD0D' },
-      { href: '/admin/providers', label: 'Providers', icon: '\uD83C\uDF10' },
-      { href: '/admin/settings', label: 'Settings', icon: '\u2699\uFE0F' },
-      { href: '/admin/secrets', label: 'Secrets Vault', icon: '\uD83D\uDD12' },
-      { href: '/admin/permissions', label: 'Permissions', icon: '\uD83D\uDD11' },
-      { href: '/admin/rls', label: 'Row-Level Security', icon: '\uD83D\uDEE1\uFE0F' },
+      { href: '/admin/admins', label: 'Admins', icon: Shield },
+      { href: '/admin/team', label: 'Team', icon: User },
+      { href: '/admin/audit-log', label: 'Audit', icon: MagnifyingGlass },
+      { href: '/admin/providers', label: 'Providers', icon: Globe },
+      { href: '/admin/settings', label: 'Settings', icon: Gear },
+      { href: '/admin/secrets', label: 'Secrets Vault', icon: Lock },
+      { href: '/admin/permissions', label: 'Permissions', icon: Key },
+      { href: '/admin/rls', label: 'Row-Level Security', icon: Shield },
     ] : []),
-    { href: '/admin/profile', label: 'Profile', icon: '\uD83D\uDD10' },
+    { href: '/admin/profile', label: 'Profile', icon: User },
   ];
 
   if (loading) {
@@ -173,7 +192,7 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
                   isActive ? 'bg-[var(--primary)]/10 text-[var(--primary)]' : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <item.icon size={20} weight="bold" />
                 <span className="font-medium">{item.label}</span>
               </Link>
             );
@@ -218,7 +237,7 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
                   isActive ? 'bg-[var(--primary)]/10 text-[var(--primary)]' : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <item.icon size={20} weight="bold" />
                 <span className="font-medium">{item.label}</span>
               </Link>
             );

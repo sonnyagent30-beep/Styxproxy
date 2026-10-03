@@ -3,7 +3,8 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowsClockwise } from '@phosphor-icons/react';
 import api from '@/lib/api';
 import type { ApiResponse, FunnelData, AnalyticsEvent } from '@/types';
 
@@ -111,7 +112,7 @@ export default function AdminAnalyticsPage() {
               className="px-4 py-2 rounded-lg bg-[var(--card)] border border-[var(--border)] text-sm hover:bg-[var(--card-hover)]"
               aria-label="Refresh analytics data"
             >
-              🔄 Refresh
+              <ArrowsClockwise size={16} /> Refresh
             </button>
           </div>
         </div>

@@ -133,7 +133,7 @@ export default function SupportClient() {
       {/* Top accent line */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-20 bg-gradient-to-b from-[var(--primary)] to-transparent opacity-50" />
 
-      <main className="relative z-10 flex-1 pt-28 pb-16">
+      <section className="relative z-10 flex-1 pt-28 pb-16">
         <div className="max-w-2xl mx-auto px-6">
           {/* Hero heading */}
           <div className="text-center mb-12">
@@ -422,7 +422,7 @@ export default function SupportClient() {
             </Link>
           </div>
         </div>
-      </main>
+      </section>
     </div>
   );
 }

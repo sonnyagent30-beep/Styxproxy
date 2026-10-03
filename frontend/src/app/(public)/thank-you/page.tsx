@@ -273,7 +273,7 @@ function ThankYouContent() {
 
   if (!txRef || error) {
     return (
-      <main className="flex-1 flex items-center justify-center px-4">
+      <section className="flex-1 flex items-center justify-center px-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Order Not Found</h1>
           <p className="text-[var(--muted)] mb-6">
@@ -323,7 +323,7 @@ function ThankYouContent() {
             Place New Order
           </Link>
         </div>
-      </main>
+      </section>
     );
   }
 
@@ -335,7 +335,7 @@ function ThankYouContent() {
   const isProviderDown = nextAction === 'provider_down';
 
   return (
-    <main className="flex-1 flex items-start justify-center px-4 pt-32 pb-16">
+    <section className="flex-1 flex items-start justify-center px-4 pt-32 pb-16">
       <div className="max-w-lg w-full">
         {/* Pending/Processing State */}
         {loading && isPending && (
@@ -610,16 +610,16 @@ function ThankYouContent() {
           </div>
         )}
       </div>
-    </main>
+    </section>
   );
 }
 
 export default function ThankYouPage() {
   return (
     <Suspense fallback={
-      <main className="flex-1 flex items-center justify-center">
+      <section className="flex-1 flex items-center justify-center">
         <div className="animate-pulse text-[var(--muted)]">Loading...</div>
-      </main>
+      </section>
     }>
       <ThankYouContent />
     </Suspense>

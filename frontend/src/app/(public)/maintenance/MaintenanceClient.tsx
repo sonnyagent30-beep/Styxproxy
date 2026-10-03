@@ -59,7 +59,7 @@ export default function MaintenanceClient() {
         <div className="absolute top-1/3 right-1/4 w-96 h-96 rounded-full bg-[var(--primary)]/5 blur-3xl motion-safe:animate-float-slow" />
       </div>
 
-      <main className="relative max-w-xl w-full text-center space-y-8">
+      <section className="relative max-w-xl w-full text-center space-y-8">
         {/* Logo */}
         <div className="flex justify-center">
           <div className="w-20 h-20 relative">
@@ -132,7 +132,7 @@ export default function MaintenanceClient() {
             Admin login
           </Link>
         </div>
-      </main>
+      </section>
     </div>
   );
 }

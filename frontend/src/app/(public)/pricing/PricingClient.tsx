@@ -367,7 +367,7 @@ export default function PricingClient() {
     : null;
 
   return (
-    <main className="min-h-screen text-[var(--foreground)]">
+    <section className="min-h-screen text-[var(--foreground)]">
       {/* Hero Section */}
       <div className="relative overflow-hidden pt-12 pb-16 px-6">
         <div className="absolute inset-0 hero-bg-grid" />
@@ -637,6 +637,6 @@ export default function PricingClient() {
           Get Instant
         </Link>
       </div>
-    </main>
+    </section>
   );
 }

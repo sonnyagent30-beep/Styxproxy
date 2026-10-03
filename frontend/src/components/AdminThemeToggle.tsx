@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Sun, Moon, CircleHalf, Circle } from '@phosphor-icons/react';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -59,11 +60,11 @@ export default function AdminThemeToggle() {
   };
 
   const getIcon = () => {
-    if (!mounted) return '\u25CB';
+    if (!mounted) return <Circle />;
     switch (theme) {
-      case 'light': return '\u2600';
-      case 'dark': return '\u263E';
-      default: return '\u25D0';
+      case 'light': return <Sun />;
+      case 'dark': return <Moon />;
+      default: return <CircleHalf />;
     }
   };
 

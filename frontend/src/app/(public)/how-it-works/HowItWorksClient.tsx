@@ -100,7 +100,7 @@ function AnimatedSection({ children, delay = 0 }: { children: React.ReactNode; d
 
 export default function HowItWorksClient() {
   return (
-    <main className="min-h-screen text-[var(--foreground)]">
+    <section className="min-h-screen text-[var(--foreground)]">
       {/* Hero Section */}
       <div className="relative overflow-hidden pt-12 pb-16 px-6">
         <div className="absolute inset-0 hero-bg-grid" />
@@ -248,6 +248,6 @@ export default function HowItWorksClient() {
           Get Instant
         </Link>
       </div>
-    </main>
+    </section>
   );
 }

@@ -6,6 +6,9 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import type { BlogPost, BlogPostCreate, PostStatus } from '@/types';
+import { useToast } from '@/components/Toast';
+import { useModalAccessibility } from '@/hooks/useModalAccessibility';
+import ConfirmModal from '@/components/ConfirmModal';
 
 export default function AdminBlogPage() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -27,6 +30,18 @@ export default function AdminBlogPage() {
 
   const [formData, setFormData] = useState<BlogPostCreate>(emptyForm);
 
+  // Toast
+  const { toast } = useToast();
+
+  // Confirm modal state
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [rejectModal, setRejectModal] = useState<{ id: string; title: string } | null>(null);
+
+  // Modal accessibility
+  const blogModal = useModalAccessibility(showModal, () => setShowModal(false));
+  const deleteModal = useModalAccessibility(!!deleteConfirm, () => setDeleteConfirm(null));
+  const rejectModalA11y = useModalAccessibility(!!rejectModal, () => setRejectModal(null));
+
   useEffect(() => {
     loadPosts();
   }, []);
@@ -47,7 +62,7 @@ export default function AdminBlogPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.content) {
-      alert('Title and content are required');
+      toast({ type: 'error', title: 'Validation', message: 'Title and content are required' });
       return;
     }
     setSaving(true);
@@ -56,7 +71,7 @@ export default function AdminBlogPage() {
         ? await api.updateBlogPost(editingPost.id, formData)
         : await api.createBlogPost(formData);
       if (result.error) {
-        alert(result.error);
+        toast({ type: 'error', title: 'Error', message: result.error });
         setSaving(false);
         return;
       }
@@ -65,7 +80,7 @@ export default function AdminBlogPage() {
       setFormData(emptyForm);
       loadPosts();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to save post");
+      toast({ type: 'error', title: 'Error', message: e instanceof Error ? e.message : "Failed to save post" });
     } finally {
       setSaving(false);
     }
@@ -85,12 +100,18 @@ export default function AdminBlogPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this post? This cannot be undone.')) return;
-    const result = await api.deleteBlogPost(id);
+    setDeleteConfirm({ id, title: 'Delete Post' });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    const result = await api.deleteBlogPost(deleteConfirm.id);
     if (result.error) {
-      alert(result.error);
-      return;
+      toast({ type: 'error', title: 'Error', message: result.error });
+    } else {
+      toast({ type: 'success', title: 'Deleted', message: 'Post deleted successfully' });
     }
+    setDeleteConfirm(null);
     loadPosts();
   };
 
@@ -112,10 +133,19 @@ export default function AdminBlogPage() {
   };
 
   const handleReject = async (post: BlogPost) => {
-    const reason = window.prompt('Rejection reason:');
-    if (!reason) return;
-    const result = await api.rejectPost(post.id, reason);
-    if (!result.error) loadPosts();
+    setRejectModal({ id: post.id, title: post.title });
+  };
+
+  const confirmReject = async (reason: string) => {
+    if (!rejectModal) return;
+    const result = await api.rejectPost(rejectModal.id, reason);
+    if (!result.error) {
+      toast({ type: 'success', title: 'Rejected', message: 'Post rejected' });
+      loadPosts();
+    } else {
+      toast({ type: 'error', title: 'Error', message: result.error });
+    }
+    setRejectModal(null);
   };
 
   const generateSlug = (title: string) =>
@@ -237,10 +267,10 @@ export default function AdminBlogPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="blog-modal-title" ref={blogModal.modalRef} onKeyDown={blogModal.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-[var(--border)]">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">{editingPost ? 'Edit Post' : 'New Post'}</h2>
+              <h2 className="text-xl font-bold" id="blog-modal-title">{editingPost ? 'Edit Post' : 'New Post'}</h2>
               <button onClick={() => setShowModal(false)} className="text-[var(--muted)] hover:text-white text-xl">&times;</button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -333,6 +363,30 @@ export default function AdminBlogPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!deleteConfirm}
+        title="Delete Post"
+        message={`Are you sure you want to delete "${deleteConfirm?.title}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm(null)}
+      />
+
+      {/* Reject Modal */}
+      <ConfirmModal
+        isOpen={!!rejectModal}
+        title="Reject Post"
+        message={`Rejection reason for "${rejectModal?.title}":`}
+        confirmLabel="Reject"
+        variant="warning"
+        inputLabel="Reason"
+        inputPlaceholder="Enter rejection reason..."
+        onConfirm={(reason) => confirmReject(reason || '')}
+        onCancel={() => setRejectModal(null)}
+      />
     </div>
   );
 }

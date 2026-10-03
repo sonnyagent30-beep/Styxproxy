@@ -120,7 +120,7 @@ export default function AdminRlsPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p className="text-gray-400">Loading RLS state…</p>
+        <p className="text-[var(--muted)]">Loading RLS state…</p>
       </div>
     );
   }
@@ -130,7 +130,7 @@ export default function AdminRlsPage() {
     return (
       <div className="p-8" role="alert">
         <h1 className="text-2xl font-bold text-red-400">Access denied</h1>
-        <p className="mt-2 text-gray-300">
+        <p className="mt-2 text-[var(--foreground)]">
           The RLS admin page requires the <code>superadmin</code> role.
         </p>
       </div>
@@ -148,8 +148,8 @@ export default function AdminRlsPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white">Row-Level Security (RLS)</h1>
-        <p className="mt-2 text-gray-400">
+        <h1 className="text-3xl font-bold text-[var(--foreground)]">Row-Level Security (RLS)</h1>
+        <p className="mt-2 text-[var(--muted)]">
           Sprint 15 — Postgres RLS policy toggle. Every toggle creates two policies:
           one for <code>styxproxy_app</code> (the eventual app role) and one admin
           bridge for <code>styxproxy</code> (current app user) so admin sessions
@@ -165,30 +165,30 @@ export default function AdminRlsPage() {
 
       {/* Status cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <p className="text-xs uppercase text-gray-400">Total Tables</p>
-          <p className="mt-1 text-3xl font-bold text-white">
+        <div className="bg-[var(--card)] rounded-lg p-4 border border-[var(--border)]">
+          <p className="text-xs uppercase text-[var(--muted)]">Total Tables</p>
+          <p className="mt-1 text-3xl font-bold text-[var(--foreground)]">
             {status?.total_tables ?? policyList?.total ?? 0}
           </p>
         </div>
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <p className="text-xs uppercase text-gray-400">RLS Enabled</p>
+        <div className="bg-[var(--card)] rounded-lg p-4 border border-[var(--border)]">
+          <p className="text-xs uppercase text-[var(--muted)]">RLS Enabled</p>
           <p className="mt-1 text-3xl font-bold text-green-400">
             {status?.rls_enabled_count ?? policyList?.enabled_count ?? 0}
           </p>
         </div>
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <p className="text-xs uppercase text-gray-400">RLS Disabled</p>
+        <div className="bg-[var(--card)] rounded-lg p-4 border border-[var(--border)]">
+          <p className="text-xs uppercase text-[var(--muted)]">RLS Disabled</p>
           <p className="mt-1 text-3xl font-bold text-amber-400">
             {status?.rls_disabled_count ?? 0}
           </p>
         </div>
-        <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-          <p className="text-xs uppercase text-gray-400">Phase 2 Progress</p>
-          <p className="mt-1 text-3xl font-bold text-blue-400">{completionPct}%</p>
-          <div className="mt-2 h-1.5 bg-slate-700 rounded overflow-hidden">
+        <div className="bg-[var(--card)] rounded-lg p-4 border border-[var(--border)]">
+          <p className="text-xs uppercase text-[var(--muted)]">Phase 2 Progress</p>
+          <p className="mt-1 text-3xl font-bold text-[var(--primary)]">{completionPct}%</p>
+          <div className="mt-2 h-1.5 bg-[var(--card-hover)] rounded overflow-hidden">
             <div
-              className="h-full bg-blue-500 transition-all"
+              className="h-full bg-[var(--primary)] transition-all"
               style={{ width: `${completionPct}%` }}
             />
           </div>
@@ -196,12 +196,12 @@ export default function AdminRlsPage() {
       </div>
 
       {/* Bypass role status banner */}
-      <div className="mb-6 rounded-lg border border-slate-700 bg-slate-800 p-4">
+      <div className="mb-6 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-[var(--foreground)]">
               <strong>Running role:</strong>{' '}
-              <code className="bg-slate-900 px-2 py-0.5 rounded text-blue-300">
+              <code className="bg-[var(--background)] px-2 py-0.5 rounded text-[var(--primary)]">
                 {status?.current_user_role ?? 'unknown'}
               </code>
               {'  '}
@@ -219,7 +219,7 @@ export default function AdminRlsPage() {
           <button
             onClick={handleRefresh}
             disabled={actionInProgress === '__refresh__'}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
+            className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] disabled:bg-[var(--card-hover)] text-[var(--foreground)] text-sm font-medium rounded-lg transition-colors"
           >
             {actionInProgress === '__refresh__' ? 'Refreshing…' : 'Refresh from pg_class'}
           </button>
@@ -229,7 +229,7 @@ export default function AdminRlsPage() {
       {/* Phase 2a-2h rollout plan */}
       {rolloutPlan && (
         <div className="mb-6">
-          <h2 className="text-xl font-bold text-white mb-3">
+          <h2 className="text-xl font-bold text-[var(--foreground)] mb-3">
             Rollout Plan (Phase 2a–2h)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -238,22 +238,22 @@ export default function AdminRlsPage() {
                 key={phase.phase}
                 className={`rounded-lg border p-4 ${
                   phase.completed
-                    ? 'bg-green-900/20 border-green-700'
-                    : 'bg-slate-800 border-slate-700'
+                    ? 'bg-green-500/10 border-green-700'
+                    : 'bg-[var(--card)] border-[var(--border)]'
                 }`}
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs uppercase text-gray-400">
+                    <p className="text-xs uppercase text-[var(--muted)]">
                       Phase {phase.phase} · risk: {phase.risk}
                     </p>
-                    <p className="mt-1 text-lg font-semibold text-white">
+                    <p className="mt-1 text-lg font-semibold text-[var(--foreground)]">
                       {phase.completed ? '✓' : '○'} {phase.table_name}
                     </p>
-                    <p className="mt-1 text-sm text-gray-300">{phase.rationale}</p>
+                    <p className="mt-1 text-sm text-[var(--foreground)]">{phase.rationale}</p>
                   </div>
                   {phase.enabled_at && (
-                    <p className="text-xs text-gray-500 whitespace-nowrap">
+                    <p className="text-xs text-[var(--muted)] whitespace-nowrap">
                       {new Date(phase.enabled_at).toLocaleDateString()}
                     </p>
                   )}
@@ -273,56 +273,56 @@ export default function AdminRlsPage() {
 
       {/* Filter + Table list */}
       <div className="mb-4 flex items-center gap-2">
-        <span className="text-sm text-gray-400">Filter:</span>
+        <span className="text-sm text-[var(--muted)]">Filter:</span>
         {(['all', 'enabled', 'disabled'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={`px-3 py-1 text-xs rounded ${
               filter === f
-                ? 'bg-blue-600 text-white'
-                : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                ? 'bg-[var(--primary)] text-[var(--foreground)]'
+                : 'bg-[var(--card-hover)] text-[var(--foreground)] hover:bg-[var(--card-hover)]'
             }`}
           >
             {f}
           </button>
         ))}
-        <span className="ml-auto text-sm text-gray-400">
+        <span className="ml-auto text-sm text-[var(--muted)]">
           Showing {filteredPolicies().length} of {policyList?.total ?? 0}
         </span>
       </div>
 
-      <div className="rounded-lg border border-slate-700 overflow-hidden">
+      <div className="rounded-lg border border-[var(--border)] overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-slate-800">
+          <thead className="bg-[var(--card)]">
             <tr>
-              <th className="text-left p-3 text-gray-300">Table</th>
-              <th className="text-left p-3 text-gray-300">Policy</th>
-              <th className="text-left p-3 text-gray-300">Status</th>
-              <th className="text-left p-3 text-gray-300">Applied</th>
-              <th className="text-right p-3 text-gray-300">Action</th>
+              <th className="text-left p-3 text-[var(--foreground)]">Table</th>
+              <th className="text-left p-3 text-[var(--foreground)]">Policy</th>
+              <th className="text-left p-3 text-[var(--foreground)]">Status</th>
+              <th className="text-left p-3 text-[var(--foreground)]">Applied</th>
+              <th className="text-right p-3 text-[var(--foreground)]">Action</th>
             </tr>
           </thead>
           <tbody>
             {filteredPolicies().map((p) => (
               <tr
                 key={p.table_name}
-                className="border-t border-slate-700 hover:bg-slate-800/50"
+                className="border-t border-[var(--border)] hover:bg-[var(--card)]/50"
               >
-                <td className="p-3 font-mono text-white">{p.table_name}</td>
-                <td className="p-3 font-mono text-xs text-gray-300">{p.policy_name}</td>
+                <td className="p-3 font-mono text-[var(--foreground)]">{p.table_name}</td>
+                <td className="p-3 font-mono text-xs text-[var(--foreground)]">{p.policy_name}</td>
                 <td className="p-3">
                   {p.policy_enabled ? (
-                    <span className="inline-block px-2 py-0.5 text-xs rounded bg-green-900/60 text-green-300">
+                    <span className="inline-block px-2 py-0.5 text-xs rounded bg-green-500/20 text-green-300">
                       enabled
                     </span>
                   ) : (
-                    <span className="inline-block px-2 py-0.5 text-xs rounded bg-slate-700 text-gray-400">
+                    <span className="inline-block px-2 py-0.5 text-xs rounded bg-[var(--card-hover)] text-[var(--muted)]">
                       disabled
                     </span>
                   )}
                 </td>
-                <td className="p-3 text-xs text-gray-400">
+                <td className="p-3 text-xs text-[var(--muted)]">
                   {p.applied_at ? new Date(p.applied_at).toLocaleString() : '—'}
                 </td>
                 <td className="p-3 text-right">
@@ -331,9 +331,9 @@ export default function AdminRlsPage() {
                     disabled={actionInProgress === p.table_name}
                     className={`px-3 py-1 text-xs rounded font-medium transition-colors ${
                       p.policy_enabled
-                        ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                        : 'bg-green-600 hover:bg-green-700 text-white'
-                    } disabled:bg-slate-600`}
+                        ? 'bg-amber-600 hover:bg-amber-700 text-[var(--foreground)]'
+                        : 'bg-green-600 hover:bg-green-700 text-[var(--foreground)]'
+                    } disabled:bg-[var(--card-hover)]`}
                   >
                     {actionInProgress === p.table_name
                       ? '…'

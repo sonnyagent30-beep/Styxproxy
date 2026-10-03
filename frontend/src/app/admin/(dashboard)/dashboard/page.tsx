@@ -3,7 +3,8 @@
 /* eslint-disable react-hooks/immutability */
 
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ArrowsClockwise } from '@phosphor-icons/react';
 import api from '@/lib/api';
 import { AdminStats, MetricsOverview } from '@/types';
 import ErrorBoundary from '@/components/admin/ErrorBoundary';
@@ -234,10 +235,6 @@ export default function AdminDashboardPage() {
       {/* Secondary KPIs */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-          <p className="text-[var(--muted)] text-sm mb-1">Total Customers</p>
-          <p className="text-3xl font-bold">{(stats?.total_customers ?? 0).toLocaleString()}</p>
-        </div>
-        <div className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
           <p className="text-[var(--muted)] text-sm mb-1">Active Credentials</p>
           <p className="text-3xl font-bold text-[var(--primary)]">
             {(stats?.active_credentials ?? metrics?.active_proxies ?? 0).toLocaleString()}
@@ -293,7 +290,7 @@ export default function AdminDashboardPage() {
             title="Refresh"
             aria-label="Refresh dashboard data"
           >
-            ↻ Refresh
+            <ArrowsClockwise size={16} /> Refresh
           </button>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

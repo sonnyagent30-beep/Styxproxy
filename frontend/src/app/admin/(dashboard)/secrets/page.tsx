@@ -107,11 +107,11 @@ export default function SecretsVaultPage() {
           {row.set ? row.masked : <span className="italic">not set</span>}
         </p>
       </div>
-      <button onClick={() => { setEditingKey(row.key); setEditValue(''); }} disabled={busy} aria-label={`Edit ${row.key}`} aria-label={`Edit ${row.key}`}
+      <button onClick={() => { setEditingKey(row.key); setEditValue(''); }} disabled={busy} aria-label={`Edit ${row.key}`}
         className="px-3 py-1.5 text-sm rounded-lg border border-[var(--border)] hover:border-[var(--primary)] transition-colors disabled:opacity-50">
         Edit
       </button>
-      <button onClick={() => remove(row.key)} disabled={busy} aria-label={`Remove ${row.key}`} aria-label={`Remove ${row.key}`}
+      <button onClick={() => remove(row.key)} disabled={busy} aria-label={`Remove ${row.key}`}
         className="px-3 py-1.5 text-sm rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50">
         Remove
       </button>

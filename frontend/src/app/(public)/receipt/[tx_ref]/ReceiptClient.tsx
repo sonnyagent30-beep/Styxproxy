@@ -141,19 +141,19 @@ function ReceiptContent() {
 
   if (loading) {
     return (
-      <main className="flex-1 flex items-center justify-center px-4">
+      <section className="flex-1 flex items-center justify-center px-4">
         <div className="text-center">
           <div className="w-16 h-16 mx-auto mb-6 rounded-full border-4 border-[var(--primary)] border-t-transparent animate-spin" />
           <h1 className="text-2xl font-bold mb-2">Loading Receipt...</h1>
           <p className="text-[var(--muted)]">Fetching your order details</p>
         </div>
-      </main>
+      </section>
     );
   }
 
   if (error || !txRef) {
     return (
-      <main className="flex-1 flex items-center justify-center px-4">
+      <section className="flex-1 flex items-center justify-center px-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Receipt Not Found</h1>
           <p className="text-[var(--muted)] mb-6">
@@ -166,7 +166,7 @@ function ReceiptContent() {
             Place New Order
           </Link>
         </div>
-      </main>
+      </section>
     );
   }
 
@@ -174,7 +174,7 @@ function ReceiptContent() {
   const statusColor = isSuccess ? 'var(--primary)' : 'var(--muted)';
 
   return (
-    <main className="flex-1 flex items-start justify-center px-4 pt-32 pb-16">
+    <section className="flex-1 flex items-start justify-center px-4 pt-32 pb-16">
       <div className="max-w-lg w-full">
         {/* Header */}
         <div className="text-center mb-8">
@@ -280,18 +280,18 @@ function ReceiptContent() {
           <p>Need help? <a href="/contact" className="text-[var(--primary)] hover:underline">Contact support</a></p>
         </div>
       </div>
-    </main>
+    </section>
   );
 }
 
 export default function ReceiptClient() {
   return (
     <Suspense fallback={
-      <main className="flex-1 flex items-center justify-center px-4">
+      <section className="flex-1 flex items-center justify-center px-4">
         <div className="text-center">
           <div className="w-16 h-16 mx-auto mb-6 rounded-full border-4 border-[var(--primary)] border-t-transparent animate-spin" />
         </div>
-      </main>
+      </section>
     }>
       <ReceiptContent />
     </Suspense>
