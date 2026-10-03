@@ -35,8 +35,81 @@ STUB_PROXY_POOL = {
     "DEFAULT": [{"ip": "104.248.12.34", "port": 1080}],
 }
 
+# Country validity is an ENUMERABLE SET, not a blocklist of magic strings.
+# A blocklist only closes the values we happened to think of: 'UK' (not ISO
+# 3166 — the table has GB), 'Nigeria' (a name, not a code), 'XX', 'n/a' all
+# pass through and the provider mints a credential for a country nobody chose.
+# Production already holds orders with country='Nigeria' (9) and country='UK'
+# (3), and 'UK' has reached the credential layer.
+#
+# The authoritative list is the `countries` table (197 ISO rows), loaded via
+# the shared loader in app.services.countries — the same loader the API
+# validator uses. Fail-closed: if the DB read fails, create_credential()
+# raises a loud error instead of silently validating against a stale set.
+# `GENERIC` — the frontend's country-less sentinel — is not an ISO code and is
+# therefore rejected by the same check.
+from app.services.countries import get_valid_countries as _get_valid_countries
+
+# Full ISO 3166-1 alpha-2 set (197 entries) — used by
+# resolve_country_for_credential() for the sync fallback path (rotation /
+# re-fulfil where the order's country may hold a legacy non-ISO value).
+ISO_COUNTRY_CODES = {
+    "AD", "AE", "AF", "AG", "AL", "AM", "AO", "AR", "AT", "AU", "AZ",
+    "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BN", "BO",
+    "BR", "BS", "BT", "BW", "BY", "BZ", "CA", "CD", "CF", "CG", "CH",
+    "CI", "CL", "CM", "CN", "CO", "CR", "CU", "CV", "CY", "CZ", "DE",
+    "DJ", "DK", "DM", "DO", "DZ", "EC", "EE", "EG", "ER", "ES", "ET",
+    "FI", "FJ", "FM", "FR", "GA", "GB", "GD", "GE", "GH", "GM", "GN",
+    "GQ", "GR", "GT", "GW", "GY", "HN", "HR", "HT", "HU", "ID", "IE",
+    "IL", "IN", "IQ", "IR", "IS", "IT", "JM", "JO", "JP", "KE", "KG",
+    "KH", "KI", "KM", "KN", "KP", "KR", "KW", "KZ", "LA", "LB", "LC",
+    "LI", "LK", "LR", "LS", "LT", "LU", "LV", "LY", "MA", "MC", "MD",
+    "ME", "MG", "MH", "MK", "ML", "MM", "MN", "MR", "MT", "MU", "MV",
+    "MW", "MX", "MY", "MZ", "NA", "NE", "NG", "NI", "NL", "NO", "NP",
+    "NR", "NZ", "OM", "PA", "PE", "PG", "PH", "PK", "PL", "PS", "PT",
+    "PW", "PY", "QA", "RO", "RS", "RU", "RW", "SA", "SB", "SC", "SD",
+    "SE", "SG", "SI", "SK", "SL", "SM", "SN", "SO", "SR", "SS", "ST",
+    "SV", "SY", "SZ", "TD", "TG", "TH", "TJ", "TL", "TM", "TN", "TO",
+    "TR", "TT", "TV", "TW", "TZ", "UA", "UG", "US", "UY", "UZ", "VA",
+    "VC", "VE", "VN", "VU", "WS", "XK", "YE", "ZA", "ZM", "ZW",
+}
+
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
+
+
+# Non-ISO codes that have a valid ISO equivalent. UK is the common one —
+# ISO 3166-1 alpha-2 for the United Kingdom is GB, not UK. We normalise
+# UK→GB so legacy rows and customer input using UK are handled correctly.
+_COUNTRY_NORMALIZATION = {
+    "UK": "GB",
+}
+
+
+def normalize_country(country: str) -> str:
+    """Normalise a country code: strip, uppercase, and map non-ISO codes to ISO."""
+    code = (country or "").strip().upper()
+    return _COUNTRY_NORMALIZATION.get(code, code)
+
+
+def resolve_country_for_credential(country: str, fallback: str = "NG") -> str:
+    """Resolve a country code for credential creation, with safe fallback.
+
+    Normalises the input and validates it against the full ISO 3166-1 alpha-2
+    set. If the result is not a valid code, returns the fallback (default "NG")
+    instead of raising. This is the safe path for rotation and re-fulfill flows
+    where the order's country may hold a legacy non-ISO value (e.g. "UK",
+    "Nigeria", "GENERIC") and the customer already paid — failing hard would
+    deny them a working proxy.
+
+    The authoritative validation still happens in create_credential() via the
+    shared loader in app.services.countries; this helper only prevents the
+    ValueError from being raised at the call site.
+    """
+    code = normalize_country(country)
+    if code in ISO_COUNTRY_CODES:
+        return code
+    return fallback
 
 
 def generate_styxproxy_username(phone: Optional[str] = None, order_id: Optional[str] = None) -> str:
@@ -97,24 +170,63 @@ async def get_provider_proxy(
     country: str,
     proxy_type: str = "isp",
     quantity: int = 1,
+    targeting_mode: str = "country_chosen",
+    city: Optional[str] = None,
 ) -> dict:
     """
     Get a tested, working proxy from the provider.
     Tries up to MAX_PROVIDER_RETRIES times.
+
+    IP quality screening is applied to every IP returned by the provider.
+    A failing IP is rejected and a new one is requested (retry). If the
+    IPQualityScore service is unreachable, the screen fails open — a
+    third-party outage must not stop sales.
     """
     from app.services import provider as provider_svc
+    from app.services.ip_quality import screen_ip, IPQualityError
 
     last_error = None
     for attempt in range(MAX_PROVIDER_RETRIES):
         try:
-            logger.info("get_provider_proxy attempt %d: plan_code=%s country=%s proxy_type=%s", attempt, plan_code, country, proxy_type)
+            logger.info("get_provider_proxy attempt %d: plan_code=%s country=%s proxy_type=%s targeting_mode=%s", attempt, plan_code, country, proxy_type, targeting_mode)
             proxy = await provider_svc.create_order(
                 plan_code=plan_code,
                 country=country,
                 proxy_type=proxy_type,
                 quantity=quantity,
+                targeting_mode=targeting_mode,
+                city=city,
             )
             logger.info("create_order returned: %s:%s id=%s", proxy.ip, proxy.port, proxy.provider_order_id)
+
+            # ── IP Quality Screening ──────────────────────────────────────
+            # Screen the IP before it reaches the customer. A failing IP must
+            # not produce a credential — retry with a fresh IP instead.
+            #
+            # Fail-open policy: if IPQS is unreachable (timeout, 5xx, rate
+            # limit), we log a warning and accept the proxy. A third-party
+            # outage must not stop sales. Only a genuine screening failure
+            # (fraud_score, recent abuse, open proxy) causes a retry.
+            try:
+                ipq_result = await screen_ip(proxy.ip, plan_type=proxy_type)
+                if not ipq_result.is_clean:
+                    last_error = f"IP quality check failed: {ipq_result.fail_reason}"
+                    logger.warning(
+                        "IP %s failed screening: %s — retrying with fresh IP",
+                        proxy.ip, ipq_result.fail_reason,
+                    )
+                    continue  # retry with a new IP from the provider
+                logger.info(
+                    "IP %s passed screening (fraud_score=%d, abuse_velocity=%s)",
+                    proxy.ip, ipq_result.fraud_score, ipq_result.abuse_velocity,
+                )
+            except IPQualityError as e:
+                # IPQS unreachable or rate-limited — fail open, don't block sales
+                logger.warning(
+                    "IP quality check unavailable for %s: %s — failing open (accepting proxy)",
+                    proxy.ip, e,
+                )
+                # Continue with the proxy — a third-party outage must not stop sales
 
             test_result = await provider_svc.test_proxy(proxy)
             logger.info("test_proxy returned: alive=%s latency=%s", test_result.alive, test_result.latency_ms)
@@ -159,6 +271,8 @@ async def create_credential(
     duration_days: int = 30,
     protocol: str = "socks5",
     pool_type: str = "paid",
+    targeting_mode: str = "country_chosen",
+    city: Optional[str] = None,
 ) -> tuple[StyxproxyCredential, str]:
     """
     Full credential pipeline: provider → test → DB.
@@ -170,12 +284,32 @@ async def create_credential(
     to the customer (via email, WhatsApp, n8n, etc.).
     """
     logger.info("create_credential: order_id=%s plan_code=%s country=%s proxy_type=%s qty=%d", order_id, plan_code, country, proxy_type, quantity)
+
+    # ── Refuse an unresolved/invalid country BEFORE calling the provider ────
+    # The provider accepts '' and 'GENERIC' and mints a working credential, so
+    # a country-less order silently sells a proxy for a country nobody chose.
+    # This is the chokepoint every fulfilment path goes through (webhook,
+    # worker, ops reprocess), so the check here cannot be bypassed by a caller.
+    #
+    # Validity is membership in the ISO country set, not a blocklist — see the
+    # note on _valid_country_codes.
+    country_norm = (country or "").strip().upper()
+    valid_codes = _get_valid_countries()
+    if country_norm not in valid_codes:
+        raise ValueError(
+            f"Refusing to create a credential with an invalid country "
+            f"({country!r}). Must be a valid ISO country code — the customer "
+            f"must choose a real location before payment."
+        )
+
     # 1. Get and test a working proxy from the provider
     proxy = await get_provider_proxy(
         plan_code=plan_code,
-        country=country,
+        country=country_norm,
         proxy_type=proxy_type,
         quantity=quantity,
+        targeting_mode=targeting_mode,
+        city=city,
     )
     logger.info("Got proxy: %s:%s", proxy["ip"], proxy["port"])
 
@@ -288,17 +422,33 @@ async def replace_credential(
     if not order:
         return None
 
-    await revoke_credential(db_session, old_credential_id, reason)
-
     if not old.order_id:
         return None
+
+    # ── Validate the country BEFORE revoking the old credential ─────────────
+    # This used to revoke first and create second. create_credential() now
+    # refuses an invalid country, so on a bad country the old credential was
+    # already revoked and marked revoked_at when the new one failed to be
+    # created — destroying a WORKING credential and leaving the customer with
+    # nothing. Validate first, so a failure here leaves the old one intact.
+    country_norm = (order.country or "NG").strip().upper()
+    valid_codes = _get_valid_countries()
+    if country_norm not in valid_codes:
+        logger.error(
+            "Refusing to replace credential %s for order %s: order country %r is "
+            "not a valid ISO code. The existing credential has been LEFT ACTIVE.",
+            old_credential_id, old.order_id, order.country,
+        )
+        return None
+
+    await revoke_credential(db_session, old_credential_id, reason)
 
     new_cred, _ = await create_credential(
         db_session=db_session,
         order_id=old.order_id,
         customer_phone=old.customer_phone or "",
         plan_code=order.plan_code or "unknown",
-        country=order.country or "NG",
+        country=country_norm,
         duration_days=30,
         protocol=old.protocol or "socks5",
         pool_type=old.pool_type or "paid",

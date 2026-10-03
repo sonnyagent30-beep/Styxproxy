@@ -27,8 +27,8 @@ sys.path.insert(0, "/opt/styxproxy/backend")
 
 from app.config import get_settings
 from app.database import async_session as AsyncSessionLocal
-from app.services.flutterwave import _flutterwave_refund
 from app.services.n8n import trigger_credentials_delivered_webhook
+from app.services.refunds import GatewayRefundError, refund_at_gateway
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,7 +70,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             from sqlalchemy import select
             from app.models import Order
             from app.services.audit import log_audit_event
-            from app.services.credential import create_credential
+            from app.services.credential import create_credential, resolve_country_for_credential
 
             # ── Load order ────────────────────────────────────────────────
             order = (
@@ -125,28 +125,74 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             delivery_error: str | None = None
 
             try:
-                # Create the correct number of credentials
+                # Create the correct number of credentials.
+                #
+                # DC and ISP are sold per IP: a DC-US-3IP order is THREE proxies
+                # and must produce three credential rows, three logins and three
+                # addresses. Residential/mobile are sold per GB — `quantity`
+                # there is the GB amount, and a single credential is correct.
+                #
+                # Before this fix the loop existed but only the LAST credential
+                # was recorded on the order and only the LAST was emailed, while
+                # the order was marked `fulfilled`. So a 3-IP customer got three
+                # credentials created, one recorded, one emailed, and an order
+                # that said fulfilled — delivery actively misstating what was
+                # bought.
+                created: list[tuple] = []
                 for i in range(quantity):
                     logger.info(
                         f"creating credential {i+1}/{quantity}",
                         extra={**log_ctx, "proxy_type": proxy_type, "index": i},
                     )
-                    credential, plaintext_password = await create_credential(
+                    cred_i, pw_i = await create_credential(
                         db_session=db,
                         order_id=order.order_id,
                         customer_phone=order.customer_phone or "",
                         plan_code=order.plan_code or "unknown",
-                        country=order.country or "NG",
+                        country=resolve_country_for_credential(order.country),
                         proxy_type=proxy_type,
                         quantity=1,
                         duration_days=30,
                         protocol="socks5",
                         pool_type="paid",
+                        targeting_mode=order.targeting_mode or "country_chosen",
+                        city=order.city_name,
+                    )
+                    created.append((cred_i, pw_i))
+
+                # A partial create must NOT be reported as fulfilled. If the
+                # provider gave us fewer than we asked for, that is a failure the
+                # customer paid for and it has to be visible.
+                if len(created) != quantity:
+                    raise RuntimeError(
+                        f"provider returned {len(created)} credential(s) for a "
+                        f"quantity-{quantity} order — refusing to mark fulfilled"
                     )
 
+                credential, plaintext_password = created[-1]
+                # `styxproxy_credential_id` is a single FK, so it keeps pointing
+                # at the last row for backwards compatibility. The full set is
+                # discoverable via styxproxy_credentials.order_id (1:N).
                 order.styxproxy_credential_id = credential.id
                 order.status = "fulfilled"
                 await db.commit()
+
+                # All credentials, for the email. Order matters: proxy 1 of N.
+                all_credentials = [
+                    {
+                        "styxproxy_username": c.styxproxy_username,
+                        "styxproxy_password": pw,
+                        "proxy_ip": c.upstream_proxy_ip or "",
+                        "proxy_port": c.upstream_proxy_port or 1080,
+                        "protocol": "socks5",
+                        "expires_at": c.expires_at,
+                    }
+                    for c, pw in created
+                ]
+                logger.info(
+                    f"created {len(created)} credential(s) for quantity {quantity}",
+                    extra={**log_ctx, "created_count": len(created), "quantity": quantity},
+                )
 
                 # ── Deliver the credential ─────────────────────────────────
                 # Email is the delivery channel. The n8n webhook is a
@@ -191,6 +237,10 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                             protocol="socks5",
                             expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
                             receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
+                            # One block per proxy. Without this a 3-IP order
+                            # emailed a single credential while the line item
+                            # said quantity 3.
+                            credentials=all_credentials,
                         )
                         # send_order_active_email returns EmailResult and does NOT
                         # raise on provider failure, so the old code logged
@@ -317,7 +367,6 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                     extra={**log_ctx, "error": fulfillment_error},
                 )
 
-                settings = get_settings()
                 if not amount:
                     # Never issue a NGN 0 refund and then mark the order
                     # "refunded" — that reports money returned when none moved.
@@ -333,13 +382,20 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                     await db.commit()
                 else:
                     try:
-                        await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
+                        refund = await refund_at_gateway(
+                            order,
+                            reason=f"Auto-refund: provider unavailable — {fulfillment_error}",
+                        )
                         order.status = "refunded"
                         order.refund_requested = True
                         order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
+                        order.gateway_refund_id = refund.gateway_refund_id
+                        order.gateway_refund_status = refund.gateway_status
+                        order.gateway_refund_amount = refund.amount_ngn
+                        order.gateway_refunded_at = datetime.now(timezone.utc)
                         await db.commit()
                         logger.info("auto-refund issued", extra={**log_ctx, "amount": amount})
-                    except Exception as refund_error:
+                    except GatewayRefundError as refund_error:
                         logger.error(
                             "refund failed — order stays failed_unfulfilled",
                             extra={**log_ctx, "refund_error": str(refund_error)},
@@ -417,11 +473,26 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
 
 # ── RQ Worker bootstrap ──────────────────────────────────────────────────────
 if __name__ == "__main__":
+    import asyncio
+
     from redis import Redis as SyncRedis
     from rq import Worker
 
     settings = get_settings()
     redis_url = settings.redis_url
+
+    # ── Load valid countries at startup ────────────────────────────────────
+    # The worker does not boot app.main, so the FastAPI lifespan never runs.
+    # create_credential() calls get_valid_countries() which raises if the set
+    # is not loaded — without this, every order would fail with RuntimeError.
+    from app.services.countries import load_valid_countries
+
+    try:
+        codes = asyncio.run(load_valid_countries())
+        logger.info("Loaded %d valid country codes at startup", len(codes))
+    except RuntimeError as e:
+        logger.error("FATAL: could not load valid countries — %s", e)
+        sys.exit(1)
 
     logger.info("Starting fulfillment worker...")
     conn = SyncRedis.from_url(redis_url)

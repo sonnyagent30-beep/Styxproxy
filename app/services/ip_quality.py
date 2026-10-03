@@ -11,6 +11,7 @@ Usage:
         raise IPQualityError(f"IP {ip} failed screening: {result.fail_reason}")
 """
 
+import ipaddress
 import logging
 import os
 from dataclasses import dataclass
@@ -59,10 +60,18 @@ class IPQResult:
     asn: str
     is_clean: bool  # True if IP passes Styxproxy quality gates
     fail_reason: Optional[str]  # Human-readable failure reason
+    plan_type: str = "unknown"  # which rule set produced is_clean
 
     @classmethod
-    def from_api_response(cls, ip: str, data: dict) -> "IPQResult":
-        """Parse IPQS API response into IPQResult."""
+    def from_api_response(cls, ip: str, data: dict, plan_type: str = "unknown") -> "IPQResult":
+        """Parse IPQS API response into IPQResult.
+
+        `plan_type` selects the rule set. The gate is plan-aware because the
+        four product lines are not interchangeable: a datacenter IP is a defect
+        on a residential plan and the *entire point* of a datacenter plan.
+        Applying one flat rule set to all four rejected 100% of DC and ISP
+        proxies — see `_evaluate`.
+        """
         fraud_score = int(data.get("fraud_score", 0))
         is_proxy = bool(data.get("proxy", False))
         is_vpn = bool(data.get("vpn", False))
@@ -75,29 +84,16 @@ class IPQResult:
         isp = data.get(" ISP ", data.get("ISP", ""))
         asn = data.get("ASN", "")
 
-        # ── Styxproxy quality gates ─────────────────────────────────────────
-        #
-        # Residential plans: reject datacenter IPs, open proxies, VPN exit nodes,
-        #                    and IPs with fraud_score >= 75 or recent abuse.
-        # ISP plans:         allow datacenter IPs (that's what ISP means here),
-        #                    but still reject open proxies and high-fraud IPs.
-        #
-        # Tor is a soft reject (most Tor IPs are in datacenters anyway).
-        #
-        fail_reason: Optional[str] = None
-
-        if fraud_score >= 85:
-            fail_reason = f"fraud_score={fraud_score} (>= 85)"
-        elif recent_abuse and fraud_score >= 50:
-            fail_reason = f"recent_abuse=True with fraud_score={fraud_score}"
-        elif is_proxy and not is_vpn:
-            fail_reason = "open_proxy detected"
-        elif is_vpn and fraud_score >= 75:
-            fail_reason = f"vpn=True with fraud_score={fraud_score}"
-        # Tor: warn but don't block (low volume, abuse rarely comes from Tor)
-        elif is_tor:
-            logger.warning(f"IP {ip}: Tor exit node (fraud_score={fraud_score})")
-            fail_reason = None  # soft warn only
+        fail_reason = _evaluate(
+            ip=ip,
+            plan_type=plan_type,
+            fraud_score=fraud_score,
+            is_proxy=is_proxy,
+            is_vpn=is_vpn,
+            is_tor=is_tor,
+            is_datacenter=is_datacenter,
+            recent_abuse=recent_abuse,
+        )
 
         is_clean = fail_reason is None
 
@@ -115,11 +111,12 @@ class IPQResult:
             isp=isp,
             asn=asn,
             is_clean=is_clean,
+            plan_type=plan_type,
             fail_reason=fail_reason,
         )
 
     @classmethod
-    def stub(cls, ip: str) -> "IPQResult":
+    def stub(cls, ip: str, plan_type: str = "unknown") -> "IPQResult":
         """Return a pass for environments without an IPQS key (e.g. tests)."""
         return cls(
             ip=ip,
@@ -135,8 +132,106 @@ class IPQResult:
             isp="",
             asn="",
             is_clean=True,
+            plan_type=plan_type,
             fail_reason=None,
         )
+
+
+# ─── Plan-aware quality gates ─────────────────────────────────────────────────
+
+#: Rule sets per product line. Values are (fraud_score_ceiling, allow_datacenter).
+#:
+#: `datacenter` and `isp` are *supposed* to be datacenter IPs — that is what the
+#: customer is buying. A flat rule set that rejects `is_proxy`/`is_vpn` rejects
+#: 100% of them, which is what happened: the gate was implemented without the
+#: plan-awareness its own docstring described, so DC and ISP could never fulfil.
+#:
+#: `residential` and `mobile` must NOT be datacenter addresses; a residential
+#: proxy that resolves to a hosting provider is a mis-sold product.
+#:
+#: The ceiling is a hard reject on reputation alone. It sits above the IPQS
+#: "suspicious" band (75-84) on purpose: that band is routinely occupied by
+#: legitimate shared hosting, and rejecting it would fail closed on good stock.
+#: `recent_abuse` still rejects at >= 50 for every plan — that is the signal
+#: that actually predicts abuse, and it is what the docstring called out.
+_PLAN_RULES: dict[str, dict] = {
+    "residential": {"ceiling": 85, "allow_datacenter": False},
+    "mobile":      {"ceiling": 85, "allow_datacenter": False},
+    "datacenter":  {"ceiling": 90, "allow_datacenter": True},
+    "isp":         {"ceiling": 90, "allow_datacenter": True},
+}
+_DEFAULT_RULES = {"ceiling": 85, "allow_datacenter": False}
+
+#: `recent_abuse` is a hard reject at or above this score, for every plan.
+_RECENT_ABUSE_SCORE = 50
+
+
+def _normalise_plan_type(plan_type: Optional[str]) -> str:
+    """Map a plan type / plan code onto a rule-set key.
+
+    Callers pass what they have — `plan_type` ('residential'), a plan code
+    ('DC-US-3IP'), or nothing. Unknown values fall to the strict residential
+    rule set so a new product line cannot silently inherit the permissive one.
+    """
+    raw = (plan_type or "").strip().lower()
+    if not raw:
+        return "unknown"
+    for key in _PLAN_RULES:
+        if raw == key or raw.startswith(key):
+            return key
+    # plan codes: DC-*, ISP-*, RESIDENTIAL-*, MOBILE-*
+    if raw.startswith("dc"):
+        return "datacenter"
+    if raw.startswith("isp"):
+        return "isp"
+    if raw.startswith("res"):
+        return "residential"
+    if raw.startswith("mob"):
+        return "mobile"
+    return "unknown"
+
+
+def _evaluate(
+    *,
+    ip: str,
+    plan_type: Optional[str],
+    fraud_score: int,
+    is_proxy: bool,
+    is_vpn: bool,
+    is_tor: bool,
+    is_datacenter: bool,
+    recent_abuse: bool,
+) -> Optional[str]:
+    """Return a human-readable failure reason, or None if the IP is acceptable.
+
+    Pure function so the rule set can be exercised without the IPQS API.
+    """
+    key = _normalise_plan_type(plan_type)
+    rules = _PLAN_RULES.get(key, _DEFAULT_RULES)
+
+    if fraud_score >= rules["ceiling"]:
+        return f"fraud_score={fraud_score} (>= {rules['ceiling']} for {key})"
+
+    if recent_abuse and fraud_score >= _RECENT_ABUSE_SCORE:
+        return f"recent_abuse=True with fraud_score={fraud_score}"
+
+    if is_datacenter and not rules["allow_datacenter"]:
+        return f"datacenter IP on a {key} plan"
+
+    # An open proxy on a non-datacenter plan is a defect regardless of VPN flag:
+    # `is_proxy and not is_vpn` was the old test, but a VPN-flagged open proxy
+    # slipped through it. Datacenter/ISP stock is legitimately proxy-flagged.
+    if is_proxy and not rules["allow_datacenter"] and not is_vpn:
+        return "open_proxy detected"
+
+    if is_vpn and not rules["allow_datacenter"] and fraud_score >= 75:
+        return f"vpn=True with fraud_score={fraud_score} on a {key} plan"
+
+    if is_tor:
+        # Soft warn only — low volume, abuse rarely originates from Tor.
+        logger.warning("IP %s: Tor exit node (fraud_score=%d)", ip, fraud_score)
+
+    return None
 
 
 # ─── Screen a single IP ───────────────────────────────────────────────────────
@@ -144,18 +239,38 @@ class IPQResult:
 SCORE_URL = "https://ipqualityscore.com/api/json/ip/{key}/{ip}"
 
 
-async def screen_ip(ip: str) -> IPQResult:
+async def screen_ip(ip: str, plan_type: Optional[str] = None) -> IPQResult:
     """Query IPQS for a single IP. Returns IPQResult.
+
+    `plan_type` selects the rule set (residential / mobile / datacenter / isp).
+    Omitting it applies the strict residential rules, so a caller that forgets
+    cannot accidentally accept a datacenter IP on a residential plan.
 
     Raises:
         IPQualityError: on network/HTTP errors (caller should retry).
     """
+    # ── Local format check BEFORE anything else ─────────────────────────────
+    # A malformed value must NEVER reach the fail-open branch. Fail-open exists
+    # for conditions outside our control (network, 5xx, rate limit, third-party
+    # outage); a local data defect is OUR bug and is never a reason to accept
+    # input. This exact case shipped: the simulator generated `192.0.2.58.144`
+    # (five octets), IPQS answered "Invalid IPv4 address", that response fell
+    # into fail-open, and every DC/ISP credential was accepted as
+    # "screened clean" while carrying an address that routes nowhere.
+    try:
+        ipaddress.IPv4Address(ip)
+    except (ipaddress.AddressValueError, ValueError, TypeError) as e:
+        raise IPQualityError(
+            f"refusing to screen {ip!r}: not a valid IPv4 address ({e}). "
+            f"This is a local data defect, not a screening outage — failing CLOSED."
+        ) from e
+
     key = _api_key()
 
     # No key configured — pass all IPs (fail open for dev environments)
     if not key:
         logger.debug(f"IPQUALITYSCORE_API_KEY not set; skipping screening for {ip}")
-        return IPQResult.stub(ip)
+        return IPQResult.stub(ip, plan_type=plan_type or "unknown")
 
     # strictness=0 (light check), lighter_penalties=true (avoid false positives on free tier)
     params = {"strictness": "0", "allow_public_access": "true", "lighter_penalties": "true"}
@@ -189,7 +304,7 @@ async def screen_ip(ip: str) -> IPQResult:
     except Exception as e:
         raise IPQualityError(f"IPQS unexpected error {type(e).__name__}: {e} screening {ip}")
 
-    return IPQResult.from_api_response(ip, data)
+    return IPQResult.from_api_response(ip, data, plan_type=plan_type or "unknown")
 
 
 class IPQualityError(Exception):
