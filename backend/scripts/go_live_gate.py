@@ -51,6 +51,10 @@ PAYSTACK_LIVE = re.compile(r"^(sk|pk)_live_[A-Za-z0-9]+$")
 FLW_VAR_LIVE = re.compile(r"FLWSECK_PROD|FLWPUBK_PROD|FLWSECK_TEST_PROD")
 
 # The shape Flutterwave documents for its webhook Secret Hash.
+#
+# NOT USED for validation any more — kept only for reference. Flutterwave's
+# Secret Hash is user-chosen ("you can specify any value"), so asserting a
+# 32-hex shape produced false failures on correctly-configured secrets.
 FLW_SECRET_HASH_SHAPE = re.compile(r"^[0-9a-fA-F]{32}$")
 
 
@@ -281,11 +285,24 @@ def check_flutterwave_webhook_secret(env_path: str | None) -> Check:
     val = m.group(1).strip().strip('"').strip("'")
     if not val:
         return Check("5", title, False, "FLUTTERWAVE_WEBHOOK_SECRET is empty")
-    if not FLW_SECRET_HASH_SHAPE.match(val):
+    # Flutterwave's Secret Hash is USER-CHOSEN, not gateway-issued. Its docs:
+    # "You can specify any value as your secret hash, but we recommend something
+    # random." It is NOT required to be 32 hex chars. The previous check asserted
+    # a 32-hex shape and failed every correctly-configured non-hex secret, which
+    # is exactly what happened here: it declared a working 32-char alphanumeric
+    # secret "wrong" and sent the team hunting for a non-existent problem.
+    # The real risk is a placeholder/guessable value, so check for that instead.
+    weak = {
+        "changeme", "change-me", "secret", "password", "test", "dev",
+        "your-secret-hash", "secret_hash", "webhooksecret", "1234", "admin",
+    }
+    if len(val) < 16 or val.lower() in weak:
         return Check("5", title, False,
-                     f"secret shape is wrong (len={len(val)}, expected 32 hex chars) -- this "
-                     "is not Flutterwave's Secret Hash, so every real webhook will 401")
-    return Check("5", title, True, "secret matches Flutterwave's 32-char hex Secret Hash shape")
+                     f"secret is too weak to be a real Secret Hash "
+                     f"(len={len(val)}; need >=16 chars and not a placeholder)")
+    return Check("5", title, True,
+                 f"secret present and non-trivial (len={len(val)}); Flutterwave sends it "
+                 "verbatim in Verif-Hash — it need not be hex")
 
 
 # ── Live-key exposure ──────────────────────────────────────────────────────────

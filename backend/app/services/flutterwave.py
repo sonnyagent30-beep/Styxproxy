@@ -64,15 +64,20 @@ def verify_flutterwave_signature(
             logger.info("Flutterwave signature verified via v3 (Verif-Hash verbatim)")
             return True
 
-    # ── v4: flutterwave-signature is base64(HMAC-SHA256(body)) ─────────────
+    # ── v4: flutterwave-signature is HMAC-SHA256(body) ─────────────────────
+    # Flutterwave documents base64; some v4 material shows hex. Both are an
+    # HMAC of the same body under the same secret, so accept either encoding —
+    # it costs nothing and removes an ambiguity we cannot resolve from here.
     if flutterwave_signature:
         if secret:
-            computed = base64.b64encode(
-                hmac.new(secret.encode(), payload, hashlib.sha256).digest()
-            ).decode()
-            if hmac.compare_digest(computed, flutterwave_signature):
-                logger.info("Flutterwave signature verified via v4 (base64 HMAC-SHA256)")
-                return True
+            digest = hmac.new(secret.encode(), payload, hashlib.sha256).digest()
+            for computed in (
+                base64.b64encode(digest).decode(),
+                digest.hex(),
+            ):
+                if hmac.compare_digest(computed, flutterwave_signature):
+                    logger.info("Flutterwave signature verified via v4 (HMAC-SHA256)")
+                    return True
 
     # No header present at all, or neither scheme matched.
     return False
