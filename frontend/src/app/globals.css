@@ -23,6 +23,9 @@
   --card-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.4);
   --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.6), 0 12px 40px rgba(0,0,0,0.5);
   --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(10,210,90,0.15);
+  --muted-light: #a3a3a3;
+  --surface-2: #1a1a1a;
+  --bg: #000000;
 }
 
 
@@ -1580,59 +1583,6 @@ button {
     --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
     --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.12), 0 12px 40px rgba(0,0,0,0.08);
     --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(10,210,90,0.15);
-  }
-
-  .glass-card {
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-  }
-
-  .hero-bg-grid {
-    background-image: radial-gradient(circle, rgba(10,210,90,0.25) 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-
-  .hero-bg-rings {
-    background:
-      radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.10) 0%, transparent 70%),
-      radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.05) 0%, transparent 60%),
-      radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.02) 0%, transparent 50%);
-  }
-
-  .hero-bg-vignette {
-    background:
-      linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, transparent 12%),
-      linear-gradient(to bottom, transparent 85%, rgba(0,0,0,0.06) 100%),
-      linear-gradient(to right, rgba(0,0,0,0.04) 0%, transparent 15%, transparent 85%, rgba(0,0,0,0.04) 100%);
-  }
-
-  .hero-orb-1 {
-    background: radial-gradient(circle, rgba(10,210,90,0.12) 0%, transparent 70%);
-  }
-
-  .hero-orb-2 {
-    background: radial-gradient(circle, rgba(34,255,122,0.07) 0%, transparent 70%);
-  }
-
-  .hero-orb-3 {
-    background: radial-gradient(circle, rgba(10,173,57,0.08) 0%, transparent 70%);
-  }
-
-  .section-divider {
-    background: linear-gradient(to right, transparent, var(--border), transparent);
-  }
-
-  .section-divider-glow::after {
-    background: linear-gradient(to right, transparent, rgba(10,210,90,0.25), transparent);
-  }
-
-  .charon-halo--1 {
-    border-color: rgba(10, 210, 90, 0.7);
-  }
-
-  .charon-halo--2 {
-    border-color: rgba(10, 210, 90, 0.4);
   }
 }
 /* Explicit theme classes (set by AdminThemeToggle via JS) */
