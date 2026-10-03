@@ -20,7 +20,9 @@
   --card-hover: #1c1c1c;
   --border: #252525;
   --border-light: #2f2f2f;
+  --border-strong: #626262;
   --muted: #737373;
+  --consent-leave-fg: #8a8a8a;
   --muted-body: #8a8a8a;
   --success: #22c55e;
   --warning: #f59e0b;
@@ -1539,7 +1541,7 @@ button {
 }
 .cg-actions > * { flex: 1; }
 .cg-btn-accept {
-  padding: 0.6rem 1.25rem;
+  padding: 0.5rem 1rem;
   background: var(--primary);
   color: #000;
   font-weight: 700;
@@ -1552,17 +1554,23 @@ button {
 .cg-btn-accept:hover { opacity: 0.9; transform: translateY(-1px); }
 .cg-btn-accept:active { transform: translateY(0); }
 .cg-btn-leave {
-  padding: 0.6rem 1.25rem;
+  padding: 0.5rem 1rem;
   background: transparent;
-  color: var(--muted);
+  /* Control boundary + label must clear WCAG in BOTH themes. `--border`
+     (#252525 dark / #e5e5e5 light) measured 1.20:1 / 1.26:1 against the modal
+     — effectively invisible — so the boundary uses --border-strong
+     (4.06:1 dark, 4.54:1 light). Label uses --consent-leave-fg
+     (5.34:1 dark, 7.81:1 light). Tokens, not tuned hexes, so a future palette
+     change re-measures once instead of per-control. */
+  color: var(--consent-leave-fg);
   font-weight: 600;
   font-size: 0.8rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 0.5rem;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
 }
-.cg-btn-leave:hover { border-color: var(--muted); color: var(--foreground); }
+.cg-btn-leave:hover { border-color: var(--foreground); color: var(--foreground); }
 
 /* Light mode — follows device settings */
 @media (prefers-color-scheme: light) {
@@ -1579,7 +1587,9 @@ button {
     --card-hover: #f5f5f5;
     --border: #e5e5e5;
     --border-light: #d4d4d4;
+    --border-strong: #767676;
     --muted: #525252;
+    --consent-leave-fg: #525252;
     --muted-light: #525252;
     --surface-2: #f5f5f5;
     --bg: #fafafa;
@@ -1608,7 +1618,9 @@ button {
   --card-hover: #f5f5f5;
   --border: #e5e5e5;
   --border-light: #d4d4d4;
+  --border-strong: #767676;
   --muted: #525252;
+  --consent-leave-fg: #525252;
   --muted-light: #525252;
   --surface-2: #f5f5f5;
   --bg: #fafafa;
@@ -1636,7 +1648,9 @@ button {
   --card-hover: #1c1c1c;
   --border: #252525;
   --border-light: #2f2f2f;
+  --border-strong: #626262;
   --muted: #737373;
+  --consent-leave-fg: #8a8a8a;
   --muted-light: #a3a3a3;
   --surface-2: #1a1a1a;
   --bg: #000000;

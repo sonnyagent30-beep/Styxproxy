@@ -27,8 +27,8 @@ sys.path.insert(0, "/opt/styxproxy/backend")
 
 from app.config import get_settings
 from app.database import async_session as AsyncSessionLocal
+from app.services.flutterwave import _flutterwave_refund
 from app.services.n8n import trigger_credentials_delivered_webhook
-from app.services.refunds import GatewayRefundError, refund_at_gateway
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,7 +70,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             from sqlalchemy import select
             from app.models import Order
             from app.services.audit import log_audit_event
-            from app.services.credential import create_credential, resolve_country_for_credential
+            from app.services.credential import create_credential
 
             # ── Load order ────────────────────────────────────────────────
             order = (
@@ -136,7 +136,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                         order_id=order.order_id,
                         customer_phone=order.customer_phone or "",
                         plan_code=order.plan_code or "unknown",
-                        country=resolve_country_for_credential(order.country),
+                        country=order.country or "NG",
                         proxy_type=proxy_type,
                         quantity=1,
                         duration_days=30,
@@ -317,6 +317,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                     extra={**log_ctx, "error": fulfillment_error},
                 )
 
+                settings = get_settings()
                 if not amount:
                     # Never issue a NGN 0 refund and then mark the order
                     # "refunded" — that reports money returned when none moved.
@@ -332,20 +333,13 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                     await db.commit()
                 else:
                     try:
-                        refund = await refund_at_gateway(
-                            order,
-                            reason=f"Auto-refund: provider unavailable — {fulfillment_error}",
-                        )
+                        await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
                         order.status = "refunded"
                         order.refund_requested = True
                         order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
-                        order.gateway_refund_id = refund.gateway_refund_id
-                        order.gateway_refund_status = refund.gateway_status
-                        order.gateway_refund_amount = refund.amount_ngn
-                        order.gateway_refunded_at = datetime.now(timezone.utc)
                         await db.commit()
                         logger.info("auto-refund issued", extra={**log_ctx, "amount": amount})
-                    except GatewayRefundError as refund_error:
+                    except Exception as refund_error:
                         logger.error(
                             "refund failed — order stays failed_unfulfilled",
                             extra={**log_ctx, "refund_error": str(refund_error)},
@@ -430,6 +424,27 @@ if __name__ == "__main__":
     redis_url = settings.redis_url
 
     logger.info("Starting fulfillment worker...")
+
+    # ── Load the valid country set for THIS process ─────────────────────────
+    # validate_country() fails CLOSED: VALID_COUNTRIES is an empty set until
+    # load_valid_countries() runs, and an empty set raises RuntimeError rather
+    # than silently validating against a stale hardcoded list. The API gets that
+    # load from the FastAPI lifespan, but this worker never boots app.main — so
+    # without this call, any country validation reached from a job in this
+    # process would hard-fail. Same loader, both processes, one source of truth.
+    try:
+        import asyncio as _asyncio
+
+        from app.schemas import load_valid_countries
+
+        _codes = _asyncio.run(load_valid_countries())
+        logger.info("Loaded %d valid country codes", len(_codes))
+    except Exception:
+        logger.exception(
+            "Failed to preload valid countries — country validation will fail closed "
+            "in this process"
+        )
+
     conn = SyncRedis.from_url(redis_url)
     worker = Worker(["fulfillment"], connection=conn)
     worker.work(with_scheduler=False, burst=False)
