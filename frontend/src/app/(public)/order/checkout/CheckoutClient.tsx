@@ -119,9 +119,17 @@ export default function CheckoutClient() {
         try {
           const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
             && typeof item.price_per_gb === 'number';
+          // The cart stores 'GENERIC' for a country-less residential/mobile
+          // order, but precheck validates `country` against a real ISO enum and
+          // rejects 'GENERIC' with 422. The catch below fails open, so the user
+          // still sees "available" — but they get no ETA and no out-of-stock
+          // warning, silently. Send the country the order is actually created
+          // with instead of the sentinel.
+          const precheckCountry =
+            !item.country_code || item.country_code === 'GENERIC' ? 'NG' : item.country_code;
           const r = await api.precheckOrder(
             item.plan_code,
-            item.country_code || 'NG',
+            precheckCountry,
             isPerGb ? 1 : item.quantity,
             { quantity_gb: isPerGb ? item.quantity_gb : undefined, city_id: item.city_id ?? null, city_name: item.city_name ?? null },
           );
