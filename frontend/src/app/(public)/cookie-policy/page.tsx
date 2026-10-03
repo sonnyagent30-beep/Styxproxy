@@ -52,7 +52,7 @@ export default function CookiePolicy() {
                   ['localStorage.styxproxy_inflight_order', 'Tracks an in-progress payment (tx_ref + plan_code). Auto-expires after 5 minutes. Prevents accidental double-payments if you click "Pay" twice.'],
                   ['sessionStorage.styxproxy_cart', 'Your shopping cart contents. Cleared when you close the browser tab.'],
                   ['sessionStorage.styxproxy_consent', 'Flag set to "1" after you accept or decline the consent gate. We don\'t remember the choice across sessions — you can change your mind anytime.'],
-                  ['sessionStorage.styxproxy_email', 'Email you optionally provided at checkout for receipt delivery. Cleared when the tab closes. We never see this value.'],
+                  ['sessionStorage.styxproxy_email', 'Email you optionally provided at checkout. Sent to us once, only so we can deliver your receipt. Cleared from this device when the tab closes.'],
                 ].map(([key, desc]) => (
                   <div key={key} className="bg-[var(--background)] border border-[var(--border)] rounded-xl p-5 mb-3">
                     <h3 className="font-semibold mb-2 text-[var(--foreground)]"><code>{key}</code></h3>

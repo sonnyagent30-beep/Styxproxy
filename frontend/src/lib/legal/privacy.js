@@ -15,7 +15,7 @@ const content = `<h1>Privacy Policy</h1>
 <li><strong>Product purchased</strong> — To fulfil your order — Retained 7 years</li>
 <li><strong>Amount paid</strong> — To process payment — Retained 7 years</li>
 <li><strong>IP address (of our server)</strong> — Technical operation — Retained 90 days</li>
-<li><strong>Email address (optional)</strong> — To send a receipt if you provide it — Retained until you request deletion</li>
+<li><strong>Email address (optional)</strong> — To send a receipt if you provide it — Retained for 7 years with financial records</li>
 </ul>
 <p>We do not know your name, your device IP address, your phone number, or any other identifying information unless you voluntarily provide it. The transaction reference is your only order identifier. You do not create an account.</p>
 

@@ -53,7 +53,7 @@ export default function StorySection() {
           {/* Toll badge */}
           <div className="flex justify-center mb-10">
             <span className="styx-value-badge">
-              No account · No identity · No trace
+              No account · No identity · No name
             </span>
           </div>
 

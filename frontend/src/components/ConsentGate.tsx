@@ -138,8 +138,7 @@ export default function ConsentGate() {
             Before you cross the Styx…
           </h2>
           <p className="cg-sub">
-            We keep your browsing private and anonymous. To make this work, we use
-            cookies and similar technologies. Continuing means you agree to our policies below.
+            Charon doesn't need your name. Your cart and this choice are kept on your own device. The order itself lives on our server, because someone has to fulfil it. That's the whole of what we keep.
           </p>
 
           <div className="cg-links">
