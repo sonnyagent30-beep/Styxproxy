@@ -72,10 +72,10 @@ export default function AboutClient() {
             we can&rsquo;t betray you.</strong>
           </p>
           <p className="text-[var(--muted)] leading-relaxed mb-3">
-            No account. No identity. No log of what you do with the proxy you bought
-            from us. The credential you receive is yours the moment we hand it over. We have
-            no log of what you do with it. If authorities come knocking with a subpoena, we
-            literally have nothing to give them about you.
+            No account. No identity. No log of what you do with it. The credential you
+            receive is yours the moment we hand it over. If authorities come knocking with
+            a subpoena, we can tell them what was sold and when — we cannot tell them what
+            you did with it.
           </p>
           <p className="text-[var(--muted)] leading-relaxed">
             That&rsquo;s not a privacy policy we wrote because lawyers made us. It&rsquo;s the only way the product works.
