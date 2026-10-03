@@ -142,6 +142,8 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                         duration_days=30,
                         protocol="socks5",
                         pool_type="paid",
+                        targeting_mode=order.targeting_mode or "country_chosen",
+                        city=order.city_name,
                     )
 
                 order.styxproxy_credential_id = credential.id

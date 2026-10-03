@@ -194,24 +194,63 @@ async def get_provider_proxy(
     country: str,
     proxy_type: str = "isp",
     quantity: int = 1,
+    targeting_mode: str = "country_chosen",
+    city: Optional[str] = None,
 ) -> dict:
     """
     Get a tested, working proxy from the provider.
     Tries up to MAX_PROVIDER_RETRIES times.
+
+    IP quality screening is applied to every IP returned by the provider.
+    A failing IP is rejected and a new one is requested (retry). If the
+    IPQualityScore service is unreachable, the screen fails open — a
+    third-party outage must not stop sales.
     """
     from app.services import provider as provider_svc
+    from app.services.ip_quality import screen_ip, IPQualityError
 
     last_error = None
     for attempt in range(MAX_PROVIDER_RETRIES):
         try:
-            logger.info("get_provider_proxy attempt %d: plan_code=%s country=%s proxy_type=%s", attempt, plan_code, country, proxy_type)
+            logger.info("get_provider_proxy attempt %d: plan_code=%s country=%s proxy_type=%s targeting_mode=%s", attempt, plan_code, country, proxy_type, targeting_mode)
             proxy = await provider_svc.create_order(
                 plan_code=plan_code,
                 country=country,
                 proxy_type=proxy_type,
                 quantity=quantity,
+                targeting_mode=targeting_mode,
+                city=city,
             )
             logger.info("create_order returned: %s:%s id=%s", proxy.ip, proxy.port, proxy.provider_order_id)
+
+            # ── IP Quality Screening ──────────────────────────────────────
+            # Screen the IP before it reaches the customer. A failing IP must
+            # not produce a credential — retry with a fresh IP instead.
+            #
+            # Fail-open policy: if IPQS is unreachable (timeout, 5xx, rate
+            # limit), we log a warning and accept the proxy. A third-party
+            # outage must not stop sales. Only a genuine screening failure
+            # (fraud_score, recent abuse, open proxy) causes a retry.
+            try:
+                ipq_result = await screen_ip(proxy.ip)
+                if not ipq_result.is_clean:
+                    last_error = f"IP quality check failed: {ipq_result.fail_reason}"
+                    logger.warning(
+                        "IP %s failed screening: %s — retrying with fresh IP",
+                        proxy.ip, ipq_result.fail_reason,
+                    )
+                    continue  # retry with a new IP from the provider
+                logger.info(
+                    "IP %s passed screening (fraud_score=%d, abuse_velocity=%s)",
+                    proxy.ip, ipq_result.fraud_score, ipq_result.abuse_velocity,
+                )
+            except IPQualityError as e:
+                # IPQS unreachable or rate-limited — fail open, don't block sales
+                logger.warning(
+                    "IP quality check unavailable for %s: %s — failing open (accepting proxy)",
+                    proxy.ip, e,
+                )
+                # Continue with the proxy — a third-party outage must not stop sales
 
             test_result = await provider_svc.test_proxy(proxy)
             logger.info("test_proxy returned: alive=%s latency=%s", test_result.alive, test_result.latency_ms)
@@ -256,6 +295,8 @@ async def create_credential(
     duration_days: int = 30,
     protocol: str = "socks5",
     pool_type: str = "paid",
+    targeting_mode: str = "country_chosen",
+    city: Optional[str] = None,
 ) -> tuple[StyxproxyCredential, str]:
     """
     Full credential pipeline: provider → test → DB.
@@ -291,6 +332,8 @@ async def create_credential(
         country=country_norm,
         proxy_type=proxy_type,
         quantity=quantity,
+        targeting_mode=targeting_mode,
+        city=city,
     )
     logger.info("Got proxy: %s:%s", proxy["ip"], proxy["port"])
 

@@ -267,6 +267,8 @@ class Order(Base):
     # Sprint 13 — city picker (residential/mobile orders)
     city_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("cities.id", ondelete="SET NULL"), nullable=True)
     city_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # Targeting mode: country_chosen | city_chosen | random
+    targeting_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="country_chosen")
     # Referral: tx_ref of the referee's payment that earned the referrer a credit (Sprint 2)
     referral_tx_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     # S2.5 — Renewal reminder tracking
