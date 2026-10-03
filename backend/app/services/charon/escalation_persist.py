@@ -23,8 +23,12 @@ async def _get_pool():
         database_url = os.environ.get("DATABASE_URL", "")
         if not database_url:
             logger.warning("DATABASE_URL not set, skipping escalation persistence")
-            return None
-        dsn = database_url.replace("postgresql+asyncpg://", "")
+            return
+        # asyncpg wants a plain postgres:// DSN — strip only the SQLAlchemy
+        # driver suffix. Stripping the WHOLE scheme produced a scheme-less DSN
+        # and asyncpg raised ClientConfigurationError: invalid DSN, silently
+        # dropping every Charon refund escalation (charon_escalations = 0 rows).
+        dsn = database_url.replace("postgresql+asyncpg://", "postgresql://")
         _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=2, command_timeout=10)
     return _pool
 

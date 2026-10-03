@@ -179,6 +179,7 @@ async def _log_rejection(
 async def flutterwave_webhook(
     request: Request,
     verif_hash: Optional[str] = Header(None, alias="Verif-Hash"),
+    flutterwave_signature: Optional[str] = Header(None, alias="flutterwave-signature"),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     """Receive and process Flutterwave payment webhooks."""
@@ -191,16 +192,26 @@ async def flutterwave_webhook(
     settings = get_settings()
     payload_bytes = await request.body()
 
-    # Verify signature
-    if not verif_hash:
-        logger.warning("missing Verif-Hash header (%s)", describe_origin(origin), extra=log_ctx)
+    # Verify signature. Accept BOTH Flutterwave schemes:
+    #   v3 — dashboard Secret Hash sent verbatim in `Verif-Hash`
+    #   v4 — base64 HMAC-SHA256 over the raw body in `flutterwave-signature`
+    # Requiring `Verif-Hash` specifically was wrong: it rejected every v4
+    # delivery, and the body-HMAC comparison it was fed could never match a
+    # verbatim secret. Either header is sufficient, neither present is a 401.
+    if not verif_hash and not flutterwave_signature:
+        logger.warning("missing Verif-Hash and flutterwave-signature headers (%s)", describe_origin(origin), extra=log_ctx)
         await _log_rejection(
             session,
             event_type="flutterwave_webhook_rejected",
             details={**log_ctx, "reason": "missing_verif_hash"},
         )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Verif-Hash header")
-    if not verify_flutterwave_signature(payload_bytes, verif_hash, settings.flutterwave_webhook_secret):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing signature header")
+    if not verify_flutterwave_signature(
+        payload_bytes,
+        verif_hash=verif_hash,
+        flutterwave_signature=flutterwave_signature,
+        secret=settings.flutterwave_webhook_secret,
+    ):
         logger.warning("invalid Flutterwave signature (%s)", describe_origin(origin), extra=log_ctx)
         # Written on the rejection path on purpose. The rotation canary needs to
         # tell "gateway called and we said no" apart from "gateway never called",

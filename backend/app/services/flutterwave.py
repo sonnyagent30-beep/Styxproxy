@@ -1,5 +1,6 @@
 """Flutterwave service for payment processing."""
 
+import base64
 import hashlib
 import hmac
 import logging
@@ -24,9 +25,57 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def verify_flutterwave_signature(payload: bytes, signature: str, secret: str) -> bool:
-    computed = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(computed, signature)
+def verify_flutterwave_signature(
+    payload: bytes,
+    signature: Optional[str] = None,
+    secret: str = "",
+    *,
+    verif_hash: Optional[str] = None,
+    flutterwave_signature: Optional[str] = None,
+) -> bool:
+    """Verify a Flutterwave webhook signature.
+
+    Flutterwave uses two different schemes and we must accept both:
+
+    v3 — the dashboard Secret Hash is sent VERBATIM in the ``Verif-Hash``
+    header. It is NOT an HMAC over the body; the gateway simply echoes the
+    secret you configured. Per Flutterwave's own docs: "check if the verif-hash
+    header is present and that it matches the secret hash you set."
+
+    v4 — ``flutterwave-signature`` carries base64(HMAC-SHA256(raw_body, secret)),
+    compared in constant time.
+
+    The previous implementation computed a HEX HMAC over the body and compared
+    it to ``Verif-Hash``. A hex HMAC can never equal the verbatim secret, so
+    every genuine webhook was rejected with 401. That is the root cause of zero
+    real fulfilments.
+
+    ``signature`` is retained as the first positional parameter for backwards
+    compatibility: older callers passed the ``Verif-Hash`` value positionally,
+    and that is exactly the v3 header, so it is routed to the v3 branch.
+    """
+    # Backwards-compatible positional call: verify(payload, verif_hash, secret)
+    if verif_hash is None:
+        verif_hash = signature
+
+    # ── v3: Verif-Hash is the configured secret, verbatim ──────────────────
+    if verif_hash:
+        if secret and hmac.compare_digest(verif_hash, secret):
+            logger.info("Flutterwave signature verified via v3 (Verif-Hash verbatim)")
+            return True
+
+    # ── v4: flutterwave-signature is base64(HMAC-SHA256(body)) ─────────────
+    if flutterwave_signature:
+        if secret:
+            computed = base64.b64encode(
+                hmac.new(secret.encode(), payload, hashlib.sha256).digest()
+            ).decode()
+            if hmac.compare_digest(computed, flutterwave_signature):
+                logger.info("Flutterwave signature verified via v4 (base64 HMAC-SHA256)")
+                return True
+
+    # No header present at all, or neither scheme matched.
+    return False
 
 
 async def is_webhook_processed(db_session, event_id: str) -> bool:

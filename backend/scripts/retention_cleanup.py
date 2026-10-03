@@ -9,10 +9,11 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["JWT_SECRET"] = "retention-job"
 os.environ["ADMIN_TOKEN"] = "retention-job"
-os.environ["DATABASE_URL"] = os.environ.get(
-    "DATABASE_URL",
-    "postgresql+asyncpg://styxproxy_app:Ku3xHibr3qjcbGNSmQ5ZOAwNViCbm4lO@127.0.0.1:5432/styxproxy",
-)
+# NEVER default to a hardcoded credential. This script previously shipped the
+# production Postgres password in source, in a public GitHub repo. Require it
+# from the environment (systemd EnvironmentFile) and fail loudly without it.
+if not os.environ.get("DATABASE_URL"):
+    raise SystemExit("DATABASE_URL is not set — refusing to run with no database target")
 
 from sqlalchemy import text
 
