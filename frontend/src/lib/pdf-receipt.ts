@@ -22,6 +22,7 @@ export interface ReceiptOrder {
   order_id?: string;
   status?: string;
   customer_name?: string | null;
+  created_at?: string;
   styxproxy_credential?: Credential;
 }
 
@@ -114,8 +115,11 @@ export async function generateReceiptPDF(
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.text('styxproxy.com', W - 15, 21.5, { align: 'right' });
+  const orderDate = order?.created_at
+    ? new Date(order.created_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })
+    : new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' });
   doc.text(
-    `Issued: ${new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+    `Issued: ${orderDate}`,
     W - 15,
     25,
     { align: 'right' }
@@ -147,7 +151,7 @@ export async function generateReceiptPDF(
   doc.setTextColor(...colors.muted);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text('Your proxy is ready to use. Below are your credentials.', 15, 56);
+  doc.text('Your proxy is ready to use.', 15, 56);
 
   // FULFILLED pill
   const status = order?.status?.toUpperCase() || 'PENDING';
@@ -187,7 +191,7 @@ export async function generateReceiptPDF(
   doc.setTextColor(...colors.dim);
   doc.setFontSize(6);
   doc.setFont('helvetica', 'normal');
-  doc.text('Flutterwave payment reference', 20, cardTop + 20);
+  doc.text('Payment reference', 20, cardTop + 20);
   doc.text('Internal order reference', W / 2 + 5, cardTop + 20);
 
   // Divider
@@ -206,11 +210,7 @@ export async function generateReceiptPDF(
   doc.setTextColor(...colors.foreground);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(
-    new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }),
-    20,
-    cardTop + 36
-  );
+  doc.text(orderDate, 20, cardTop + 36);
   doc.text('Card / Bank / USSD / QR', W / 2 + 5, cardTop + 36);
 
   // ── Items section ───────────────────────────────────────
@@ -245,7 +245,7 @@ export async function generateReceiptPDF(
     doc.setTextColor(...colors.foreground);
     doc.setFontSize(10);
     doc.text(String(item.quantity), W - 35, itemY, { align: 'right' });
-    doc.text(`N${lineTotal.toLocaleString('en-NG')}`, W - 15, itemY, { align: 'right' });
+    doc.text(`NGN ${lineTotal.toLocaleString('en-NG')}`, W - 15, itemY, { align: 'right' });
     itemY += 14;
   });
 
@@ -258,7 +258,7 @@ export async function generateReceiptPDF(
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL PAID', W - 70, totalY + 7.5);
   doc.setFontSize(11);
-  doc.text(`N${subtotal.toLocaleString('en-NG')}`, W - 19, totalY + 7.5, { align: 'right' });
+  doc.text(`NGN ${subtotal.toLocaleString('en-NG')}`, W - 19, totalY + 7.5, { align: 'right' });
 
   // ── Credential status card (if available) ─────────────────────
   // Deliberately does NOT print username / password / IP / port. The public
@@ -298,7 +298,7 @@ export async function generateReceiptPDF(
     doc.setTextColor(...colors.muted);
     doc.setFontSize(6);
     doc.setFont('helvetica', 'normal');
-    const note = 'Your proxy credentials were sent to the email address on this order.';
+    const note = 'Your credentials were delivered separately.';
     const noteLines = doc.splitTextToSize(note, W - 40);
     doc.text(noteLines, 20, rowTop + 21);
 
@@ -348,6 +348,6 @@ function drawSupportSection(doc: InstanceType<typeof import('jspdf')['jsPDF']>, 
   doc.setTextColor(...colors.foreground);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('oyebiyiayomide30@gmail.com', 105, supTop + 12);
+  doc.text('support@styxproxy.com', 105, supTop + 12);
   doc.text('styxproxy.com', 105, supTop + 18);
 }

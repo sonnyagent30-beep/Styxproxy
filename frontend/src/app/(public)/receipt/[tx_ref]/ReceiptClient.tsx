@@ -111,6 +111,7 @@ function ReceiptContent() {
           order_id: order.order_id,
           status: order.status,
           customer_name: order.customer_name,
+          created_at: order.created_at,
           styxproxy_credential: order.styxproxy_credential,
         },
         [
@@ -240,7 +241,7 @@ function ReceiptContent() {
                   <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
                     <h2 className="text-lg font-semibold mb-2">Proxy Access</h2>
                     <p className="text-sm text-[var(--muted)] leading-relaxed">
-                      Your proxy credentials were sent to the email address on this order. This receipt
+                      Your credentials were delivered separately. This receipt
                       confirms your payment; for security it does not display connection details on a
                       public page.
                     </p>

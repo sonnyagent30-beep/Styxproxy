@@ -1415,6 +1415,82 @@ Need help? Contact us at styxproxy.com
 # =============================================================================
 
 
+def _render_credential_block(
+    cred: dict,
+    index: int | None = None,
+    total: int | None = None,
+    receipt_url: str | None = None,
+) -> str:
+    """Render ONE credential block for the credentials email.
+
+    Extracted so a multi-proxy order can render N blocks. Each block is a
+    self-contained table with the username, password, address, protocol and
+    expiry for a single proxy.
+    """
+    username = cred.get("styxproxy_username", "")
+    password = cred.get("styxproxy_password", "")
+    ip = cred.get("proxy_ip", "")
+    port = cred.get("proxy_port", "")
+    proto = (cred.get("protocol") or "socks5").upper()
+    exp = cred.get("expires_at")
+    exp_str = exp.strftime("%Y-%m-%d %H:%M UTC") if hasattr(exp, "strftime") else "N/A"
+    full = f"http://{username}:{password}@{ip}:{port}"
+
+    label = (
+        f'<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; '
+        f'letter-spacing: 1px; color: #00D060; margin-bottom: 12px;">'
+        f'PROXY {index} OF {total}</div>'
+        if index else
+        '<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; '
+        'letter-spacing: 1px; color: #00D060; margin-bottom: 12px;">'
+        'YOUR PROXY CREDENTIALS</div>'
+    )
+
+    def row(label_txt: str, value: str, mono: bool = True) -> str:
+        fam = ("font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;"
+               if mono else "")
+        return (
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">'
+            '<tr><td style="padding: 10px 0; border-bottom: 1px solid #262626;">'
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">'
+            '<tr>'
+            f'<td style="font-size: 10px; font-weight: 600; text-transform: uppercase; '
+            f'letter-spacing: 0.5px; color: #9ca3af;">{label_txt}</td>'
+            f'<td style="{fam} font-size: 13px; font-weight: 600; color: #00D060; '
+            f'text-align: right; word-break: break-all;">{value}</td>'
+            '</tr></table></td></tr></table>'
+        )
+
+    receipt = (
+        f'<div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; '
+        f'border: 1px solid #00D060; border-radius: 3px;">'
+        f'<div style="font-size: 12px; color: #00D060; margin-bottom: 8px;">'
+        f'<strong>DOWNLOAD RECEIPT</strong></div>'
+        f'<a href="{receipt_url}" style="color: #00D060; font-size: 13px; '
+        f'text-decoration: underline;">Click here to download your receipt</a></div>'
+        if receipt_url else ""
+    )
+
+    return (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        'style="background-color: #0f0f0f; border: 1px solid #00D060; border-radius: 3px; '
+        'padding: 16px; margin: 16px 0;"><tr><td>'
+        f'{label}'
+        + row("Username", username)
+        + row("Password", password)
+        + row("Proxy Address", f"{ip}:{port}")
+        + row("Protocol", proto)
+        + row("Full Format", f"{full[:50]}...")
+        + row("Expires", exp_str)
+        + '<div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; '
+          'border-left: 4px solid #f59e0b; border-radius: 0 3px 3px 0;">'
+          '<div style="font-size: 12px; color: #f59e0b;"><strong>Security:</strong> '
+          'Keep these credentials confidential. Do not share them with anyone.</div></div>'
+        + receipt
+        + '</td></tr></table>'
+    )
+
+
 def _render_proxy_credentials_email(
     customer_name: str,
     order_id: str,
@@ -1431,10 +1507,54 @@ def _render_proxy_credentials_email(
     expires_at: datetime,
     payment_method: str = "Card / Bank / USSD / QR",
     receipt_url: str | None = None,
+    credentials: list[dict] | None = None,
 ) -> EmailContent:
-    """Render proxy credentials email (order paid + active) - table-based layout."""
+    """Render proxy credentials email (order paid + active) - table-based layout.
+
+    ``credentials`` is an optional list of dicts for MULTI-PROXY orders (DC/ISP
+    sell by IP count). When given, one credential block is rendered per entry —
+    previously a 3-IP order emailed a single set while the line item claimed
+    quantity 3, so the customer was told they had three proxies and given one.
+    When omitted, the single set of kwargs is used, which keeps every existing
+    caller working.
+    """
     expires_str = expires_at.strftime("%Y-%m-%d %H:%M UTC") if expires_at else "N/A"
     full_format = f"http://{styxproxy_username}:{styxproxy_password}@{proxy_ip}:{proxy_port}"
+
+    _creds = credentials if credentials else [{
+        "styxproxy_username": styxproxy_username,
+        "styxproxy_password": styxproxy_password,
+        "proxy_ip": proxy_ip,
+        "proxy_port": proxy_port,
+        "protocol": protocol,
+        "expires_at": expires_at,
+    }]
+    _multi = len(_creds) > 1
+    credentials_text = "\n\n".join(
+        (
+            (f"--- Proxy {n+1} of {len(_creds)} ---\n" if _multi else "")
+            + f"Username: {c.get('styxproxy_username','')}\n"
+            f"Password: {c.get('styxproxy_password','')}\n"
+            f"Proxy: {c.get('proxy_ip','')}:{c.get('proxy_port','')}\n"
+            f"Protocol: {(c.get('protocol') or 'socks5').upper()}\n"
+            f"Full Format: http://{c.get('styxproxy_username','')}:"
+            f"{c.get('styxproxy_password','')}@{c.get('proxy_ip','')}:{c.get('proxy_port','')}\n"
+            + (
+                f"Expires: {c['expires_at'].strftime('%Y-%m-%d %H:%M UTC')}"
+                if hasattr(c.get('expires_at'), 'strftime') else "Expires: N/A"
+            )
+        )
+        for n, c in enumerate(_creds)
+    )
+    credential_blocks = "".join(
+        _render_credential_block(
+            c,
+            index=(n + 1) if _multi else None,
+            total=len(_creds) if _multi else None,
+            receipt_url=receipt_url if n == len(_creds) - 1 else None,
+        )
+        for n, c in enumerate(_creds)
+    )
 
     base_styles = _get_base_styles()
 
@@ -1533,91 +1653,7 @@ def _render_proxy_credentials_email(
                     </tr>
                 </table>
 
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #0f0f0f; border: 1px solid #00D060; border-radius: 3px; padding: 16px; margin: 16px 0;">
-                    <tr>
-                        <td>
-                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #00D060; margin-bottom: 16px;">YOUR PROXY CREDENTIALS</div>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Username</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{styxproxy_username}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Password</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{styxproxy_password}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Proxy Address</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{proxy_ip}:{proxy_port}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Protocol</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right;">{protocol.upper()}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Full Format</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 11px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{full_format[:50]}...</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Expires</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right;">{expires_str}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; border-left: 4px solid #f59e0b; border-radius: 0 3px 3px 0;">
-                                <div style="font-size: 12px; color: #f59e0b;">
-                                    <strong>Security:</strong> Keep these credentials confidential. Do not share them with anyone.
-                                </div>
-                            </div>
-                            {f'<div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; border: 1px solid #00D060; border-radius: 3px;"><div style="font-size: 12px; color: #00D060; margin-bottom: 8px;"><strong>DOWNLOAD RECEIPT</strong></div><a href="{receipt_url}" style="color: #00D060; font-size: 13px; text-decoration: underline;">Click here to download your receipt</a></div>' if receipt_url else ''}
-                        </td>
-                    </tr>
-                </table>
+                {credential_blocks}
 
                 {_render_support_footer()}
             </div>
@@ -1642,12 +1678,7 @@ Quantity: {quantity}
 Amount Paid: {currency} {amount:,.2f}
 
 === YOUR PROXY CREDENTIALS ===
-Username: {styxproxy_username}
-Password: {styxproxy_password}
-Proxy: {proxy_ip}:{proxy_port}
-Protocol: {protocol.upper()}
-Full Format: {full_format}
-Expires: {expires_str}
+{credentials_text}
 ================================
 
 You can now use your proxy immediately.
@@ -1688,10 +1719,15 @@ async def send_order_active_email(
     expires_at: datetime,
     payment_method: str = "Card / Bank / USSD / QR",
     receipt_url: str | None = None,
+    credentials: list[dict] | None = None,
 ) -> EmailResult:
     """Send order confirmation + credentials in ONE email when order is paid and proxy is active.
 
     This is the most important email - it looks nearly identical to the receipt PDF.
+
+    ``credentials`` renders one block per proxy for multi-proxy (DC/ISP) orders.
+    Without it a 3-IP order emailed a single credential while the line item said
+    quantity 3 — the customer was told they had three proxies and given one.
     """
     content = _render_proxy_credentials_email(
         customer_name=customer_name,
@@ -1709,6 +1745,7 @@ async def send_order_active_email(
         expires_at=expires_at,
         payment_method=payment_method,
         receipt_url=receipt_url,
+        credentials=credentials,
     )
     recipient = EmailRecipient(email=customer_email, name=customer_name)
 

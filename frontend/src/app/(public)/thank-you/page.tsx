@@ -267,6 +267,8 @@ function ThankYouContent() {
           ? { status: order.styxproxy_credential.status }
           : undefined,
       };
+      // created_at is already in order from the poll response — pass it through
+      // so the PDF receipt shows the real order date, not the download date.
       await generateReceiptPDF(receiptSafeOrder, cart, txRef!, `styxproxy-receipt-${txRef}.pdf`);
     }
   };
