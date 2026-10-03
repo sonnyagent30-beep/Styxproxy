@@ -24,7 +24,7 @@ async def _get_pool():
         if not database_url:
             logger.warning("DATABASE_URL not set, skipping escalation persistence")
             return None
-        dsn = database_url.replace("postgresql+asyncpg://", "postgresql://")
+        dsn = database_url.replace("postgresql+asyncpg://", "")
         _pool = await asyncpg.create_pool(dsn, min_size=1, max_size=2, command_timeout=10)
     return _pool
 
