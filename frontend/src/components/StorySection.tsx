@@ -17,7 +17,7 @@ export default function StorySection() {
       <div className="section-divider-glow" />
 
       {/* ── STORY ── */}
-      <section className="py-24 lg:py-32 px-6">
+      <section className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-3xl mx-auto">
           {/* Badge pill */}
           <div className="flex justify-center mb-8">

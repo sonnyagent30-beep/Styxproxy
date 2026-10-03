@@ -241,7 +241,7 @@ export default async function BlogPostPage({ params }: Props) {
       {/* Tag cross-link — "explore more in #tag" */}
       {post.tags && post.tags.length > 0 && (
         <div className="mt-12 pt-8 border-t border-[var(--border)] max-w-[65ch] mx-auto px-6">
-          <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-4">
+          <p className="text-base font-medium text-[var(--muted)] uppercase tracking-wider mb-4">
             Explore more
           </p>
           <div className="flex flex-wrap gap-2">

@@ -290,7 +290,7 @@ function OrderStatusContent() {
                     </div>
                     <div className="bg-[var(--background)] rounded-xl p-4">
                       <span className="text-xs text-[var(--muted)]">Full Format</span>
-                      <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
+                      <p className="font-mono text-base text-[var(--muted)] break-all leading-relaxed">
                         http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
                       </p>
                     </div>
@@ -355,7 +355,7 @@ function OrderStatusContent() {
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="font-mono text-sm font-medium">{h.tx_ref}</span>
-                      <p className="text-xs text-[var(--muted)] mt-0.5">
+                      <p className="text-base text-[var(--muted)] mt-0.5">
                         {h.plan_code} · {h.country} · ₦{h.amount.toLocaleString('en-NG')}
                       </p>
                     </div>

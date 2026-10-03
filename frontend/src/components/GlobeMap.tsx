@@ -320,7 +320,7 @@ export default function GlobeMap({ productType, enabledCountries }: GlobeMapProp
               {(featured ? getProductsAtCountry(featured.code) : []).map(pt => (
                 <span
                   key={pt}
-                  className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                  className="text-xs px-1.5 py-0.5 rounded-full font-medium"
                   style={{ background: 'rgba(10,210,90,0.15)', color: BRAND_GREEN }}
                 >
                   {pt}

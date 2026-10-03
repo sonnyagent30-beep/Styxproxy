@@ -395,7 +395,7 @@ function ThankYouContent() {
                   </div>
                   <div className="col-span-2">
                     <label className="text-sm text-[var(--muted)]">Full Format</label>
-                    <p className="font-mono text-xs text-[var(--muted)] break-all leading-relaxed">
+                    <p className="font-mono text-base text-[var(--muted)] break-all leading-relaxed">
                       http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password || 'YOUR_PASSWORD'}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
                     </p>
                   </div>
@@ -604,7 +604,7 @@ function ThankYouContent() {
                 Order Another
               </Link>
             </div>
-            <p className="text-xs text-[var(--muted)] mt-4">
+            <p className="text-base text-[var(--muted)] mt-4">
               Tip: paste your reference (STX-XXXXXX) in the search box on the next page. If it shows credentials, you can use them immediately.
             </p>
           </div>

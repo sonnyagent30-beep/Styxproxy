@@ -379,7 +379,7 @@ export default function AdminSetupPage() {
               {backupCodes.length > 0 && (
                 <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
                   <p className="font-medium mb-1">Save these backup codes:</p>
-                  <div className="grid grid-cols-2 gap-1 font-mono text-[10px]">
+                  <div className="grid grid-cols-2 gap-1 font-mono text-xs">
                     {backupCodes.map((c, i) => (
                       <div key={i}>{c}</div>
                     ))}

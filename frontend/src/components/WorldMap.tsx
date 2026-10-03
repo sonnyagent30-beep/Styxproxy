@@ -204,7 +204,7 @@ export default function WorldMap() {
                   x={country.x}
                   y={country.y + 22}
                   textAnchor="middle"
-                  className="text-[10px] font-medium"
+                  className="text-xs font-medium"
                   fill={isDark ? '#e2e8f0' : '#1e293b'}
                   style={{ fontSize: '11px' }}
                 >

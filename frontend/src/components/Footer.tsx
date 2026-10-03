@@ -100,7 +100,7 @@ export default function Footer() {
           <p className="text-sm text-[var(--muted)]">
             &copy; {year} Styxproxy. All rights reserved.
           </p>
-          <p className="text-xs text-[var(--muted)] opacity-50">
+          <p className="text-base text-[var(--muted)] opacity-50">
             Premium proxies for professionals
           </p>
         </div>

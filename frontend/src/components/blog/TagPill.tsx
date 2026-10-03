@@ -14,7 +14,7 @@ export default function TagPill({
   variant = 'soft',
 }: Props) {
   const padding = size === 'sm' ? 'px-2.5 py-1' : 'px-3.5 py-1.5';
-  const text = size === 'sm' ? 'text-[11px]' : 'text-xs';
+  const text = size === 'sm' ? 'text-xs' : 'text-xs';
 
   const baseActive = 'bg-[var(--primary)] text-black font-medium';
   const baseInactive =

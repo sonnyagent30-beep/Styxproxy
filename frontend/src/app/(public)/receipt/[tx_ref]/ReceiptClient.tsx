@@ -248,7 +248,7 @@ function ReceiptContent() {
                       <label className="text-sm text-[var(--muted)]">Credential status</label>
                       <p className="font-mono text-sm">{order.styxproxy_credential.status || 'active'}</p>
                     </div>
-                    <p className="text-xs text-[var(--muted)] mt-4">
+                    <p className="text-base text-[var(--muted)] mt-4">
                       Can&apos;t find the email? Contact support with your payment reference and we&apos;ll
                       resend it.
                     </p>

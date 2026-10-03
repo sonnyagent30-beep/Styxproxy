@@ -28,7 +28,7 @@ export default function PostNav({ prev, next }: Props) {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-[var(--muted)] mb-0.5">Previous</p>
+            <p className="text-base text-[var(--muted)] mb-0.5">Previous</p>
             <p className="text-sm font-medium text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors line-clamp-2 leading-snug">
               {prev.title}
             </p>
@@ -44,7 +44,7 @@ export default function PostNav({ prev, next }: Props) {
           className="group flex items-center gap-4 p-4 rounded-xl border border-[var(--border)] hover:border-[var(--primary)] transition-colors sm:text-right"
         >
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-[var(--muted)] mb-0.5">Next</p>
+            <p className="text-base text-[var(--muted)] mb-0.5">Next</p>
             <p className="text-sm font-medium text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors line-clamp-2 leading-snug">
               {next.title}
             </p>

@@ -30,7 +30,7 @@ const FAQ_DATA = [
 
 const FEATURES = [
   { icon: Lightning, title: 'Instant Delivery', desc: 'Proxies ready in under 3 seconds' },
-  { icon: Shield, title: 'Anonymous Access', desc: 'No logs, no tracking, no footprint' },
+  { icon: Shield, title: 'Anonymous Access', desc: 'No account, no identity, no log of what you do' },
   { icon: Lock, title: 'All Protocols', desc: 'HTTP, HTTPS, SOCKS4 & SOCKS5' },
   { icon: Globe, title: 'Global Coverage', desc: '120+ countries worldwide' },
   { icon: Clock, title: '99.9% Uptime', desc: 'Reliable, consistent performance' },
@@ -195,7 +195,7 @@ export default function Hero() {
                   <button
                     key={key}
                     onClick={() => setActiveTab(key)}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all duration-200 border whitespace-nowrap ${
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 border whitespace-nowrap ${
                       isActive
                         ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
                         : 'border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]'
@@ -218,7 +218,7 @@ export default function Hero() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-center text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight leading-[1.05] mb-6">
+          <h1 className="text-center text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight leading-[1.05] mb-6">
             <span className="text-[var(--foreground)]">Cross the Styx.</span>
             <br />
             <span className="text-[var(--primary)]">Stay {TYPEWRITER_WORDS[typewriterIdx]}</span>
@@ -275,7 +275,7 @@ export default function Hero() {
 
       {/* Scroll indicator */}
       <div className="flex flex-col items-center gap-2 py-8">
-        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <span className="text-xs tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
         <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
       </div>
 
@@ -301,10 +301,10 @@ export default function Hero() {
       <div className="section-divider-glow" />
 
       {/* ── FEATURES ── */}
-      <section className="py-24 lg:py-32 px-6">
+      <section className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="mb-16">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">What you get</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">What you get</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Built for those who
               <br />
@@ -330,10 +330,10 @@ export default function Hero() {
       <div className="section-divider" />
 
       {/* ── HOW IT WORKS ── */}
-      <section className="py-24 lg:py-32 px-6 bg-[var(--surface)]">
+      <section className="py-16 sm:py-24 lg:py-32 px-6 bg-[var(--surface)]">
         <div className="max-w-6xl mx-auto">
           <div className="mb-16">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Simple process</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Simple process</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Up and running
               <br />
@@ -365,10 +365,10 @@ export default function Hero() {
       <div className="section-divider" />
 
       {/* ── PRODUCTS ── */}
-      <section className="py-24 lg:py-32 px-6">
+      <section className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="mb-16">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Proxy types</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Proxy types</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Four ways to
               <br />
@@ -383,7 +383,7 @@ export default function Hero() {
                   {p.icon && <p.icon className="w-6 h-6 text-[var(--primary)]" />}
                 </div>
                 <h3 className="text-base font-bold text-[var(--foreground)] mb-2">{p.name}</h3>
-                <p className="text-xs text-[var(--muted)] leading-relaxed mb-4">{p.desc}</p>
+                <p className="text-base text-[var(--muted)] leading-relaxed mb-4">{p.desc}</p>
                 <Link href="/products" className="text-xs font-bold text-[var(--primary)] hover:underline tracking-wide">
                   Learn more &rarr;
                 </Link>
@@ -414,10 +414,10 @@ export default function Hero() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="py-24 lg:py-32 px-6">
+      <section className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-3xl mx-auto">
           <div className="mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">FAQ</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">FAQ</p>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--foreground)]">Questions?</h2>
           </div>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] px-6">

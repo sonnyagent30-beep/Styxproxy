@@ -424,7 +424,7 @@ export default function ProductsClient() {
 
       {/* Scroll indicator */}
       <div className="flex flex-col items-center gap-2 py-8">
-        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <span className="text-xs tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
         <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
       </div>
 
@@ -496,7 +496,7 @@ export default function ProductsClient() {
                     }`}>
                       {product.profileName}
                     </span>
-                    <p className="text-xs mt-2 text-[var(--muted)]">
+                    <p className="text-base mt-2 text-[var(--muted)]">
                       {product.tagline}
                     </p>
                   </div>
@@ -537,7 +537,7 @@ export default function ProductsClient() {
 
                 {/* Best for */}
                 <div className="mb-5">
-                  <p className="text-xs uppercase tracking-widest font-mono mb-2 text-gray-500">Best for</p>
+                  <p className="text-base uppercase tracking-widest font-mono mb-2 text-gray-500">Best for</p>
                   <div className="bestfor-strip">
                     {product.bestFor.map((item) => (
                       <span key={item} className="bestfor-tag">{item}</span>
@@ -551,7 +551,7 @@ export default function ProductsClient() {
                 <div className="grid grid-cols-2 gap-4">
                   {/* Radar chart */}
                   <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
-                    <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Detection Resistance Radar</p>
+                    <p className="text-base uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Detection Resistance Radar</p>
                     <div className="radar-chart">
                       <svg viewBox="0 0 160 160" className="w-full">
                         {[40, 60, 80, 100].map((r) => (
@@ -584,7 +584,7 @@ export default function ProductsClient() {
 
                   {/* IP Lifespan gauge */}
                   <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
-                    <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>IP Lifespan</p>
+                    <p className="text-base uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>IP Lifespan</p>
                     <div className="gauge-wrap">
                       <svg className="gauge-svg" viewBox="0 0 120 80">
                         <path className="gauge-track" d="M 15 65 A 45 45 0 0 1 105 65" />
@@ -618,7 +618,7 @@ export default function ProductsClient() {
 
                 {/* Loadout stats */}
                 <div className="mt-4 p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
-                  <p className="text-xs uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Performance Stats</p>
+                  <p className="text-base uppercase tracking-widest font-mono mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Performance Stats</p>
                   <div className="space-y-3">
                     <div className="stat-row">
                       <span className="stat-label">Detection</span>
@@ -681,7 +681,7 @@ export default function ProductsClient() {
             {/* Expand section */}
             <div className={`expand-body mt-6 ${expanded === product.key ? 'open' : ''}`} id={`expand-${product.key}`}>
               <div className="p-6 rounded-xl" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <p className="text-xs uppercase tracking-widest font-mono mb-5" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Platform Compatibility</p>
+                <p className="text-base uppercase tracking-widest font-mono mb-5" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>Platform Compatibility</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {product.threatView.map((threat) => (
                     <div 
@@ -712,7 +712,7 @@ export default function ProductsClient() {
                           />
                         ))}
                       </div>
-                      <p className="text-xs leading-relaxed text-gray-500">{threat.desc}</p>
+                      <p className="text-base leading-relaxed text-gray-500">{threat.desc}</p>
                     </div>
                   ))}
                 </div>

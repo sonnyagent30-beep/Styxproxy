@@ -25,7 +25,7 @@ export function HeaderSkeleton() {
 
 export function HeroSkeleton() {
   return (
-    <section className="relative py-24 lg:py-32 px-6">
+    <section className="relative py-16 sm:py-24 lg:py-32 px-6">
       <div className="max-w-6xl mx-auto text-center space-y-6">
         <div className="w-3/4 h-12 bg-[var(--card)] rounded mx-auto animate-pulse" />
         <div className="w-2/3 h-6 bg-[var(--card)] rounded mx-auto animate-pulse" />

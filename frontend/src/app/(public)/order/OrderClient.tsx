@@ -451,7 +451,7 @@ export default function OrderClient() {
 
           {/* Scroll indicator */}
           <div className="flex flex-col items-center gap-2 pt-8">
-            <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+            <span className="text-xs tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
             <div className="w-px h-8 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
           </div>
         </div>
@@ -474,7 +474,7 @@ export default function OrderClient() {
                 <ArrowRight className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors" />
               </div>
               <h3 className="text-base font-bold mb-1">{card.label}</h3>
-              <p className="text-xs text-[var(--muted)] mb-3">{card.description}</p>
+              <p className="text-base text-[var(--muted)] mb-3">{card.description}</p>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-[var(--primary)]">{card.price}</span>
                 <span className="text-xs text-[var(--muted)]">
@@ -727,7 +727,7 @@ export default function OrderClient() {
                         <Flag countryCode={selection.code} size={32} />
                         <div className="flex-1">
                           <p className="font-semibold">{country?.name || selection.code}</p>
-                          <p className="text-xs text-[var(--muted)]">
+                          <p className="text-base text-[var(--muted)]">
                             {formatPrice(pricePerIp)}/mo each
                           </p>
                         </div>

@@ -52,11 +52,11 @@ export default function MaintenanceClient() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-[var(--background)] flex items-center justify-center p-4">
-      {/* Animated gradient orbs — the river Styx */}
+      {/* Animated gradient orbs — the river Styx (static fallback for reduced motion) */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-[40rem] h-[40rem] rounded-full bg-[var(--primary)]/10 blur-3xl animate-float" />
-        <div className="absolute -bottom-32 -right-32 w-[40rem] h-[40rem] rounded-full bg-[var(--accent)]/10 blur-3xl animate-float-delay" />
-        <div className="absolute top-1/3 right-1/4 w-96 h-96 rounded-full bg-[var(--primary)]/5 blur-3xl animate-float-slow" />
+        <div className="absolute -top-32 -left-32 w-[40rem] h-[40rem] rounded-full bg-[var(--primary)]/10 blur-3xl motion-safe:animate-float" />
+        <div className="absolute -bottom-32 -right-32 w-[40rem] h-[40rem] rounded-full bg-[var(--accent)]/10 blur-3xl motion-safe:animate-float-delay" />
+        <div className="absolute top-1/3 right-1/4 w-96 h-96 rounded-full bg-[var(--primary)]/5 blur-3xl motion-safe:animate-float-slow" />
       </div>
 
       <main className="relative max-w-xl w-full text-center space-y-8">
@@ -93,13 +93,13 @@ export default function MaintenanceClient() {
         {/* Ready-at countdown */}
         {state?.ready_at && (
           <div className="inline-flex flex-col items-center gap-1 px-6 py-4 rounded-2xl bg-[var(--surface)] border border-[var(--border)]">
-            <p className="text-xs uppercase tracking-widest text-[var(--muted)]">
+            <p className="text-base uppercase tracking-widest text-[var(--muted)]">
               Estimated return
             </p>
             <p className="text-2xl font-mono font-bold text-[var(--primary)] tabular-nums">
               {countdown || '…'}
             </p>
-            <p className="text-xs text-[var(--muted)]">
+            <p className="text-base text-[var(--muted)]">
               {new Date(state.ready_at).toLocaleString()}
             </p>
           </div>

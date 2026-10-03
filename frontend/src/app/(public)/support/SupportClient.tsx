@@ -137,7 +137,7 @@ export default function SupportClient() {
         <div className="max-w-2xl mx-auto px-6">
           {/* Hero heading */}
           <div className="text-center mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">
               Support
             </p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-[var(--foreground)] mb-4 leading-tight">
@@ -150,7 +150,7 @@ export default function SupportClient() {
 
           {/* FAQ Accordion */}
           <div className="mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">
               FAQ
             </p>
             <div className="space-y-2">
@@ -186,7 +186,7 @@ export default function SupportClient() {
 
           {/* Support Ticket Form */}
           <div className="mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">
               Submit a Ticket
             </p>
             <h2 className="text-xl font-bold text-[var(--foreground)] mb-6">
@@ -298,7 +298,7 @@ export default function SupportClient() {
 
           {/* Ticket Lookup */}
           <div className="mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">
               Track Tickets
             </p>
             <h2 className="text-xl font-bold text-[var(--foreground)] mb-6">
@@ -341,7 +341,7 @@ export default function SupportClient() {
                           <p className="font-medium text-sm text-[var(--foreground)] truncate">
                             {ticket.subject}
                           </p>
-                          <p className="text-xs text-[var(--muted)] mt-1 font-mono">
+                          <p className="text-base text-[var(--muted)] mt-1 font-mono">
                             #{ticket.id.slice(0, 8)}
                             {ticket.order_id && (
                               <span className="ml-2">Order: {ticket.order_id}</span>
@@ -361,7 +361,7 @@ export default function SupportClient() {
                         </span>
                       </div>
                       {ticket.last_message_at && (
-                        <p className="text-xs text-[var(--muted)] mt-2">
+                        <p className="text-base text-[var(--muted)] mt-2">
                           Last update:{' '}
                           {new Date(ticket.last_message_at).toLocaleDateString()}
                         </p>
@@ -376,7 +376,7 @@ export default function SupportClient() {
           {/* Direct contact channels */}
           <div className="section-divider mb-10" />
           <div className="text-center mb-6">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--muted)]">
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--muted)]">
               Or reach us directly
             </p>
           </div>

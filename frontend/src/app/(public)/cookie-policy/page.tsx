@@ -23,7 +23,7 @@ export default function CookiePolicy() {
             <div className="p-8 sm:p-10">
               {/* Page header */}
               <div className="mb-8">
-                <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Legal</p>
+                <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Legal</p>
                 <h1 className="text-3xl font-black text-[var(--foreground)] mb-2">Cookie Policy</h1>
                 <p className="text-[var(--muted)] text-sm">Effective Date: 2026-08-27 · Last Updated: 2026-08-27</p>
               </div>
@@ -73,7 +73,13 @@ export default function CookiePolicy() {
               </section>
 
               <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">Third-party services on payment pages</h2>
+                <h2 className="text-xl font-bold mb-4">Third-party services</h2>
+                <p className="text-[var(--muted)] leading-relaxed mb-3">
+                  <strong>Sentry</strong> — We use Sentry for error monitoring. Sentry receives
+                  error traces at a 10% sample rate as a third-party processor. Sentry sets no
+                  cookie and session replay is hard-disabled. Error traces contain no personal
+                  information — only stack traces, request metadata, and error messages.
+                </p>
                 <p className="text-[var(--muted)] leading-relaxed mb-3">
                   When you click "Pay", you are redirected to <strong>Flutterwave</strong> to complete payment.
                   Flutterwave is the payment processor — they have their own privacy policy and cookie use.
@@ -110,7 +116,7 @@ export default function CookiePolicy() {
               </section>
 
               <div className="border-t border-[var(--border)] pt-6">
-                <p className="text-xs text-[var(--muted)] text-center">
+                <p className="text-base text-[var(--muted)] text-center">
                   Related:{' '}
                   <Link href="/legal/terms" className="text-[var(--primary)] hover:underline">Terms</Link> ·{' '}
                   <Link href="/legal/privacy" className="text-[var(--primary)] hover:underline">Privacy</Link> ·{' '}

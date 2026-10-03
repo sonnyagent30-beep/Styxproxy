@@ -26,7 +26,7 @@ export default function RefundPolicyPage() {
 
               {/* Page Header */}
               <div className="mb-8">
-                <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Policy</p>
+                <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Policy</p>
                 <h1 className="text-3xl font-black text-[var(--foreground)] mb-2">
                   Refund <span className="text-[var(--primary)]">Policy</span>
                 </h1>

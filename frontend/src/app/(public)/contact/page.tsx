@@ -99,7 +99,7 @@ export default function ContactPage() {
 
           {/* Hero heading */}
           <div className="text-center mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Support</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Support</p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-[var(--foreground)] mb-4 leading-tight">
               Get in <span className="text-[var(--primary)]">Touch</span>
             </h1>
@@ -110,7 +110,7 @@ export default function ContactPage() {
 
           {/* FAQ Accordion */}
           <div className="mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">FAQ</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">FAQ</p>
             <div className="space-y-2">
               {faqs.map((faq, i) => (
                 <div key={i} className="rounded-xl border border-[var(--border)] overflow-hidden bg-[var(--card)]">
@@ -135,7 +135,7 @@ export default function ContactPage() {
 
           {/* Contact form */}
           <div className="mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">Send a message</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">Send a message</p>
             <h2 className="text-xl font-bold text-[var(--foreground)] mb-6">Write to us</h2>
 
             {sent ? (
@@ -185,7 +185,7 @@ export default function ContactPage() {
           {/* Direct contact channels */}
           <div className="section-divider mb-10" />
           <div className="text-center mb-6">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--muted)]">Or reach us directly</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--muted)]">Or reach us directly</p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
             {isChannelEnabled('telegram') ? (

@@ -349,7 +349,7 @@ export default function CheckoutClient() {
                     <div>
                       <p className="font-semibold">{item.name}</p>
                       {country && (
-                        <p className="text-xs text-[var(--muted)]">
+                        <p className="text-base text-[var(--muted)]">
                           <Flag countryCode={item.country_code} size={14} /> {country.name} · {country.region}
                           {item.city_name ? ` · ${item.city_name}` : ''}
                         </p>
@@ -363,16 +363,16 @@ export default function CheckoutClient() {
                         })()}
                       </p>
                       {precheck[item.plan_code]?.checking && (
-                        <p className="text-xs text-[var(--muted)] mt-1 flex items-center gap-1">
+                        <p className="text-base text-[var(--muted)] mt-1 flex items-center gap-1">
                           <span className="inline-block w-3 h-3 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
                           Checking availability…
                         </p>
                       )}
                       {precheck[item.plan_code]?.available === true && precheck[item.plan_code]?.etaSeconds != null && (
-                        <p className="text-xs text-[var(--success)] mt-1">✓ Available · Usually delivered in ~{precheck[item.plan_code]!.etaSeconds}s</p>
+                        <p className="text-base text-[var(--success)] mt-1">✓ Available · Usually delivered in ~{precheck[item.plan_code]!.etaSeconds}s</p>
                       )}
                       {precheck[item.plan_code]?.available === false && (
-                        <p className="text-xs text-[var(--error)] mt-1">
+                        <p className="text-base text-[var(--error)] mt-1">
                           ✗ Currently unavailable
                           {precheck[item.plan_code]?.reason ? ` (${precheck[item.plan_code]!.reason})` : ''}
                         </p>
@@ -425,7 +425,7 @@ export default function CheckoutClient() {
               <span className="text-[var(--muted)]">Payment amount</span>
               <span className="text-lg font-bold text-[var(--primary)]">{formatPrice(cartTotal)}</span>
             </div>
-            <p className="text-xs text-[var(--muted)] mt-1 text-right">Confirmed on payment page</p>
+            <p className="text-base text-[var(--muted)] mt-1 text-right">Confirmed on payment page</p>
           </div>
         </div>
 
@@ -443,7 +443,7 @@ export default function CheckoutClient() {
               placeholder="your@email.com"
               className="w-full px-4 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none transition-colors"
             />
-            <p className="text-xs text-[var(--muted)] mt-2">We&apos;ll email your receipt after payment. No spam — ever.</p>
+            <p className="text-base text-[var(--muted)] mt-2">We&apos;ll email your receipt after payment. No spam — ever.</p>
           </div>
         </div>
 
@@ -495,13 +495,13 @@ export default function CheckoutClient() {
                     </span>
                   </div>
                   {!isAvailable && (
-                    <span className="absolute top-1 right-2 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Coming soon</span>
+                    <span className="absolute top-1 right-2 text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Coming soon</span>
                   )}
                 </button>
               );
             })}
           </div>
-          <p className="text-xs text-[var(--muted)] mt-2">All transactions are processed securely. You'll be redirected to complete your payment.</p>
+          <p className="text-base text-[var(--muted)] mt-2">All transactions are processed securely. You'll be redirected to complete your payment.</p>
         </div>
 
         {/* Pay Button */}
@@ -523,7 +523,7 @@ export default function CheckoutClient() {
                     : `Pay with ${gateways[gateway]?.label || gateway}`}
         </button>
 
-        <p className="text-xs text-center text-[var(--muted)] mt-3">
+        <p className="text-base text-center text-[var(--muted)] mt-3">
           Your proxy credentials will be shown on the next page.
         </p>
       </div>
