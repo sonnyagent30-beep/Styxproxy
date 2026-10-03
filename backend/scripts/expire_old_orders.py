@@ -1,7 +1,11 @@
 """Order expiry cron — runs every 5 minutes via systemd timer.
 
-Expires pending AND paid orders older than 30 minutes.
-Pending: customer never paid. Paid: customer charged but fulfillment stuck.
+Expires PENDING orders older than 30 minutes.
+Pending: customer never paid — safe to expire.
+
+Paid orders are NEVER touched by this cron. A paid order whose fulfillment
+is stuck must remain recoverable (re-queue or manual review), not be converted
+to a terminal 'expired' state that blocks webhook retries.
 """
 import asyncio
 import logging
@@ -11,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("order-expiry-cron")
 
 async def expire_old_orders():
-    """Mark pending/paid orders older than 30 minutes as expired."""
+    """Mark pending orders older than 30 minutes as expired. Paid orders are never touched."""
     import sys
     sys.path.insert(0, "/opt/styxproxy/backend")
     
@@ -22,9 +26,9 @@ async def expire_old_orders():
         cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
         result = await db.execute(
             text("""
-                UPDATE orders 
-                SET status = 'expired' 
-                WHERE status IN ('pending', 'paid')
+                UPDATE orders
+                SET status = 'expired'
+                WHERE status = 'pending'
                 AND created_at < :cutoff
                 RETURNING order_id, status
             """),
