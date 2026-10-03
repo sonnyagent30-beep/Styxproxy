@@ -49,6 +49,29 @@ STUB_PROXY_POOL = {
 _FALLBACK_ISO_COUNTRIES = {
     "AE", "AF", "AR", "BE", "BR", "CN", "DE", "GB", "GH", "NG", "US",
 }
+
+# Full ISO 3166-1 alpha-2 set (197 entries) — the authoritative country codes.
+# Used by resolve_country_for_credential() for the sync fallback path.
+ISO_COUNTRY_CODES = {
+    "AD", "AE", "AF", "AG", "AL", "AM", "AO", "AR", "AT", "AU", "AZ",
+    "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BN", "BO",
+    "BR", "BS", "BT", "BW", "BY", "BZ", "CA", "CD", "CF", "CG", "CH",
+    "CI", "CL", "CM", "CN", "CO", "CR", "CU", "CV", "CY", "CZ", "DE",
+    "DJ", "DK", "DM", "DO", "DZ", "EC", "EE", "EG", "ER", "ES", "ET",
+    "FI", "FJ", "FM", "FR", "GA", "GB", "GD", "GE", "GH", "GM", "GN",
+    "GQ", "GR", "GT", "GW", "GY", "HN", "HR", "HT", "HU", "ID", "IE",
+    "IL", "IN", "IQ", "IR", "IS", "IT", "JM", "JO", "JP", "KE", "KG",
+    "KH", "KI", "KM", "KN", "KP", "KR", "KW", "KZ", "LA", "LB", "LC",
+    "LI", "LK", "LR", "LS", "LT", "LU", "LV", "LY", "MA", "MC", "MD",
+    "ME", "MG", "MH", "MK", "ML", "MM", "MN", "MR", "MT", "MU", "MV",
+    "MW", "MX", "MY", "MZ", "NA", "NE", "NG", "NI", "NL", "NO", "NP",
+    "NR", "NZ", "OM", "PA", "PE", "PG", "PH", "PK", "PL", "PS", "PT",
+    "PW", "PY", "QA", "RO", "RS", "RU", "RW", "SA", "SB", "SC", "SD",
+    "SE", "SG", "SI", "SK", "SL", "SM", "SN", "SO", "SR", "SS", "ST",
+    "SV", "SY", "SZ", "TD", "TG", "TH", "TJ", "TL", "TM", "TN", "TO",
+    "TR", "TT", "TV", "TW", "TZ", "UA", "UG", "US", "UY", "UZ", "VA",
+    "VC", "VE", "VN", "VU", "WS", "XK", "YE", "ZA", "ZM", "ZW",
+}
 _valid_country_cache: Optional[set[str]] = None
 
 
@@ -77,6 +100,40 @@ async def _valid_country_codes(db_session: AsyncSession) -> set[str]:
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
+
+
+# Non-ISO codes that have a valid ISO equivalent. UK is the common one —
+# ISO 3166-1 alpha-2 for the United Kingdom is GB, not UK. We normalise
+# UK→GB so legacy rows and customer input using UK are handled correctly.
+_COUNTRY_NORMALIZATION = {
+    "UK": "GB",
+}
+
+
+def normalize_country(country: str) -> str:
+    """Normalise a country code: strip, uppercase, and map non-ISO codes to ISO."""
+    code = (country or "").strip().upper()
+    return _COUNTRY_NORMALIZATION.get(code, code)
+
+
+def resolve_country_for_credential(country: str, fallback: str = "NG") -> str:
+    """Resolve a country code for credential creation, with safe fallback.
+
+    Normalises the input and validates it against the full ISO 3166-1 alpha-2
+    set. If the result is not a valid code, returns the fallback (default "NG")
+    instead of raising. This is the safe path for rotation and re-fulfill flows
+    where the order's country may hold a legacy non-ISO value (e.g. "UK",
+    "Nigeria", "GENERIC") and the customer already paid — failing hard would
+    deny them a working proxy.
+
+    The authoritative validation still happens in create_credential() via the
+    async DB-backed _valid_country_codes(); this helper only prevents the
+    ValueError from being raised at the call site.
+    """
+    code = normalize_country(country)
+    if code in ISO_COUNTRY_CODES:
+        return code
+    return fallback
 
 
 def generate_styxproxy_username(phone: Optional[str] = None, order_id: Optional[str] = None) -> str:
