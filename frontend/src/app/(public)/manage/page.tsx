@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 
 export default function ManagePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-[var(--muted)]">Loading...</div></>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-[var(--muted)]">Loading...</div></div>}>
       <ManageRedirectInner searchParams={searchParams} />
     </Suspense>
   );
