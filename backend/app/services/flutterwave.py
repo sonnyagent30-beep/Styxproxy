@@ -1,5 +1,6 @@
 """Flutterwave service for payment processing."""
 
+import base64
 import hashlib
 import hmac
 import logging
@@ -26,9 +27,37 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def verify_flutterwave_signature(payload: bytes, signature: str, secret: str) -> bool:
-    computed = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(computed, signature)
+def verify_flutterwave_signature(
+    payload: bytes,
+    verif_hash: Optional[str] = None,
+    flutterwave_signature: Optional[str] = None,
+    secret: str = "",
+) -> bool:
+    """Verify Flutterwave webhook signature.
+
+    Supports two schemes:
+    - v3: ``Verif-Hash`` header contains the dashboard secret verbatim.
+    - v4: ``flutterwave-signature`` header contains base64 HMAC-SHA256 of the raw body.
+
+    Returns True if either scheme matches. Returns False if neither header is
+    present or both fail verification.
+    """
+    # v3 scheme — Verif-Hash is the secret verbatim
+    if verif_hash is not None:
+        if hmac.compare_digest(verif_hash, secret):
+            logger.info("Flutterwave signature verified via v3 (Verif-Hash verbatim)")
+            return True
+
+    # v4 scheme — flutterwave-signature is base64 HMAC-SHA256
+    if flutterwave_signature is not None:
+        computed = base64.b64encode(
+            hmac.new(secret.encode(), payload, hashlib.sha256).digest()
+        ).decode()
+        if hmac.compare_digest(computed, flutterwave_signature):
+            logger.info("Flutterwave signature verified via v4 (base64 HMAC-SHA256)")
+            return True
+
+    return False
 
 
 async def is_webhook_processed(db_session, event_id: str) -> bool:

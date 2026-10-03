@@ -115,6 +115,7 @@ def _is_payload_fresh_epoch(payload: dict) -> bool:
 async def flutterwave_webhook(
     request: Request,
     verif_hash: Optional[str] = Header(None, alias="Verif-Hash"),
+    flutterwave_signature: Optional[str] = Header(None, alias="flutterwave-signature"),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     """Receive and process Flutterwave payment webhooks."""
@@ -122,11 +123,16 @@ async def flutterwave_webhook(
     settings = get_settings()
     payload_bytes = await request.body()
 
-    # Verify signature
-    if not verif_hash:
-        logger.warning("missing Verif-Hash header", extra=log_ctx)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Verif-Hash header")
-    if not verify_flutterwave_signature(payload_bytes, verif_hash, settings.flutterwave_webhook_secret):
+    # Verify signature — accept v3 (Verif-Hash verbatim) or v4 (base64 HMAC)
+    if not verif_hash and not flutterwave_signature:
+        logger.warning("missing both Verif-Hash and flutterwave-signature headers", extra=log_ctx)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing signature header")
+    if not verify_flutterwave_signature(
+        payload_bytes,
+        verif_hash=verif_hash,
+        flutterwave_signature=flutterwave_signature,
+        secret=settings.flutterwave_webhook_secret,
+    ):
         logger.warning("invalid Flutterwave signature", extra=log_ctx)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Flutterwave signature")
 
