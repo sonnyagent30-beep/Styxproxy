@@ -75,6 +75,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Load the valid country set from the `countries` table BEFORE serving.
+    # Every country validator in the app reads app.schemas.VALID_COUNTRIES, so
+    # this must run once at startup or those validators fall back to a static
+    # set that disagrees with the catalog (6 of 11 advertised countries 422'd).
+    try:
+        from app.schemas import load_valid_countries
+
+        _codes = await load_valid_countries()
+        logger.info("Loaded %d valid country codes", len(_codes))
+    except Exception:  # noqa: BLE001 - never block startup on this
+        logger.exception("Failed to preload valid countries — using the static fallback")
+
     # Ensure all orders columns exist (idempotent, for migrations that may have failed)
     try:
         from sqlalchemy import text

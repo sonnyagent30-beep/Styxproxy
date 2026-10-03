@@ -112,7 +112,50 @@ class TrialStatusEnum(str, Enum):
 
 # ============== Validators ==============
 
-VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN", "AE", "MX", "PK", "ID"}
+# Valid country codes, read from the `countries` table at application startup.
+#
+# This used to be a hardcoded 17-country set, and it silently disagreed with the
+# catalog: `/api/catalog` builds its country list from `country_plan_types` and
+# advertised 11 countries, of which only 5 were in this set. So AF, AR, BE, BR,
+# CN and GH were SELECTABLE IN THE UI AND 422'd AT PRECHECK — 6 dead ends out of
+# 11. It also contained 'UK', which is not ISO 3166 (the table has GB), so
+# country='UK' passed this validator and then failed at fulfilment.
+#
+# Populated once by load_valid_countries() during app startup (see app/main.py
+# lifespan). The fallback below is only used if that load did not run, so a
+# startup problem cannot reject every order.
+_FALLBACK_VALID_COUNTRIES = {
+    "AE", "AF", "AR", "BE", "BR", "CN", "DE", "GB", "GH", "NG", "US",
+}
+VALID_COUNTRIES: set[str] = set(_FALLBACK_VALID_COUNTRIES)
+
+
+async def load_valid_countries() -> set[str]:
+    """Populate VALID_COUNTRIES from the `countries` table.
+
+    Called from the FastAPI lifespan so every validator in the app — this module
+    and app/routers/schemas.py, which re-exports from here — reads one source of
+    truth. Returns the set it installed.
+    """
+    global VALID_COUNTRIES
+    try:
+        from sqlalchemy import text
+
+        from app.database import engine
+
+        async with engine.connect() as conn:
+            rows = (await conn.execute(text("SELECT code FROM countries"))).fetchall()
+        codes = {str(r[0]).strip().upper() for r in rows if r[0]}
+        if codes:
+            VALID_COUNTRIES = codes
+            return codes
+    except Exception:  # noqa: BLE001 - never block startup on this
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "Could not load valid countries from the DB — using the static fallback"
+        )
+    return VALID_COUNTRIES
 
 
 def validate_phone(phone: str) -> str:
@@ -124,10 +167,19 @@ def validate_phone(phone: str) -> str:
 
 
 def validate_country(country: str) -> str:
-    """Validate country code."""
-    if country.upper() not in VALID_COUNTRIES:
+    """Validate country code against the ISO set loaded from the DB.
+
+    Also normalises the common non-ISO spelling: the business, the marketing
+    copy and the frontend all say "UK", but the ISO code is GB. Accepting it
+    here keeps the customer-facing label working while every downstream consumer
+    (the provider, the credential guard) sees the canonical GB.
+    """
+    code = (country or "").strip().upper()
+    if code == "UK":
+        code = "GB"
+    if code not in VALID_COUNTRIES:
         raise ValueError(f"Country must be one of: {', '.join(sorted(VALID_COUNTRIES))}")
-    return country.upper()
+    return code
 
 
 # ============== Base Schemas ==============

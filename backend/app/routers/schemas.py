@@ -119,7 +119,15 @@ class TrialStatusEnum(str, Enum):
 
 # ============== Validators ==============
 
-VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN", "AE", "MX", "PK", "ID"}
+# Re-exported from app.schemas — the single source of truth. This module used to
+# carry its OWN hardcoded copy of the same 17-country set, so precheck (which
+# imports PrecheckRequest from here) and the rest of the app could disagree
+# about the same string. Importing it means there is exactly one set.
+from app.schemas import (  # noqa: F401  (re-exported for backwards compatibility)
+    VALID_COUNTRIES,
+    load_valid_countries,
+    validate_country,
+)
 
 
 def validate_phone(phone: str) -> str:
@@ -128,13 +136,6 @@ def validate_phone(phone: str) -> str:
     if not re.match(r"^\+?234[0-9]{10}$|^234[0-9]{10}$|^[0-9]{10,15}$", cleaned):
         raise ValueError("Invalid phone number format")
     return cleaned
-
-
-def validate_country(country: str) -> str:
-    """Validate country code."""
-    if country.upper() not in VALID_COUNTRIES:
-        raise ValueError(f"Country must be one of: {', '.join(sorted(VALID_COUNTRIES))}")
-    return country.upper()
 
 
 def validate_password_strength(password: str) -> str:
