@@ -73,9 +73,6 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: "https://styxproxy.com",
-    types: {
-      "application/rss+xml": "https://styxproxy.com/blog/rss.xml",
-    },
   },
 };
 
@@ -88,14 +85,6 @@ export default function RootLayout({
   
   return (
     <html lang="en" className={poppins.variable}>
-      <head>
-        <link
-          rel="alternate"
-          type="application/rss+xml"
-          title="Styxproxy Blog RSS Feed"
-          href={`${siteUrl}/blog/rss.xml`}
-        />
-      </head>
       <body className="antialiased">
 
         <a href="#main-content" className="skip-link">Skip to main content</a>
@@ -113,7 +102,7 @@ export default function RootLayout({
               "@type": "Organization",
               name: "Styxproxy",
               url: siteUrl,
-              logo: `${siteUrl}/logo.png`,
+              logo: `${siteUrl}/logo.svg`,
               description:
                 "Anonymous proxy service. ISP, Residential, Mobile 4G, Datacenter proxies. No logs, no tracking.",
               sameAs: [

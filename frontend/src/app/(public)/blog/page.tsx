@@ -6,11 +6,14 @@ export const metadata: Metadata = {
   title: 'Blog | Styxproxy',
   description: 'Notes on proxies, automation, anonymity, and building infrastructure that works.',
   openGraph: {
-    title: 'Blog | Styxproxy',
+    title: 'Blog',
     description: 'Notes on proxies, automation, anonymity, and building infrastructure that works.',
     type: 'website',
     siteName: 'Styxproxy',
+    url: 'https://styxproxy.com/blog',
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Styxproxy Blog' }],
   },
+  alternates: { canonical: 'https://styxproxy.com/blog' },
 };
 
 async function getPosts() {

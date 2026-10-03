@@ -1,5 +1,12 @@
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Manage Order',
+  description: 'Look up your order status and proxy credentials by order ID or transaction reference.',
+  alternates: { canonical: 'https://styxproxy.com/manage' },
+};
 
 export default function ManagePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   return (
