@@ -5,7 +5,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
 import { Flag } from '@/components/ui/Flag';
@@ -14,7 +14,6 @@ import type { ReceiptOrder } from '@/lib/pdf-receipt';
 import type { CartItem } from '@/types';
 import { Check, Copy, Warning, XCircle, ArrowLineDown, WarningCircle } from '@phosphor-icons/react';
 import { PaymentStatusPoller, CredentialPanel } from '@/components/PaymentStatusPoller';
-import type { OrderPaymentStatus } from '@/types';
 
 interface OrderData {
   order_id?: string;
@@ -74,9 +73,12 @@ function ThankYouContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  // A ref, not the state value, so the polling effect does not depend on it.
+  // Depending on `attempts` re-created the effect on every increment, which
+  // cleared the interval before it fired and turned the poll into a busy loop.
+  const attemptsRef = useRef(0);
   const [nextAction, setNextAction] = useState<string | null>(null);
   const [userMessage, setUserMessage] = useState<string | null>(null);
-  const [resolvedStatus, setResolvedStatus] = useState<OrderPaymentStatus | null>(null);
   const maxAttempts = 60;
 
   // Self-service lookup state
@@ -102,6 +104,27 @@ function ThankYouContent() {
   }, []);
 
   // Poll for order status using PaymentStatusPoller
+  //
+  // Two bugs lived here:
+  //
+  // 1. It fetched `/api/orders/{id}/status`, which DOES NOT EXIST. The backend
+  //    has `/api/orders/{order_id}` (auth required) and
+  //    `/api/orders/by-payment-reference/{ref}` (public). The 401/404 was
+  //    swallowed by the catch, attempts incremented, and the page span the
+  //    spinner until maxAttempts — "processing forever" on a fulfilled order.
+  //    It now uses the public by-payment-reference endpoint, which returns the
+  //    full OrderResponse including the credential.
+  //
+  // 2. `attempts` was in the dependency array, so every increment tore down and
+  //    re-created the effect — which cleared the 3500ms interval before it ever
+  //    fired and called the fetch immediately instead. That is a busy loop with
+  //    no delay. The counter is now a ref, so the interval is the only poller.
+  //
+  // Field names were also wrong: the endpoint returns `status` (not
+  // `order_status`) and `styxproxy_credential` (not `credential`), with
+  // `upstream_proxy_ip` / `upstream_proxy_port` (not `proxy_host` /
+  // `proxy_port_socks5`). Mapping the wrong names left the credential panel
+  // permanently empty even when the order was fulfilled.
   useEffect(() => {
     if (!txRef) {
       Promise.resolve().then(() => {
@@ -112,90 +135,83 @@ function ThankYouContent() {
     }
 
     let cancelled = false;
-    let resolvedRef: string | null = null;
 
     const fetchOrderStatus = async () => {
       try {
-        if (orderId) {
-          resolvedRef = orderId;
+        const res = await fetch(`/api/orders/by-payment-reference/${encodeURIComponent(txRef)}`);
+        if (cancelled) return;
+        if (res.status === 404) {
+          attemptsRef.current += 1;
+          setAttempts(attemptsRef.current);
+          return;
         }
-        let oid = resolvedRef;
-        if (!oid && txRef) {
-          const refRes = await fetch(`/api/orders/by-payment-reference/${txRef}`);
-          if (cancelled) return;
-          if (refRes.status === 404) {
-            setAttempts(prev => prev + 1);
-            return;
-          }
-          if (!refRes.ok) throw new Error(`HTTP ${refRes.status}`);
-          const refData = await refRes.json();
-          if (!refData.order_id) {
-            setLoading(false);
-            setError(true);
-            return;
-          }
-          oid = refData.order_id;
-          resolvedRef = oid;
-        }
-        if (!oid) {
-          setAttempts(prev => prev + 1);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (!data.order_id) {
+          setLoading(false);
+          setError(true);
           return;
         }
 
-        const res = await fetch(`/api/orders/${oid}/status`);
-        if (cancelled) return;
-        if (!res.ok) {
-          if (res.status === 404) {
-            setAttempts(prev => prev + 1);
-            return;
-          }
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        if (cancelled) return;
-
+        const cred = data.styxproxy_credential;
         const orderData: OrderData = {
           order_id: data.order_id,
-          status: data.order_status,
+          status: data.status,
           plan_type: data.plan_type,
           country: data.country,
           amount_paid_ngn: data.amount_paid_ngn,
           tx_ref: txRef || undefined,
+          customer_name: data.customer_name,
+          is_renewable: data.is_renewable,
+          rotation_count: data.rotation_count,
+          max_rotations: data.max_rotations,
           created_at: data.created_at,
-          fulfilled_at: data.fulfilled_at || undefined,
           expires_at: data.expires_at || undefined,
-          styxproxy_credential: data.credential ? {
-            styxproxy_username: data.credential.styxproxy_username,
-            styxproxy_password: data.credential.styxproxy_password,
-            upstream_proxy_ip: data.credential.proxy_host,
-            upstream_proxy_port: data.credential.proxy_port_socks5,
+          styxproxy_credential: cred ? {
+            styxproxy_username: cred.styxproxy_username,
+            styxproxy_password: cred.styxproxy_password,
+            upstream_proxy_ip: cred.upstream_proxy_ip,
+            upstream_proxy_port: cred.upstream_proxy_port,
             expires_at: data.expires_at || undefined,
-            status: data.credential.status,
+            status: cred.status,
           } : undefined,
         };
         setOrder(orderData);
 
-        if (data.next_action && data.next_action !== 'poll') {
+        // Terminal states stop the poll. Anything else keeps waiting.
+        const s = data.status;
+        if (s === 'fulfilled' || s === 'active') {
           setLoading(false);
-          setNextAction(data.next_action);
-          setUserMessage(data.user_message || null);
-          setResolvedStatus(data);
-          if (data.next_action === 'redirect_to_proxy_details') {
-            import('@/lib/device-id').then(({ clearInflightOrder }) => clearInflightOrder());
-          }
+          setNextAction('redirect_to_proxy_details');
+          import('@/lib/device-id').then(({ clearInflightOrder }) => clearInflightOrder());
           return;
         }
-        setAttempts(prev => prev + 1);
+        if (s === 'expired' || s === 'cancelled' || s === 'refunded') {
+          setLoading(false);
+          setNextAction('show_failure');
+          setUserMessage(data.user_message || null);
+          return;
+        }
+        if (s === 'failed_manual_review' || s === 'failed_unfulfilled') {
+          setLoading(false);
+          setNextAction('provider_down');
+          setUserMessage(data.user_message || null);
+          return;
+        }
+        attemptsRef.current += 1;
+        setAttempts(attemptsRef.current);
       } catch {
         if (cancelled) return;
-        setAttempts(prev => prev + 1);
+        attemptsRef.current += 1;
+        setAttempts(attemptsRef.current);
       }
     };
 
     fetchOrderStatus();
 
     const interval = setInterval(() => {
-      if (attempts >= maxAttempts) {
+      if (attemptsRef.current >= maxAttempts) {
         setLoading(false);
         clearInterval(interval);
         return;
@@ -207,7 +223,7 @@ function ThankYouContent() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [txRef, attempts]);
+  }, [txRef]);
 
   // Self-service lookup
   const handleLookup = async () => {
