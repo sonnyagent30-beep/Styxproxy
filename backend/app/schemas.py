@@ -114,20 +114,18 @@ class TrialStatusEnum(str, Enum):
 
 # Valid country codes, read from the `countries` table at application startup.
 #
-# This used to be a hardcoded 17-country set, and it silently disagreed with the
-# catalog: `/api/catalog` builds its country list from `country_plan_types` and
-# advertised 11 countries, of which only 5 were in this set. So AF, AR, BE, BR,
-# CN and GH were SELECTABLE IN THE UI AND 422'd AT PRECHECK — 6 dead ends out of
-# 11. It also contained 'UK', which is not ISO 3166 (the table has GB), so
-# country='UK' passed this validator and then failed at fulfilment.
-#
 # Populated once by load_valid_countries() during app startup (see app/main.py
-# lifespan). The fallback below is only used if that load did not run, so a
-# startup problem cannot reject every order.
-_FALLBACK_VALID_COUNTRIES = {
-    "AE", "AF", "AR", "BE", "BR", "CN", "DE", "GB", "GH", "NG", "US",
-}
-VALID_COUNTRIES: set[str] = set(_FALLBACK_VALID_COUNTRIES)
+# lifespan). The fallback below is INTENTIONALLY EMPTY — a non-empty fallback
+# silently disagrees with the catalog (the old 11-country set had 6 countries
+# that were selectable in the UI but 422'd at precheck, and 'UK' which is not
+# ISO 3166). An empty set fails closed: any validator that runs before the
+# loader raises a loud RuntimeError instead of silently validating against a
+# stale list.
+#
+# Every country validator in the app reads this global, so if it is empty when
+# validate_country() is called, the loader has not run — that is a boot-order
+# bug, not a validation failure.
+VALID_COUNTRIES: set[str] = set()  # populated by load_valid_countries(); empty until then
 
 
 async def load_valid_countries() -> set[str]:
@@ -136,26 +134,29 @@ async def load_valid_countries() -> set[str]:
     Called from the FastAPI lifespan so every validator in the app — this module
     and app/routers/schemas.py, which re-exports from here — reads one source of
     truth. Returns the set it installed.
+
+    Raises RuntimeError if the table cannot be read — the fallback is an empty
+    set, which would cause every order to be rejected. A hard failure here is
+    correct: the country table is populated at deploy time by seed_countries.py,
+    so an empty table means the seed never ran. An operator must fix the data,
+    not have the app silently work with a stale list.
     """
     global VALID_COUNTRIES
-    try:
-        from sqlalchemy import text
+    from sqlalchemy import text
 
-        from app.database import engine
+    from app.database import engine
 
-        async with engine.connect() as conn:
-            rows = (await conn.execute(text("SELECT code FROM countries"))).fetchall()
-        codes = {str(r[0]).strip().upper() for r in rows if r[0]}
-        if codes:
-            VALID_COUNTRIES = codes
-            return codes
-    except Exception:  # noqa: BLE001 - never block startup on this
-        import logging
-
-        logging.getLogger(__name__).exception(
-            "Could not load valid countries from the DB — using the static fallback"
+    async with engine.connect() as conn:
+        rows = (await conn.execute(text("SELECT code FROM countries"))).fetchall()
+    codes = {str(r[0]).strip().upper() for r in rows if r[0]}
+    if not codes:
+        raise RuntimeError(
+            "The `countries` table is empty — seed_countries.py has not run. "
+            "Populate it before starting the app: "
+            "/opt/styxproxy/backend/venv/bin/python3 /opt/styxproxy/backend/scripts/seed_countries.py"
         )
-    return VALID_COUNTRIES
+    VALID_COUNTRIES = codes
+    return codes
 
 
 def validate_phone(phone: str) -> str:
@@ -173,7 +174,17 @@ def validate_country(country: str) -> str:
     copy and the frontend all say "UK", but the ISO code is GB. Accepting it
     here keeps the customer-facing label working while every downstream consumer
     (the provider, the credential guard) sees the canonical GB.
+
+    Raises RuntimeError if VALID_COUNTRIES is empty — the loader has not run,
+    which is a boot-order bug. Raises ValueError if the country is not in the
+    loaded set.
     """
+    if not VALID_COUNTRIES:
+        raise RuntimeError(
+            "VALID_COUNTRIES is empty — load_valid_countries() has not run yet. "
+            "This is a boot-order bug: the FastAPI lifespan must load the country "
+            "set before any validator can run. Check app/main.py lifespan ordering."
+        )
     code = (country or "").strip().upper()
     if code == "UK":
         code = "GB"

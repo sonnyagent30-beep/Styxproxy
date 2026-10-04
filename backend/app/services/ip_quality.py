@@ -76,7 +76,23 @@ class IPQResult:
         is_proxy = bool(data.get("proxy", False))
         is_vpn = bool(data.get("vpn", False))
         is_tor = bool(data.get("tor", False))
-        is_datacenter = bool(data.get("datacenter", False))
+        # IPQS v3 does NOT return a `datacenter` boolean — it returns a
+        # `connection_type` STRING. Reading `data.get("datacenter")` therefore
+        # yielded None on every live lookup, so is_datacenter was ALWAYS False
+        # and the per-plan datacenter rule never fired. That is the rule the
+        # plan-aware gate was built around, so `allow_datacenter` was inert.
+        #
+        # The consequence is concrete: a residential plan would accept a
+        # datacenter address — the exact defect the rule exists to catch — and a
+        # DC/ISP plan would have been rejected for `vpn=True` instead of being
+        # allowed as a datacenter product, which is what blocked DC/ISP.
+        #
+        # Read the string, and keep the legacy boolean as a fallback in case a
+        # future API version restores it.
+        _connection_type = str(data.get("connection_type") or "").strip().lower()
+        is_datacenter = bool(data.get("datacenter", False)) or (
+            "data center" in _connection_type or "datacenter" in _connection_type
+        )
         recent_abuse = bool(data.get("recent_abuse", False))
         abuse_velocity = data.get("abuse_velocity", "none")
         country_code = data.get("country_code", "")
