@@ -264,7 +264,7 @@ async def ops_reprocess_order(
     exception. So the endpoint refused the exact failure class it exists to
     recover, and a paid order in that state could not be requeued at all.
     """
-    from app.services.credential import create_credential, resolve_country_for_credential
+    from app.services.credential import create_credential
 
     # Look up order
     result = await session.execute(select(Order).where(Order.order_id == order_id))
@@ -272,13 +272,42 @@ async def ops_reprocess_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    REPROCESSABLE = {"failed_unfulfilled", "failed_manual_review"}
+    REPROCESSABLE = {"failed_unfulfilled", "failed_manual_review", "paid", "pending"}
+    # `paid` is included deliberately. A payment that was captured but never
+    # fulfilled can legitimately sit at `paid` — that is exactly what a job which
+    # died before creating a credential leaves behind. Excluding it meant the
+    # recovery endpoint refused the status a stranded payment actually lands in,
+    # so two orders (NGN 12,000) were unreachable through our own tooling.
+    #
+    # `pending` is included for the same reason: capture evidence may exist even
+    # though the status was never advanced. The capture evidence is checked
+    # below, so this does not open a path to reprocessing an unpaid order.
     if order.status not in REPROCESSABLE:
         raise HTTPException(
             status_code=400,
             detail=(
                 f"Cannot reprocess order with status '{order.status}'. "
                 f"Reprocessable statuses: {sorted(REPROCESSABLE)}"
+            ),
+        )
+
+    # Never reprocess an order we have no evidence was paid for. Without this,
+    # adding `pending` to the set above would let an abandoned checkout mint a
+    # free credential.
+    _has_capture = (
+        getattr(order, "captured_at", None) is not None
+        or getattr(order, "gateway_status", None) == "successful"
+        or (order.amount_paid_ngn or 0) > 0
+        or bool(getattr(order, "payment_reference", None))
+    )
+    if not _has_capture:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Refusing to reprocess order '{order.order_id}': no capture evidence "
+                f"(no captured_at, no successful gateway_status, no amount, no "
+                f"payment reference). Reprocessing could mint a credential for an "
+                f"order that was never paid."
             ),
         )
 
@@ -290,7 +319,7 @@ async def ops_reprocess_order(
             order_id=order.order_id,
             customer_phone=order.customer_phone or "",
             plan_code=order.plan_code or "unknown",
-            country=resolve_country_for_credential(order.country),
+            country=order.country or "NG",
             proxy_type="isp",
             quantity=1,
             duration_days=30,

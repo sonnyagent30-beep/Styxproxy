@@ -191,7 +191,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 ]
                 logger.info(
                     f"created {len(created)} credential(s) for quantity {quantity}",
-                    extra={**log_ctx, "created": len(created), "quantity": quantity},
+                    extra={**log_ctx, "created_count": len(created), "quantity": quantity},
                 )
 
                 # ── Deliver the credential ─────────────────────────────────
@@ -454,6 +454,29 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             except Exception as e:
                 logger.error(f"audit log failed: {e}", extra=log_ctx)
 
+            # A job that captured money and delivered nothing must NEVER report
+            # success to RQ. Returning a dict here made RQ log "Job OK" while the
+            # order sat at `paid` with no credential — which is how two orders
+            # (NGN 12,000) sat stranded, one for 9 hours, with every signal green
+            # and no alert. Raise on any non-terminal outcome so RQ records
+            # `failed`, and mark the order so it is recoverable rather than
+            # silently parked at `paid`.
+            if order.status not in ("fulfilled", "active"):
+                _err = fulfillment_error or delivery_error or order.status
+                logger.error(
+                    "fulfillment did not complete — raising so RQ records FAILED",
+                    extra={**log_ctx, "order_status": order.status, "error": _err},
+                )
+                try:
+                    if order.status in ("paid", "pending"):
+                        order.status = "failed_unfulfilled"
+                        await db.commit()
+                except Exception:
+                    logger.exception("could not mark order failed_unfulfilled", extra=log_ctx)
+                raise RuntimeError(
+                    f"fulfillment incomplete for {order_id}: status={order.status} error={_err}"
+                )
+
             return {
                 "status": order.status,
                 "order_id": order_id,
@@ -466,18 +489,69 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 "delivery_error": delivery_error,
             }
 
+        except RuntimeError:
+            # Already logged and already marked. Re-raise so RQ records failure.
+            raise
         except Exception:
             logger.exception("unhandled exception in fulfillment worker")
-            return {"status": "error", "error": traceback.format_exc()}
+            # Mark the order so a paid-but-unfulfilled state is visible and
+            # recoverable instead of sitting at `paid` forever.
+            try:
+                if order.status in ("paid", "pending"):
+                    order.status = "failed_unfulfilled"
+                    await db.commit()
+            except Exception:
+                logger.exception("could not mark order failed_unfulfilled", extra=log_ctx)
+            raise
 
 
 # ── RQ Worker bootstrap ──────────────────────────────────────────────────────
 if __name__ == "__main__":
+    import asyncio
+
     from redis import Redis as SyncRedis
     from rq import Worker
 
     settings = get_settings()
     redis_url = settings.redis_url
+
+    # ── Load valid countries at startup ────────────────────────────────────
+    # The worker does not boot app.main, so the FastAPI lifespan never runs.
+    # create_credential() calls get_valid_countries() which raises if the set
+    # is not loaded — so this must run before any job is served.
+    #
+    # This uses a RAW asyncpg connection rather than asyncio.run() over the
+    # module-level SQLAlchemy engine. That distinction is the whole point:
+    # asyncio.run() creates a new event loop, opens the SHARED engine's pool on
+    # it, and then CLOSES that loop. engine.dispose() was never called, so the
+    # pooled connections stayed bound to a dead loop — and the first job RQ ran
+    # on its own loop grabbed one and died with
+    # "Future attached to a different loop". Every first-job-after-restart
+    # failed, silently. A raw connection never touches the pool, so it cannot
+    # poison it.
+    async def _load_countries() -> set[str]:
+        import asyncpg
+
+        dsn = (settings.database_url or "").replace("postgresql+asyncpg://", "postgresql://")
+        conn = await asyncpg.connect(dsn)
+        try:
+            rows = await conn.fetch("SELECT code FROM countries")
+        finally:
+            await conn.close()
+        return {str(r["code"]).strip().upper() for r in rows if r["code"]}
+
+    try:
+        from app.services.countries import set_valid_countries
+
+        _codes = asyncio.run(_load_countries())
+        if not _codes:
+            logger.error("FATAL: countries table is empty — refusing to start")
+            sys.exit(1)
+        set_valid_countries(_codes)
+        logger.info("Loaded %d valid country codes at startup", len(_codes))
+    except Exception as e:
+        logger.error("FATAL: could not load valid countries — %s", e)
+        sys.exit(1)
 
     logger.info("Starting fulfillment worker...")
     conn = SyncRedis.from_url(redis_url)
