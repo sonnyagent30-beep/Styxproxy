@@ -528,7 +528,7 @@ async def _handle_bounce(session, data: dict):
     import time as _time
     bounced_emails = data.get("emails", [])
     reason = data.get("reason", {}).get("bounce_classification", "unknown")
-    logger.warning("email_bounced", emails=bounced_emails, reason=reason)
+    logger.warning(f"email_bounced: emails={bounced_emails} reason={reason}")
 
     for email in bounced_emails:
         try:
@@ -551,14 +551,14 @@ async def _handle_bounce(session, data: dict):
             session.add(wh)
             await session.commit()
         except Exception as e:
-            logger.error("bounce_handler_error", email=email, error=str(e))
+            logger.error(f"bounce_handler_error: email={email} error={str(e)}")
 
 
 async def _handle_complaint(session, data: dict):
     """Record spam complaint → mark user as unsubscribed."""
     import time as _time
     complained_emails = data.get("emails", [])
-    logger.warning("email_complained", emails=complained_emails)
+    logger.warning(f"email_complained: emails={complained_emails}")
 
     for email in complained_emails:
         try:
@@ -581,7 +581,7 @@ async def _handle_complaint(session, data: dict):
             session.add(wh)
             await session.commit()
         except Exception as e:
-            logger.error("complaint_handler_error", email=email, error=str(e))
+            logger.error(f"complaint_handler_error: email={email} error={str(e)}")
 
 
 # ── Unsubscribe endpoint ────────────────────────────────────────────────────────
