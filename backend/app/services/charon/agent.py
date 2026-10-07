@@ -722,7 +722,7 @@ async def _try_tool_call_loop(
     channel_user_id: str | None = None,
     customer_phone: str | None = None,
     customer_name: str | None = None,
-    max_iterations: int = 3,
+    max_iterations: int = 2,
 ):
     """Multi-step tool calling loop."""
     tool_prompt_messages = [

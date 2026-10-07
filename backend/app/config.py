@@ -73,7 +73,16 @@ class Settings(BaseSettings):
     betterstack_status_page_url: str = ""
     from_email: str = "Styxproxy <noreply@styxproxy.com>"
     support_email: str = "support@styxproxy.com"
-    admin_email: str = "support@styxproxy.com"
+    admin_email: str = "admin@styxproxy.com"
+
+    # ── Alerting fallback paths ─────────────────────────────────────────────
+    # Telegram Bot API — push alerts to a phone via a bot.
+    # Get a token from @BotFather, chat ID from @userinfobot.
+    telegram_bot_token: str = ""
+    telegram_alert_chat_id: str = ""
+    # ntfy.sh — zero-config push notification. No account needed.
+    # Pick a topic name, subscribe via the ntfy phone app or web.
+    ntfy_topic: str = ""
 
     # ── Provider Simulator ──────────────────────────────────────────────────
     provider_mode: str = "production"  # "production", "simulator", "auto"

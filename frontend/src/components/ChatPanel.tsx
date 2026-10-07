@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { useCharonStore } from '@/store/charon-store';
+import { getDeviceId } from '@/lib/device-id';
 import ChatMessage from './ChatMessage';
 
 export default function ChatPanel() {
@@ -107,6 +108,7 @@ export default function ChatPanel() {
             content: m.content,
           }));
 
+        const deviceId = getDeviceId();
         const res = await fetch('/api/v1/charon/reply/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -117,6 +119,10 @@ export default function ChatPanel() {
             user_message: trimmed,
             history,
             page_context: pageContext,
+            channel_user_id: deviceId || undefined,
+            customer_email: undefined,
+            customer_phone: undefined,
+            customer_name: undefined,
           }),
           signal: controller.signal,
         });

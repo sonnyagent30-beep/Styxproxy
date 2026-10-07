@@ -1091,13 +1091,13 @@ async def _create_order_tool(
 
         # Derive real customer identity based on channel
         if channel == "telegram":
-            identity = channel_user_id
+            identity = channel_user_id or f"anon_{uuid.uuid4().hex[:12]}"
             platform = "telegram"
         elif channel == "whatsapp":
-            identity = channel_user_id
+            identity = channel_user_id or f"anon_{uuid.uuid4().hex[:12]}"
             platform = "whatsapp"
         else:
-            identity = f"anon_{channel_user_id}"
+            identity = f"anon_{channel_user_id or uuid.uuid4().hex[:12]}"
             platform = "web"
 
         async with async_session() as session:

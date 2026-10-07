@@ -146,6 +146,7 @@ class ChatReplyRequest(BaseModel):
     customer_phone: Optional[str] = Field(default=None, description="Customer phone for escalation notifications")
     customer_name: Optional[str] = Field(default=None, description="Customer name for escalation notifications")
     page_context: Optional[dict] = Field(default=None, description="Page context for escalation notifications")
+    channel_user_id: Optional[str] = Field(default=None, description="Channel user ID for tool authorization (e.g. device ID for web)")
 
     @field_validator("channel", mode="before")
     @classmethod
@@ -313,6 +314,9 @@ async def post_reply(
         history=history,
         customer_email=payload.customer_email,
         customer_phone=payload.customer_phone,
+        customer_name=payload.customer_name,
+        channel_user_id=payload.channel_user_id,
+        page_context=payload.page_context,
     )
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -496,6 +500,7 @@ async def post_reply_stream(
                 customer_email=payload.customer_email,
                 customer_phone=payload.customer_phone,
                 customer_name=payload.customer_name,
+                channel_user_id=payload.channel_user_id,
                 page_context=payload.page_context,
             )
 
