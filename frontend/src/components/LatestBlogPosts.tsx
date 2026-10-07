@@ -67,7 +67,7 @@ export default function LatestBlogPosts({ initialPosts = [] }: Props) {
     <section className="py-16 sm:py-24 lg:py-32 px-6 bg-[var(--surface)]">
       <div className="max-w-6xl mx-auto">
         <div className="mb-12">
-          <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">
+          <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">
             Latest from the blog
           </p>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
@@ -97,11 +97,11 @@ export default function LatestBlogPosts({ initialPosts = [] }: Props) {
                   </div>
                   <div className="p-5">
                     {post.tags && post.tags[0] && (
-                      <span className="text-xs font-medium text-[var(--primary)] uppercase tracking-wider">
+                      <span className="text-xs font-medium text-[var(--primary-text)] uppercase tracking-wider">
                         #{post.tags[0]}
                       </span>
                     )}
-                    <h3 className="text-base font-bold text-[var(--foreground)] tracking-[-0.01em] leading-snug mt-2 mb-2 line-clamp-2 group-hover:text-[var(--primary)] transition-colors">
+                    <h3 className="text-base font-bold text-[var(--foreground)] tracking-[-0.01em] leading-snug mt-2 mb-2 line-clamp-2 group-hover:text-[var(--primary-text)] transition-colors">
                       {post.title}
                     </h3>
                     <p className="text-sm text-[var(--muted)] line-clamp-2 leading-relaxed">

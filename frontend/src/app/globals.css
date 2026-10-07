@@ -12,6 +12,10 @@
   --foreground: #f5f5f5;
   --primary: #0AD25A;
   --primary-dark: #059669;
+  /* --primary is a FILL (buttons, dots, bars) and is paired with black
+     text — #0AD25A gives 10.38:1. It is NOT safe as a text colour on the
+     light page (#0AD25A on #fafafa = 1.94:1), so text uses --primary-text. */
+  --primary-text: #0AD25A;
   --primary-light: #22FF7A;
   --accent: #f59e0b;
   --accent-dark: #d97706;
@@ -376,7 +380,7 @@ button {
 .blog-content ol li::marker { color: var(--primary); font-weight: 600; }
 .blog-content strong { font-weight: 600; color: var(--foreground); }
 .blog-content a {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -431,7 +435,7 @@ button {
 .prose-styx p { color: var(--foreground); }
 .prose-styx strong { color: var(--foreground); font-weight: 600; }
 .prose-styx a {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: underline;
   text-underline-offset: 3px;
   transition: color 0.2s;
@@ -451,7 +455,7 @@ button {
   background: var(--surface);
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .prose-styx pre {
   background: var(--surface);
@@ -578,7 +582,7 @@ button {
   white-space: nowrap;
 }
 .mini-chip .chip-val {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 700;
 }
 
@@ -766,7 +770,7 @@ button {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-weight: 700;
   font-size: 1.1rem;
-  color: var(--primary);
+  color: var(--primary-text);
   letter-spacing: -0.02em;
 }
 
@@ -970,7 +974,7 @@ button {
 .suggestion-item .country-price {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
   font-family: ui-monospace, monospace;
   margin-left: auto;
   white-space: nowrap;
@@ -1023,7 +1027,7 @@ button {
 .country-tile .country-price {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
   font-family: ui-monospace, monospace;
   margin-top: 0.375rem;
 }
@@ -1082,7 +1086,7 @@ button {
 .country-product-card .product-price {
   font-size: 1rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .country-product-card .product-price span {
@@ -1094,7 +1098,7 @@ button {
 .country-product-card .product-avail {
   font-size: 0.75rem;
   font-family: ui-monospace, monospace;
-  color: var(--primary);
+  color: var(--primary-text);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1199,7 +1203,7 @@ button {
 .product-row .product-price { 
   font-size: 1rem; 
   font-weight: 700; 
-  color: var(--primary); 
+  color: var(--primary-text); 
   white-space: nowrap; 
 }
 
@@ -1216,7 +1220,7 @@ button {
   border-radius: 4px;
   background: rgba(10,210,90,0.06);
   border: 1px solid rgba(10,210,90,0.15);
-  color: var(--primary);
+  color: var(--primary-text);
   white-space: nowrap;
 }
 
@@ -1238,7 +1242,7 @@ button {
 
 .product-row .cta-btn.outline {
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-text);
   border: 1px solid rgba(10,210,90,0.3);
 }
 
@@ -1398,7 +1402,7 @@ button {
 .spec-val { 
   font-size: 0.75rem; 
   font-family: ui-monospace, monospace; 
-  color: var(--primary); 
+  color: var(--primary-text); 
   text-align: right; 
 }
 
@@ -1424,7 +1428,7 @@ button {
 
 .plan-card .cta-link.outline-link {
   background: transparent; 
-  color: var(--primary);
+  color: var(--primary-text);
   border: 1px solid rgba(10,210,90,0.3);
 }
 
@@ -1448,7 +1452,7 @@ button {
   display: inline-block; 
   padding: 0.75rem 2rem;
   border: 2px solid var(--primary); 
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 600; 
   border-radius: 0.75rem; 
   transition: all 0.2s; 
@@ -1543,7 +1547,7 @@ button {
 }
 .cg-links a {
   font-size: 0.8rem;
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: opacity 0.15s;
@@ -1592,9 +1596,17 @@ button {
   :root:not(.dark) {
     --background: #fafafa;
     --foreground: #0a0a0a;
-    --primary: #0b7a34;
-    --primary-dark: #095c27;
-    --primary-light: #0AD25A;
+    /* Bright brand green as the FILL. Every CTA is bg-[var(--primary)]
+     text-black and 109 fills + 11 globals.css rules all pair it with
+     #000, so this keeps the brand colour and passes at 10.38:1.
+     The darkened #0b7a34 it replaces was a mistake: it diluted the
+     brand and dropped those buttons to 3.85:1. */
+  --primary: #0AD25A;
+    /* Hover step: must stay dark enough for the black button label.
+     #095c27 was only 2.57:1 — a hover state that fails worse than rest. */
+  --primary-dark: #09b84f;
+    --primary-light: #22FF7A;
+  --primary-text: #0b7a34;
     --accent: #f59e0b;
     --accent-dark: #d97706;
     --surface: #ffffff;
@@ -1640,9 +1652,17 @@ button {
   color-scheme: light;
   --background: #fafafa;
   --foreground: #0a0a0a;
-  --primary: #0b7a34;
-  --primary-dark: #095c27;
-  --primary-light: #0AD25A;
+  /* Bright brand green as the FILL. Every CTA is bg-[var(--primary)]
+     text-black and 109 fills + 11 globals.css rules all pair it with
+     #000, so this keeps the brand colour and passes at 10.38:1.
+     The darkened #0b7a34 it replaces was a mistake: it diluted the
+     brand and dropped those buttons to 3.85:1. */
+  --primary: #0AD25A;
+  /* Hover step: must stay dark enough for the black button label.
+     #095c27 was only 2.57:1 — a hover state that fails worse than rest. */
+  --primary-dark: #09b84f;
+  --primary-light: #22FF7A;
+  --primary-text: #0b7a34;
   --accent: #f59e0b;
   --accent-dark: #d97706;
   --surface: #ffffff;
@@ -1683,6 +1703,7 @@ button {
   --background: #000000;
   --foreground: #f5f5f5;
   --primary: #0AD25A;
+  --primary-text: #0AD25A;
   --primary-dark: #059669;
   --primary-light: #22FF7A;
   --accent: #f59e0b;
@@ -1823,7 +1844,7 @@ button {
 }
 .btn-ghost:hover {
   border-color: var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .back-btn {
@@ -1841,7 +1862,7 @@ button {
 }
 .back-btn:hover {
   border-color: var(--primary);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .legal-content {
@@ -1870,7 +1891,7 @@ button {
 .legal-content p { color: var(--foreground); }
 .legal-content strong { color: var(--foreground); font-weight: 600; }
 .legal-content a {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: underline;
   text-underline-offset: 3px;
   transition: color 0.2s;
@@ -1890,7 +1911,7 @@ button {
   background: var(--surface);
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .legal-content pre {
   background: var(--surface);

@@ -59,7 +59,7 @@ export default async function CategoryPage({ params }: Props) {
 
         <div className="relative text-center max-w-3xl mx-auto">
           <nav className="flex items-center justify-center gap-2 text-sm text-[var(--muted)] mb-6">
-            <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
+            <Link href="/blog" className="hover:text-[var(--primary-text)] transition-colors">
               Blog
             </Link>
             <span>/</span>
@@ -100,7 +100,7 @@ export default async function CategoryPage({ params }: Props) {
         ) : (
           <div className="text-center py-20 text-[var(--muted)]">
             <p className="text-lg mb-4">No posts in this category yet.</p>
-            <Link href="/blog" className="text-[var(--primary)] hover:underline">
+            <Link href="/blog" className="text-[var(--primary-text)] hover:underline">
               ← Back to all posts
             </Link>
           </div>

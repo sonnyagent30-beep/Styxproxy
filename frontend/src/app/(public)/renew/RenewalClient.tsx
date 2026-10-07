@@ -306,7 +306,7 @@ export default function RenewalClient() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary-text)] shrink-0">
                           {getPlanIcon(order.plan_type || '')}
                         </div>
                         <div>
@@ -325,7 +325,7 @@ export default function RenewalClient() {
                           </p>
                         </div>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors shrink-0 mt-1" />
+                      <ArrowRight className="w-4 h-4 text-[var(--muted)] group-hover:text-[var(--primary-text)] transition-colors shrink-0 mt-1" />
                     </div>
                   </button>
                 );
@@ -353,7 +353,7 @@ export default function RenewalClient() {
               {/* Selected order summary */}
               <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
                 <div className="flex items-start gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary-text)] shrink-0">
                     {getPlanIcon(selectedOrder.plan_type || '')}
                   </div>
                   <div>
@@ -436,7 +436,7 @@ export default function RenewalClient() {
                     <div className="mt-4 p-4 bg-[var(--background)] rounded-xl">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-[var(--muted)]">Total</span>
-                        <span className="text-lg font-bold text-[var(--primary)]">
+                        <span className="text-lg font-bold text-[var(--primary-text)]">
                           ₦{((selectedTier || parseInt(customGb, 10)) * 1000).toLocaleString('en-NG')}
                         </span>
                       </div>
@@ -456,7 +456,7 @@ export default function RenewalClient() {
                   <div className="p-4 bg-[var(--background)] rounded-xl">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-[var(--muted)]">Total</span>
-                      <span className="text-lg font-bold text-[var(--primary)]">
+                      <span className="text-lg font-bold text-[var(--primary-text)]">
                         ₦{(selectedOrder.amount_paid_ngn || 0).toLocaleString('en-NG')}
                       </span>
                     </div>
@@ -522,7 +522,7 @@ export default function RenewalClient() {
                           <p className="text-xs text-[var(--muted)]">{formatDate(r.created_at)}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-semibold text-[var(--primary)]">₦{r.amount_paid_ngn.toLocaleString('en-NG')}</p>
+                          <p className="text-sm font-semibold text-[var(--primary-text)]">₦{r.amount_paid_ngn.toLocaleString('en-NG')}</p>
                           <p className={`text-xs ${
                             r.status === 'completed' ? 'text-[var(--success)]' :
                             r.status === 'pending' ? 'text-[var(--warning)]' :
@@ -545,7 +545,7 @@ export default function RenewalClient() {
               Need help?{' '}
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent('open-chat-widget', { detail: { context: 'support' } }))}
-                className="text-[var(--primary)] hover:underline font-medium"
+                className="text-[var(--primary-text)] hover:underline font-medium"
               >
                 Chat with Charon →
               </button>

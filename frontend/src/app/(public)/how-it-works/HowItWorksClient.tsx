@@ -121,7 +121,7 @@ export default function HowItWorksClient() {
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight mb-6">
             Proxy in seconds,<br />
-            <span className="text-[var(--primary)]">not days.</span>
+            <span className="text-[var(--primary-text)]">not days.</span>
           </h1>
           <p className="text-lg max-w-xl mx-auto leading-relaxed text-[var(--muted)]">
             Three steps between you and a working proxy. No sign-up, no waiting, no complexity.
@@ -194,7 +194,7 @@ export default function HowItWorksClient() {
                       </div>
                       <Link
                         href={step.ctaHref}
-                        className="inline-block text-sm font-semibold text-[var(--primary)] hover:underline"
+                        className="inline-block text-sm font-semibold text-[var(--primary-text)] hover:underline"
                       >
                         {step.cta} →
                       </Link>
@@ -202,7 +202,7 @@ export default function HowItWorksClient() {
 
                     {/* Visual */}
                     <div className="hidden md:flex flex-shrink-0 w-48 h-36 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth items-center justify-center">
-                      <Visual className="w-16 h-16 text-[var(--primary)]" />
+                      <Visual className="w-16 h-16 text-[var(--primary-text)]" />
                     </div>
                   </div>
                 </AnimatedSection>

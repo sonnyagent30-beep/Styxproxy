@@ -326,7 +326,7 @@ function ThankYouContent() {
                   <p><span className="text-[var(--muted)]">Status:</span> <span className="font-medium capitalize">{lookupResult.status}</span></p>
                   <p><span className="text-[var(--muted)]">Plan:</span> {lookupResult.plan_code || 'N/A'}</p>
                   <p><span className="text-[var(--muted)]">Amount:</span> ₦{lookupResult.amount_paid_ngn?.toLocaleString() || 'N/A'}</p>
-                  {lookupResult.message && <p className="mt-2 text-[var(--primary)]">{lookupResult.message}</p>}
+                  {lookupResult.message && <p className="mt-2 text-[var(--primary-text)]">{lookupResult.message}</p>}
                 </div>
               )}
               <button
@@ -374,9 +374,9 @@ function ThankYouContent() {
           <div className="animate-fade-in">
             <div className="text-center mb-8">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--primary)]/20 flex items-center justify-center">
-                <Check className="w-8 h-8 text-[var(--primary)]" weight="bold" />
+                <Check className="w-8 h-8 text-[var(--primary-text)]" weight="bold" />
               </div>
-              <h1 className="text-3xl font-bold text-[var(--primary)] mb-2">
+              <h1 className="text-3xl font-bold text-[var(--primary-text)] mb-2">
                 {order?.customer_name?.trim() ? `Thank you, ${order.customer_name.trim()}.` : 'Thank you, customer.'}
               </h1>
               <p className="text-[var(--muted)]">Your proxies are ready. Here are your credentials:</p>
@@ -389,7 +389,7 @@ function ThankYouContent() {
                 {order?.styxproxy_credential && (
                   <button
                     onClick={() => handleCopyCredentials(order?.styxproxy_credential)}
-                    className="text-xs px-3 py-1.5 bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 text-[var(--primary)] border border-[var(--primary)]/30 rounded-lg transition-colors flex items-center gap-1.5"
+                    className="text-xs px-3 py-1.5 bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 text-[var(--primary-text)] border border-[var(--primary)]/30 rounded-lg transition-colors flex items-center gap-1.5"
                   >
                     <Copy className="w-3.5 h-3.5" />
                     Copy
@@ -459,7 +459,7 @@ function ThankYouContent() {
                 </div>
                 <div>
                   <span className="text-[var(--muted)]">Status</span>
-                  <p className="font-medium text-[var(--primary)] capitalize">{order?.status}</p>
+                  <p className="font-medium text-[var(--primary-text)] capitalize">{order?.status}</p>
                 </div>
                 <div>
                   <span className="text-[var(--muted)]">Items</span>
@@ -536,7 +536,7 @@ function ThankYouContent() {
             </h1>
             <p className="text-[var(--muted)] mb-6">
               {order?.status === 'refunded' ? (
-                <>Your order has been refunded. The provider could not deliver a working proxy. Refund processing typically takes 5–10 minutes — contact <a href="https://wa.me/2347032981049" className="text-[var(--primary)] hover:underline">support</a> if you don&apos;t see it within 24 hours.</>
+                <>Your order has been refunded. The provider could not deliver a working proxy. Refund processing typically takes 5–10 minutes — contact <a href="https://wa.me/2347032981049" className="text-[var(--primary-text)] hover:underline">support</a> if you don&apos;t see it within 24 hours.</>
               ) : (
                 'This order is no longer active.'
               )}

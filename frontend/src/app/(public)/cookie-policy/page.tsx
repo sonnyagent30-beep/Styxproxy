@@ -23,7 +23,7 @@ export default function CookiePolicy() {
             <div className="p-8 sm:p-10">
               {/* Page header */}
               <div className="mb-8">
-                <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Legal</p>
+                <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">Legal</p>
                 <h1 className="text-3xl font-black text-[var(--foreground)] mb-2">Cookie Policy</h1>
                 <p className="text-[var(--muted)] text-sm">Effective Date: 2026-08-27 · Last Updated: 2026-08-27</p>
               </div>
@@ -110,18 +110,18 @@ export default function CookiePolicy() {
                 <h2 className="text-xl font-bold mb-4">Questions</h2>
                 <p className="text-[var(--muted)] leading-relaxed">
                   Reach us via{' '}
-                  <Link href="/contact" className="text-[var(--primary)] hover:underline">contact form</Link>{' '}
-                  or email <a href="mailto:privacy@styxproxy.com" className="text-[var(--primary)] hover:underline">privacy@styxproxy.com</a>.
+                  <Link href="/contact" className="text-[var(--primary-text)] hover:underline">contact form</Link>{' '}
+                  or email <a href="mailto:privacy@styxproxy.com" className="text-[var(--primary-text)] hover:underline">privacy@styxproxy.com</a>.
                 </p>
               </section>
 
               <div className="border-t border-[var(--border)] pt-6">
                 <p className="text-base text-[var(--muted)] text-center">
                   Related:{' '}
-                  <Link href="/legal/terms" className="text-[var(--primary)] hover:underline">Terms</Link> ·{' '}
-                  <Link href="/legal/privacy" className="text-[var(--primary)] hover:underline">Privacy</Link> ·{' '}
-                  <Link href="/legal/aup" className="text-[var(--primary)] hover:underline">AUP</Link> ·{' '}
-                  <Link href="/refund-policy" className="text-[var(--primary)] hover:underline">Refund Policy</Link>
+                  <Link href="/legal/terms" className="text-[var(--primary-text)] hover:underline">Terms</Link> ·{' '}
+                  <Link href="/legal/privacy" className="text-[var(--primary-text)] hover:underline">Privacy</Link> ·{' '}
+                  <Link href="/legal/aup" className="text-[var(--primary-text)] hover:underline">AUP</Link> ·{' '}
+                  <Link href="/refund-policy" className="text-[var(--primary-text)] hover:underline">Refund Policy</Link>
                 </p>
               </div>
             </div>
@@ -130,7 +130,7 @@ export default function CookiePolicy() {
           {/* CTA */}
           <div className="mt-8 text-center p-6 bg-[var(--card)] border border-[var(--border)] rounded-2xl">
             <p className="text-[var(--muted)] text-sm mb-3">Questions about our cookie use?</p>
-            <Link href="/contact" className="text-[var(--primary)] font-semibold hover:underline text-sm">
+            <Link href="/contact" className="text-[var(--primary-text)] font-semibold hover:underline text-sm">
               Contact us →
             </Link>
           </div>

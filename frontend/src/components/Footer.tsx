@@ -55,41 +55,41 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-[var(--foreground)] mb-4 text-sm">Product</h4>
             <ul className="space-y-3 text-sm text-[var(--muted)]">
-              <li><Link href="/products" className="hover:text-[var(--primary)] transition-colors duration-150">Products</Link></li>
-              <li><Link href="/pricing" className="hover:text-[var(--primary)] transition-colors duration-150">Pricing</Link></li>
-              <li><Link href="/blog" className="hover:text-[var(--primary)] transition-colors duration-150">Blog</Link></li>
-              <li><Link href="/contact" className="hover:text-[var(--primary)] transition-colors duration-150">Contact</Link></li>
+              <li><Link href="/products" className="hover:text-[var(--primary-text)] transition-colors duration-150">Products</Link></li>
+              <li><Link href="/pricing" className="hover:text-[var(--primary-text)] transition-colors duration-150">Pricing</Link></li>
+              <li><Link href="/blog" className="hover:text-[var(--primary-text)] transition-colors duration-150">Blog</Link></li>
+              <li><Link href="/contact" className="hover:text-[var(--primary-text)] transition-colors duration-150">Contact</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-semibold text-[var(--foreground)] mb-4 text-sm">Resources</h4>
             <ul className="space-y-3 text-sm text-[var(--muted)]">
-              <li><Link href="/how-it-works" className="hover:text-[var(--primary)] transition-colors duration-150">How It Works</Link></li>
-              <li><Link href="/about" className="hover:text-[var(--primary)] transition-colors duration-150">About</Link></li>
-              <li><Link href="/manage" className="hover:text-[var(--primary)] transition-colors duration-150">Manage Order</Link></li>
-              <li><a href="https://t.me/StyxproxyBot" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--primary)] transition-colors duration-150">Telegram Bot</a></li>
+              <li><Link href="/how-it-works" className="hover:text-[var(--primary-text)] transition-colors duration-150">How It Works</Link></li>
+              <li><Link href="/about" className="hover:text-[var(--primary-text)] transition-colors duration-150">About</Link></li>
+              <li><Link href="/manage" className="hover:text-[var(--primary-text)] transition-colors duration-150">Manage Order</Link></li>
+              <li><a href="https://t.me/StyxproxyBot" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--primary-text)] transition-colors duration-150">Telegram Bot</a></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-semibold text-[var(--foreground)] mb-4 text-sm">Legal</h4>
             <ul className="space-y-3 text-sm text-[var(--muted)]">
-              <li><Link href="/legal/terms" className="hover:text-[var(--primary)] transition-colors duration-150">Terms of Service</Link></li>
-              <li><Link href="/legal/privacy" className="hover:text-[var(--primary)] transition-colors duration-150">Privacy Policy</Link></li>
-              <li><Link href="/legal/aup" className="hover:text-[var(--primary)] transition-colors duration-150">Acceptable Use</Link></li>
-              <li><Link href="/refund-policy" className="hover:text-[var(--primary)] transition-colors duration-150">Refund Policy</Link></li>
-              <li><Link href="/cookie-policy" className="hover:text-[var(--primary)] transition-colors duration-150">Cookie Policy</Link></li>
+              <li><Link href="/legal/terms" className="hover:text-[var(--primary-text)] transition-colors duration-150">Terms of Service</Link></li>
+              <li><Link href="/legal/privacy" className="hover:text-[var(--primary-text)] transition-colors duration-150">Privacy Policy</Link></li>
+              <li><Link href="/legal/aup" className="hover:text-[var(--primary-text)] transition-colors duration-150">Acceptable Use</Link></li>
+              <li><Link href="/refund-policy" className="hover:text-[var(--primary-text)] transition-colors duration-150">Refund Policy</Link></li>
+              <li><Link href="/cookie-policy" className="hover:text-[var(--primary-text)] transition-colors duration-150">Cookie Policy</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-semibold text-[var(--foreground)] mb-4 text-sm">Support</h4>
             <ul className="space-y-3 text-sm text-[var(--muted)]">
-              <li><a href="mailto:support@styxproxy.com" className="hover:text-[var(--primary)] transition-colors duration-150">support@styxproxy.com</a></li>
+              <li><a href="mailto:support@styxproxy.com" className="hover:text-[var(--primary-text)] transition-colors duration-150">support@styxproxy.com</a></li>
               <li className="flex items-center gap-2 pt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" />
-                <span className="text-[var(--primary)] text-xs font-medium">Systems operational</span>
+                <span className="text-[var(--primary-text)] text-xs font-medium">Systems operational</span>
               </li>
             </ul>
           </div>

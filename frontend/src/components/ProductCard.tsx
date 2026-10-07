@@ -16,7 +16,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
       case 'RESIDENTIAL':
         return 'bg-purple-500/20 text-purple-400';
       case 'MOBILE':
-        return 'bg-green-500/20 text-green-400';
+        return 'bg-green-500/20 text-[var(--primary-text)]';
       case 'DC':
         return 'bg-orange-500/20 text-orange-400';
       default:
@@ -35,7 +35,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
           <h3 className="text-xl font-bold mt-2">{product.country}</h3>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-[var(--primary)]">{formatPrice(product.price_ngn)}</p>
+          <p className="text-2xl font-bold text-[var(--primary-text)]">{formatPrice(product.price_ngn)}</p>
           <p className="text-sm text-[var(--muted)]">per month</p>
         </div>
       </div>
@@ -44,7 +44,7 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
       <ul className="space-y-2 mb-6">
         {product.features.map((feature, index) => (
           <li key={index} className="flex items-center text-sm text-[var(--muted)]">
-            <svg className="w-4 h-4 mr-2 text-[var(--primary)]" fill="currentColor" viewBox="0 0 20 20">
+            <svg className="w-4 h-4 mr-2 text-[var(--primary-text)]" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
             {feature}

@@ -384,15 +384,15 @@ export default function ProductsClient() {
           <div className="text-center mb-6">
             <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full border border-green-500/25 bg-green-500/4">
               <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
-              <span className="text-xs font-mono uppercase tracking-widest text-[var(--primary)]">Proxy Catalog</span>
+              <span className="text-xs font-mono uppercase tracking-widest text-[var(--primary-text)]">Proxy Catalog</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl font-bold mt-6 mb-5 tracking-tight">
               Not all proxies<br />
-              <span className="text-[var(--primary)]">are equal.</span>
+              <span className="text-[var(--primary-text)]">are equal.</span>
             </h1>
 
-            <p className="text-base mb-2 max-w-lg mx-auto leading-relaxed text-gray-300">
+            <p className="text-base mb-2 max-w-lg mx-auto leading-relaxed text-[var(--muted)]">
               ISP · Residential · Mobile · Datacenter
             </p>
             <p className="text-sm max-w-md mx-auto leading-relaxed text-gray-500">
@@ -411,7 +411,7 @@ export default function ProductsClient() {
                   className={`px-2 sm:px-3 md:px-5 py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 border whitespace-nowrap ${
                     false
                       ? 'bg-[var(--primary)] text-black border-[var(--primary)]'
-                      : 'bg-[var(--card)] border-[var(--border)] text-gray-300 hover:border-[var(--primary)] hover:text-[var(--primary)]'
+                      : 'bg-[var(--card)] border-[var(--border)] text-[var(--muted)] hover:border-[var(--primary)] hover:text-[var(--primary-text)]'
                   }`}
                 >
                   {label}
@@ -479,10 +479,10 @@ export default function ProductsClient() {
               <div className="flex-1">
                 <div className="flex items-start gap-5 mb-5">
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-[var(--primary)]/10">
-                    {product.key === 'ISP' && <Desktop weight="fill" className="text-[var(--primary)] w-6 h-6" />}
-                    {product.key === 'RESIDENTIAL' && <House weight="fill" className="text-[var(--primary)] w-6 h-6" />}
-                    {product.key === 'MOBILE' && <DeviceMobile weight="fill" className="text-[var(--primary)] w-6 h-6" />}
-                    {product.key === 'DATACENTER' && <HardDrives weight="fill" className="text-[var(--primary)] w-6 h-6" />}
+                    {product.key === 'ISP' && <Desktop weight="fill" className="text-[var(--primary-text)] w-6 h-6" />}
+                    {product.key === 'RESIDENTIAL' && <House weight="fill" className="text-[var(--primary-text)] w-6 h-6" />}
+                    {product.key === 'MOBILE' && <DeviceMobile weight="fill" className="text-[var(--primary-text)] w-6 h-6" />}
+                    {product.key === 'DATACENTER' && <HardDrives weight="fill" className="text-[var(--primary-text)] w-6 h-6" />}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
@@ -492,7 +492,7 @@ export default function ProductsClient() {
                     <span className={`text-xs font-mono uppercase px-3 py-1 rounded-full ${
                       product.statusDot === 'warn'
                         ? 'bg-red-500/8 border border-red-500/20 text-red-500'
-                        : 'bg-green-500/8 border border-green-500/20 text-[var(--primary)]'
+                        : 'bg-green-500/8 border border-green-500/20 text-[var(--primary-text)]'
                     }`}>
                       {product.profileName}
                     </span>
@@ -501,7 +501,7 @@ export default function ProductsClient() {
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0 lg:hidden">
-                    <div className="text-2xl font-bold text-[var(--primary)]">
+                    <div className="text-2xl font-bold text-[var(--primary-text)]">
                       {product.hasApiData ? product.price : 'Unavailable'}
                     </div>
                     <div className="text-xs text-gray-500">{product.priceUnit}</div>
@@ -523,7 +523,7 @@ export default function ProductsClient() {
                       className={`text-xs px-3 py-1 rounded-full ${
                         tag === 'High Detection' || tag === 'High Speed'
                           ? 'bg-amber-500/8 border border-amber-500/20 text-amber-500'
-                          : 'bg-green-500/6 border border-green-500/15 text-green-400'
+                          : 'bg-green-500/6 border border-green-500/15 text-[var(--primary-text)]'
                       }`}
                     >
                       {tag}
@@ -609,7 +609,7 @@ export default function ProductsClient() {
                         <div className="text-xs" style={{ color: 'var(--muted)' }}>Hot</div>
                       </div>
                       <div>
-                        <div className="text-xs font-bold" style={{ color: 'var(--primary)' }}>{product.gauge.lowRisk}</div>
+                        <div className="text-xs font-bold" style={{ color: 'var(--primary-text)' }}>{product.gauge.lowRisk}</div>
                         <div className="text-xs" style={{ color: 'var(--muted)' }}>Low risk</div>
                       </div>
                     </div>
@@ -640,17 +640,17 @@ export default function ProductsClient() {
                     <div className="stat-row">
                       <span className="stat-label">Speed</span>
                       <div className="stat-bar-wrap"><div className="stat-bar-fill" style={{ width: `${product.stats.speed}%` }} /></div>
-                      <span className="text-xs font-mono min-w-[28px] text-right" style={{ color: 'var(--primary)' }}>{product.stats.speed}</span>
+                      <span className="text-xs font-mono min-w-[28px] text-right" style={{ color: 'var(--primary-text)' }}>{product.stats.speed}</span>
                     </div>
                     <div className="stat-row">
                       <span className="stat-label">Geo</span>
                       <div className="stat-bar-wrap"><div className="stat-bar-fill" style={{ width: `${product.stats.geo}%` }} /></div>
-                      <span className="text-xs font-mono min-w-[28px] text-right" style={{ color: 'var(--primary)' }}>{product.stats.geo}</span>
+                      <span className="text-xs font-mono min-w-[28px] text-right" style={{ color: 'var(--primary-text)' }}>{product.stats.geo}</span>
                     </div>
                     <div className="stat-row">
                       <span className="stat-label">Cost</span>
                       <div className="stat-bar-wrap"><div className="stat-bar-fill" style={{ width: `${product.stats.cost}%` }} /></div>
-                      <span className="text-xs font-mono min-w-[28px] text-right" style={{ color: 'var(--primary)' }}>{product.stats.cost}</span>
+                      <span className="text-xs font-mono min-w-[28px] text-right" style={{ color: 'var(--primary-text)' }}>{product.stats.cost}</span>
                     </div>
                   </div>
                 </div>
@@ -661,7 +661,7 @@ export default function ProductsClient() {
             <div className="mt-4 pt-4 flex flex-wrap items-center gap-6" style={{ borderTop: '1px solid var(--border)' }}>
               <div>
                 <span className="text-xs font-mono uppercase tracking-widest text-gray-500" style={{ letterSpacing: '0.1em' }}>Starting from</span>
-                <div className="text-xl font-bold mt-1 text-[var(--primary)]">
+                <div className="text-xl font-bold mt-1 text-[var(--primary-text)]">
                   {product.hasApiData ? product.price : 'Unavailable'}
                   <span className="text-sm font-normal text-gray-500">/mo</span>
                 </div>
@@ -695,7 +695,7 @@ export default function ProductsClient() {
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-sm font-semibold">{threat.platform}</span>
                         <span className={`text-xs ${
-                          threat.risk === 'High' ? 'text-red-500' : threat.risk === 'Medium' ? 'text-amber-500' : 'text-[var(--primary)]'
+                          threat.risk === 'High' ? 'text-red-500' : threat.risk === 'Medium' ? 'text-amber-500' : 'text-[var(--primary-text)]'
                         }`}>
                           {threat.risk} risk
                         </span>
@@ -786,7 +786,7 @@ export default function ProductsClient() {
                 <td className="px-5 py-4 text-sm font-medium">Starting Price</td>
                 {dbProducts.map((p) => {
                   const price = p.hasApiData ? p.price : 'Unavailable';
-                  return <td key={p.key} className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary)' }}>{price}</td>;
+                  return <td key={p.key} className="px-5 py-4 text-center text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>{price}</td>;
                 })}
               </tr>
               {/* Best For row */}

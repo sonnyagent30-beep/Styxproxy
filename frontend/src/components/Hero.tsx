@@ -88,7 +88,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
     <div className="border-b border-[var(--border)] last:border-0">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full py-5 flex items-center justify-between text-left hover:text-[var(--primary)] transition-colors duration-200"
+        className="w-full py-5 flex items-center justify-between text-left hover:text-[var(--primary-text)] transition-colors duration-200"
       >
         <span className="font-medium text-[var(--foreground)] pr-4">{q}</span>
         <CaretDown className={`w-5 h-5 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
@@ -197,7 +197,7 @@ export default function Hero() {
                     onClick={() => setActiveTab(key)}
                     className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 border whitespace-nowrap ${
                       isActive
-                        ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
+                        ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary-text)]'
                         : 'border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]'
                     }`}
                   >
@@ -221,7 +221,7 @@ export default function Hero() {
           <h1 className="text-center text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight leading-[1.05] mb-6">
             <span className="text-[var(--foreground)]">Cross the Styx.</span>
             <br />
-            <span className="text-[var(--primary)]">Stay {TYPEWRITER_WORDS[typewriterIdx]}</span>
+            <span className="text-[var(--primary-text)]">Stay {TYPEWRITER_WORDS[typewriterIdx]}</span>
           </h1>
 
           {/* Sub */}
@@ -264,7 +264,7 @@ export default function Hero() {
               { icon: Check, t: 'Verified Proxies' },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-1.5">
-                <item.icon className="w-3.5 h-3.5 text-[var(--primary)]" weight="bold" />
+                <item.icon className="w-3.5 h-3.5 text-[var(--primary-text)]" weight="bold" />
                 {item.t}
               </div>
             ))}
@@ -304,7 +304,7 @@ export default function Hero() {
       <section className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="mb-16">
-            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">What you get</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">What you get</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Built for those who
               <br />
@@ -316,7 +316,7 @@ export default function Hero() {
               <div key={i}
                 className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
                 <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center mb-5">
-                  {f.icon && <f.icon className="w-6 h-6 text-[var(--primary)]" />}
+                  {f.icon && <f.icon className="w-6 h-6 text-[var(--primary-text)]" />}
                 </div>
                 <h3 className="text-base font-bold text-[var(--foreground)] mb-2">{f.title}</h3>
                 <p className="text-sm text-[var(--muted)] leading-relaxed">{f.desc}</p>
@@ -333,7 +333,7 @@ export default function Hero() {
       <section className="py-16 sm:py-24 lg:py-32 px-6 bg-[var(--surface)]">
         <div className="max-w-6xl mx-auto">
           <div className="mb-16">
-            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Simple process</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">Simple process</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Up and running
               <br />
@@ -368,7 +368,7 @@ export default function Hero() {
       <section className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="mb-16">
-            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Proxy types</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">Proxy types</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Four ways to
               <br />
@@ -380,11 +380,11 @@ export default function Hero() {
               <div key={i}
                 className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
                 <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center mb-5">
-                  {p.icon && <p.icon className="w-6 h-6 text-[var(--primary)]" />}
+                  {p.icon && <p.icon className="w-6 h-6 text-[var(--primary-text)]" />}
                 </div>
                 <h3 className="text-base font-bold text-[var(--foreground)] mb-2">{p.name}</h3>
                 <p className="text-base text-[var(--muted)] leading-relaxed mb-4">{p.desc}</p>
-                <Link href="/products" className="text-xs font-bold text-[var(--primary)] hover:underline tracking-wide">
+                <Link href="/products" className="text-xs font-bold text-[var(--primary-text)] hover:underline tracking-wide">
                   Learn more &rarr;
                 </Link>
               </div>
@@ -417,7 +417,7 @@ export default function Hero() {
       <section className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-3xl mx-auto">
           <div className="mb-12">
-            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">FAQ</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">FAQ</p>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--foreground)]">Questions?</h2>
           </div>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] px-6">

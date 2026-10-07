@@ -349,7 +349,7 @@ export default function CheckoutClient() {
         ) : (
           <div className="mb-4 p-3 bg-[var(--card)] border border-[var(--border)] rounded-xl flex items-center justify-between">
             <span className="text-sm text-[var(--muted)]">Session expires in</span>
-            <span className={`font-mono font-semibold ${timeRemaining < 60 ? 'text-[var(--error)]' : 'text-[var(--primary)]'}`}>
+            <span className={`font-mono font-semibold ${timeRemaining < 60 ? 'text-[var(--error)]' : 'text-[var(--primary-text)]'}`}>
               {formatTime(timeRemaining)}
             </span>
           </div>
@@ -428,7 +428,7 @@ export default function CheckoutClient() {
                         </div>
                       );
                     })()}
-                    <span className="font-semibold text-[var(--primary)] w-28 text-right">
+                    <span className="font-semibold text-[var(--primary-text)] w-28 text-right">
                       {formatPrice(item.price_ngn || 0)}
                     </span>
                     <button onClick={() => removeItem(item.plan_code)} className="w-8 h-8 rounded-lg hover:bg-[var(--error)]/10 flex items-center justify-center text-[var(--muted)] hover:text-[var(--error)] transition-colors" title="Remove">
@@ -442,7 +442,7 @@ export default function CheckoutClient() {
           <div className="mt-4 p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
             <div className="flex justify-between items-center">
               <span className="text-[var(--muted)]">Payment amount</span>
-              <span className="text-lg font-bold text-[var(--primary)]">{formatPrice(cartTotal)}</span>
+              <span className="text-lg font-bold text-[var(--primary-text)]">{formatPrice(cartTotal)}</span>
             </div>
             <p className="text-base text-[var(--muted)] mt-1 text-right">Confirmed on payment page</p>
           </div>
@@ -506,7 +506,7 @@ export default function CheckoutClient() {
                 >
                   <span className="text-xl">{info?.icon}</span>
                   <div className="min-w-0 flex-1">
-                    <span className={`block text-sm font-semibold ${selected && isAvailable ? 'text-[var(--primary)]' : 'text-[var(--foreground)]'}`}>
+                    <span className={`block text-sm font-semibold ${selected && isAvailable ? 'text-[var(--primary-text)]' : 'text-[var(--foreground)]'}`}>
                       {info?.label}
                     </span>
                     <span className="block text-xs text-[var(--muted)] truncate">

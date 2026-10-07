@@ -388,7 +388,7 @@ export default function PricingClient() {
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight mb-6">
             Transparent access.<br />
-            <span className="text-[var(--primary)]">No hidden costs.</span>
+            <span className="text-[var(--primary-text)]">No hidden costs.</span>
           </h1>
           <p className="text-lg max-w-xl mx-auto leading-relaxed text-[var(--muted)]">
             Find a country. See the available proxy types and pricing. Order in seconds.
@@ -461,10 +461,10 @@ export default function PricingClient() {
                 <div key={product.key} className="country-product-card card-depth p-5">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="product-icon" style={{ background: 'rgba(10,210,90,0.08)', border: '1px solid rgba(10,210,90,0.15)' }}>
-                      {product.key === 'isp' && <Globe size={18} style={{ color: 'var(--primary)' }} />}
-                      {product.key === 'residential' && <House size={18} style={{ color: 'var(--primary)' }} />}
-                      {product.key === 'mobile' && <DeviceMobile size={18} style={{ color: 'var(--primary)' }} />}
-                      {product.key === 'datacenter' && <HardDrives size={18} style={{ color: 'var(--primary)' }} />}
+                      {product.key === 'isp' && <Globe size={18} style={{ color: 'var(--primary-text)' }} />}
+                      {product.key === 'residential' && <House size={18} style={{ color: 'var(--primary-text)' }} />}
+                      {product.key === 'mobile' && <DeviceMobile size={18} style={{ color: 'var(--primary-text)' }} />}
+                      {product.key === 'datacenter' && <HardDrives size={18} style={{ color: 'var(--primary-text)' }} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="product-name">{product.name}</div>
@@ -535,7 +535,7 @@ export default function PricingClient() {
       <div className="max-w-6xl mx-auto px-6 pb-16">
         <div className="section-divider-glow mb-12" />
         <div className="text-center mb-10">
-          <span className="text-xs uppercase tracking-widest text-[var(--primary)]">Plans</span>
+          <span className="text-xs uppercase tracking-widest text-[var(--primary-text)]">Plans</span>
           <h2 className="text-2xl font-bold tracking-[-0.02em] mt-2 mb-2">Proxy Plans Overview</h2>
           <p className="text-sm" style={{ color: 'var(--muted)' }}>All plans include ban replacement. Prices per month.</p>
         </div>
@@ -554,10 +554,10 @@ export default function PricingClient() {
               </span>
               <div className="plan-header">
                 <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center flex-shrink-0">
-                  {product.key === 'isp' && <Globe size={20} className="text-[var(--primary)]" />}
-                  {product.key === 'residential' && <House size={20} className="text-[var(--primary)]" />}
-                  {product.key === 'mobile' && <DeviceMobile size={20} className="text-[var(--primary)]" />}
-                  {product.key === 'datacenter' && <HardDrives size={20} className="text-[var(--primary)]" />}
+                  {product.key === 'isp' && <Globe size={20} className="text-[var(--primary-text)]" />}
+                  {product.key === 'residential' && <House size={20} className="text-[var(--primary-text)]" />}
+                  {product.key === 'mobile' && <DeviceMobile size={20} className="text-[var(--primary-text)]" />}
+                  {product.key === 'datacenter' && <HardDrives size={20} className="text-[var(--primary-text)]" />}
                 </div>
                 <div>
                   <div className="text-base font-bold">{product.name}</div>
@@ -571,7 +571,7 @@ export default function PricingClient() {
                   ))}
                 </div>
                 <div>
-                  <span className="text-xl font-bold text-[var(--primary)]">
+                  <span className="text-xl font-bold text-[var(--primary-text)]">
                     {product.price}
                   </span>
                   <span className="text-xs text-[var(--muted)]">/{product.per}</span>
@@ -612,7 +612,7 @@ export default function PricingClient() {
       <div className="max-w-6xl mx-auto px-6 pb-16">
         <div className="section-divider-glow mb-12" />
         <div className="text-center mb-8">
-          <span className="text-xs uppercase tracking-widest text-[var(--primary)]">FAQ</span>
+          <span className="text-xs uppercase tracking-widest text-[var(--primary-text)]">FAQ</span>
           <h2 className="text-2xl font-bold tracking-[-0.02em] mt-2 mb-2">Common questions</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

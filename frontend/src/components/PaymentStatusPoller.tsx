@@ -191,7 +191,7 @@ export function CredentialPanel({ status }: { status: OrderPaymentStatus }) {
 
   return (
     <div className="rounded-xl bg-[var(--card)] border border-[var(--border)] p-6 mt-6">
-      <h2 className="text-lg font-semibold mb-4 text-[var(--primary)]">Your Proxy Credentials</h2>
+      <h2 className="text-lg font-semibold mb-4 text-[var(--primary-text)]">Your Proxy Credentials</h2>
       <div className="space-y-3 text-sm">
         <Row label="Username" value={cred.styxproxy_username} />
         <Row label="Password" value={cred.styxproxy_password} masked />
@@ -225,7 +225,7 @@ function Row({ label, value, masked }: { label: string; value: string; masked?: 
     <div className="flex items-center justify-between">
       <span className="text-[var(--muted)]">{label}</span>
       <div className="flex items-center gap-2">
-        <code className="font-mono text-[var(--primary)]">{display}</code>
+        <code className="font-mono text-[var(--primary-text)]">{display}</code>
         <button
           onClick={async () => {
             try {
@@ -236,7 +236,7 @@ function Row({ label, value, masked }: { label: string; value: string; masked?: 
               // ignore clipboard errors
             }
           }}
-          className="text-xs text-[var(--muted)] hover:text-[var(--primary)]"
+          className="text-xs text-[var(--muted)] hover:text-[var(--primary-text)]"
         >
           {copied ? 'Copied!' : 'Copy'}
         </button>

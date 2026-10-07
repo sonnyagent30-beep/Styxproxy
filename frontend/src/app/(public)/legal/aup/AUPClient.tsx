@@ -21,7 +21,7 @@ export default function AUPClient() {
             <div className="p-8 sm:p-10">
               {/* Page header */}
               <div className="mb-8">
-                <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Legal</p>
+                <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">Legal</p>
                 <h1 className="text-3xl font-black text-[var(--foreground)] mb-2">Acceptable Use Policy</h1>
                 <p className="text-[var(--muted)] text-sm">Effective Date: 2026-07-01</p>
               </div>
@@ -37,7 +37,7 @@ export default function AUPClient() {
           {/* CTA */}
           <div className="mt-8 text-center p-6 bg-[var(--card)] border border-[var(--border)] rounded-2xl">
             <p className="text-[var(--muted)] text-sm mb-3">Questions about acceptable use?</p>
-            <Link href="/contact" className="text-[var(--primary)] font-semibold hover:underline text-sm">
+            <Link href="/contact" className="text-[var(--primary-text)] font-semibold hover:underline text-sm">
               Contact us →
             </Link>
           </div>

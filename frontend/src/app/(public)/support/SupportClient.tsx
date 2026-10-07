@@ -137,11 +137,11 @@ export default function SupportClient() {
         <div className="max-w-2xl mx-auto px-6">
           {/* Hero heading */}
           <div className="text-center mb-12">
-            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">
               Support
             </p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-[var(--foreground)] mb-4 leading-tight">
-              How can we <span className="text-[var(--primary)]">help?</span>
+              How can we <span className="text-[var(--primary-text)]">help?</span>
             </h1>
             <p className="text-[var(--muted)] text-lg max-w-md mx-auto leading-relaxed">
               Check our FAQ, submit a ticket, or track existing requests.
@@ -150,7 +150,7 @@ export default function SupportClient() {
 
           {/* FAQ Accordion */}
           <div className="mb-12">
-            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-4">
               FAQ
             </p>
             <div className="space-y-2">
@@ -161,7 +161,7 @@ export default function SupportClient() {
                 >
                   <button
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                    className="w-full flex items-center justify-between px-5 py-4 text-left hover:text-[var(--primary)] transition-colors"
+                    className="w-full flex items-center justify-between px-5 py-4 text-left hover:text-[var(--primary-text)] transition-colors"
                   >
                     <span className="font-medium text-sm pr-4 text-[var(--foreground)]">
                       {faq.q}
@@ -186,7 +186,7 @@ export default function SupportClient() {
 
           {/* Support Ticket Form */}
           <div className="mb-12">
-            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-4">
               Submit a Ticket
             </p>
             <h2 className="text-xl font-bold text-[var(--foreground)] mb-6">
@@ -196,12 +196,12 @@ export default function SupportClient() {
             {sent ? (
               <div className="text-center p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
                 <div className="w-16 h-16 rounded-full bg-[var(--primary)]/15 flex items-center justify-center mx-auto mb-4">
-                  <Check className="w-8 h-8 text-[var(--primary)]" weight="bold" />
+                  <Check className="w-8 h-8 text-[var(--primary-text)]" weight="bold" />
                 </div>
                 <h2 className="text-xl font-bold mb-2">Ticket Created!</h2>
                 <p className="text-[var(--muted)] mb-3">
                   Your ticket ID is{' '}
-                  <span className="font-mono text-[var(--primary)]">
+                  <span className="font-mono text-[var(--primary-text)]">
                     #{ticketId.slice(0, 8)}
                   </span>
                 </p>
@@ -298,7 +298,7 @@ export default function SupportClient() {
 
           {/* Ticket Lookup */}
           <div className="mb-12">
-            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-4">
               Track Tickets
             </p>
             <h2 className="text-xl font-bold text-[var(--foreground)] mb-6">
@@ -351,10 +351,10 @@ export default function SupportClient() {
                         <span
                           className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${
                             ticket.status === 'open'
-                              ? 'bg-green-500/15 text-green-400'
+                              ? 'bg-green-500/15 text-[var(--primary-text)]'
                               : ticket.status === 'replied'
                                 ? 'bg-blue-500/15 text-blue-400'
-                                : 'bg-gray-500/15 text-gray-400'
+                                : 'bg-gray-500/15 text-[var(--muted)]'
                           }`}
                         >
                           {ticket.status}

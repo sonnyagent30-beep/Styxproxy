@@ -35,7 +35,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           }`}
         >
           {message.content ? (
-            <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-strong:text-[var(--primary)] prose-a:text-[var(--primary)] prose-a:underline">
+            <div className="prose prose-sm prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-strong:text-[var(--primary-text)] prose-a:text-[var(--primary-text)] prose-a:underline">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {message.content}
               </ReactMarkdown>

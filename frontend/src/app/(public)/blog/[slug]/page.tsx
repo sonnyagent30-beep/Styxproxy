@@ -142,7 +142,7 @@ export default async function BlogPostPage({ params }: Props) {
         <div className="relative max-w-3xl mx-auto">
           {/* Breadcrumb */}
           <nav className="flex items-center gap-2 text-sm text-[var(--muted)] mb-6">
-            <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
+            <Link href="/blog" className="hover:text-[var(--primary-text)] transition-colors">
               Blog
             </Link>
             {post.tags && post.tags[0] && (
@@ -150,7 +150,7 @@ export default async function BlogPostPage({ params }: Props) {
                 <span>/</span>
                 <Link
                   href={`/blog/tag/${encodeURIComponent(post.tags[0])}`}
-                  className="hover:text-[var(--primary)] transition-colors"
+                  className="hover:text-[var(--primary-text)] transition-colors"
                 >
                   #{post.tags[0]}
                 </Link>
@@ -193,7 +193,7 @@ export default async function BlogPostPage({ params }: Props) {
                 S
               </div>
               <div>
-                <p className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors">
+                <p className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--primary-text)] transition-colors">
                   Styxproxy Team
                 </p>
                 <div className="flex items-center gap-2 text-xs text-[var(--muted)]">

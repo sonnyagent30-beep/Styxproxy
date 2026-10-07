@@ -228,7 +228,7 @@ function ReceiptContent() {
             </div>
             <div>
               <span className="text-[var(--muted)]">Amount Paid</span>
-              <p className="font-medium text-[var(--primary)]">
+              <p className="font-medium text-[var(--primary-text)]">
                 ₦{Number(order?.amount_paid_ngn || 0).toLocaleString('en-NG')}
               </p>
             </div>
@@ -278,7 +278,7 @@ function ReceiptContent() {
 
         {/* Support Footer */}
         <div className="mt-8 text-center text-sm text-[var(--muted)]">
-          <p>Need help? <a href="/contact" className="text-[var(--primary)] hover:underline">Contact support</a></p>
+          <p>Need help? <a href="/contact" className="text-[var(--primary-text)] hover:underline">Contact support</a></p>
         </div>
       </div>
     </section>

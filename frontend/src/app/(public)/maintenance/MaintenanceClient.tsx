@@ -96,7 +96,7 @@ export default function MaintenanceClient() {
             <p className="text-base uppercase tracking-widest text-[var(--muted)]">
               Estimated return
             </p>
-            <p className="text-2xl font-mono font-bold text-[var(--primary)] tabular-nums">
+            <p className="text-2xl font-mono font-bold text-[var(--primary-text)] tabular-nums">
               {countdown || '…'}
             </p>
             <p className="text-base text-[var(--muted)]">

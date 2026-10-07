@@ -57,7 +57,7 @@ export default function EngagementRow({
           aria-label={saved ? 'Unsave' : 'Save'}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
             saved
-              ? 'bg-[var(--primary)]/15 text-[var(--primary)]'
+              ? 'bg-[var(--primary)]/15 text-[var(--primary-text)]'
               : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface)]'
           }`}
         >
@@ -93,7 +93,7 @@ export default function EngagementRow({
                 </a>
                 <div className="my-1 border-t border-[var(--border)]" />
                 <button onClick={handleCopy} className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--foreground)] w-full">
-                  {copied ? <Check size={14} className="text-[var(--primary)]" /> : <LinkSimple size={14} />}
+                  {copied ? <Check size={14} className="text-[var(--primary-text)]" /> : <LinkSimple size={14} />}
                   {copied ? 'Copied!' : 'Copy link'}
                 </button>
               </div>

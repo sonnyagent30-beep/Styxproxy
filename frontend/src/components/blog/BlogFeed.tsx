@@ -112,7 +112,7 @@ export default function BlogFeed({
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight mb-6">
             Notes from the<br />
-            <span className="text-[var(--primary)]">trenches.</span>
+            <span className="text-[var(--primary-text)]">trenches.</span>
           </h1>
           <p className="text-lg max-w-xl mx-auto leading-relaxed text-[var(--muted)]">
             Guides on proxies, anonymity, automation, and the infrastructure that keeps the web working.

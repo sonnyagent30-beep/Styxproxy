@@ -59,7 +59,7 @@ export default async function TagPage({ params }: Props) {
 
         <div className="relative text-center max-w-3xl mx-auto">
           <nav className="flex items-center justify-center gap-2 text-sm text-[var(--muted)] mb-6">
-            <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
+            <Link href="/blog" className="hover:text-[var(--primary-text)] transition-colors">
               Blog
             </Link>
             <span>/</span>
@@ -67,7 +67,7 @@ export default async function TagPage({ params }: Props) {
           </nav>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight mb-4">
-            <span className="text-[var(--primary)]">#</span>{decoded}
+            <span className="text-[var(--primary-text)]">#</span>{decoded}
           </h1>
           <p className="text-lg text-[var(--muted)]">
             {posts.length} {posts.length === 1 ? 'post' : 'posts'}

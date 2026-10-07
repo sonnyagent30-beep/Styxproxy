@@ -65,7 +65,7 @@ export default function PostCard({ post }: PostCardProps) {
             </span>
           )}
           {post.featured && (
-            <span className="text-xs font-bold tracking-widest uppercase text-[var(--primary)] bg-[var(--primary)]/10 px-2.5 py-1 rounded-full">
+            <span className="text-xs font-bold tracking-widest uppercase text-[var(--primary-text)] bg-[var(--primary)]/10 px-2.5 py-1 rounded-full">
               Featured
             </span>
           )}
@@ -96,7 +96,7 @@ export default function PostCard({ post }: PostCardProps) {
 
       {/* Caption — title + excerpt + tags */}
       <Link href={`/blog/${post.slug}`} className="block px-5 pb-5 pt-2">
-        <h2 className="text-lg sm:text-xl font-bold text-[var(--foreground)] tracking-[-0.02em] leading-snug mb-2 line-clamp-2 group-hover:text-[var(--primary)] transition-colors">
+        <h2 className="text-lg sm:text-xl font-bold text-[var(--foreground)] tracking-[-0.02em] leading-snug mb-2 line-clamp-2 group-hover:text-[var(--primary-text)] transition-colors">
           {post.title}
         </h2>
         <p className="text-sm text-[var(--muted)] leading-relaxed mb-4 line-clamp-2">

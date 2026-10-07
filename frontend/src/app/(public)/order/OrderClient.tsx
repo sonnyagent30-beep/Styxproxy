@@ -451,11 +451,11 @@ export default function OrderClient() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 mb-6 mx-auto">
             <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_var(--primary)] animate-pulse" />
-            <span className="text-xs font-bold uppercase tracking-widest text-[var(--primary)]">Order Proxies</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-[var(--primary-text)]">Order Proxies</span>
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mb-4">
-            Get Your <span className="text-[var(--primary)]">Proxies</span> Now
+            Get Your <span className="text-[var(--primary-text)]">Proxies</span> Now
           </h1>
           <p className="text-base text-[var(--muted)] max-w-xl mx-auto">
             Pick a proxy type, choose your country, checkout in seconds. No signup required.
@@ -480,15 +480,15 @@ export default function OrderClient() {
               className="w-full p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] transition-all text-left group card-depth"
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] group-hover:bg-[var(--primary)]/20 transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary-text)] group-hover:bg-[var(--primary)]/20 transition-colors">
                   {card.icon}
                 </div>
-                <ArrowRight className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors" />
+                <ArrowRight className="w-5 h-5 text-[var(--muted)] group-hover:text-[var(--primary-text)] transition-colors" />
               </div>
               <h3 className="text-base font-bold mb-1">{card.label}</h3>
               <p className="text-base text-[var(--muted)] mb-3">{card.description}</p>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-[var(--primary)]">{card.price}</span>
+                <span className="text-sm font-semibold text-[var(--primary-text)]">{card.price}</span>
                 <span className="text-xs text-[var(--muted)]">
                   {card.countryCount} countries
                 </span>
@@ -587,7 +587,7 @@ export default function OrderClient() {
                     {selectedGbTier && pricePerGb > 0 && (
                       <p className="text-sm text-[var(--muted)] mt-2">
                         {selectedGbTier} GB @ {formatPrice(pricePerGb)}/GB = {' '}
-                        <span className="font-semibold text-[var(--primary)]">
+                        <span className="font-semibold text-[var(--primary-text)]">
                           {formatPrice(pricePerGb * selectedGbTier)}
                         </span>
                       </p>
@@ -768,7 +768,7 @@ export default function OrderClient() {
                           </button>
                         </div>
 
-                        <span className="text-sm font-semibold text-[var(--primary)] min-w-[80px] text-right">
+                        <span className="text-sm font-semibold text-[var(--primary-text)] min-w-[80px] text-right">
                           {formatPrice(totalPrice)}
                         </span>
 

@@ -21,7 +21,7 @@ export default function StorySection() {
         <div className="max-w-3xl mx-auto">
           {/* Badge pill */}
           <div className="flex justify-center mb-8">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 text-xs font-medium tracking-[0.25em] uppercase text-[var(--primary)]">
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/5 text-xs font-medium tracking-[0.25em] uppercase text-[var(--primary-text)]">
               The Name
             </span>
           </div>
@@ -35,7 +35,7 @@ export default function StorySection() {
           <div className="styx-coin mb-8">
             <div className="styx-coin-ring" />
             <div className="styx-coin-ring" />
-            <span className="text-[var(--primary)] text-2xl font-black">S</span>
+            <span className="text-[var(--primary-text)] text-2xl font-black">S</span>
           </div>
 
           {/* Body copy */}
@@ -61,7 +61,7 @@ export default function StorySection() {
           <div className="text-center">
             <Link
               href="/about"
-              className="inline-flex items-center gap-2 text-[var(--primary)] font-semibold hover:underline transition-colors"
+              className="inline-flex items-center gap-2 text-[var(--primary-text)] font-semibold hover:underline transition-colors"
             >
               Read the full story
               <span aria-hidden="true">→</span>

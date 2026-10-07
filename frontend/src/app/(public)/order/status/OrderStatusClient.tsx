@@ -240,7 +240,7 @@ function OrderStatusContent() {
                   {order.amount_paid_ngn != null && (
                     <div className="flex items-center justify-between py-2 border-b border-[var(--border)]">
                       <span className="text-sm text-[var(--muted)]">Amount Paid</span>
-                      <span className="text-sm font-semibold text-[var(--primary)]">₦{order.amount_paid_ngn.toLocaleString('en-NG')}</span>
+                      <span className="text-sm font-semibold text-[var(--primary-text)]">₦{order.amount_paid_ngn.toLocaleString('en-NG')}</span>
                     </div>
                   )}
                   {order.created_at && (
@@ -307,7 +307,7 @@ function OrderStatusContent() {
                   Need help with this order?{' '}
                   <button
                     onClick={() => window.dispatchEvent(new CustomEvent('open-chat-widget', { detail: { context: 'support', orderId: order.order_id } }))}
-                    className="text-[var(--primary)] hover:underline font-medium"
+                    className="text-[var(--primary-text)] hover:underline font-medium"
                   >
                     Chat with Charon →
                   </button>
