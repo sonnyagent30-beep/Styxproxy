@@ -125,9 +125,21 @@ body {
   font-synthesis-weight: none;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* Anchors inherit their colour from the surrounding text by default.
+ *
+ * MUST live in @layer base: Tailwind v4 emits its utilities into
+ * @layer utilities, and an UNLAYERED rule beats every layered one regardless
+ * of specificity. Unlayered, this `a { color: inherit }` silently defeated
+ * every `text-*` utility on any <a>/<Link> — the computed colour fell back to
+ * the inherited body colour. That is why `text-black` on the bright green CTAs
+ * rendered as body-coloured text (near-white in dark mode, 1.86:1 on the fill)
+ * and `text-white` on the WhatsApp/Telegram buttons rendered dark. In
+ * @layer base the utilities win, which is what the markup always intended. */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 button {
