@@ -1383,6 +1383,144 @@ registry.register(ToolSpec(
     handler=_get_integration_docs,
 ))
 
+registry.register(ToolSpec(
+    name="initiate_renewal",
+    description="Initiate a renewal for an existing order. For residential/mobile: customer selects GB amount (min 5 GB). For DC/ISP: no GB selection, just extends expiry by 30 days. Returns a checkout URL for payment. Use when customer says 'I want to renew', 'renew my proxy', 'add more data', 'extend my subscription'.",
+    schema={
+        "type": "object",
+        "properties": {
+            "order_id": {"type": "string", "description": "The order_id to renew"},
+            "quantity_gb": {"type": "integer", "description": "GB amount for residential/mobile plans (min 5). Omit for DC/ISP."},
+            "gateway": {"type": "string", "default": "flutterwave", "description": "Payment gateway: flutterwave or paystack"},
+            "customer_email": {"type": "string", "description": "Customer email for payment"},
+            "customer_phone": {"type": "string", "description": "Customer phone for RLS verification"},
+        },
+        "required": ["order_id"],
+    },
+    handler=_initiate_renewal_tool,
+))
+
+
+# ─── Renewal Tool (added 2026-10-07) ─────────────────────────────────────────
+
+
+async def _initiate_renewal_tool(
+    order_id: str,
+    quantity_gb: int | None = None,
+    gateway: str = "flutterwave",
+    customer_email: str | None = None,
+    customer_phone: str | None = None,
+) -> ToolResult:
+    """Initiate a renewal for an existing order.
+
+    For residential/mobile: customer selects GB amount (min 5 GB).
+    For DC/ISP: no GB selection, just extends expiry by 30 days.
+
+    Returns a checkout URL for payment.
+    """
+    try:
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models import Order
+        from app.routers.orders import resolve_plan
+        from app.services.renewal_service import create_renewal_order
+        from app.services.flutterwave import create_flutterwave_invoice
+        from app.services.paystack import create_paystack_transaction
+        from app.services.customer import placeholder_email_from_device
+
+        async with async_session() as session:
+            await _set_rls_context(session, customer_phone)
+
+            # Look up the order
+            stmt = select(Order).where(Order.order_id == order_id)
+            result = await session.execute(stmt)
+            order = result.scalar_one_or_none()
+
+            if not order:
+                return ToolResult(ok=False, error=f"Order {order_id} not found")
+
+            # Verify ownership
+            if customer_phone and order.customer_phone and order.customer_phone != customer_phone:
+                return ToolResult(ok=False, error="Order does not belong to this customer")
+
+            # Determine plan type and pricing
+            plan_type = (order.plan_type or "").lower()
+
+            if plan_type in ("residential", "mobile"):
+                if not quantity_gb or quantity_gb < 5:
+                    return ToolResult(ok=False, error="Minimum renewal is 5 GB")
+                plan = await resolve_plan(session, order.plan_code or "", country=order.country)
+                if not plan:
+                    return ToolResult(ok=False, error="Cannot resolve plan for pricing")
+                price_per_gb = float(plan.price_per_gb or 0)
+                if price_per_gb <= 0:
+                    return ToolResult(ok=False, error="Plan has no per-GB pricing configured")
+                total_amount = price_per_gb * quantity_gb
+            else:
+                plan = await resolve_plan(session, order.plan_code or "", country=order.country)
+                if not plan:
+                    return ToolResult(ok=False, error="Cannot resolve plan for pricing")
+                total_amount = float(plan.price_ngn or 0)
+                if total_amount <= 0:
+                    return ToolResult(ok=False, error="Plan has no pricing configured")
+
+            # Create renewal record
+            renewal = await create_renewal_order(
+                session=session,
+                order_id=order_id,
+                quantity_gb=quantity_gb if plan_type in ("residential", "mobile") else None,
+                amount_paid_ngn=total_amount,
+                tx_ref=None,
+            )
+
+            # Create payment
+            tx_ref = f"TXF-{uuid.uuid4().hex[:12].upper()}"
+            renewal.tx_ref = tx_ref
+            renewal.payment_reference = tx_ref
+            await session.commit()
+
+            callback_url = f"https://styxproxy.com/thank-you?order_id={order_id}&renewal_id={renewal.id}"
+
+            gateway_email = customer_email or order.customer_email or ""
+            if not gateway_email:
+                device_id = customer_phone or ""
+                gateway_email = placeholder_email_from_device(device_id)
+
+            if gateway == "paystack":
+                result = await create_paystack_transaction(
+                    amount_ngn=total_amount,
+                    customer_email=gateway_email,
+                    customer_phone=order.customer_phone or "",
+                    callback_url=callback_url,
+                    description=f"Renewal for {order_id}",
+                    tx_ref=tx_ref,
+                )
+            else:
+                result = await create_flutterwave_invoice(
+                    amount=total_amount,
+                    customer_email=gateway_email,
+                    customer_phone=order.customer_phone,
+                    currency="NGN",
+                    tx_ref=tx_ref,
+                    callback_url=callback_url,
+                    description=f"Renewal for {order_id}",
+                )
+
+            checkout_url = result.get("checkout_url", "")
+
+            return ToolResult(ok=True, data={
+                "renewal_id": renewal.id,
+                "order_id": order_id,
+                "checkout_url": checkout_url,
+                "amount_ngn": total_amount,
+                "currency": "NGN",
+                "tx_ref": tx_ref,
+                "message": f"Renewal initiated for order {order_id}. Total: ₦{total_amount:,.0f}. Checkout URL: {checkout_url}",
+            })
+    except Exception as exc:
+        logger.exception("initiate_renewal tool failed")
+        return ToolResult(ok=False, error=f"Renewal initiation failed: {exc}")
+
 
 # ─── Forbidden tools (not registered — guard rails) ──────────────────────────
 

@@ -202,6 +202,22 @@ DOMAIN_KNOWLEDGE = """
 - Test proxy: visit https://ipinfo.io to confirm it's active
 - Sticky sessions: available on residential (same IP for 5-30 min)
 - Static IPs: ISP and Datacenter plans
+
+### Renewal Flow
+When a customer wants to renew their proxy:
+1. Identify the customer (by phone/email from channel context)
+2. Use `list_customer_orders` to show their proxies, or `detect_renewal` to find expiring ones
+3. Ask which proxy they want to renew and how much data (min 5 GB for residential/mobile)
+4. Use `initiate_renewal` with the order_id and quantity_gb
+5. Give them the checkout URL and confirm the renewal details
+6. After payment, the renewal is processed automatically — same IP if available, new expiry from renewal date
+
+Renewal rules:
+- Residential/mobile: customer selects GB amount (5, 10, 20, 50 GB tiers or custom, min 5 GB)
+- DC/ISP: no GB selection, just extends expiry by 30 days
+- Renewals stack from the renewal date (not current expiry)
+- Unlimited renewals per order
+- Same IP is kept if still available; otherwise a new one is assigned
 """
 
 # ─── Sales Intelligence ─────────────────────────────────────────────────────
@@ -240,7 +256,7 @@ You are in **sales mode** on a messaging app. Your goal is to help customers buy
 After EVERY answer, suggest a relevant next step:
 - After explaining a plan → "Want me to create that order?"
 - After troubleshooting → "Need a fresh proxy? I can set that up"
-- After order lookup → "Need to renew? I can help with that"
+- After order lookup → "Need to renew? I can help with that — just tell me which proxy and how much data"
 - After payment → "Your proxy will be ready in minutes. Want setup instructions?"
 
 ### Charon Capabilities (when asked "what can you do")
@@ -251,7 +267,7 @@ After EVERY answer, suggest a relevant next step:
 - 💳 **Payment** — checkout link, retry failed payments
 - 📦 **Order lookup** — status, credentials, history
 - 📊 **Data usage** — check remaining GB on residential/mobile
-- 🔄 **Renewals** — expiring soon? Renew now
+- 🔄 **Renewals** — expiring soon? I can renew your proxy right here — just tell me which one and how much data
 - 🛠️ **Setup guides** — how to configure any plan
 - 🐛 **Troubleshooting** — common issues and fixes
 - 👥 **Referrals** — earn ₦500 for each friend you refer
@@ -756,7 +772,7 @@ async def _try_tool_call_loop(
                     tool_params["customer_name"] = customer_name
 
             # Inject customer_phone for read tools (RLS context)
-            if tool_name in ("lookup_order", "lookup_payment_status", "generate_order_link", "generate_receipt_link", "get_customer_context", "list_customer_orders", "check_data_remaining", "get_referral_info", "detect_renewal", "escalate_bulk_inquiry"):
+            if tool_name in ("lookup_order", "lookup_payment_status", "generate_order_link", "generate_receipt_link", "get_customer_context", "list_customer_orders", "check_data_remaining", "get_referral_info", "detect_renewal", "escalate_bulk_inquiry", "initiate_renewal"):
                 if customer_phone and "customer_phone" not in tool_params:
                     tool_params["customer_phone"] = customer_phone
 
@@ -1075,7 +1091,12 @@ async def check_proactive_triggers(
         try:
             renew_result = await tools.registry.call("detect_renewal", customer_phone=customer_phone)
             if renew_result.ok and renew_result.data.get("expiring_soon"):
-                return "Your proxy expires soon. Want to renew?"
+                n = len(renew_result.data["expiring_soon"])
+                if n == 1:
+                    expiring = renew_result.data["expiring_soon"][0]
+                    return f"Your {expiring.get('plan_type', 'proxy')} proxy expires in {expiring.get('days_left', '?')} days. Want me to renew it now?"
+                else:
+                    return f"You have {n} proxies expiring soon. Want me to renew them now?"
         except Exception:
             pass
 
