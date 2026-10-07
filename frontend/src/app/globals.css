@@ -35,6 +35,27 @@
   --muted-light: #a3a3a3;
   --surface-2: #1a1a1a;
   --bg: #000000;
+
+  /* ── Hero background layers, tokenised ────────────────────────────
+     Every hero layer paints DARK pixels on the dark palette: the vignette
+     is literal black gradients and the grid/rings/orbs are green-on-black
+     glows. On the light palette those same pixels read as a dirty grey
+     frame around an otherwise white page, so each layer needs a light
+     counterpart. Tokenised because light mode arrives by two routes —
+     device preference (@media) and the admin override (:root.light) —
+     and hard-coded overrides in only one of them silently drift. */
+  --hero-grid-dot: rgba(10,210,90,0.08);
+  --hero-rings:
+    radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.02) 0%, transparent 50%);
+  --hero-vignette:
+    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 15%),
+    linear-gradient(to bottom, transparent 80%, rgba(0,0,0,0.4) 100%),
+    linear-gradient(to right, rgba(0,0,0,0.3) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.3) 100%);
+  --hero-orb-1: radial-gradient(circle, rgba(10,210,90,0.08) 0%, transparent 70%);
+  --hero-orb-2: radial-gradient(circle, rgba(34,255,122,0.05) 0%, transparent 70%);
+  --hero-orb-3: radial-gradient(circle, rgba(10,173,57,0.06) 0%, transparent 70%);
 }
 
 
@@ -120,24 +141,18 @@ button {
 
 /* ── Hero background: dot grid ─────────────────────────────────── */
 .hero-bg-grid {
-  background-image: radial-gradient(circle, rgba(10,210,90,0.08) 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--hero-grid-dot) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
 /* ── Hero background: radial depth rings ──────────────────────── */
 .hero-bg-rings {
-  background:
-    radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.07) 0%, transparent 70%),
-    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.04) 0%, transparent 60%),
-    radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.02) 0%, transparent 50%);
+  background: var(--hero-rings);
 }
 
 /* ── Hero background: edge vignette ───────────────────────────── */
 .hero-bg-vignette {
-  background:
-    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 15%),
-    linear-gradient(to bottom, transparent 80%, rgba(0,0,0,0.4) 100%),
-    linear-gradient(to right, rgba(0,0,0,0.3) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.3) 100%);
+  background: var(--hero-vignette);
 }
 
 /* ── Ambient glow orbs ────────────────────────────────────────── */
@@ -154,7 +169,7 @@ button {
   top: 20%;
   left: 50%;
   transform: translateX(-50%);
-  background: radial-gradient(circle, rgba(10,210,90,0.08) 0%, transparent 70%);
+  background: var(--hero-orb-1);
 }
 
 .hero-orb-2 {
@@ -162,7 +177,7 @@ button {
   height: 300px;
   top: 35%;
   left: 25%;
-  background: radial-gradient(circle, rgba(34,255,122,0.05) 0%, transparent 70%);
+  background: var(--hero-orb-2);
 }
 
 .hero-orb-3 {
@@ -170,7 +185,7 @@ button {
   height: 300px;
   top: 35%;
   right: 25%;
-  background: radial-gradient(circle, rgba(10,173,57,0.06) 0%, transparent 70%);
+  background: var(--hero-orb-3);
 }
 
 /* ── Premium card depth ───────────────────────────────────────── */
@@ -1601,6 +1616,23 @@ button {
     --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
     --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.12), 0 12px 40px rgba(0,0,0,0.08);
     --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(10,210,90,0.15);
+
+    /* Hero layers — light mode is a CLEAN WHITE page. The vignette is
+       switched OFF entirely: it is the only layer that paints dark pixels
+       (its three gradients are black), which is exactly the grey frame
+       Dannion flagged. Grid / rings / orbs keep a faint GREEN tint so the
+       hero still has depth — green on white is brand, black on white is
+       dirt. Do not "restore" the vignette here with a white gradient; the
+       page background already IS the white. */
+    --hero-vignette: none;
+    --hero-grid-dot: rgba(10,210,90,0.10);
+    --hero-rings:
+      radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.05) 0%, transparent 70%),
+      radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.03) 0%, transparent 60%),
+      radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.015) 0%, transparent 50%);
+    --hero-orb-1: radial-gradient(circle, rgba(10,210,90,0.06) 0%, transparent 70%);
+    --hero-orb-2: radial-gradient(circle, rgba(10,210,90,0.04) 0%, transparent 70%);
+    --hero-orb-3: radial-gradient(circle, rgba(10,210,90,0.05) 0%, transparent 70%);
   }
 }
 /* Explicit theme classes (set by AdminThemeToggle via JS) */
@@ -1632,6 +1664,18 @@ button {
   --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
   --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.12), 0 12px 40px rgba(0,0,0,0.08);
   --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(10,210,90,0.15);
+  /* Hero layers — MUST stay in sync with the @media (prefers-color-scheme: light)
+     block above; this is the admin-override route to the same palette.
+     See that block for why the vignette is switched off. */
+  --hero-vignette: none;
+  --hero-grid-dot: rgba(10,210,90,0.10);
+  --hero-rings:
+    radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.03) 0%, transparent 60%),
+    radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.015) 0%, transparent 50%);
+  --hero-orb-1: radial-gradient(circle, rgba(10,210,90,0.06) 0%, transparent 70%);
+  --hero-orb-2: radial-gradient(circle, rgba(10,210,90,0.04) 0%, transparent 70%);
+  --hero-orb-3: radial-gradient(circle, rgba(10,210,90,0.05) 0%, transparent 70%);
 }
 
 :root.dark {
