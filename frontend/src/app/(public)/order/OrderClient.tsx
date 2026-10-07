@@ -86,6 +86,15 @@ export default function OrderClient() {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [addedMessage, setAddedMessage] = useState('');
 
+  // Clear cart on mount — the cart should not persist across sessions.
+  // A user starting a new order flow should start with an empty cart.
+  // Without this, items added in a previous session reappear as "auto-added"
+  // products in checkout.
+  useEffect(() => {
+    clearCart();
+    sessionStorage.removeItem('styxproxy_cart');
+  }, []);
+
   // Sync cart to sessionStorage so checkout page can read it
   useEffect(() => {
     sessionStorage.setItem('styxproxy_cart', JSON.stringify(cart));
