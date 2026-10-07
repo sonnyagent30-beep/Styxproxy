@@ -49,7 +49,7 @@ export default function CheckoutClient() {
   // to formatPrice passed the function itself, and
   // Intl.NumberFormat.format(function) yields NaN — which rendered as "₦NaN"
   // for the payment amount on the checkout page.
-  const { items: cart, total: cartTotalFn, setCart } = useCartStore();
+  const { items: cart, total: cartTotalFn, setCart, clearCart } = useCartStore();
   const cartTotal = cartTotalFn();
   const [email, setEmail] = useState('');
   const [gateway, setGateway] = useState<GatewayId>('flutterwave');
@@ -277,6 +277,11 @@ export default function CheckoutClient() {
       }
 
       if (firstCheckoutUrl) {
+        // Clear the cart — payment is starting, the items are now an order.
+        // Without this the persisted cart survives the redirect and the
+        // customer sees "auto-added" products the next time they visit.
+        clearCart();
+        sessionStorage.removeItem('styxproxy_cart');
         window.location.href = firstCheckoutUrl;
         return;
       }

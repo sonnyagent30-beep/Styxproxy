@@ -185,6 +185,10 @@ function ThankYouContent() {
           setLoading(false);
           setNextAction('redirect_to_proxy_details');
           import('@/lib/device-id').then(({ clearInflightOrder }) => clearInflightOrder());
+          // Clear the cart — the order is complete, the items are no longer needed.
+          // This is a safety net in case the cart wasn't cleared at checkout.
+          setCart([]);
+          sessionStorage.removeItem('styxproxy_cart');
           return;
         }
         if (s === 'expired' || s === 'cancelled' || s === 'refunded') {

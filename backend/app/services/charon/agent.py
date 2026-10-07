@@ -15,6 +15,7 @@ import sentry_sdk
 
 from app.services.charon.page_templates import get_page_prompt_addition
 from app.services.charon.ab_framework import get_variant, get_page_context_variant, record_outcome
+from app.services.charon.credential_guard import inspect_text, redact_mapping
 from app.services.charon.escalation_persist import persist_escalation_sync
 from . import knowledge, scenarios, tools
 from .llm import LLMResponse, call_llm
@@ -350,7 +351,33 @@ async def reply(
     """End-to-end Charon reply."""
     conversation_id = conversation_id or str(uuid.uuid4())
     variant = get_variant(conversation_id)
-    
+
+    # Defence in depth. `app/routers/charon.py` already screens
+    # `ChatReplyRequest.user_message` before calling in, and that is the choke
+    # point for HTTP traffic. This is the SECOND gate, at the point where the text
+    # is provably both persisted and LLM-bound, so a future non-HTTP caller
+    # (a proactive trigger, a new router, a script) cannot reintroduce the leak
+    # by skipping the router. Redaction is idempotent, so double application is
+    # a no-op rather than a double-mangle.
+    guard = inspect_text(user_message)
+    if guard.has_secret:
+        logger.warning(
+            "credential_guard: redacted labelled secret value(s) before "
+            "persist+LLM: labels=%s conversation_id=%s",
+            sorted(guard.secret_labels),
+            conversation_id,
+        )
+        user_message = guard.redacted
+    if history:
+        history = [
+            Message(role=m.role, content=inspect_text(m.content).redacted)
+            if m.role in ("user", "assistant")
+            else m
+            for m in history
+        ]
+    if page_context:
+        page_context = redact_mapping(page_context)
+
     # Persist user message
     await _persist_message(conversation_id, channel, "user", user_message, page_context=page_context)
     
@@ -567,9 +594,37 @@ async def reply(
     log_ctx["error"] = llm_resp.error
     log_ctx["escalated"] = True
     _persist_log(log_ctx)
-    
+
     await _persist_message(conversation_id, channel, "assistant", fallback, tokens_used=0)
-    
+
+    # ── Persist the escalation BEFORE returning ────────────────────
+    # The fallback text promises "I'll let them know you asked" — so the
+    # escalation MUST be written to the DB. Previously this path set
+    # escalated=True, wrote a log and a message, and returned WITHOUT
+    # calling persist_escalation_sync(). The stats counter incremented,
+    # the API response said escalated=true, and the DB got nothing.
+    # Customers were told a human had been notified when nobody was.
+    try:
+        from app.services.charon.escalation_persist import persist_escalation_sync
+        persist_escalation_sync(
+            conversation_id=conversation_id,
+            customer_email=customer_email,
+            customer_phone=customer_phone,
+            customer_message=user_message,
+            history_summary="",
+            scenario_id="llm_failure",
+            reason=f"LLM error: {llm_resp.error}",
+        )
+    except Exception as esc_err:
+        # The escalation write failed. The customer still gets the fallback
+        # message, but we must log loudly so the gap is visible.
+        logger.error(
+            "ESCALATION PERSIST FAILED — customer was told 'I'll let them know' "
+            "but the escalation was NOT saved: %s",
+            esc_err,
+            extra={**log_ctx, "conversation_id": conversation_id},
+        )
+
     return Reply(text=fallback, escalated=True, error=llm_resp.error)
 
 
@@ -846,15 +901,25 @@ def _safe_parse_tool_json(content: str) -> dict | None:
 
 
 def _persist_log(ctx: dict) -> None:
+    """Append one conversation record to the JSONL log.
+
+    `ctx` carries `user_message`, and this file is served back verbatim by the
+    unauthenticated `GET /charon/logs` and `GET /charon/conversations`. So the
+    value is screened HERE, at the write, rather than relying on every future
+    caller having passed through the router's ingress guard first. This is the
+    second of the two gates; `_read_logs` screens on the way out as well, which
+    is what protects the records already on disk.
+    """
+    safe = redact_mapping(ctx)
     log_dir = os.getenv("CHARON_LOG_DIR", "/tmp")
     log_path = os.path.join(log_dir, "charon.log")
     try:
         os.makedirs(log_dir, exist_ok=True)
         with open(log_path, "a") as fh:
-            fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), **ctx}) + "\n")
+            fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), **safe}) + "\n")
     except OSError:
         pass
-    logger.info("charon.reply", extra={"charon": ctx})
+    logger.info("charon.reply", extra={"charon": safe})
 
 
 async def _persist_message(
