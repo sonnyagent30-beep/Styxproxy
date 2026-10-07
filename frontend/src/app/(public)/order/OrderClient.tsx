@@ -90,9 +90,22 @@ export default function OrderClient() {
   // A user starting a new order flow should start with an empty cart.
   // Without this, items added in a previous session reappear as "auto-added"
   // products in checkout.
+  //
+  // Wait for zustand persist hydration to complete before clearing, otherwise
+  // the async rehydration from localStorage would re-populate the cart after
+  // clearCart runs.
   useEffect(() => {
-    clearCart();
-    sessionStorage.removeItem('styxproxy_cart');
+    const clearCartAfterHydration = () => {
+      clearCart();
+      sessionStorage.removeItem('styxproxy_cart');
+    };
+
+    if (useCartStore.persist.hasHydrated()) {
+      clearCartAfterHydration();
+    } else {
+      const unsub = useCartStore.persist.onFinishHydration(clearCartAfterHydration);
+      return unsub;
+    }
   }, []);
 
   // Sync cart to sessionStorage so checkout page can read it
