@@ -9,7 +9,7 @@ import { useEffect, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
 import { Flag } from '@/components/ui/Flag';
-import { generateReceiptPDF } from '@/lib/pdf-receipt';
+import { generateReceiptPDF, detectReceiptTheme } from '@/lib/pdf-receipt';
 import type { ReceiptOrder } from '@/lib/pdf-receipt';
 import type { CartItem } from '@/types';
 import { Check, Copy, Warning, XCircle, ArrowLineDown, WarningCircle } from '@phosphor-icons/react';
@@ -273,7 +273,7 @@ function ThankYouContent() {
       };
       // created_at is already in order from the poll response — pass it through
       // so the PDF receipt shows the real order date, not the download date.
-      await generateReceiptPDF(receiptSafeOrder, cart, txRef!, `styxproxy-receipt-${txRef}.pdf`);
+      await generateReceiptPDF(receiptSafeOrder, cart, txRef!, `styxproxy-receipt-${txRef}.pdf`, detectReceiptTheme());
     }
   };
 

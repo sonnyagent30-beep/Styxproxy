@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
-import { generateReceiptPDF } from '@/lib/pdf-receipt';
+import { generateReceiptPDF, detectReceiptTheme } from '@/lib/pdf-receipt';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.styxproxy.com';
 
@@ -123,6 +123,10 @@ function ReceiptContent() {
         ],
         txRef,
         `styxproxy-receipt-${txRef}.pdf`,
+        // Match the device colour scheme — the PDF is opened on screen, and a
+        // black page on a light device reads as broken. Callers previously
+        // omitted this, so every receipt rendered dark.
+        detectReceiptTheme(),
       );
 
       toast({ type: 'success', title: 'Downloaded', message: 'Receipt PDF downloaded' });

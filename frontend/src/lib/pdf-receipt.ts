@@ -63,6 +63,56 @@ const LIGHT_COLORS: BrandColors = {
 
 export type ReceiptTheme = 'dark' | 'light';
 
+/** Which brand lockup to embed. `header-logo-dark.png` carries a WHITE
+ *  wordmark (for dark surfaces); `header-logo-light.png` a near-black one. */
+export const LOGO_URL: Record<ReceiptTheme, string> = {
+  dark: '/header-logo-dark.png',
+  light: '/header-logo-light.png',
+};
+
+/** Device colour-scheme detection for the PDF theme.
+ *
+ *  Both call sites (/receipt/[tx_ref] and /thank-you) previously omitted the
+ *  theme argument entirely, so every receipt rendered dark on white paper.
+ *  SSR-safe: returns `dark` when matchMedia is unavailable. */
+export function detectReceiptTheme(): ReceiptTheme {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'dark';
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+/** Fetch the brand lockup as a data URL.
+ *
+ *  jsPDF cannot load a URL, so the PNG is inlined. Cached per theme: the
+ *  receipt is downloadable repeatedly and we should not refetch the asset
+ *  (or re-base64 a 12KB image) on every click.
+ *
+ *  Returns null on any failure — the caller keeps its drawn wordmark rather
+ *  than emitting a broken/blank image, so a missing asset degrades instead
+ *  of corrupting the receipt. */
+const _logoCache = new Map<ReceiptTheme, Promise<string | null>>();
+
+export function loadLogoDataUrl(theme: ReceiptTheme): Promise<string | null> {
+  const hit = _logoCache.get(theme);
+  if (hit) return hit;
+  const p = (async () => {
+    try {
+      const res = await fetch(LOGO_URL[theme]);
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(String(fr.result));
+        fr.onerror = () => reject(fr.error);
+        fr.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  })();
+  _logoCache.set(theme, p);
+  return p;
+}
+
 export async function generateReceiptPDF(
   order: ReceiptOrder,
   cart: CartItem[],
@@ -72,6 +122,7 @@ export async function generateReceiptPDF(
 ) {
   const { jsPDF } = await import('jspdf');
   const colors = theme === 'light' ? LIGHT_COLORS : DARK_COLORS;
+  const logoDataUrl = await loadLogoDataUrl(theme);
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();  // 210mm
@@ -86,24 +137,36 @@ export async function generateReceiptPDF(
   doc.rect(0, 0, W, 4, 'F');
 
   // ── Header ─────────────────────────────────────────────
-  // Logo mark (green S-box)
-  doc.setFillColor(...colors.primary);
-  doc.roundedRect(15, 14, 8, 8, 1.5, 1.5, 'F');
-  doc.setTextColor(...colors.bg);
-  doc.setFontSize(6);
-  doc.setFont('helvetica', 'bold');
-  doc.text('S', 19, 19, { align: 'center' });
+  // Brand lockup. The PNG is inlined as a data URL because jsPDF cannot fetch
+  // a URL. Fall back to the drawn mark only if the asset failed to load, so a
+  // missing file degrades to the old placeholder instead of a blank header.
+  if (logoDataUrl) {
+    // header-logo-*.png is 181x64 → aspect 2.828. Derive height from width so
+    // the lockup is never squashed (the email header shipped a 17% squash by
+    // hard-coding a height that disagreed with the source aspect).
+    const LOGO_W = 30;                       // mm
+    const LOGO_H = LOGO_W * (64 / 181);      // ≈ 10.6mm
+    doc.addImage(logoDataUrl, 'PNG', 15, 12.5, LOGO_W, LOGO_H);
+  } else {
+    // Logo mark (green S-box) — degraded fallback
+    doc.setFillColor(...colors.primary);
+    doc.roundedRect(15, 14, 8, 8, 1.5, 1.5, 'F');
+    doc.setTextColor(...colors.bg);
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'bold');
+    doc.text('S', 19, 19, { align: 'center' });
 
-  // Wordmark
-  doc.setTextColor(...colors.foreground);
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('styxproxy', 26, 20);
+    // Wordmark
+    doc.setTextColor(...colors.foreground);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('styxproxy', 26, 20);
+  }
 
   doc.setTextColor(...colors.muted);
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  doc.text('Anonymous Proxy Service', 26, 24);
+  doc.text('Anonymous Proxy Service', 15, 26);
 
   // Right header: PAYMENT RECEIPT
   doc.setTextColor(...colors.primary);
