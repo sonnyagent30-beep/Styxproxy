@@ -2256,3 +2256,52 @@ class AnalyticsFunnelResponse(BaseModel):
     total_events: int
     period_start: datetime
     period_end: datetime
+
+
+# ============== Renewal Schemas ==============
+
+
+class RenewalCreateRequest(BaseModel):
+    """Request to create a renewal order."""
+
+    order_id: str = Field(..., min_length=1, max_length=20)
+    quantity_gb: Optional[float] = Field(None, ge=1, description="GB amount for residential/mobile")
+    gateway: str = Field(default="flutterwave", description="Payment gateway")
+    customer_email: Optional[str] = Field(None, max_length=255)
+    idempotency_key: Optional[str] = Field(None, max_length=100)
+
+
+class RenewalInitiateResponse(BaseModel):
+    """Response after initiating a renewal payment."""
+
+    renewal_id: int
+    order_id: str
+    checkout_url: str
+    amount_ngn: float
+    currency: str = "NGN"
+    expires_at: datetime
+    tx_ref: str
+
+
+class RenewalResponse(BaseModel):
+    """Renewal record response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_id: str
+    quantity_gb: Optional[float] = None
+    amount_paid_ngn: float
+    payment_reference: Optional[str] = None
+    tx_ref: Optional[str] = None
+    status: str
+    credential_id: Optional[int] = None
+    expires_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class RenewalHistoryResponse(BaseModel):
+    """Response for renewal history listing."""
+
+    renewals: list[RenewalResponse]
+    total: int

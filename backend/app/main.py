@@ -25,6 +25,7 @@ from app.routers import (
     charon,
     charon_ab,
     contact,
+    renewals,
     costs,
     credentials,
     health,
@@ -437,4 +438,5 @@ app.include_router(incident_notification)
 app.include_router(costs)
 app.include_router(analytics)
 app.include_router(charon_ab)
+app.include_router(renewals)
 app.include_router(ops, prefix="")

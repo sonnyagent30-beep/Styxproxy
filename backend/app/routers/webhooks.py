@@ -188,6 +188,33 @@ async def flutterwave_webhook(
             )
             await session.commit()
 
+            # ── Check if this is a renewal payment ──
+            # Renewal payments are detected by looking up the tx_ref in the renewals table.
+            # If found and pending, complete the renewal instead of fulfilling a new order.
+            from app.models import Renewal
+            renewal = (
+                await session.execute(
+                    select(Renewal).where(
+                        (Renewal.tx_ref == tx_ref) | (Renewal.payment_reference == tx_ref)
+                    )
+                )
+            ).scalar_one_or_none()
+
+            if renewal and renewal.status == "pending":
+                from app.services.renewal_service import complete_renewal
+                try:
+                    completed = await complete_renewal(session, renewal.id)
+                    if completed:
+                        logger.info("Renewal %s completed via webhook", renewal.id)
+                        await log_audit_event(
+                            session,
+                            event_type="renewal_completed",
+                            details={"renewal_id": renewal.id, "order_id": renewal.order_id, "tx_ref": tx_ref},
+                        )
+                except Exception as e:
+                    logger.error("Renewal completion failed: %s", e, exc_info=True)
+                return {"status": "renewal_completed", "renewal_id": renewal.id}
+
             try:
                 from app.routers._webhook_queue import enqueue_fulfillment
                 job_id = await enqueue_fulfillment(tx_ref, order.order_id, payload)
@@ -334,6 +361,32 @@ async def paystack_webhook(
                 captured_at=gateway_captured_at(event_data),
             )
             await session.commit()
+
+            # ── Check if this is a renewal payment ──
+            from app.models import Renewal
+            renewal = (
+                await session.execute(
+                    select(Renewal).where(
+                        (Renewal.tx_ref == tx_ref) | (Renewal.payment_reference == tx_ref)
+                    )
+                )
+            ).scalar_one_or_none()
+
+            if renewal and renewal.status == "pending":
+                from app.services.renewal_service import complete_renewal
+                try:
+                    completed = await complete_renewal(session, renewal.id)
+                    if completed:
+                        logger.info("Renewal %s completed via paystack webhook", renewal.id)
+                        await log_audit_event(
+                            session,
+                            event_type="renewal_completed",
+                            details={"renewal_id": renewal.id, "order_id": renewal.order_id, "tx_ref": tx_ref},
+                        )
+                except Exception as e:
+                    logger.error("Renewal completion failed: %s", e, exc_info=True)
+                return {"status": "renewal_completed", "renewal_id": renewal.id}
+
             try:
                 from app.routers._webhook_queue import enqueue_fulfillment
                 job_id = await enqueue_fulfillment(tx_ref, order.order_id, payload)

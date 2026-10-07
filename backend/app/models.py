@@ -1364,6 +1364,51 @@ class CharonBlogChunk(Base):
 
 
 
+
+class Renewal(Base):
+    """Renewals table — tracks renewal orders for existing proxy subscriptions.
+
+    Each renewal is linked to an original order. For residential/mobile plans,
+    a new credential is created for the extra GB. For DC/ISP plans, only the
+    expiry is extended (no GB involved).
+
+    Status values: pending, completed, failed, refunded
+    """
+
+    __tablename__ = "renewals"
+    __table_args__ = (
+        Index("idx_renewals_order_id", "order_id"),
+        Index("idx_renewals_payment_reference", "payment_reference"),
+        Index("idx_renewals_tx_ref", "tx_ref"),
+        Index("idx_renewals_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("orders.order_id"), nullable=False
+    )
+    quantity_gb: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+    amount_paid_ngn: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    payment_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    tx_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    credential_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("styxproxy_credentials.id"), nullable=True
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    order: Mapped[Optional["Order"]] = relationship(
+        "Order", foreign_keys="[Renewal.order_id]"
+    )
+    credential: Mapped[Optional["StyxproxyCredential"]] = relationship(
+        "StyxproxyCredential", foreign_keys="[Renewal.credential_id]"
+    )
+
+
 class PlanSettings(Base):
     """Plan settings table - Global and country-specific pricing rules."""
 

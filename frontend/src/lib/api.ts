@@ -89,6 +89,9 @@ import type {
   RlsRolloutPhase,
   RlsRolloutPlanResponse,
   RlsSafeStatus,
+  RenewalInitiateResponse,
+  RenewalHistoryResponse,
+  RenewalResponse,
 } from '@/types';
 
 // API base URL resolution:
@@ -1360,6 +1363,39 @@ class ApiClient {
       window.localStorage.removeItem('styx_admin_token');
       window.sessionStorage.removeItem('styx_admin_token');
     }
+  }
+
+  // ============== Renewals ==============
+
+  async initiateRenewal(data: {
+    order_id: string;
+    quantity_gb?: number;
+    gateway?: string;
+    customer_email?: string;
+    idempotency_key?: string;
+  }): Promise<ApiResponse<RenewalInitiateResponse>> {
+    const headers: Record<string, string> = {};
+    if (data.idempotency_key) {
+      headers['Idempotency-Key'] = data.idempotency_key;
+    }
+    return this.request<RenewalInitiateResponse>('/api/renewals/initiate', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        order_id: data.order_id,
+        quantity_gb: data.quantity_gb,
+        gateway: data.gateway || 'flutterwave',
+        customer_email: data.customer_email,
+      }),
+    });
+  }
+
+  async getRenewalsForOrder(orderId: string): Promise<ApiResponse<RenewalHistoryResponse>> {
+    return this.request<RenewalHistoryResponse>(`/api/renewals/order/${orderId}`);
+  }
+
+  async getRenewal(renewalId: number): Promise<ApiResponse<RenewalResponse>> {
+    return this.request<RenewalResponse>(`/api/renewals/${renewalId}`);
   }
 }
 

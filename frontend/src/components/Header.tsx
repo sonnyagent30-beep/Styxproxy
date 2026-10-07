@@ -26,6 +26,7 @@ export default function Header() {
     { href: '/blog', label: 'Blog' },
     { href: '/contact', label: 'Contact' },
     { href: '/order/status', label: 'Order Status' },
+    { href: '/renew', label: 'Renew' },
   ];
 
   return (

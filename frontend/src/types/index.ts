@@ -1106,3 +1106,42 @@ export interface PermissionChangeRequestResponse {
   created_at: string;
   expires_at: string;
 }
+
+
+// ============== Renewal Types ==============
+
+export interface RenewalCreateRequest {
+  order_id: string;
+  quantity_gb?: number;
+  gateway?: string;
+  customer_email?: string;
+  idempotency_key?: string;
+}
+
+export interface RenewalInitiateResponse {
+  renewal_id: number;
+  order_id: string;
+  checkout_url: string;
+  amount_ngn: number;
+  currency: string;
+  expires_at: string;
+  tx_ref: string;
+}
+
+export interface RenewalResponse {
+  id: number;
+  order_id: string;
+  quantity_gb?: number | null;
+  amount_paid_ngn: number;
+  payment_reference?: string | null;
+  tx_ref?: string | null;
+  status: string;
+  credential_id?: number | null;
+  expires_at?: string | null;
+  created_at: string;
+}
+
+export interface RenewalHistoryResponse {
+  renewals: RenewalResponse[];
+  total: number;
+}
