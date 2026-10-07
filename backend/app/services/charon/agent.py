@@ -196,7 +196,7 @@ DOMAIN_KNOWLEDGE = """
 - Price comparison → Datacenter
 
 ### Setup Quick Reference
-- Proxy address: `proxy.styxproxy.com:PORT`
+- Proxy address: `YOUR_PROXY_IP:PORT`
 - Auth: Styxproxy username + password
 - Protocols: HTTP, HTTPS, SOCKS5 all supported
 - Test proxy: visit https://ipinfo.io to confirm it's active

@@ -616,12 +616,12 @@ async def create_order_with_credential(
     from app.services.proxy_management import (
         PROXY_PORT_HTTP,
         PROXY_PORT_SOCKS5,
-        PROXY_PUBLIC_HOST,
         build_curl_http_example,
         build_curl_socks5_example,
         build_python_socks5_example,
     )
 
+    proxy_host = credential.upstream_proxy_ip or ""
     return {
         "order_id": order_id,
         "plan_type": plan_type,
@@ -633,14 +633,14 @@ async def create_order_with_credential(
         "status": "active",
         "styxproxy_username": our_username,
         "styxproxy_password": our_password,
-        "proxy_host": PROXY_PUBLIC_HOST,
+        "proxy_host": proxy_host,
         "proxy_port_socks5": PROXY_PORT_SOCKS5,
         "proxy_port_http": PROXY_PORT_HTTP,
         "protocol": "socks5",
         "expires_at": expires_at.isoformat() if expires_at else None,
-        "curl_socks5_example": build_curl_socks5_example(our_username, our_password),
-        "curl_http_example": build_curl_http_example(our_username, our_password),
-        "python_socks5_example": build_python_socks5_example(our_username, our_password),
+        "curl_socks5_example": build_curl_socks5_example(our_username, our_password, proxy_host),
+        "curl_http_example": build_curl_http_example(our_username, our_password, proxy_host),
+        "python_socks5_example": build_python_socks5_example(our_username, our_password, proxy_host),
         "assigned_static_ip": None,  # populated on first use (relay reports back)
         "credential_id": credential.id,
     }

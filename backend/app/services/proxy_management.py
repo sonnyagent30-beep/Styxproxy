@@ -24,7 +24,8 @@ from app.models import Order, StyxproxyCredential
 # ─── Constants ────────────────────────────────────────────────────────────────
 
 # Customer-facing SOCKS5 endpoint (front door for customers)
-PROXY_PUBLIC_HOST = "proxy.styxproxy.com"
+# Empty — set per-credential from upstream_proxy_ip at runtime
+PROXY_PUBLIC_HOST = ""
 PROXY_PORT_SOCKS5 = 1080
 PROXY_PORT_HTTP = 8080
 
@@ -66,7 +67,7 @@ UPSTREAM_GATEWAYS = {
     },
     "trial": {
         # Trial uses local SOCKS proxy (free trial path)
-        "host": "trial.styxproxy.com",
+        "host": "",
         "port": 8001,
         "upstream_protocol": "socks5",
         "upstream_type": "trial_local",
@@ -439,20 +440,20 @@ async def force_password_rotation_admin(session: AsyncSession, credential_id: in
 # ─── Connection string helpers (for customer-facing responses) ────────────────
 
 
-def build_curl_socks5_example(username: str, password: str) -> str:
-    return f"curl --socks5-hostname {username}:{password}@{PROXY_PUBLIC_HOST}:{PROXY_PORT_SOCKS5} https://api.ipify.org"
+def build_curl_socks5_example(username: str, password: str, host: str = "") -> str:
+    return f"curl --socks5-hostname {username}:{password}@{host}:{PROXY_PORT_SOCKS5} https://api.ipify.org"
 
 
-def build_curl_http_example(username: str, password: str) -> str:
-    return f"curl --proxy http://{username}:{password}@{PROXY_PUBLIC_HOST}:{PROXY_PORT_HTTP} https://api.ipify.org"
+def build_curl_http_example(username: str, password: str, host: str = "") -> str:
+    return f"curl --proxy http://{username}:{password}@{host}:{PROXY_PORT_HTTP} https://api.ipify.org"
 
 
-def build_python_socks5_example(username: str, password: str) -> str:
+def build_python_socks5_example(username: str, password: str, host: str = "") -> str:
     return (
         "import requests\n"
         f"proxies = {{\n"
-        f"  'http':  'socks5h://{username}:{password}@{PROXY_PUBLIC_HOST}:{PROXY_PORT_SOCKS5}',\n"
-        f"  'https': 'socks5h://{username}:{password}@{PROXY_PUBLIC_HOST}:{PROXY_PORT_SOCKS5}',\n"
+        f"  'http':  'socks5h://{username}:{password}@{host}:{PROXY_PORT_SOCKS5}',\n"
+        f"  'https': 'socks5h://{username}:{password}@{host}:{PROXY_PORT_SOCKS5}',\n"
         f"}}\n"
         "print(requests.get('https://api.ipify.org', proxies=proxies).text)"
     )
