@@ -1383,23 +1383,6 @@ registry.register(ToolSpec(
     handler=_get_integration_docs,
 ))
 
-registry.register(ToolSpec(
-    name="initiate_renewal",
-    description="Initiate a renewal for an existing order. For residential/mobile: customer selects GB amount (min 5 GB). For DC/ISP: no GB selection, just extends expiry by 30 days. Returns a checkout URL for payment. Use when customer says 'I want to renew', 'renew my proxy', 'add more data', 'extend my subscription'.",
-    schema={
-        "type": "object",
-        "properties": {
-            "order_id": {"type": "string", "description": "The order_id to renew"},
-            "quantity_gb": {"type": "integer", "description": "GB amount for residential/mobile plans (min 5). Omit for DC/ISP."},
-            "gateway": {"type": "string", "default": "flutterwave", "description": "Payment gateway: flutterwave or paystack"},
-            "customer_email": {"type": "string", "description": "Customer email for payment"},
-            "customer_phone": {"type": "string", "description": "Customer phone for RLS verification"},
-        },
-        "required": ["order_id"],
-    },
-    handler=_initiate_renewal_tool,
-))
-
 
 # ─── Renewal Tool (added 2026-10-07) ─────────────────────────────────────────
 
@@ -1520,6 +1503,24 @@ async def _initiate_renewal_tool(
     except Exception as exc:
         logger.exception("initiate_renewal tool failed")
         return ToolResult(ok=False, error=f"Renewal initiation failed: {exc}")
+
+
+registry.register(ToolSpec(
+    name="initiate_renewal",
+    description="Initiate a renewal for an existing order. For residential/mobile: customer selects GB amount (min 5 GB). For DC/ISP: no GB selection, just extends expiry by 30 days. Returns a checkout URL for payment. Use when customer says 'I want to renew', 'renew my proxy', 'add more data', 'extend my subscription'.",
+    schema={
+        "type": "object",
+        "properties": {
+            "order_id": {"type": "string", "description": "The order_id to renew"},
+            "quantity_gb": {"type": "integer", "description": "GB amount for residential/mobile plans (min 5). Omit for DC/ISP."},
+            "gateway": {"type": "string", "default": "flutterwave", "description": "Payment gateway: flutterwave or paystack"},
+            "customer_email": {"type": "string", "description": "Customer email for payment"},
+            "customer_phone": {"type": "string", "description": "Customer phone for RLS verification"},
+        },
+        "required": ["order_id"],
+    },
+    handler=_initiate_renewal_tool,
+))
 
 
 # ─── Forbidden tools (not registered — guard rails) ──────────────────────────
