@@ -471,27 +471,16 @@ async def post_reply_stream(
         Message(role=m.role, content=m.content) for m in payload.history if m.role in ("system", "user", "assistant")
     ]
 
-    # Check if native LLM streaming is available
-    from app.services.charon.llm import stream_llm
+    # NOTE: The stream_llm fast path was removed. It sent the bare user
+    # message to the LLM with no system prompt, no tools, no RAG and no
+    # history, so the LLM always answered directly and the tool-calling loop
+    # in agent.reply() was never reached. That is why tools never triggered
+    # from the frontend. Every request now goes through agent.reply() and the
+    # full text is streamed back as delta chunks.
 
     async def event_generator():
         """Yield SSE events: data: {"delta": "chunk"} and data: {"done": true}."""
         try:
-            # Try native streaming first
-            llm_stream = stream_llm(
-                messages=[{"role": "user", "content": payload.user_message}],
-                max_tokens=500,
-            )
-            got_chunks = False
-            async for chunk in llm_stream:
-                got_chunks = True
-                yield f'data: {json.dumps({"delta": chunk})}\n\n'
-
-            if got_chunks:
-                yield f'data: {json.dumps({"done": True})}\n\n'
-                return
-
-            # Fallback: get full response and simulate streaming
             result = await agent.reply(
                 channel=payload.channel,
                 conversation_id=payload.conversation_id or "",
@@ -580,6 +569,10 @@ Please follow up with the customer within 2 hours.
                 tool_calls=result.tool_calls,
                 tokens_used=result.tokens_used,
             )
+
+            # Emit tool_calls event so the frontend can show tool activity
+            if result.tool_calls:
+                yield f'data: {json.dumps({"tool_calls": result.tool_calls})}\n\n'
 
             # Simulate streaming by splitting into chunks
             full_text = result.text
@@ -1475,7 +1468,7 @@ async def get_analytics(
                 )
                 .where(CharonConversation.started_at >= since)
                 .group_by(func.date_trunc("day", CharonConversation.started_at))
-                .order_by("day")
+                .order_by(func.date_trunc("day", CharonConversation.started_at))
             )
             daily = [{"day": d.isoformat() if hasattr(d, "isoformat") else str(d), "count": c} for d, c in daily_result.all()]
             
