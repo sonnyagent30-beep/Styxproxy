@@ -34,6 +34,7 @@ from app.routers import (
     maintenance,
     ops,
     orders,
+    renewals,
     payment_status,
     payments,
     permissions,
@@ -413,6 +414,7 @@ app.include_router(health)
 app.include_router(platform)
 app.include_router(proxies)
 app.include_router(orders)
+app.include_router(renewals.router)
 app.include_router(payments)
 app.include_router(webhooks)
 app.include_router(admin_secrets.router)

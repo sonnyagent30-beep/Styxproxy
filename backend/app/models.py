@@ -71,18 +71,18 @@ class Customer(Base):
 
     # Relationships
     platform_accounts: Mapped[list["PlatformAccount"]] = relationship("PlatformAccount", back_populates="customer")
-    # Customers this customer has referred — REMOVED 2026-08-19
+    # Customers this customer has referred -- REMOVED 2026-08-19
     # The referred_customers / referrer self-referential relationships crashed
     # SQLAlchemy mapper init ("both of the same direction ONETOMANY").
     # The referred_by FK column is preserved; queries join via it manually.
 
 
 class ReferralCredit(Base):
-    """Referral credits table — ₦500 credit applied to referrer when referee makes first payment.
+    """Referral credits table -- ₦500 credit applied to referrer when referee makes first payment.
 
     One row per successful referral. `applied_at` is set to the moment the credit
     was applied (first confirmed Flutterwave payment of the referee). If the
-    referee never makes a payment `applied_at` stays null — the credit is pending.
+    referee never makes a payment `applied_at` stays null -- the credit is pending.
     """
 
     __tablename__ = "referral_credits"
@@ -142,7 +142,7 @@ class PlatformAccount(Base):
     )
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     # Anonymous device session: ties anonymous website orders to a specific browser
-    # via a UUID stored in localStorage on the client. No PII — just a UUID.
+    # via a UUID stored in localStorage on the client. No PII -- just a UUID.
     device_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=False)
 
     # Relationships
@@ -194,37 +194,7 @@ class Order(Base):
     plan_code: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     country: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     quantity: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    # ── amount_paid_ngn is an INVOICE amount, NOT capture evidence ──────────
-    # It is written when the order is raised, before any money moves, and it is
-    # populated on 100% of rows — including all cancelled/refunded/expired ones.
-    # Summing it yields what we ASKED FOR, never what we RECEIVED. Do not cite
-    # it as revenue, as exposure, or as proof a customer paid.
     amount_paid_ngn: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
-    # ── Real capture record (gate item 2, t_c0b38088) ───────────────────────
-    # Written ONLY from a gateway's own response, via app/services/capture.py.
-    # All nullable and un-backfilled: for a historical row we cannot know what
-    # was captured, and a fabricated value is worse than a null.
-    #
-    #   captured_at       — when the money actually arrived. NULL on `pending`.
-    #   gateway_status    — the GATEWAY's view: pending/success/failed/refunded.
-    #                       Distinct from `status`, which is our workflow state.
-    #   gateway_amount_ngn— amount the gateway reported it charged, normalised
-    #                       to naira. Never re-derived from amount_paid_ngn.
-    #   gateway_currency  — ISO code as the gateway reported it.
-    #   gateway_reference — the reference the gateway itself echoed/charged.
-    captured_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True, index=True
-    )
-    gateway_status: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
-    gateway_amount_ngn: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
-    gateway_currency: Mapped[Optional[str]] = mapped_column(String(3), nullable=True)
-    gateway_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    # Gateway's own refund response id, written by the refund path. Landed in
-    # the same migration as the capture columns so item 3 (t_f765263b) does not
-    # add a conflicting second one. Null for every order not refunded.
-    gateway_refund_id: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True, index=True
-    )
     payment_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     tx_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
@@ -245,41 +215,21 @@ class Order(Base):
     replacement_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     refund_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     refund_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    # gateway_refund_id is declared in the capture block above — it is owned by
-    # gate item 2's migration (20261001_order_capture_columns) so the two cards
-    # cannot produce conflicting ADD COLUMNs for the same name. Its semantics:
-    # the gateway's OWN refund id for this order, written only after the gateway
-    # confirms the money movement. NULL means "we never got a gateway
-    # confirmation" — which, before the column existed, was indistinguishable
-    # from "refunded" (all 46 legacy `refunded` rows are NULL there:
-    # administrative status flips, not refunds).
-    #
-    # The three refund-evidence columns below are item 3's own (t_f765263b),
-    # added in 20261001_refund_gateway_evidence.
-    gateway_refund_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    gateway_refund_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
-    gateway_refunded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     fulfilled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     cost_usd: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
     rotation_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # rotating | static
-    # Sprint 13 — city picker (residential/mobile orders)
+    # Sprint 13 -- city picker (residential/mobile orders)
     city_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("cities.id", ondelete="SET NULL"), nullable=True)
     city_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    # Targeting mode: country_chosen | city_chosen | random
-    targeting_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="country_chosen")
     # Referral: tx_ref of the referee's payment that earned the referrer a credit (Sprint 2)
     referral_tx_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
-    # S2.5 — Renewal reminder tracking
+    # S2.5 -- Renewal reminder tracking
     # Number of renewal reminder emails sent for this order.
     emails_sent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # Timestamp of the last renewal reminder email sent (null = never sent).
     reminder_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    # Payment Flow Rewrite — idempotency key for /api/payments/initiate
-    idempotency_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
-    # Customer email (for self-service order lookup)
-    customer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # Relationships
     platform_account: Mapped[Optional[PlatformAccount]] = relationship("PlatformAccount", back_populates="orders")
@@ -290,7 +240,7 @@ class Order(Base):
 
 
 class StyxproxyCredential(Base):
-    """Styxproxy credentials table — Styxproxy usernames to provider IPs."""
+    """Styxproxy credentials table -- Styxproxy usernames to provider IPs."""
 
     __tablename__ = "styxproxy_credentials"
     __table_args__ = (
@@ -304,35 +254,30 @@ class StyxproxyCredential(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     styxproxy_username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    # Proxy auth credential — stored as encrypted bytes (Fernet ciphertext).
+    # Proxy auth credential -- stored as encrypted bytes (Fernet ciphertext).
     # The plaintext is needed for the receipt / email delivery / rotation, but
     # should not be visible to anyone with raw DB read access.
     #
     # Use get_password() / set_password() rather than touching this attribute
-    # directly — they handle encryption transparently. Read the raw column for
+    # directly -- they handle encryption transparently. Read the raw column for
     # debugging only.
     styxproxy_password: Mapped[Optional[bytes]] = mapped_column(LargeBinary, nullable=True)
 
     def get_password(self) -> Optional[str]:
         """Decrypt and return the plaintext proxy password.
 
-        Tolerates legacy rows that hold raw UTF-8 plaintext (written before the
-        column was encrypted, or by a writer that bypassed set_password), so
-        those customers are not locked out.
-
-        Returns None if the password is not set, or if it is ciphertext that
-        cannot be decrypted (missing/mismatched CRED_ENCRYPTION_KEY, or a
-        tampered value).
+        Returns None if the password is not set, encryption is not configured,
+        or decryption fails (wrong key / tampered ciphertext).
         """
         # Imported lazily to avoid a circular import at module load time.
-        from app.services.crypto import decrypt_credential_compat
+        from app.services.crypto import decrypt_credential
 
-        return decrypt_credential_compat(self.styxproxy_password)
+        return decrypt_credential(self.styxproxy_password)
 
     def set_password(self, plaintext: str) -> None:
         """Encrypt and store the proxy password.
 
-        No-op (logs a warning) if encryption is not configured — refusing
+        No-op (logs a warning) if encryption is not configured -- refusing
         to write plaintext is the whole point of this column.
         """
         from app.services.crypto import encrypt_credential
@@ -342,7 +287,7 @@ class StyxproxyCredential(Base):
             import logging
 
             logging.getLogger(__name__).error(
-                "Refusing to set styxproxy_password — CRED_ENCRYPTION_KEY not configured. "
+                "Refusing to set styxproxy_password -- CRED_ENCRYPTION_KEY not configured. "
                 "Set the key in your secrets manager (Doppler/Vault/SSM)."
             )
             return
@@ -360,7 +305,7 @@ class StyxproxyCredential(Base):
         String(255), nullable=True
     )  # TEXT (was INET pre-migration 018)
     upstream_proxy_port: Mapped[int] = mapped_column(Integer, default=1080, nullable=False)
-    socks_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    dante_port: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -384,6 +329,10 @@ class StyxproxyCredential(Base):
 
     # Bandwidth alerting (alert customer when usage exceeds N% of plan)
     bandwidth_alert_pct: Mapped[int] = mapped_column(Integer, default=80, nullable=False)
+
+    # Last seen (for activity feeds)
+    last_ip_country: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
+    last_ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)  # IPv6 max 45 chars
 
     # ─── Rotation mode + static IP pinning (added Jul 30) ────────────────
     # rotating = pool, IP changes per request (Rayobyte -country-XX password)
@@ -436,18 +385,18 @@ class FreeTrial(Base):
     )
 
 
-# Sprint 2 — S2.3 / S2.4: Trial session tracking for TheoremReach → trial pipeline.
+# Sprint 2 -- S2.3 / S2.4: Trial session tracking for TheoremReach → trial pipeline.
 # Each row represents a single trial grant: one TheoremReach survey completion
 # = 2 hours of trial credit, capped at 24 hours per device_id.
 #
 # trial_started_at / trial_expires_at are the canonical source of truth for
-# "how long does this trial last?" — this drives both the n8n reminder cron
+# "how long does this trial last?" -- this drives both the n8n reminder cron
 # (fires 24 hours before trial_expires_at) and the S2.4 conversion tracking.
 #
-# device_id here matches platform_accounts.device_id — used by the n8n workflow
+# device_id here matches platform_accounts.device_id -- used by the n8n workflow
 # to look up the platform_account that initiated the survey flow.
 class TrialSession(Base):
-    """Trial sessions table — tracks trial grants from TheoremReach surveys."""
+    """Trial sessions table -- tracks trial grants from TheoremReach surveys."""
 
     __tablename__ = "trial_sessions"
     __table_args__ = (
@@ -465,7 +414,7 @@ class TrialSession(Base):
         UUID(as_uuid=True), ForeignKey("platform_accounts.id"), nullable=True
     )
 
-    # TheoremReach device identifier — unique per-browser, set as localStorage UUID.
+    # TheoremReach device identifier -- unique per-browser, set as localStorage UUID.
     device_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
 
     # The survey that triggered this trial grant.
@@ -570,7 +519,7 @@ class ProcessedWebhook(Base):
 
 
 class IdempotencyResponse(Base):
-    """Idempotency responses table — caches POST handler responses by key_hash.
+    """Idempotency responses table -- caches POST handler responses by key_hash.
 
     Created via raw SQL on startup (see idempotency.py). This ORM model
     is used only for type-safe query construction; it does NOT manage
@@ -621,9 +570,6 @@ class AdminAuth(Base):
     # Password reset tokens
     reset_token_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     reset_token_expires: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    # IP allowlist — list of allowed IP addresses (IPv4/IPv6 strings).
-    # Null/empty = allow all IPs (default).
-    allowed_ips: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
 
 class AdminInvite(Base):
@@ -687,7 +633,7 @@ class Plan(Base):
     plan_type: Mapped[str] = mapped_column(String(20), nullable=False)  # ISP, DC, RESIDENTIAL, MOBILE
     country: Mapped[str] = mapped_column(String(10), nullable=False)
     price_ngn: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    # per-GB price for residential/mobile (Jul 30 2026 — Sprint 13)
+    # per-GB price for residential/mobile (Jul 30 2026 -- Sprint 13)
     # For DC/ISP plans, NULL; the price_ngn column is the per-IP price.
     price_per_gb: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
     quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
@@ -719,7 +665,7 @@ class Plan(Base):
 
 
 class City(Base):
-    """Cities table — provider-supported cities per country (Sprint 13).
+    """Cities table -- provider-supported cities per country (Sprint 13).
 
     Populated from Rayobyte's residential gateway for residential/mobile plans.
     Customers can pick a city for exact targeting or skip (="random") to get
@@ -757,7 +703,7 @@ class PlanCity(Base):
 
 
 class TriggerEvent(Base):
-    """Trigger events table — anonymous behavioral trigger firings."""
+    """Trigger events table -- anonymous behavioral trigger firings."""
 
     __tablename__ = "trigger_events"
     __table_args__ = (
@@ -775,7 +721,7 @@ class TriggerEvent(Base):
 
 
 class TriggerWeight(Base):
-    """Trigger weights table — aggregate learning weights per trigger."""
+    """Trigger weights table -- aggregate learning weights per trigger."""
 
     __tablename__ = "trigger_weights"
 
@@ -854,9 +800,9 @@ class CharonEscalation(Base):
 
 
 class CharonContext(Base):
-    """Charon AI sales agent — per-conversation rolling summary.
+    """Charon AI sales agent -- per-conversation rolling summary.
 
-    Theme C — give Charon persistent memory across page reloads. Today
+    Theme C -- give Charon persistent memory across page reloads. Today
     Charon reconstructs context from the escalations table and the
     knowledge base only. With this table, Charon can:
       - Remember the customer's last intent (e.g. "asked about 3GB plan")
@@ -895,7 +841,7 @@ class CharonContext(Base):
 class Country(Base):
     """ISO 3166-1 country reference table.
 
-    Theme C — replace the hardcoded `available_countries` dict in
+    Theme C -- replace the hardcoded `available_countries` dict in
     `app/services/provider.py` with a queryable DB table. Lets the
     admin panel flip is_supported / plan_type_eligible without a
     deploy, and lets Charon answer country questions from live data
@@ -928,61 +874,6 @@ class Country(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
-
-
-class CountryPlanType(Base):
-    """Sellable (country, plan_type) matrix — the ONE definition of what we sell.
-
-    This table had NO ORM model and NO migration, even though it is the
-    authoritative answer to "what is sellable" and is read by
-    `services/catalog.py`, `routers/orders.py`, `routers/admin.py` and the
-    Charon tools. Production has it (created out-of-band by hand), so every
-    read path worked there — but a fresh database built from this repository
-    had no such table and `GET /api/catalog` / `GET /api/countries` raised
-    `UndefinedTable`.
-
-    The existing tests could not catch that because every one of them fakes
-    the session, so the missing table never surfaced as a failure.
-
-    Declaring it here is what makes it appear: `main.py`'s lifespan runs
-    `Base.metadata.create_all` on every boot, and `create_all` is the ONLY
-    provisioning path that actually works in this repository —
-    `alembic upgrade head` fails on the very first revision (`001_initial`
-    creates `orders` with FKs to tables it has not created yet), so the
-    migration chain cannot provision a clean database at all.
-
-    Every column, default, constraint name and index name below is copied
-    from the live production table (`\\d+ country_plan_types`) rather than
-    invented. Index names are declared explicitly because `create_all` would
-    otherwise generate `ix_country_plan_types_*` and leave the production
-    names (`idx_cpt_enabled` / `idx_cpt_plan_type`) as a second, divergent set.
-
-    `cpt_unique` is load-bearing, not cosmetic: `routers/admin.py` upserts
-    with a bare `ON CONFLICT DO NOTHING`, which needs a unique constraint on
-    (country_code, plan_type) to resolve to.
-    """
-
-    __tablename__ = "country_plan_types"
-    __table_args__ = (
-        UniqueConstraint("country_code", "plan_type", name="cpt_unique"),
-        Index("idx_cpt_enabled", "enabled"),
-        Index("idx_cpt_plan_type", "plan_type"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    country_code: Mapped[str] = mapped_column(String(2), nullable=False)
-    plan_type: Mapped[str] = mapped_column(String(20), nullable=False)
-    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
-    price_per_ip: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
-    price_per_gb: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
-    provider_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
-    )
-    is_special: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
 
 
 class Post(Base):
@@ -1106,7 +997,7 @@ class SupportMessage(Base):
 
 
 class HealthSnapshot(Base):
-    """Health history table — Time-series of system health probes.
+    """Health history table -- Time-series of system health probes.
 
     Theme A M5: a cron job polls health every minute and writes a snapshot.
     GET /api/admin/health/history reads these for time-series display in
@@ -1232,37 +1123,6 @@ class PermissionChangeRequest(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
-
-class RefundApproval(Base):
-    """Two-person rule for large refunds (Theme C).
-
-    When an admin requests a refund above the configured threshold,
-    a row is created here with status='pending'. A second admin (typically
-    a superadmin) must approve or reject via the admin panel. The refund
-    is only processed after approval.
-    """
-
-    __tablename__ = "refund_approvals"
-    __table_args__ = (
-        Index("idx_refund_approvals_status", "status"),
-        Index("idx_refund_approvals_order", "order_id"),
-        Index("idx_refund_approvals_requested_by", "requested_by"),
-    )
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    order_id: Mapped[str] = mapped_column(String(20), ForeignKey("orders.order_id"), nullable=False)
-    requested_by: Mapped[str] = mapped_column(String(255), nullable=False)
-    requested_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)  # pending | approved | rejected
-    reviewed_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    reviewer_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
-    )
-
-
 class RlsPolicy(Base):
     """Single source of truth for which tables have RLS enabled (Theme C).
 
@@ -1288,7 +1148,7 @@ class RlsPolicy(Base):
     rolled_back_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     last_audit: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    # Sprint 15 — added via migration 022
+    # Sprint 15 -- added via migration 022
     using_clause: Mapped[Optional[str]] = mapped_column(Text, nullable=True, server_default="true")
     with_check: Mapped[Optional[str]] = mapped_column(Text, nullable=True, server_default="true")
     role_name: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, server_default="styxproxy_app")
@@ -1344,7 +1204,7 @@ class CharonBlogChunk(Base):
     Embedding field is BYTEA so we can store serialized vectors
     (numpy or whatever the embedding model returns). The initial
     backfill script (scripts/seed_blog_chunks.py) populates published
-    posts only — drafts/drafts are skipped.
+    posts only -- drafts/drafts are skipped.
     """
 
     __tablename__ = "charon_blog_chunks"
@@ -1362,6 +1222,41 @@ class CharonBlogChunk(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+
+class DanteUser(Base):
+    """Dante SOCKS proxy user accounts (Theme C).
+
+    Each customer who buys a Styxproxy plan gets a Dante user account
+    on the Contabo fleet. The table tracks credentials, port range,
+    expiry, and bandwidth usage. The dante_auth service (port 1081)
+    looks up users here to authenticate.
+
+    bytes_used is updated by dante-auth on each connection (writes
+    sampled to avoid hot-row contention). Bytes reset is handled by
+    the plan renewal cron (Theme C future work).
+    """
+
+    __tablename__ = "dante_users"
+    __table_args__ = (
+        Index("idx_dante_users_customer", "customer_id"),
+        Index("idx_dante_users_active", "is_active"),
+        Index("idx_dante_users_expires", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    username: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    port_range_low: Mapped[int] = mapped_column(Integer, default=10000, nullable=False)
+    port_range_high: Mapped[int] = mapped_column(Integer, default=60000, nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    bytes_used: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
 
 class PlanSettings(Base):
@@ -1415,7 +1310,7 @@ class CharonAbOutcome(Base):
 
 
 class EmailUnsubscribe(Base):
-    """Email unsubscribe tracking — public, no auth required."""
+    """Email unsubscribe tracking -- public, no auth required."""
 
     __tablename__ = "email_unsubscribes"
 
@@ -1428,7 +1323,7 @@ class EmailUnsubscribe(Base):
 # Stores conversations and messages for history, analytics, and context.
 
 class CharonConversation(Base):
-    """Charon conversation session — one per customer interaction."""
+    """Charon conversation session -- one per customer interaction."""
 
     __tablename__ = "charon_conversations"
 
@@ -1470,39 +1365,38 @@ class CharonMessage(Base):
     # Relationships
     conversation: Mapped["CharonConversation"] = relationship("CharonConversation", back_populates="messages")
 
-# ─── Admin Webhook System ────────────────────────────────────────────────────
 
+class OrderRenewal(Base):
+    """Order renewals -- tracks renewal payments for existing orders.
 
-class AdminWebhook(Base):
-    """Admin-configured webhooks for real-time event notifications."""
+    When a customer renews, we extend the existing credential expires_at
+    and data_remaining_gb. We never issue a second proxy.
+    """
 
-    __tablename__ = "admin_webhooks"
-    __table_args__ = (Index("idx_admin_webhooks_active", "is_active"),)
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    url: Mapped[str] = mapped_column(String(500), nullable=False)
-    events: Mapped[list[str]] = mapped_column(ARRAY(String(50)), nullable=False)
-    secret_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-
-class AdminWebhookLog(Base):
-    """Log of all webhook delivery attempts."""
-
-    __tablename__ = "admin_webhook_logs"
+    __tablename__ = "order_renewals"
     __table_args__ = (
-        Index("idx_admin_webhook_logs_webhook", "webhook_id"),
-        Index("idx_admin_webhook_logs_created", "created_at"),
+        Index("idx_renewals_order", "order_id"),
+        Index("idx_renewals_tx_ref", "renewal_tx_ref"),
+        Index("idx_renewals_status", "status"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    webhook_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("admin_webhooks.id"), nullable=False)
-    event_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
-    response_status: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    response_body: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    success: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    order_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("orders.order_id"), nullable=False
+    )
+    renewal_tx_ref: Mapped[str] = mapped_column(String(100), nullable=False)
+    quantity_gb: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount_paid_ngn: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    fulfilled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Relationship
+    order: Mapped[Optional[Order]] = relationship(
+        "Order",
+        foreign_keys="[OrderRenewal.order_id]",
+    )

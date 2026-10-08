@@ -84,6 +84,13 @@ class Settings(BaseSettings):
     # Pick a topic name, subscribe via the ntfy phone app or web.
     ntfy_topic: str = ""
 
+    # Alerting Fallback (Telegram + ntfy)
+    # Second delivery path so Resend failure doesn't silence all alerts.
+    telegram_bot_token: str = ""
+    telegram_alert_chat_id: str = ""
+    ntfy_topic: str = ""
+
+
     # ── Provider Simulator ──────────────────────────────────────────────────
     provider_mode: str = "production"  # "production", "simulator", "auto"
     simulator_base_url: str = "http://localhost:8001"
