@@ -6,6 +6,7 @@ import Link from 'next/link';
 import StatusBanner from '@/components/order/StatusBanner';
 import ActionBar from '@/components/order/ActionBar';
 import OrderTimeline from '@/components/order/OrderTimeline';
+import RenewalModal from '@/components/order/RenewalModal';
 import { getActionsForStatus, getTimelineSteps, getStatusGroup } from '@/lib/order-status';
 import { getOrderHistory, type OrderHistoryEntry, cleanupStalePendingOrders, clearOrderHistory, removeFromHistory } from '@/lib/device-id';
 import { Eye, EyeSlash, Copy, Clock, Check, ArrowRight, WarningCircle, MagnifyingGlass, X } from '@phosphor-icons/react';
@@ -76,6 +77,7 @@ function OrderStatusContent() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<OrderHistoryEntry[]>([]);
   const [rotating, setRotating] = useState(false);
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
 
   useEffect(() => {
     cleanupStalePendingOrders();
@@ -203,11 +205,21 @@ function OrderStatusContent() {
                       alert('Please contact support to cancel your order.');
                     }
                   }
+                  if (action.kind === 'renew') setShowRenewalModal(true);
                   if (action.kind === 'contact_support') {
                     window.dispatchEvent(new CustomEvent('open-chat-widget', { detail: { context: 'support', orderId: order.order_id } }));
                   }
                 }}
               />
+
+              {/* Renewal Modal */}
+              {showRenewalModal && (
+                <RenewalModal
+                  order={order}
+                  onClose={() => setShowRenewalModal(false)}
+                  onRenewed={(updatedOrder) => setOrder(updatedOrder)}
+                />
+              )}
 
               {/* Order Details */}
               <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">

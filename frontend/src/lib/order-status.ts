@@ -66,7 +66,7 @@ export function getStatusIcon(status: string): string {
 }
 
 export interface OrderAction {
-  kind: 'rotate' | 'retry_payment' | 'reorder' | 'cancel' | 'contact_support' | 'download_receipt';
+  kind: 'rotate' | 'retry_payment' | 'reorder' | 'cancel' | 'contact_support' | 'download_receipt' | 'renew';
   label: string;
   href?: string;
   disabled?: boolean;
@@ -101,14 +101,20 @@ export function getActionsForStatus(
       if (rotationsLeft > 0) {
         actions.push({ kind: 'rotate', label: `Rotate Key (${rotationsLeft} left)`, variant: 'primary' });
       }
-      if (isRenewable || isNearExpiry) {
-        actions.push({ kind: 'renew', label: 'Renew', href: `/order/renewal?renew=${orderId}`, variant: 'secondary' });
+      if (isRenewable) {
+        actions.push({
+          kind: 'renew',
+          label: isNearExpiry ? 'Renew Now' : 'Renew Proxy',
+          variant: isNearExpiry ? 'primary' : 'secondary',
+          disabled: false,
+          reason: 'Extend your proxy subscription',
+        });
       }
       actions.push({ kind: 'contact_support', label: 'Contact Support', variant: 'tertiary' });
       break;
     case 'expired':
       if (isRenewable) {
-        actions.push({ kind: 'renew', label: 'Renew', href: `/order/renewal?renew=${orderId}`, variant: 'primary' });
+        actions.push({ kind: 'renew', label: 'Renew', variant: 'primary' });
       }
       actions.push({ kind: 'reorder', label: 'Order New', href: '/order', variant: 'secondary' });
       actions.push({ kind: 'contact_support', label: 'Contact Support', variant: 'tertiary' });
