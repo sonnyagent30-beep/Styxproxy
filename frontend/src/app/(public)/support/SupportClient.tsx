@@ -8,9 +8,35 @@ import {
   Envelope,
   TelegramLogo,
   WhatsappLogo,
+  Warning,
 } from '@phosphor-icons/react';
 import { api } from '@/lib/api';
 import { InlineLoader } from '@/components/StyxLoader';
+
+/**
+ * Detect network-level failures (API unreachable) vs. server errors.
+ * fetch() throws TypeError with these messages when the network is down:
+ *   Chrome: "Failed to fetch"
+ *   Firefox: "NetworkError when attempting to fetch resource."
+ *   Safari: "Load failed"
+ *   Node/undici: "fetch failed"
+ */
+function isNetworkError(error: string): boolean {
+  const networkPatterns = [
+    'failed to fetch',
+    'networkerror',
+    'load failed',
+    'fetch failed',
+    'network request failed',
+    'econnrefused',
+    'econnreset',
+    'etimedout',
+    'enotfound',
+    'eai_again',
+  ];
+  const lower = error.toLowerCase();
+  return networkPatterns.some((p) => lower.includes(p));
+}
 
 const faqs = [
   {
@@ -64,6 +90,7 @@ export default function SupportClient() {
   const [sent, setSent] = useState(false);
   const [ticketId, setTicketId] = useState('');
   const [error, setError] = useState('');
+  const [networkError, setNetworkError] = useState(false);
 
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -77,6 +104,7 @@ export default function SupportClient() {
     if (!form.name || !form.email || !form.subject || !form.message) return;
     setLoading(true);
     setError('');
+    setNetworkError(false);
 
     const result = await api.createSupportTicket({
       name: form.name,
@@ -89,7 +117,11 @@ export default function SupportClient() {
     setLoading(false);
 
     if (result.error) {
-      setError(result.error);
+      if (isNetworkError(result.error)) {
+        setNetworkError(true);
+      } else {
+        setError(result.error);
+      }
       return;
     }
 
@@ -192,6 +224,37 @@ export default function SupportClient() {
             <h2 className="text-xl font-bold text-[var(--foreground)] mb-6">
               Create a support request
             </h2>
+
+            {networkError && (
+              <div className="mb-6 p-5 rounded-xl border border-amber-500/40 bg-amber-500/10" role="alert">
+                <div className="flex items-start gap-3">
+                  <Warning className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" weight="fill" />
+                  <div className="flex-1">
+                    <p className="font-semibold text-amber-300 text-sm mb-1">
+                      We&apos;re having trouble receiving your message
+                    </p>
+                    <p className="text-amber-200/80 text-sm leading-relaxed mb-3">
+                      Your ticket didn&apos;t go through — our system is temporarily unreachable.
+                      Email us at{' '}
+                      <a
+                        href="mailto:support@styxproxy.com"
+                        className="underline font-semibold text-amber-300 hover:text-amber-200"
+                      >
+                        support@styxproxy.com
+                      </a>{' '}
+                      and we&apos;ll pick it up as soon as we&apos;re back.
+                    </p>
+                    <a
+                      href="mailto:support@styxproxy.com"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-semibold text-sm transition-colors"
+                    >
+                      <Envelope className="w-4 h-4" />
+                      Email Support
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {sent ? (
               <div className="text-center p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
