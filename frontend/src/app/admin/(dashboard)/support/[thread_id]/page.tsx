@@ -1,11 +1,13 @@
+'use client';
 
 /* eslint-disable react-hooks/set-state-in-effect */
-'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
+import { useToast } from '@/components/Toast';
+import ConfirmModal from '@/components/ConfirmModal';
 import type { SupportThreadDetail, SupportMessage } from '@/types';
 
 export default function ThreadDetailPage() {
@@ -22,17 +24,29 @@ export default function ThreadDetailPage() {
   const [optimisticMessages, setOptimisticMessages] = useState<SupportMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Toast
+  const { toast } = useToast();
+
+  // Confirm modals
+  const [closeConfirm, setCloseConfirm] = useState(false);
+  const [reopenConfirm, setReopenConfirm] = useState(false);
+
   const loadThread = async () => {
     if (!threadId) return;
     setLoading(true);
     setError('');
-    const result = await api.getSupportThread(threadId);
-    if (result.error) {
-      setError(result.error);
-    } else if (result.data) {
-      setThread(result.data);
+    try {
+      const result = await api.getSupportThread(threadId);
+      if (result.error) {
+        setError(result.error);
+      } else if (result.data) {
+        setThread(result.data);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load thread');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -71,35 +85,74 @@ export default function ThreadDetailPage() {
     const previousText = replyText;
     setReplyText('');
 
-    const result = await api.replySupportThread(thread.id, replyHtml, 'Dannion');
-    setSending(false);
-    if (result.error) {
-      // Revert optimistic
+    try {
+      const result = await api.replySupportThread(thread.id, replyHtml, 'Dannion');
+      if (result.error) {
+        // Revert optimistic
+        setOptimisticMessages([]);
+        setReplyText(previousText);
+        toast({ type: 'error', title: 'Send Failed', message: `Failed to send reply: ${result.error}` });
+      } else {
+        // Reload thread to get the persisted message
+        await loadThread();
+        setOptimisticMessages([]);
+      }
+    } catch (err) {
+      // Revert optimistic on unexpected error
       setOptimisticMessages([]);
       setReplyText(previousText);
-      alert(`Failed to send reply: ${result.error}`);
-    } else {
-      // Reload thread to get the persisted message
-      await loadThread();
-      setOptimisticMessages([]);
+      toast({ type: 'error', title: 'Send Failed', message: `Failed to send reply: ${err instanceof Error ? err.message : 'Unknown error'}` });
+    } finally {
+      setSending(false);
     }
   };
 
   const handleCloseThread = async () => {
     if (!thread) return;
-    if (!confirm('Close this thread? The customer can still reply, but it will be marked closed.')) return;
+    setCloseConfirm(true);
+  };
+
+  const confirmCloseThread = async () => {
+    if (!thread) return;
     setActionLoading(true);
-    await api.closeSupportThread(thread.id);
-    await loadThread();
-    setActionLoading(false);
+    try {
+      const result = await api.closeSupportThread(thread.id);
+      if (result.error) {
+        toast({ type: 'error', title: 'Error', message: `Failed to close thread: ${result.error}` });
+      } else {
+        toast({ type: 'success', title: 'Thread Closed', message: 'Support thread has been closed' });
+        await loadThread();
+      }
+    } catch (err) {
+      toast({ type: 'error', title: 'Error', message: `Failed to close thread: ${err instanceof Error ? err.message : 'Unknown error'}` });
+    } finally {
+      setActionLoading(false);
+      setCloseConfirm(false);
+    }
   };
 
   const handleReopenThread = async () => {
     if (!thread) return;
+    setReopenConfirm(true);
+  };
+
+  const confirmReopenThread = async () => {
+    if (!thread) return;
     setActionLoading(true);
-    await api.reopenSupportThread(thread.id);
-    await loadThread();
-    setActionLoading(false);
+    try {
+      const result = await api.reopenSupportThread(thread.id);
+      if (result.error) {
+        toast({ type: 'error', title: 'Error', message: `Failed to reopen thread: ${result.error}` });
+      } else {
+        toast({ type: 'success', title: 'Thread Reopened', message: 'Support thread has been reopened' });
+        await loadThread();
+      }
+    } catch (err) {
+      toast({ type: 'error', title: 'Error', message: `Failed to reopen thread: ${err instanceof Error ? err.message : 'Unknown error'}` });
+    } finally {
+      setActionLoading(false);
+      setReopenConfirm(false);
+    }
   };
 
   const formatTime = (dateStr: string) => {
@@ -137,7 +190,7 @@ export default function ThreadDetailPage() {
 
   if (loading && !thread) {
     return (
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto" role="status" aria-label="Loading thread">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-[var(--card)] rounded w-48" />
           <div className="h-32 bg-[var(--card)] rounded-2xl" />
@@ -150,9 +203,9 @@ export default function ThreadDetailPage() {
   if (error && !thread) {
     return (
       <div className="max-w-5xl mx-auto">
-        <div className="p-6 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="p-6 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
-          <button onClick={loadThread} className="ml-4 underline">Retry</button>
+          <button onClick={loadThread} aria-label="Retry loading thread" className="ml-4 underline">Retry</button>
         </div>
       </div>
     );
@@ -286,6 +339,7 @@ export default function ThreadDetailPage() {
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             placeholder="Type your reply..."
+            aria-label="Reply message"
             rows={6}
             disabled={sending}
             className="w-full px-4 py-3 rounded-xl bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 resize-y disabled:opacity-50"
@@ -329,6 +383,28 @@ export default function ThreadDetailPage() {
           <p className="text-sm text-[var(--muted)]">Reopen the thread to send a reply.</p>
         </div>
       )}
+
+      {/* Close Thread Confirmation Modal */}
+      <ConfirmModal
+        isOpen={closeConfirm}
+        title="Close Thread"
+        message="Close this thread? The customer can still reply, but it will be marked closed."
+        confirmLabel="Close Thread"
+        variant="warning"
+        onConfirm={confirmCloseThread}
+        onCancel={() => setCloseConfirm(false)}
+      />
+
+      {/* Reopen Thread Confirmation Modal */}
+      <ConfirmModal
+        isOpen={reopenConfirm}
+        title="Reopen Thread"
+        message="Reopen this thread? It will be marked as open again."
+        confirmLabel="Reopen Thread"
+        variant="info"
+        onConfirm={confirmReopenThread}
+        onCancel={() => setReopenConfirm(false)}
+      />
     </div>
   );
 }

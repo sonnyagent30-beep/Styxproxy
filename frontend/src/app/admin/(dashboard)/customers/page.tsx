@@ -1,7 +1,7 @@
+'use client';
 
 /* eslint-disable react-hooks/immutability */
 
-'use client';
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
@@ -51,16 +51,20 @@ export default function AdminCustomersPage() {
     const reason = blocked ? 'Blocked by admin' : 'Unblocked by admin';
     setBlockingId(customerId);
     
-    const result = await api.blockCustomer(customerId, reason);
-    
-    if (result.error) {
-      setError(result.error);
-    } else {
-      // Refresh the list
-      loadData();
+    try {
+      const result = await api.blockCustomer(customerId, reason);
+      
+      if (result.error) {
+        setError(result.error);
+      } else {
+        // Refresh the list
+        loadData();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update customer');
+    } finally {
+      setBlockingId(null);
     }
-    
-    setBlockingId(null);
   };
 
   const formatDate = (dateStr: string) => {
@@ -119,6 +123,7 @@ export default function AdminCustomersPage() {
         <button
           onClick={loadData}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity"
+          aria-label="Refresh customer list"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -128,7 +133,7 @@ export default function AdminCustomersPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={loadData} className="ml-4 text-red-300 hover:text-white">
             Retry
@@ -158,7 +163,9 @@ export default function AdminCustomersPage() {
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
+          <label htmlFor="customer-search" className="sr-only">Search by phone or name</label>
           <input
+            id="customer-search"
             type="text"
             placeholder="Search by phone or name..."
             value={searchQuery}

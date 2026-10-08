@@ -17,6 +17,32 @@ from pydantic import (
 
 from app.schemas import resolve_display_author
 
+# ── Single source of truth for the shared models ────────────────────────
+# These ten models were DEFINED here and separately copied into app/schemas.py
+# (or, in the case of the security-shaped ones, only ever defined here), and
+# then imported from app.schemas by admin.py / auth.py / orders.py. Two copies
+# of a Pydantic model are two distinct classes: a test asserting
+# `PublicOrderResponse.styxproxy_credential is CredentialStatusPublic` fails
+# purely because the annotation resolved to the other copy, and a fix applied to
+# one file silently does not reach the other — which is exactly how the
+# unauthenticated-credential leak survived being "closed" in one model.
+#
+# Re-exported from app.schemas so there is ONE class per model and `is`
+# identity holds. The definitions below are deleted; if you need to change one
+# of these, change it in app/schemas.py.
+from app.schemas import (  # noqa: F401  (re-exported, not unused)
+    AdminIPAllowlistResponse,
+    AdminIPAllowlistUpdateRequest,
+    AdminRefundThresholdResponse,
+    CredentialStatusPublic,
+    PublicOrderResponse,
+    RefundApprovalActionRequest,
+    RefundApprovalActionResponse,
+    RefundApprovalListResponse,
+    RefundApprovalResponse,
+    RefundRequestResponse,
+)
+
 # ============== Enums ==============
 
 
@@ -93,7 +119,15 @@ class TrialStatusEnum(str, Enum):
 
 # ============== Validators ==============
 
-VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN", "AE", "MX", "PK", "ID"}
+# Re-exported from app.schemas — the single source of truth. This module used to
+# carry its OWN hardcoded copy of the same 17-country set, so precheck (which
+# imports PrecheckRequest from here) and the rest of the app could disagree
+# about the same string. Importing it means there is exactly one set.
+from app.schemas import (  # noqa: F401  (re-exported for backwards compatibility)
+    VALID_COUNTRIES,
+    load_valid_countries,
+    validate_country,
+)
 
 
 def validate_phone(phone: str) -> str:
@@ -104,11 +138,50 @@ def validate_phone(phone: str) -> str:
     return cleaned
 
 
-def validate_country(country: str) -> str:
-    """Validate country code."""
-    if country.upper() not in VALID_COUNTRIES:
-        raise ValueError(f"Country must be one of: {', '.join(sorted(VALID_COUNTRIES))}")
-    return country.upper()
+def validate_password_strength(password: str) -> str:
+    """Validate password meets security policy.
+
+    Requirements:
+    - Minimum 12 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    - At least one special character
+    """
+    if len(password) < 12:
+        raise ValueError("Password must be at least 12 characters")
+    if not re.search(r"[A-Z]", password):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", password):
+        raise ValueError("Password must contain at least one lowercase letter")
+    if not re.search(r"[0-9]", password):
+        raise ValueError("Password must contain at least one number")
+    if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]", password):
+        raise ValueError("Password must contain at least one special character")
+    return password
+
+
+def validate_password_strength(password: str) -> str:
+    """Validate password meets security policy.
+
+    Requirements:
+    - Minimum 12 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    - At least one special character
+    """
+    if len(password) < 12:
+        raise ValueError("Password must be at least 12 characters")
+    if not re.search(r"[A-Z]", password):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", password):
+        raise ValueError("Password must contain at least one lowercase letter")
+    if not re.search(r"[0-9]", password):
+        raise ValueError("Password must contain at least one number")
+    if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>\/?]', password):
+        raise ValueError("Password must contain at least one special character")
+    return password
 
 
 # ============== Base Schemas ==============
@@ -204,27 +277,6 @@ class MergeRequestResponse(BaseModel):
     source_account_id: UUID
     target_account_id: UUID
     created_at: datetime
-
-
-# ============== Products Schemas ==============
-
-
-class ProductResponse(BaseModel):
-    """Product response."""
-
-    plan_code: str
-    plan_type: str
-    country: str
-    price_ngn: float
-    quantity: int
-    duration_days: int
-    features: list[str]
-
-
-class ProductsResponse(BaseModel):
-    """Products list response."""
-
-    products: list[ProductResponse]
 
 
 # ============== Plans Schemas ==============
@@ -335,7 +387,7 @@ class StyxproxyCredentialBrief(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
-    bun_username: str = Field(..., alias="styxproxy_username", serialization_alias="styxproxy_username")
+    styxproxy_username: str = Field(..., alias="styxproxy_username", serialization_alias="styxproxy_username")
     protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
@@ -456,8 +508,31 @@ class PrecheckResponse(BaseModel):
     estimated_delivery_seconds: int = 30
 
 
+class ReceiptCredentialPublic(BaseModel):
+    """Non-sensitive credential status for the UNAUTHENTICATED public receipt.
+
+    SECURITY: this model is served by GET /api/orders/{tx_ref}/receipt, which has
+    no auth. `tx_ref` is NOT a secret — it is the payment reference, printed in
+    Flutterwave's dashboard, gateway callbacks, nginx access logs, emailed receipt
+    links and support threads. So the response must never carry anything that
+    helps someone USE the proxy: no username, no upstream IP/port, no password.
+
+    Only whether a credential exists and whether it is active is safe here. The
+    credential itself is delivered by email, and an authenticated lookup is
+    available via the order endpoints behind auth.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str
+
+
 class ReceiptOrderResponse(BaseModel):
-    """Receipt response - order with credential data for public receipt page."""
+    """Receipt response for the PUBLIC, UNAUTHENTICATED receipt page.
+
+    Proves payment. It deliberately does NOT disclose proxy connection details —
+    see ReceiptCredentialPublic for why.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -472,7 +547,7 @@ class ReceiptOrderResponse(BaseModel):
     customer_name: Optional[str] = None
     created_at: datetime
     expires_at: Optional[datetime] = None
-    styxproxy_credential: Optional[StyxproxyCredentialBrief] = None
+    styxproxy_credential: Optional[ReceiptCredentialPublic] = None
 
 
 # ============== Payments Schemas ==============
@@ -490,14 +565,23 @@ class PaymentInitiateRequest(BaseModel):
     customer_phone remains the source of truth when present. The Flutterwave
     invoice uses customer_email as the recipient and customer_phone for
     payment-method fraud checks.
+
+    Payment Flow Rewrite (Sprint 025):
+    - payment_reference removed — backend owns tx_ref generation
+    - idempotency_key added — client-generated UUID for safe retries
     """
 
     plan_code: str = Field(..., min_length=1, max_length=50)
     quantity: int = Field(default=1, ge=1)
+    # Sprint 13 pricing: residential/mobile are priced per GB, so the GB count
+    # has to reach the backend or the charge is price_per_gb × 1.
+    quantity_gb: Optional[int] = Field(None, ge=1, le=10000, description="GB to buy for residential/mobile plans")
     customer_phone: Optional[str] = Field(None, min_length=10, max_length=20)
     customer_email: Optional[str] = Field(None, max_length=255)
     callback_url: Optional[str] = Field(None, max_length=200)
-    client_reference: Optional[str] = Field(None, max_length=100, description="Optional client-generated idempotency key")
+    idempotency_key: Optional[str] = Field(default=None, max_length=64, description="Client-generated UUID for idempotent retries")
+    device_id: Optional[str] = Field(default=None, max_length=64, description="Browser device UUID; supplies a stable identity when no email/phone is given")
+    gateway: str = Field(default="flutterwave", pattern="^(flutterwave|paystack)$", description="Payment gateway to use")
 
     @field_validator("customer_phone")
     @classmethod
@@ -524,6 +608,7 @@ class PaymentInitiateResponse(BaseModel):
     """Payment initiation response."""
 
     payment_id: str
+    order_id: str
     checkout_url: str
     amount_ngn: float
     expires_at: datetime
@@ -547,11 +632,11 @@ class CredentialResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    bun_username: str
+    styxproxy_username: str
     protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
-    dante_port: Optional[int]
+    socks_port: Optional[int]
     status: str
     expires_at: Optional[datetime]
 
@@ -592,7 +677,7 @@ class TrialClaimRequest(BaseModel):
 class TrialCredentialResponse(BaseModel):
     """Trial credential response."""
 
-    bun_username: str
+    styxproxy_username: str
     protocol: str
     upstream_proxy_ip: str
     upstream_proxy_port: int
@@ -678,6 +763,28 @@ class AdminBlockRequest(BaseModel):
     reason: str = Field(..., max_length=500)
 
 
+class AdminBulkBlockRequest(BaseModel):
+    """Request to bulk block customers."""
+
+    customer_ids: list[UUID] = Field(..., min_length=1, max_length=500)
+    reason: str = Field(default="Blocked by admin", max_length=500)
+
+
+class AdminBulkUnblockRequest(BaseModel):
+    """Request to bulk unblock customers."""
+
+    customer_ids: list[UUID] = Field(..., min_length=1, max_length=500)
+
+
+class AdminBulkActionResponse(BaseModel):
+    """Response after a bulk action."""
+
+    success: bool
+    processed: int
+    failed: int
+    details: list[dict[str, Any]]
+
+
 class AdminOrderResponse(BaseModel):
     """Admin order response."""
 
@@ -722,7 +829,7 @@ class AdminCredentialResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    bun_username: str
+    styxproxy_username: str
     customer_phone: Optional[str]
     order_id: Optional[str]
     pool_type: str
@@ -1023,7 +1130,17 @@ class AdminSetupRequest(BaseModel):
 
     invite_code: str = Field(..., min_length=8, max_length=64)
     email: str = Field(..., pattern=r"^[^@]+@[^@]+\.[^@]+$")
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(..., min_length=12, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        return validate_password_strength(v)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        return validate_password_strength(v)
 
 
 class AdminSetupTOTPResponse(BaseModel):
@@ -1093,13 +1210,19 @@ class AdminMeResponse(BaseModel):
     locked_until: Optional[datetime]
     created_at: datetime
     last_used: Optional[datetime]
+    allowed_ips: Optional[list[str]] = None
 
 
 class AdminChangePasswordRequest(BaseModel):
     """Request to change admin password."""
 
     current_pin: str = Field(..., min_length=8, max_length=128)  # renamed for compat
-    new_pin: str = Field(..., min_length=8, max_length=128)
+    new_pin: str = Field(..., min_length=12, max_length=128)
+
+    @field_validator("new_pin")
+    @classmethod
+    def validate_new_pin(cls, v: str) -> str:
+        return validate_password_strength(v)
 
 
 class AdminChangePasswordResponse(BaseModel):
@@ -1316,7 +1439,12 @@ class PasswordResetRequest(BaseModel):
     """Request to reset password with token."""
 
     reset_token: str = Field(..., description="Password reset token")
-    new_password: str = Field(..., min_length=8, max_length=100, description="New password")
+    new_password: str = Field(..., min_length=12, max_length=100, description="New password")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        return validate_password_strength(v)
 
 
 class PasswordResetResponse(BaseModel):
@@ -1868,3 +1996,7 @@ class PermissionChangeRequestAction(BaseModel):
 
     action: str = Field(..., pattern="^(approve|reject)$")
     reviewer_notes: Optional[str] = Field(None, max_length=500)
+
+# ============== Refund Approval Schemas ==============
+
+

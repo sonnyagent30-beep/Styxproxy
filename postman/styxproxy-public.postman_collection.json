@@ -27,12 +27,12 @@
       ]
     },
     {
-      "name": "1. Public — Products",
+      "name": "1. Public — Catalog",
       "item": [
         {
-          "name": "1.1 List products (public)",
-          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('Returns object with products array', () => { const r = pm.response.json(); pm.expect(r).to.have.property('products'); pm.expect(r.products).to.be.an('array'); });"]}}],
-          "request": {"method": "GET", "url": "{{BASE_URL}}/api/products"}
+          "name": "1.1 List catalog templates (public)",
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('200 OK', () => pm.response.to.have.status(200));", "pm.test('Returns object with templates array', () => { const r = pm.response.json(); pm.expect(r).to.have.property('templates'); pm.expect(r.templates).to.be.an('array'); });"]}}],
+          "request": {"method": "GET", "url": "{{BASE_URL}}/api/catalog"}
         }
       ]
     },

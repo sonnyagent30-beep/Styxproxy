@@ -6,10 +6,11 @@ import dynamic from 'next/dynamic';
 import { CaretDown, WhatsappLogo, TelegramLogo, Lightning, Shield, Lock, Globe, Clock, Headset, House, DeviceMobile, HardDrives, Desktop, Check } from '@phosphor-icons/react';
 
 import GlobeErrorBoundary from '@/components/GlobeErrorBoundary';
+import { reportError } from '@/lib/sentry';
 
 const GlobeMap = dynamic(() => import('@/components/GlobeMap'), { ssr: false });
 
-const TYPEWRITER_WORDS = ['untraceable', 'unrestricted', 'verified', 'instant', 'anonymous'];
+const TYPEWRITER_WORDS = ['unknown', 'unrestricted', 'verified', 'instant', 'anonymous'];
 
 const PRODUCT_TABS: { key: string; label: string; icon: typeof Desktop }[] = [
   { key: 'ALL',   label: 'All',          icon: Globe },
@@ -29,7 +30,7 @@ const FAQ_DATA = [
 
 const FEATURES = [
   { icon: Lightning, title: 'Instant Delivery', desc: 'Proxies ready in under 3 seconds' },
-  { icon: Shield, title: 'Anonymous Access', desc: 'No logs, no tracking, no footprint' },
+  { icon: Shield, title: 'Anonymous Access', desc: 'No account, no identity, no log of what you do' },
   { icon: Lock, title: 'All Protocols', desc: 'HTTP, HTTPS, SOCKS4 & SOCKS5' },
   { icon: Globe, title: 'Global Coverage', desc: '120+ countries worldwide' },
   { icon: Clock, title: '99.9% Uptime', desc: 'Reliable, consistent performance' },
@@ -87,7 +88,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
     <div className="border-b border-[var(--border)] last:border-0">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full py-5 flex items-center justify-between text-left hover:text-[var(--primary)] transition-colors duration-200"
+        className="w-full py-5 flex items-center justify-between text-left hover:text-[var(--primary-text)] transition-colors duration-200"
       >
         <span className="font-medium text-[var(--foreground)] pr-4">{q}</span>
         <CaretDown className={`w-5 h-5 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
@@ -102,20 +103,53 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 export default function Hero() {
   const [typewriterIdx, setTypewriterIdx] = useState(0);
   const [activeTab, setActiveTab] = useState('ALL');
-  const [enabledCountries, setEnabledCountries] = useState<Set<string>>(new Set());
+  // null  = we do not know yet, or the fetch failed  → GlobeMap falls back to
+  //         its own /api/catalog-derived list.
+  // Set   = authoritative answer from the admin dashboard, INCLUDING an empty
+  //         set (dashboard has everything disabled). GlobeMap must render that
+  //         as "nothing is for sale", not as "no data".
+  const [enabledCountries, setEnabledCountries] = useState<Set<string> | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
 
-  // Fetch admin-enabled countries from the backend and pass to GlobeMap
+  // Fetch admin-enabled countries from the backend and pass to GlobeMap.
+  //
+  // The empty-array trap this guards against: an empty `countries` array is a
+  // *successful* response, so `.catch()` never fires. Treating "[]" as an error
+  // silently re-enabled the hardcoded PRODUCT_COUNTRIES fallback and made the
+  // admin dashboard's availability controls do nothing on the homepage — which
+  // is exactly how a regression in /api/countries shipped unnoticed. So:
+  //   non-2xx / unparseable body → error → stay null (fallback, but reported)
+  //   200 with a countries array  → authoritative, even when empty
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/countries')
-      .then(r => r.json())
-      .then(data => {
-        const codes = (data.countries ?? []).map((c: { code: string }) => c.code);
-        setEnabledCountries(new Set(codes));
+      .then(r => {
+        if (!r.ok) throw new Error(`/api/countries responded ${r.status}`);
+        return r.json();
       })
-      .catch(() => {
-        // On error, leave enabledCountries empty — GlobeMap falls back to PRODUCT_COUNTRIES
+      .then((data: { countries?: { code: string }[] }) => {
+        if (cancelled) return;
+        if (!Array.isArray(data?.countries)) {
+          throw new Error('/api/countries returned no countries array');
+        }
+        setEnabledCountries(new Set(data.countries.map(c => c.code)));
+        if (data.countries.length === 0) {
+          // Legitimate only if the dashboard truly disabled everything. It is
+          // also the signature of the /api/countries regression this replaced,
+          // so make it visible instead of letting the fallback paper over it.
+          reportError(
+            new Error('/api/countries returned zero enabled countries'),
+            { component: 'Hero', endpoint: '/api/countries' }
+          );
+        }
+      })
+      .catch(err => {
+        if (cancelled) return;
+        // Leave null → GlobeMap falls back. But do not fail silently: a broken
+        // availability endpoint must be visible in Sentry, not just a stale map.
+        reportError(err, { component: 'Hero', endpoint: '/api/countries' });
       });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -161,9 +195,9 @@ export default function Hero() {
                   <button
                     key={key}
                     onClick={() => setActiveTab(key)}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all duration-200 border whitespace-nowrap ${
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 border whitespace-nowrap ${
                       isActive
-                        ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
+                        ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary-text)]'
                         : 'border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]'
                     }`}
                   >
@@ -184,16 +218,16 @@ export default function Hero() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-center text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight leading-[1.05] mb-6">
+          <h1 className="text-center text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-black tracking-tight leading-[1.05] mb-6">
             <span className="text-[var(--foreground)]">Cross the Styx.</span>
             <br />
-            <span className="text-[var(--primary)]">Stay {TYPEWRITER_WORDS[typewriterIdx]}</span>
+            <span className="text-[var(--primary-text)]">Stay {TYPEWRITER_WORDS[typewriterIdx]}</span>
           </h1>
 
           {/* Sub */}
           <p className="text-center text-lg sm:text-xl text-[var(--muted)] max-w-2xl mb-10 leading-relaxed">
             ISP, Residential, Mobile &amp; Datacenter proxies — delivered in seconds.
-            <br className="hidden sm:block" />Leave no footprint.
+            <br className="hidden sm:block" />Charon doesn&apos;t ask your name.
           </p>
 
           {/* CTAs */}
@@ -230,7 +264,7 @@ export default function Hero() {
               { icon: Check, t: 'Verified Proxies' },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-1.5">
-                <item.icon className="w-3.5 h-3.5 text-[var(--primary)]" weight="bold" />
+                <item.icon className="w-3.5 h-3.5 text-[var(--primary-text)]" weight="bold" />
                 {item.t}
               </div>
             ))}
@@ -241,7 +275,7 @@ export default function Hero() {
 
       {/* Scroll indicator */}
       <div className="flex flex-col items-center gap-2 py-8">
-        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <span className="text-xs tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
         <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
       </div>
 
@@ -267,14 +301,14 @@ export default function Hero() {
       <div className="section-divider-glow" />
 
       {/* ── FEATURES ── */}
-      <section className="py-24 lg:py-32 px-6">
+      <section className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="mb-16">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">What you get</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">What you get</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Built for those who
               <br />
-              <span className="text-[var(--muted)]">move in silence.</span>
+              <span className="text-[var(--muted)]">travel unnamed.</span>
             </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -282,7 +316,7 @@ export default function Hero() {
               <div key={i}
                 className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
                 <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center mb-5">
-                  {f.icon && <f.icon className="w-6 h-6 text-[var(--primary)]" />}
+                  {f.icon && <f.icon className="w-6 h-6 text-[var(--primary-text)]" />}
                 </div>
                 <h3 className="text-base font-bold text-[var(--foreground)] mb-2">{f.title}</h3>
                 <p className="text-sm text-[var(--muted)] leading-relaxed">{f.desc}</p>
@@ -296,10 +330,10 @@ export default function Hero() {
       <div className="section-divider" />
 
       {/* ── HOW IT WORKS ── */}
-      <section className="py-24 lg:py-32 px-6 bg-[var(--surface)]">
+      <section className="py-16 sm:py-24 lg:py-32 px-6 bg-[var(--surface)]">
         <div className="max-w-6xl mx-auto">
           <div className="mb-16">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Simple process</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">Simple process</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Up and running
               <br />
@@ -331,14 +365,14 @@ export default function Hero() {
       <div className="section-divider" />
 
       {/* ── PRODUCTS ── */}
-      <section className="py-24 lg:py-32 px-6">
+      <section className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="mb-16">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Proxy types</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">Proxy types</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
               Four ways to
               <br />
-              <span className="text-[var(--muted)]">stay invisible.</span>
+              <span className="text-[var(--muted)]">change where you appear.</span>
             </h2>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -346,11 +380,11 @@ export default function Hero() {
               <div key={i}
                 className="p-6 rounded-2xl bg-[var(--card)] border border-[var(--border)] card-depth">
                 <div className="w-12 h-12 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center mb-5">
-                  {p.icon && <p.icon className="w-6 h-6 text-[var(--primary)]" />}
+                  {p.icon && <p.icon className="w-6 h-6 text-[var(--primary-text)]" />}
                 </div>
                 <h3 className="text-base font-bold text-[var(--foreground)] mb-2">{p.name}</h3>
-                <p className="text-xs text-[var(--muted)] leading-relaxed mb-4">{p.desc}</p>
-                <Link href="/products" className="text-xs font-bold text-[var(--primary)] hover:underline tracking-wide">
+                <p className="text-base text-[var(--muted)] leading-relaxed mb-4">{p.desc}</p>
+                <Link href="/products" className="text-xs font-bold text-[var(--primary-text)] hover:underline tracking-wide">
                   Learn more &rarr;
                 </Link>
               </div>
@@ -380,10 +414,10 @@ export default function Hero() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="py-24 lg:py-32 px-6">
+      <section className="py-16 sm:py-24 lg:py-32 px-6">
         <div className="max-w-3xl mx-auto">
           <div className="mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">FAQ</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">FAQ</p>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-[var(--foreground)]">Questions?</h2>
           </div>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] px-6">

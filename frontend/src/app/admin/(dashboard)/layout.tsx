@@ -1,12 +1,34 @@
+'use client';
 
 /* eslint-disable react-hooks/immutability */
-'use client';
 
 import { useState, useEffect, useCallback, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/api';
 import type { AdminMeResponse } from '@/types';
+import AdminThemeToggle from '@/components/AdminThemeToggle';
+import KeyboardShortcuts from '@/components/KeyboardShortcuts';
+import ShortcutHelpModal from '@/components/ShortcutHelpModal';
+import {
+  ChartBar,
+  Package,
+  Users,
+  Key,
+  CurrencyDollar,
+  TrendUp,
+  Brain,
+  CheckCircle,
+  Warning,
+  Envelope,
+  Note,
+  Shield,
+  User,
+  MagnifyingGlass,
+  Globe,
+  Gear,
+  Lock,
+} from '@phosphor-icons/react';
 
 export default function AdminDashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -15,6 +37,7 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [headerSearch, setHeaderSearch] = useState('');
+  const [helpModalOpen, setHelpModalOpen] = useState(false);
 
   // Only run auth check ONCE on mount, not on every pathname change
   useEffect(() => {
@@ -69,28 +92,28 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
   const isSuperAdmin = admin?.role === 'superadmin';
 
   const navItems = [
-    { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
-    { href: '/admin/orders', label: 'Orders', icon: '📦' },
-    { href: '/admin/customers', label: 'Customers', icon: '👥' },
-    { href: '/admin/credentials', label: 'Credentials', icon: '🔑' },
-    { href: '/admin/plans', label: 'Plans', icon: '💰' },
-    { href: '/admin/analytics', label: 'Analytics', icon: '📈' },
-    { href: '/admin/charon', label: 'Charon', icon: '🧠' },
-    { href: '/admin/charon/eval', label: 'Charon Eval', icon: '✅' },
-    { href: '/admin/escalations', label: 'Escalations', icon: '🚨' },
-    { href: '/admin/support', label: 'Support', icon: '✉️' },
-    { href: '/admin/blog', label: 'Blog', icon: '📝' },
+    { href: '/admin/dashboard', label: 'Dashboard', icon: ChartBar },
+    { href: '/admin/orders', label: 'Orders', icon: Package },
+    { href: '/admin/customers', label: 'Customers', icon: Users },
+    { href: '/admin/credentials', label: 'Credentials', icon: Key },
+    { href: '/admin/plans', label: 'Plans', icon: CurrencyDollar },
+    { href: '/admin/analytics', label: 'Analytics', icon: TrendUp },
+    { href: '/admin/charon', label: 'Charon', icon: Brain },
+    { href: '/admin/charon/eval', label: 'Charon Eval', icon: CheckCircle },
+    { href: '/admin/escalations', label: 'Escalations', icon: Warning },
+    { href: '/admin/support', label: 'Support', icon: Envelope },
+    { href: '/admin/blog', label: 'Blog', icon: Note },
     ...(isSuperAdmin ? [
-      { href: '/admin/admins', label: 'Admins', icon: '🛡️' },
-      { href: '/admin/team', label: 'Team', icon: '👤' },
-      { href: '/admin/audit-log', label: 'Audit', icon: '🔍' },
-      { href: '/admin/providers', label: 'Providers', icon: '🌐' },
-      { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
-      { href: '/admin/secrets', label: 'Secrets Vault', icon: '🔒' },
-      { href: '/admin/permissions', label: 'Permissions', icon: '🔑' },
-      { href: '/admin/rls', label: 'Row-Level Security', icon: '🛡️' },
+      { href: '/admin/admins', label: 'Admins', icon: Shield },
+      { href: '/admin/team', label: 'Team', icon: User },
+      { href: '/admin/audit-log', label: 'Audit', icon: MagnifyingGlass },
+      { href: '/admin/providers', label: 'Providers', icon: Globe },
+      { href: '/admin/settings', label: 'Settings', icon: Gear },
+      { href: '/admin/secrets', label: 'Secrets Vault', icon: Lock },
+      { href: '/admin/permissions', label: 'Permissions', icon: Key },
+      { href: '/admin/rls', label: 'Row-Level Security', icon: Shield },
     ] : []),
-    { href: '/admin/profile', label: 'Profile', icon: '🔐' },
+    { href: '/admin/profile', label: 'Profile', icon: User },
   ];
 
   if (loading) {
@@ -103,10 +126,17 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
+      <KeyboardShortcuts onOpenHelp={() => setHelpModalOpen(true)} />
+      <ShortcutHelpModal isOpen={helpModalOpen} onClose={() => setHelpModalOpen(false)} />
+
       {/* Mobile Header */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[var(--card)] border-b border-[var(--border)] flex items-center justify-between px-4 z-50">
         <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-[var(--card-hover)] rounded-lg">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 hover:bg-[var(--card-hover)] rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Toggle menu"
+          >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -114,8 +144,13 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
           <span className="font-bold">Styxproxy Admin</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-[var(--muted)]">{admin?.role}</span>
-          <button onClick={handleLogout} className="p-2 text-[var(--muted)] hover:text-[var(--foreground)]">
+          <AdminThemeToggle />
+          <span className="text-sm text-[var(--muted)] hidden sm:inline">{admin?.role}</span>
+          <button
+            onClick={handleLogout}
+            className="p-2 text-[var(--muted)] hover:text-[var(--foreground)] min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Logout"
+          >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
@@ -130,7 +165,7 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
             Styxproxy <span className="gradient-text">Admin</span>
           </Link>
         </div>
-        
+
         {/* Global Search */}
         <div className="p-4 border-b border-[var(--border)]">
           <form onSubmit={handleHeaderSearch}>
@@ -153,11 +188,11 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             return (
               <Link key={item.href} href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors min-h-[44px] ${
                   isActive ? 'bg-[var(--primary)]/10 text-[var(--primary)]' : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <item.icon size={20} weight="bold" />
                 <span className="font-medium">{item.label}</span>
               </Link>
             );
@@ -165,15 +200,23 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
         </nav>
         <div className="p-4 border-t border-[var(--border)]">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="font-medium text-sm truncate" title={admin?.email}>{admin?.email}</p>
               <p className="text-xs text-[var(--muted)] capitalize">{admin?.role}</p>
             </div>
-            <button onClick={handleLogout} className="p-2 text-[var(--muted)] hover:text-red-400 transition-colors" title="Logout">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-1">
+              <AdminThemeToggle />
+              <button
+                onClick={handleLogout}
+                className="p-2 text-[var(--muted)] hover:text-red-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                title="Logout"
+                aria-label="Logout"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -190,11 +233,11 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             return (
               <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors min-h-[44px] ${
                   isActive ? 'bg-[var(--primary)]/10 text-[var(--primary)]' : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <item.icon size={20} weight="bold" />
                 <span className="font-medium">{item.label}</span>
               </Link>
             );

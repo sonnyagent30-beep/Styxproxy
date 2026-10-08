@@ -34,7 +34,7 @@ export default function LatestBlogPosts({ initialPosts = [] }: Props) {
 
   if (loading) {
     return (
-      <section className="py-24 lg:py-32 px-6 bg-[var(--surface)]">
+      <section className="py-16 sm:py-24 lg:py-32 px-6 bg-[var(--surface)]">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
@@ -64,10 +64,10 @@ export default function LatestBlogPosts({ initialPosts = [] }: Props) {
   };
 
   return (
-    <section className="py-24 lg:py-32 px-6 bg-[var(--surface)]">
+    <section className="py-16 sm:py-24 lg:py-32 px-6 bg-[var(--surface)]">
       <div className="max-w-6xl mx-auto">
         <div className="mb-12">
-          <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">
+          <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">
             Latest from the blog
           </p>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[var(--foreground)] leading-tight">
@@ -76,7 +76,7 @@ export default function LatestBlogPosts({ initialPosts = [] }: Props) {
           </h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {initialPosts.map((post) => {
+          {posts.map((post) => {
             const readTime = estimateReadTime(post.content || post.excerpt || '');
             return (
               <article
@@ -97,11 +97,11 @@ export default function LatestBlogPosts({ initialPosts = [] }: Props) {
                   </div>
                   <div className="p-5">
                     {post.tags && post.tags[0] && (
-                      <span className="text-[11px] font-medium text-[var(--primary)] uppercase tracking-wider">
+                      <span className="text-xs font-medium text-[var(--primary-text)] uppercase tracking-wider">
                         #{post.tags[0]}
                       </span>
                     )}
-                    <h3 className="text-base font-bold text-[var(--foreground)] tracking-[-0.01em] leading-snug mt-2 mb-2 line-clamp-2 group-hover:text-[var(--primary)] transition-colors">
+                    <h3 className="text-base font-bold text-[var(--foreground)] tracking-[-0.01em] leading-snug mt-2 mb-2 line-clamp-2 group-hover:text-[var(--primary-text)] transition-colors">
                       {post.title}
                     </h3>
                     <p className="text-sm text-[var(--muted)] line-clamp-2 leading-relaxed">

@@ -373,7 +373,7 @@ async def _get_setup_guide(plan_type: str | None = None, protocol: str | None = 
         "residential": {
             "description": "Residential proxies use real home IPs. Best for social media, ad verification, sneaker sites.",
             "setup": [
-                "Use format: proxy.styxproxy.com:PORT",
+                "Use format: YOUR_PROXY_IP:PORT",
                 "Auth with your Styxproxy username/password",
                 "Protocol: HTTP, HTTPS, or SOCKS5",
                 "IP rotates per request or every 5-30 min (depends on plan)",
@@ -388,7 +388,7 @@ async def _get_setup_guide(plan_type: str | None = None, protocol: str | None = 
         "mobile": {
             "description": "Mobile 4G proxies use real carrier IPs. Highest trust score for social platforms.",
             "setup": [
-                "Use format: proxy.styxproxy.com:PORT",
+                "Use format: YOUR_PROXY_IP:PORT",
                 "Auth with your Styxproxy username/password",
                 "Protocol: HTTP, HTTPS, or SOCKS5",
                 "IP rotates every 5-30 min",
@@ -403,7 +403,7 @@ async def _get_setup_guide(plan_type: str | None = None, protocol: str | None = 
         "isp": {
             "description": "ISP proxies are datacenter IPs registered to real ISPs. Fast + residential-like reputation.",
             "setup": [
-                "Use format: proxy.styxproxy.com:PORT",
+                "Use format: YOUR_PROXY_IP:PORT",
                 "Auth with your Styxproxy username/password",
                 "Protocol: HTTP, HTTPS, or SOCKS5",
                 "Static IP — stays the same for your subscription period",
@@ -418,7 +418,7 @@ async def _get_setup_guide(plan_type: str | None = None, protocol: str | None = 
         "datacenter": {
             "description": "Datacenter proxies are bare-metal server IPs. Fastest, cheapest, easiest to detect.",
             "setup": [
-                "Use format: proxy.styxproxy.com:PORT",
+                "Use format: YOUR_PROXY_IP:PORT",
                 "Auth with your Styxproxy username/password",
                 "Protocol: HTTP, HTTPS, or SOCKS5",
                 "Static IP or rotating pool",
@@ -992,33 +992,33 @@ async def _get_integration_docs(integration_type: str | None = None) -> ToolResu
     docs = {
         "python": {
             "description": "Python requests with proxy",
-            "code": "import requests\n\nproxies = {\n    'http': 'http://USERNAME:PASSWORD@proxy.styxproxy.com:PORT',\n    'https': 'http://USERNAME:PASSWORD@proxy.styxproxy.com:PORT'\n}\n\nresponse = requests.get('https://ipinfo.io', proxies=proxies)\nprint(response.json())",
+            "code": "import requests\n\nproxies = {\n    'http': 'http://USERNAME:PASSWORD@YOUR_PROXY_IP:PORT',\n    'https': 'http://USERNAME:PASSWORD@YOUR_PROXY_IP:PORT'\n}\n\nresponse = requests.get('https://ipinfo.io', proxies=proxies)\nprint(response.json())",
             "tips": ["Use `requests.Session()` to persist auth across calls", "Rotate by changing credentials or using different orders"],
         },
         "node": {
             "description": "Node.js with axios + proxy",
-            "code": "const axios = require('axios');\n\nconst response = await axios.get('https://ipinfo.io', {\n  proxy: {\n    protocol: 'http',\n    host: 'proxy.styxproxy.com',\n    port: PORT,\n    auth: {\n      username: 'USERNAME',\n      password: 'PASSWORD'\n    }\n  }\n});\nconsole.log(response.data);",
+            "code": "const axios = require('axios');\n\nconst response = await axios.get('https://ipinfo.io', {\n  proxy: {\n    protocol: 'http',\n    host: 'YOUR_PROXY_IP',\n    port: PORT,\n    auth: {\n      username: 'USERNAME',\n      password: 'PASSWORD'\n    }\n  }\n});\nconsole.log(response.data);",
             "tips": ["For SOCKS5, use `socks-proxy-agent` package", "Set `axios.defaults.proxy` for global proxy"],
         },
         "selenium": {
             "description": "Selenium + Chrome with proxy auth",
-            "code": "from selenium import webdriver\nfrom selenium.webdriver.chrome.options import Options\n\noptions = Options()\noptions.add_argument('--proxy-server=http://proxy.styxproxy.com:PORT')\n\ndriver = webdriver.Chrome(options=options)\ndriver.get('https://ipinfo.io')\n# Handle proxy auth popup with AutoAlert or proxy-auth extension",
+            "code": "from selenium import webdriver\nfrom selenium.webdriver.chrome.options import Options\n\noptions = Options()\noptions.add_argument('--proxy-server=http://YOUR_PROXY_IP:PORT')\n\ndriver = webdriver.Chrome(options=options)\ndriver.get('https://ipinfo.io')\n# Handle proxy auth popup with AutoAlert or proxy-auth extension",
             "tips": ["Proxy auth popups need extension or AutoAlert", "Use Chrome Proxy Auth Extension for headless mode"],
         },
         "puppeteer": {
             "description": "Puppeteer with proxy",
-            "code": "const browser = await puppeteer.launch({\n  args: ['--proxy-server=http://proxy.styxproxy.com:PORT']\n});\nconst page = await browser.newPage();\nawait page.authenticate({\n  username: 'USERNAME',\n  password: 'PASSWORD'\n});\nawait page.goto('https://ipinfo.io');",
+            "code": "const browser = await puppeteer.launch({\n  args: ['--proxy-server=http://YOUR_PROXY_IP:PORT']\n});\nconst page = await browser.newPage();\nawait page.authenticate({\n  username: 'USERNAME',\n  password: 'PASSWORD'\n});\nawait page.goto('https://ipinfo.io');",
             "tips": ["Use `page.authenticate()` for proxy auth", "Stealth plugin recommended for bot detection"],
         },
         "curl": {
             "description": "cURL with proxy",
-            "code": "curl -x http://USERNAME:PASSWORD@proxy.styxproxy.com:PORT https://ipinfo.io",
+            "code": "curl -x http://USERNAME:PASSWORD@YOUR_PROXY_IP:PORT https://ipinfo.io",
             "tips": ["Add `--proxy-insecure` if testing with self-signed certs", "Use `-v` to debug proxy connection issues"],
         },
         "browser": {
             "description": "Browser manual proxy config",
             "setup": [
-                "Proxy host: proxy.styxproxy.com",
+                "Proxy host: YOUR_PROXY_IP",
                 "Port: YOUR_PORT (check credentials page)",
                 "Username: YOUR_USERNAME",
                 "Password: YOUR_PASSWORD",
@@ -1033,7 +1033,7 @@ async def _get_integration_docs(integration_type: str | None = None) -> ToolResu
         "socks5": {
             "description": "SOCKS5 proxy configuration",
             "setup": [
-                "Host: proxy.styxproxy.com",
+                "Host: YOUR_PROXY_IP",
                 "Port: YOUR_PORT",
                 "Auth: Username + Password",
                 "Protocol: SOCKS5",
@@ -1091,13 +1091,13 @@ async def _create_order_tool(
 
         # Derive real customer identity based on channel
         if channel == "telegram":
-            identity = channel_user_id
+            identity = channel_user_id or f"anon_{uuid.uuid4().hex[:12]}"
             platform = "telegram"
         elif channel == "whatsapp":
-            identity = channel_user_id
+            identity = channel_user_id or f"anon_{uuid.uuid4().hex[:12]}"
             platform = "whatsapp"
         else:
-            identity = f"anon_{channel_user_id}"
+            identity = f"anon_{channel_user_id or uuid.uuid4().hex[:12]}"
             platform = "web"
 
         async with async_session() as session:
@@ -1381,6 +1381,145 @@ registry.register(ToolSpec(
     description="Return developer integration docs for proxy setup. Covers: Python, Node.js, Selenium, Puppeteer, cURL, browser config, SOCKS5. Use when customer asks 'how do I integrate', 'code example', 'API docs'.",
     schema={"type": "object", "properties": {"integration_type": {"type": "string", "description": "python, node, selenium, puppeteer, curl, browser, socks5"}}, "required": []},
     handler=_get_integration_docs,
+))
+
+
+# ─── Renewal Tool (added 2026-10-07) ─────────────────────────────────────────
+
+
+async def _initiate_renewal_tool(
+    order_id: str,
+    quantity_gb: int | None = None,
+    gateway: str = "flutterwave",
+    customer_email: str | None = None,
+    customer_phone: str | None = None,
+) -> ToolResult:
+    """Initiate a renewal for an existing order.
+
+    For residential/mobile: customer selects GB amount (min 5 GB).
+    For DC/ISP: no GB selection, just extends expiry by 30 days.
+
+    Returns a checkout URL for payment.
+    """
+    try:
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models import Order
+        from app.routers.orders import resolve_plan
+        from app.services.renewal_service import create_renewal_order
+        from app.services.flutterwave import create_flutterwave_invoice
+        from app.services.paystack import create_paystack_transaction
+        from app.services.customer import placeholder_email_from_device
+
+        async with async_session() as session:
+            await _set_rls_context(session, customer_phone)
+
+            # Look up the order
+            stmt = select(Order).where(Order.order_id == order_id)
+            result = await session.execute(stmt)
+            order = result.scalar_one_or_none()
+
+            if not order:
+                return ToolResult(ok=False, error=f"Order {order_id} not found")
+
+            # Verify ownership
+            if customer_phone and order.customer_phone and order.customer_phone != customer_phone:
+                return ToolResult(ok=False, error="Order does not belong to this customer")
+
+            # Determine plan type and pricing
+            plan_type = (order.plan_type or "").lower()
+
+            if plan_type in ("residential", "mobile"):
+                if not quantity_gb or quantity_gb < 5:
+                    return ToolResult(ok=False, error="Minimum renewal is 5 GB")
+                plan = await resolve_plan(session, order.plan_code or "", country=order.country)
+                if not plan:
+                    return ToolResult(ok=False, error="Cannot resolve plan for pricing")
+                price_per_gb = float(plan.price_per_gb or 0)
+                if price_per_gb <= 0:
+                    return ToolResult(ok=False, error="Plan has no per-GB pricing configured")
+                total_amount = price_per_gb * quantity_gb
+            else:
+                plan = await resolve_plan(session, order.plan_code or "", country=order.country)
+                if not plan:
+                    return ToolResult(ok=False, error="Cannot resolve plan for pricing")
+                total_amount = float(plan.price_ngn or 0)
+                if total_amount <= 0:
+                    return ToolResult(ok=False, error="Plan has no pricing configured")
+
+            # Create renewal record
+            renewal = await create_renewal_order(
+                session=session,
+                order_id=order_id,
+                quantity_gb=quantity_gb if plan_type in ("residential", "mobile") else None,
+                amount_paid_ngn=total_amount,
+                tx_ref=None,
+            )
+
+            # Create payment
+            tx_ref = f"TXF-{uuid.uuid4().hex[:12].upper()}"
+            renewal.tx_ref = tx_ref
+            renewal.payment_reference = tx_ref
+            await session.commit()
+
+            callback_url = f"https://styxproxy.com/thank-you?order_id={order_id}&renewal_id={renewal.id}"
+
+            gateway_email = customer_email or order.customer_email or ""
+            if not gateway_email:
+                device_id = customer_phone or ""
+                gateway_email = placeholder_email_from_device(device_id)
+
+            if gateway == "paystack":
+                result = await create_paystack_transaction(
+                    amount_ngn=total_amount,
+                    customer_email=gateway_email,
+                    customer_phone=order.customer_phone or "",
+                    callback_url=callback_url,
+                    description=f"Renewal for {order_id}",
+                    tx_ref=tx_ref,
+                )
+            else:
+                result = await create_flutterwave_invoice(
+                    amount=total_amount,
+                    customer_email=gateway_email,
+                    customer_phone=order.customer_phone,
+                    currency="NGN",
+                    tx_ref=tx_ref,
+                    callback_url=callback_url,
+                    description=f"Renewal for {order_id}",
+                )
+
+            checkout_url = result.get("checkout_url", "")
+
+            return ToolResult(ok=True, data={
+                "renewal_id": renewal.id,
+                "order_id": order_id,
+                "checkout_url": checkout_url,
+                "amount_ngn": total_amount,
+                "currency": "NGN",
+                "tx_ref": tx_ref,
+                "message": f"Renewal initiated for order {order_id}. Total: ₦{total_amount:,.0f}. Checkout URL: {checkout_url}",
+            })
+    except Exception as exc:
+        logger.exception("initiate_renewal tool failed")
+        return ToolResult(ok=False, error=f"Renewal initiation failed: {exc}")
+
+
+registry.register(ToolSpec(
+    name="initiate_renewal",
+    description="Initiate a renewal for an existing order. For residential/mobile: customer selects GB amount (min 5 GB). For DC/ISP: no GB selection, just extends expiry by 30 days. Returns a checkout URL for payment. Use when customer says 'I want to renew', 'renew my proxy', 'add more data', 'extend my subscription'.",
+    schema={
+        "type": "object",
+        "properties": {
+            "order_id": {"type": "string", "description": "The order_id to renew"},
+            "quantity_gb": {"type": "integer", "description": "GB amount for residential/mobile plans (min 5). Omit for DC/ISP."},
+            "gateway": {"type": "string", "default": "flutterwave", "description": "Payment gateway: flutterwave or paystack"},
+            "customer_email": {"type": "string", "description": "Customer email for payment"},
+            "customer_phone": {"type": "string", "description": "Customer phone for RLS verification"},
+        },
+        "required": ["order_id"],
+    },
+    handler=_initiate_renewal_tool,
 ))
 
 

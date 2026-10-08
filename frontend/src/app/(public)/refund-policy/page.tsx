@@ -17,7 +17,7 @@ export default function RefundPolicyPage() {
       <div className="hero-orb hero-orb-1" />
       <div className="hero-orb hero-orb-2" />
 
-      <main className="relative z-10 flex-1 pt-28 pb-20">
+      <section className="relative z-10 flex-1 pt-28 pb-20">
         <div className="max-w-2xl mx-auto px-6">
 
           {/* Article card */}
@@ -26,9 +26,9 @@ export default function RefundPolicyPage() {
 
               {/* Page Header */}
               <div className="mb-8">
-                <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Policy</p>
+                <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">Policy</p>
                 <h1 className="text-3xl font-black text-[var(--foreground)] mb-2">
-                  Refund <span className="text-[var(--primary)]">Policy</span>
+                  Refund <span className="text-[var(--primary-text)]">Policy</span>
                 </h1>
                 <p className="text-[var(--muted)] text-sm">
                   Effective Date: August 27, 2026
@@ -40,7 +40,7 @@ export default function RefundPolicyPage() {
                   <section className="mb-10">
                     <h2 className="text-xl font-semibold mb-4">1. Overview</h2>
                 <p className="text-[var(--muted)] leading-relaxed">
-                  Styxproxy offers proxy services across ISP, Residential, Mobile 4G, and
+                  All prices are in Nigerian Naira (NGN). Styxproxy offers proxy services across ISP, Residential, Mobile 4G, and
                   Datacenter categories. Because our proxies are delivered instantly and
                   credentials cannot be recalled once issued, our refund policy reflects
                   the nature of digital goods.
@@ -61,7 +61,7 @@ export default function RefundPolicyPage() {
                     "The service is materially different from what was described at the time of purchase",
                   ].map((item, i) => (
                     <li key={i} className="flex gap-3 text-[var(--muted)]">
-                      <span className="text-[var(--primary)] mt-1 shrink-0">
+                      <span className="text-[var(--primary-text)] mt-1 shrink-0">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
@@ -84,9 +84,10 @@ export default function RefundPolicyPage() {
                     ["Order Status Page", "styxproxy.com/order/status — enter your transaction reference and submit a refund request"],
                     ["Telegram", "@styxproxy — send 'Refund request for [your tx_ref]'"],
                     ["Email", "support@styxproxy.com — include your tx_ref and a brief description"],
+                    ["WhatsApp", "+234 703 298 1049 — send your tx_ref and reason for refund request"],
                   ].map(([method, desc]) => (
                     <li key={method} className="flex gap-3 text-[var(--muted)]">
-                      <span className="text-[var(--primary)] font-medium shrink-0">{method}:</span>
+                      <span className="text-[var(--primary-text)] font-medium shrink-0">{method}:</span>
                       <span>{desc}</span>
                     </li>
                   ))}
@@ -150,7 +151,7 @@ export default function RefundPolicyPage() {
                   a website after delivery — while the service was functioning correctly
                   at the time you received it — this is a ban claim matter, not a refund
                   issue. Please visit our{" "}
-                  <a href="/contact" className="text-[var(--primary)] hover:underline">
+                  <a href="/contact" className="text-[var(--primary-text)] hover:underline">
                     Contact page
                   </a>{" "}
                   to open a ban claim.
@@ -164,16 +165,16 @@ export default function RefundPolicyPage() {
                   If you have any questions about this policy, contact us at{" "}
                   <a
                     href="mailto:support@styxproxy.com"
-                    className="text-[var(--primary)] hover:underline"
+                    className="text-[var(--primary-text)] hover:underline"
                   >
                     support@styxproxy.com
                   </a>{" "}
-                  or via Telegram at{" "}
+                  or via WhatsApp at +234 703 298 1049 or via Telegram at{" "}
                   <a
                     href="https://t.me/StyxproxyBot"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[var(--primary)] hover:underline"
+                    className="text-[var(--primary-text)] hover:underline"
                   >
                     @styxproxy
                   </a>
@@ -191,12 +192,12 @@ export default function RefundPolicyPage() {
           {/* CTA */}
           <div className="mt-8 text-center p-6 bg-[var(--card)] border border-[var(--border)] rounded-2xl">
             <p className="text-[var(--muted)] text-sm mb-3">Questions about our refund policy?</p>
-            <Link href="/contact" className="text-[var(--primary)] font-semibold hover:underline text-sm">
+            <Link href="/contact" className="text-[var(--primary-text)] font-semibold hover:underline text-sm">
               Contact us →
             </Link>
           </div>
         </div>
-      </main>
+      </section>
     </div>
   );
 }

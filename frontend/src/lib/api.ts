@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getDeviceId } from '@/lib/device-id';
 import type {
-  Product,
   Order,
   OrderPaymentStatus,
   CatalogResponse,
@@ -90,6 +89,9 @@ import type {
   RlsRolloutPhase,
   RlsRolloutPlanResponse,
   RlsSafeStatus,
+  RenewalInitiateResponse,
+  RenewalHistoryResponse,
+  RenewalResponse,
 } from '@/types';
 
 // API base URL resolution:
@@ -183,6 +185,17 @@ class ApiClient {
         // Ensure error is always a string — guard against structured objects
         // (e.g. Pydantic/GraphQL errors like {type, loc, msg, input, ctx})
         const rawError = errorData.detail || errorData.message || JSON.stringify(errorData);
+        // FastAPI validation errors return detail as an array of objects:
+        // [{loc: [...], msg: "...", type: "..."}, ...]
+        // String(array) produces "[object Object],[object Object]" — unreadable.
+        if (Array.isArray(rawError)) {
+          const messages = rawError.map((item: any) => {
+            if (typeof item === 'string') return item;
+            if (item && item.msg) return item.msg;
+            return JSON.stringify(item);
+          });
+          return { error: messages.join('. ') };
+        }
         return {
           error: typeof rawError === 'string' ? rawError : String(rawError)
         };
@@ -195,11 +208,6 @@ class ApiClient {
         error: error instanceof Error ? error.message : 'Unknown error occurred' 
       };
     }
-  }
-
-  // Products
-  async getProducts(): Promise<ApiResponse<Product[]>> {
-    return this.request<Product[]>('/products');
   }
 
   // Catalog (BE-driven) — single source of truth for plan templates
@@ -259,29 +267,39 @@ class ApiClient {
   }
 
   // Payments
-  async initiatePayment(
-    planCode: string,
-    quantity: number,
-    customerPhone: string,
-    customerEmail?: string,
-    gateway?: 'flutterwave' | 'paystack' | 'crypto' | 'stripe' | 'paynow',
-    countryCode?: string,
-    planType?: string,
-    effectiveQuantity?: number,
-    clientReference?: string,
-  ): Promise<ApiResponse<PaymentInitiateResponse>> {
+  //
+  // Single options object, NOT positional args. The previous 11-positional
+  // signature had exactly one caller which omitted `order_id`, so every later
+  // argument shifted by one and the API silently mischarged (per-GB price sent
+  // as the GB count, idempotency UUID sent as the quantity). Nothing threw —
+  // the cart just billed 1/5 of the right amount. Positional args across a
+  // network boundary will break again the next time someone inserts one.
+  async initiatePayment(opts: {
+    planCode: string;
+    quantity: number;
+    quantityGb?: number;
+    customerPhone?: string;
+    customerEmail?: string;
+    gateway?: 'flutterwave' | 'paystack' | 'crypto' | 'stripe' | 'paynow';
+    idempotencyKey?: string;
+    deviceId?: string;
+  }): Promise<ApiResponse<PaymentInitiateResponse>> {
+    const headers: Record<string, string> = {};
+    if (opts.idempotencyKey) {
+      headers['Idempotency-Key'] = opts.idempotencyKey;
+    }
     return this.request<PaymentInitiateResponse>('/api/payments/initiate', {
       method: 'POST',
+      headers,
       body: JSON.stringify({
-        plan_code: planCode,
-        quantity,
-        customer_phone: customerPhone || undefined,
-        customer_email: customerEmail || undefined,
-        gateway: gateway || 'flutterwave',
-        country_code: countryCode || undefined,
-        plan_type: planType || undefined,
-        effective_quantity: effectiveQuantity || undefined,
-        client_reference: clientReference || undefined,
+        plan_code: opts.planCode,
+        quantity: opts.quantity,
+        quantity_gb: opts.quantityGb || undefined,
+        customer_phone: opts.customerPhone || undefined,
+        customer_email: opts.customerEmail || undefined,
+        gateway: opts.gateway || 'flutterwave',
+        // Anonymous checkout support: the backend needs SOME stable identity.
+        device_id: opts.deviceId || undefined,
       }),
     });
   }
@@ -373,6 +391,34 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
+  }
+
+  // ============== Bulk Customer Operations ==============
+
+  async bulkBlockCustomers(customerIds: string[], reason: string = 'Blocked by admin'): Promise<ApiResponse<{ success: boolean; processed: number; failed: number }>> {
+    return this.request('/api/admin/customers/bulk-block', {
+      method: 'POST',
+      body: JSON.stringify({ customer_ids: customerIds, reason }),
+    });
+  }
+
+  async bulkUnblockCustomers(customerIds: string[]): Promise<ApiResponse<{ success: boolean; processed: number; failed: number }>> {
+    return this.request('/api/admin/customers/bulk-unblock', {
+      method: 'POST',
+      body: JSON.stringify({ customer_ids: customerIds }),
+    });
+  }
+
+  getCustomersExportUrl(): string {
+    return `${this.baseUrl}/api/admin/customers/export`;
+  }
+
+  getOrdersExportUrl(filters?: { status?: string; customer_phone?: string }): string {
+    const params = new URLSearchParams();
+    if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
+    if (filters?.customer_phone) params.append('customer_phone', filters.customer_phone);
+    const qs = params.toString();
+    return `${this.baseUrl}/api/admin/orders/export${qs ? '?' + qs : ''}`;
   }
 
   // Charon Admin
@@ -932,6 +978,27 @@ class ApiClient {
     return this.request(`/api/v1/admin/support/threads/${threadId}/reopen`, { method: 'POST' });
   }
 
+  // ============== Public Support Tickets ==============
+
+  async createSupportTicket(data: {
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+    order_id?: string;
+  }): Promise<ApiResponse<{ ticket_id: string; status: string; message: string }>> {
+    return this.request<{ ticket_id: string; status: string; message: string }>('/api/v1/support/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async lookupSupportTickets(email: string): Promise<ApiResponse<{ tickets: Array<{ id: string; subject: string; status: string; order_id: string | null; last_message_at: string | null; created_at: string | null }> }>> {
+    return this.request<{ tickets: Array<{ id: string; subject: string; status: string; order_id: string | null; last_message_at: string | null; created_at: string | null }> }>(
+      `/api/v1/support/tickets/lookup?email=${encodeURIComponent(email)}`,
+    );
+  }
+
   // ============== Contact Submissions =============
 
   async getContactSubmissions(page = 1, limit = 20, status?: string): Promise<ApiResponse<ContactSubmissionsResponse>> {
@@ -1155,6 +1222,13 @@ class ApiClient {
     });
   }
 
+  async updateIPAllowlist(email: string, allowedIps: string[]): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/auth/team/${encodeURIComponent(email)}/ip-allowlist`, {
+      method: 'PUT',
+      body: JSON.stringify({ allowed_ips: allowedIps }),
+    });
+  }
+
   // ============== Credential management ==============
 
   async getCredentials(page = 1, limit = 20, filters?: { status?: string; customer_id?: string }): Promise<ApiResponse<{ data: CredentialDetail[]; pagination: { page: number; limit: number; total_items: number; total_pages: number; has_next: boolean; has_prev: boolean } }>> {
@@ -1289,6 +1363,39 @@ class ApiClient {
       window.localStorage.removeItem('styx_admin_token');
       window.sessionStorage.removeItem('styx_admin_token');
     }
+  }
+
+  // ============== Renewals ==============
+
+  async initiateRenewal(data: {
+    order_id: string;
+    quantity_gb?: number;
+    gateway?: string;
+    customer_email?: string;
+    idempotency_key?: string;
+  }): Promise<ApiResponse<RenewalInitiateResponse>> {
+    const headers: Record<string, string> = {};
+    if (data.idempotency_key) {
+      headers['Idempotency-Key'] = data.idempotency_key;
+    }
+    return this.request<RenewalInitiateResponse>('/api/renewals/initiate', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        order_id: data.order_id,
+        quantity_gb: data.quantity_gb,
+        gateway: data.gateway || 'flutterwave',
+        customer_email: data.customer_email,
+      }),
+    });
+  }
+
+  async getRenewalsForOrder(orderId: string): Promise<ApiResponse<RenewalHistoryResponse>> {
+    return this.request<RenewalHistoryResponse>(`/api/renewals/order/${orderId}`);
+  }
+
+  async getRenewal(renewalId: number): Promise<ApiResponse<RenewalResponse>> {
+    return this.request<RenewalResponse>(`/api/renewals/${renewalId}`);
   }
 }
 

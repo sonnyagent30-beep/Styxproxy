@@ -13,13 +13,71 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+
+async def deliver_credentials_direct(
+    order_id: str,
+    tx_ref: str,
+    phone: str,
+    channel: str,
+    styxproxy_username: str,
+    styxproxy_password: str,
+    proxy_ip: str,
+    proxy_port: int,
+    expires_at: datetime,
+    receipt_url: Optional[str] = None,
+) -> bool:
+    """Directly deliver credentials via Charon API (bypasses n8n webhook)."""
+    import httpx
+    from app.config import get_settings
+    settings = get_settings()
+    charon_url = f"{settings.api_base_url}/api/v1/charon/reply"
+    
+    message = f"""Your proxy credentials are ready!
+
+Proxy: {proxy_ip}:{proxy_port}
+Username: {styxproxy_username}
+Password: {styxproxy_password}
+Expires: {expires_at}
+
+Receipt: {receipt_url or 'N/A'}"""
+
+    # ChatReplyRequest (app/routers/charon.py) declares `user_message` as a
+    # required str and `customer_phone` for the contact. This payload used to
+    # send `message` and `phone`, which are NOT fields on the model — every
+    # call returned 422 "user_message: Field required" and the direct-delivery
+    # fallback silently failed. Field names are a contract; drift is silent
+    # until something 422s in production.
+    #
+    # Every value is coerced to str: user_message is typed `str`, and JS-style
+    # `+` concatenation over a None or int field (proxy_port is an int) puts a
+    # non-string into it, which is the other half of "Input should be a valid
+    # string".
+    payload = {
+        'user_message': str(message),
+        'customer_phone': str(phone or ""),
+        'channel': str(channel or "internal"),
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(charon_url, json=payload)
+            if resp.status_code == 200:
+                logger.info(f"Credentials delivered directly for order {order_id}")
+                return True
+            else:
+                logger.warning(f"Charon direct delivery failed: {resp.status_code} {resp.text[:200]}")
+                return False
+    except Exception as e:
+        logger.error(f"Charon direct delivery error: {e}")
+        return False
+
 async def trigger_credentials_delivered_webhook(
     order_id: str,
     tx_ref: str,
     phone: str,
     channel: str,
-    bun_username: str,
-    bun_password: str,
+    styxproxy_username: str,
+    styxproxy_password: str,
     proxy_ip: str,
     proxy_port: int,
     expires_at: datetime,
@@ -34,8 +92,8 @@ async def trigger_credentials_delivered_webhook(
         "tx_ref": "TXF-XXXXXX",
         "phone": "+234...",
         "channel": "whatsapp",
-        "bun_username": "bun_xxxxxx",
-        "bun_password": "xxxxxx",
+        "styxproxy_username": "styxproxy_xxxxxx",
+        "styxproxy_password": "xxxxxx",
         "proxy_ip": "192.168.x.x",
         "proxy_port": 1080,
         "expires_at": "2026-08-15T12:00:00Z",
@@ -58,8 +116,8 @@ async def trigger_credentials_delivered_webhook(
         "tx_ref": tx_ref,
         "phone": phone,
         "channel": channel,
-        "bun_username": bun_username,
-        "bun_password": bun_password,
+        "styxproxy_username": styxproxy_username,
+        "styxproxy_password": styxproxy_password,
         "proxy_ip": proxy_ip,
         "proxy_port": proxy_port,
         "expires_at": expires_at.isoformat() if isinstance(expires_at, datetime) else expires_at,
@@ -85,9 +143,18 @@ async def trigger_credentials_delivered_webhook(
             await _record_failure(order_id, tx_ref, f"unexpected: {e}", payload)
             return False
 
-    # Fire and forget - don't await, just schedule and return immediately
-    asyncio.create_task(_send_webhook())
-    return True
+    # Await the send and report what actually happened.
+    #
+    # This used to be `asyncio.create_task(_send_webhook()); return True` —
+    # fire-and-forget with an unconditional success. The caller could never
+    # see a failure, so the `if not n8n_success:` direct-email fallback was
+    # unreachable dead code: n8n could fail 100% of the time and the worker
+    # still logged "delivered". A delivery path that reports success it did
+    # not observe is worse than one that reports failure.
+    #
+    # Still bounded: the client has a 10s timeout with a 5s connect timeout,
+    # so a hung n8n cannot hold up fulfillment indefinitely.
+    return await _send_webhook()
 
 
 async def _record_failure(
@@ -100,7 +167,7 @@ async def _record_failure(
 
     Stored in a Redis list capped at 100 entries (LPUSH + LTRIM).
     Includes order_id, tx_ref, timestamp, error message. Sensitive
-    fields (bun_password) are stripped before storage.
+    fields (styxproxy_password) are stripped before storage.
     """
     try:
         from app.services.observability import get_redis
@@ -110,7 +177,7 @@ async def _record_failure(
             return
 
         # Strip secrets before logging
-        safe_payload = {k: v for k, v in payload.items() if k != "bun_password"}
+        safe_payload = {k: v for k, v in payload.items() if k != "styxproxy_password"}
 
         entry = json.dumps(
             {

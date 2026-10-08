@@ -1,6 +1,6 @@
+'use client';
 
 /* eslint-disable react-hooks/set-state-in-effect */
-'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
@@ -15,10 +15,15 @@ export default function CharonEvalPage() {
 
   const loadSet = useCallback(async () => {
     setLoadingSet(true);
-    const r = await api.getEvalSet();
-    if (r.error) setError(r.error);
-    else if (r.data) setEvalSet(r.data);
-    setLoadingSet(false);
+    try {
+      const r = await api.getEvalSet();
+      if (r.error) setError(r.error);
+      else if (r.data) setEvalSet(r.data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load eval set');
+    } finally {
+      setLoadingSet(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -28,13 +33,18 @@ export default function CharonEvalPage() {
   const handleRun = async () => {
     setRunning(true);
     setError('');
-    const r = await api.runEval();
-    if (r.error) {
-      setError(r.error);
-    } else if (r.data) {
-      setRun(r.data);
+    try {
+      const r = await api.runEval();
+      if (r.error) {
+        setError(r.error);
+      } else if (r.data) {
+        setRun(r.data);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to run eval');
+    } finally {
+      setRunning(false);
     }
-    setRunning(false);
   };
 
   return (
@@ -51,13 +61,14 @@ export default function CharonEvalPage() {
           onClick={handleRun}
           disabled={running}
           className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors disabled:opacity-50"
+          aria-label="Run evaluation"
         >
           {running ? 'Running…' : 'Run eval'}
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-900/20 border border-red-500/40 text-red-300 rounded-lg p-3 text-sm">
+        <div className="bg-red-900/20 border border-red-500/40 text-red-300 rounded-lg p-3 text-sm" role="alert">
           {error}
         </div>
       )}
@@ -124,7 +135,12 @@ export default function CharonEvalPage() {
         </div>
       )}
 
-      {loadingSet && <div className="text-[var(--muted)] text-sm">Loading…</div>}
+      {loadingSet && (
+        <div className="space-y-2 animate-pulse">
+          <div className="h-8 bg-[var(--card-hover)] rounded w-48" />
+          <div className="h-4 bg-[var(--card-hover)] rounded w-32" />
+        </div>
+      )}
     </div>
   );
 }

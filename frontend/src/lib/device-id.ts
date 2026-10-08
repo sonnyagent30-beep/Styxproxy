@@ -1,6 +1,6 @@
+'use client';
 
 /* eslint-disable react-hooks/set-state-in-effect */
-'use client';
 
 import { useEffect, useState } from 'react';
 
@@ -12,6 +12,23 @@ const ORDERS_KEY = 'styxproxy_orders';
  * Generate a UUIDv4 (uses crypto.randomUUID if available, fallback to manual).
  */
 function generateUUID(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+    return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
+  }
+  // Fallback for very old browsers (non-cryptographic)
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.floor(Math.random() * 16);
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+function _legacyGenerateUUID(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
@@ -177,17 +194,56 @@ export function updateHistoryEntry(txRef: string, updates: Partial<OrderHistoryE
   }
 }
 
-/** Remove pending orders older than 30 minutes (abandoned payments) */
+/**
+ * Remove stale orders from localStorage based on status.
+ *
+ * Spec (confirmed by Dannion):
+ *   - fulfilled / active: keep forever
+ *   - pending / processing: delete after 30 minutes (abandoned payments)
+ *   - failed / expired / cancelled: delete after 3 days
+ *   - refunded: delete after 15 days
+ */
 export function cleanupStalePendingOrders(): void {
   if (typeof window === 'undefined') return;
   const history = getOrderHistory();
-  const cutoff = Date.now() - 30 * 60 * 1000; // 30 min
+  const now = Date.now();
+  const THIRTY_MIN = 30 * 60 * 1000;
+  const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+  const FIFTEEN_DAYS = 15 * 24 * 60 * 60 * 1000;
+
   const filtered = history.filter((o) => {
+    const created = new Date(o.created_at).getTime();
+    const age = now - created;
+
+    // Always keep fulfilled and active
+    if (o.status === 'fulfilled' || o.status === 'active') return true;
+
+    // Pending / processing: drop after 30 minutes
     if (o.status === 'pending' || o.status === 'processing') {
-      const created = new Date(o.created_at).getTime();
-      return created > cutoff; // keep only recent
+      return age <= THIRTY_MIN;
     }
-    return true; // keep active/fulfilled/refunded
+
+    // Refunded: drop after 15 days
+    if (o.status === 'refunded') {
+      return age <= FIFTEEN_DAYS;
+    }
+
+    // Failed / expired / cancelled: drop after 3 days
+    if (
+      o.status === 'failed' ||
+      o.status === 'payment_failed' ||
+      o.status === 'failed_manual_review' ||
+      o.status === 'failed_unfulfilled' ||
+      o.status === 'paid_unfulfilled' ||
+      o.status === 'expired' ||
+      o.status === 'cancelled'
+    ) {
+      return age <= THREE_DAYS;
+    }
+
+    // Unknown status: keep (safer than dropping)
+    return true;
   });
+
   localStorage.setItem(ORDERS_KEY, JSON.stringify(filtered));
 }

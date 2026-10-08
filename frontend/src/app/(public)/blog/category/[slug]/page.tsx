@@ -59,7 +59,7 @@ export default async function CategoryPage({ params }: Props) {
 
         <div className="relative text-center max-w-3xl mx-auto">
           <nav className="flex items-center justify-center gap-2 text-sm text-[var(--muted)] mb-6">
-            <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
+            <Link href="/blog" className="hover:text-[var(--primary-text)] transition-colors">
               Blog
             </Link>
             <span>/</span>
@@ -77,7 +77,7 @@ export default async function CategoryPage({ params }: Props) {
 
       {/* Scroll indicator */}
       <div className="flex flex-col items-center gap-2 py-8">
-        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <span className="text-xs tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
         <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
       </div>
 
@@ -100,7 +100,7 @@ export default async function CategoryPage({ params }: Props) {
         ) : (
           <div className="text-center py-20 text-[var(--muted)]">
             <p className="text-lg mb-4">No posts in this category yet.</p>
-            <Link href="/blog" className="text-[var(--primary)] hover:underline">
+            <Link href="/blog" className="text-[var(--primary-text)] hover:underline">
               ← Back to all posts
             </Link>
           </div>

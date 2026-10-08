@@ -167,7 +167,7 @@ Proxy IPs are sourced from vetted infrastructure partners. Customers do not inte
 
 We may update this AUP from time to time. Material changes will be communicated via:
 - Telegram message (for Telegram customers)
-- WhatsApp message (forWhatsApp customers)
+- WhatsApp message (for WhatsApp customers)
 - Notice on styxproxy.com
 
 The effective date at the top of this policy indicates when it was last updated.

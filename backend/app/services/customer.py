@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Customer, PlatformAccount
+from app.services.referral import generate_referral_code
 
 
 def placeholder_phone_from_email(email: str) -> str:
@@ -33,6 +34,46 @@ def placeholder_phone_from_email(email: str) -> str:
     return f"+anon{digest}@styxproxy.local"
 
 
+def placeholder_phone_from_device(device_id: str) -> str:
+    """Build a stable placeholder phone for a fully-anonymous checkout.
+
+    The checkout page advertises "No signup required" and marks email as
+    optional, but get_or_create_customer() returns None when BOTH phone and
+    email are missing — so an anonymous customer who follows the UI literally
+    hits a 400 "No customer profile found." on a page that promised it would
+    work. This gives those customers a stable synthetic identity derived from
+    the browser's device UUID instead, so repeat visits from the same device
+    resolve to the same Customer row (and therefore the same order history).
+
+    Namespaced with a "d" prefix so it can never collide with the email-derived
+    placeholder for a customer who later supplies their address.
+    """
+    digest = hashlib.sha256(f"device:{device_id}".encode("utf-8")).hexdigest()[:12]
+    return f"+anond{digest}@styxproxy.local"
+
+
+def placeholder_email_from_device(device_id: str) -> str:
+    """Synthesize a gateway-acceptable email for a fully-anonymous checkout.
+
+    Flutterwave v3 rejects a payment whose `customer.email` is absent or empty
+    ("Customer email is required") — a phone number alone is not enough. Our own
+    checkout UI calls email optional, so an anonymous order needs a syntactically
+    valid placeholder to reach the hosted checkout page at all.
+
+    Uses the RFC 2606 reserved `example.com` domain, which is explicitly
+    non-routable and can never receive mail. NOTE: do not use the
+    `styxproxy.local` domain used by the phone placeholders here — Paystack
+    validates email format strictly and rejects `.local` outright
+    ("email must be a valid email", HTTP 400), while Flutterwave happens to
+    accept it. `example.com` is accepted by both.
+
+    The hash is derived from the device UUID, so it is stable per device,
+    contains no real customer data, and is never deliverable.
+    """
+    digest = hashlib.sha256(f"device:{device_id}".encode("utf-8")).hexdigest()[:12]
+    return f"guest-anond{digest}@example.com"
+
+
 async def get_or_create_customer(
     session: AsyncSession,
     *,
@@ -40,6 +81,7 @@ async def get_or_create_customer(
     email: str | None,
     platform_account: PlatformAccount | None,
     referred_by_code: str | None = None,
+    device_id: str | None = None,
 ) -> Customer | None:
     """Find or create the Customer row for this checkout attempt.
 
@@ -49,17 +91,44 @@ async def get_or_create_customer(
     2. If we have an email but no phone (or phone didn't match), look up
        by phone-placeholder derived from the email hash. Existing ones
        come back.
-    3. Otherwise create a new Customer row with the placeholder phone
+    3. If we have neither but DO have a device_id, fall back to a
+       device-derived placeholder so an anonymous customer can still check
+       out (the UI labels email "optional" and says "No signup required").
+    4. Otherwise create a new Customer row with the placeholder phone
        and the supplied email, then link it to the platform_account.
 
     When ``referred_by_code`` is supplied and resolves to an existing customer,
     the new customer is linked as their referee (referred_by = referrer.id)
     and a pending ReferralCredit record is created.
 
-    Returns None only when both phone and email are missing.
+    Returns None only when phone, email AND device_id are all missing.
     """
     if not phone and not email:
-        return None
+        if not device_id:
+            return None
+        # Anonymous checkout — synthesise a stable identity from the browser UUID.
+        placeholder = placeholder_phone_from_device(device_id)
+        existing = (
+            await session.execute(select(Customer).where(Customer.phone == placeholder))
+        ).scalar_one_or_none()
+        if existing:
+            if platform_account and platform_account.customer_id is None:
+                platform_account.customer_id = existing.id
+                await session.commit()
+            return existing
+        customer = Customer(
+            phone=placeholder,
+            name="Guest",
+            blocked=False,
+            free_trials_used_today=0,
+            referral_code=generate_referral_code(),
+        )
+        session.add(customer)
+        if platform_account:
+            platform_account.customer_id = customer.id
+        await session.commit()
+        await session.refresh(customer)
+        return customer
 
     if phone:
         existing = (await session.execute(select(Customer).where(Customer.phone == phone))).scalar_one_or_none()
@@ -81,7 +150,6 @@ async def get_or_create_customer(
 
     # ── New customer — generate referral code and optionally link referrer ──
     from app.services.referral import (
-        generate_referral_code,
         resolve_referrer_by_code,
         upsert_referral_credit_pending,
     )

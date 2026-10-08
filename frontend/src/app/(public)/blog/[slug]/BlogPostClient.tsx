@@ -1,6 +1,6 @@
+'use client';
 
 /* eslint-disable prefer-const */
-'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -35,7 +35,7 @@ export default function BlogPostClient({ post }: Props) {
       .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="bg-[#1a1a1a] border border-[var(--border)] rounded-lg p-4 overflow-x-auto my-4"><code>$2</code></pre>')
       .replace(/`([^`]+)`/g, '<code class="bg-[var(--card)] border border-[var(--border)] px-1.5 py-0.5 rounded text-sm">$1</code>')
       // Links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-[var(--primary)] hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-[var(--primary-text)] hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
       // Lists
       .replace(/^\s*\-\s+(.*$)/gim, '<li class="ml-4 mb-2">$1</li>')
       .replace(/^\s*\d+\.\s+(.*$)/gim, '<li class="ml-4 mb-2 list-decimal">$1</li>')
@@ -53,7 +53,7 @@ export default function BlogPostClient({ post }: Props) {
         {/* Back link */}
         <Link 
           href="/blog" 
-          className="inline-flex items-center gap-2 text-[var(--muted)] hover:text-[var(--primary)] transition-colors mb-8"
+          className="inline-flex items-center gap-2 text-[var(--muted)] hover:text-[var(--primary-text)] transition-colors mb-8"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -80,7 +80,7 @@ export default function BlogPostClient({ post }: Props) {
             {post.tags && post.tags.map((tag) => (
               <span 
                 key={tag} 
-                className="px-3 py-1 text-xs font-medium bg-[var(--primary)]/10 text-[var(--primary)] rounded-full"
+                className="px-3 py-1 text-xs font-medium bg-[var(--primary)]/10 text-[var(--primary-text)] rounded-full"
               >
                 {tag}
               </span>
@@ -97,7 +97,7 @@ export default function BlogPostClient({ post }: Props) {
 
           <div className="flex items-center gap-4 text-sm text-[var(--muted)] border-b border-[var(--border)] pb-6">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)] font-semibold">
+              <div className="w-8 h-8 rounded-full bg-[var(--primary)]/20 flex items-center justify-center text-[var(--primary-text)] font-semibold">
                 {(post.display_author || post.author).charAt(0).toUpperCase()}
               </div>
               <span className="font-medium text-[var(--foreground)]">{post.display_author || post.author}</span>
@@ -120,9 +120,9 @@ export default function BlogPostClient({ post }: Props) {
           className="prose prose-invert max-w-none
             prose-headings:text-[var(--foreground)] prose-headings:font-bold
             prose-p:text-[var(--foreground)] prose-p:leading-relaxed
-            prose-a:text-[var(--primary)] prose-a:no-underline hover:prose-a:underline
+            prose-a:text-[var(--primary-text)] prose-a:no-underline hover:prose-a:underline
             prose-strong:text-[var(--foreground)]
-            prose-code:text-[var(--primary)] prose-code:bg-[var(--card)] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
+            prose-code:text-[var(--primary-text)] prose-code:bg-[var(--card)] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
             prose-li:text-[var(--foreground)]
             prose-img:rounded-xl"
           dangerouslySetInnerHTML={{ __html: renderContent(post.content) }}

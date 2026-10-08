@@ -1,11 +1,14 @@
 """Orders router."""
 
+import logging
 import random
 import string
 from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 from slowapi.util import get_remote_address
 
@@ -17,7 +20,7 @@ from app.auth import get_current_account
 from app.database import get_session
 from app.dependencies.idempotency import check_idempotency
 from app.limiter import limiter
-from app.models import Customer, Order, Plan, StyxproxyCredential
+from app.models import Customer, FeatureFlag, Order, Plan, StyxproxyCredential
 from app.schemas import (
     OrderCancelRequest,
     OrderCancelResponse,
@@ -27,6 +30,7 @@ from app.schemas import (
     OrderResponse,
     PrecheckRequest,
     PrecheckResponse,
+    ReceiptCredentialPublic,
     ReceiptOrderResponse,
     StyxproxyCredentialBrief,
 )
@@ -64,9 +68,20 @@ async def resolve_plan(
 
     If country is provided, the plan must match (after GB→UK translation).
     """
+    # Strip frontend suffix: "{TYPE}-{COUNTRY}-{QUANTITY}IP" → "{TYPE}-{COUNTRY}"
+    # e.g. "DC-NG-1IP" → "DC-NG", "RESIDENTIAL-NG-5GB" → "RESIDENTIAL-NG"
+    clean_code = plan_code
+    if '-' in plan_code and plan_code.endswith('IP'):
+        parts = plan_code.rsplit('-', 2)
+        if len(parts) >= 3:
+            clean_code = f"{parts[0]}-{parts[1]}"
+
+    # Use clean_code (suffix stripped) for all lookups
+    lookup_code = clean_code
+
     # Try exact plan_code match
     stmt = select(Plan).where(
-        Plan.plan_code == plan_code,
+        Plan.plan_code == lookup_code,
         Plan.is_active.is_(True),
     )
     if country:
@@ -76,10 +91,10 @@ async def resolve_plan(
     if plan:
         return plan
 
-    # Fallback: extract plan_type + country from plan_code
+    # Fallback: extract plan_type + country from clean_code
     # Catalog uses virtual codes from country_plan_types (e.g. "RESIDENTIAL-NG")
     # that don't have matching Plan rows
-    plan_type_guess = plan_code.split('-')[0].upper() if '-' in plan_code else plan_code.upper()
+    plan_type_guess = lookup_code.split('-')[0].upper() if '-' in lookup_code else lookup_code.upper()
     stmt = select(Plan).where(
         Plan.is_active.is_(True),
         Plan.plan_type == plan_type_guess,
@@ -87,8 +102,8 @@ async def resolve_plan(
     if country:
         stmt = stmt.where(Plan.country == translate_country(country))
     else:
-        # Extract country from plan_code (e.g. RESIDENTIAL-NG → NG)
-        code_parts = plan_code.split('-')
+        # Extract country from lookup_code (e.g. RESIDENTIAL-NG → NG)
+        code_parts = lookup_code.split('-')
         if len(code_parts) >= 2:
             stmt = stmt.where(Plan.country == code_parts[-1].upper())
     result = await session.execute(stmt)
@@ -100,7 +115,7 @@ async def resolve_plan(
     from sqlalchemy import text
     cpt_result = await session.execute(text(
         "SELECT country_code, plan_type, price_per_ip, price_per_gb FROM country_plan_types WHERE country_code = :country AND plan_type = :pt AND enabled = true"
-    ), {"country": (country or plan_code.split('-')[-1] if '-' in plan_code else 'NG').upper(), "pt": plan_type_guess})
+    ), {"country": (country or lookup_code.split('-')[-1] if '-' in lookup_code else 'NG').upper(), "pt": plan_type_guess})
     cpt_row = cpt_result.mappings().first()
     if cpt_row:
         from app.services.catalog import _VirtualPlan
@@ -110,7 +125,7 @@ async def resolve_plan(
             price_ngn=cpt_row["price_per_ip"] or 0,
             price_per_gb=cpt_row["price_per_gb"],
             quantity=1,
-            plan_code=plan_code,
+            plan_code=lookup_code,
             sort_order=999,
         )
 
@@ -241,7 +256,7 @@ async def precheck_order(
 
 def generate_order_id() -> str:
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    return f"ORD-{suffix}"
+    return f"STX-{suffix}"
 
 
 @router.post("/create", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
@@ -350,6 +365,7 @@ async def create_order(
         order_id=order_id,
         platform_account_id=platform_account.id,
         customer_phone=customer.phone,
+        customer_email=body.customer_email or "",
         plan_type=plan_type,
         # Store the canonical DB plan_code (after legacy translation),
         # not the FE-sent code, so the order carries the real plan identifier.
@@ -366,6 +382,23 @@ async def create_order(
     session.add(order)
     if body.payment_reference:
         order.status = "paid"
+        # NOTE: deliberately NO record_capture() here. This path marks an order
+        # paid purely because the CLIENT supplied a payment_reference — no
+        # gateway was consulted and nothing confirmed an amount. Writing a
+        # capture record would mean trusting an unverified client assertion as
+        # proof of money, which is the exact failure this column exists to
+        # eliminate: a row that reads as "captured" while no money ever arrived.
+        #
+        # So this order stays gateway_status=NULL and captured_at=NULL, and
+        # `was_captured()` correctly reports it as unproven. That is the honest
+        # state — flag it here so nobody "fixes" the gap by adding a fabricated
+        # capture. A genuine payment arrives through /api/payments/initiate,
+        # whose webhook writes the real record.
+        logger.warning(
+            "order marked paid from a client-supplied payment_reference with no "
+            "gateway verification — no capture evidence recorded",
+            extra={"order_id": order_id, "payment_reference": body.payment_reference},
+        )
         try:
             # Extract proxy_type from plan_code (e.g. RESIDENTIAL-NG → residential)
             proxy_type = (body.plan_code or "isp").split("-")[0].lower()
@@ -457,13 +490,16 @@ async def create_order(
 
     # Send admin notification email
     if order.status == "pending":
-        await send_new_order_notification(
-            order_id=order_id,
-            customer_phone=customer.phone,
-            plan_code=body.plan_code,
-            amount=total_amount,
-            currency="NGN",
-        )
+        try:
+            await send_new_order_notification(
+                order_id=order_id,
+                customer_phone=customer.phone,
+                plan_code=body.plan_code,
+                amount=total_amount,
+                currency="NGN",
+            )
+        except Exception as e:
+            logger.warning(f'Failed to send new order notification: {e}')
         # Send order confirmation to customer if email available
         if customer_email:
             try:
@@ -476,8 +512,8 @@ async def create_order(
                     currency="NGN",
                     quantity=body.quantity,
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f'Failed to send order confirmation email to {customer_email}: {e}')
     elif order.status == "active":
         # Send ONE combined email: order details + credentials together
         if customer_email:
@@ -496,14 +532,14 @@ async def create_order(
                         amount=total_amount,
                         currency="NGN",
                         quantity=body.quantity,
-                        bun_username=cred.bun_username,
+                        styxproxy_username=cred.styxproxy_username,
                         proxy_ip=cred.upstream_proxy_ip or "",
                         proxy_port=cred.upstream_proxy_port or 1080,
                         protocol=cred.protocol or "socks5",
                         expires_at=cred.expires_at or datetime.utcnow(),
                     )
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to send order active email: {e}")
     cred_brief = None
     if order.styxproxy_credential_id:
         cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
@@ -512,7 +548,8 @@ async def create_order(
         if cred:
             cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
-                bun_username=cred.bun_username,
+                styxproxy_username=cred.styxproxy_username,
+                styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
                 protocol=cred.protocol or "socks5",
                 upstream_proxy_ip=cred.upstream_proxy_ip,
                 upstream_proxy_port=cred.upstream_proxy_port,
@@ -560,7 +597,8 @@ async def list_orders_by_device(
             if cred:
                 cred_brief = StyxproxyCredentialBrief(
                     id=cred.id,
-                    bun_username=cred.bun_username,
+                    styxproxy_username=cred.styxproxy_username,
+                    styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
                     protocol=cred.protocol or "socks5",
                     upstream_proxy_ip=cred.upstream_proxy_ip,
                     upstream_proxy_port=cred.upstream_proxy_port,
@@ -608,7 +646,11 @@ async def get_order_by_payment_reference(
     """
     stmt = (
         select(Order)
-        .where((Order.payment_reference == payment_reference) | (Order.tx_ref == payment_reference))
+        .where(
+            (Order.payment_reference == payment_reference)
+            | (Order.tx_ref == payment_reference)
+            | (Order.order_id == payment_reference)
+        )
         .order_by(Order.created_at.desc())
         .limit(1)
     )
@@ -625,7 +667,8 @@ async def get_order_by_payment_reference(
         if cred:
             cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
-                bun_username=cred.bun_username,
+                styxproxy_username=cred.styxproxy_username,
+                styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
                 protocol=cred.protocol or "socks5",
                 upstream_proxy_ip=cred.upstream_proxy_ip,
                 upstream_proxy_port=cred.upstream_proxy_port,
@@ -656,6 +699,102 @@ async def get_order_by_payment_reference(
     )
 
 
+# ─── Self-Service Order Lookup (Sprint 025) ─────────────────────────────────
+# Highest-ROI support fix: anonymous customers can look up their order status
+# without login. Email + order_id required. Rate-limited. No credentials returned.
+
+class OrderLookupResponse(BaseModel):
+    """Response for self-service order lookup. No credentials — status only."""
+    order_id: str
+    status: str
+    plan_code: Optional[str] = None
+    plan_type: Optional[str] = None
+    country: Optional[str] = None
+    amount_paid_ngn: Optional[float] = None
+    currency: str = "NGN"
+    created_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    is_fulfilled: bool = False
+    credential_delivery_status: Optional[str] = None  # "delivered" | "pending" | "failed" | None
+    message: str = ""
+
+
+@router.get("/lookup", response_model=OrderLookupResponse)
+@limiter.limit("10/minute", key_func=get_remote_address)
+async def lookup_order(
+    request: Request,
+    order_id: str,
+    email: str | None = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Self-service order lookup — no auth required.
+    
+    Customers provide email + order_id to check their order status.
+    Returns status + delivery state only — NO credentials.
+    Rate-limited to 10 req/min per IP.
+    """
+    from app.models import Customer
+    
+    # Validate email format (optional — only checked if provided)
+    if email is not None:
+        email = email.strip().lower()
+        if "@" not in email or " " in email or len(email) > 255:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
+    
+    # Find order by order_id
+    stmt = select(Order).where(Order.order_id == order_id).limit(1)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        # Don't leak order existence — same message for all failures
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    
+    # Order IDs are unique — email is for receipts/proxy delivery, not lookup.
+    # Skip email verification entirely; order_id is the sole lookup key.
+    # (This covers NULL, empty, matching, and mismatched customer_email states.)
+    
+    # Determine credential delivery status
+    delivery_status = None
+    if order.status in ("fulfilled", "active") and order.styxproxy_credential_id:
+        delivery_status = "delivered"
+    elif order.status == "paid":
+        delivery_status = "pending"
+    elif order.status in ("failed_unfulfilled", "failed_manual_review"):
+        delivery_status = "failed"
+    
+    # Build user-friendly message
+    if order.status in ("fulfilled", "active"):
+        message = "Your proxy is ready. Check your email for credentials."
+    elif order.status == "paid":
+        message = "Payment received — your proxy is being provisioned."
+    elif order.status == "pending":
+        message = "Waiting for payment confirmation."
+    elif order.status == "expired":
+        message = "This order has expired. Please place a new order."
+    elif order.status == "refunded":
+        message = "This order has been refunded. Contact support if you have questions."
+    elif order.status == "cancelled":
+        message = "This order was cancelled."
+    else:
+        message = f"Order status: {order.status}"
+    
+    return OrderLookupResponse(
+        order_id=order.order_id,
+        status=order.status,
+        plan_code=order.plan_code,
+        plan_type=order.plan_type,
+        country=order.country,
+        amount_paid_ngn=float(order.amount_paid_ngn) if order.amount_paid_ngn else None,
+        currency="NGN",
+        created_at=order.created_at,
+        expires_at=order.expires_at,
+        is_fulfilled=order.status in ("fulfilled", "active"),
+        credential_delivery_status=delivery_status,
+        message=message,
+    )
+
+
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(
     order_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)
@@ -680,7 +819,8 @@ async def get_order(
             max_rotations = getattr(cred, "max_rotations", 3) or 3
             cred_brief = StyxproxyCredentialBrief(
                 id=cred.id,
-                bun_username=cred.bun_username,
+                styxproxy_username=cred.styxproxy_username,
+                styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
                 protocol=cred.protocol or "socks5",
                 upstream_proxy_ip=cred.upstream_proxy_ip,
                 upstream_proxy_port=cred.upstream_proxy_port,
@@ -799,11 +939,21 @@ class RotateResponse(BaseModel):
 async def rotate_proxy(
     order_id: str, session: AsyncSession = Depends(get_session), current_user: dict = Depends(get_current_account)
 ):
-    """Rotate Dante credentials (bun_username + bun_password).
+    """Rotate credentials (styxproxy_username + styxproxy_password).
 
-    This rotates the Dante layer only -- the upstream provider IP stays the same.
+    This rotates the credentials only -- the upstream provider IP stays the same.
     Max 3 rotations per credential; reject the 4th.
     """
+    # Feature flag: proxy rotation can be disabled when providers don't support it
+    rotation_flag = (
+        await session.execute(select(FeatureFlag).where(FeatureFlag.name == "proxy_rotation_enabled"))
+    ).scalar_one_or_none()
+    if rotation_flag and not rotation_flag.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Proxy rotation is temporarily disabled. Please contact support for assistance.",
+        )
+
     MAX_ROTATIONS = 3
     customer = current_user["customer"]
     if not customer:
@@ -827,32 +977,28 @@ async def rotate_proxy(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Rotation limit reached ({MAX_ROTATIONS} per proxy)"
         )
 
-    # Call Dante to rotate credentials (same upstream IP, new bun_username + bun_password)
-    from app.services import dante as dante_svc
+    # Generate new branded credentials locally (same upstream IP)
+    from app.services.credential import generate_styxproxy_username, generate_styxproxy_password
 
-    new_dante = await dante_svc.rotate_credential(
-        current_styxproxy_username=cred.styxproxy_username,
-        upstream_ip=cred.upstream_proxy_ip or "",
-        upstream_port=cred.upstream_proxy_port or 1080,
-        expires_at=cred.expires_at or datetime.utcnow(),
-    )
+    new_styxproxy_username = generate_styxproxy_username()
+    new_styxproxy_password = generate_styxproxy_password()
 
     # Update DB with new credentials (encrypt the new password at rest)
-    cred.styxproxy_username = new_dante.new_styxproxy_username
-    cred.set_password(new_dante.new_styxproxy_password)
+    cred.styxproxy_username = new_styxproxy_username
+    cred.set_password(new_styxproxy_password)
     cred.rotation_count = current_count + 1
     await session.commit()
     await session.refresh(cred)
 
     await log_audit_event(
         session,
-        event_type="dante_rotated",
+        event_type="credentials_rotated",
         phone=customer.phone,
         order_id=order_id,
         details={
             "rotation_count": current_count + 1,
             "old_username": cred.styxproxy_username,
-            "new_username": new_dante.new_styxproxy_username,
+            "new_username": new_styxproxy_username,
             "upstream_ip": cred.upstream_proxy_ip,
         },
     )
@@ -868,7 +1014,8 @@ async def rotate_proxy(
                 customer_email=customer_email,
                 customer_name=customer_name,
                 order_id=order_id,
-                new_username=new_dante.new_styxproxy_username,
+                new_username=new_styxproxy_username,
+                new_password=new_styxproxy_password,
                 proxy_ip=cred.upstream_proxy_ip or "",
                 proxy_port=cred.upstream_proxy_port or 1080,
                 protocol=cred.protocol or "socks5",
@@ -876,17 +1023,14 @@ async def rotate_proxy(
         else:
             # Fallback: no customer email available, skip email
             pass
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to send credentials rotated email: {e}")
 
     # Fire n8n webhook for WhatsApp/Telegram delivery
     from app.services.n8n import trigger_credentials_delivered_webhook
 
     try:
         import asyncio
-        import logging
-
-        logger = logging.getLogger(__name__)
 
         asyncio.create_task(
             trigger_credentials_delivered_webhook(
@@ -894,21 +1038,22 @@ async def rotate_proxy(
                 tx_ref=order.payment_reference or "",
                 phone=order.customer_phone or "",
                 channel=order.channel or "web",
-                bun_username=new_dante.new_styxproxy_username,
-                bun_password=new_dante.new_styxproxy_password,
+                styxproxy_username=new_styxproxy_username,
+                styxproxy_password=new_styxproxy_password,
                 proxy_ip=cred.upstream_proxy_ip or "",
                 proxy_port=cred.upstream_proxy_port or 1080,
                 expires_at=cred.expires_at,
             )
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to trigger credentials delivered webhook: {e}")
 
     return RotateResponse(
         order_id=order_id,
         styxproxy_credential=StyxproxyCredentialBrief(
             id=cred.id,
-            bun_username=cred.bun_username,
+            styxproxy_username=cred.styxproxy_username,
+            styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
             protocol=cred.protocol or "socks5",
             upstream_proxy_ip=cred.upstream_proxy_ip,
             upstream_proxy_port=cred.upstream_proxy_port,
@@ -974,8 +1119,8 @@ async def deliver_credentials(
         tx_ref=order.payment_reference or "",
         phone=order.customer_phone or "",
         channel="whatsapp",
-        bun_username=credential.bun_username,
-        bun_password="",  # Password not stored in plaintext
+        styxproxy_username=credential.styxproxy_username,
+        styxproxy_password="",  # Password not stored in plaintext
         proxy_ip=credential.upstream_proxy_ip or "",
         proxy_port=credential.upstream_proxy_port or 1080,
         expires_at=credential.expires_at,
@@ -1075,14 +1220,9 @@ async def get_receipt(
         cred_result = await session.execute(cred_stmt)
         cred = cred_result.scalar_one_or_none()
         if cred:
-            cred_brief = StyxproxyCredentialBrief(
-                id=cred.id,
-                bun_username=cred.bun_username,
-                protocol=cred.protocol or "socks5",
-                upstream_proxy_ip=cred.upstream_proxy_ip,
-                upstream_proxy_port=cred.upstream_proxy_port,
-                status=cred.status,
-            )
+            # PUBLIC + UNAUTHENTICATED: status only. Never username/IP/port/password.
+            # See ReceiptCredentialPublic for the reasoning.
+            cred_brief = ReceiptCredentialPublic(status=cred.status)
 
     customer_name = customer.name if customer and customer.name else None
 
@@ -1101,316 +1241,3 @@ async def get_receipt(
         styxproxy_credential=cred_brief,
     )
 
-
-@router.get("/{tx_ref}/pdf")
-async def get_receipt_pdf(
-    tx_ref: str,
-    session: AsyncSession = Depends(get_session),
-):
-    """Generate and download a dark-themed PDF receipt."""
-
-    # Query by tx_ref or payment_reference
-    from sqlalchemy import select
-
-    from app.models import Customer, Order, StyxproxyCredential
-
-    stmt = (
-        select(Order, Customer)
-        .outerjoin(Customer, Order.customer_phone == Customer.phone)
-        .where((Order.tx_ref == tx_ref) | (Order.payment_reference == tx_ref))
-        .limit(1)
-    )
-
-    result = await session.execute(stmt)
-    row = result.first()
-
-    if not row:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")  # noqa: F823
-
-    order, customer = row
-
-    # Get credential if exists
-    cred = None
-    if order.styxproxy_credential_id:
-        cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
-        cred_result = await session.execute(cred_stmt)
-        cred = cred_result.scalar_one_or_none()
-
-    # ── Build PDF using HTML/CSS (matches email template design) ─────
-    from weasyprint import HTML as _WeasyHTML
-
-    from app.services.email import (
-        LOGO_DARK_B64,
-        _get_base_styles,
-    )
-
-    currency = "NGN"
-    amount = float(order.amount_paid_ngn or 0)
-    quantity = order.quantity or 1
-    plan_label = f"{order.plan_code or 'Proxy'} - {order.country or 'N/A'}"
-    date_str = order.created_at.strftime("%B %d, %Y") if order.created_at else "—"
-    oid = order.order_id or "N/A"
-    if cred:
-        # The credential model stores styxproxy_password as Fernet ciphertext.
-        # get_password() decrypts transparently; returns None if encryption is
-        # not configured or ciphertext is tampered.
-        cred_username = cred.styxproxy_username or "N/A"
-        cred_password_display = cred.get_password() or "N/A"
-        cred_ip = cred.upstream_proxy_ip or "N/A"
-        cred_port = cred.upstream_proxy_port or 8080
-        cred_full = f"http://{cred_username}:{cred_password_display}@{cred_ip}:{cred_port}"
-        cred_expires = cred.expires_at.strftime("%B %d, %Y") if cred.expires_at else "N/A"
-    else:
-        cred_username = cred_password_display = cred_ip = "—"
-        cred_port = 0
-        cred_full = "—"
-        cred_expires = "—"
-
-    base_styles = _get_base_styles()
-
-    # Build credentials block (only if credential exists)
-    credentials_html = ""
-    if cred:
-        credentials_html = f"""
-        <div class="credentials-card">
-            <div class="credentials-header">YOUR PROXY CREDENTIALS</div>
-            <div class="cred-row">
-                <span class="cred-label">Username</span>
-                <span class="cred-value">{cred_username}</span>
-            </div>
-            <div class="cred-row">
-                <span class="cred-label">Password</span>
-                <span class="cred-value">{cred_password_display}</span>
-            </div>
-            <div class="cred-row">
-                <span class="cred-label">Proxy Address</span>
-                <span class="cred-value">{cred_ip}:{cred_port}</span>
-            </div>
-            <div class="cred-row">
-                <span class="cred-label">Protocol</span>
-                <span class="cred-value">HTTP / SOCKS5</span>
-            </div>
-            <div class="cred-row">
-                <span class="cred-label">Full Format</span>
-                <span class="cred-value" style="font-size: 11px;">{cred_full}</span>
-            </div>
-            <div class="cred-row">
-                <span class="cred-label">Expires</span>
-                <span class="cred-value">{cred_expires}</span>
-            </div>
-        </div>"""
-
-    # Receipt-specific style overrides — match the reference PDF look
-    receipt_styles = """
-        /* Receipt-specific overrides on top of email base styles */
-        body { background-color: #000; }
-        .accent-bar-top { height: 6px; }
-        .accent-bar-bottom { height: 6px; }
-        .email-container {
-            max-width: 760px;
-            padding: 0 24px;
-        }
-        .header-section {
-            padding: 20px 0 16px;
-            align-items: flex-start;
-        }
-        .header-section .logo-section img {
-            width: 160px;
-            height: auto;
-        }
-        .logo-subtitle {
-            font-size: 10px;
-            white-space: nowrap;
-        }
-        .header-label {
-            font-size: 12px;
-            letter-spacing: 1.5px;
-        }
-        .header-sublabel {
-            font-size: 9px;
-        }
-        .divider { margin: 0 0 8px; }
-        .main-heading {
-            font-size: 24px;
-            letter-spacing: -0.5px;
-            margin-bottom: 4px;
-        }
-        .subheading { font-size: 13px; margin-bottom: 12px; }
-        .card { padding: 14px 18px; border-radius: 4px; margin: 8px 0; }
-        .card-row { padding: 8px 0; }
-        .card-label {
-            font-size: 10px;
-            letter-spacing: 1px;
-        }
-        .card-value { font-size: 14px; }
-        .card-value.card-value-primary {
-            color: #0AD25A;
-            font-weight: 700;
-        }
-        .total-pill {
-            padding: 14px 20px;
-            border-radius: 3px;
-            background: #0AD25A;
-        }
-        .total-label { font-size: 11px; }
-        .total-amount { font-size: 18px; color: #000; }
-        .credentials-card {
-            border: 1.5px solid #0AD25A;
-            border-radius: 4px;
-            padding: 12px 18px;
-        }
-        .credentials-header {
-            color: #0AD25A;
-            font-size: 11px;
-            letter-spacing: 1.2px;
-            margin-bottom: 4px;
-        }
-        .cred-row {
-            padding: 6px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-        }
-        .cred-label {
-            font-size: 10px;
-            letter-spacing: 1px;
-            flex-shrink: 0;
-        }
-        .cred-value {
-            font-family: 'Courier New', Courier, monospace;
-            color: #0AD25A;
-            font-size: 13px;
-            text-align: right;
-            margin-left: 16px;
-        }
-        .support-card {
-            padding: 16px 20px;
-            border-radius: 4px;
-            margin-top: 16px;
-        }
-        .support-title {
-            margin-bottom: 8px;
-        }
-        .support-row {
-            margin-bottom: 4px;
-        }
-        .footer { font-size: 10px; padding: 12px 0; }
-        /* Receipt page layout — single page, A4 */
-        @page {
-            size: A4;
-            margin: 0;
-        }
-        body {
-            margin: 0;
-            padding: 0;
-        }
-        .email-wrapper {
-            background-color: #000;
-        }
-    """
-
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Styxproxy Receipt — {tx_ref}</title>
-    <style>{base_styles}{receipt_styles}</style>
-</head>
-<body>
-    <div class="email-wrapper">
-        <div class="email-container">
-            <div class="accent-bar-top"></div>
-            <div class="header-section">
-                <div class="logo-section">
-                    <img class="logo-dark" src="data:image/png;base64,{LOGO_DARK_B64}"
-     alt="Styxproxy" width="200" height="58"
-     style="display:block;width:200px;height:auto;">
-                    <div class="logo-subtitle">Anonymous Proxy Service</div>
-                </div>
-                <div>
-                    <div class="header-label">PAYMENT RECEIPT</div>
-                    <div class="header-sublabel">styxproxy.com</div>
-                    <div class="header-sublabel">Issued: {date_str}</div>
-                </div>
-            </div>
-            <div class="divider"></div>
-
-            <div class="content-section">
-                <div class="section-label">ORDER CONFIRMATION</div>
-                <div class="main-heading">Thank you, customer.</div>
-                <div class="subheading">Your proxy is ready to use. Below are your credentials.</div>
-
-                <div class="card">
-                    <div class="card-row">
-                        <span class="card-label">Transaction Reference</span>
-                        <span class="card-value card-value-primary">{tx_ref}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Order ID</span>
-                        <span class="card-value">{oid[:24]}{'…' if len(oid) > 24 else ''}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Date</span>
-                        <span class="card-value">{date_str}</span>
-                    </div>
-                    <div class="card-row">
-                        <span class="card-label">Method</span>
-                        <span class="card-value">Card / Bank / USSD / QR</span>
-                    </div>
-                </div>
-
-                <div class="items-header">
-                    <span class="items-label">ITEMS</span>
-                    <span class="items-label" style="text-align: right;">AMOUNT</span>
-                </div>
-                <div class="item-row">
-                    <span class="item-name">{plan_label} × {quantity}</span>
-                    <span>{currency} {amount:,.0f}</span>
-                </div>
-
-                <div class="total-pill">
-                    <span class="total-label">Total Paid</span>
-                    <span class="total-amount">{currency} {amount:,.0f}</span>
-                </div>
-
-                {credentials_html}
-
-                <div class="support-card">
-                    <div class="support-title">NEED HELP?</div>
-                    <div class="support-row">
-                        <span class="support-label">Chat:</span>
-                        <a href="https://styxproxy.com/contact" class="support-link">styxproxy.com/contact</a>
-                    </div>
-                    <div class="support-row">
-                        <span class="support-label">Email:</span>
-                        <a href="mailto:support@styxproxy.com" class="support-link">support@styxproxy.com</a>
-                    </div>
-                    <div class="support-row" style="margin-bottom: 0;">
-                        <span class="support-label">Web:</span>
-                        <a href="https://styxproxy.com" class="support-link">styxproxy.com</a>
-                    </div>
-                </div>
-            </div>
-
-            <div class="footer">
-                <div class="footer-auto">This receipt was generated automatically. No signature required.</div>
-                <div class="footer-copyright">© 2026 Styxproxy — Anonymous proxy service for the discerning.</div>
-            </div>
-            <div class="accent-bar-bottom"></div>
-        </div>
-    </div>
-</body>
-</html>"""
-
-    pdf_bytes = _WeasyHTML(string=html).write_pdf()
-    import io as _io
-
-    buffer = _io.BytesIO(pdf_bytes or b"")
-
-    from fastapi.responses import StreamingResponse
-
-    return StreamingResponse(
-        iter([buffer.getvalue()]),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=styxproxy-receipt-{tx_ref}.pdf"},
-    )

@@ -1,12 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { List, X } from '@phosphor-icons/react';
 import Logo from '@/components/Logo';
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [mobileOpen]);
 
   const links = [
     { href: '/products', label: 'Products' },
@@ -45,6 +55,7 @@ export default function Header() {
           <button
             className="lg:hidden p-2 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
             onClick={() => setMobileOpen(o => !o)}
+            aria-expanded={mobileOpen}
             aria-label="Toggle menu"
           >
             {mobileOpen ? <X weight="bold" className="w-6 h-6" /> : <List weight="bold" className="w-6 h-6" />}
@@ -68,7 +79,7 @@ export default function Header() {
               key={l.href}
               href={l.href}
               onClick={() => setMobileOpen(false)}
-              className="text-[var(--foreground)] hover:text-[var(--primary)] hover:bg-[var(--card-hover)] transition-colors py-4 px-4 text-base font-medium rounded-xl"
+              className="text-[var(--foreground)] hover:text-[var(--primary-text)] hover:bg-[var(--card-hover)] transition-colors py-4 px-4 text-base font-medium rounded-xl"
             >
               {l.label}
             </Link>

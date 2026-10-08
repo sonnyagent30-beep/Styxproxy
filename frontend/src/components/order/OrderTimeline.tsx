@@ -34,7 +34,7 @@ export default function OrderTimeline({ steps }: OrderTimelineProps) {
                 step.state === 'pending' ? 'text-[var(--muted)]' : 'text-[var(--foreground)]'
               }`}>{step.label}</p>
               {step.date && (
-                <p className="text-xs text-[var(--muted)]">
+                <p className="text-base text-[var(--muted)]">
                   {new Date(step.date).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' })}
                 </p>
               )}

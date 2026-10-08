@@ -42,7 +42,7 @@ The actual n8n JSON workflow files live here. These are the build artifacts — 
 | Data Alert Escalation | `data-alert.json` | Cron (15 min) | ✅ Built | — |
 | Referral Credit | `referral-credit.json` | Sub-workflow | ✅ Built | — |
 
-**These files do not exist yet.** They need to be built from `workflows/WORKFLOW_SPECS.md`.
+**These workflow files are built and deployed.** They are actively used in production via n8n.
 
 ---
 

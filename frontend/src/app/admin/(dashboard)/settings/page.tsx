@@ -1,11 +1,12 @@
+'use client';
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import type { SystemSetting, SystemSettingsResponse } from '@/types';
+import { useModalAccessibility } from '@/hooks/useModalAccessibility';
 
 export default function SettingsPage() {
   const [data, setData] = useState<SystemSettingsResponse | null>(null);
@@ -21,6 +22,14 @@ export default function SettingsPage() {
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [newType, setNewType] = useState<'string' | 'number' | 'boolean' | 'json'>('string');
+  const [ipAllowlist, setIpAllowlist] = useState<string[]>([]);
+  const [newIp, setNewIp] = useState('');
+  const [ipSaving, setIpSaving] = useState(false);
+  const [ipError, setIpError] = useState('');
+
+  // Modal accessibility hooks
+  const addModal = useModalAccessibility(showAddModal, () => setShowAddModal(false));
+  const confirmModal = useModalAccessibility(showConfirmModal, () => setShowConfirmModal(false));
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -40,6 +49,19 @@ export default function SettingsPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Load IP allowlist from first admin (or current user)
+  useEffect(() => {
+    const loadIpAllowlist = async () => {
+      const result = await api.getAdminMe();
+      if (!result.error && result.data) {
+        // For now, use a default empty allowlist
+        // In a real implementation, you'd have a dedicated endpoint to fetch this
+        setIpAllowlist((result.data as any).allowed_ips || []);
+      }
+    };
+    loadIpAllowlist();
+  }, []);
 
   const handleEdit = (setting: SystemSetting) => {
     setEditingKey(setting.key);
@@ -161,7 +183,7 @@ export default function SettingsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={() => setError('')} className="ml-4 text-red-300 hover:text-white">
             Dismiss
@@ -235,12 +257,87 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* IP Allowlist Section */}
+      <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] overflow-hidden mb-6">
+        <div className="p-4 border-b border-[var(--border)]">
+          <h2 className="text-lg font-bold">IP Allowlist</h2>
+          <p className="text-sm text-[var(--muted)]">Restrict admin access to specific IP addresses. Empty = allow all.</p>
+        </div>
+        <div className="p-4">
+          {ipError && (
+            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm" role="alert">
+              {ipError}
+            </div>
+          )}
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              value={newIp}
+              onChange={(e) => setNewIp(e.target.value)}
+              placeholder="e.g., 192.168.1.1"
+              className="flex-1 px-3 py-2 rounded-lg bg-[var(--background)] border border-[var(--border)] focus:outline-none focus:border-[var(--primary)]"
+            />
+            <button
+              onClick={async () => {
+                if (!newIp.trim()) return;
+                // Basic IP validation
+                const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
+                if (!ipRegex.test(newIp.trim())) {
+                  setIpError('Invalid IP address format');
+                  return;
+                }
+                setIpError('');
+                setIpAllowlist([...ipAllowlist, newIp.trim()]);
+                setNewIp('');
+              }}
+              className="px-4 py-2 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity"
+            >
+              Add IP
+            </button>
+          </div>
+          {ipAllowlist.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">No IPs configured — access from any IP is allowed.</p>
+          ) : (
+            <div className="space-y-2">
+              {ipAllowlist.map((ip, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[var(--background)] border border-[var(--border)]">
+                  <span className="font-mono text-sm">{ip}</span>
+                  <button
+                    onClick={() => setIpAllowlist(ipAllowlist.filter((_, i) => i !== idx))}
+                    className="text-red-400 hover:text-red-300 text-sm"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {ipAllowlist.length > 0 && (
+            <button
+              onClick={async () => {
+                setIpSaving(true);
+                setIpError('');
+                const result = await api.updateIPAllowlist('self', ipAllowlist);
+                if (result.error) {
+                  setIpError(result.error);
+                }
+                setIpSaving(false);
+              }}
+              disabled={ipSaving}
+              className="mt-4 px-4 py-2 rounded-lg bg-[var(--primary)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {ipSaving ? 'Saving...' : 'Save IP Allowlist'}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Add Setting Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)} role="dialog" aria-modal="true" aria-labelledby="add-setting-title" ref={addModal.modalRef} onKeyDown={addModal.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-xl font-bold">Add Setting</h2>
+              <h2 className="text-xl font-bold" id="add-setting-title">Add Setting</h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
@@ -299,10 +396,10 @@ export default function SettingsPage() {
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowConfirmModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowConfirmModal(false)} role="dialog" aria-modal="true" aria-labelledby="confirm-change-title" ref={confirmModal.modalRef} onKeyDown={confirmModal.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-xl font-bold">Confirm Change</h2>
+              <h2 className="text-xl font-bold" id="confirm-change-title">Confirm Change</h2>
             </div>
             <div className="p-6 space-y-4">
               <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">

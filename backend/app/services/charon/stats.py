@@ -107,6 +107,11 @@ class CharonMetrics:
     def mark_request(cls, channel: str = "web") -> None:
         with cls._lock:
             s = cls._stats
+            # Load persisted tokens on first request
+            if s.total_requests == 0 and s.tokens_used_total == 0:
+                persisted = cls._load_tokens()
+                if persisted > 0:
+                    s.tokens_used_total = persisted
             s.total_requests += 1
             s.by_channel[channel or "unknown"] += 1
 
@@ -117,6 +122,14 @@ class CharonMetrics:
             s.successful_replies += 1
             s.tokens_used_total += int(tokens_used or 0)
             # Persist tokens to disk so they survive restarts
+            cls._persist_tokens(s.tokens_used_total)
+
+    @classmethod
+    def record_spend(cls, tokens_used: int) -> None:
+        """Record token spend (alias for mark_success without latency)."""
+        with cls._lock:
+            s = cls._stats
+            s.tokens_used_total += int(tokens_used or 0)
             cls._persist_tokens(s.tokens_used_total)
 
     @classmethod

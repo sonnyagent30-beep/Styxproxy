@@ -144,27 +144,24 @@ async def get_order_payment_status(
         )
         cred = cred_result.scalar_one_or_none()
         if cred:
-            # Decode password (bytea)
-            plaintext_pw = ""
-            if cred.styxproxy_password:
-                plaintext_pw = (
-                    cred.styxproxy_password.decode("utf-8", errors="replace")
-                    if isinstance(cred.styxproxy_password, bytes)
-                    else str(cred.styxproxy_password)
-                )
+            # Decrypt via the model accessor — it handles both Fernet ciphertext
+            # and legacy raw-plaintext rows. Decoding the column directly would
+            # hand the customer a 120-char "gAAAA..." blob as their password.
+            plaintext_pw = cred.get_password() or ""
 
+            proxy_host = cred.upstream_proxy_ip or ""
             credential_payload = PaymentStatusCredential(
                 credential_id=cred.id,
                 styxproxy_username=cred.styxproxy_username,
                 styxproxy_password=plaintext_pw,
-                proxy_host=PROXY_PUBLIC_HOST,
+                proxy_host=proxy_host,
                 proxy_port_socks5=PROXY_PORT_SOCKS5,
                 proxy_port_http=PROXY_PORT_HTTP,
                 protocol=cred.protocol or "socks5",
                 assigned_static_ip=str(cred.assigned_static_ip) if cred.assigned_static_ip else None,
-                curl_socks5_example=build_curl_socks5_example(cred.styxproxy_username, plaintext_pw),
-                curl_http_example=build_curl_http_example(cred.styxproxy_username, plaintext_pw),
-                python_socks5_example=build_python_socks5_example(cred.styxproxy_username, plaintext_pw),
+                curl_socks5_example=build_curl_socks5_example(cred.styxproxy_username, plaintext_pw, proxy_host),
+                curl_http_example=build_curl_http_example(cred.styxproxy_username, plaintext_pw, proxy_host),
+                python_socks5_example=build_python_socks5_example(cred.styxproxy_username, plaintext_pw, proxy_host),
                 manage_url=f"/manage/proxy/{cred.id}",
             )
 

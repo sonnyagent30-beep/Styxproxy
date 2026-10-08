@@ -1,6 +1,6 @@
+'use client';
 
 // eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
-'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/api';
@@ -104,7 +104,7 @@ export default function MaintenanceAdminPage() {
       </div>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm" role="alert">
           {error}
         </div>
       )}

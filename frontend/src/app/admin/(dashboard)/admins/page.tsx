@@ -1,11 +1,12 @@
+'use client';
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import type { Admin, AdminRole } from '@/types';
+import { useModalAccessibility } from '@/hooks/useModalAccessibility';
 
 // Role badge colors
 const roleStyles: Record<AdminRole, { bg: string; text: string; border: string }> = {
@@ -47,6 +48,12 @@ export default function AdminsPage() {
   
   // Toast
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Modal accessibility hooks
+  const inviteModalA11y = useModalAccessibility(showInviteModal, () => setShowInviteModal(false));
+  const roleModalA11y = useModalAccessibility(showRoleModal, () => setShowRoleModal(false));
+  const lockModalA11y = useModalAccessibility(showLockModal, () => setShowLockModal(false));
+  const deactivateModalA11y = useModalAccessibility(showDeactivateModal, () => setShowDeactivateModal(false));
 
   const limit = 20;
 
@@ -166,7 +173,6 @@ export default function AdminsPage() {
   };
 
   // Stats
-  const totalAdmins = admins.length;
   const superadmins = admins.filter(a => a.role === 'superadmin').length;
   const locked = admins.filter(a => a.locked).length;
 
@@ -174,7 +180,7 @@ export default function AdminsPage() {
     <div className="max-w-7xl mx-auto">
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-xl shadow-lg ${
+        <div role="alert" className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-xl shadow-lg ${
           toast.type === 'success' 
             ? 'bg-green-500/20 border border-green-500/30 text-green-400' 
             : 'bg-red-500/20 border border-red-500/30 text-red-400'
@@ -203,7 +209,7 @@ export default function AdminsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={loadAdmins} className="ml-4 text-red-300 hover:text-white">
             Retry
@@ -379,10 +385,10 @@ export default function AdminsPage() {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowInviteModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowInviteModal(false)} role="dialog" aria-modal="true" aria-labelledby="invite-admin-modal-title" ref={inviteModalA11y.modalRef} onKeyDown={inviteModalA11y.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-xl font-bold">Invite Admin</h2>
+              <h2 className="text-xl font-bold" id="invite-admin-modal-title">Invite Admin</h2>
             </div>
             <form onSubmit={handleInvite}>
               <div className="p-6 space-y-4">
@@ -458,10 +464,10 @@ export default function AdminsPage() {
 
       {/* Role Change Modal */}
       {showRoleModal && selectedAdmin && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowRoleModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowRoleModal(false)} role="dialog" aria-modal="true" aria-labelledby="change-role-modal-title" ref={roleModalA11y.modalRef} onKeyDown={roleModalA11y.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-xl font-bold">Change Role</h2>
+              <h2 className="text-xl font-bold" id="change-role-modal-title">Change Role</h2>
               <p className="text-sm text-[var(--muted)]">{selectedAdmin.email}</p>
             </div>
             <div className="p-6 space-y-4">
@@ -503,10 +509,10 @@ export default function AdminsPage() {
 
       {/* Lock/Unlock Modal */}
       {showLockModal && selectedAdmin && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowLockModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowLockModal(false)} role="dialog" aria-modal="true" aria-labelledby="lock-admin-modal-title" ref={lockModalA11y.modalRef} onKeyDown={lockModalA11y.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-xl font-bold">
+              <h2 className="text-xl font-bold" id="lock-admin-modal-title">
                 {selectedAdmin.locked ? 'Unlock Admin' : 'Lock Admin'}
               </h2>
               <p className="text-sm text-[var(--muted)]">{selectedAdmin.email}</p>
@@ -545,10 +551,10 @@ export default function AdminsPage() {
 
       {/* Deactivate Modal */}
       {showDeactivateModal && selectedAdmin && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowDeactivateModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowDeactivateModal(false)} role="dialog" aria-modal="true" aria-labelledby="deactivate-admin-modal-title" ref={deactivateModalA11y.modalRef} onKeyDown={deactivateModalA11y.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="p-6 border-b border-[var(--border)]">
-              <h2 className="text-xl font-bold text-red-400">Deactivate Admin</h2>
+              <h2 className="text-xl font-bold text-red-400" id="deactivate-admin-modal-title">Deactivate Admin</h2>
               <p className="text-sm text-[var(--muted)]">{selectedAdmin.email}</p>
             </div>
             <div className="p-6">

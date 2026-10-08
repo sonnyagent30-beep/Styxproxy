@@ -53,7 +53,7 @@ export default function PostRow({
                 {tags.map((tag) => (
                   <span
                     key={tag}
-                    className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--primary)] text-black"
+                    className="px-2.5 py-1 rounded-full text-xs font-medium bg-[var(--primary)] text-black"
                   >
                     #{tag}
                   </span>
@@ -61,7 +61,7 @@ export default function PostRow({
               </div>
             )}
             <h2
-              className="font-bold text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors leading-[1.05] tracking-[-0.03em] mb-3 text-2xl sm:text-4xl md:text-5xl max-w-3xl"
+              className="font-bold text-[var(--foreground)] group-hover:text-[var(--primary-text)] transition-colors leading-[1.05] tracking-[-0.03em] mb-3 text-2xl sm:text-4xl md:text-5xl max-w-3xl"
               style={{ textWrap: 'balance' }}
             >
               {post.title}
@@ -70,7 +70,7 @@ export default function PostRow({
               {post.excerpt}
             </p>
             <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-              <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-[11px] flex-shrink-0">
+              <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-xs flex-shrink-0">
                 {(post.display_author || post.author)?.charAt(0)}
               </div>
               <span className="font-medium text-[var(--foreground)]">{post.display_author || post.author}</span>
@@ -107,7 +107,7 @@ export default function PostRow({
               </div>
             )}
             <h2
-              className="font-bold text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors leading-[1.15] tracking-[-0.02em] mb-3 text-2xl sm:text-3xl md:text-4xl line-clamp-3"
+              className="font-bold text-[var(--foreground)] group-hover:text-[var(--primary-text)] transition-colors leading-[1.15] tracking-[-0.02em] mb-3 text-2xl sm:text-3xl md:text-4xl line-clamp-3"
               style={{ textWrap: 'balance' }}
             >
               {post.title}
@@ -116,7 +116,7 @@ export default function PostRow({
               {post.excerpt}
             </p>
             <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-              <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-[11px] flex-shrink-0">
+              <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-xs flex-shrink-0">
                 {(post.display_author || post.author)?.charAt(0)}
               </div>
               <span className="font-medium text-[var(--foreground)]">{post.display_author || post.author}</span>
@@ -148,14 +148,14 @@ export default function PostRow({
           </div>
           <div className="flex-1 min-w-0">
             {tags.length > 0 && (
-              <span className="text-[10px] font-medium text-[var(--primary)] uppercase tracking-wider">
+              <span className="text-xs font-medium text-[var(--primary-text)] uppercase tracking-wider">
                 {tags[0]}
               </span>
             )}
-            <h3 className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors line-clamp-2 leading-snug mb-1 mt-1">
+            <h3 className="text-sm font-semibold text-[var(--foreground)] group-hover:text-[var(--primary-text)] transition-colors line-clamp-2 leading-snug mb-1 mt-1">
               {post.title}
             </h3>
-            <div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)]">
+            <div className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
               <span>{post.display_author || post.author}</span>
               <span>·</span>
               <span>{readTime} min</span>
@@ -193,7 +193,7 @@ export default function PostRow({
             </div>
           )}
           <h2
-            className="font-bold text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors leading-[1.15] tracking-[-0.02em] mb-3 text-xl sm:text-2xl md:text-3xl line-clamp-3"
+            className="font-bold text-[var(--foreground)] group-hover:text-[var(--primary-text)] transition-colors leading-[1.15] tracking-[-0.02em] mb-3 text-xl sm:text-2xl md:text-3xl line-clamp-3"
             style={{ textWrap: 'balance' }}
           >
             {post.title}
@@ -202,7 +202,7 @@ export default function PostRow({
             {post.excerpt}
           </p>
           <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-            <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-[11px] flex-shrink-0">
+            <div className="w-7 h-7 rounded-full bg-[var(--primary)] flex items-center justify-center text-black font-bold text-xs flex-shrink-0">
               {(post.display_author || post.author)?.charAt(0)}
             </div>
             <span className="font-medium text-[var(--foreground)]">{post.display_author || post.author}</span>

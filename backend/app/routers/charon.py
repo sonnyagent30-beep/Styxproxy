@@ -25,13 +25,13 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import csv
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text, func, case
 
 from app.auth import decode_access_token, verify_admin_token
@@ -39,6 +39,11 @@ from app.database import async_session
 from app.limiter import limiter, customer_limiter
 from app.services.charon import agent
 from app.services.charon.agent import Message
+from app.services.charon.credential_guard import (
+    CharonTextGuard,
+    inspect_text,
+    redact_mapping,
+)
 from app.services.charon.knowledge import invalidate_cache
 from app.services.charon.stats import CharonMetrics
 from app.services.email import send_charon_escalation_email
@@ -123,12 +128,97 @@ class ChatMessage(BaseModel):
 
 
 class ChatReplyRequest(BaseModel):
+    # `channel` is a LABEL, not a payload. It arrives from machine callers
+    # (n8n, the fulfillment worker) where a mapping that yields nothing renders
+    # as JSON `null` — and an explicit `null` on a non-optional `str` is a hard
+    # 422. That is exactly what broke the n8n "Call Charon" node on every run
+    # that carried a null: `{"loc":["body","channel"],"msg":"Input should be a
+    # valid string","input":null}`. A default only applies when the key is
+    # ABSENT, so `default="web"` never helped here.
+    #
+    # Losing a channel label must never reject a notification. Coerce any
+    # null/blank value to "web" rather than failing the request.
     channel: str = Field(default="web", description="Channel label: web|telegram|whatsapp|internal.")
     conversation_id: Optional[str] = Field(default=None)
     user_message: str = Field(..., min_length=1, max_length=4000)
     history: list[ChatMessage] = Field(default_factory=list)
     customer_email: Optional[str] = Field(default=None, description="Customer email for escalation notifications")
     customer_phone: Optional[str] = Field(default=None, description="Customer phone for escalation notifications")
+    customer_name: Optional[str] = Field(default=None, description="Customer name for escalation notifications")
+    page_context: Optional[dict] = Field(default=None, description="Page context for escalation notifications")
+    channel_user_id: Optional[str] = Field(default=None, description="Channel user ID for tool authorization (e.g. device ID for web)")
+
+    @field_validator("channel", mode="before")
+    @classmethod
+    def _coerce_channel(cls, v: Any) -> str:
+        """Treat a missing/null/blank channel as the default 'web'."""
+        if v is None:
+            return "web"
+        if isinstance(v, str) and not v.strip():
+            return "web"
+        return v
+
+
+def _screen_inbound_text(payload: ChatReplyRequest) -> CharonTextGuard:
+    """Refuse machine credential deliveries; redact anything else, in place.
+
+    `user_message` is the CUSTOMER CHAT PROMPT, and everything downstream of it
+    is both at rest and in flight to a third-party LLM: `agent.reply()`
+    persists it to `charon_messages` (agent.py `_persist_message`) and appends it
+    to the `messages` list that `llm.py` POSTs to api.longcat.ai. This handler
+    additionally embeds it verbatim in the escalation email body below.
+
+    So the value is screened ONCE here and the payload is MUTATED, rather than
+    screening only the argument passed to `agent.reply()`. Anything that reads
+    `payload.user_message` / `payload.history` / `payload.page_context` later in
+    this function — the escalation email, the assistant persist, the stream
+    variant — then gets the screened text by construction instead of by
+    remembering to screen it a second time.
+
+    422 (not 400) for the machine-bundle case, so an n8n execution carrying
+    credentials goes visibly red instead of being reported as a successful
+    notification. Verified live: fulfillment is already unconditional email and
+    the n8n call is a best-effort notification fired AFTER delivery
+    (`app/scripts/fulfillment_worker.py`), so refusing it cannot cost a customer
+    their credentials.
+    """
+    guard = inspect_text(payload.user_message)
+    if guard.must_reject:
+        logger.error(
+            "refused a machine credential-delivery payload on /charon/reply: "
+            "labels=%s channel=%s. This endpoint persists to charon_messages and "
+            "forwards to an external LLM provider — deliver credentials by email "
+            "or an admin-authenticated channel, never here.",
+            sorted(guard.secret_labels),
+            payload.channel,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "This endpoint is a customer chat surface and cannot be used to "
+                "deliver credentials. It stores messages and forwards them to an "
+                "AI provider."
+            ),
+        )
+
+    if guard.has_secret:
+        logger.warning(
+            "redacted labelled secret value(s) from a Charon user_message "
+            "before persisting/forwarding: labels=%s channel=%s",
+            sorted(guard.secret_labels),
+            payload.channel,
+        )
+        payload.user_message = guard.redacted
+
+    for message in payload.history:
+        screened = inspect_text(message.content)
+        if screened.has_secret:
+            message.content = screened.redacted
+
+    if payload.page_context:
+        payload.page_context = redact_mapping(payload.page_context)
+
+    return guard
 
 
 class ToolCallRecord(BaseModel):
@@ -168,6 +258,7 @@ class CharonLogEntry(BaseModel):
 
 
 @router.post("/reply", response_model=ChatReplyResponse)
+@limiter.limit("30/minute")
 async def post_reply(
     payload: ChatReplyRequest,
     request: Request,
@@ -196,6 +287,9 @@ async def post_reply(
             detail="user_message cannot be empty",
         )
 
+    # Before ANY downstream use: persistence, LLM call, escalation email.
+    _screen_inbound_text(payload)
+
     from app.services.charon.stats import CharonMetrics
 
     # Check daily cost budget before spending any tokens
@@ -218,6 +312,11 @@ async def post_reply(
         conversation_id=payload.conversation_id or "",
         user_message=payload.user_message,
         history=history,
+        customer_email=payload.customer_email,
+        customer_phone=payload.customer_phone,
+        customer_name=payload.customer_name,
+        channel_user_id=payload.channel_user_id,
+        page_context=payload.page_context,
     )
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -233,15 +332,66 @@ async def post_reply(
     if result.scenario_id and not result.error:
         CharonMetrics.mark_scenario_hit(result.scenario_id)
 
-    # Send escalation email if the conversation was escalated
+    # Send enhanced escalation email if the conversation was escalated
     if result.escalated and (payload.customer_email or payload.customer_phone):
-        # Build history summary for the email
-        history_summary = "\n".join(f"{m.role}: {m.content[:200]}" for m in history[-5:])
+        # Build full conversation context (last 10 messages) for the email
+        history_lines = []
+        for m in history[-10:]:
+            role_label = m.role.capitalize()
+            content_preview = m.content[:500] if len(m.content) > 500 else m.content
+            history_lines.append(f"[{role_label}]: {content_preview}")
+        history_summary = "\n".join(history_lines) if history_lines else "(no prior messages)"
+
+        # Build customer info block
+        customer_info_parts = []
+        if payload.customer_name:
+            customer_info_parts.append(f"Name: {payload.customer_name}")
+        if payload.customer_email:
+            customer_info_parts.append(f"Email: {payload.customer_email}")
+        if payload.customer_phone:
+            customer_info_parts.append(f"Phone: {payload.customer_phone}")
+        customer_info = "\n".join(customer_info_parts) if customer_info_parts else "Not provided"
+
+        # Build page context block
+        page_ctx_str = ""
+        if payload.page_context:
+            page_ctx_str = "\n".join(f"  {k}: {v}" for k, v in payload.page_context.items())
+        else:
+            page_ctx_str = "  (none)"
+
+        # Determine escalation reason
+        escalation_reason = result.error or "LLM could not resolve the query"
+
+        # Build enhanced email body
+        enhanced_body = f"""Charon Escalation Alert
+
+CONVERSATION ID: {payload.conversation_id or "unknown"}
+CHANNEL: {payload.channel}
+
+─── CUSTOMER INFO ───
+{customer_info}
+
+─── PAGE CONTEXT ───
+{page_ctx_str}
+
+─── ESCALATION REASON ───
+{escalation_reason}
+
+─── LATEST USER MESSAGE ───
+{payload.user_message}
+
+─── CONVERSATION HISTORY (last 10 messages) ───
+{history_summary}
+
+---
+This is an automated alert from Styxproxy's Charon AI assistant.
+Please follow up with the customer within 2 hours.
+"""
         await send_charon_escalation_email(
             conversation_id=payload.conversation_id or "unknown",
             customer_email=payload.customer_email,
             customer_phone=payload.customer_phone,
-            message=payload.user_message,
+            message=enhanced_body,
             history_summary=history_summary,
         )
     
@@ -274,6 +424,231 @@ async def post_reply(
     )
 
 
+@router.post("/reply/stream")
+@limiter.limit("20/minute")
+async def post_reply_stream(
+    payload: ChatReplyRequest,
+    request: Request,
+    _public: None = Depends(public_only),
+):
+    """SSE streaming chat reply.
+
+    Calls agent.reply() and streams the response as Server-Sent Events.
+    If the LLM supports native streaming (stream_llm in llm.py), uses it.
+    Otherwise, simulates streaming by splitting the full response into chunks.
+    """
+    # Per-customer rate limit
+    allowed, remaining, reset = await customer_limiter.check(request)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded. Try again in {reset} seconds.",
+            headers={"Retry-After": str(reset)},
+        )
+
+    if not payload.user_message.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="user_message cannot be empty",
+        )
+
+    # Same screen as /reply. The streaming variant is a separate handler with its
+    # own agent.reply() call and its own escalation-email block, so screening only
+    # the non-streaming one would leave an identical hole on a sibling route.
+    _screen_inbound_text(payload)
+
+    # Check daily cost budget
+    budget_allowed, spend, budget = CharonMetrics.check_budget()
+    if not budget_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Charon daily budget exhausted ({spend:.4f}/{budget:.4f} USD). Resets at midnight.",
+        )
+
+    CharonMetrics.mark_request(payload.channel)
+
+    history = [
+        Message(role=m.role, content=m.content) for m in payload.history if m.role in ("system", "user", "assistant")
+    ]
+
+    # Check if native LLM streaming is available
+    from app.services.charon.llm import stream_llm
+
+    async def event_generator():
+        """Yield SSE events: data: {"delta": "chunk"} and data: {"done": true}."""
+        try:
+            # Try native streaming first
+            llm_stream = stream_llm(
+                messages=[{"role": "user", "content": payload.user_message}],
+                max_tokens=500,
+            )
+            got_chunks = False
+            async for chunk in llm_stream:
+                got_chunks = True
+                yield f'data: {json.dumps({"delta": chunk})}\n\n'
+
+            if got_chunks:
+                yield f'data: {json.dumps({"done": True})}\n\n'
+                return
+
+            # Fallback: get full response and simulate streaming
+            result = await agent.reply(
+                channel=payload.channel,
+                conversation_id=payload.conversation_id or "",
+                user_message=payload.user_message,
+                history=history,
+                customer_email=payload.customer_email,
+                customer_phone=payload.customer_phone,
+                customer_name=payload.customer_name,
+                channel_user_id=payload.channel_user_id,
+                page_context=payload.page_context,
+            )
+
+            # Record metrics
+            if result.escalated:
+                CharonMetrics.mark_escalated(reason=result.error or "scenario_escalate")
+            if result.error:
+                CharonMetrics.mark_llm_error(result.error)
+            elif result.tokens_used:
+                CharonMetrics.mark_success(result.tokens_used, 0)
+                CharonMetrics.record_spend(result.tokens_used)
+
+            # Send escalation email if needed
+            if result.escalated and (payload.customer_email or payload.customer_phone):
+                history_lines = []
+                for m in history[-10:]:
+                    role_label = m.role.capitalize()
+                    content_preview = m.content[:500] if len(m.content) > 500 else m.content
+                    history_lines.append(f"[{role_label}]: {content_preview}")
+                history_summary = "\n".join(history_lines) if history_lines else "(no prior messages)"
+
+                customer_info_parts = []
+                if payload.customer_name:
+                    customer_info_parts.append(f"Name: {payload.customer_name}")
+                if payload.customer_email:
+                    customer_info_parts.append(f"Email: {payload.customer_email}")
+                if payload.customer_phone:
+                    customer_info_parts.append(f"Phone: {payload.customer_phone}")
+                customer_info = "\n".join(customer_info_parts) if customer_info_parts else "Not provided"
+
+                page_ctx_str = ""
+                if payload.page_context:
+                    page_ctx_str = "\n".join(f"  {k}: {v}" for k, v in payload.page_context.items())
+                else:
+                    page_ctx_str = "  (none)"
+
+                escalation_reason = result.error or "LLM could not resolve the query"
+
+                enhanced_body = f"""Charon Escalation Alert
+
+CONVERSATION ID: {payload.conversation_id or "unknown"}
+CHANNEL: {payload.channel}
+
+─── CUSTOMER INFO ───
+{customer_info}
+
+─── PAGE CONTEXT ───
+{page_ctx_str}
+
+─── ESCALATION REASON ───
+{escalation_reason}
+
+─── LATEST USER MESSAGE ───
+{payload.user_message}
+
+─── CONVERSATION HISTORY (last 10 messages) ───
+{history_summary}
+
+---
+This is an automated alert from Styxproxy's Charon AI assistant.
+Please follow up with the customer within 2 hours.
+"""
+                await send_charon_escalation_email(
+                    conversation_id=payload.conversation_id or "unknown",
+                    customer_email=payload.customer_email,
+                    customer_phone=payload.customer_phone,
+                    message=enhanced_body,
+                    history_summary=history_summary,
+                )
+
+            # Persist assistant message
+            await agent._persist_message(
+                payload.conversation_id or "unknown",
+                payload.channel,
+                "assistant",
+                result.text,
+                tool_calls=result.tool_calls,
+                tokens_used=result.tokens_used,
+            )
+
+            # Simulate streaming by splitting into chunks
+            full_text = result.text
+            chunk_size = max(1, len(full_text) // 20)  # ~20 chunks
+            for i in range(0, len(full_text), chunk_size):
+                chunk = full_text[i:i + chunk_size]
+                if chunk:
+                    yield f'data: {json.dumps({"delta": chunk})}\n\n'
+                    await asyncio.sleep(0.05)  # Small delay for visual effect
+
+            yield f'data: {json.dumps({"done": True})}\n\n'
+
+        except Exception as e:
+            logger.error(f"Streaming error: {e}", exc_info=True)
+            yield f'data: {json.dumps({"error": str(e)})}\n\n'
+            yield f'data: {json.dumps({"done": True})}\n\n'
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/trigger-proactive")
+async def trigger_proactive(request: Request):
+    """Trigger proactive outreach based on page events.
+
+    Calls agent.check_proactive_triggers() to determine if a proactive
+    message should be shown to the user based on their browsing behavior.
+    """
+    _public: None = Depends(public_only)
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON body",
+        )
+
+    session_id = body.get("session_id", "")
+    page_url = body.get("page_url", "")
+    trigger_type = body.get("trigger_type", "")
+    metadata = body.get("metadata", {})
+
+    if not session_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="session_id is required",
+        )
+
+    # Import check_proactive_triggers from agent
+    from app.services.charon.agent import check_proactive_triggers
+
+    result = await check_proactive_triggers(
+        session_id=session_id,
+        page_url=page_url,
+        trigger_type=trigger_type,
+        metadata=metadata,
+    )
+
+    return {"ok": True, "result": result}
+
+
 @router.get("/health")
 async def health():
     """Liveness check. Always returns ok unless the route is fully down."""
@@ -282,7 +657,7 @@ async def health():
 
     from app.services.charon import scenarios
 
-    cloud_key_set = bool(os.getenv("GROQ_API_KEY") or os.getenv("DEEPINFRA_API_KEY"))
+    cloud_key_set = bool(os.getenv("LONGCAT_API_KEY"))
     CharonMetrics.llm_configured(cloud_key_set)
 
     s = CharonMetrics.get()
@@ -309,6 +684,14 @@ async def health():
     }
 
 
+@router.post("/reindex")
+async def reindex_knowledge():
+    """Force a full reindex of the knowledge base (files + blog posts + embeddings)."""
+    from app.services.charon.knowledge import reindex
+    stats = reindex()
+    return {"ok": True, **stats}
+
+
 @router.get("/_internal/stats")
 async def _internal_stats():
     """Detailed Charon stats. Unauthenticated but obscure URL.
@@ -320,7 +703,25 @@ async def _internal_stats():
 
 
 def _read_logs(limit: int = 1000) -> list[dict]:
-    """Read logs from the JSONL file."""
+    """Read logs from the JSONL file.
+
+    Every string is screened on the way OUT, not only on the way in. These two
+    reasons are independent and both are live:
+
+      1. Future writes. `agent._persist_log` records `user_message`, and the
+         ingress guard in `post_reply` now redacts before that — but the log
+         writer is a separate path and a non-HTTP caller reaches it too.
+      2. The 17 rows ALREADY on disk. Redacting on write does not touch history.
+         `/tmp/charon.log` holds real `Password: ...` lines from 2026-09-30 to
+         2026-10-01, and `GET /api/v1/charon/logs` and
+         `GET /api/v1/charon/conversations` are UNAUTHENTICATED and return that
+         text verbatim — verified live, HTTP 200 with no credentials, leaking
+         `Username: sty_e2e / Password: pw` to any caller on the internet.
+
+    So screening at the read boundary is what actually closes the exposure for
+    the rows that are already persisted, and it also means a future writer that
+    forgets to screen cannot create a new disclosure.
+    """
     logs = []
     if not os.path.exists(CHARON_LOG_PATH):
         return logs
@@ -334,7 +735,7 @@ def _read_logs(limit: int = 1000) -> list[dict]:
                 continue
     except OSError:
         pass
-    return logs
+    return [redact_mapping(log) for log in logs]
 
 
 def _get_conversations() -> list[ConversationSummary]:
@@ -486,8 +887,11 @@ def _install_event_hook():
 
     def hooked_persist(ctx: dict):
         original_persist(ctx)
-        # Broadcast to SSE subscribers
-        asyncio.create_task(_broadcast_event("charon.log", ctx))
+        # Broadcast to SSE subscribers. Screened here too, and independently of
+        # the write above: `GET /api/v1/charon/stream` is an SSE endpoint with no
+        # `public_only` dependency and no auth at all, so the raw `ctx` would go
+        # straight to any caller who opens the stream.
+        asyncio.create_task(_broadcast_event("charon.log", redact_mapping(ctx)))
 
     agent_module._persist_log = hooked_persist
 
@@ -535,7 +939,9 @@ def _sanitize_filename(name: str) -> str:
 
 
 @router.post("/learn", response_model=LearnResponse)
+@limiter.limit("5/hour")
 async def post_learn(
+    request: Request,
     payload: LearnRequest,
     _public: None = Depends(public_only),
 ):

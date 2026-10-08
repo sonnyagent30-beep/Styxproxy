@@ -9,24 +9,68 @@ from app.services.audit import log_audit_event
 from datetime import datetime, timedelta
 
 
-# ─── Flutterwave ───────────────────────────────────────────────
+# ─── Flutterwave ───────────────────────────────────────────────────────
+# VOID — kanban t_604d405d. These tests are NOT failing; they are worthless.
+#
+# Each signs a payload with a hardcoded literal secret and verifies it against
+# that same literal. That is a tautology: it can only ever confirm that HMAC-SHA256
+# agrees with itself. It cannot fail when the secret configured on the platform
+# differs from the one on the gateway — the only mismatch that matters — so these
+# tests stayed green through a secret that was known to be wrong.
+#
+# They are kept, un-xfailed, because they still exercise the HMAC comparison
+# itself (including the tamper case). What they must NOT be read as: evidence
+# that webhook signature verification is wired to the real configured secret.
+#
+# Replacement coverage that DOES read the configured secret, and would fail on a
+# rotation mismatch, lives in tests/test_flutterwave_webhook_contract.py.
 class TestVerifyFlutterwaveSignature:
-    def test_valid_signature(self):
+    """VOID as proof of a working configured secret — see t_604d405d.
+
+    Updated for the v3/v4 dual-scheme verifier (kanban t_f8726317).
+    """
+
+    def test_valid_v3_verbatim(self):
+        """v3: Verif-Hash is the secret verbatim."""
         payload = b'{"event":"charge.completed"}'
         secret = "my_webhook_secret"
-        sig = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-        assert verify_flutterwave_signature(payload, sig, secret) is True
+        assert verify_flutterwave_signature(payload, verif_hash=secret, secret=secret) is True
 
-    def test_invalid_signature(self):
-        payload = b'{"event":"charge.completed"}'
-        assert verify_flutterwave_signature(payload, "wrong_sig", "secret") is False
-
-    def test_tampered_payload(self):
+    def test_valid_v4_base64_hmac(self):
+        """v4: flutterwave-signature is base64 HMAC-SHA256."""
+        import base64
         payload = b'{"event":"charge.completed"}'
         secret = "my_webhook_secret"
-        sig = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+        sig = base64.b64encode(
+            hmac.new(secret.encode(), payload, hashlib.sha256).digest()
+        ).decode()
+        assert verify_flutterwave_signature(payload, flutterwave_signature=sig, secret=secret) is True
+
+    def test_invalid_v3_wrong_secret(self):
+        payload = b'{"event":"charge.completed"}'
+        assert verify_flutterwave_signature(payload, verif_hash="wrong_secret", secret="secret") is False
+
+    def test_invalid_v4_wrong_secret(self):
+        import base64
+        payload = b'{"event":"charge.completed"}'
+        sig = base64.b64encode(
+            hmac.new(b"wrong_secret", payload, hashlib.sha256).digest()
+        ).decode()
+        assert verify_flutterwave_signature(payload, flutterwave_signature=sig, secret="secret") is False
+
+    def test_missing_both_headers(self):
+        payload = b'{"event":"charge.completed"}'
+        assert verify_flutterwave_signature(payload, secret="secret") is False
+
+    def test_tampered_payload_v4(self):
+        import base64
+        payload = b'{"event":"charge.completed"}'
+        secret = "my_webhook_secret"
+        sig = base64.b64encode(
+            hmac.new(secret.encode(), payload, hashlib.sha256).digest()
+        ).decode()
         tampered = b'{"event":"charge.failed"}'
-        assert verify_flutterwave_signature(tampered, sig, secret) is False
+        assert verify_flutterwave_signature(tampered, flutterwave_signature=sig, secret=secret) is False
 
 
 # ─── Credential ──────────────────────────────────────────────────

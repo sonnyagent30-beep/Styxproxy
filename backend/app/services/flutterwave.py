@@ -1,25 +1,63 @@
 """Flutterwave service for payment processing."""
 
+import base64
 import hashlib
 import hmac
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 
 from app.config import get_settings
-from app.services.credential import create_credential
+from app.services.capture import (
+    GATEWAY_STATUS_REFUNDED,
+    GATEWAY_STATUS_SUCCESS,
+    UNIT_MAJOR,
+    CaptureContractError,
+    gateway_captured_at,
+    record_capture,
+)
+from app.services.credential import create_credential, resolve_country_for_credential
+from app.services.credential_delivery import resolve_customer_email
 from app.services.n8n import trigger_credentials_delivered_webhook
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-def verify_flutterwave_signature(payload: bytes, signature: str, secret: str) -> bool:
-    computed = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(computed, signature)
+def verify_flutterwave_signature(
+    payload: bytes,
+    verif_hash: Optional[str] = None,
+    flutterwave_signature: Optional[str] = None,
+    secret: str = "",
+) -> bool:
+    """Verify Flutterwave webhook signature.
+
+    Supports two schemes:
+    - v3: ``Verif-Hash`` header contains the dashboard secret verbatim.
+    - v4: ``flutterwave-signature`` header contains base64 HMAC-SHA256 of the raw body.
+
+    Returns True if either scheme matches. Returns False if neither header is
+    present or both fail verification.
+    """
+    # v3 scheme — Verif-Hash is the secret verbatim
+    if verif_hash is not None:
+        if hmac.compare_digest(verif_hash, secret):
+            logger.info("Flutterwave signature verified via v3 (Verif-Hash verbatim)")
+            return True
+
+    # v4 scheme — flutterwave-signature is base64 HMAC-SHA256
+    if flutterwave_signature is not None:
+        computed = base64.b64encode(
+            hmac.new(secret.encode(), payload, hashlib.sha256).digest()
+        ).decode()
+        if hmac.compare_digest(computed, flutterwave_signature):
+            logger.info("Flutterwave signature verified via v4 (base64 HMAC-SHA256)")
+            return True
+
+    return False
 
 
 async def is_webhook_processed(db_session, event_id: str) -> bool:
@@ -97,6 +135,11 @@ async def create_flutterwave_invoice(
         try:
             json_body: dict[str, Any] = {
                 "tx_ref": tx_ref,
+                # Flutterwave v3 (`POST /v3/payments`) takes `amount` in the MAJOR
+                # unit of `currency` — NGN naira, NOT kobo. Multiplying here made a
+                # N5,000 order render as N500,000 on the Flutterwave checkout page.
+                # (Paystack is the opposite: its `amount` IS the subunit/kobo. Do not
+                # "fix" paystack.py to match this file — see the comment there.)
                 "amount": amount,
                 "currency": currency,
                 # Omit obviously-synthetic anonymous placeholder phones — FW rejects them.
@@ -108,7 +151,7 @@ async def create_flutterwave_invoice(
                     "description": description or "Proxy service payment",
                 },
                 # FW v3 requires `redirect_url` (it ignores callback_url).
-                "redirect_url": (callback_url or "https://styxproxy.com/thank-you") + f"?tx_ref={tx_ref}",
+                "redirect_url": (callback_url or "https://styxproxy.com/thank-you") + (f"?tx_ref={tx_ref}" if "?" not in (callback_url or "") else f"&tx_ref={tx_ref}"),
             }
             if payload_meta:
                 json_body["meta"] = payload_meta
@@ -123,10 +166,21 @@ async def create_flutterwave_invoice(
             )
             response.raise_for_status()
             data = response.json()
+            fw_data = data.get("data", {}) or {}
             return {
-                "payment_id": data.get("data", {}).get("id"),
-                "checkout_url": data.get("data", {}).get("link"),
-                "tx_ref": tx_ref,
+                "payment_id": fw_data.get("id"),
+                "checkout_url": fw_data.get("link"),
+                # Echo the gateway's own reference back so the caller persists
+                # what was actually charged, not just what was requested.
+                "tx_ref": fw_data.get("tx_ref") or tx_ref,
+                "provider_order_id": (
+                    str(fw_data["id"]) if fw_data.get("id") is not None else None
+                ),
+                # The gateway's OWN amount + currency. Flutterwave v3 reports the
+                # MAJOR unit (NGN), the opposite of Paystack's kobo — the caller
+                # is told which by persisting with UNIT_MAJOR.
+                "gateway_amount": fw_data.get("amount"),
+                "gateway_currency": fw_data.get("currency"),
             }
         except httpx.HTTPError as e:
             from app.services.audit import log_audit_event
@@ -183,7 +237,26 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
 
             # ── Step 2: Mark order paid ────────────────────────────────────────
             order.status = "paid"
+            # amount_paid_ngn is the INVOICE amount — populated on every row,
+            # including cancelled/expired/refunded ones. It is never evidence of
+            # payment. The capture record written below is.
             order.amount_paid_ngn = data.get("amount")
+            # Flutterwave v3 webhooks report `amount` in the MAJOR unit (NGN),
+            # identical to what we POST to /v3/payments. Do NOT divide by 100
+            # here. Corroborated in production by order ORD-8C637M: a N2,500
+            # order sent as 250000 landed as amount_paid_ngn=250000, i.e. the
+            # webhook echoed the major unit we charged.
+            record_capture(
+                order,
+                provider="flutterwave",
+                gateway_status=GATEWAY_STATUS_SUCCESS,
+                gateway_amount=data.get("amount"),
+                amount_unit=UNIT_MAJOR,
+                gateway_reference=tx_ref,
+                gateway_currency=data.get("currency"),
+                gateway_transaction_id=data.get("id"),
+                captured_at=gateway_captured_at(data),
+            )
             await db_session.commit()
 
             # ── Step 3: Attempt fulfillment ────────────────────────────────────
@@ -194,7 +267,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                     order_id=order.order_id,
                     customer_phone=order.customer_phone or "",
                     plan_code=order.plan_code or "unknown",
-                    country=order.country or "NG",
+                    country=resolve_country_for_credential(order.country),
                     proxy_type="isp",
                     quantity=1,
                     duration_days=30,
@@ -205,26 +278,27 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                 order.status = "fulfilled"
                 await db_session.commit()
 
-                if credential.expires_at:
-                    await trigger_credentials_delivered_webhook(
-                        order_id=order.order_id,
-                        tx_ref=tx_ref,
-                        phone=order.customer_phone or "",
-                        channel="web",
-                        bun_username=credential.styxproxy_username,
-                        bun_password=plaintext_password,
-                        proxy_ip=credential.upstream_proxy_ip or "",
-                        proxy_port=credential.upstream_proxy_port or 1080,
-                        expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
-                    )
+                # ── Deliver the credential ────────────────────────────────
+                # Email is the delivery channel and is attempted unconditionally.
+                # The n8n webhook is fired afterwards as a notification and its
+                # result is recorded, never obeyed — see the same fix in
+                # app/scripts/fulfillment_worker.py for the full rationale. The
+                # short version: the live workflow has no send node, so a "success"
+                # from it means nothing was delivered, and gating email on it made
+                # the only working channel unreachable.
+                #
+                # This inline path runs when the RQ enqueue fails, so it is the
+                # path taken when the worker is down. It had the same wrong email
+                # source as the worker (event_data["customer"]["email"], the
+                # Flutterwave shape only) and would have silently delivered nothing
+                # for a Paystack order.
+                customer_email, email_source = resolve_customer_email(order, event_data)
 
-                # ── Deliver credentials via email if customer provided one ──
-                customer_email = event_data.get("customer", {}).get("email")
                 if customer_email:
                     try:
                         from app.services.email import send_order_active_email
 
-                        await send_order_active_email(
+                        email_result = await send_order_active_email(
                             customer_email=customer_email,
                             customer_name=customer_email.split("@")[0],
                             order_id=order.order_id,
@@ -233,19 +307,53 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                             amount=order.amount_paid_ngn or 0,
                             currency="NGN",
                             quantity=1,
-                            bun_username=credential.styxproxy_username,
-                            bun_password=plaintext_password,
+                            styxproxy_username=credential.styxproxy_username,
+                            styxproxy_password=plaintext_password,
                             proxy_ip=credential.upstream_proxy_ip or "",
                             proxy_port=credential.upstream_proxy_port or 1080,
                             protocol="socks5",
                             expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                            receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
                         )
-                        logger.info("Order email sent to %s", customer_email)
+                        if email_result.success:
+                            logger.info("Order email sent to %s (via %s)", customer_email, email_source)
+                        else:
+                            logger.error(
+                                "Order email REJECTED by provider to %s: %s",
+                                customer_email,
+                                email_result.error,
+                            )
                     except Exception as email_err:
                         logger.error(
                             "Failed to send order email to %s: %s",
                             customer_email,
                             email_err,
+                        )
+                else:
+                    logger.error(
+                        "NO DELIVERABLE EMAIL — order fulfilled and credentials minted, "
+                        "but the customer cannot be reached (source=%s). Manual delivery required.",
+                        email_source,
+                    )
+
+                if credential.expires_at:
+                    try:
+                        await trigger_credentials_delivered_webhook(
+                            order_id=order.order_id,
+                            tx_ref=tx_ref,
+                            phone=order.customer_phone or "",
+                            channel="web",
+                            styxproxy_username=credential.styxproxy_username,
+                            styxproxy_password=plaintext_password,
+                            proxy_ip=credential.upstream_proxy_ip or "",
+                            proxy_port=credential.upstream_proxy_port or 1080,
+                            expires_at=credential.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                            receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
+                        )
+                        logger.info("n8n notified for order %s", order.order_id)
+                    except Exception as n8n_err:
+                        logger.warning(
+                            "n8n notification raised — delivery is unaffected: %s", n8n_err
                         )
 
             except RuntimeError as e:
@@ -313,14 +421,94 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                         order_id=order.order_id,
                         details={"reason": fulfillment_error, "tx_ref": tx_ref},
                     )
+                    # Route the auto-refund through the SAME dispatch the admin
+                    # path uses (services/refunds.py). This block used to call
+                    # _flutterwave_refund directly, discard the response, and
+                    # then flip order.status = "refunded" — so an auto-refund
+                    # left no refund id anywhere and could not be reconciled.
+                    # It also hardcoded Flutterwave regardless of the order's
+                    # actual provider. refund_at_gateway() dispatches on
+                    # order.provider, raises unless the gateway confirms, and
+                    # returns the gateway's own refund id.
                     try:
-                        await _flutterwave_refund(tx_ref, data.get("amount", 0), settings.flutterwave_secret_key)
+                        from app.services.refunds import refund_at_gateway
+
+                        result = await refund_at_gateway(
+                            order,
+                            reason=f"Auto-refund: provider unavailable — {fulfillment_error}",
+                            # An auto-refund refunds what the gateway actually
+                            # charged, which this webhook just recorded on the
+                            # order. Fall back to the webhook payload amount
+                            # rather than the invoice amount.
+                            amount_ngn=(
+                                float(order.gateway_amount_ngn)
+                                if order.gateway_amount_ngn is not None
+                                else (float(data["amount"]) if data.get("amount") else None)
+                            ),
+                        )
+                        # Gateway confirmed. Only NOW is the order refunded.
+                        order.gateway_refund_id = result.gateway_refund_id
+                        order.gateway_refund_status = result.gateway_status
+                        order.gateway_refund_amount = result.amount_ngn
+                        order.gateway_refunded_at = datetime.now(timezone.utc)
                         order.status = "refunded"
                         order.refund_requested = True
                         order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
+                        try:
+                            record_capture(
+                                order,
+                                provider=result.provider,
+                                gateway_status=GATEWAY_STATUS_REFUNDED,
+                                gateway_amount=result.amount_ngn,
+                                amount_unit=UNIT_MAJOR,
+                            )
+                        except CaptureContractError as capture_error:
+                            # The refund itself already went through at the
+                            # gateway; the capture row is bookkeeping. Log it and
+                            # keep the confirmed refund rather than rolling back.
+                            logger.warning(
+                                "Auto-refund confirmed at gateway for order %s but capture "
+                                "annotation failed: %s",
+                                order.order_id,
+                                capture_error,
+                            )
                         await db_session.commit()
+                        await log_audit_event(
+                            db_session,
+                            event_type="auto_refund_confirmed",
+                            phone=order.customer_phone,
+                            order_id=order.order_id,
+                            details={
+                                "reason": fulfillment_error,
+                                "tx_ref": tx_ref,
+                                "provider": result.provider,
+                                "gateway_refund_id": result.gateway_refund_id,
+                                "gateway_refund_status": result.gateway_status,
+                                "amount_ngn": result.amount_ngn,
+                            },
+                        )
                     except Exception as refund_error:
-                        logger.warning("Flutterwave refund call failed for tx_ref=%s: %s", tx_ref, refund_error)
+                        # Gateway did NOT confirm. The order deliberately stays
+                        # actionable (NOT 'refunded') so it is never reported as
+                        # money returned when it was not.
+                        logger.warning(
+                            "Auto-refund did NOT complete for order %s (tx_ref=%s): %s "
+                            "— order left actionable, not marked refunded",
+                            order.order_id,
+                            tx_ref,
+                            refund_error,
+                        )
+                        await log_audit_event(
+                            db_session,
+                            event_type="auto_refund_failed",
+                            phone=order.customer_phone,
+                            order_id=order.order_id,
+                            details={
+                                "reason": fulfillment_error,
+                                "tx_ref": tx_ref,
+                                "error": str(refund_error),
+                            },
+                        )
             else:
                 await log_audit_event(
                     db_session,

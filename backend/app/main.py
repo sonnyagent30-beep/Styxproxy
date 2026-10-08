@@ -25,6 +25,7 @@ from app.routers import (
     charon,
     charon_ab,
     contact,
+    renewals,
     costs,
     credentials,
     health,
@@ -37,7 +38,6 @@ from app.routers import (
     payments,
     permissions,
     platform,
-    products,
     proxies,
     rls,
     session,
@@ -46,6 +46,7 @@ from app.routers import (
     unsubscribe,
     webhooks,
     admin_secrets,
+    support,
 )
 
 settings = get_settings()
@@ -74,6 +75,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Create database tables (if they don't exist)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # Load the valid country set from the `countries` table BEFORE serving.
+    # Every country validator in the app reads app.schemas.VALID_COUNTRIES, so
+    # this must run once at startup or those validators fall back to a static
+    # set that disagrees with the catalog (6 of 11 advertised countries 422'd).
+    try:
+        from app.schemas import load_valid_countries
+
+        _codes = await load_valid_countries()
+        logger.info("Loaded %d valid country codes", len(_codes))
+    except Exception:  # noqa: BLE001 - never block startup on this
+        logger.exception("Failed to preload valid countries — using the static fallback")
 
     # Ensure all orders columns exist (idempotent, for migrations that may have failed)
     try:
@@ -253,7 +266,6 @@ async def log_requests(request: Request, call_next):
         "Request started",
         method=request.method,
         path=request.url.path,
-        client=request.client.host if request.client else "unknown",
     )
 
     response = await call_next(request)
@@ -400,11 +412,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(health)
 app.include_router(platform)
 app.include_router(proxies)
-app.include_router(products)
 app.include_router(orders)
 app.include_router(payments)
 app.include_router(webhooks)
 app.include_router(admin_secrets.router)
+app.include_router(support.router)
 app.include_router(credentials)
 app.include_router(trials)
 app.include_router(admin)
@@ -426,4 +438,5 @@ app.include_router(incident_notification)
 app.include_router(costs)
 app.include_router(analytics)
 app.include_router(charon_ab)
+app.include_router(renewals.router)
 app.include_router(ops, prefix="")

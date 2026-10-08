@@ -10,7 +10,7 @@ Group=root
 WorkingDirectory=/opt/styxproxy/backend
 Environment="PYTHONUNBUFFERED=1"
 EnvironmentFile=/opt/styxproxy/.env
-ExecStart=/opt/styxproxy/backend/venv/bin/python3 /opt/styxproxy/backend/scripts/fulfillment_worker.py
+ExecStart=/opt/styxproxy/backend/venv/bin/python3 /opt/styxproxy/backend/app/scripts/fulfillment_worker.py
 Restart=always
 RestartSec=5
 # Watchdog: if no heartbeat in 5min, restart

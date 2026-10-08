@@ -24,7 +24,8 @@ from app.models import Order, StyxproxyCredential
 # ─── Constants ────────────────────────────────────────────────────────────────
 
 # Customer-facing SOCKS5 endpoint (front door for customers)
-PROXY_PUBLIC_HOST = "proxy.styxproxy.com"
+# Empty — set per-credential from upstream_proxy_ip at runtime
+PROXY_PUBLIC_HOST = ""
 PROXY_PORT_SOCKS5 = 1080
 PROXY_PORT_HTTP = 8080
 
@@ -65,11 +66,11 @@ UPSTREAM_GATEWAYS = {
         "upstream_type": "rayobyte_isp",
     },
     "trial": {
-        # Trial uses Contabo dante (free trial path)
-        "host": "trial.styxproxy.com",
+        # Trial uses local SOCKS proxy (free trial path)
+        "host": "",
         "port": 8001,
         "upstream_protocol": "socks5",
-        "upstream_type": "trial_dante",
+        "upstream_type": "trial_local",
     },
 }
 
@@ -147,8 +148,6 @@ async def get_credential_usage(session: AsyncSession, credential_id: int, custom
         "bandwidth_alert_pct": cred.bandwidth_alert_pct,
         "bytes_used": cred.gb_used,  # approximate; relay tracks exact bytes
         "last_used_at": cred.last_used_at,
-        "last_ip_address": str(cred.last_ip_address) if cred.last_ip_address else None,
-        "last_ip_country": cred.last_ip_country,
         "days_remaining": days_remaining,
         "expires_at": cred.expires_at,
         "status": cred.status,
@@ -180,7 +179,10 @@ async def rotate_credential_password(
         raise ValueError(f"rate_limit_exceeded:{next_allowed.isoformat()}")
 
     new_password = generate_proxy_password()
-    cred.styxproxy_password = new_password.encode("utf-8")
+    # Encrypt via the model setter — assigning the raw bytes here would silently
+    # downgrade an encrypted credential to plaintext and lock the customer out
+    # of the relay (which compares against the decrypted value).
+    cred.set_password(new_password)
     cred.password_rotated_at = datetime.now(timezone.utc)
     cred.password_rotations_today += 1
 
@@ -417,7 +419,7 @@ async def force_password_rotation_admin(session: AsyncSession, credential_id: in
         raise ValueError("credential_not_found")
 
     new_password = generate_proxy_password()
-    cred.styxproxy_password = new_password.encode("utf-8")
+    cred.set_password(new_password)
     cred.password_rotated_at = datetime.now(timezone.utc)
     # NOTE: do NOT increment password_rotations_today — admin rotation is unlimited
 
@@ -438,20 +440,20 @@ async def force_password_rotation_admin(session: AsyncSession, credential_id: in
 # ─── Connection string helpers (for customer-facing responses) ────────────────
 
 
-def build_curl_socks5_example(username: str, password: str) -> str:
-    return f"curl --socks5-hostname {username}:{password}@{PROXY_PUBLIC_HOST}:{PROXY_PORT_SOCKS5} https://api.ipify.org"
+def build_curl_socks5_example(username: str, password: str, host: str = "") -> str:
+    return f"curl --socks5-hostname {username}:{password}@{host}:{PROXY_PORT_SOCKS5} https://api.ipify.org"
 
 
-def build_curl_http_example(username: str, password: str) -> str:
-    return f"curl --proxy http://{username}:{password}@{PROXY_PUBLIC_HOST}:{PROXY_PORT_HTTP} https://api.ipify.org"
+def build_curl_http_example(username: str, password: str, host: str = "") -> str:
+    return f"curl --proxy http://{username}:{password}@{host}:{PROXY_PORT_HTTP} https://api.ipify.org"
 
 
-def build_python_socks5_example(username: str, password: str) -> str:
+def build_python_socks5_example(username: str, password: str, host: str = "") -> str:
     return (
         "import requests\n"
         f"proxies = {{\n"
-        f"  'http':  'socks5h://{username}:{password}@{PROXY_PUBLIC_HOST}:{PROXY_PORT_SOCKS5}',\n"
-        f"  'https': 'socks5h://{username}:{password}@{PROXY_PUBLIC_HOST}:{PROXY_PORT_SOCKS5}',\n"
+        f"  'http':  'socks5h://{username}:{password}@{host}:{PROXY_PORT_SOCKS5}',\n"
+        f"  'https': 'socks5h://{username}:{password}@{host}:{PROXY_PORT_SOCKS5}',\n"
         f"}}\n"
         "print(requests.get('https://api.ipify.org', proxies=proxies).text)"
     )

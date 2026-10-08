@@ -225,7 +225,16 @@ Production needs these tables/columns populated:
 | `plan_settings` | **0 ❌** | needs seeding (admin dashboard) |
 | `referral_credits` | exists but empty | seed via dashboard or migration |
 | `trial_sessions` | exists but empty | seed via dashboard or migration |
-| `country_plan_types.is_special` | missing column ❌ | needs migration |
+| `country_plan_types` | 64 ✅ | authoritative; model + migration added 2026-10-01 |
+| `country_plan_types.is_special` | present ✅ | had no ORM model/migration; both added 2026-10-01 |
+
+> **Resolved 2026-10-01 (`t_c072f1e0`).** `country_plan_types` — including its
+> `is_special` column — existed in production all along; it was created
+> out-of-band by hand. What was missing was any declaration of it in this
+> repository: no ORM model in `models.py` and no migration, so a fresh database
+> had no such table and `/api/catalog` + `/api/countries` returned 500. Both
+> are now present, and the schema was copied from the live table rather than
+> invented. The earlier "missing column ❌" line above was stale.
 
 **Per your rule:** pricing/plan settings go through admin dashboard, not SQL.
 I'll prep the dashboard steps for you. Anything that's strictly schema (missing

@@ -102,7 +102,7 @@ During review, we check:
 
 If approved, refunds are processed within **5–10 business days** to your original payment method.
 
-Flutterwave processes refunds back to the card or account you used to pay. The refund will appear as "Bunche" or "Flutterwave" on your statement.
+The payment processor (Flutterwave or Paystack) processes refunds back to the card or account you used to pay. The refund will appear as "Bunche" or the payment processor name on your statement.
 
 ### 6.3 Rejection
 

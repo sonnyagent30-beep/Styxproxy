@@ -1,9 +1,9 @@
+'use client';
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import type { AdminAuditLog, AdminAuditLogResponse } from '@/types';
@@ -107,7 +107,7 @@ export default function AuditLogPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={loadLogs} className="ml-4 text-red-300 hover:text-white">
             Retry

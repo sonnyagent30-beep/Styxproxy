@@ -1,7 +1,7 @@
+'use client';
 
 /* eslint-disable react-hooks/immutability */
 
-'use client';
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/api';
@@ -26,11 +26,7 @@ export default function AdminFeaturesPage() {
     },
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     
     const meResult = await api.getAdminMe();
@@ -56,7 +52,11 @@ export default function AdminFeaturesPage() {
     }
     
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -89,7 +89,7 @@ export default function AdminFeaturesPage() {
   if (admin?.role !== 'superadmin') {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="p-8 rounded-2xl bg-[var(--card)] border border-red-500/30 text-center">
+        <div className="p-8 rounded-2xl bg-[var(--card)] border border-red-500/30 text-center" role="alert">
           <h2 className="text-xl font-bold text-red-400 mb-2">Access Denied</h2>
           <p className="text-[var(--muted)]">Only SuperAdmins can manage features.</p>
         </div>
@@ -108,7 +108,7 @@ export default function AdminFeaturesPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
         </div>
       )}
@@ -141,6 +141,9 @@ export default function AdminFeaturesPage() {
                 </div>
                 <button
                   onClick={() => setFeatures(f => ({ ...f, telegram: { ...f.telegram, enabled: !f.telegram.enabled } }))}
+                  role="switch"
+                  aria-checked={features.telegram.enabled}
+                  aria-label="Toggle Telegram"
                   className={`w-14 h-8 rounded-full transition-colors ${
                     features.telegram.enabled ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'
                   }`}
@@ -176,6 +179,9 @@ export default function AdminFeaturesPage() {
                 </div>
                 <button
                   onClick={() => setFeatures(f => ({ ...f, whatsapp: { ...f.whatsapp, enabled: !f.whatsapp.enabled } }))}
+                  role="switch"
+                  aria-checked={features.whatsapp.enabled}
+                  aria-label="Toggle WhatsApp"
                   className={`w-14 h-8 rounded-full transition-colors ${
                     features.whatsapp.enabled ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'
                   }`}

@@ -1,0 +1,87 @@
+{
+  "title": "Styxproxy Health",
+  "uid": "styxproxy-health",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "API Status",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-styxproxy"
+      },
+      "targets": [
+        {
+          "expr": "count_over_time({job=\"styxproxy-api\"}[1m])"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Worker Status",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-styxproxy"
+      },
+      "targets": [
+        {
+          "expr": "count_over_time({job=\"styxproxy-worker\"}[1m])"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "3proxy Status",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-styxproxy"
+      },
+      "targets": [
+        {
+          "expr": "count_over_time({job=\"styxproxy-3proxy\"}[1m])"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Request Rate",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-styxproxy"
+      },
+      "targets": [
+        {
+          "expr": "rate({job=\"styxproxy-api\"}[1m])"
+        }
+      ]
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s"
+}

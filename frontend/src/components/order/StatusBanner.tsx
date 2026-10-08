@@ -47,7 +47,7 @@ export default function StatusBanner({ status, userMessage }: StatusBannerProps)
           </div>
           <div>
             <p className={`font-semibold text-sm ${iconColors[group]}`}>{label}</p>
-            {userMessage && <p className="text-xs text-[var(--muted)] mt-0.5">{userMessage}</p>}
+            {userMessage && <p className="text-base text-[var(--muted)] mt-0.5">{userMessage}</p>}
           </div>
         </div>
       </div>

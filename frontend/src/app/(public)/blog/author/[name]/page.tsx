@@ -90,7 +90,7 @@ export default async function AuthorPage({ params }: Props) {
 
       {/* Scroll indicator */}
       <div className="flex flex-col items-center gap-2 py-8">
-        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <span className="text-xs tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
         <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
       </div>
 

@@ -1,7 +1,7 @@
+'use client';
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
@@ -16,15 +16,19 @@ export default function ProviderCostsPage() {
     setLoading(true);
     setError('');
     
-    const result = await api.getProviderCosts();
-    
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setData(result.data || null);
+    try {
+      const result = await api.getProviderCosts();
+      
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setData(result.data || null);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load provider costs');
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -77,6 +81,7 @@ export default function ProviderCostsPage() {
         <button
           onClick={loadData}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--card-hover)] transition-colors"
+          aria-label="Refresh provider costs"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -86,7 +91,7 @@ export default function ProviderCostsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
           <button onClick={() => setError('')} className="ml-4 text-red-300 hover:text-white">
             Dismiss

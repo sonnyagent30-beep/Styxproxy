@@ -26,7 +26,7 @@ When you order via styxproxy.com, we collect:
 
 | Data | Why we collect it | How long we keep it |
 |------|------------------|---------------------|
-| Flutterwave tx_ref | To identify your order | 7 years (financial records) |
+| Payment processor tx_ref (Flutterwave or Paystack) | To identify your order | 7 years (financial records) |
 | Product purchased | To fulfil your order | 7 years |
 | Amount paid (₦) | To process payment | 7 years |
 | IP address (of our server) | Technical operation | 90 days |
@@ -35,7 +35,7 @@ When you order via styxproxy.com, we collect:
 
 We do not know your name, your phone number, your device IP address, or any other identifying information unless you voluntarily provide it.
 
-The tx_ref (Flutterwave transaction reference) is your only order identifier. You do not create an account.
+The tx_ref (payment transaction reference from Flutterwave or Paystack) is your only order identifier. You do not create an account.
 
 ### 2.2 Telegram Bot
 
@@ -73,7 +73,7 @@ Your phone number is hashed before storage. We do not store your phone number in
 ### 3.1 Information You Give Us
 
 - **Order information:** product, country, payment amount, tx_ref
-- **Payment information:** processed entirely by Flutterwave. We never see your card number, bank account, or full bank details
+- **Payment information:** processed entirely by Flutterwave or Paystack. We never see your card number, bank account, or full bank details
 - **Support communications:** messages sent via Telegram, WhatsApp, or email
 - **PIN:** if you choose to set a PIN to secure your chat account
 - **Optional email:** for receipt delivery on website orders
@@ -125,7 +125,7 @@ We do not sell, rent, or trade your personal information to any third party.
 
 | Recipient | What we share | Why |
 |-----------|---------------|-----|
-| Flutterwave | tx_ref, amount, product | Payment processing |
+| Flutterwave / Paystack | tx_ref, amount, product | Payment processing |
 | Proxy providers (Proxy-Seller, DataImpulse) | Proxy credentials | To generate and deliver your proxy IP |
 | Telegram | Messages you send | To deliver messages via Telegram API |
 | Meta / WhatsApp | Messages you send | To deliver messages via WhatsApp Business API |
@@ -139,6 +139,7 @@ We use third-party service providers who process data on our behalf:
 | Service | What they process | Their privacy policy |
 |---------|-------------------|---------------------|
 | Flutterwave | Payment data | flutterwave.com/privacy |
+| Paystack | Payment data | paystack.com/privacy |
 | Telegram | Chat messages | telegram.org/privacy |
 | Meta / WhatsApp | Chat messages | whatsapp.com/legal/privacy-policy |
 | Theorem Reach | Survey data | theoremreach.com/privacy |
@@ -181,7 +182,7 @@ We will delete your personal data within 30 days, except:
 - HTTPS-only on all Bunche properties
 - PostgreSQL with restricted access (localhost only)
 - API keys stored in environment variables, not in code
-- HMAC verification on all incoming webhooks (Flutterwave, Theorem Reach)
+- HMAC verification on all incoming webhooks (Flutterwave, Paystack, Theorem Reach)
 - Rate limiting on all API endpoints
 - Audit logging of significant system events
 

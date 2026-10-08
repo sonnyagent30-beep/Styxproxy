@@ -68,8 +68,6 @@ def _to_summary(cred, order_gb_total: float = 0.0) -> ProxySummary:
         status=cred.status,
         expires_at=cred.expires_at,
         last_used_at=cred.last_used_at,
-        last_ip_address=str(cred.last_ip_address) if cred.last_ip_address else None,
-        last_ip_country=cred.last_ip_country,
         assigned_static_ip=str(cred.assigned_static_ip) if cred.assigned_static_ip else None,
         assigned_static_session_id=cred.assigned_static_session_id,
         bandwidth_alert_pct=cred.bandwidth_alert_pct or 80,
@@ -131,20 +129,17 @@ async def get_proxy_details(
     if not cred:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proxy not found")
 
-    # Decode password from bytea
-    password = ""
-    if cred.styxproxy_password:
-        password = (
-            cred.styxproxy_password.decode("utf-8", errors="replace")
-            if isinstance(cred.styxproxy_password, bytes)
-            else str(cred.styxproxy_password)
-        )  # noqa: E501
+    # Decrypt via the model accessor — it handles both Fernet ciphertext and
+    # legacy raw-plaintext rows. Decoding the column directly would return a
+    # 120-char "gAAAA..." blob to the customer as their password.
+    password = cred.get_password() or ""
 
+    proxy_host = cred.upstream_proxy_ip or ""
     return ProxyFullDetails(
         id=cred.id,
         styxproxy_username=cred.styxproxy_username,
         styxproxy_password=password,
-        proxy_host=PROXY_PUBLIC_HOST,
+        proxy_host=proxy_host,
         proxy_port_socks5=PROXY_PORT_SOCKS5,
         proxy_port_http=PROXY_PORT_HTTP,
         protocol=cred.protocol or "socks5",
@@ -154,9 +149,9 @@ async def get_proxy_details(
         expires_at=cred.expires_at,
         rotation_endpoint=f"/api/proxies/{cred.id}/rotate-password",
         usage_endpoint=f"/api/proxies/{cred.id}/usage",
-        curl_socks5_example=build_curl_socks5_example(cred.styxproxy_username, password),
-        curl_http_example=build_curl_http_example(cred.styxproxy_username, password),
-        python_socks5_example=build_python_socks5_example(cred.styxproxy_username, password),
+        curl_socks5_example=build_curl_socks5_example(cred.styxproxy_username, password, proxy_host),
+        curl_http_example=build_curl_http_example(cred.styxproxy_username, password, proxy_host),
+        python_socks5_example=build_python_socks5_example(cred.styxproxy_username, password, proxy_host),
     )
 
 

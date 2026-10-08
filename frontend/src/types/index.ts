@@ -55,8 +55,6 @@ export interface StyxproxyCredential {
   id: string;
   bun_username?: string;
   styxproxy_username?: string;
-  provider_username?: string;
-  provider_password?: string;
   provider_name?: string;
   pool_type?: string;
   customer_phone?: string;
@@ -65,7 +63,7 @@ export interface StyxproxyCredential {
   upstream_proxy_ip?: string;
   upstream_proxy_port: number;
   styxproxy_password?: string;
-  dante_port?: number;
+  socks_port?: number;
   status: CredentialStatus | string;
   expires_at?: string;
 }
@@ -82,6 +80,8 @@ export interface Customer {
 
 export interface PaymentInitiateResponse {
   payment_id: string;
+  order_id: string;
+  tx_ref: string;
   checkout_url: string;
   amount_ngn: number;
   expires_at: string;
@@ -137,12 +137,40 @@ export interface PaginatedResponse<T> {
 }
 
 // Charon Admin Types
+// Shape mirrors the backend `ConversationSummary` in app/routers/charon.py.
+// This block was previously corrupted by six nested duplicate `Conversation`
+// interfaces injected inside `CharonConversation` (a TS1131/TS1128 syntax
+// error that survived every deploy because next.config.ts sets
+// typescript.ignoreBuildErrors = true). Field list taken from the backend
+// model, not guessed.
 export interface CharonConversation {
   conversation_id: string;
   last_message: string;
   last_message_at: string;
   message_count: number;
   escalated: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  session_id: string;
+  channel: string;
+  status: string;
+  last_message: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Conversation {
+  id: string;
+  session_id: string;
+  channel: string;
+  status: string;
+  last_message: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CharonLogEntry {
@@ -404,8 +432,6 @@ export interface CredentialDetail extends StyxproxyCredential {
   last_used_at?: string | null;
   usage_log?: Array<{ ts: string; ip?: string; bytes_in?: number; bytes_out?: number }>;
   customer_phone?: string;
-  provider_username?: string;
-  provider_password?: string;
   provider_name?: string;
   pool_type?: string;
   protocol?: string;
@@ -1079,4 +1105,43 @@ export interface PermissionChangeRequestResponse {
   reviewer_notes: string | null;
   created_at: string;
   expires_at: string;
+}
+
+
+// ============== Renewal Types ==============
+
+export interface RenewalCreateRequest {
+  order_id: string;
+  quantity_gb?: number;
+  gateway?: string;
+  customer_email?: string;
+  idempotency_key?: string;
+}
+
+export interface RenewalInitiateResponse {
+  renewal_id: number;
+  order_id: string;
+  checkout_url: string;
+  amount_ngn: number;
+  currency: string;
+  expires_at: string;
+  tx_ref: string;
+}
+
+export interface RenewalResponse {
+  id: number;
+  order_id: string;
+  quantity_gb?: number | null;
+  amount_paid_ngn: number;
+  payment_reference?: string | null;
+  tx_ref?: string | null;
+  status: string;
+  credential_id?: number | null;
+  expires_at?: string | null;
+  created_at: string;
+}
+
+export interface RenewalHistoryResponse {
+  renewals: RenewalResponse[];
+  total: number;
 }

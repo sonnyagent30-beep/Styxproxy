@@ -59,7 +59,7 @@ export default async function TagPage({ params }: Props) {
 
         <div className="relative text-center max-w-3xl mx-auto">
           <nav className="flex items-center justify-center gap-2 text-sm text-[var(--muted)] mb-6">
-            <Link href="/blog" className="hover:text-[var(--primary)] transition-colors">
+            <Link href="/blog" className="hover:text-[var(--primary-text)] transition-colors">
               Blog
             </Link>
             <span>/</span>
@@ -67,7 +67,7 @@ export default async function TagPage({ params }: Props) {
           </nav>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight mb-4">
-            <span className="text-[var(--primary)]">#</span>{decoded}
+            <span className="text-[var(--primary-text)]">#</span>{decoded}
           </h1>
           <p className="text-lg text-[var(--muted)]">
             {posts.length} {posts.length === 1 ? 'post' : 'posts'}
@@ -77,7 +77,7 @@ export default async function TagPage({ params }: Props) {
 
       {/* Scroll indicator */}
       <div className="flex flex-col items-center gap-2 py-8">
-        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <span className="text-xs tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
         <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
       </div>
 
@@ -93,7 +93,7 @@ export default async function TagPage({ params }: Props) {
         {/* Related tags */}
         {relatedTags.length > 0 && (
           <section className="mt-16 pt-10 border-t border-[var(--border)]">
-            <p className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-4">
+            <p className="text-base font-medium text-[var(--muted)] uppercase tracking-wider mb-4">
               Related topics
             </p>
             <div className="flex flex-wrap gap-2">

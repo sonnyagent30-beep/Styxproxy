@@ -68,7 +68,7 @@ async def claim_trial(
         trial_id=trial.id,
         status=trial.status or "active",
         styxproxy_credential=TrialCredentialResponse(
-            bun_username=credential.bun_username,
+            styxproxy_username=credential.styxproxy_username,
             upstream_proxy_ip=credential.upstream_proxy_ip or "0.0.0.0",  # nosec B104
             upstream_proxy_port=credential.upstream_proxy_port,
             expires_at=credential.expires_at,

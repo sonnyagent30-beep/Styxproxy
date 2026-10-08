@@ -17,7 +17,7 @@ export default function PostNav({ prev, next }: Props) {
           href={`/blog/${prev.slug}`}
           className="group flex items-center gap-4 p-4 rounded-xl border border-[var(--border)] hover:border-[var(--primary)] transition-colors"
         >
-          <div className="flex-shrink-0 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors">
+          <div className="flex-shrink-0 text-[var(--muted)] group-hover:text-[var(--primary-text)] transition-colors">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
               <polyline points="15 18 9 12 15 6" />
             </svg>
@@ -28,8 +28,8 @@ export default function PostNav({ prev, next }: Props) {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-[var(--muted)] mb-0.5">Previous</p>
-            <p className="text-sm font-medium text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors line-clamp-2 leading-snug">
+            <p className="text-base text-[var(--muted)] mb-0.5">Previous</p>
+            <p className="text-sm font-medium text-[var(--foreground)] group-hover:text-[var(--primary-text)] transition-colors line-clamp-2 leading-snug">
               {prev.title}
             </p>
           </div>
@@ -44,8 +44,8 @@ export default function PostNav({ prev, next }: Props) {
           className="group flex items-center gap-4 p-4 rounded-xl border border-[var(--border)] hover:border-[var(--primary)] transition-colors sm:text-right"
         >
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-[var(--muted)] mb-0.5">Next</p>
-            <p className="text-sm font-medium text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors line-clamp-2 leading-snug">
+            <p className="text-base text-[var(--muted)] mb-0.5">Next</p>
+            <p className="text-sm font-medium text-[var(--foreground)] group-hover:text-[var(--primary-text)] transition-colors line-clamp-2 leading-snug">
               {next.title}
             </p>
           </div>
@@ -54,7 +54,7 @@ export default function PostNav({ prev, next }: Props) {
               <Image src={next.cover_image_url} alt={next.title} fill className="object-cover" sizes="56px" />
             </div>
           )}
-          <div className="flex-shrink-0 text-[var(--muted)] group-hover:text-[var(--primary)] transition-colors">
+          <div className="flex-shrink-0 text-[var(--muted)] group-hover:text-[var(--primary-text)] transition-colors">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5">
               <polyline points="9 18 15 12 9 6" />
             </svg>

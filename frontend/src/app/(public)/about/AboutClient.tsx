@@ -6,7 +6,7 @@ import { Broadcast, House, DeviceMobile, HardDrives, CaretDown } from '@phosphor
 
 export default function AboutClient() {
   return (
-    <main className="flex-1 relative overflow-hidden">
+    <section className="flex-1 relative overflow-hidden">
       {/* Hero background layers */}
       <div className="absolute inset-0 hero-bg-grid" />
       <div className="absolute inset-0 hero-bg-rings" />
@@ -39,7 +39,7 @@ export default function AboutClient() {
           </div>
           <h1 className="text-4xl font-bold mb-4 leading-tight">
             We sell what the rest of the internet<br />
-            <span className="text-[var(--primary)]">refuses to give you.</span>
+            <span className="text-[var(--primary-text)]">refuses to give you.</span>
           </h1>
           <p className="text-[var(--muted)] leading-relaxed max-w-xl mx-auto">
             Privacy. Anonymity. The simple, unglamorous right to browse the web without being
@@ -72,10 +72,10 @@ export default function AboutClient() {
             we can&rsquo;t betray you.</strong>
           </p>
           <p className="text-[var(--muted)] leading-relaxed mb-3">
-            No account. No email. No identity. No log of what you do with the proxy you bought
-            from us. The credential you receive is yours the moment we hand it over. We have
-            no record of it on our side. If authorities come knocking with a subpoena, we
-            literally have nothing to give them about you.
+            No account. No identity. No log of what you do with it. The credential you
+            receive is yours the moment we hand it over. If authorities come knocking with
+            a subpoena, we can tell them what was sold and when — we cannot tell them what
+            you did with it.
           </p>
           <p className="text-[var(--muted)] leading-relaxed">
             That&rsquo;s not a privacy policy we wrote because lawyers made us. It&rsquo;s the only way the product works.
@@ -108,33 +108,33 @@ export default function AboutClient() {
 
         {/* What we offer */}
         <section className="mb-12">
-          <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">Proxy types</p>
+          <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-4">Proxy types</p>
           <h2 className="text-2xl font-bold mb-4">What you get</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               {
                 title: 'ISP Proxies',
                 desc: 'Real ISP-assigned IPs that look like a home or office connection. Fast enough for production workloads, residential enough to be trusted.',
-                icon: <Broadcast className="w-9 h-9 text-[var(--primary)]" />,
+                icon: <Broadcast className="w-9 h-9 text-[var(--primary-text)]" />,
               },
               {
                 title: 'Residential Proxies',
                 desc: 'A real residential IP from the country you choose, paid by the gigabyte. Your traffic looks like any other household&rsquo;s.',
-                icon: <House className="w-9 h-9 text-[var(--primary)]" />,
+                icon: <House className="w-9 h-9 text-[var(--primary-text)]" />,
               },
               {
                 title: 'Mobile 4G Proxies',
                 desc: 'Carrier-grade mobile IPs. The hardest class of IP to detect or block, because real carriers cycle them naturally.',
-                icon: <DeviceMobile className="w-9 h-9 text-[var(--primary)]" />,
+                icon: <DeviceMobile className="w-9 h-9 text-[var(--primary-text)]" />,
               },
               {
                 title: 'Datacenter Proxies',
                 desc: 'When raw throughput matters more than stealth. Built for scraping at scale where the target isn&rsquo;t playing defense.',
-                icon: <HardDrives className="w-9 h-9 text-[var(--primary)]" />,
+                icon: <HardDrives className="w-9 h-9 text-[var(--primary-text)]" />,
               },
             ].map((item) => (
               <div key={item.title} className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 hover:border-[var(--primary)] transition-all duration-200 card-depth">
-                <div className="w-9 h-9 mb-2 text-[var(--primary)]">
+                <div className="w-9 h-9 mb-2 text-[var(--primary-text)]">
                   {item.icon}
                 </div>
                 <h3 className="font-semibold mb-1">{item.title}</h3>
@@ -149,7 +149,7 @@ export default function AboutClient() {
 
         {/* Promise */}
         <section className="mb-12">
-          <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">Our commitment</p>
+          <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-4">Our commitment</p>
           <h2 className="text-2xl font-bold mb-4">Our promise to you</h2>
           <div className="space-y-3">
             {[
@@ -183,13 +183,13 @@ export default function AboutClient() {
 
         {/* FAQ */}
         <section className="mb-12">
-          <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">Questions</p>
+          <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-4">Questions</p>
           <h2 className="text-2xl font-bold mb-4">Frequently asked questions</h2>
           <div className="space-y-3">
             {[
               {
                 q: 'Do I really not need to give my name or email?',
-                a: 'Correct. The website order flow does not ask for either. We do not have your name, your email, or your IP. The only thing that ties a purchase to your browser is a small file stored on your own device. Clear it and you are, to us, a stranger.',
+                a: 'No account, no identity, and no log of what you do with your proxy. If you give us an email, it exists for one reason: to send you the receipt.',
               },
               {
                 q: 'How fast will I get my proxy?',
@@ -249,13 +249,13 @@ export default function AboutClient() {
           <div className="space-y-2 text-sm">
             <div>
               <span className="text-[var(--muted)]">Support:</span>{' '}
-              <Link href="/contact" className="text-[var(--primary)] hover:underline">
+              <Link href="/contact" className="text-[var(--primary-text)] hover:underline">
                 Contact form →
               </Link>
             </div>
             <div>
               <span className="text-[var(--muted)]">Email:</span>{' '}
-              <a href="mailto:support@styxproxy.com" className="text-[var(--primary)] hover:underline">
+              <a href="mailto:support@styxproxy.com" className="text-[var(--primary-text)] hover:underline">
                 support@styxproxy.com
               </a>
             </div>
@@ -266,15 +266,15 @@ export default function AboutClient() {
         <section className="text-xs text-[var(--muted)] text-center pt-6 border-t border-[var(--border)]">
           <p>
             Read the{' '}
-            <Link href="/legal/terms" className="text-[var(--primary)] hover:underline">Terms</Link>,{' '}
-            <Link href="/refund-policy" className="text-[var(--primary)] hover:underline">Refund Policy</Link>,{' '}
-            <Link href="/legal/privacy" className="text-[var(--primary)] hover:underline">Privacy</Link>,{' '}
+            <Link href="/legal/terms" className="text-[var(--primary-text)] hover:underline">Terms</Link>,{' '}
+            <Link href="/refund-policy" className="text-[var(--primary-text)] hover:underline">Refund Policy</Link>,{' '}
+            <Link href="/legal/privacy" className="text-[var(--primary-text)] hover:underline">Privacy</Link>,{' '}
             and{' '}
-            <Link href="/legal/aup" className="text-[var(--primary)] hover:underline">Acceptable Use</Link>{' '}
+            <Link href="/legal/aup" className="text-[var(--primary-text)] hover:underline">Acceptable Use</Link>{' '}
             before placing an order.
           </p>
         </section>
       </article>
-    </main>
+    </section>
   );
 }

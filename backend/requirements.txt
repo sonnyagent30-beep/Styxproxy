@@ -38,7 +38,19 @@ python-dotenv==1.2.2
 # Observability + Caching
 sentry-sdk[fastapi]==2.64.0
 redis==8.0.1
+
+# Background Job Queue (fulfillment worker: styxproxy-fulfillment-worker.service)
+rq==2.12.0
+
+# Image handling (app/services/email.py imports PIL at module scope for logo embedding)
+pillow==12.3.0
+
+# Test tooling
 pytest==8.3.3
 pytest-asyncio==0.25.2
 httpx==0.28.1
 PyJWT==2.10.1
+
+# RAG / Embeddings
+sentence-transformers==3.4.1
+numpy>=1.26.0

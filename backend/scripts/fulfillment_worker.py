@@ -26,8 +26,8 @@ sys.path.insert(0, "/opt/styxproxy/backend")
 
 from app.config import get_settings
 from app.database import async_session as AsyncSessionLocal
-from app.services.flutterwave import _flutterwave_refund
 from app.services.n8n import trigger_credentials_delivered_webhook
+from app.services.refunds import GatewayRefundError, refund_at_gateway
 
 logging.basicConfig(
     level=logging.INFO,
@@ -146,15 +146,21 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 await db.commit()
                 logger.error(f"[{job_id}] Fulfillment failed (provider): {fulfillment_error}")
 
-                settings = get_settings()
                 try:
-                    await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
+                    refund = await refund_at_gateway(
+                        order,
+                        reason=f"Auto-refund: provider unavailable — {fulfillment_error}",
+                    )
                     order.status = "refunded"
                     order.refund_requested = True
                     order.refund_reason = f"Auto-refund: provider unavailable — {fulfillment_error}"
+                    order.gateway_refund_id = refund.gateway_refund_id
+                    order.gateway_refund_status = refund.gateway_status
+                    order.gateway_refund_amount = refund.amount_ngn
+                    order.gateway_refunded_at = datetime.now(timezone.utc)
                     await db.commit()
                     logger.info(f"[{job_id}] Auto-refund issued for {tx_ref}")
-                except Exception as refund_error:
+                except GatewayRefundError as refund_error:
                     logger.error(f"[{job_id}] Refund FAILED for {tx_ref}: {refund_error}")
 
             except Exception as e:

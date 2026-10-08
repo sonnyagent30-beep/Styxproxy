@@ -32,6 +32,18 @@ export default function BlogFeed({
     ? initialTags.filter((t) => t.toLowerCase().includes(query.toLowerCase()))
     : initialTags;
 
+  // Filter posts by search query (title, excerpt, tags)
+  const searchedPosts = query
+    ? posts.filter((post) => {
+        const q = query.toLowerCase();
+        return (
+          post.title.toLowerCase().includes(q) ||
+          (post.excerpt && post.excerpt.toLowerCase().includes(q)) ||
+          (post.tags && post.tags.some((t) => t.toLowerCase().includes(q)))
+        );
+      })
+    : posts;
+
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
     setLoading(true);
@@ -53,6 +65,7 @@ export default function BlogFeed({
   // Reset when tag changes
   const handleTagChange = (tag: string | null) => {
     setActiveTag(tag);
+    setQuery('');
     setPage(1);
     setHasMore(true);
     // Fetch fresh posts for this tag
@@ -99,7 +112,7 @@ export default function BlogFeed({
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight mb-6">
             Notes from the<br />
-            <span className="text-[var(--primary)]">trenches.</span>
+            <span className="text-[var(--primary-text)]">trenches.</span>
           </h1>
           <p className="text-lg max-w-xl mx-auto leading-relaxed text-[var(--muted)]">
             Guides on proxies, anonymity, automation, and the infrastructure that keeps the web working.
@@ -109,7 +122,7 @@ export default function BlogFeed({
 
       {/* Scroll indicator */}
       <div className="flex flex-col items-center gap-2 py-8">
-        <span className="text-[10px] tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
+        <span className="text-xs tracking-[0.3em] uppercase text-[var(--muted)] opacity-50">Scroll</span>
         <div className="w-px h-10 bg-gradient-to-b from-[var(--primary)]/60 to-transparent animate-pulse" />
       </div>
 
@@ -122,15 +135,15 @@ export default function BlogFeed({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search posts..."
+              placeholder="Search posts by title, keyword, or tag..."
               className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[var(--card)] border border-[var(--border)] text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] focus:outline-none focus:border-[var(--primary)]/60 transition-colors"
             />
           </div>
           <Link
             href="/blog"
-            onClick={() => handleTagChange(null)}
+            onClick={() => { setQuery(''); handleTagChange(null); }}
             className={`px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 flex-shrink-0 ${
-              !activeTag
+              !activeTag && !query
                 ? 'bg-[var(--primary)] text-black font-bold'
                 : 'bg-[var(--card)] text-[var(--muted)] border border-[var(--border)] hover:text-[var(--foreground)] hover:border-[var(--primary)]/60'
             }`}
@@ -160,9 +173,9 @@ export default function BlogFeed({
       {/* Grid */}
       <div className="max-w-6xl mx-auto px-6">
         <div className="section-divider-glow mb-12" />
-        {posts.length > 0 ? (
+        {searchedPosts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-            {posts.map((post) => (
+            {searchedPosts.map((post) => (
               <PostCard key={post.id} post={post} />
             ))}
           </div>
@@ -189,12 +202,12 @@ export default function BlogFeed({
       </div>
 
       {/* Load More */}
-      {hasMore && posts.length > 0 && (
+      {hasMore && searchedPosts.length > 0 && (
         <div className="mt-12 text-center">
           <button
             onClick={loadMore}
             disabled={loading}
-            className="px-8 py-3 rounded-xl bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] font-medium hover:border-[var(--primary)]/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-8 py-3 rounded-xl bg-[var(--primary)] text-black font-semibold hover:bg-[var(--primary-dark)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <span className="flex items-center gap-2">
@@ -212,7 +225,7 @@ export default function BlogFeed({
       )}
 
       {/* No more posts indicator */}
-      {!hasMore && posts.length > 0 && (
+      {!hasMore && searchedPosts.length > 0 && (
         <p className="text-center text-[var(--muted)] text-sm mt-12">
           You&apos;ve reached the end
         </p>

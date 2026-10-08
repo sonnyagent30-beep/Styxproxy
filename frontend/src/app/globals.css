@@ -1,10 +1,21 @@
 @import "tailwindcss";
 
+/* Tailwind v4: make the `dark:` variant follow the CLASS, not the device.
+   Without this, `dark:` utilities follow prefers-color-scheme while the colour
+   tokens follow .light/.dark, so an admin override produces a mismatched page
+   (e.g. dark tokens + light logo). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  color-scheme: dark;
   --background: #000000;
   --foreground: #f5f5f5;
   --primary: #0AD25A;
   --primary-dark: #059669;
+  /* --primary is a FILL (buttons, dots, bars) and is paired with black
+     text — #0AD25A gives 10.38:1. It is NOT safe as a text colour on the
+     light page (#0AD25A on #fafafa = 1.94:1), so text uses --primary-text. */
+  --primary-text: #0AD25A;
   --primary-light: #22FF7A;
   --accent: #f59e0b;
   --accent-dark: #d97706;
@@ -13,7 +24,10 @@
   --card-hover: #1c1c1c;
   --border: #252525;
   --border-light: #2f2f2f;
+  --border-strong: #626262;
   --muted: #737373;
+  --consent-leave-fg: #8a8a8a;
+  --muted-body: #8a8a8a;
   --success: #22c55e;
   --warning: #f59e0b;
   --error: #ef4444;
@@ -22,10 +36,35 @@
   --card-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.4);
   --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.6), 0 12px 40px rgba(0,0,0,0.5);
   --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(10,210,90,0.15);
+  --muted-light: #a3a3a3;
+  --surface-2: #1a1a1a;
+  --bg: #000000;
+
+  /* ── Hero background layers, tokenised ────────────────────────────
+     Every hero layer paints DARK pixels on the dark palette: the vignette
+     is literal black gradients and the grid/rings/orbs are green-on-black
+     glows. On the light palette those same pixels read as a dirty grey
+     frame around an otherwise white page, so each layer needs a light
+     counterpart. Tokenised because light mode arrives by two routes —
+     device preference (@media) and the admin override (:root.light) —
+     and hard-coded overrides in only one of them silently drift. */
+  --hero-grid-dot: rgba(10,210,90,0.08);
+  --hero-rings:
+    radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.02) 0%, transparent 50%);
+  --hero-vignette:
+    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 15%),
+    linear-gradient(to bottom, transparent 80%, rgba(0,0,0,0.4) 100%),
+    linear-gradient(to right, rgba(0,0,0,0.3) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.3) 100%);
+  --hero-orb-1: radial-gradient(circle, rgba(10,210,90,0.08) 0%, transparent 70%);
+  --hero-orb-2: radial-gradient(circle, rgba(34,255,122,0.05) 0%, transparent 70%);
+  --hero-orb-3: radial-gradient(circle, rgba(10,173,57,0.06) 0%, transparent 70%);
 }
 
+
 /* ── Accessibility ───────────────────────────────────────────────── */
-:focus { outline: none; }
+:focus:not(:focus-visible) { outline: none; }
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 3px;
@@ -63,6 +102,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
+  --text-xs: 13px;
 }
 
 * {
@@ -85,9 +125,21 @@ body {
   font-synthesis-weight: none;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* Anchors inherit their colour from the surrounding text by default.
+ *
+ * MUST live in @layer base: Tailwind v4 emits its utilities into
+ * @layer utilities, and an UNLAYERED rule beats every layered one regardless
+ * of specificity. Unlayered, this `a { color: inherit }` silently defeated
+ * every `text-*` utility on any <a>/<Link> — the computed colour fell back to
+ * the inherited body colour. That is why `text-black` on the bright green CTAs
+ * rendered as body-coloured text (near-white in dark mode, 1.86:1 on the fill)
+ * and `text-white` on the WhatsApp/Telegram buttons rendered dark. In
+ * @layer base the utilities win, which is what the markup always intended. */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 button {
@@ -105,24 +157,18 @@ button {
 
 /* ── Hero background: dot grid ─────────────────────────────────── */
 .hero-bg-grid {
-  background-image: radial-gradient(circle, rgba(10,210,90,0.08) 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--hero-grid-dot) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
 /* ── Hero background: radial depth rings ──────────────────────── */
 .hero-bg-rings {
-  background:
-    radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.07) 0%, transparent 70%),
-    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.04) 0%, transparent 60%),
-    radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.02) 0%, transparent 50%);
+  background: var(--hero-rings);
 }
 
 /* ── Hero background: edge vignette ───────────────────────────── */
 .hero-bg-vignette {
-  background:
-    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 15%),
-    linear-gradient(to bottom, transparent 80%, rgba(0,0,0,0.4) 100%),
-    linear-gradient(to right, rgba(0,0,0,0.3) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.3) 100%);
+  background: var(--hero-vignette);
 }
 
 /* ── Ambient glow orbs ────────────────────────────────────────── */
@@ -139,7 +185,7 @@ button {
   top: 20%;
   left: 50%;
   transform: translateX(-50%);
-  background: radial-gradient(circle, rgba(10,210,90,0.08) 0%, transparent 70%);
+  background: var(--hero-orb-1);
 }
 
 .hero-orb-2 {
@@ -147,7 +193,7 @@ button {
   height: 300px;
   top: 35%;
   left: 25%;
-  background: radial-gradient(circle, rgba(34,255,122,0.05) 0%, transparent 70%);
+  background: var(--hero-orb-2);
 }
 
 .hero-orb-3 {
@@ -155,7 +201,7 @@ button {
   height: 300px;
   top: 35%;
   right: 25%;
-  background: radial-gradient(circle, rgba(10,173,57,0.06) 0%, transparent 70%);
+  background: var(--hero-orb-3);
 }
 
 /* ── Premium card depth ───────────────────────────────────────── */
@@ -315,87 +361,6 @@ button {
   border: 1px solid var(--border);
 }
 
-/* ── Light mode — sharp, vibrant, brand green ─────────────────── */
-@media (prefers-color-scheme: light) {
-  :root {
-    --background: #f8faf9;
-    --foreground: #0a0f0a;
-    --primary: #06a847;
-    --primary-dark: #048c39;
-    --primary-light: #00c853;
-    --accent: #d97706;
-    --accent-dark: #b45309;
-    --surface: #f0f5f2;
-    --card: #ffffff;
-    --card-hover: #eef4ef;
-    --border: #d4ddd6;
-    --border-light: #e2ebe4;
-    --muted: #546b54;
-    --success: #06a847;
-    --warning: #d97706;
-    --error: #dc2626;
-    --glow-primary: rgba(6, 168, 71, 0.12);
-    --glow-primary-strong: rgba(6, 168, 71, 0.08);
-    --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
-    --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06), 0 0 0 1px rgba(6,168,71,0.12);
-    --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04), 0 0 0 1px rgba(6,168,71,0.18);
-  }
-
-  .glass-card {
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-  }
-
-  /* Light mode hero background — crisp dot grid */
-  .hero-bg-grid {
-    background-image: radial-gradient(circle, rgba(10,210,90,0.25) 1px, transparent 1px);
-    background-size: 40px 40px;
-  }
-
-  .hero-bg-rings {
-    background:
-      radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.10) 0%, transparent 70%),
-      radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.05) 0%, transparent 60%),
-      radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.02) 0%, transparent 50%);
-  }
-
-  /* Light mode vignette — subtle depth, not washed out */
-  .hero-bg-vignette {
-    background:
-      linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, transparent 12%),
-      linear-gradient(to bottom, transparent 85%, rgba(0,0,0,0.06) 100%),
-      linear-gradient(to right, rgba(0,0,0,0.04) 0%, transparent 15%, transparent 85%, rgba(0,0,0,0.04) 100%);
-  }
-
-  .hero-orb-1 {
-    background: radial-gradient(circle, rgba(10,210,90,0.12) 0%, transparent 70%);
-  }
-
-  .hero-orb-2 {
-    background: radial-gradient(circle, rgba(34,255,122,0.07) 0%, transparent 70%);
-  }
-
-  .hero-orb-3 {
-    background: radial-gradient(circle, rgba(10,173,57,0.08) 0%, transparent 70%);
-  }
-
-  .section-divider {
-    background: linear-gradient(to right, transparent, var(--border), transparent);
-  }
-
-  .section-divider-glow::after {
-    background: linear-gradient(to right, transparent, rgba(10,210,90,0.25), transparent);
-  }
-
-  /* Light mode Charon halo */
-  .charon-halo--1 {
-    border-color: rgba(10, 210, 90, 0.7);
-  }
-  .charon-halo--2 {
-    border-color: rgba(10, 210, 90, 0.4);
-  }
-}
 
 /* ── Blog content styles ──────────────────────────────────────── */
 .blog-content {
@@ -427,7 +392,7 @@ button {
 .blog-content ol li::marker { color: var(--primary); font-weight: 600; }
 .blog-content strong { font-weight: 600; color: var(--foreground); }
 .blog-content a {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -482,7 +447,7 @@ button {
 .prose-styx p { color: var(--foreground); }
 .prose-styx strong { color: var(--foreground); font-weight: 600; }
 .prose-styx a {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: underline;
   text-underline-offset: 3px;
   transition: color 0.2s;
@@ -502,7 +467,7 @@ button {
   background: var(--surface);
   padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .prose-styx pre {
   background: var(--surface);
@@ -568,7 +533,7 @@ button {
   border-color: rgba(10,210,90,0.25);
   border-left: 3px solid var(--primary);
   border-radius: 1rem;
-  background: linear-gradient(135deg, #0f0f0f 0%, #111 100%);
+  background: linear-gradient(135deg, var(--card) 0%, var(--card-hover) 100%);
   transition: border-color 0.25s ease, background 0.25s ease,
               transform 0.25s ease, box-shadow 0.25s ease;
   position: relative;
@@ -619,7 +584,7 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   padding: 0.18rem 0.45rem;
   border-radius: 4px;
@@ -629,7 +594,7 @@ button {
   white-space: nowrap;
 }
 .mini-chip .chip-val {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 700;
 }
 
@@ -641,7 +606,7 @@ button {
   margin-top: 0.4rem;
 }
 .bestfor-tag {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
   background: rgba(10,210,90,0.04);
@@ -680,7 +645,7 @@ button {
 }
 .gauge-track {
   fill: none;
-  stroke: rgba(255,255,255,0.06);
+  stroke: var(--border);
   stroke-width: 8;
 }
 .gauge-fill {
@@ -712,7 +677,7 @@ button {
 .stat-bar-wrap {
   flex: 1;
   height: 4px;
-  background: rgba(255,255,255,0.05);
+  background: var(--surface);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -733,7 +698,7 @@ button {
   width: 10px;
   height: 18px;
   border-radius: 3px;
-  background: rgba(255,255,255,0.06);
+  background: var(--border);
   transition: background 0.4s;
 }
 .threat-seg.lit-green {
@@ -762,7 +727,7 @@ button {
 }
 .expand-icon {
   transition: transform 0.25s ease;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   display: inline-block;
 }
 .expand-icon.open {
@@ -788,7 +753,7 @@ button {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%);
+  background: linear-gradient(135deg, var(--border) 0%, transparent 50%);
   border-radius: 50%;
 }
 .styx-coin-ring {
@@ -817,7 +782,7 @@ button {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   font-weight: 700;
   font-size: 1.1rem;
-  color: var(--primary);
+  color: var(--primary-text);
   letter-spacing: -0.02em;
 }
 
@@ -1019,9 +984,9 @@ button {
 .suggestion-item .country-name { font-size: 0.875rem; font-weight: 500; }
 
 .suggestion-item .country-price {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
   font-family: ui-monospace, monospace;
   margin-left: auto;
   white-space: nowrap;
@@ -1063,7 +1028,7 @@ button {
 .country-tile .name { font-size: 0.75rem; font-weight: 500; }
 
 .country-tile .region {
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   color: var(--muted);
   margin-top: 0.125rem;
   font-family: ui-monospace, monospace;
@@ -1072,9 +1037,9 @@ button {
 }
 
 .country-tile .country-price {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
   font-family: ui-monospace, monospace;
   margin-top: 0.375rem;
 }
@@ -1122,7 +1087,7 @@ button {
 }
 
 .country-product-card .product-type {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: var(--muted);
   font-family: ui-monospace, monospace;
   text-transform: uppercase;
@@ -1133,19 +1098,19 @@ button {
 .country-product-card .product-price {
   font-size: 1rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .country-product-card .product-price span {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 400;
   color: var(--muted);
 }
 
 .country-product-card .product-avail {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-family: ui-monospace, monospace;
-  color: var(--primary);
+  color: var(--primary-text);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1191,7 +1156,7 @@ button {
 }
 
 .country-detail-header .region-tag {
-  font-size: 0.65rem; 
+  font-size: 0.75rem; 
   font-family: ui-monospace, monospace;
   text-transform: uppercase; 
   letter-spacing: 0.1em;
@@ -1239,7 +1204,7 @@ button {
 .product-row .product-name { font-size: 0.875rem; font-weight: 600; }
 
 .product-row .product-type { 
-  font-size: 0.7rem; 
+  font-size: 0.75rem; 
   color: var(--muted); 
   font-family: ui-monospace, monospace; 
   text-transform: uppercase; 
@@ -1250,7 +1215,7 @@ button {
 .product-row .product-price { 
   font-size: 1rem; 
   font-weight: 700; 
-  color: var(--primary); 
+  color: var(--primary-text); 
   white-space: nowrap; 
 }
 
@@ -1261,13 +1226,13 @@ button {
 }
 
 .product-row .product-avail {
-  font-size: 0.65rem; 
+  font-size: 0.75rem; 
   font-family: ui-monospace, monospace;
   padding: 0.2rem 0.5rem; 
   border-radius: 4px;
   background: rgba(10,210,90,0.06);
   border: 1px solid rgba(10,210,90,0.15);
-  color: var(--primary);
+  color: var(--primary-text);
   white-space: nowrap;
 }
 
@@ -1289,7 +1254,7 @@ button {
 
 .product-row .cta-btn.outline {
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-text);
   border: 1px solid rgba(10,210,90,0.3);
 }
 
@@ -1322,7 +1287,7 @@ button {
 
 .plan-card .plan-badge {
   display: inline-block;
-  font-size: 0.6rem; 
+  font-size: 0.75rem; 
   font-weight: 700;
   padding: 0.2rem 0.5rem;
   border-radius: 9999px;
@@ -1351,7 +1316,7 @@ button {
 .plan-card .plan-title { font-size: 1rem; font-weight: 600; }
 
 .plan-card .plan-subtitle { 
-  font-size: 0.7rem; 
+  font-size: 0.75rem; 
   color: var(--muted); 
   font-family: ui-monospace, monospace; 
   text-transform: uppercase; 
@@ -1374,7 +1339,7 @@ button {
   width: 14px; 
   height: 14px;
   border-radius: 50%; 
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid var(--border);
   position: relative; 
   flex-shrink: 0;
 }
@@ -1438,7 +1403,7 @@ button {
 .spec-dot.danger { background: var(--error); }
 
 .spec-label { 
-  font-size: 0.65rem; 
+  font-size: 0.75rem; 
   font-family: ui-monospace, monospace; 
   color: var(--muted); 
   text-transform: uppercase; 
@@ -1447,9 +1412,9 @@ button {
 }
 
 .spec-val { 
-  font-size: 0.65rem; 
+  font-size: 0.75rem; 
   font-family: ui-monospace, monospace; 
-  color: var(--primary); 
+  color: var(--primary-text); 
   text-align: right; 
 }
 
@@ -1475,7 +1440,7 @@ button {
 
 .plan-card .cta-link.outline-link {
   background: transparent; 
-  color: var(--primary);
+  color: var(--primary-text);
   border: 1px solid rgba(10,210,90,0.3);
 }
 
@@ -1499,7 +1464,7 @@ button {
   display: inline-block; 
   padding: 0.75rem 2rem;
   border: 2px solid var(--primary); 
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: 600; 
   border-radius: 0.75rem; 
   transition: all 0.2s; 
@@ -1594,7 +1559,7 @@ button {
 }
 .cg-links a {
   font-size: 0.8rem;
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: opacity 0.15s;
@@ -1607,7 +1572,7 @@ button {
 }
 .cg-actions > * { flex: 1; }
 .cg-btn-accept {
-  padding: 0.6rem 1.25rem;
+  padding: 0.5rem 1rem;
   background: var(--primary);
   color: #000;
   font-weight: 700;
@@ -1620,14 +1585,399 @@ button {
 .cg-btn-accept:hover { opacity: 0.9; transform: translateY(-1px); }
 .cg-btn-accept:active { transform: translateY(0); }
 .cg-btn-leave {
-  padding: 0.6rem 1.25rem;
+  padding: 0.5rem 1rem;
   background: transparent;
-  color: var(--muted);
+  /* Control boundary + label must clear WCAG in BOTH themes. `--border`
+     (#252525 dark / #e5e5e5 light) measured 1.20:1 / 1.26:1 against the modal
+     — effectively invisible — so the boundary uses --border-strong
+     (4.06:1 dark, 4.54:1 light). Label uses --consent-leave-fg
+     (5.34:1 dark, 7.81:1 light). Tokens, not tuned hexes, so a future palette
+     change re-measures once instead of per-control. */
+  color: var(--consent-leave-fg);
   font-weight: 600;
   font-size: 0.8rem;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 0.5rem;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
 }
-.cg-btn-leave:hover { border-color: var(--muted); color: var(--foreground); }
+.cg-btn-leave:hover { border-color: var(--foreground); color: var(--foreground); }
+
+/* Light mode — follows device settings */
+@media (prefers-color-scheme: light) {
+  :root:not(.dark) {
+    --background: #fafafa;
+    --foreground: #0a0a0a;
+    /* Bright brand green as the FILL. Every CTA is bg-[var(--primary)]
+     text-black and 109 fills + 11 globals.css rules all pair it with
+     #000, so this keeps the brand colour and passes at 10.38:1.
+     The darkened #0b7a34 it replaces was a mistake: it diluted the
+     brand and dropped those buttons to 3.85:1. */
+  --primary: #0AD25A;
+    /* Hover step: must stay dark enough for the black button label.
+     #095c27 was only 2.57:1 — a hover state that fails worse than rest. */
+  --primary-dark: #09b84f;
+    --primary-light: #22FF7A;
+  --primary-text: #0b7a34;
+    --accent: #f59e0b;
+    --accent-dark: #d97706;
+    --surface: #ffffff;
+    --card: #ffffff;
+    --card-hover: #f5f5f5;
+    --border: #e5e5e5;
+    --border-light: #d4d4d4;
+    --border-strong: #767676;
+    --muted: #525252;
+    --consent-leave-fg: #525252;
+    --muted-light: #525252;
+    --surface-2: #f5f5f5;
+    --bg: #fafafa;
+    --success: #16a34a;
+    --warning: #d97706;
+    --error: #dc2626;
+    --glow-primary: rgba(10, 210, 90, 0.08);
+    --glow-primary-strong: rgba(10, 210, 90, 0.04);
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+    --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.12), 0 12px 40px rgba(0,0,0,0.08);
+    --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(10,210,90,0.15);
+
+    /* Hero layers — light mode is a CLEAN WHITE page. The vignette is
+       switched OFF entirely: it is the only layer that paints dark pixels
+       (its three gradients are black), which is exactly the grey frame
+       Dannion flagged. Grid / rings / orbs keep a faint GREEN tint so the
+       hero still has depth — green on white is brand, black on white is
+       dirt. Do not "restore" the vignette here with a white gradient; the
+       page background already IS the white. */
+    --hero-vignette: none;
+    --hero-grid-dot: rgba(10,210,90,0.10);
+    --hero-rings:
+      radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.05) 0%, transparent 70%),
+      radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.03) 0%, transparent 60%),
+      radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.015) 0%, transparent 50%);
+    --hero-orb-1: radial-gradient(circle, rgba(10,210,90,0.06) 0%, transparent 70%);
+    --hero-orb-2: radial-gradient(circle, rgba(10,210,90,0.04) 0%, transparent 70%);
+    --hero-orb-3: radial-gradient(circle, rgba(10,210,90,0.05) 0%, transparent 70%);
+  }
+}
+/* Explicit theme classes (set by AdminThemeToggle via JS) */
+:root.light {
+  color-scheme: light;
+  --background: #fafafa;
+  --foreground: #0a0a0a;
+  /* Bright brand green as the FILL. Every CTA is bg-[var(--primary)]
+     text-black and 109 fills + 11 globals.css rules all pair it with
+     #000, so this keeps the brand colour and passes at 10.38:1.
+     The darkened #0b7a34 it replaces was a mistake: it diluted the
+     brand and dropped those buttons to 3.85:1. */
+  --primary: #0AD25A;
+  /* Hover step: must stay dark enough for the black button label.
+     #095c27 was only 2.57:1 — a hover state that fails worse than rest. */
+  --primary-dark: #09b84f;
+  --primary-light: #22FF7A;
+  --primary-text: #0b7a34;
+  --accent: #f59e0b;
+  --accent-dark: #d97706;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --card-hover: #f5f5f5;
+  --border: #e5e5e5;
+  --border-light: #d4d4d4;
+  --border-strong: #767676;
+  --muted: #525252;
+  --consent-leave-fg: #525252;
+  --muted-light: #525252;
+  --surface-2: #f5f5f5;
+  --bg: #fafafa;
+  --success: #16a34a;
+  --warning: #d97706;
+  --error: #dc2626;
+  --glow-primary: rgba(10, 210, 90, 0.08);
+  --glow-primary-strong: rgba(10, 210, 90, 0.04);
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06);
+  --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.12), 0 12px 40px rgba(0,0,0,0.08);
+  --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(10,210,90,0.15);
+  /* Hero layers — MUST stay in sync with the @media (prefers-color-scheme: light)
+     block above; this is the admin-override route to the same palette.
+     See that block for why the vignette is switched off. */
+  --hero-vignette: none;
+  --hero-grid-dot: rgba(10,210,90,0.10);
+  --hero-rings:
+    radial-gradient(ellipse 60% 40% at 50% 55%, rgba(10,210,90,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(10,210,90,0.03) 0%, transparent 60%),
+    radial-gradient(ellipse 100% 80% at 50% 55%, rgba(10,210,90,0.015) 0%, transparent 50%);
+  --hero-orb-1: radial-gradient(circle, rgba(10,210,90,0.06) 0%, transparent 70%);
+  --hero-orb-2: radial-gradient(circle, rgba(10,210,90,0.04) 0%, transparent 70%);
+  --hero-orb-3: radial-gradient(circle, rgba(10,210,90,0.05) 0%, transparent 70%);
+}
+
+:root.dark {
+  color-scheme: dark;
+  --background: #000000;
+  --foreground: #f5f5f5;
+  --primary: #0AD25A;
+  --primary-text: #0AD25A;
+  --primary-dark: #059669;
+  --primary-light: #22FF7A;
+  --accent: #f59e0b;
+  --accent-dark: #d97706;
+  --surface: #0d0d0d;
+  --card: #141414;
+  --card-hover: #1c1c1c;
+  --border: #252525;
+  --border-light: #2f2f2f;
+  --border-strong: #626262;
+  --muted: #737373;
+  --consent-leave-fg: #8a8a8a;
+  --muted-light: #a3a3a3;
+  --surface-2: #1a1a1a;
+  --bg: #000000;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --glow-primary: rgba(10, 210, 90, 0.12);
+  --glow-primary-strong: rgba(10, 210, 90, 0.06);
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.4);
+  --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.6), 0 12px 40px rgba(0,0,0,0.5);
+  --card-shadow-primary: 0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(10,210,90,0.15);
+}
+
+
+/* ── Admin: Mobile-responsive tables ────────────────────────────── */
+.admin-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.admin-table th {
+  background: var(--card-hover);
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.admin-table tbody tr:hover {
+  background: var(--card-hover);
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Admin: Touch-friendly buttons ──────────────────────────────── */
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admin-btn:hover {
+  background: var(--card-hover);
+  border-color: var(--border-light);
+}
+
+.admin-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.admin-btn-primary {
+  background: var(--primary);
+  color: #000;
+  border-color: var(--primary);
+}
+
+.admin-btn-primary:hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+/* ── Admin: Mobile sidebar transition ──────────────────────────── */
+@media (max-width: 1023px) {
+  .admin-sidebar-enter {
+    transform: translateX(-100%);
+  }
+  .admin-sidebar-enter-active {
+    transform: translateX(0);
+    transition: transform 0.25s ease;
+  }
+  .admin-sidebar-exit {
+    transform: translateX(0);
+  }
+  .admin-sidebar-exit-active {
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+}
+
+/* ── Undefined utility classes ─────────────────────────────────── */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  font-weight: 600;
+  border-radius: 0.75rem;
+  transition: border-color 0.2s, color 0.2s;
+  background: transparent;
+  cursor: pointer;
+}
+.btn-ghost:hover {
+  border-color: var(--primary);
+  color: var(--primary-text);
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 500;
+  border-radius: 0.5rem;
+  transition: border-color 0.2s, color 0.2s;
+  background: transparent;
+  cursor: pointer;
+}
+.back-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary-text);
+}
+
+.legal-content {
+  color: var(--foreground);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+.legal-content > * + * { margin-top: 1.25rem; }
+.legal-content h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.25;
+}
+.legal-content h3 {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--foreground);
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.3;
+}
+.legal-content p { color: var(--foreground); }
+.legal-content strong { color: var(--foreground); font-weight: 600; }
+.legal-content a {
+  color: var(--primary-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+.legal-content a:hover { color: var(--primary-light); }
+.legal-content ul, .legal-content ol {
+  padding-left: 1.5rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+.legal-content ul { list-style: disc; }
+.legal-content ol { list-style: decimal; }
+.legal-content li { margin-top: 0.5rem; }
+.legal-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875em;
+  background: var(--surface);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  color: var(--primary-text);
+}
+.legal-content pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.legal-content pre code { background: transparent; padding: 0; color: var(--foreground); }
+.legal-content blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: var(--muted);
+}
+.legal-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.legal-content th, .legal-content td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.legal-content th {
+  background: var(--surface);
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+.animate-float-delay {
+  animation: float 3s ease-in-out 1.5s infinite;
+}
+.animate-float-slow {
+  animation: float 6s ease-in-out infinite;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+

@@ -112,7 +112,51 @@ class TrialStatusEnum(str, Enum):
 
 # ============== Validators ==============
 
-VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN", "AE", "MX", "PK", "ID"}
+# Valid country codes, read from the `countries` table at application startup.
+#
+# Populated once by load_valid_countries() during app startup (see app/main.py
+# lifespan). The fallback below is INTENTIONALLY EMPTY — a non-empty fallback
+# silently disagrees with the catalog (the old 11-country set had 6 countries
+# that were selectable in the UI but 422'd at precheck, and 'UK' which is not
+# ISO 3166). An empty set fails closed: any validator that runs before the
+# loader raises a loud RuntimeError instead of silently validating against a
+# stale list.
+#
+# Every country validator in the app reads this global, so if it is empty when
+# validate_country() is called, the loader has not run — that is a boot-order
+# bug, not a validation failure.
+VALID_COUNTRIES: set[str] = set()  # populated by load_valid_countries(); empty until then
+
+
+async def load_valid_countries() -> set[str]:
+    """Populate VALID_COUNTRIES from the `countries` table.
+
+    Called from the FastAPI lifespan so every validator in the app — this module
+    and app/routers/schemas.py, which re-exports from here — reads one source of
+    truth. Returns the set it installed.
+
+    Raises RuntimeError if the table cannot be read — the fallback is an empty
+    set, which would cause every order to be rejected. A hard failure here is
+    correct: the country table is populated at deploy time by seed_countries.py,
+    so an empty table means the seed never ran. An operator must fix the data,
+    not have the app silently work with a stale list.
+    """
+    global VALID_COUNTRIES
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    async with engine.connect() as conn:
+        rows = (await conn.execute(text("SELECT code FROM countries"))).fetchall()
+    codes = {str(r[0]).strip().upper() for r in rows if r[0]}
+    if not codes:
+        raise RuntimeError(
+            "The `countries` table is empty — seed_countries.py has not run. "
+            "Populate it before starting the app: "
+            "/opt/styxproxy/backend/venv/bin/python3 /opt/styxproxy/backend/scripts/seed_countries.py"
+        )
+    VALID_COUNTRIES = codes
+    return codes
 
 
 def validate_phone(phone: str) -> str:
@@ -124,10 +168,29 @@ def validate_phone(phone: str) -> str:
 
 
 def validate_country(country: str) -> str:
-    """Validate country code."""
-    if country.upper() not in VALID_COUNTRIES:
+    """Validate country code against the ISO set loaded from the DB.
+
+    Also normalises the common non-ISO spelling: the business, the marketing
+    copy and the frontend all say "UK", but the ISO code is GB. Accepting it
+    here keeps the customer-facing label working while every downstream consumer
+    (the provider, the credential guard) sees the canonical GB.
+
+    Raises RuntimeError if VALID_COUNTRIES is empty — the loader has not run,
+    which is a boot-order bug. Raises ValueError if the country is not in the
+    loaded set.
+    """
+    if not VALID_COUNTRIES:
+        raise RuntimeError(
+            "VALID_COUNTRIES is empty — load_valid_countries() has not run yet. "
+            "This is a boot-order bug: the FastAPI lifespan must load the country "
+            "set before any validator can run. Check app/main.py lifespan ordering."
+        )
+    code = (country or "").strip().upper()
+    if code == "UK":
+        code = "GB"
+    if code not in VALID_COUNTRIES:
         raise ValueError(f"Country must be one of: {', '.join(sorted(VALID_COUNTRIES))}")
-    return country.upper()
+    return code
 
 
 # ============== Base Schemas ==============
@@ -223,27 +286,6 @@ class MergeRequestResponse(BaseModel):
     source_account_id: UUID
     target_account_id: UUID
     created_at: datetime
-
-
-# ============== Products Schemas ==============
-
-
-class ProductResponse(BaseModel):
-    """Product response."""
-
-    plan_code: str
-    plan_type: str
-    country: str
-    price_ngn: float
-    quantity: int
-    duration_days: int
-    features: list[str]
-
-
-class ProductsResponse(BaseModel):
-    """Products list response."""
-
-    products: list[ProductResponse]
 
 
 # ============== Plans Schemas ==============
@@ -354,11 +396,23 @@ class StyxproxyCredentialBrief(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
-    bun_username: str = Field(..., alias="styxproxy_username", serialization_alias="styxproxy_username")
+    styxproxy_username: str = Field(..., alias="styxproxy_username", serialization_alias="styxproxy_username")
+    styxproxy_password: Optional[str] = None  # Customer-facing password (decrypted for support)
     protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
     status: str
+
+    @field_validator('styxproxy_password', mode='before')
+    @classmethod
+    def decrypt_password(cls, v):
+        """Decrypt the binary password column to plaintext for support use."""
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            from app.services.crypto import decrypt_credential_compat
+            return decrypt_credential_compat(v)
+        return v
 
 
 class OrderCreateRequest(BaseModel):
@@ -523,8 +577,32 @@ class PrecheckResponse(BaseModel):
     estimated_delivery_seconds: int = 30
 
 
+class ReceiptCredentialPublic(BaseModel):
+    """Non-sensitive credential status for the UNAUTHENTICATED public receipt.
+
+    SECURITY: served by GET /api/orders/{tx_ref}/receipt, which has no auth.
+    `tx_ref` is NOT a secret — it is the payment reference, printed in
+    Flutterwave's dashboard, gateway callbacks, nginx access logs, emailed
+    receipt links and support threads. So this response must never carry
+    anything that helps someone USE the proxy: no username, no upstream
+    IP/port, no password. Status only.
+
+    NOTE: this class is duplicated in app/routers/schemas.py. Both files define
+    ReceiptOrderResponse and orders.py imports from app.schemas — keep them in
+    sync or the import fails at startup.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str
+
+
 class ReceiptOrderResponse(BaseModel):
-    """Receipt response - order with credential data for public receipt page."""
+    """Receipt response for the PUBLIC, UNAUTHENTICATED receipt page.
+
+    Proves payment. Deliberately does NOT disclose proxy connection details —
+    see ReceiptCredentialPublic.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -539,7 +617,7 @@ class ReceiptOrderResponse(BaseModel):
     customer_name: Optional[str] = None
     created_at: datetime
     expires_at: Optional[datetime] = None
-    styxproxy_credential: Optional[StyxproxyCredentialBrief] = None
+    styxproxy_credential: Optional[ReceiptCredentialPublic] = None
 
 
 # ============== Payments Schemas ==============
@@ -595,9 +673,11 @@ class PaymentInitiateResponse(BaseModel):
     """Payment initiation response."""
 
     payment_id: str
+    order_id: str
     checkout_url: str
     amount_ngn: float
     expires_at: datetime
+    tx_ref: str = ""
 
 
 class PaymentStatusResponse(BaseModel):
@@ -618,11 +698,11 @@ class CredentialResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    bun_username: str
+    styxproxy_username: str
     protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
-    dante_port: Optional[int]
+    socks_port: Optional[int]
     status: str
     expires_at: Optional[datetime]
 
@@ -663,7 +743,7 @@ class TrialClaimRequest(BaseModel):
 class TrialCredentialResponse(BaseModel):
     """Trial credential response."""
 
-    bun_username: str
+    styxproxy_username: str
     protocol: str
     upstream_proxy_ip: str
     upstream_proxy_port: int
@@ -815,13 +895,152 @@ class AdminRefundRequest(BaseModel):
     full_refund: bool = True
 
 
+# ── Refund approval + threshold models ──────────────────────────────────
+# NOTE: these six are duplicated in app/routers/schemas.py. admin.py imports
+# them from app.schemas, but they were only ever added to app/routers/schemas.py,
+# so `import app.routers.admin` raised ImportError at startup and every test
+# module that touches app.routers failed to collect. Mirrored here so the two
+# files agree — keep them in sync.
+#
+# (Same duplication hazard already documented on ReceiptCredentialPublic above.)
+
+
+class RefundApprovalResponse(BaseModel):
+    """Response for a refund approval record."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    order_id: str
+    requested_by: str
+    requested_amount: float
+    status: str
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    reviewer_notes: Optional[str] = None
+    created_at: datetime
+
+
+class RefundApprovalActionRequest(BaseModel):
+    """Request to approve or reject a refund approval."""
+
+    action: str = Field(..., pattern="^(approve|reject)$")
+    reviewer_notes: Optional[str] = Field(None, max_length=500)
+
+
+class RefundApprovalActionResponse(BaseModel):
+    """Response after approving or rejecting a refund approval."""
+
+    id: UUID
+    order_id: str
+    status: str
+    reviewed_by: str
+    reviewed_at: datetime
+    message: str
+
+
+class RefundApprovalListResponse(BaseModel):
+    """List of refund approvals response."""
+
+    approvals: list[RefundApprovalResponse]
+    pagination: dict[str, Any]
+
+
+class RefundRequestResponse(BaseModel):
+    """Response when requesting a large refund (202 pending approval)."""
+
+    status: str  # "pending_approval" or "refunded"
+    order_id: str
+    refund_amount: float
+    approval_id: Optional[UUID] = None
+    message: str
+
+
+class AdminRefundThresholdResponse(BaseModel):
+    """Response for the refund threshold setting."""
+
+    key: str
+    value: float
+    description: Optional[str] = None
+
+
+# ── Unauthenticated-response + admin allowlist models ───────────────────
+# NOTE: duplicated in app/routers/schemas.py; auth.py and orders.py import
+# them from app.schemas. Same hazard as the refund models above.
+
+
+class CredentialStatusPublic(BaseModel):
+    """Credential shape for UNAUTHENTICATED responses.
+
+    Deliberately carries only ``status``. A credential's username and upstream
+    gateway address are enough to fingerprint and attempt a connection
+    against a specific proxy, so serving them from an endpoint that needs no
+    auth turns any leaked payment reference into working proxy details.
+
+    This exists because closing that leak in ONE response model
+    (``ReceiptCredentialPublic``) left ``StyxproxyCredentialBrief`` intact and
+    still embedded in ``OrderResponse`` — which serves the unauthenticated
+    ``/by-payment-reference`` and ``/by-device`` routes. The data was removed
+    from the receipt page and still served from the API. Fix the class: any
+    route without auth uses this, so there is one shape to audit.
+    """
+
+    status: str
+
+
+class PublicOrderResponse(BaseModel):
+    """Order response for endpoints that require NO auth.
+
+    Identical to :class:`OrderResponse` except the credential block is
+    :class:`CredentialStatusPublic`. Used by ``/by-payment-reference`` and
+    ``/by-device``, both of which are unauthenticated and therefore must never
+    disclose proxy login details to whoever holds the reference.
+
+    Do not add credential fields here. If a route needs them, that route needs
+    auth.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    order_id: str
+    status: str
+    plan_type: Optional[str]
+    country: Optional[str]
+    amount_paid_ngn: Optional[float]
+    styxproxy_credential: Optional[CredentialStatusPublic]
+    created_at: datetime
+    expires_at: Optional[datetime]
+    customer_name: Optional[str] = None
+    is_renewable: Optional[bool] = False
+    rotation_count: Optional[int] = 0
+    max_rotations: Optional[int] = 3
+    emails_sent: Optional[int] = None
+    reminder_sent_at: Optional[datetime] = None
+    referral_tx_ref: Optional[str] = None
+
+
+class AdminIPAllowlistUpdateRequest(BaseModel):
+    """Request to update an admin's IP allowlist."""
+
+    allowed_ips: list[str] = Field(..., description="List of allowed IP addresses (IPv4/IPv6). Empty list = allow all.")
+
+
+class AdminIPAllowlistResponse(BaseModel):
+    """Response after updating an admin's IP allowlist."""
+
+    email: str
+    allowed_ips: list[str]
+    message: str
+
+
 class AdminCredentialResponse(BaseModel):
     """Admin credential response."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    bun_username: str = Field(validation_alias="styxproxy_username")
+    styxproxy_username: str = Field(validation_alias="styxproxy_username")
+    styxproxy_password: Optional[str] = None  # Customer-facing password (decrypted for support)
     customer_phone: Optional[str]
     order_id: Optional[str]
     pool_type: str
@@ -829,6 +1048,17 @@ class AdminCredentialResponse(BaseModel):
     upstream_proxy_ip: Optional[str]
     status: str
     expires_at: Optional[datetime]
+
+    @field_validator('styxproxy_password', mode='before')
+    @classmethod
+    def decrypt_password(cls, v):
+        """Decrypt the binary password column to plaintext for support use."""
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            from app.services.crypto import decrypt_credential_compat
+            return decrypt_credential_compat(v)
+        return v
 
 
 class AdminCredentialsResponse(BaseModel):
@@ -2026,3 +2256,52 @@ class AnalyticsFunnelResponse(BaseModel):
     total_events: int
     period_start: datetime
     period_end: datetime
+
+
+# ============== Renewal Schemas ==============
+
+
+class RenewalCreateRequest(BaseModel):
+    """Request to create a renewal order."""
+
+    order_id: str = Field(..., min_length=1, max_length=20)
+    quantity_gb: Optional[float] = Field(None, ge=1, description="GB amount for residential/mobile")
+    gateway: str = Field(default="flutterwave", description="Payment gateway")
+    customer_email: Optional[str] = Field(None, max_length=255)
+    idempotency_key: Optional[str] = Field(None, max_length=100)
+
+
+class RenewalInitiateResponse(BaseModel):
+    """Response after initiating a renewal payment."""
+
+    renewal_id: int
+    order_id: str
+    checkout_url: str
+    amount_ngn: float
+    currency: str = "NGN"
+    expires_at: datetime
+    tx_ref: str
+
+
+class RenewalResponse(BaseModel):
+    """Renewal record response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_id: str
+    quantity_gb: Optional[float] = None
+    amount_paid_ngn: float
+    payment_reference: Optional[str] = None
+    tx_ref: Optional[str] = None
+    status: str
+    credential_id: Optional[int] = None
+    expires_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class RenewalHistoryResponse(BaseModel):
+    """Response for renewal history listing."""
+
+    renewals: list[RenewalResponse]
+    total: int

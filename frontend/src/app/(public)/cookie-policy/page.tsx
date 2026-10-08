@@ -15,7 +15,7 @@ export default function CookiePolicy() {
       <div className="hero-orb hero-orb-1" />
       <div className="hero-orb hero-orb-2" />
 
-      <main className="relative z-10 flex-1 pt-28 pb-20">
+      <section className="relative z-10 flex-1 pt-28 pb-20">
         <div className="max-w-2xl mx-auto px-6">
 
           {/* Article card */}
@@ -23,9 +23,9 @@ export default function CookiePolicy() {
             <div className="p-8 sm:p-10">
               {/* Page header */}
               <div className="mb-8">
-                <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Legal</p>
+                <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">Legal</p>
                 <h1 className="text-3xl font-black text-[var(--foreground)] mb-2">Cookie Policy</h1>
-                <p className="text-[var(--muted)] text-sm">Effective Date: 2026-07-13 · Last Updated: 2026-07-13</p>
+                <p className="text-[var(--muted)] text-sm">Effective Date: 2026-08-27 · Last Updated: 2026-08-27</p>
               </div>
               <div className="border-t border-[var(--border)] mb-8" />
 
@@ -52,7 +52,7 @@ export default function CookiePolicy() {
                   ['localStorage.styxproxy_inflight_order', 'Tracks an in-progress payment (tx_ref + plan_code). Auto-expires after 5 minutes. Prevents accidental double-payments if you click "Pay" twice.'],
                   ['sessionStorage.styxproxy_cart', 'Your shopping cart contents. Cleared when you close the browser tab.'],
                   ['sessionStorage.styxproxy_consent', 'Flag set to "1" after you accept or decline the consent gate. We don\'t remember the choice across sessions — you can change your mind anytime.'],
-                  ['sessionStorage.styxproxy_email', 'Email you optionally provided at checkout for receipt delivery. Cleared when the tab closes. We never see this value.'],
+                  ['sessionStorage.styxproxy_email', 'Email you optionally provided at checkout. Sent to us once, only so we can deliver your receipt. Cleared from this device when the tab closes.'],
                 ].map(([key, desc]) => (
                   <div key={key} className="bg-[var(--background)] border border-[var(--border)] rounded-xl p-5 mb-3">
                     <h3 className="font-semibold mb-2 text-[var(--foreground)]"><code>{key}</code></h3>
@@ -73,7 +73,13 @@ export default function CookiePolicy() {
               </section>
 
               <section className="mb-8">
-                <h2 className="text-xl font-bold mb-4">Third-party services on payment pages</h2>
+                <h2 className="text-xl font-bold mb-4">Third-party services</h2>
+                <p className="text-[var(--muted)] leading-relaxed mb-3">
+                  <strong>Sentry</strong> — We use Sentry for error monitoring. Sentry receives
+                  error traces at a 10% sample rate as a third-party processor. Sentry sets no
+                  cookie and session replay is hard-disabled. Error traces contain no personal
+                  information — only stack traces, request metadata, and error messages.
+                </p>
                 <p className="text-[var(--muted)] leading-relaxed mb-3">
                   When you click "Pay", you are redirected to <strong>Flutterwave</strong> to complete payment.
                   Flutterwave is the payment processor — they have their own privacy policy and cookie use.
@@ -104,18 +110,18 @@ export default function CookiePolicy() {
                 <h2 className="text-xl font-bold mb-4">Questions</h2>
                 <p className="text-[var(--muted)] leading-relaxed">
                   Reach us via{' '}
-                  <Link href="/contact" className="text-[var(--primary)] hover:underline">contact form</Link>{' '}
-                  or email <a href="mailto:privacy@styxproxy.com" className="text-[var(--primary)] hover:underline">privacy@styxproxy.com</a>.
+                  <Link href="/contact" className="text-[var(--primary-text)] hover:underline">contact form</Link>{' '}
+                  or email <a href="mailto:privacy@styxproxy.com" className="text-[var(--primary-text)] hover:underline">privacy@styxproxy.com</a>.
                 </p>
               </section>
 
               <div className="border-t border-[var(--border)] pt-6">
-                <p className="text-xs text-[var(--muted)] text-center">
+                <p className="text-base text-[var(--muted)] text-center">
                   Related:{' '}
-                  <Link href="/legal/terms" className="text-[var(--primary)] hover:underline">Terms</Link> ·{' '}
-                  <Link href="/legal/privacy" className="text-[var(--primary)] hover:underline">Privacy</Link> ·{' '}
-                  <Link href="/legal/aup" className="text-[var(--primary)] hover:underline">AUP</Link> ·{' '}
-                  <Link href="/refund-policy" className="text-[var(--primary)] hover:underline">Refund Policy</Link>
+                  <Link href="/legal/terms" className="text-[var(--primary-text)] hover:underline">Terms</Link> ·{' '}
+                  <Link href="/legal/privacy" className="text-[var(--primary-text)] hover:underline">Privacy</Link> ·{' '}
+                  <Link href="/legal/aup" className="text-[var(--primary-text)] hover:underline">AUP</Link> ·{' '}
+                  <Link href="/refund-policy" className="text-[var(--primary-text)] hover:underline">Refund Policy</Link>
                 </p>
               </div>
             </div>
@@ -124,12 +130,12 @@ export default function CookiePolicy() {
           {/* CTA */}
           <div className="mt-8 text-center p-6 bg-[var(--card)] border border-[var(--border)] rounded-2xl">
             <p className="text-[var(--muted)] text-sm mb-3">Questions about our cookie use?</p>
-            <Link href="/contact" className="text-[var(--primary)] font-semibold hover:underline text-sm">
+            <Link href="/contact" className="text-[var(--primary-text)] font-semibold hover:underline text-sm">
               Contact us →
             </Link>
           </div>
         </div>
-      </main>
+      </section>
     </div>
   );
 }

@@ -1,0 +1,73 @@
+[Unit]
+Description=Styxproxy Paid Proxy Relay (Postgres-backed SOCKS5 + HTTP)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+# RESOLVED 2026-10-01 (kanban t_47ab6270). Both defects below are fixed and
+# verified live. Kept as documentation: together they made the relay
+# authenticate NOBODY, and each one alone looked harmless.
+#
+# 1. WRONG DB ROLE — FIXED by migration
+#    026_relay_role_credential_select.sql. The DSN below connects as role
+#    `styxproxy`, and `styxproxy_credentials` has FORCEd row-level security.
+#    Its only policy (`creds_app_all`) was granted to `styxproxy_app`, so the
+#    `styxproxy` role held SELECT/UPDATE grants it could never exercise: RLS
+#    filtered every row and `SELECT` returned 0 WITH NO ERROR.
+#    RelayAuth.refresh() therefore cached zero users and every credential was
+#    rejected. Measured on production: relay role saw 0 rows, styxproxy_app 35.
+#
+#    Route (a) was chosen — a SELECT-only policy (`creds_relay_select`) for
+#    `styxproxy` — over repointing the DSN at `styxproxy_app`. It is least
+#    privilege: the relay only reads credentials and updates bandwidth
+#    counters, and it keeps the app role's password out of this unit file.
+#    The BandwidthTracker flush is `UPDATE styxproxy_relay_entries ... FROM
+#    styxproxy_credentials c`, so metering needs that SELECT too — which is
+#    exactly what the policy grants.
+#
+#    `styxproxy_relay_entries` has NO RLS, which is why bandwidth metering kept
+#    working throughout and this failure was invisible in the logs.
+#
+#    Do NOT "fix" a role mismatch here by editing the DSN role: doing so
+#    without a matching policy restores the silent 0-row outage.
+#    test_relay_unit_dsn_role_must_see_credentials enforces the invariant.
+#
+# 2. CIPHERTEXT COMPARISON — FIXED in relay_paid.py. refresh() used to cache
+#    the raw styxproxy_password column, which holds ~120 bytes of Fernet
+#    ciphertext for every credential minted through set_password().
+#    verify() compared the customer's 16-char password against it, so a
+#    correct password was always rejected. The relay now decrypts first and
+#    tolerates legacy raw-plaintext rows.
+#
+# The DSN below MUST be plain postgresql://, not the postgresql+asyncpg:// form
+# in /opt/styxproxy/.env — asyncpg.connect() cannot parse the SQLAlchemy
+# dialect and the relay exits 1 at startup. For the same reason this unit must
+# NOT use `EnvironmentFile=/opt/styxproxy/.env`: systemd applies
+# EnvironmentFile= AFTER Environment= regardless of line order, so the file
+# would override DATABASE_URL below and stop the service. CRED_ENCRYPTION_KEY
+# is supplied by the key-only /opt/styxproxy-relay/relay.env for that reason.
+#
+# The `***` in the DSN below is a REDACTION PLACEHOLDER, not a usable password.
+# This file is tracked in git, so the real credential must never be committed
+# here. Anyone deploying it MUST substitute the live password from the running
+# unit rather than copying this file verbatim — installing it as-is yields
+# `InvalidPasswordError` and a Restart=always crash loop.
+Environment="PYTHONUNBUFFERED=1"
+Environment="DATABASE_URL=postgresql://styxproxy:REPLACE_ME@127.0.0.1:5432/styxproxy"
+Environment="LISTEN_HOST=0.0.0.0"
+Environment="LISTEN_PORT_SOCKS=11080"
+Environment="LISTEN_PORT_HTTP=18080"
+Environment="LOG_LEVEL=INFO"
+EnvironmentFile=/opt/styxproxy-relay/relay.env
+ExecStart=/opt/styxproxy/backend/venv/bin/python3 -u /opt/styxproxy-relay/relay_paid.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/styxproxy-relay-paid.log
+StandardError=append:/var/log/styxproxy-relay-paid.err.log
+
+[Install]
+WantedBy=multi-user.target

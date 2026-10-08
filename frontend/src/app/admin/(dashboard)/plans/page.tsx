@@ -451,7 +451,7 @@ function EditProductModal({ product, allCountries, onSaved, onClose }: EditProdu
                           placeholder={basePrice || '0'}
                           className="w-20 px-2 py-1.5 rounded bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] text-xs focus:outline-none focus:ring-1 focus:ring-yellow-500"
                         />
-                        <span className="text-[10px] text-[var(--muted)] shrink-0">
+                        <span className="text-xs text-[var(--muted)] shrink-0">
                           ₦/{isIP ? 'IP' : 'GB'}
                         </span>
                         {/* Save: update DB with new special price */}
@@ -678,7 +678,7 @@ export default function PlanSettingsPage() {
 
       {/* Error */}
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500 text-red-500 text-sm flex items-center justify-between">
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500 text-red-500 text-sm flex items-center justify-between" role="alert">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300 ml-4">✕</button>
         </div>

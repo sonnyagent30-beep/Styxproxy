@@ -1,11 +1,14 @@
 """Admin router."""
 
 import json
+import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
@@ -25,10 +28,24 @@ from app.models import (
     PlanSettings,
     ProcessedWebhook,
     ReferralCredit,
+    RefundApproval,
     StyxproxyCredential,
     TrialSession,
 )
-from app.schemas import (    PlanSettingsListResponse,
+from app.routers.schemas import (
+    AdminBulkBlockRequest,
+    AdminBulkUnblockRequest,
+    AdminBulkActionResponse,
+    RefundApprovalResponse,
+    RefundApprovalListResponse,
+    RefundApprovalActionRequest,
+    RefundApprovalActionResponse,
+    RefundRequestResponse,
+    AdminRefundThresholdResponse,
+)
+
+from app.schemas import (
+    PlanSettingsListResponse,
     PlanSettingsResponse,
     PlanSettingsUpdateRequest,
     PlanSettingsDisplay,
@@ -79,6 +96,12 @@ from app.schemas import (    PlanSettingsListResponse,
     TrialConversionStatsResponse,
     UpdateKnowledgeRequest,
     UpdateKnowledgeResponse,
+    RefundApprovalResponse,
+    RefundApprovalListResponse,
+    RefundApprovalActionRequest,
+    RefundApprovalActionResponse,
+    RefundRequestResponse,
+    AdminRefundThresholdResponse,
 )
 from app.services.audit import get_audit_logs, write_audit_log
 from app.services.credential import replace_credential
@@ -87,6 +110,7 @@ from app.services.email import (
     send_refund_processed_email,
 )
 from app.services.n8n import clear_failures, get_failure_stats, get_failures
+from app.services.refunds import GatewayRefundError, refund_at_gateway
 from app.services.permissions import require_permission
 from app.services.referral import (
     backfill_referral_codes,
@@ -220,6 +244,143 @@ async def unblock_customer(customer_id: UUID, session: AsyncSession = Depends(ge
     return {"status": "unblocked", "customer_id": str(customer_id)}
 
 
+@router.post(
+    "/customers/bulk-block",
+    response_model=AdminBulkActionResponse,
+    dependencies=[Depends(require_permission("admin.customers.escalations.handle", totp_required=True))],
+)
+async def bulk_block_customers(
+    request: AdminBulkBlockRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Block multiple customers in a single operation."""
+    processed = 0
+    failed = 0
+    details: list[dict] = []
+
+    for cid in request.customer_ids:
+        customer = (
+            await session.execute(select(Customer).where(Customer.id == cid))
+        ).scalar_one_or_none()
+        if not customer:
+            failed += 1
+            details.append({"customer_id": str(cid), "error": "Customer not found"})
+            continue
+        customer.blocked = True
+        customer.blocked_reason = request.reason
+        processed += 1
+        details.append({"customer_id": str(cid), "status": "blocked"})
+
+    await session.commit()
+    return AdminBulkActionResponse(
+        success=failed == 0,
+        processed=processed,
+        failed=failed,
+        details=details,
+    )
+
+
+@router.post(
+    "/customers/bulk-unblock",
+    response_model=AdminBulkActionResponse,
+    dependencies=[Depends(require_permission("admin.customers.escalations.handle", totp_required=True))],
+)
+async def bulk_unblock_customers(
+    request: AdminBulkUnblockRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """Unblock multiple customers in a single operation."""
+    processed = 0
+    failed = 0
+    details: list[dict] = []
+
+    for cid in request.customer_ids:
+        customer = (
+            await session.execute(select(Customer).where(Customer.id == cid))
+        ).scalar_one_or_none()
+        if not customer:
+            failed += 1
+            details.append({"customer_id": str(cid), "error": "Customer not found"})
+            continue
+        customer.blocked = False
+        customer.blocked_reason = None
+        processed += 1
+        details.append({"customer_id": str(cid), "status": "unblocked"})
+
+    await session.commit()
+    return AdminBulkActionResponse(
+        success=failed == 0,
+        processed=processed,
+        failed=failed,
+        details=details,
+    )
+
+
+@router.get(
+    "/customers/export",
+    dependencies=[Depends(require_permission("admin.customers.list"))],
+)
+async def export_customers_csv(
+    blocked: Optional[bool] = None,
+    search: Optional[str] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Export customers as CSV."""
+    import csv as csv_module
+    import io
+
+    from fastapi.responses import StreamingResponse
+
+    conditions = []
+    if blocked is not None:
+        conditions.append(Customer.blocked == blocked)
+    if search:
+        escaped = re.sub(r"([%_\])", r"\1", search)
+        conditions.append(
+            (Customer.phone.ilike(f"%{escaped}%", escape="\\")) | (Customer.name.ilike(f"%{escaped}%", escape="\\"))
+        )
+
+    stmt = select(Customer).order_by(Customer.created_at.desc())
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    customers = (await session.execute(stmt)).scalars().all()
+
+    output = io.StringIO()
+    writer = csv_module.writer(output)
+    writer.writerow(["ID", "Phone", "Name", "Blocked", "Total Orders", "Lifetime Value (NGN)", "Created At"])
+
+    for c in customers:
+        order_count = (
+            await session.execute(
+                select(func.count()).select_from(Order).where(Order.customer_phone == c.phone)
+            )
+        ).scalar() or 0
+        ltv = (
+            await session.execute(
+                select(func.sum(Order.amount_paid_ngn)).where(
+                    Order.customer_phone == c.phone,
+                    Order.status.in_(["active", "fulfilled"]),
+                )
+            )
+        ).scalar() or 0
+        writer.writerow([
+            str(c.id),
+            c.phone,
+            c.name or "",
+            "Yes" if c.blocked else "No",
+            order_count,
+            float(ltv),
+            c.created_at.isoformat() if c.created_at else "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=customers.csv"},
+    )
+
+
 @router.get(
     "/orders", response_model=AdminOrdersResponse, dependencies=[Depends(require_permission("admin.orders.list"))]
 )
@@ -260,6 +421,66 @@ async def list_orders(
             "has_next": page * limit < total,
             "has_prev": page > 1,
         },
+    )
+
+
+@router.get(
+    "/orders/export",
+    dependencies=[Depends(require_permission("admin.orders.list"))],
+)
+async def export_orders_csv(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    customer_phone: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """Export orders as CSV."""
+    import csv as csv_module
+    import io
+
+    from fastapi.responses import StreamingResponse
+
+    conditions = []
+    if status_filter:
+        conditions.append(Order.status == status_filter)
+    if customer_phone:
+        conditions.append(Order.customer_phone == customer_phone)
+    if date_from:
+        conditions.append(Order.created_at >= date_from)
+    if date_to:
+        conditions.append(Order.created_at <= date_to)
+
+    stmt = select(Order).order_by(Order.created_at.desc())
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    orders = (await session.execute(stmt)).scalars().all()
+
+    output = io.StringIO()
+    writer = csv_module.writer(output)
+    writer.writerow([
+        "Order ID", "Status", "Plan Type", "Plan Code", "Country",
+        "Amount Paid (NGN)", "Customer Phone", "Created At", "Expires At"
+    ])
+
+    for o in orders:
+        writer.writerow([
+            o.order_id,
+            o.status,
+            o.plan_type or "",
+            o.plan_code or "",
+            o.country or "",
+            float(o.amount_paid_ngn) if o.amount_paid_ngn else 0,
+            o.customer_phone or "",
+            o.created_at.isoformat() if o.created_at else "",
+            o.expires_at.isoformat() if o.expires_at else "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=orders.csv"},
     )
 
 
@@ -340,23 +561,77 @@ async def update_order(
     return {"status": "updated", "order_id": order_id}
 
 
-@router.post("/orders/{order_id}/refund", dependencies=[Depends(require_permission("admin.orders.refund", totp_required=True))])
-async def refund_order(
-    order_id: str,
-    body: AdminRefundRequest,
+async def _get_refund_threshold(session: AsyncSession) -> float:
+    """Get the large-refund threshold from PlanSettings, default 50000 NGN."""
+    stmt = (
+        select(PlanSettings)
+        .where(PlanSettings.setting_key == "large_refund_threshold_ngn")
+        .where(PlanSettings.is_active == True)
+        .order_by(PlanSettings.priority.desc())
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    setting = result.scalar_one_or_none()
+    if setting and setting.setting_value:
+        try:
+            return float(setting.setting_value.get("value", 50000))
+        except (ValueError, TypeError):
+            pass
+    return 50000.0
+
+
+async def _process_refund(
+    session: AsyncSession,
+    order: Order,
+    admin_email: str,
+    reason: str,
     http_request: Request,
-    current_admin: dict = Depends(require_permission("admin.orders.refund", totp_required=True)),
-    session: AsyncSession = Depends(get_session),
-):
-    admin_email = current_admin["admin"].email
-    order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-    if order.status in ["refunded", "cancelled"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order already refunded or cancelled")
+) -> dict:
+    """Refund an order AT THE GATEWAY, then record the result.
+
+    The gateway is asked FIRST. `status='refunded'` is written only after it
+    confirms, and the gateway's own refund id is persisted alongside it.
+
+    Previously this function flipped the status, revoked the credential and
+    emailed the customer without ever contacting a gateway — so a customer was
+    told their money had been returned when none of it had moved. All 46
+    `refunded` rows in production are such flips (payment_reference set, tx_ref
+    NULL: the gateway was never consulted).
+
+    On any gateway failure the order is left exactly as it was — actionable,
+    not `refunded` — the failure is written to the audit log, and
+    `GatewayRefundError` propagates so the caller surfaces it to the admin.
+    """
+    try:
+        refund = await refund_at_gateway(order, reason=reason or "Refund requested by admin")
+    except GatewayRefundError as e:
+        # Money did NOT move. Leave the order untouched and actionable; record
+        # why so an operator can retry once the gateway is reachable.
+        await write_audit_log(
+            session,
+            admin_email=admin_email,
+            action="refund_failed",
+            resource_type="order",
+            resource_id=order.order_id,
+            details={
+                "reason": reason,
+                "error": str(e),
+                "provider": order.provider,
+                "order_status_unchanged": order.status,
+            },
+            request=http_request,
+        )
+        logger.error("Gateway refund FAILED for order %s: %s", order.order_id, e)
+        raise
+
+    # ── Gateway confirmed. Now, and only now, is the order refunded. ─────────
+    order.gateway_refund_id = refund.gateway_refund_id
+    order.gateway_refund_status = refund.gateway_status
+    order.gateway_refund_amount = refund.amount_ngn
+    order.gateway_refunded_at = datetime.now(timezone.utc)
     order.status = "refunded"
     order.refund_requested = True
-    order.refund_reason = body.reason
+    order.refund_reason = reason
     if order.styxproxy_credential_id:
         cred = (
             await session.execute(
@@ -372,16 +647,23 @@ async def refund_order(
         admin_email=admin_email,
         action="refund_order",
         resource_type="order",
-        resource_id=order_id,
-        details={"reason": body.reason, "full_refund": body.full_refund},
+        resource_id=order.order_id,
+        details={
+            "reason": reason,
+            "provider": refund.provider,
+            "gateway_refund_id": refund.gateway_refund_id,
+            "gateway_refund_status": refund.gateway_status,
+            "reference": refund.reference,
+            "amount": refund.amount_ngn,
+        },
         request=http_request,
     )
 
     # Send admin notification
     await send_refund_approved_notification(
-        order_id=order_id,
+        order_id=order.order_id,
         customer_phone=order.customer_phone or "",
-        amount=float(order.amount_paid_ngn or 0),
+        amount=float(refund.amount_ngn or 0),
         currency="NGN",
     )
 
@@ -399,16 +681,409 @@ async def refund_order(
                 await send_refund_processed_email(
                     customer_email=customer_email,
                     customer_name=customer.name if customer.name else "Customer",
-                    order_id=order_id,
-                    original_amount=float(order.amount_paid_ngn or 0),
-                    refund_amount=float(order.amount_paid_ngn or 0),
+                    order_id=order.order_id,
+                    original_amount=float(refund.amount_ngn or 0),
+                    refund_amount=float(refund.amount_ngn or 0),
                     currency="NGN",
-                    reason=body.reason or "Refund processed",
+                    reason=reason or "Refund processed",
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to send refund email for order {order.order_id}: {e}")
 
-    return {"status": "refunded", "order_id": order_id, "refund_amount": float(order.amount_paid_ngn or 0)}
+    return {
+        "status": "refunded",
+        "order_id": order.order_id,
+        "refund_amount": float(refund.amount_ngn or 0),
+        "gateway_refund_id": refund.gateway_refund_id,
+        "provider": refund.provider,
+    }
+
+
+@router.post("/orders/{order_id}/refund", dependencies=[Depends(require_permission("admin.orders.refund", totp_required=True))])
+async def refund_order(
+    order_id: str,
+    body: AdminRefundRequest,
+    http_request: Request,
+    current_admin: dict = Depends(require_permission("admin.orders.refund", totp_required=True)),
+    session: AsyncSession = Depends(get_session),
+):
+    """Refund an order. If amount exceeds threshold, requires second admin approval."""
+    admin_email = current_admin["admin"].email
+    order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    if order.status in ["refunded", "cancelled"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order already refunded or cancelled")
+
+    refund_amount = float(order.amount_paid_ngn or 0)
+    threshold = await _get_refund_threshold(session)
+
+    if refund_amount > threshold:
+        # Large refund — create approval request and return 202
+        approval = RefundApproval(
+            order_id=order_id,
+            reason="Large refund requires approval",
+                
+            requested_amount=refund_amount,
+            status="pending",
+        )
+        session.add(approval)
+        await session.commit()
+        await session.refresh(approval)
+
+        await write_audit_log(
+            session,
+            admin_email=admin_email,
+            action="refund_requested",
+            resource_type="order",
+            resource_id=order_id,
+            details={"reason": body.reason, "amount": refund_amount, "threshold": threshold, "approval_id": str(approval.id)},
+            request=http_request,
+        )
+
+        # Notify superadmins
+        try:
+            from app.services.email import send_refund_request_notification
+            await send_refund_request_notification(
+                order_id=order_id,
+                customer_phone=order.customer_phone or "",
+                amount=refund_amount,
+                currency="NGN",
+                reason="Large refund requires approval",
+                
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send refund request notification for order {order_id}: {e}")
+
+        return RefundRequestResponse(
+            status="pending_approval",
+            order_id=order_id,
+            refund_amount=refund_amount,
+            approval_id=approval.id,
+            message=f"Refund of ₦{refund_amount:,.0f} exceeds threshold (₦{threshold:,.0f}). Second admin approval required.",
+        )
+
+    # Small refund — process immediately. A gateway failure must NOT be
+    # reported as a refund: the order keeps its current status and the admin
+    # gets a 502 naming the gateway error.
+    try:
+        result = await _process_refund(session, order, admin_email, body.reason, http_request)
+    except GatewayRefundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                f"Gateway refund failed — the order was NOT marked refunded and the customer "
+                f"was NOT notified. Reason: {e}"
+            ),
+        )
+    return RefundRequestResponse(
+        status="refunded",
+        order_id=result["order_id"],
+        refund_amount=result["refund_amount"],
+        message=(
+            f"Refund processed successfully. Gateway refund id: {result['gateway_refund_id']}."
+        ),
+    )
+
+
+@router.post(
+    "/orders/{order_id}/refund/request",
+    dependencies=[Depends(require_permission("admin.orders.refund", totp_required=True))],
+)
+async def request_large_refund(
+    order_id: str,
+    body: AdminRefundRequest,
+    http_request: Request,
+    current_admin: dict = Depends(require_permission("admin.orders.refund", totp_required=True)),
+    session: AsyncSession = Depends(get_session),
+):
+    """Explicitly request a large refund (creates a refund approval record)."""
+    admin_email = current_admin["admin"].email
+    order = (await session.execute(select(Order).where(Order.order_id == order_id))).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    if order.status in ["refunded", "cancelled"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order already refunded or cancelled")
+
+    refund_amount = float(order.amount_paid_ngn or 0)
+
+    # Check if there's already a pending approval for this order
+    existing = (
+        await session.execute(
+            select(RefundApproval)
+            .where(RefundApproval.order_id == order_id)
+            .where(RefundApproval.status == "pending")
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return RefundRequestResponse(
+            status="pending_approval",
+            order_id=order_id,
+            refund_amount=float(existing.requested_amount),
+            approval_id=existing.id,
+            message="A pending refund approval already exists for this order.",
+        )
+
+    approval = RefundApproval(
+        order_id=order_id,
+        reason="Large refund requires approval",
+                
+        requested_amount=refund_amount,
+        status="pending",
+    )
+    session.add(approval)
+    await session.commit()
+    await session.refresh(approval)
+
+    await write_audit_log(
+        session,
+        admin_email=admin_email,
+        action="refund_requested",
+        resource_type="order",
+        resource_id=order_id,
+        details={"reason": body.reason, "amount": refund_amount, "approval_id": str(approval.id)},
+        request=http_request,
+    )
+
+    # Notify superadmins
+    try:
+        from app.services.email import send_refund_request_notification
+        await send_refund_request_notification(
+            order_id=order_id,
+            customer_phone=order.customer_phone or "",
+            amount=refund_amount,
+            currency="NGN",
+            reason="Large refund requires approval",
+                
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send refund request notification for order {order_id}: {e}")
+
+    return RefundRequestResponse(
+        status="pending_approval",
+        order_id=order_id,
+        refund_amount=refund_amount,
+        approval_id=approval.id,
+        message=f"Refund request created. Second admin approval required for ₦{refund_amount:,.0f}.",
+    )
+
+
+@router.get(
+    "/refund-approvals",
+    response_model=RefundApprovalListResponse,
+    dependencies=[Depends(require_permission("admin.orders.refund"))],
+)
+async def list_refund_approvals(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    session: AsyncSession = Depends(get_session),
+):
+    """List refund approvals (pending/approved/rejected)."""
+    conditions = []
+    if status_filter:
+        conditions.append(RefundApproval.status == status_filter)
+    count_stmt = select(func.count()).select_from(RefundApproval)
+    if conditions:
+        count_stmt = count_stmt.where(and_(*conditions))
+    total = (await session.execute(count_stmt)).scalar() or 0
+    offset = (page - 1) * limit
+    stmt = select(RefundApproval).order_by(RefundApproval.created_at.desc()).offset(offset).limit(limit)
+    if conditions:
+        stmt = stmt.where(and_(*conditions))
+    approvals = (await session.execute(stmt)).scalars().all()
+    return RefundApprovalListResponse(
+        approvals=[RefundApprovalResponse.model_validate(a) for a in approvals],
+        pagination={
+            "page": page,
+            "limit": limit,
+            "total_items": total,
+            "total_pages": (total + limit - 1) // limit,
+            "has_next": page * limit < total,
+            "has_prev": page > 1,
+        },
+    )
+
+
+@router.post(
+    "/refund-approvals/{approval_id}/approve",
+    response_model=RefundApprovalActionResponse,
+    dependencies=[Depends(require_permission("admin.orders.refund", totp_required=True))],
+)
+async def approve_refund(
+    approval_id: UUID,
+    body: RefundApprovalActionRequest,
+    http_request: Request,
+    current_admin: dict = Depends(require_permission("admin.orders.refund", totp_required=True)),
+    session: AsyncSession = Depends(get_session),
+):
+    """Approve a large refund and process it."""
+    admin_email = current_admin["admin"].email
+    approval = (await session.execute(select(RefundApproval).where(RefundApproval.id == approval_id))).scalar_one_or_none()
+    if not approval:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Refund approval not found")
+    if approval.status != "pending":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Refund approval is already {approval.status}")
+
+    # Get the order and process refund
+    order = (await session.execute(select(Order).where(Order.order_id == approval.order_id))).scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    if order.status in ["refunded", "cancelled"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order already refunded or cancelled")
+
+    # Update approval record — AFTER the refund is confirmed. Marking this
+    # `approved` first would, on a gateway failure, leave an approval that says
+    # "approved" for a refund that never moved money (and _process_refund's own
+    # commits would persist that).
+    # Process the refund
+    try:
+        result = await _process_refund(session, order, admin_email, f"Large refund approved by {admin_email}", http_request)
+    except GatewayRefundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                f"Gateway refund failed — the order was NOT marked refunded, the customer was "
+                f"NOT notified, and this approval is still pending so it can be retried. Reason: {e}"
+            ),
+        )
+
+    approval.status = "approved"
+    approval.reviewed_by = admin_email
+    approval.reviewed_at = datetime.now(timezone.utc)
+    approval.reviewer_notes = body.reviewer_notes
+    await session.commit()
+
+    return RefundApprovalActionResponse(
+        id=approval.id,
+        order_id=approval.order_id,
+        status="approved",
+        reviewed_by=admin_email,
+        reviewed_at=approval.reviewed_at,
+        message=(
+            f"Refund of ₦{float(result['refund_amount']):,.0f} approved and processed. "
+            f"Gateway refund id: {result['gateway_refund_id']}."
+        ),
+    )
+
+
+@router.post(
+    "/refund-approvals/{approval_id}/reject",
+    response_model=RefundApprovalActionResponse,
+    dependencies=[Depends(require_permission("admin.orders.refund", totp_required=True))],
+)
+async def reject_refund(
+    approval_id: UUID,
+    body: RefundApprovalActionRequest,
+    http_request: Request,
+    current_admin: dict = Depends(require_permission("admin.orders.refund", totp_required=True)),
+    session: AsyncSession = Depends(get_session),
+):
+    """Reject a large refund request."""
+    admin_email = current_admin["admin"].email
+    approval = (await session.execute(select(RefundApproval).where(RefundApproval.id == approval_id))).scalar_one_or_none()
+    if not approval:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Refund approval not found")
+    if approval.status != "pending":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Refund approval is already {approval.status}")
+
+    approval.status = "rejected"
+    approval.reviewed_by = admin_email
+    approval.reviewed_at = datetime.now(timezone.utc)
+    approval.reviewer_notes = body.reviewer_notes
+    await session.commit()
+
+    await write_audit_log(
+        session,
+        admin_email=admin_email,
+        action="refund_rejected",
+        resource_type="order",
+        resource_id=approval.order_id,
+        details={"approval_id": str(approval.id), "amount": float(approval.requested_amount)},
+        request=http_request,
+    )
+
+    return RefundApprovalActionResponse(
+        id=approval.id,
+        order_id=approval.order_id,
+        status="rejected",
+        reviewed_by=admin_email,
+        reviewed_at=approval.reviewed_at,
+        message=f"Refund request for ₦{float(approval.requested_amount):,.0f} rejected.",
+    )
+
+
+@router.get(
+    "/settings/refund-threshold",
+    response_model=AdminRefundThresholdResponse,
+    dependencies=[Depends(require_permission("admin.settings.read"))],
+)
+async def get_refund_threshold(session: AsyncSession = Depends(get_session)):
+    """Get the current large-refund threshold."""
+    threshold = await _get_refund_threshold(session)
+    return AdminRefundThresholdResponse(
+        key="large_refund_threshold_ngn",
+        value=threshold,
+        description="Refunds above this amount require second admin approval",
+    )
+
+
+@router.patch(
+    "/settings/refund-threshold",
+    response_model=AdminRefundThresholdResponse,
+    dependencies=[Depends(require_permission("admin.settings.update", totp_required=True))],
+)
+async def update_refund_threshold(
+    body: AdminRefundThresholdResponse,
+    http_request: Request,
+    current_admin: dict = Depends(require_permission("admin.settings.update", totp_required=True)),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update the large-refund threshold."""
+    admin_email = current_admin["admin"].email
+    new_value = body.value
+
+    # Update or create the setting
+    stmt = (
+        select(PlanSettings)
+        .where(PlanSettings.setting_key == "large_refund_threshold_ngn")
+        .where(PlanSettings.is_active == True)
+        .order_by(PlanSettings.priority.desc())
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    setting = result.scalar_one_or_none()
+
+    if setting:
+        setting.setting_value = {"value": new_value}
+        setting.updated_at = datetime.now(timezone.utc)
+    else:
+        setting = PlanSettings(
+            setting_key="large_refund_threshold_ngn",
+            setting_value={"value": new_value},
+            description="Refunds above this amount require second admin approval",
+            is_active=True,
+            priority=1,
+        )
+        session.add(setting)
+
+    await session.commit()
+
+    await write_audit_log(
+        session,
+        admin_email=admin_email,
+        action="update_refund_threshold",
+        resource_type="setting",
+        resource_id="large_refund_threshold_ngn",
+        details={"new_value": new_value},
+        request=http_request,
+    )
+
+    return AdminRefundThresholdResponse(
+        key="large_refund_threshold_ngn",
+        value=new_value,
+        description="Refunds above this amount require second admin approval",
+    )
 
 
 @router.post(
@@ -419,6 +1094,82 @@ async def replace_credential_endpoint(credential_id: int, session: AsyncSession 
     if not new_credential:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found")
     return {"status": "replaced", "old_credential_id": credential_id, "new_credential_id": new_credential.id}
+
+
+@router.post(
+    "/credentials/{credential_id}/resend", dependencies=[Depends(require_permission("admin.monitor.providers.read", totp_required=True))]
+)
+async def resend_credential_endpoint(credential_id: int, session: AsyncSession = Depends(get_session)):
+    """Manually resend credentials via n8n webhook and email (if available)."""
+    from app.services.n8n import trigger_credentials_delivered_webhook
+    from app.services.email import send_order_active_email
+
+    cred = (await session.execute(select(StyxproxyCredential).where(StyxproxyCredential.id == credential_id))).scalar_one_or_none()
+    if not cred:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found")
+
+    # Get the associated order for tx_ref
+    order = None
+    if cred.order_id:
+        order = (await session.execute(select(Order).where(Order.order_id == cred.order_id))).scalar_one_or_none()
+
+    tx_ref = order.payment_reference if order else f"RESEND-{credential_id}"
+    phone = cred.customer_phone or ""
+    channel = "web"
+
+    # Re-send n8n webhook
+    n8n_ok = await trigger_credentials_delivered_webhook(
+        order_id=cred.order_id or f"resend-{credential_id}",
+        tx_ref=tx_ref,
+        phone=phone,
+        channel=channel,
+        styxproxy_username=cred.styxproxy_username,
+        styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else "",
+        proxy_ip=cred.upstream_proxy_ip or "",
+        proxy_port=cred.upstream_proxy_port or 1080,
+        expires_at=cred.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+        receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
+    )
+
+    # Re-send email if customer email is available
+    email_ok = False
+    customer_email = None
+    if order:
+        # Try to get email from customer record
+        from app.models import Customer
+        customer = (await session.execute(select(Customer).where(Customer.phone == cred.customer_phone))).scalar_one_or_none()
+        if customer and customer.email:
+            customer_email = customer.email
+
+    if customer_email:
+        try:
+            email_result = await send_order_active_email(
+                customer_email=customer_email,
+                customer_name=customer_email.split("@")[0],
+                order_id=cred.order_id or f"resend-{credential_id}",
+                tx_ref=tx_ref,
+                plan_code=order.plan_code if order else "unknown",
+                amount=order.amount_paid_ngn if order else 0,
+                currency="NGN",
+                quantity=1,
+                styxproxy_username=cred.styxproxy_username,
+                styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else "",
+                proxy_ip=cred.upstream_proxy_ip or "",
+                proxy_port=cred.upstream_proxy_port or 1080,
+                protocol="socks5",
+                expires_at=cred.expires_at or datetime.now(timezone.utc) + timedelta(days=30),
+                receipt_url=f"https://styxproxy.com/receipt/{tx_ref}",
+            )
+            email_ok = email_result.success
+        except Exception as e:
+            logger.warning(f"Resend email failed for credential {credential_id}: {e}")
+
+    return {
+        "status": "resent",
+        "credential_id": credential_id,
+        "n8n_webhook": "sent" if n8n_ok else "failed",
+        "email": "sent" if email_ok else ("skipped" if not customer_email else "failed"),
+    }
 
 
 @router.get(
@@ -1860,7 +2611,7 @@ async def re_fulfill_order(
 
     Returns the new credential brief + new order status.
     """
-    from app.services.credential import create_credential
+    from app.services.credential import create_credential, resolve_country_for_credential
 
     order = (
         await session.execute(select(Order).where(Order.order_id == order_id))
@@ -1892,7 +2643,7 @@ async def re_fulfill_order(
             order_id=order.order_id,
             customer_phone=order.customer_phone or "",
             plan_code=order.plan_code or "unknown",
-            country=order.country or "NG",
+            country=resolve_country_for_credential(order.country),
             proxy_type="isp",
             quantity=1,
             duration_days=30,
@@ -1938,7 +2689,7 @@ async def re_fulfill_order(
         "order_id": order.order_id,
         "status": order.status,
         "credential_id": credential.id,
-        "bun_username": credential.bun_username,
+        "styxproxy_username": credential.styxproxy_username,
         "upstream_proxy_ip": credential.upstream_proxy_ip,
         "upstream_proxy_port": credential.upstream_proxy_port,
         "expires_at": credential.expires_at.isoformat() if credential.expires_at else None,

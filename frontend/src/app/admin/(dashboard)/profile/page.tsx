@@ -1,10 +1,13 @@
-
-// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
 'use client';
 
-import { useState, useEffect } from 'react';
+// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
+
+import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import AdminTotpStepUpModal from '@/components/AdminTotpStepUpModal';
+import { useModalAccessibility } from '@/hooks/useModalAccessibility';
+import { useToast } from '@/components/Toast';
+import ConfirmModal from '@/components/ConfirmModal';
 import type { AdminMeResponse, AdminRole } from '@/types';
 
 export default function AdminProfilePage() {
@@ -30,6 +33,16 @@ export default function AdminProfilePage() {
   // TOTP step-up (Sprint 14)
   const [showStepUpModal, setShowStepUpModal] = useState(false);
   const [stepUpStatus, setStepUpStatus] = useState<{step_upped: boolean; expires_at: string | null} | null>(null);
+
+  // Toast
+  const { toast } = useToast();
+
+  // Confirm modal for TOTP disable
+  const [totpDisableConfirm, setTotpDisableConfirm] = useState(false);
+
+  // Modal accessibility hooks
+  const pinModalA11y = useModalAccessibility(showPinModal, () => setShowPinModal(false));
+  const totpModalA11y = useModalAccessibility(showTotpModal, () => setShowTotpModal(false));
 
   const loadStepUpStatus = async () => {
     const r = await api.getTotpStatus();
@@ -114,20 +127,22 @@ export default function AdminProfilePage() {
   };
 
   const handleTotpDisable = async () => {
-    const code = prompt('Enter your 2FA code to disable:');
-    if (!code) return;
+    setTotpDisableConfirm(true);
+  };
 
+  const confirmTotpDisable = async (code: string) => {
     setTotpLoading(true);
     const result = await api.toggleAdminTOTP('disable', code);
 
     if (result.error) {
-      alert(result.error);
+      toast({ type: 'error', title: 'Error', message: result.error });
     } else {
-      alert('2FA disabled successfully');
+      toast({ type: 'success', title: '2FA Disabled', message: 'Two-factor authentication has been disabled' });
       loadProfile();
     }
 
     setTotpLoading(false);
+    setTotpDisableConfirm(false);
   };
 
   const formatDate = (dateStr?: string) => {
@@ -161,7 +176,7 @@ export default function AdminProfilePage() {
   if (error || !admin) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="p-8 rounded-2xl bg-[var(--card)] border border-red-500/30 text-center">
+        <div className="p-8 rounded-2xl bg-[var(--card)] border border-red-500/30 text-center" role="alert">
           <h2 className="text-xl font-bold text-red-400 mb-2">Error</h2>
           <p className="text-[var(--muted)]">{error || 'Failed to load profile'}</p>
         </div>
@@ -180,7 +195,7 @@ export default function AdminProfilePage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400" role="alert">
           {error}
         </div>
       )}
@@ -219,6 +234,7 @@ export default function AdminProfilePage() {
                     <button
                       onClick={handleTotpDisable}
                       disabled={totpLoading}
+                      aria-label="Disable 2FA"
                       className="text-sm text-red-400 hover:text-red-300"
                     >
                       Disable
@@ -237,6 +253,7 @@ export default function AdminProfilePage() {
                     ) : (
                       <button
                         onClick={() => setShowStepUpModal(true)}
+                        aria-label="Start TOTP step-up"
                         className="text-sm text-[var(--primary)] hover:opacity-80"
                       >
                         Step-up (5 min)
@@ -248,6 +265,7 @@ export default function AdminProfilePage() {
                     <span className="text-[var(--muted)]">✕ Disabled</span>
                     <button
                       onClick={handleTotpSetup}
+                      aria-label="Enable 2FA"
                       className="text-sm text-[var(--primary)] hover:opacity-80"
                     >
                       Enable 2FA
@@ -265,7 +283,7 @@ export default function AdminProfilePage() {
               <p className="text-[var(--muted)]">••••</p>
             </div>
             <button
-              onClick={() => setShowPinModal(true)}
+              onClick={() => setShowPinModal(true)} aria-label="Change PIN"
               className="px-4 py-2 text-sm bg-[var(--card-hover)] hover:bg-[var(--primary)] hover:text-black rounded-lg transition-colors"
             >
               Change PIN
@@ -325,9 +343,9 @@ export default function AdminProfilePage() {
 
       {/* Change PIN Modal */}
       {showPinModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="change-pin-title" ref={pinModalA11y.modalRef} onKeyDown={pinModalA11y.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4">Change PIN</h3>
+            <h3 className="text-xl font-bold mb-4" id="change-pin-title">Change PIN</h3>
             
             <form onSubmit={handlePinChange} className="space-y-4">
               {pinMessage && (
@@ -405,9 +423,9 @@ export default function AdminProfilePage() {
 
       {/* TOTP Setup Modal */}
       {showTotpModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="enable-2fa-title" ref={totpModalA11y.modalRef} onKeyDown={totpModalA11y.handleKeyDown} tabIndex={-1}>
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4">Enable 2FA</h3>
+            <h3 className="text-xl font-bold mb-4" id="enable-2fa-title">Enable 2FA</h3>
             
             <form onSubmit={handleTotpEnable} className="space-y-4">
               {totpMessage && (
@@ -485,6 +503,19 @@ export default function AdminProfilePage() {
         onCancel={() => setShowStepUpModal(false)}
         title="Refresh TOTP step-up"
         description="Enter your 6-digit code to refresh the 5-minute step-up window for sensitive admin actions."
+      />
+
+      {/* TOTP Disable Confirmation Modal */}
+      <ConfirmModal
+        isOpen={totpDisableConfirm}
+        title="Disable 2FA"
+        message="Enter your 6-digit authenticator code to disable two-factor authentication:"
+        confirmLabel="Disable"
+        variant="danger"
+        inputLabel="6-digit code"
+        inputPlaceholder="123456"
+        onConfirm={(code) => confirmTotpDisable(code || '')}
+        onCancel={() => setTotpDisableConfirm(false)}
       />
     </div>
   );

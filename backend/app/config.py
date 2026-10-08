@@ -73,7 +73,16 @@ class Settings(BaseSettings):
     betterstack_status_page_url: str = ""
     from_email: str = "Styxproxy <noreply@styxproxy.com>"
     support_email: str = "support@styxproxy.com"
-    admin_email: str = "support@styxproxy.com"
+    admin_email: str = "admin@styxproxy.com"
+
+    # ── Alerting fallback paths ─────────────────────────────────────────────
+    # Telegram Bot API — push alerts to a phone via a bot.
+    # Get a token from @BotFather, chat ID from @userinfobot.
+    telegram_bot_token: str = ""
+    telegram_alert_chat_id: str = ""
+    # ntfy.sh — zero-config push notification. No account needed.
+    # Pick a topic name, subscribe via the ntfy phone app or web.
+    ntfy_topic: str = ""
 
     # ── Provider Simulator ──────────────────────────────────────────────────
     provider_mode: str = "production"  # "production", "simulator", "auto"
@@ -96,7 +105,7 @@ class Settings(BaseSettings):
 
     # ── 3proxy port allocation range ─────────────────────────────────────────
     # Allocated from this range when spinning up trial SOCKS5 ports.
-    # Must not overlap with any other Dante/3proxy port allocation.
+    # Must not overlap with any other 3proxy port allocation.
     threeproxy_port_range_start: int = 10000
     threeproxy_port_range_end: int = 50000
 
@@ -104,11 +113,6 @@ class Settings(BaseSettings):
     # Webhook secret for HMAC-SHA256 signature verification on the theorem-reach
     # webhook endpoint. Found in TheoremReach dashboard → integrations → webhooks.
     theorem_reach_webhook_secret: str = ""
-
-    # ── Dante (branding gateway — runs on VPS) ───────────────────────────────
-    dante_api_url: str = "http://localhost:9000"
-    dante_api_key: str = ""
-    dante_default_port: int = 1080
 
     # ── n8n Webhook (for automation triggers) ────────────────────────────────
     n8n_webhook_url: str = "https://n8n.styxproxy.com/webhook/credentials-delivered"
@@ -140,6 +144,10 @@ class Settings(BaseSettings):
     # ── MiniMax-M2 cloud (Charon primary) ─────────────────────────────────
     # P0-5 (Jul 22 2026): M2 is the Charon primary. Endpoint is api.minimax.io.
     # Set MINIMAX_API_KEY in .env to enable.
+    # ── Longcat2.0 (Charon LLM provider) ─────────────────────────────────
+    longcat_api_key: str = ""
+    longcat_base_url: str = "https://api.longcat.ai/openai/v1"
+    longcat_model: str = "LongCat-2.0"
     minimax_base_url: str = "https://api.minimax.io/v1"
     groq_base_url: str = "https://api.groq.com/openai/v1"
 

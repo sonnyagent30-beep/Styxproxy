@@ -60,141 +60,6 @@ async def _check_redis() -> str:
         return "disconnected"
 
 
-async def _check_dante() -> dict[str, Any]:
-    """Check if Dante SOCKS proxy is healthy on each configured server.
-
-    P0-5 (Aug 08 2026): Dante runs on Interserver and Contabo as the
-    DC/ISP proxy source + free trial provider. This check probes each
-    server's SOCKS5 port and returns connection count + memory.
-    """
-    servers = getattr(
-        settings,
-        "dante_servers",
-        [
-            {"name": "us-interserver", "host": "162.35.184.69", "port": 1080},
-            {"name": "uk-contabo", "host": "84.247.132.12", "port": 9000, "type": "control_api"},
-        ],
-    )
-    results = []
-    all_up = True
-
-    for srv in servers:
-        srv_type = srv.get("type", "socks5")
-        name = srv.get("name", srv["host"])
-        host = srv["host"]
-        port = srv.get("port", 1080)
-
-        try:
-            if srv_type == "control_api":
-                # HTTP health check against the Dante control API
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    r = await client.get(f"http://{host}:{port}/health")
-                    if r.status_code == 200:
-                        data = r.json()
-                        results.append(
-                            {
-                                "name": name,
-                                "host": host,
-                                "port": port,
-                                "type": "control_api",
-                                "status": "up",
-                                "users": data.get("users"),
-                                "version": data.get("version"),
-                                "vps_label": data.get("vps_label"),
-                                "error": None,
-                            }
-                        )
-                    else:
-                        all_up = False
-                        results.append(
-                            {
-                                "name": name,
-                                "host": host,
-                                "port": port,
-                                "type": "control_api",
-                                "status": "degraded",
-                                "error": f"HTTP {r.status_code}",
-                            }
-                        )
-            else:
-                import asyncio
-
-                # SOCKS5 greeting
-                reader, writer = await asyncio.wait_for(
-                    asyncio.open_connection(host, port),
-                    timeout=3.0,
-                )
-                writer.write(b"\x05\x01\x00")  # SOCKS5, no auth
-                await writer.drain()
-                resp = await asyncio.wait_for(reader.read(2), timeout=3.0)
-                writer.close()
-                await writer.wait_closed()
-
-                if len(resp) == 2 and resp[0] == 5:
-                    import subprocess
-
-                    try:
-                        cp = subprocess.run(
-                            ["ss", "-tnp"],
-                            capture_output=True,
-                            text=True,
-                            timeout=2,
-                        )
-                        conns = sum(1 for line in cp.stdout.splitlines() if f":{port}" in line and "ESTAB" in line)
-                    except Exception:
-                        conns = None
-
-                    results.append(
-                        {
-                            "name": name,
-                            "host": host,
-                            "port": port,
-                            "type": "socks5",
-                            "status": "up",
-                            "connections": conns,
-                            "error": None,
-                        }
-                    )
-                else:
-                    all_up = False
-                    results.append(
-                        {
-                            "name": name,
-                            "host": host,
-                            "port": port,
-                            "type": "socks5",
-                            "status": "degraded",
-                            "connections": None,
-                            "error": "unexpected SOCKS response",
-                        }
-                    )
-        except asyncio.TimeoutError:
-            all_up = False
-            results.append(
-                {
-                    "name": name,
-                    "host": host,
-                    "port": port,
-                    "status": "down",
-                    "connections": None,
-                    "error": "connection timeout",
-                }
-            )
-        except Exception as e:
-            all_up = False
-            results.append(
-                {
-                    "name": name,
-                    "host": host,
-                    "port": port,
-                    "status": "down",
-                    "connections": None,
-                    "error": str(e)[:100],
-                }
-            )
-
-    return {"status": "up" if all_up else "degraded", "servers": results}
-
 
 async def _check_litellm() -> dict[str, Any]:
     """Check if LiteLLM proxy is alive on the expected port.
@@ -245,25 +110,48 @@ async def _check_m2_cloud() -> dict[str, Any]:
     the LLM client will fall back to MiniCPM5 — but the admin status
     panel watches this to alert on M2 outages.
     """
-    api_key = os.getenv("GROQ_API_KEY", "")
+    api_key = os.getenv("LONGCAT_API_KEY", "")
     if not api_key:
-        return {"status": "not_configured", "latency_ms": None, "error": "GROQ_API_KEY not set"}
-    base = settings.groq_base_url.rstrip("/")
+        return {"status": "not_configured", "latency_ms": None, "error": "LONGCAT_API_KEY not set"}
+    base = settings.longcat_base_url.rstrip("/")
     try:
-        async with httpx.AsyncClient(timeout=4.0) as client:
+        async with httpx.AsyncClient(timeout=8.0) as client:
             t0 = datetime.utcnow()
-            r = await client.get(
-                f"{base}/models",
+            # Capability probe, NOT a liveness probe. GET /models returns 200 for
+            # any valid key even with a zero balance, so it reported "connected"
+            # while every real Charon completion failed with HTTP 402
+            # ("Insufficient token quota"). We now issue a 1-token completion —
+            # the exact call Charon makes — so an exhausted account surfaces here
+            # instead of as a customer-facing fallback reply.
+            r = await client.post(
+                f"{base}/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": "LongCat-2.0",
+                    "messages": [{"role": "user", "content": "ping"}],
+                    "max_tokens": 1,
+                },
             )
             latency = (datetime.utcnow() - t0).total_seconds() * 1000
             if r.status_code == 200:
                 return {"status": "connected", "latency_ms": round(latency, 1), "error": None}
+            if r.status_code == 402:
+                return {
+                    "status": "quota_exhausted",
+                    "latency_ms": round(latency, 1),
+                    "error": "HTTP 402 — provider account out of credit; Charon cannot answer",
+                }
             if r.status_code in (401, 403):
                 return {
                     "status": "auth_error",
                     "latency_ms": round(latency, 1),
                     "error": f"HTTP {r.status_code} (key invalid?)",
+                }
+            if r.status_code == 429:
+                return {
+                    "status": "quota_exhausted",
+                    "latency_ms": round(latency, 1),
+                    "error": "HTTP 429 — provider rate/quota limit",
                 }
             return {"status": "degraded", "latency_ms": round(latency, 1), "error": f"HTTP {r.status_code}"}
     except Exception as e:
@@ -302,12 +190,11 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
     """
     db = await _check_db(session)
     redis = await _check_redis()
-    dante = await _check_dante()
     litellm = await _check_litellm()
     ollama = await _check_ollama()
     m2 = await _check_m2_cloud()
 
-    # Charon availability: Groq must be reachable.
+    # Charon availability: Longcat must be reachable.
     charon_available = m2["status"] == "connected"
 
     # Compute top-level status:
@@ -328,12 +215,11 @@ async def deep_health(session: AsyncSession = Depends(get_session)):
         "services": {
             "database": db,
             "redis": redis,
-            "dante": dante,
-            "groq": m2,
+            "longcat": m2,
         },
         # Charon routing policy:
         "charon_routing": {
-            "primary": "groq",
+            "primary": "longcat",
             "fallback": "none",
         },
         # Hint for the frontend: when Charon is impaired, show a fallback

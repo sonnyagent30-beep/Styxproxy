@@ -5,7 +5,7 @@ const content = `<h1>Acceptable Use Policy</h1>
 <p>This Acceptable Use Policy ("AUP") defines acceptable use of Styxproxy proxy services. By using Styxproxy, you agree to this policy. Violations may result in immediate credential revocation and permanent suspension from the service without refund.</p>
 
 <h2>2. Scope</h2>
-<p>This policy applies to all Styxproxy channels — the website, the website chat widget (Charon), and the Styxproxy Telegram bot. The same rules apply regardless of how you purchased your proxy.</p>
+<p>This policy applies to all Styxproxy proxy types — ISP Proxies, Datacenter Proxies, Residential Proxies, and Mobile 4G Proxies — across all channels: the website, the website chat widget (Charon), and the Styxproxy Telegram bot. The same rules apply regardless of how you purchased your proxy.</p>
 
 <h2>3. Permitted Use</h2>
 <p>Styxproxy proxies may be used for:</p>
@@ -88,6 +88,7 @@ const content = `<h1>Acceptable Use Policy</h1>
 <h3>5.1 How to Raise a Ban Claim</h3>
 <p><strong>Via Order Status Page:</strong> Go to styxproxy.com/order/status, enter your transaction reference, select "Report a Ban," upload a screenshot showing the block.</p>
 <p><strong>Via Telegram:</strong> Send "Ban claim for [tx_ref]" to @styxproxy.</p>
+<p><strong>Via WhatsApp:</strong> Send "Ban claim for [tx_ref]" to +234 703 298 1049.</p>
 
 <h3>5.2 What Happens Next</h3>
 <p>An admin will review your claim. You may be asked to provide additional information. Replacement credentials are issued at Styxproxy's discretion based on the evidence provided.</p>
@@ -117,6 +118,7 @@ const content = `<h1>Acceptable Use Policy</h1>
 <li><strong>Telegram:</strong> @styxproxy</li>
 <li><strong>Chat widget:</strong> styxproxy.com</li>
 <li><strong>Email:</strong> support@styxproxy.com</li>
+<li><strong>WhatsApp:</strong> +234 703 298 1049</li>
 <li><strong>Website:</strong> styxproxy.com</li>
 <li><strong>Order Status page:</strong> styxproxy.com/order/status</li>
 </ul>`;

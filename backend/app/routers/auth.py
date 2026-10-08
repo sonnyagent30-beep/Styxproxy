@@ -29,6 +29,8 @@ from app.schemas import (
     AdminChangePasswordResponse,
     AdminChangeTOTPRequest,
     AdminChangeTOTPResponse,
+    AdminIPAllowlistUpdateRequest,
+    AdminIPAllowlistResponse,
     AdminInviteCreateRequest,
     AdminInviteCreateResponse,
     AdminInviteResponse,
@@ -60,7 +62,7 @@ from app.schemas import (
     PasswordResetResponse,
 )
 from app.services.audit import write_audit_log
-from app.services.email import send_admin_invite_email, send_password_reset_email
+from app.services.email import send_admin_invite_email, send_new_admin_notification_email, send_password_reset_email
 
 settings = get_settings()
 
@@ -81,6 +83,7 @@ class RoleChecker:
 
     async def __call__(
         self,
+        request: Request,
         credentials: JWTBearer = Depends(security),
         session: AsyncSession = Depends(get_session),
     ):
@@ -112,6 +115,16 @@ class RoleChecker:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Account is locked",
             )
+
+        # IP allowlist check — if allowed_ips is set and non-empty,
+        # the client IP must be in the list.
+        if admin.allowed_ips:
+            client_ip = request.client.host if request.client else None
+            if client_ip and client_ip not in admin.allowed_ips:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied from this IP address",
+                )
 
         return {
             "email": admin_email,
@@ -291,11 +304,14 @@ async def setup_admin_step1(
             detail="Admin with this email already exists",
         )
 
-    # Validate password strength
-    if len(request.password) < 8:
+    # Validate password strength (defense in depth — schema also validates)
+    from app.routers.schemas import validate_password_strength
+    try:
+        validate_password_strength(request.password)
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 8 characters",
+            detail=str(e),
         )
 
     # Generate TOTP secret
@@ -385,6 +401,51 @@ async def setup_admin_step2(
                 flag.updated_at = datetime.now(timezone.utc)
 
     await session.commit()
+
+    # Get the creating admin email from the invite
+    stmt = select(AdminInvite).where(AdminInvite.invite_code == invite_code)
+    result = await session.execute(stmt)
+    invite = result.scalar_one_or_none()
+    created_by = invite.created_by if invite else "unknown"
+
+    # Send notification to all superadmins about the new admin
+    try:
+        # Find all superadmins to notify (exclude the newly created admin)
+        stmt = select(AdminAuth).where(AdminAuth.role == "superadmin")
+        result = await session.execute(stmt)
+        superadmins = result.scalars().all()
+        superadmin_emails = [sa.email for sa in superadmins if sa.email and sa.email != email]
+
+        if superadmin_emails:
+            await send_new_admin_notification_email(
+                new_admin_email=email,
+                role=role,
+                created_by=created_by,
+                superadmin_emails=superadmin_emails,
+            )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to send new admin notification: {e}")
+
+    # Log to audit log
+    try:
+        await write_audit_log(
+            session,
+            admin_email=email,
+            action="admin_created",
+            resource_type="admin",
+            resource_id=email,
+            details={
+                "role": role,
+                "created_by": created_by,
+                "notification_sent": True,
+            },
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to write audit log for new admin: {e}")
 
     # Auto-issue admin access token so the user is logged in immediately
 
@@ -610,6 +671,7 @@ async def get_current_admin(
         locked_until=admin.locked_until,
         created_at=admin.created_at,
         last_used=admin.last_used,
+        allowed_ips=admin.allowed_ips,
     )
 
 
@@ -627,6 +689,16 @@ async def change_password(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Current password is incorrect",
+        )
+
+    # Validate new password strength (defense in depth — schema also validates)
+    from app.routers.schemas import validate_password_strength
+    try:
+        validate_password_strength(request.new_pin)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
 
     # Update password
@@ -746,7 +818,8 @@ async def create_invite(
                 expires_in_hours=body.expires_in_hours,
             )
         except Exception as e:
-            import logger
+            import logging
+            logger = logging.getLogger(__name__)
 
             logger.warning(f"Failed to send invite email to {body.email}: {e}")
 
@@ -917,6 +990,16 @@ async def reset_password(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired reset token",
+        )
+
+    # Validate new password strength (defense in depth — schema also validates)
+    from app.routers.schemas import validate_password_strength
+    try:
+        validate_password_strength(request.new_password)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
 
     # Update password and clear reset token
@@ -1143,6 +1226,45 @@ async def lock_team_member(
     )
 
 
+@router.put("/team/{admin_email}/ip-allowlist", response_model=AdminIPAllowlistResponse)
+async def update_ip_allowlist(
+    admin_email: str,
+    body: AdminIPAllowlistUpdateRequest,
+    http_request: Request,
+    current_admin: dict = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Update an admin's IP allowlist."""
+    stmt = select(AdminAuth).where(AdminAuth.email == admin_email)
+    result = await session.execute(stmt)
+    admin = result.scalar_one_or_none()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Admin not found",
+        )
+
+    admin.allowed_ips = body.allowed_ips
+    await session.commit()
+
+    await write_audit_log(
+        session,
+        admin_email=current_admin["email"],
+        action="update_ip_allowlist",
+        resource_type="admin",
+        resource_id=admin_email,
+        details={"allowed_ips": body.allowed_ips},
+        request=http_request,
+    )
+
+    return AdminIPAllowlistResponse(
+        email=admin_email,
+        allowed_ips=body.allowed_ips,
+        message="IP allowlist updated",
+    )
+
+
 # ============== Feature Flags ==============
 
 
@@ -1320,3 +1442,81 @@ async def check_feature_flag(
         enabled = True
 
     return FeatureFlagCheckResponse(name=flag_name, enabled=enabled)
+
+
+@router.post("/refresh")
+async def refresh_token(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Refresh access token using a valid refresh token."""
+    import secrets
+    import hashlib
+    from app.models import AdminRefreshToken
+
+    body = await request.json()
+    refresh_token = body.get("refresh_token")
+
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Refresh token required",
+        )
+
+    # Hash the provided token and look it up
+    token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+    stmt = select(AdminRefreshToken).where(
+        AdminRefreshToken.token_hash == token_hash,
+        AdminRefreshToken.revoked_at.is_(None),
+        AdminRefreshToken.expires_at > datetime.now(timezone.utc),
+    )
+    result = await session.execute(stmt)
+    token_record = result.scalar_one_or_none()
+
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+
+    # Get the admin
+    stmt = select(AdminAuth).where(AdminAuth.email == token_record.admin_email)
+    result = await session.execute(stmt)
+    admin = result.scalar_one_or_none()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin not found",
+        )
+
+    # Revoke old refresh token
+    token_record.revoked_at = datetime.now(timezone.utc)
+
+    # Generate new tokens
+    new_access_token = create_access_token(
+        sub=admin.email,
+        platform="admin",
+        phone=admin.email,
+        role=admin.role,
+        expires_delta=timedelta(hours=8),
+    )
+
+    new_refresh_token = secrets.token_urlsafe(64)
+    new_token_hash = hashlib.sha256(new_refresh_token.encode()).hexdigest()
+
+    # Store new refresh token
+    new_token_record = AdminRefreshToken(
+        admin_email=admin.email,
+        token_hash=new_token_hash,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+    )
+    session.add(new_token_record)
+    await session.commit()
+
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+        "expires_in": 28800,
+    }

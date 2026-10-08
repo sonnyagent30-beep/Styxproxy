@@ -20,9 +20,9 @@ Bunche operates across three independent channels. All three channels offer the 
 
 The primary order path. No account required. No personal data collected beyond what is necessary to process your order.
 
-- Select product → pay via Flutterwave → receive IP immediately on screen
+- Select product → pay via Flutterwave or Paystack → receive IP immediately on screen
 - No registration. No phone number. No email required.
-- Order number (Flutterwave transaction reference) is your only order identifier
+- Order number (payment transaction reference) is your only order identifier
 - Management portal: styxproxy.com/manage — enter your order number to check status, renew, or raise a ban claim
 - Contact support: redirected to Telegram or WhatsApp of your choice from the management portal
 
@@ -56,7 +56,7 @@ Customers who order via styxproxy.com do not create an account. We do not collec
 - Your IP address
 - Any identifying information
 
-Your order number (Flutterwave transaction reference) is the only identifier for website orders.
+Your order number (payment transaction reference) is the only identifier for website orders.
 
 ---
 
@@ -66,13 +66,13 @@ Your order number (Flutterwave transaction reference) is the only identifier for
 
 **Via Website:**
 1. Select your product on styxproxy.com
-2. Complete payment via Flutterwave (card, bank transfer, USSD, or QR)
+2. Complete payment via Flutterwave or Paystack (card, bank transfer, USSD, or QR)
 3. Your IP and credentials are displayed immediately on the thank-you page
 4. An email receipt is sent if you provided your email address
 
 **Via Telegram or WhatsApp:**
 1. Send your order request to the Bunche bot
-2. Bunche sends a Flutterwave payment link
+2. Bunche sends a payment link (Flutterwave or Paystack)
 3. Complete payment via the link
 4. Your IP and credentials are delivered in the same chat
 
@@ -96,15 +96,15 @@ Prices are subject to change. Price changes do not affect orders already placed 
 
 ### 4.3 Payment
 
-All payments are processed by Flutterwave. Bunche does not store your card details or bank information.
+All payments are processed by Flutterwave or Paystack. Bunche does not store your card details or bank information.
 
 Payment methods accepted: Visa, Mastercard, Verve, Bank Transfer, USSD, QR.
 
-A Flutterwave transaction reference (tx_ref) is issued for every payment. This tx_ref is your order number. Keep it to manage your order.
+A payment transaction reference (tx_ref) is issued for every payment. This tx_ref is your order number. Keep it to manage your order.
 
 ### 4.4 Order Fulfilment
 
-**Website orders:** IP and credentials are displayed on the thank-you page immediately after payment is confirmed. Flutterwave webhook typically confirms payment within 10–30 seconds.
+**Website orders:** IP and credentials are displayed on the thank-you page immediately after payment is confirmed. Payment gateway webhook typically confirms payment within 10–30 seconds.
 
 **Chat orders:** IP and credentials are delivered in the same Telegram or WhatsApp chat within 2 minutes of payment confirmation.
 
@@ -234,7 +234,7 @@ Proxy IPs are sourced from vetted infrastructure partners. Bunche is not affilia
 
 ### 11.2 Payment Processing
 
-All payment processing is handled by Flutterwave. Your payment data is subject to Flutterwave's privacy policy and terms. Bunche does not store card details or bank account information.
+All payment processing is handled by Flutterwave or Paystack. Your payment data is subject to the respective payment processor's privacy policy and terms. Bunche does not store card details or bank account information.
 
 ### 11.3 Theorem Reach (Free Trial)
 

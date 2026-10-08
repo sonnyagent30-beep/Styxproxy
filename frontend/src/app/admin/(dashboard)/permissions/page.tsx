@@ -1,8 +1,8 @@
-
-// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
 'use client';
 
-import { useState, useEffect } from 'react';
+// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
+
+import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import type {
   AdminMeResponse,
@@ -27,7 +27,7 @@ export default function AdminPermissionsPage() {
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [reviewerNotes, setReviewerNotes] = useState('');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -59,13 +59,13 @@ export default function AdminPermissionsPage() {
     }
 
     setLoading(false);
-  };
+  }, []);
 
-  const loadRequests = async (status?: string) => {
+  const loadRequests = useCallback(async (status?: string) => {
     setReqLoading(true);
     setReqError('');
     const result = await api.getPermissionRequests(
-      status === 'all' ? undefined : (status as any),
+      status === 'all' ? undefined : (status as 'pending' | 'approved' | 'rejected' | 'expired'),
     );
     if (result.error) {
       setReqError(result.error);
@@ -73,9 +73,9 @@ export default function AdminPermissionsPage() {
       setRequests(result.data?.requests || []);
     }
     setReqLoading(false);
-  };
+  }, []);
 
-  const handleAction = async (
+  const handleAction = useCallback(async (
     requestId: string,
     action: 'approve' | 'reject',
   ) => {
@@ -83,19 +83,20 @@ export default function AdminPermissionsPage() {
     const result = await api.actionPermissionRequest(requestId, action, reviewerNotes || undefined);
     setActioningId(null);
     if (result.error) {
-      alert('Action failed: ' + result.error);
+      setReqError('Action failed: ' + result.error);
     } else {
       setRequests((prev) => prev.filter((r) => r.id !== requestId));
       setReviewerNotes('');
     }
-  };
+  }, [reviewerNotes]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  }, [loadData]);
+
+  useEffect(() => {
     loadRequests(reqStatusFilter);
-  }, []);
+  }, [reqStatusFilter, loadRequests]);
 
   const isGranted = (code: string): boolean => {
     if (!myPerms) return false;
@@ -133,7 +134,7 @@ export default function AdminPermissionsPage() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4" role="alert">
         <p className="text-red-400 font-semibold">Error loading permissions</p>
         <p className="text-sm text-[var(--muted)] mt-1">{error}</p>
       </div>
@@ -290,10 +291,10 @@ export default function AdminPermissionsPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-[var(--surface-2)]">
                       <tr>
-                        <th className="text-left px-4 py-2 font-medium">Status</th>
-                        <th className="text-left px-4 py-2 font-medium">Code</th>
-                        <th className="text-left px-4 py-2 font-medium">Description</th>
-                        <th className="text-left px-4 py-2 font-medium">Sensitivity</th>
+                        <th scope="col" className="text-left px-4 py-2 font-medium">Status</th>
+                        <th scope="col" className="text-left px-4 py-2 font-medium">Code</th>
+                        <th scope="col" className="text-left px-4 py-2 font-medium">Description</th>
+                        <th scope="col" className="text-left px-4 py-2 font-medium">Sensitivity</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -341,11 +342,7 @@ export default function AdminPermissionsPage() {
       {!isSuperAdmin && (
         <div className="rounded-xl bg-blue-500/10 border border-blue-500/30 p-4">
           <p className="text-sm text-blue-400">
-            ℹ️ Only superadmins can grant / revoke permissions. Contact{' '}
-            <a href="mailto:oyebiyiayomide30@gmail.com" className="underline">
-              oyebiyiayomide30@gmail.com
-            </a>{' '}
-            if you need additional permissions.
+            ℹ️ Only superadmins can grant / revoke permissions. Contact your superadmin if you need additional permissions.
           </p>
         </div>
       )}
@@ -384,7 +381,7 @@ function RequestsTab({
     return <div className="text-[var(--muted)] animate-pulse py-8 text-center">Loading requests…</div>;
   }
   if (error) {
-    return <div className="text-red-400 py-4">{error}</div>;
+    return <div className="text-red-400 py-4" role="alert">{error}</div>;
   }
 
   return (

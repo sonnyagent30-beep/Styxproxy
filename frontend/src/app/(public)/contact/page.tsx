@@ -1,5 +1,5 @@
-// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
 'use client';
+// eslint-disable-next-line react-hooks/immutability, react-hooks/purity, react-hooks/set-state-in-effect
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -13,7 +13,7 @@ const faqs = [
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'We accept multiple payment methods: Flutterwave (card, bank transfer, USSD, QR), Paystack (card, bank transfer, USSD), Stripe (international cards), and Paynow (Bitcoin, USDT, crypto). All transactions are processed securely.',
+    a: 'We accept multiple payment methods: Flutterwave (card, bank transfer, USSD, QR) and Paystack (card, bank transfer, USSD). All transactions are processed securely.',
   },
   {
     q: 'Can I get a refund?',
@@ -54,9 +54,30 @@ export default function ContactPage() {
     if (!form.name || !form.email || !form.message) return;
     setLoading(true);
     setError('');
-    await new Promise(r => setTimeout(r, 1000));
-    setSent(true);
-    setLoading(false);
+    try {
+      const res = await fetch('/api/v1/contact/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          message: form.message,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSent(true);
+      } else {
+        const msg = typeof data.detail === 'string' ? data.detail
+          : typeof data.error === 'string' ? data.error
+          : 'Failed to send message. Please try again.';
+        setError(msg);
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -73,14 +94,14 @@ export default function ContactPage() {
       {/* Top accent line */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-20 bg-gradient-to-b from-[var(--primary)] to-transparent opacity-50" />
 
-      <main className="relative z-10 flex-1 pt-28 pb-16">
+      <section className="relative z-10 flex-1 pt-28 pb-16">
         <div className="max-w-2xl mx-auto px-6">
 
           {/* Hero heading */}
           <div className="text-center mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-3">Support</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-3">Support</p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-[var(--foreground)] mb-4 leading-tight">
-              Get in <span className="text-[var(--primary)]">Touch</span>
+              Get in <span className="text-[var(--primary-text)]">Touch</span>
             </h1>
             <p className="text-[var(--muted)] text-lg max-w-md mx-auto leading-relaxed">
               Questions, issues, or just curious? We&apos;re here.
@@ -89,13 +110,13 @@ export default function ContactPage() {
 
           {/* FAQ Accordion */}
           <div className="mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">FAQ</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-4">FAQ</p>
             <div className="space-y-2">
               {faqs.map((faq, i) => (
                 <div key={i} className="rounded-xl border border-[var(--border)] overflow-hidden bg-[var(--card)]">
                   <button
                     onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                    className="w-full flex items-center justify-between px-5 py-4 text-left hover:text-[var(--primary)] transition-colors"
+                    className="w-full flex items-center justify-between px-5 py-4 text-left hover:text-[var(--primary-text)] transition-colors"
                   >
                     <span className="font-medium text-sm pr-4 text-[var(--foreground)]">{faq.q}</span>
                     <CaretDown className={`w-4 h-4 shrink-0 text-[var(--muted)] transition-transform ${openFaq === i ? 'rotate-180' : ''}`} />
@@ -114,13 +135,13 @@ export default function ContactPage() {
 
           {/* Contact form */}
           <div className="mb-12">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--primary)] mb-4">Send a message</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--primary-text)] mb-4">Send a message</p>
             <h2 className="text-xl font-bold text-[var(--foreground)] mb-6">Write to us</h2>
 
             {sent ? (
               <div className="text-center p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)]">
                 <div className="w-16 h-16 rounded-full bg-[var(--primary)]/15 flex items-center justify-center mx-auto mb-4">
-                  <Check className="w-8 h-8 text-[var(--primary)]" weight="bold" />
+                  <Check className="w-8 h-8 text-[var(--primary-text)]" weight="bold" />
                 </div>
                 <h2 className="text-xl font-bold mb-2">Message Sent!</h2>
                 <p className="text-[var(--muted)]">We&apos;ll get back to you within 24 hours.</p>
@@ -164,7 +185,7 @@ export default function ContactPage() {
           {/* Direct contact channels */}
           <div className="section-divider mb-10" />
           <div className="text-center mb-6">
-            <p className="text-xs font-medium tracking-[0.3em] uppercase text-[var(--muted)]">Or reach us directly</p>
+            <p className="text-base font-medium tracking-[0.3em] uppercase text-[var(--muted)]">Or reach us directly</p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
             {isChannelEnabled('telegram') ? (
@@ -205,7 +226,7 @@ export default function ContactPage() {
           </div>
 
         </div>
-      </main>
+      </section>
     </div>
   );
 }

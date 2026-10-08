@@ -36,8 +36,15 @@ export function getStatusLabel(status: string): string {
     cancelled: 'Cancelled',
     refunded: 'Refunded',
     payment_failed: 'Payment Failed',
+    // Internal failure states. Without these the fallback below returned the
+    // RAW DATABASE VALUE, so a customer landing on the order page after paying
+    // saw the literal text "failed_manual_review" — an internal QA label.
+    // Never surface a raw status token to a customer.
+    failed_manual_review: 'We’re On It',
+    failed_unfulfilled: 'We’re On It',
+    paid_unfulfilled: 'We’re On It',
   };
-  return labels[status] || status;
+  return labels[status] || 'Order Update';
 }
 
 export function getStatusIcon(status: string): string {
@@ -51,12 +58,15 @@ export function getStatusIcon(status: string): string {
     cancelled: 'x-circle',
     refunded: 'arrow-counter-clockwise',
     payment_failed: 'warning-circle',
+    failed_manual_review: 'warning-circle',
+    failed_unfulfilled: 'warning-circle',
+    paid_unfulfilled: 'warning-circle',
   };
   return icons[status] || 'question';
 }
 
 export interface OrderAction {
-  kind: 'rotate' | 'renew' | 'retry_payment' | 'reorder' | 'cancel' | 'contact_support' | 'download_receipt';
+  kind: 'rotate' | 'retry_payment' | 'reorder' | 'cancel' | 'contact_support' | 'download_receipt';
   label: string;
   href?: string;
   disabled?: boolean;

@@ -1,14 +1,28 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
-import { ToastProvider } from "@/components/Toast";
-import ConsentGate from "@/components/ConsentGate";
+import ToastProviderWrapper from "@/components/ToastProviderWrapper";
+import ConsentGateWrapper from "@/components/ConsentGateWrapper";
 
 // Self-hosted via next/font — no external request, no FOUT race against
 // globals.css, and weight 900 included because ~32 components use font-black.
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
+const poppins = localFont({
+  src: [
+    // Latin subset
+    { path: "../../public/fonts/poppins-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-700-normal.woff2", weight: "700", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-800-normal.woff2", weight: "800", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-900-normal.woff2", weight: "900", style: "normal" },
+    // Latin Extended subset
+    { path: "../../public/fonts/poppins-latin-ext-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-ext-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-ext-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-ext-700-normal.woff2", weight: "700", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-ext-800-normal.woff2", weight: "800", style: "normal" },
+    { path: "../../public/fonts/poppins-latin-ext-900-normal.woff2", weight: "900", style: "normal" },
+  ],
   display: "swap",
   variable: "--font-poppins",
 });
@@ -59,9 +73,6 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: "https://styxproxy.com",
-    types: {
-      "application/rss+xml": "https://styxproxy.com/blog/rss.xml",
-    },
   },
 };
 
@@ -73,22 +84,23 @@ export default function RootLayout({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://styxproxy.com';
   
   return (
-    <html lang="en" className={poppins.variable}>
-      <head>
-        <link
-          rel="alternate"
-          type="application/rss+xml"
-          title="Styxproxy Blog RSS Feed"
-          href={`${siteUrl}/blog/rss.xml`}
-        />
-      </head>
+    <html lang="en" className={poppins.variable} suppressHydrationWarning>
+      {/* Pre-paint theme resolution — MUST stay inline and before <body>.
+          Sets .light/.dark on <html> from the device preference (or the admin's
+          stored override) BEFORE first paint, so there is no wrong-theme flash.
+          Kept in sync with AdminThemeToggle (localStorage key + class names). */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){try{var t=localStorage.getItem('styxproxy_admin_theme');var dark=(t==='dark')||((!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.remove('light','dark');r.classList.add(dark?'dark':'light');}catch(e){document.documentElement.classList.add('dark');}})();`,
+        }}
+      />
       <body className="antialiased">
 
         <a href="#main-content" className="skip-link">Skip to main content</a>
-        <ToastProvider>
-          <ConsentGate />
+        <ToastProviderWrapper>
+          <ConsentGateWrapper />
           {children}
-        </ToastProvider>
+        </ToastProviderWrapper>
 
         {/* Organization JSON-LD — Google Knowledge Graph source for brand */}
         <script
@@ -99,7 +111,7 @@ export default function RootLayout({
               "@type": "Organization",
               name: "Styxproxy",
               url: siteUrl,
-              logo: `${siteUrl}/logo.png`,
+              logo: `${siteUrl}/logo.svg`,
               description:
                 "Anonymous proxy service. ISP, Residential, Mobile 4G, Datacenter proxies. No logs, no tracking.",
               sameAs: [
