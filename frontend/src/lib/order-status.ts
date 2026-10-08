@@ -92,13 +92,13 @@ export function getActionsForStatus(
         actions.push({ kind: 'rotate', label: `Rotate Key (${rotationsLeft} left)`, variant: 'primary' });
       }
       if (isRenewable || isNearExpiry) {
-        actions.push({ kind: 'renew', label: 'Renew', href: `/order/checkout?renew=${orderId}`, variant: 'secondary' });
+        actions.push({ kind: 'renew', label: 'Renew', href: `/order/renewal?renew=${orderId}`, variant: 'secondary' });
       }
       actions.push({ kind: 'contact_support', label: 'Contact Support', variant: 'tertiary' });
       break;
     case 'expired':
       if (isRenewable) {
-        actions.push({ kind: 'renew', label: 'Renew', href: `/order/checkout?renew=${orderId}`, variant: 'primary' });
+        actions.push({ kind: 'renew', label: 'Renew', href: `/order/renewal?renew=${orderId}`, variant: 'primary' });
       }
       actions.push({ kind: 'reorder', label: 'Order New', href: '/order', variant: 'secondary' });
       actions.push({ kind: 'contact_support', label: 'Contact Support', variant: 'tertiary' });
@@ -112,7 +112,7 @@ export function getActionsForStatus(
       actions.push({ kind: 'contact_support', label: 'Contact Support', variant: 'tertiary' });
       break;
     case 'payment_failed':
-      actions.push({ kind: 'retry_payment', label: 'Retry Payment', href: `/order/checkout?renew=${orderId}`, variant: 'primary' });
+      actions.push({ kind: 'retry_payment', label: 'Retry Payment', href: `/order/renewal?renew=${orderId}`, variant: 'primary' });
       actions.push({ kind: 'cancel', label: 'Cancel Order', confirm: true, variant: 'danger' });
       actions.push({ kind: 'contact_support', label: 'Contact Support', variant: 'tertiary' });
       break;
