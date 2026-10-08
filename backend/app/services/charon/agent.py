@@ -61,7 +61,7 @@ _TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$", re.MULTILINE)
 _TABLE_SEPARATOR = re.compile(r"^\s*\|?[\s:\-|]+\|?\s*$", re.MULTILINE)
 _BLANK_RUN = re.compile(r"\n{3,}")
 _LONGCAT_TOOL_CALL = re.compile(
-    r"TOOLCALL_START_TAG(\w+)\nPARAMS_START(.*?)END_TAG", re.DOTALL
+    chr(60) + r"(\w+)>(\n)(.*?)</\w+" + chr(62), re.DOTALL
 )
 
 
@@ -880,7 +880,7 @@ def _safe_parse_tool_json(content: str) -> dict | None:
     # Handle longcat_tool_call format: toolname\nparams
     for match in _LONGCAT_TOOL_CALL.finditer(text):
         tool_name = match.group(1).strip()
-        params_raw = match.group(2).strip()
+        params_raw = match.group(3).strip()
         params = {}
         if params_raw:
             try:
