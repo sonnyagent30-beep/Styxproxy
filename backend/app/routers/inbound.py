@@ -1,22 +1,31 @@
 """Inbound email webhook router for Resend."""
 
+import asyncio
 import logging
 import re
-from datetime import datetime
+import time
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_session
 from app.models import ProcessedWebhook, SupportMessage, SupportThread
 from app.services.email import send_email
+from app.utils.html_sanitize import sanitize_html
 import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
+
+# Keep strong references to in-flight background tasks so they are not
+# garbage-collected mid-execution. Without this, asyncio.create_task can
+# silently drop the forward — the exact "fire and hope" pattern we removed
+# from the escalation path.
+_inflight_tasks: set[asyncio.Task] = set()
 
 # ── Rate limiting ────────────────────────────────────────────────────────────────
 RATE_LIMIT_WINDOW = 3600   # 1 hour
@@ -94,7 +103,7 @@ async def _auto_close_stale_threads(session) -> int:
                 select(SupportThread.id).where(SupportThread.status == "open")
             )
         )
-        .order_by(SupportMessage.created_at.desc())
+        .order_by(SupportMessage.thread_id, SupportMessage.created_at.desc())
         .distinct(SupportMessage.thread_id)
     ).subquery()
 
@@ -125,7 +134,7 @@ settings = get_settings()
 router = APIRouter(prefix="/api/v1/inbound", tags=["inbound"])
 
 # Admin email to forward incoming messages to
-ADMIN_EMAIL = "oyebiyiayomide30@gmail.com"
+ADMIN_EMAIL = "admin@styxproxy.com"
 SUPPORT_EMAIL = "support@styxproxy.com"
 
 # Spam detection patterns
@@ -218,7 +227,7 @@ async def _create_new_thread(
     subject: str,
     email_id: str,
 ) -> SupportThread:
-    """Create a new support thread."""
+    """Create a new support thread. The initial message is added by the caller."""
     thread = SupportThread(
         customer_email=from_email,
         customer_name=from_name,
@@ -227,21 +236,6 @@ async def _create_new_thread(
     )
     session.add(thread)
     await session.flush()  # Get the ID
-
-    # Create initial inbound message
-    message = SupportMessage(
-        thread_id=thread.id,
-        direction="inbound",
-        from_email=from_email,
-        to_email=SUPPORT_EMAIL,
-        subject=subject,
-        body_text=None,
-        body_html=None,
-        resend_id=email_id,
-        in_reply_to=None,
-        references=None,
-    )
-    session.add(message)
 
     return thread
 
@@ -363,6 +357,19 @@ async def receive_resend_webhook(
     references  = data.get("references")
     text        = data.get("text")
     html        = data.get("html")
+    to_addresses = data.get("to", [])
+
+    # ── Recipient check ──────────────────────────────────────────────────
+    # Only support@styxproxy.com should create a customer support thread.
+    # Mail to no-reply@, dmarc@, alerts@ or any catch-all must NOT become
+    # a ticket — otherwise DMARC reports and bounces land in /admin/support
+    # as customer threads.
+    if SUPPORT_EMAIL not in to_addresses:
+        logger.info(
+            f"Ignoring email to non-support address: {to_addresses} "
+            f"(email_id={email_id})"
+        )
+        return {"status": "ignored", "reason": "not_support_address"}
 
     from_email, from_name = _extract_email_from_header(from_header)
 
@@ -384,18 +391,11 @@ async def receive_resend_webhook(
         return {"status": "already_processed", "email_id": email_id}
 
     # ── Spam ──────────────────────────────────────────────────────────────
-    if _is_spam_sender(from_email):
-        logger.warning(f"Blocking spam email from: {from_email}")
-        processed = ProcessedWebhook(
-            webhook_id=email_id,
-            provider="resend",
-            event_type="email.received",
-            response_sent=True,
-            extra_data={"spam": True, "from": from_email},
-        )
-        session.add(processed)
-        await session.commit()
-        return {"status": "blocked_spam", "email_id": email_id}
+    # Don't silently drop — a legitimate customer from a .ru/.cn/etc address
+    # must not be invisible. Deliver the thread normally and log the suspicion.
+    spam_suspected = _is_spam_sender(from_email)
+    if spam_suspected:
+        logger.warning(f"Spam-suspected email from: {from_email} — delivering to inbox with warning")
 
     # ── Auto-close stale threads ───────────────────────────────────────────
     await _auto_close_stale_threads(session)
@@ -408,6 +408,10 @@ async def receive_resend_webhook(
     if not thread and references:
         thread = await _find_thread_by_references(session, references)
 
+    # Sanitize HTML to prevent stored XSS — anyone emailing support with an
+    # <img onerror> payload can otherwise run script in an admin's browser.
+    safe_html = sanitize_html(html) if html else None
+
     if thread:
         # Add to existing thread
         await _add_message_to_thread(
@@ -417,7 +421,7 @@ async def receive_resend_webhook(
             to_email=SUPPORT_EMAIL,
             subject=subject,
             body_text=text,
-            body_html=html,
+            body_html=safe_html,
             email_id=email_id,
             in_reply_to=in_reply_to,
             references=references,
@@ -440,7 +444,7 @@ async def receive_resend_webhook(
             to_email=SUPPORT_EMAIL,
             subject=subject,
             body_text=text,
-            body_html=html,
+            body_html=safe_html,
             email_id=email_id,
             in_reply_to=in_reply_to,
             references=references,
@@ -461,14 +465,21 @@ async def receive_resend_webhook(
     )
     session.add(processed)
 
-    # Forward to admin (don't await - send in background)
-    # Note: In production, consider using a task queue
-    await _forward_to_admin(
-        from_email=from_email,
-        from_name=from_name,
-        subject=subject,
-        body_text=text,
-        body_html=html,
+    # Forward to admin in background (don't block the webhook response)
+    task = asyncio.create_task(
+        _forward_to_admin(
+            from_email=from_email,
+            from_name=from_name,
+            subject=subject,
+            body_text=text,
+            body_html=safe_html,
+        )
+    )
+    _inflight_tasks.add(task)
+    task.add_done_callback(_inflight_tasks.discard)
+    task.add_done_callback(
+        lambda t: logger.error(f"Forward task failed: {t.exception()}")
+        if t.exception() else None
     )
 
     await session.commit()
@@ -522,7 +533,7 @@ async def _handle_bounce(session, data: dict):
     import time as _time
     bounced_emails = data.get("emails", [])
     reason = data.get("reason", {}).get("bounce_classification", "unknown")
-    logger.warning("email_bounced", emails=bounced_emails, reason=reason)
+    logger.warning(f"email_bounced: emails={bounced_emails} reason={reason}")
 
     for email in bounced_emails:
         try:
@@ -545,14 +556,14 @@ async def _handle_bounce(session, data: dict):
             session.add(wh)
             await session.commit()
         except Exception as e:
-            logger.error("bounce_handler_error", email=email, error=str(e))
+            logger.error(f"bounce_handler_error: email={email} error={str(e)}")
 
 
 async def _handle_complaint(session, data: dict):
     """Record spam complaint → mark user as unsubscribed."""
     import time as _time
     complained_emails = data.get("emails", [])
-    logger.warning("email_complained", emails=complained_emails)
+    logger.warning(f"email_complained: emails={complained_emails}")
 
     for email in complained_emails:
         try:
@@ -575,7 +586,7 @@ async def _handle_complaint(session, data: dict):
             session.add(wh)
             await session.commit()
         except Exception as e:
-            logger.error("complaint_handler_error", email=email, error=str(e))
+            logger.error(f"complaint_handler_error: email={email} error={str(e)}")
 
 
 # ── Unsubscribe endpoint ────────────────────────────────────────────────────────
