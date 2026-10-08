@@ -60,6 +60,9 @@ _FENCED_CODE = re.compile(r"```[a-zA-Z0-9_+\-]*?\n.*?```", re.DOTALL)
 _TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$", re.MULTILINE)
 _TABLE_SEPARATOR = re.compile(r"^\s*\|?[\s:\-|]+\|?\s*$", re.MULTILINE)
 _BLANK_RUN = re.compile(r"\n{3,}")
+_LONGCAT_TOOL_CALL = re.compile(
+    r"TOOLCALL_START_TAG(\w+)\nPARAMS_START(.*?)END_TAG", re.DOTALL
+)
 
 
 def _clean_reply(text: str) -> str:
@@ -68,6 +71,7 @@ def _clean_reply(text: str) -> str:
     out = text
     for pat in _THINK_BLOCKS:
         out = pat.sub("", out)
+    out = _LONGCAT_TOOL_CALL.sub("", out)
     out = _FENCED_CODE.sub("", out)
     lines = out.splitlines()
     cleaned: list[str] = []
@@ -722,7 +726,7 @@ async def _try_tool_call_loop(
     channel_user_id: str | None = None,
     customer_phone: str | None = None,
     customer_name: str | None = None,
-    max_iterations: int = 2,
+    max_iterations: int = 3,
 ):
     """Multi-step tool calling loop."""
     tool_prompt_messages = [
@@ -873,6 +877,18 @@ async def _try_tool_call_loop(
 def _safe_parse_tool_json(content: str) -> dict | None:
     import re as _re
     text = content.strip()
+    # Handle longcat_tool_call format: toolname\nparams
+    for match in _LONGCAT_TOOL_CALL.finditer(text):
+        tool_name = match.group(1).strip()
+        params_raw = match.group(2).strip()
+        params = {}
+        if params_raw:
+            try:
+                import json as _json
+                params = _json.loads(params_raw)
+            except Exception:
+                pass
+        return {'tool': tool_name, 'params': params}
     # Handle <tool_call>...</tool_call> XML format
     for match in _re.finditer(r'<tool_call>(.*?)</tool_call>', text, _re.DOTALL):
         inner = match.group(1).strip()
