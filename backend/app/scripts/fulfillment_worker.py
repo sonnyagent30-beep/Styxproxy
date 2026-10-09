@@ -174,6 +174,14 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 # at the last row for backwards compatibility. The full set is
                 # discoverable via styxproxy_credentials.order_id (1:N).
                 order.styxproxy_credential_id = credential.id
+                # The order must carry the SAME expiry as the credential.
+                # The credential gets 30 days (see create_credential), but the
+                # order kept the 30-MINUTE checkout TTL written at payment
+                # initiation — so a paid proxy showed as expiring within the
+                # hour on the status page and to is_renewable. 15 live orders
+                # were affected before this was found.
+                if credential.expires_at is not None:
+                    order.expires_at = credential.expires_at
                 order.status = "fulfilled"
                 await db.commit()
 
