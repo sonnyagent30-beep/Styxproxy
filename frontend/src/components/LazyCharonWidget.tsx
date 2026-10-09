@@ -1,6 +1,7 @@
 'use client';
 
 import { Component, lazy, ReactNode, Suspense, useEffect, useState } from 'react';
+import * as Sentry from '@sentry/nextjs';
 
 const CharonWidget = lazy(() => import('@/components/CharonWidget'));
 
@@ -19,43 +20,35 @@ class CharonErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
     console.error('[CharonWidget] Render error:', error, info.componentStack);
-    // Report to Sentry in ALL environments — a hidden mount failure is how
-    // we spent two rounds chasing a widget that was silently broken.
-    if (typeof window !== 'undefined' && (window as any).Sentry) {
-      (window as any).Sentry.captureException(error, {
-        extra: { componentStack: info.componentStack, context: 'CharonWidget mount' },
-      });
-    }
+    // Report to Sentry properly — import the module, don't check window.Sentry
+    Sentry.captureException(error, {
+      extra: { componentStack: info.componentStack, context: 'CharonWidget mount' },
+    });
   }
 
   render() {
     if (this.state.hasError) {
-      // Render a visible marker in development, minimal in production —
-      // but NEVER silently return null. A hidden failure is worse than a broken widget.
-      if (process.env.NODE_ENV === 'development') {
-        return (
-          <div
-            style={{
-              position: 'fixed',
-              bottom: 16,
-              right: 16,
-              zIndex: 9999,
-              background: '#dc2626',
-              color: '#fff',
-              padding: '8px 12px',
-              borderRadius: 8,
-              fontSize: 12,
-              fontFamily: 'monospace',
-              maxWidth: 320,
-            }}
-          >
-            Charon widget failed to mount: {this.state.error?.message ?? 'unknown error'}
-          </div>
-        );
-      }
-      // Production: still log visibly and report, but don't break the page.
-      console.error('[CharonWidget] Mount failure (production):', this.state.error);
-      return null;
+      // Render a visible marker in ALL environments — a hidden failure is
+      // what cost us two rounds of debugging.
+      return (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: 9999,
+            background: '#dc2626',
+            color: '#fff',
+            padding: '8px 12px',
+            borderRadius: 8,
+            fontSize: 12,
+            fontFamily: 'monospace',
+            maxWidth: 320,
+          }}
+        >
+          Charon widget failed to mount: {this.state.error?.message ?? 'unknown error'}
+        </div>
+      );
     }
     return this.props.children;
   }
