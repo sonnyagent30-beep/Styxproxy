@@ -24,6 +24,27 @@ class CharonErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       console.error('[CharonWidget] Not rendering due to error:', this.state.error);
+      if (process.env.NODE_ENV === 'development') {
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              bottom: 16,
+              right: 16,
+              zIndex: 9999,
+              background: '#dc2626',
+              color: '#fff',
+              padding: '8px 12px',
+              borderRadius: 8,
+              fontSize: 12,
+              fontFamily: 'monospace',
+              maxWidth: 320,
+            }}
+          >
+            Charon widget failed to mount: {this.state.error?.message ?? 'unknown error'}
+          </div>
+        );
+      }
       return null;
     }
     return this.props.children;
