@@ -47,7 +47,7 @@ export default function AboutClient() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
             <Link href="/order" className="min-w-[200px] px-8 py-4 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold text-center transition-all duration-200">
-              Order Now
+              Get Proxy
             </Link>
             <Link href="/how-it-works" className="min-w-[200px] px-8 py-4 rounded-xl border border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold text-center card-depth transition-all duration-200">
               How It Works

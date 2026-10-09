@@ -25,7 +25,7 @@ export const DEMO_POSTS: BlogPost[] = [
 <h2>Which Should You Choose?</h2>
 <p>For Nigerian web scraping and market research, residential proxies are highly recommended due to their ability to access local content without triggering anti-bot measures. For high-volume, speed-critical tasks like SEO monitoring or price aggregation, datacenter proxies offer the best value.</p>
 
-<p>At <strong>Sytxproxy</strong>, we offer both residential and datacenter proxies optimized for African markets, with ISP proxies covering major Nigerian cities including Lagos, Abuja, and Port Harcourt.</p>`,
+<p>At <strong>Styxproxy</strong>, we offer both residential and datacenter proxies optimized for African markets, with ISP proxies covering major Nigerian cities including Lagos, Abuja, and Port Harcourt.</p>`,
     cover_image_url: '/blog/cover-1.png',
     author: 'Oyebiyi Ayomide',
     status: 'published',
@@ -39,12 +39,12 @@ export const DEMO_POSTS: BlogPost[] = [
     id: 'demo-2',
     slug: 'how-to-configure-socks5-proxies',
     title: 'How to Configure SOCKS5 Proxies in 5 Minutes',
-    excerpt: 'A practical step-by-step guide to configuring your Sytxproxy SOCKS5 credentials in any application.',
-    content: `<p>Setting up SOCKS5 proxies doesn't have to be complicated. In this guide, we'll walk you through configuring your Sytxproxy SOCKS5 credentials in five popular applications.</p>
+    excerpt: 'A practical step-by-step guide to configuring your Styxproxy SOCKS5 credentials in any application.',
+    content: `<p>Setting up SOCKS5 proxies doesn't have to be complicated. In this guide, we'll walk you through configuring your Styxproxy SOCKS5 credentials in five popular applications.</p>
 
 <h2>What You Need</h2>
 <ul>
-<li>Your Sytxproxy username and password</li>
+<li>Your Styxproxy username and password</li>
 <li>Your proxy IP address and port</li>
 <li>The application you want to configure</li>
 </ul>
@@ -156,7 +156,7 @@ response = requests.get(url, proxies=proxies)</code></pre>
 
 <h2>The Stack We Recommend</h2>
 <ul>
-<li><strong>Proxy Layer:</strong> Sytxproxy ISP and datacenter proxies</li>
+<li><strong>Proxy Layer:</strong> Styxproxy ISP and datacenter proxies</li>
 <li><strong>Browser Automation:</strong> Playwright (free, open-source)</li>
 <li><strong>Scheduling:</strong> n8n or cron jobs</li>
 <li><strong>Storage:</strong> Cloudflare R2 + PostgreSQL</li>
@@ -203,7 +203,7 @@ response = requests.get(url, proxies=proxies)</code></pre>
 <h3>Cons:</h3>
 <ul><li>Credentials must be kept secure</li></ul>
 
-<p>All Sytxproxy proxies support username/password (SOCKS5) authentication. Your styxproxy_username and styxproxy_password are generated when your order is fulfilled.</p>`,
+<p>All Styxproxy proxies support username/password (SOCKS5) authentication. Your styxproxy_username and styxproxy_password are generated when your order is fulfilled.</p>`,
     cover_image_url: '/blog/cover-6.png',
     author: 'Oyebiyi Ayomide',
     status: 'published',
@@ -231,7 +231,7 @@ response = requests.get(url, proxies=proxies)</code></pre>
 </ul>
 
 <h2>Nigerian Mobile Carrier Coverage</h2>
-<p>Sytxproxy offers 4G mobile proxies from MTN, Airtel, Glo, and 9mobile — all four major Nigerian carriers.</p>`,
+<p>Styxproxy offers 4G mobile proxies from MTN, Airtel, Glo, and 9mobile — all four major Nigerian carriers.</p>`,
     cover_image_url: '/blog/cover-7.png',
     author: 'Oyebiyi Ayomide',
     status: 'published',
@@ -326,7 +326,7 @@ response = requests.get(url, proxies=proxies)</code></pre>
 <p>Historically, Nigerian businesses relied on international proxy providers with poor local coverage. The latency from European or American proxy servers to Nigerian targets is often unacceptable for real-time applications.</p>
 
 <h2>Our Commitment</h2>
-<p>Sytxproxy is committed to building Africa's most reliable proxy infrastructure, starting with Nigeria. Our ISP proxy network covers Lagos, Abuja, Port Harcourt, and Kano — with plans to expand to Ghana, Kenya, and South Africa by Q4 2026.</p>`,
+<p>Styxproxy is committed to building Africa's most reliable proxy infrastructure, starting with Nigeria. Our ISP proxy network covers Lagos, Abuja, Port Harcourt, and Kano — with plans to expand to Ghana, Kenya, and South Africa by Q4 2026.</p>`,
     cover_image_url: '/blog/cover-10.png',
     author: 'Oyebiyi Ayomide',
     status: 'published',
