@@ -8,13 +8,14 @@ Unlimited renewals per order.
 """
 
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Order, Renewal, StyxproxyCredential
+from app.models import Order, OrderRenewal, StyxproxyCredential
 from app.services.credential import create_credential, resolve_country_for_credential
 
 logger = logging.getLogger(__name__)
@@ -29,18 +30,18 @@ async def create_renewal_order(
     amount_paid_ngn: float,
     payment_reference: Optional[str] = None,
     tx_ref: Optional[str] = None,
-) -> Renewal:
+) -> OrderRenewal:
     """Create a renewal record for an order.
 
     The renewal starts as 'pending' and is completed by the fulfillment flow
     (webhook → worker → credential creation / expiry extension).
     """
-    renewal = Renewal(
+    renewal = OrderRenewal(
         order_id=order_id,
+        renewal_tx_ref=tx_ref or f"TXR-{uuid.uuid4().hex[:12].upper()}",
         quantity_gb=quantity_gb,
         amount_paid_ngn=amount_paid_ngn,
         payment_reference=payment_reference,
-        tx_ref=tx_ref,
         status="pending",
     )
     session.add(renewal)
@@ -55,7 +56,7 @@ async def create_renewal_order(
 
 async def complete_renewal_residential_mobile(
     session: AsyncSession,
-    renewal: Renewal,
+    renewal: OrderRenewal,
     order: Order,
 ) -> Optional[StyxproxyCredential]:
     """Complete a residential/mobile renewal by creating a new credential for the extra GB.
@@ -114,7 +115,7 @@ async def complete_renewal_residential_mobile(
 
 async def complete_renewal_dc_isp(
     session: AsyncSession,
-    renewal: Renewal,
+    renewal: OrderRenewal,
     order: Order,
 ) -> bool:
     """Complete a DC/ISP renewal by extending the expiry.
@@ -142,60 +143,15 @@ async def complete_renewal_dc_isp(
         return False
 
 
-async def complete_renewal(
-    session: AsyncSession,
-    renewal_id: int,
-) -> Optional[Renewal]:
-    """Complete a pending renewal — dispatch to the right completion path.
-
-    Returns the completed renewal, or None if not found / already completed.
-    """
-    renewal = (
-        await session.execute(select(Renewal).where(Renewal.id == renewal_id))
-    ).scalar_one_or_none()
-
-    if not renewal:
-        logger.warning("Renewal %s not found", renewal_id)
-        return None
-
-    if renewal.status != "pending":
-        logger.info("Renewal %s already %s — skipping", renewal.id, renewal.status)
-        return renewal
-
-    order = (
-        await session.execute(select(Order).where(Order.order_id == renewal.order_id))
-    ).scalar_one_or_none()
-
-    if not order:
-        logger.error("Order %s not found for renewal %s", renewal.order_id, renewal.id)
-        renewal.status = "failed"
-        await session.commit()
-        return None
-
-    plan_type = (order.plan_type or "").lower()
-
-    if plan_type in ("residential", "mobile"):
-        credential = await complete_renewal_residential_mobile(session, renewal, order)
-        if credential is None:
-            return None
-    else:
-        # DC / ISP — just extend expiry
-        success = await complete_renewal_dc_isp(session, renewal, order)
-        if not success:
-            return None
-
-    return renewal
-
-
 async def get_renewals_for_order(
     session: AsyncSession,
     order_id: str,
-) -> list[Renewal]:
+) -> list[OrderRenewal]:
     """Get all renewals for an order, newest first."""
     result = await session.execute(
-        select(Renewal)
-        .where(Renewal.order_id == order_id)
-        .order_by(Renewal.created_at.desc())
+        select(OrderRenewal)
+        .where(OrderRenewal.order_id == order_id)
+        .order_by(OrderRenewal.created_at.desc())
     )
     return list(result.scalars().all())
 
@@ -203,9 +159,9 @@ async def get_renewals_for_order(
 async def get_renewal_by_payment_reference(
     session: AsyncSession,
     payment_reference: str,
-) -> Optional[Renewal]:
+) -> Optional[OrderRenewal]:
     """Look up a renewal by its payment reference."""
     result = await session.execute(
-        select(Renewal).where(Renewal.payment_reference == payment_reference)
+        select(OrderRenewal).where(OrderRenewal.payment_reference == payment_reference)
     )
     return result.scalar_one_or_none()

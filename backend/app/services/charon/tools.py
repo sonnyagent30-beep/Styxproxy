@@ -1458,7 +1458,7 @@ async def _initiate_renewal_tool(
 
             # Create payment
             tx_ref = f"TXF-{uuid.uuid4().hex[:12].upper()}"
-            renewal.tx_ref = tx_ref
+            renewal.renewal_tx_ref = tx_ref
             renewal.payment_reference = tx_ref
             await session.commit()
 

@@ -45,17 +45,14 @@ export default function CharonWidget() {
   const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // ── All hooks must run unconditionally (rules-of-hooks) ──────────────
+  // These were previously AFTER a conditional `if (isBlocked) return null`,
+  // which caused React to throw "Rendered more hooks than during the
+  // previous render" when navigating into or out of /admin.
+
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
-
-  const isBlocked =
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/setup') ||
-    pathname.startsWith('/superadmin');
-
-  if (isBlocked) return null;
 
   // Restore saved position on mount
   useEffect(() => {
@@ -92,6 +89,15 @@ export default function CharonWidget() {
       if (ignoreTimerRef.current) clearTimeout(ignoreTimerRef.current);
     };
   }, [pathname, isOpen, proactiveMessage, setProactiveMessage]);
+
+  // ── Now the conditional return ─────────────────────────────────────────
+  const isBlocked =
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/login') ||
+    pathname?.startsWith('/setup') ||
+    pathname?.startsWith('/superadmin');
+
+  if (isBlocked) return null;
 
   const handleOpen = useCallback(() => {
     setProactiveMessage(null);
