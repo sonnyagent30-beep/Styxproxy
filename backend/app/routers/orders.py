@@ -660,6 +660,7 @@ async def get_order_by_payment_reference(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
     cred_brief = None
+    all_creds_brief = None
     if order.styxproxy_credential_id:
         cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         cred_result = await session.execute(cred_stmt)
@@ -674,6 +675,30 @@ async def get_order_by_payment_reference(
                 upstream_proxy_port=cred.upstream_proxy_port,
                 status=cred.status,
             )
+
+    # For basket orders: fetch ALL credentials linked to this order.
+    # The customer paid for every item in one transaction and must see
+    # every proxy on the thank-you page and in order lookup.
+    if order.basket_items:
+        creds_stmt = (
+            select(StyxproxyCredential)
+            .where(StyxproxyCredential.order_id == order.order_id)
+            .order_by(StyxproxyCredential.id)
+        )
+        creds_result = await session.execute(creds_stmt)
+        all_creds = creds_result.scalars().all()
+        all_creds_brief = [
+            StyxproxyCredentialBrief(
+                id=c.id,
+                styxproxy_username=c.styxproxy_username,
+                styxproxy_password=c.get_password() if hasattr(c, 'get_password') else None,
+                protocol=c.protocol or "socks5",
+                upstream_proxy_ip=c.upstream_proxy_ip,
+                upstream_proxy_port=c.upstream_proxy_port,
+                status=c.status,
+            )
+            for c in all_creds
+        ]
 
     # customer_name lookup (optional — anonymous orders don't have it
     # available if customer.row was deleted)
@@ -692,6 +717,7 @@ async def get_order_by_payment_reference(
         country=order.country,
         amount_paid_ngn=order.amount_paid_ngn,
         styxproxy_credential=cred_brief,
+        credentials=all_creds_brief,
         created_at=order.created_at,
         expires_at=order.expires_at,
         customer_name=customer_name,
@@ -826,7 +852,7 @@ async def get_order(
                 upstream_proxy_port=cred.upstream_proxy_port,
                 status=cred.status,
             )
-    is_renewable = order.status == "active" and order.expires_at is not None
+    is_renewable = order.status in ("active", "fulfilled") and order.expires_at is not None
     return OrderResponse(
         order_id=order.order_id,
         status=order.status,
