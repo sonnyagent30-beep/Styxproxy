@@ -2,6 +2,8 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import BlogIndex from '@/components/blog/BlogIndex';
+import BlogGraph from '@/components/blog/BlogGraph';
+import BlogViews from '@/components/blog/BlogViews';
 import type { BlogCategory, BlogPost } from '@/types';
 
 export const metadata: Metadata = {
@@ -98,8 +100,12 @@ export default async function BlogPage() {
         <div className="section-divider-glow mb-12" />
       </div>
 
-      {/* Server-rendered archive: real <ul><li><a> in the initial HTML. */}
-      <BlogIndex posts={posts} categories={categories} />
+      {/* The list is SERVER-rendered and stays in the DOM; the graph hydrates
+          on top of it as a presentation layer. See BlogViews. */}
+      <BlogViews
+        list={<BlogIndex posts={posts} categories={categories} />}
+        graph={<BlogGraph posts={posts} categories={categories} />}
+      />
 
       {hasNext && (
         <div className="max-w-6xl mx-auto px-6 pb-24 text-center">
