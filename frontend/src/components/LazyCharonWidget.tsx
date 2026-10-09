@@ -19,11 +19,19 @@ class CharonErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
     console.error('[CharonWidget] Render error:', error, info.componentStack);
+    // Report to Sentry in ALL environments — a hidden mount failure is how
+    // we spent two rounds chasing a widget that was silently broken.
+    if (typeof window !== 'undefined' && (window as any).Sentry) {
+      (window as any).Sentry.captureException(error, {
+        extra: { componentStack: info.componentStack, context: 'CharonWidget mount' },
+      });
+    }
   }
 
   render() {
     if (this.state.hasError) {
-      console.error('[CharonWidget] Not rendering due to error:', this.state.error);
+      // Render a visible marker in development, minimal in production —
+      // but NEVER silently return null. A hidden failure is worse than a broken widget.
       if (process.env.NODE_ENV === 'development') {
         return (
           <div
@@ -45,6 +53,8 @@ class CharonErrorBoundary extends Component<
           </div>
         );
       }
+      // Production: still log visibly and report, but don't break the page.
+      console.error('[CharonWidget] Mount failure (production):', this.state.error);
       return null;
     }
     return this.props.children;
