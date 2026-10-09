@@ -262,7 +262,7 @@ button {
   animation: charon-glow 3s ease-in-out infinite;
 }
 
-/* Outer ring */
+/* Single ring — one clean pulse reads as intentional, not decorative */
 .charon-halo--1 {
   animation: charon-ring 3s ease-in-out infinite;
   background: transparent;
@@ -270,24 +270,15 @@ button {
   transform-origin: center;
 }
 
-/* Inner ring */
-.charon-halo--2 {
-  animation: charon-ring 3s ease-in-out infinite;
-  animation-delay: 1.5s;
-  background: transparent;
-  border: 1.5px solid rgba(10, 210, 90, 0.35);
-  transform-origin: center;
-}
-
 @keyframes charon-glow {
   0%, 100% {
     box-shadow:
       0 0 0 0 rgba(10, 210, 90, 0.5),
-      0 2px 12px rgba(10, 210, 90, 0.35);
+      0 2px 8px rgba(10, 210, 90, 0.25);
   }
   50% {
     box-shadow:
-      0 0 0 10px rgba(10, 210, 90, 0),
+      0 0 0 4px rgba(10, 210, 90, 0),
       0 2px 20px rgba(10, 210, 90, 0.55);
   }
 }

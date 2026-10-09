@@ -28,7 +28,7 @@ async function getPosts() {
 
 async function getTags(): Promise<string[]> {
   try {
-    const result = await api.getBlogPosts(1, 100);
+    const result = await api.getBlogPosts(1, 50);
     if (result.data && result.data.posts.length > 0) {
       const tagSet = new Set<string>();
       result.data.posts.forEach((post) => {

@@ -11,14 +11,22 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const name = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  let name = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  let description = `Browse all posts in the ${name} category on the Styxproxy blog.`;
+  try {
+    const cat = await api.getBlogCategory(slug);
+    if (cat.data) {
+      name = cat.data.name;
+      description = cat.data.description || description;
+    }
+  } catch { /* fall back to slug-derived name */ }
   return {
     title: `${name} | Styxproxy Blog`,
-    description: `Browse all posts in the ${name} category on the Styxproxy blog.`,
+    description,
     alternates: { canonical: `https://styxproxy.com/blog/category/${slug}` },
     openGraph: {
       title: `${name} | Styxproxy Blog`,
-      description: `Browse all posts in the ${name} category on the Styxproxy blog.`,
+      description,
       type: 'website',
       siteName: 'Styxproxy',
     },
@@ -27,16 +35,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CategoryPage({ params }: Props) {
   const { slug } = await params;
-  const name = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
+  let name = slug.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  let description = '';
+  let color = '';
   let posts: any[] = [];
   let hasMore = false;
 
   try {
-    const result = await api.getBlogPosts(1, 9, undefined, slug);
-    if (result.data) {
-      posts = result.data.posts;
-      hasMore = result.data.pagination.has_next;
+    const [catResult, postsResult] = await Promise.all([
+      api.getBlogCategory(slug),
+      api.getBlogPosts(1, 9, undefined, slug),
+    ]);
+    if (catResult.data) {
+      name = catResult.data.name;
+      description = catResult.data.description || '';
+      color = catResult.data.color || '';
+    }
+    if (postsResult.data) {
+      posts = postsResult.data.posts;
+      hasMore = postsResult.data.pagination.has_next;
     }
   } catch {
     posts = [];
