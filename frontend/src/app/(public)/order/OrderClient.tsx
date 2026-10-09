@@ -548,9 +548,20 @@ export default function OrderClient() {
           </div>
         )}
 
-        {/* Added to cart toast */}
+        {/* Added to cart toast.
+            MUST sit ABOVE the modals: the Add to Cart button lives inside a
+            modal (z-50), and the modal is later in the DOM — so at equal
+            z-index the modal backdrop wins and the toast is completely hidden.
+            Measured on mobile: elementFromPoint at the toast centre returned
+            the modal's backdrop, not the toast. That is why adding a proxy felt
+            like nothing happened. z-[100] clears both modals (z-50) and stays
+            under the Charon FAB (z-[9998]). */}
         {addedMessage && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 bg-[var(--primary)] text-black font-semibold rounded-lg shadow-lg animate-fade-in z-50">
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 bg-[var(--primary)] text-black font-semibold rounded-lg shadow-lg animate-fade-in z-[100]"
+          >
             <Check className="inline w-4 h-4 mr-1" />
             {addedMessage}
           </div>
