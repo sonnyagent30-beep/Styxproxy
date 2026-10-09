@@ -86,7 +86,7 @@ export default function BlogIndex({ posts, categories }: BlogIndexProps) {
                   {cat.color && (
                     <span
                       aria-hidden="true"
-                      className="w-2 h-2 rounded-full"
+                      className="w-2 h-2 rounded-full ring-1 ring-[var(--border-strong)]"
                       style={{ backgroundColor: cat.color }}
                     />
                   )}
@@ -114,7 +114,7 @@ export default function BlogIndex({ posts, categories }: BlogIndexProps) {
               {category.color && (
                 <span
                   aria-hidden="true"
-                  className="w-3 h-3 rounded-full shrink-0"
+                  className="w-3 h-3 rounded-full shrink-0 ring-1 ring-[var(--border-strong)]"
                   style={{ backgroundColor: category.color }}
                 />
               )}
