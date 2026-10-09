@@ -26,6 +26,10 @@ interface OrderData {
   is_renewable?: boolean;
   rotation_count?: number;
   max_rotations?: number;
+  plan_code?: string;
+  quantity?: number;
+  city_name?: string | null;
+  data_total_gb?: number;
   // Full details for the BUYER on this page only — it is rendered right after
   // their own payment from the order-status poll keyed to their order. This is
   // deliberately NOT the public receipt shape: generateReceiptPDF receives a
@@ -69,7 +73,6 @@ function ThankYouContent() {
   }, [orderId, txRef]);
 
   const [order, setOrder] = useState<OrderData | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [attempts, setAttempts] = useState(0);
@@ -88,20 +91,32 @@ function ThankYouContent() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState('');
 
-  // Load cart from sessionStorage
-  useEffect(() => {
-    const stored = sessionStorage.getItem('styxproxy_cart');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setCart(parsed);
-        }
-      } catch (e) {
-        // Invalid cart
-      }
-    }
-  }, []);
+  // Build receipt items from the order payload.
+  //
+  // The cart is cleared at checkout (CheckoutClient.tsx) — it is NOT the
+  // source of truth after payment. The order is. The backend returns
+  // plan_code, quantity, city_name, plan_type, country, and amount_paid_ngn
+  // on the by-payment-reference endpoint. We build a CartItem-shaped array
+  // from those fields so the existing PDF generator (generateReceiptPDF)
+  // works unchanged.
+  const receiptItems: CartItem[] = [];
+  if (order) {
+    const isPerGb = (order.plan_type === 'RESIDENTIAL' || order.plan_type === 'MOBILE')
+      && typeof order.data_total_gb === 'number';
+    receiptItems.push({
+      plan_code: order.plan_code || 'unknown',
+      name: order.plan_code
+        ? order.plan_code.split('-').slice(0, 2).join(' ')
+        : (order.plan_type || 'Proxy'),
+      flag: order.country || '',
+      price_ngn: order.amount_paid_ngn || 0,
+      quantity: isPerGb ? 1 : (order.quantity || 1),
+      country_code: order.country || 'NG',
+      plan_type: (order.plan_type as CartItem['plan_type']) || 'DC',
+      ...(isPerGb ? { quantity_gb: order.data_total_gb as number } : {}),
+      ...(order.city_name ? { city_name: order.city_name } : {}),
+    });
+  }
 
   // Poll for order status using PaymentStatusPoller
   //
@@ -166,6 +181,10 @@ function ThankYouContent() {
           is_renewable: data.is_renewable,
           rotation_count: data.rotation_count,
           max_rotations: data.max_rotations,
+          plan_code: data.plan_code,
+          quantity: data.quantity,
+          city_name: data.city_name,
+          data_total_gb: data.data_total_gb,
           created_at: data.created_at,
           expires_at: data.expires_at || undefined,
           styxproxy_credential: cred ? {
@@ -185,10 +204,6 @@ function ThankYouContent() {
           setLoading(false);
           setNextAction('redirect_to_proxy_details');
           import('@/lib/device-id').then(({ clearInflightOrder }) => clearInflightOrder());
-          // Clear the cart — the order is complete, the items are no longer needed.
-          // This is a safety net in case the cart wasn't cleared at checkout.
-          setCart([]);
-          sessionStorage.removeItem('styxproxy_cart');
           return;
         }
         if (s === 'expired' || s === 'cancelled' || s === 'refunded') {
@@ -254,14 +269,8 @@ function ThankYouContent() {
     }
   };
 
-  const cartTotal = cart.reduce((sum, item) => {
-    const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
-      && typeof item.price_per_gb === 'number';
-    return sum + (isPerGb ? item.price_ngn : item.price_ngn * item.quantity);
-  }, 0);
-
   const handleDownloadPDF = async () => {
-    if (order && cart.length > 0) {
+    if (order && receiptItems.length > 0) {
       // Project to status-only before generating. The PDF is an emailed,
       // forwardable, storable artefact — it must not contain proxy credentials,
       // even though this page shows them to the buyer in the browser.
@@ -273,7 +282,7 @@ function ThankYouContent() {
       };
       // created_at is already in order from the poll response — pass it through
       // so the PDF receipt shows the real order date, not the download date.
-      await generateReceiptPDF(receiptSafeOrder, cart, txRef!, `styxproxy-receipt-${txRef}.pdf`, detectReceiptTheme());
+      await generateReceiptPDF(receiptSafeOrder, receiptItems, txRef!, `styxproxy-receipt-${txRef}.pdf`, detectReceiptTheme());
     }
   };
 
@@ -432,7 +441,7 @@ function ThankYouContent() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {cart.map((item, idx) => (
+                  {receiptItems.map((item, idx) => (
                     <div key={item.plan_code} className="p-3 rounded-lg bg-[var(--card-hover)]">
                       <div className="flex items-center gap-2 mb-2">
                         <Flag countryCode={item.country_code} size={20} />
@@ -455,7 +464,7 @@ function ThankYouContent() {
                 </div>
                 <div>
                   <span className="text-[var(--muted)]">Amount Paid</span>
-                  <p className="font-medium">₦{cartTotal.toLocaleString('en-NG')}</p>
+                  <p className="font-medium">₦{(order?.amount_paid_ngn || 0).toLocaleString('en-NG')}</p>
                 </div>
                 <div>
                   <span className="text-[var(--muted)]">Status</span>
@@ -463,14 +472,19 @@ function ThankYouContent() {
                 </div>
                 <div>
                   <span className="text-[var(--muted)]">Items</span>
-                  <p className="font-medium">{cart.reduce((s, i) => s + i.quantity, 0)} proxies</p>
+                  <p className="font-medium">
+                    {(() => {
+                      const qty = order?.quantity || receiptItems.reduce((s, i) => s + i.quantity, 0);
+                      return `${qty || 1} ${(qty || 1) > 1 ? 'proxies' : 'proxy'}`;
+                    })()}
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Actions */}
             <div className="space-y-3">
-              {cart.length > 0 && (
+              {receiptItems.length > 0 && (
                 <button
                   onClick={handleDownloadPDF}
                   className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
