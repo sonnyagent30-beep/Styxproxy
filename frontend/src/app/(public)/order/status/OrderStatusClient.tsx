@@ -10,6 +10,7 @@ import RenewalModal from '@/components/order/RenewalModal';
 import { getActionsForStatus, getTimelineSteps, getStatusGroup } from '@/lib/order-status';
 import { getOrderHistory, type OrderHistoryEntry, cleanupStalePendingOrders, clearOrderHistory, removeFromHistory } from '@/lib/device-id';
 import { Eye, EyeSlash, Copy, Clock, Check, ArrowRight, WarningCircle, MagnifyingGlass, X } from '@phosphor-icons/react';
+import { useCharonStore } from '@/store/charon-store';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.styxproxy.com';
 
@@ -86,6 +87,12 @@ function OrderStatusContent() {
   const [history, setHistory] = useState<OrderHistoryEntry[]>([]);
   const [rotating, setRotating] = useState(false);
   const [showRenewalModal, setShowRenewalModal] = useState(false);
+  // Charon: the store is the single source of truth for the widget's open
+  // state. Both "Contact Support" affordances used to dispatch a window
+  // CustomEvent that nothing listened for, so they silently did nothing.
+  const setCharonOpen = useCharonStore((s) => s.setOpen);
+  const setCharonProactive = useCharonStore((s) => s.setProactiveMessage);
+  const openCharon = () => { setCharonProactive(null); setCharonOpen(true); };
 
   useEffect(() => {
     cleanupStalePendingOrders();
@@ -162,10 +169,32 @@ function OrderStatusContent() {
     expires: order.expires_at,
   }) : [];
 
+  // Return to the lookup form. There was NO way back once a result rendered —
+  // the page became a dead end (only the header nav remained, and the lookup
+  // card is hidden while a result is shown). Clears the result, the error and
+  // the input so the reader lands on a clean search.
+  const handleBack = () => {
+    setOrder(null);
+    setError(null);
+    setSearchInput('');
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <section className="flex-1 px-4 pt-16 pb-16">
         <div className="max-w-2xl mx-auto">
+          {/* Back to search — only meaningful once a result is on screen */}
+          {order && (
+            <button
+              type="button"
+              onClick={handleBack}
+              className="inline-flex items-center gap-2 mb-4 text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" aria-hidden="true" />
+              Back to search
+            </button>
+          )}
+
           {/* Search Card */}
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
             <h1 className="text-2xl font-bold mb-4">Order Status</h1>
@@ -215,7 +244,7 @@ function OrderStatusContent() {
                   }
                   if (action.kind === 'renew') setShowRenewalModal(true);
                   if (action.kind === 'contact_support') {
-                    window.dispatchEvent(new CustomEvent('open-chat-widget', { detail: { context: 'support', orderId: order.order_id } }));
+                    openCharon();
                   }
                 }}
               />
@@ -359,7 +388,7 @@ function OrderStatusContent() {
                 <p className="text-sm text-[var(--muted)]">
                   Need help with this order?{' '}
                   <button
-                    onClick={() => window.dispatchEvent(new CustomEvent('open-chat-widget', { detail: { context: 'support', orderId: order.order_id } }))}
+                      onClick={openCharon}
                     className="text-[var(--primary-text)] hover:underline font-medium"
                   >
                     Chat with Charon →

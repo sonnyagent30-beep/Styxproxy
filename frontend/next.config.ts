@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
       { source: '/api/public/maintenance', destination: `${API_BASE_URL}/api/public/maintenance` },
       { source: '/api/catalog', destination: `${API_BASE_URL}/api/catalog` },
       { source: '/api/countries', destination: `${API_BASE_URL}/api/countries` },
+      { source: '/api/v1/contact/submit', destination: `${API_BASE_URL}/api/v1/contact/submit` },
       { source: '/api/platform-stats', destination: `${API_BASE_URL}/api/platform-stats` },
       { source: '/api/me/:path*', destination: `${API_BASE_URL}/api/me/:path*` },
       { source: '/api/v1/health', destination: `${API_BASE_URL}/api/v1/health` },
