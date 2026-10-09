@@ -82,14 +82,44 @@ settings = get_settings()
 # =============================================================================
 
 
+# Email header logo geometry.
+#
+# styxproxy_logo_dark.png is 181x64 (aspect 2.828). The <img> tags used to
+# hard-code height="58" against a computed 200px width — a 17% vertical squash
+# in the header of all 11 templates, which is what read as "the logo is broken".
+#
+# Fix: render the embedded bitmap at an EXACT-aspect integer size and derive
+# every declared dimension from the source, so the attributes can never
+# disagree with the image again. 362x128 is exactly 2x native (181x2, 64x2):
+# exact aspect, no rounding, and 2x for retina.
+#
+# CSS width stays 200px, so the logo renders at the size it always did.
+_LOGO_TARGET_W = 200   # CSS display width
+_LOGO_SCALE = 2        # embed at 2x native for retina
+
+
+def _logo_embed_size() -> tuple[int, int]:
+    """Embedded bitmap size: 2x the native asset, exact aspect by construction."""
+    with Image.open(get_logo_path("dark")) as probe:
+        src_w, src_h = probe.size
+    return src_w * _LOGO_SCALE, src_h * _LOGO_SCALE
+
+
+def _logo_target_h() -> int:
+    """Declared CSS height for the logo, from the source aspect.
+
+    Uses the same int() truncation as the browser's proportional layout, so the
+    declared pair is as close to the true aspect as integer pixels allow.
+    """
+    with Image.open(get_logo_path("dark")) as probe:
+        src_w, src_h = probe.size
+    return int(src_h * _LOGO_TARGET_W / src_w)
+
+
 def _get_logo_b64() -> str:
     """Process and return the Styxproxy logo as base64 PNG."""
     logo = Image.open(get_logo_path("dark")).convert("RGBA")
-    # Resize for email header — 200px wide is enough for header logo
-    target_w = 200
-    ratio = target_w / logo.size[0]
-    target_h = int(logo.size[1] * ratio)
-    resized = logo.resize((target_w, target_h), Image.LANCZOS)
+    resized = logo.resize(_logo_embed_size(), Image.LANCZOS)
     buf = io.BytesIO()
     resized.save(buf, format="PNG", optimize=True)
     return base64.b64encode(buf.getvalue()).decode()
@@ -97,6 +127,56 @@ def _get_logo_b64() -> str:
 
 # Cache logo at module load time
 LOGO_B64 = _get_logo_b64()
+LOGO_W = _LOGO_TARGET_W
+LOGO_H = _logo_target_h()
+
+# ── Inline (CID) delivery ────────────────────────────────────────────────────
+#
+# The logo was embedded as `data:image/png;base64,…` directly in the <img src>.
+# Gmail strips data: URIs from HTML mail as a security policy, so in Gmail the
+# logo rendered as a broken-image placeholder with the alt text — which is what
+# customers actually saw. It is not a size limit and not an encoding bug: the
+# base64 round-trips byte-for-byte and the PNG magic is intact. Gmail simply
+# refuses to load data: URIs.
+#
+# The standard transactional-email pattern is a CID attachment: send the image
+# as a Resend attachment carrying a `content_id`, and reference it from the HTML
+# as `cid:<content_id>`. Gmail renders that inline.
+#
+# CID is preferred over a hosted URL here for two reasons:
+#   1. No external fetch. A remote image is a third-party request the client can
+#      block or proxy, and a cold image proxy fetch is the classic cause of the
+#      "logo shows on the second open" bug.
+#   2. `https://styxproxy.com/header-logo-dark.png` currently answers 403 to
+#      non-browser clients, so Gmail's image proxy could be refused outright.
+#      CID cannot be refused because the image travels inside the message.
+LOGO_CID = "styxproxy-logo"
+
+
+def _logo_attachment() -> dict:
+    """The logo as a Resend inline attachment.
+
+    Returns the shape Resend expects in its `attachments` array. `filename` and
+    `content_type` are explicit so the client knows what it is receiving.
+    """
+    return {
+        "filename": "styxproxy-logo.png",
+        "content": LOGO_B64,
+        "content_type": "image/png",
+        "content_id": LOGO_CID,
+    }
+
+
+def _logo_attachments_for(html: str) -> list[dict]:
+    """Attach the logo only when the HTML actually references it.
+
+    Every template that renders the header carries a `cid:` reference, so this
+    keeps the attachment off the handful of plain-text-only sends instead of
+    inflating them with 57 KB of unused base64.
+    """
+    if f"cid:{LOGO_CID}" not in html:
+        return []
+    return [_logo_attachment()]
 
 
 # =============================================================================
@@ -222,6 +302,10 @@ async def _send_via_resend(
                     "subject": subject,
                     "html": html,
                     "text": text,
+                    # Inline logo. Gmail strips data: URIs, so the header logo
+                    # must travel as a CID attachment. Empty when the HTML has
+                    # no cid: reference, so plain sends stay small.
+                    "attachments": _logo_attachments_for(html),
                     "headers": {
                         "List-Unsubscribe": f"<{unsub_url}>",
                         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -350,6 +434,8 @@ async def send_email(
                 "subject": subject,
                 "html": html,
                 "text": text,
+                # Inline logo — see _logo_attachment(). Gmail strips data: URIs.
+                "attachments": _logo_attachments_for(html),
             }
 
             # Add optional headers
@@ -436,7 +522,7 @@ def _render_header(right_label: str, right_sublabel: str = "") -> str:
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                         <tr>
                             <td style="vertical-align: middle;">
-                                <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy" width="200" height="58" style="display:block;">
+                                <img src="cid:{LOGO_CID}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" style="display:block;height:auto;border:0;">
                                 <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Anonymous Proxy Service</div>
                             </td>
                             <td style="vertical-align: middle; text-align: right; padding-left: 20px;">
@@ -542,7 +628,7 @@ def _render_support_reply_email(
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                                 <td style="vertical-align: middle;">
-                                    <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy" width="200" height="58" style="display:block;">
+                                    <img src="cid:{LOGO_CID}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" style="display:block;height:auto;border:0;">
                                     <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Styxproxy Support</div>
                                 </td>
                                 <td style="vertical-align: middle; text-align: right; padding-left: 20px;">
