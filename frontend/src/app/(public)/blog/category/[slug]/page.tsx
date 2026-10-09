@@ -21,6 +21,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
   } catch { /* fall back to slug-derived name */ }
   return {
+    // No `| Styxproxy` suffix here — layout.tsx's title template appends it,
+    // and adding it too produced "Guides | Styxproxy Blog | Styxproxy".
     title: `${name} | Styxproxy Blog`,
     description,
     alternates: { canonical: `https://styxproxy.com/blog/category/${slug}` },

@@ -25,15 +25,15 @@ const FAQ_DATA = [
   { q: 'Do I need an account?', a: 'No account required. Simply select your proxy, pay, and receive your credentials immediately via the dashboard or WhatsApp/Telegram.' },
   { q: 'What protocols do you support?', a: 'We support HTTP, HTTPS, SOCKS4, and SOCKS5 protocols. All proxies work with any standard proxy client or browser.' },
   { q: 'What is your refund policy?', a: 'We offer a 24-hour refund policy for valid issues. Contact support within 24 hours of purchase if your proxies are not working as expected.' },
-  { q: 'Which countries are available?', a: 'We have proxies available in 120+ countries worldwide. Visit our products page to see specific country availability for each proxy type.' },
+  { q: 'Which countries are available?', a: 'Visit our products page to see current country availability for each proxy type.' },
 ];
 
 const FEATURES = [
   { icon: Lightning, title: 'Instant Delivery', desc: 'Proxies ready in under 3 seconds' },
   { icon: Shield, title: 'Anonymous Access', desc: 'No account, no identity, no log of what you do' },
   { icon: Lock, title: 'All Protocols', desc: 'HTTP, HTTPS, SOCKS4 & SOCKS5' },
-  { icon: Globe, title: 'Global Coverage', desc: '120+ countries worldwide' },
-  { icon: Clock, title: '99.9% Uptime', desc: 'Reliable, consistent performance' },
+  { icon: Globe, title: 'Global Coverage', desc: 'Proxies across Africa, Europe, the Americas and Asia' },
+  { icon: Clock, title: 'Always-On Network', desc: 'Monitored around the clock' },
   { icon: Headset, title: '24/7 AI Support', desc: 'AI-assisted help via chat — anytime' },
 ];
 
@@ -44,12 +44,37 @@ const PRODUCTS = [
   { icon: HardDrives, name: 'Datacenter', desc: 'Cloud server IPs. Fastest speeds, best prices.' },
 ];
 
-const STATS = [
-  { value: '$2M+', label: 'processed', isText: true },
-  { value: '15,000+', label: 'customers', isText: true },
-  { value: '4.8/5', label: 'rating', isText: true },
-  { value: '120+', label: 'countries', isText: true },
+/**
+ * Homepage stats strip.
+ *
+ * Every figure here is FLAG-GATED and served by /api/platform-stats — none are
+ * hardcoded. This strip previously shipped `$2M+ processed`, `15,000+
+ * customers`, `4.8/5 rating` and `120+ countries` with no source behind them.
+ * On a trust-sensitive market an unsourced rating is a liability: the first
+ * customer who checks and finds nothing stops trusting every other number on
+ * the page.
+ *
+ * While a stat's flag is OFF (or its value isn't computable) the API returns
+ * placeholder copy and we render that. Flipping the flag in the admin
+ * dashboard swaps in the real figure with no deploy.
+ *
+ * FALLBACK is only for the window before the request resolves or if the API is
+ * unreachable — it is placeholder copy, never a claim.
+ */
+const STAT_FALLBACK = [
+  { key: 'revenue', value: 'Secure payments', label: 'processed' },
+  { key: 'customers', value: 'Trusted by early users', label: 'customers' },
+  { key: 'rating', value: 'Rated by real users', label: 'rating' },
+  { key: 'countries', value: 'Global coverage', label: 'countries' },
 ];
+
+interface PlatformStat {
+  key: string;
+  label: string;
+  enabled: boolean;
+  value: string | null;
+  placeholder: string;
+}
 
 function AnimatedCounter({ target, suffix = '', duration = 2000 }: { target: number; suffix?: string; duration?: number }) {
   const [count, setCount] = useState(0);
@@ -109,7 +134,34 @@ export default function Hero() {
   //         set (dashboard has everything disabled). GlobeMap must render that
   //         as "nothing is for sale", not as "no data".
   const [enabledCountries, setEnabledCountries] = useState<Set<string> | null>(null);
+  // Flag-gated stats. Starts null so the strip renders placeholder copy until
+  // the API answers — never a hardcoded claim.
+  const [platformStats, setPlatformStats] = useState<PlatformStat[] | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
+
+  // Fetch flag-gated stats. On any failure we keep the placeholder copy: a
+  // stats strip must never fall back to an unbacked number.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/platform-stats')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d?.stats) return;
+        setPlatformStats(d.stats);
+      })
+      .catch(() => { /* placeholders stand */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // What actually renders in the strip. Real value only when the API says the
+  // stat is enabled AND carries a value; otherwise the placeholder copy.
+  const statsToRender = (platformStats ?? []).length
+    ? platformStats!.map((s) => ({
+        key: s.key,
+        value: s.enabled && s.value ? s.value : s.placeholder,
+        label: s.label,
+      }))
+    : STAT_FALLBACK;
 
   // Fetch admin-enabled countries from the backend and pass to GlobeMap.
   //
@@ -283,7 +335,7 @@ export default function Hero() {
       <section className="border-y border-[var(--border)] bg-[var(--surface)]">
         <div className="max-w-6xl mx-auto px-6 py-12">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {STATS.map((stat, i) => (
+            {statsToRender.map((stat, i) => (
               <div key={i} className="text-center">
                 <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-[var(--foreground)] tracking-tight">
                   {stat.value}
@@ -400,10 +452,10 @@ export default function Hero() {
       <section className="py-20 px-6 bg-[var(--surface)] border-y border-[var(--border)]">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-sm text-[var(--muted)] mb-10 font-medium tracking-wide">
-            Trusted by developers and businesses worldwide
+            Built for teams and developers working across borders
           </p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {STATS.map((item, i) => (
+            {statsToRender.map((item, i) => (
               <div key={i} className="text-center">
                 <div className="text-2xl sm:text-3xl font-black text-[var(--foreground)]">{item.value}</div>
                 <div className="text-xs text-[var(--muted)] mt-1 uppercase tracking-wider font-medium">{item.label}</div>

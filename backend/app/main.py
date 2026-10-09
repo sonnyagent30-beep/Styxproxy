@@ -48,6 +48,7 @@ from app.routers import (
     webhooks,
     admin_secrets,
     support,
+    stats,
 )
 
 settings = get_settings()
@@ -441,4 +442,5 @@ app.include_router(costs)
 app.include_router(analytics)
 app.include_router(charon_ab)
 app.include_router(renewals.router)
+app.include_router(stats.router)
 app.include_router(ops, prefix="")
