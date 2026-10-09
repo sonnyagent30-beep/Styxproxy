@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_session
 from app.models import FeatureFlag, Order
 from app.schemas import PaymentInitiateResponse
-from app.routers.schemas import PaymentInitiateRequest
+from app.routers.schemas import PaymentInitiateRequest, PaymentInitiateBasketRequest, PaymentInitiateBasketResponse
 from app.services.capture import (
     GATEWAY_STATUS_PENDING,
     UNIT_MAJOR,
@@ -445,6 +445,317 @@ async def initiate_payment(
         checkout_url=result.get("checkout_url", ""),
         amount_ngn=total_amount,
         expires_at=expires_at,
+        tx_ref=tx_ref,
+    )
+
+
+# ============== Basket (multi-item) payment ─────────────────────────────────
+
+@router.post("/initiate-basket", response_model=PaymentInitiateBasketResponse, status_code=status.HTTP_201_CREATED)
+async def initiate_basket_payment(
+    request: PaymentInitiateBasketRequest,
+    session: AsyncSession = Depends(get_session),
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+):
+    """Initiate payment for multiple items in ONE gateway charge.
+
+    Unlike the single-item /initiate endpoint, this creates ONE order with
+    the SUM of all item prices and stores every item in basket_items JSONB.
+    The customer pays once for the whole cart. Fulfillment reads basket_items
+    to create the right number of credentials.
+    """
+    log_ctx = {"idempotency_key": idempotency_key, "item_count": len(request.items), "gateway": request.gateway}
+
+    # ── Kill switch ───────────────────────────────────────────────────────
+    kill_switch = (
+        await session.execute(select(FeatureFlag).where(FeatureFlag.name == "checkout_disabled"))
+    ).scalar_one_or_none()
+    if kill_switch and kill_switch.enabled:
+        logger.warning("checkout disabled by feature flag", extra=log_ctx)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Checkout is temporarily disabled.",
+        )
+
+    # ── Resolve each item's plan and price ────────────────────────────────
+    from app.routers.orders import resolve_plan, generate_order_id
+
+    basket_items = []
+    total_amount = 0.0
+
+    for item in request.items:
+        plan = await resolve_plan(session, item.plan_code)
+        if not plan:
+            logger.warning("invalid plan code in basket", extra={**log_ctx, "plan_code": item.plan_code})
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid plan code: {item.plan_code}")
+
+        plan_type = (plan.plan_type or "").lower()
+        if plan_type in ("residential", "mobile"):
+            if plan.price_per_gb is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Plan {item.plan_code} has no price_per_gb configured.",
+                )
+            gb = item.quantity_gb
+            if gb is None:
+                gb = plan.quantity or plan.min_gb or 1
+                logger.warning(
+                    "basket item missing quantity_gb — charging bundled GB",
+                    extra={**log_ctx, "plan_code": item.plan_code, "assumed_gb": gb},
+                )
+            if gb < plan.min_gb:
+                gb = plan.min_gb
+            if gb > plan.max_gb:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Maximum purchase is {plan.max_gb} GB for {item.plan_code} (you sent {gb})",
+                )
+            item_price = float(plan.price_per_gb) * gb
+            item_quantity = 1  # one gateway carrying N GB
+        else:
+            if plan.price_ngn is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Plan {item.plan_code} has no price_ngn configured.",
+                )
+            price = float(plan.price_ngn)
+            quantity = item.quantity
+            # Parse quantity from plan code suffix (e.g., "MOBILE-GH-5IP" -> 5)
+            if '-' in item.plan_code and item.plan_code.endswith('IP'):
+                parts = item.plan_code.rsplit('-', 2)
+                if len(parts) >= 3:
+                    match = re.match(r'^(\d+)IP$', parts[2])
+                    if match:
+                        suffix_qty = int(match.group(1))
+                        if suffix_qty > 0:
+                            quantity = suffix_qty
+            item_price = price * quantity
+            item_quantity = quantity
+
+        total_amount += item_price
+        basket_items.append({
+            "plan_code": item.plan_code,
+            "quantity": item_quantity,
+            "quantity_gb": item.quantity_gb if plan_type in ("residential", "mobile") else None,
+            "price_ngn": item_price,
+            "name": item.name or item.plan_code,
+            "country_code": item.country_code or plan.country,
+            "plan_type": plan.plan_type,
+            "city_id": item.city_id,
+            "city_name": item.city_name,
+        })
+
+    # ── Idempotency check ─────────────────────────────────────────────────
+    if idempotency_key:
+        existing = (
+            await session.execute(
+                select(Order).where(Order.idempotency_key == idempotency_key)
+            )
+        ).scalars().first()
+        if existing:
+            still_live = (
+                existing.status in ("pending", "processing", "active")
+                and existing.expires_at is not None
+                and existing.expires_at > datetime.now(timezone.utc)
+            )
+            if not still_live:
+                logger.info(
+                    "idempotency key held by a dead order — releasing and creating a new one",
+                    extra={**log_ctx, "order_id": existing.order_id, "status": existing.status},
+                )
+                existing = None
+
+        if existing:
+            logger.info(
+                "idempotent replay — returning existing basket order",
+                extra={**log_ctx, "order_id": existing.order_id},
+            )
+            return PaymentInitiateBasketResponse(
+                payment_id=str(uuid.uuid4()),
+                order_id=existing.order_id,
+                checkout_url="",
+                amount_ngn=float(existing.amount_paid_ngn or 0),
+                expires_at=existing.expires_at or datetime.now(timezone.utc) + timedelta(minutes=ORDER_TTL_MINUTES),
+                item_count=len(existing.basket_items or []),
+                tx_ref=existing.tx_ref or "",
+            )
+
+    # ── Get or create customer ───────────────────────────────────────────
+    effective_device_id = request.device_id or f"anon-{idempotency_key or uuid.uuid4().hex}"
+    customer = await get_or_create_customer(
+        session,
+        phone=None,
+        email=request.customer_email,
+        platform_account=None,
+        device_id=effective_device_id,
+    )
+    if not customer:
+        customer = await get_or_create_customer(
+            session,
+            phone=None,
+            email=None,
+            platform_account=None,
+            device_id=f"anon-{uuid.uuid4().hex}",
+        )
+    if not customer:
+        logger.error("could not establish any customer identity", extra=log_ctx)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="We couldn't start that payment. Please try again.",
+        )
+
+    # ── Backend-owned tx_ref ─────────────────────────────────────────────
+    tx_ref = f"TXF-{uuid.uuid4().hex[:12].upper()}"
+
+    gateway_email = request.customer_email or placeholder_email_from_device(effective_device_id)
+
+    # ── Generate order_id ────────────────────────────────────────────────
+    order_id = generate_order_id()
+    callback_url = f"https://styxproxy.com/thank-you?order_id={order_id}"
+
+    # ── Create gateway transaction for the SUM ──────────────────────────
+    try:
+        if request.gateway == "paystack":
+            result = await create_paystack_transaction(
+                amount_ngn=total_amount,
+                customer_email=gateway_email,
+                customer_phone=customer.phone or "",
+                callback_url=callback_url,
+                description=f"Payment for {len(request.items)} item(s)",
+                tx_ref=tx_ref,
+            )
+        else:
+            result = await create_flutterwave_invoice(
+                amount=total_amount,
+                customer_email=gateway_email,
+                customer_phone=customer.phone,
+                currency="NGN",
+                tx_ref=tx_ref,
+                callback_url=callback_url,
+                description=f"Payment for {len(request.items)} item(s)",
+            )
+    except Exception as e:
+        logger.error(
+            "gateway transaction creation failed",
+            extra={**log_ctx, "error": str(e), "error_type": type(e).__name__},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Payment gateway error: {str(e)}",
+        )
+
+    # ── Reconcile gateway reference ──────────────────────────────────────
+    gateway_reference = result.get("tx_ref") or tx_ref
+    provider_order_id = result.get("provider_order_id")
+    if gateway_reference != tx_ref:
+        logger.error(
+            "gateway returned a different reference than requested — storing the gateway's",
+            extra={**log_ctx, "requested_reference": tx_ref, "gateway_reference": gateway_reference, "order_id": order_id},
+        )
+    tx_ref = gateway_reference
+
+    # ── Create order with basket_items ───────────────────────────────────
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=ORDER_TTL_MINUTES)
+    order = Order(
+        order_id=order_id,
+        platform_account_id=None,
+        customer_phone=customer.phone,
+        customer_email=request.customer_email or "",
+        plan_type=basket_items[0]["plan_type"].lower() if basket_items else None,
+        plan_code=", ".join(item["plan_code"] for item in basket_items),
+        country=basket_items[0]["country_code"] if basket_items else None,
+        quantity=sum(item["quantity"] for item in basket_items),
+        data_total_gb=sum(item["quantity_gb"] or 0 for item in basket_items if item["quantity_gb"]),
+        amount_paid_ngn=total_amount,
+        payment_reference=tx_ref,
+        tx_ref=tx_ref,
+        provider_order_id=provider_order_id,
+        provider=request.gateway,
+        status="pending",
+        idempotency_key=idempotency_key,
+        expires_at=expires_at,
+        basket_items=basket_items,
+    )
+    record_capture(
+        order,
+        provider=request.gateway,
+        gateway_status=GATEWAY_STATUS_PENDING,
+        gateway_amount=result.get("gateway_amount"),
+        amount_unit=(UNIT_MINOR if request.gateway == "paystack" else UNIT_MAJOR),
+        gateway_reference=result.get("tx_ref") or tx_ref,
+        gateway_currency=result.get("gateway_currency"),
+        gateway_transaction_id=result.get("provider_order_id"),
+    )
+    session.add(order)
+
+    try:
+        await session.commit()
+    except Exception as e:
+        await session.rollback()
+        from sqlalchemy.exc import IntegrityError
+        if isinstance(e, IntegrityError) and idempotency_key:
+            try:
+                existing = (
+                    await session.execute(
+                        select(Order).where(Order.idempotency_key == idempotency_key)
+                    )
+                ).scalars().first()
+                if existing:
+                    logger.info(
+                        "concurrent request won race — returning existing order",
+                        extra={**log_ctx, "order_id": existing.order_id},
+                    )
+                    return PaymentInitiateBasketResponse(
+                        payment_id=str(uuid.uuid4()),
+                        order_id=existing.order_id,
+                        checkout_url="",
+                        amount_ngn=float(existing.amount_paid_ngn or 0),
+                        expires_at=existing.expires_at or datetime.now(timezone.utc) + timedelta(minutes=ORDER_TTL_MINUTES),
+                        item_count=len(existing.basket_items or []),
+                        tx_ref=existing.tx_ref or "",
+                    )
+            except Exception:
+                pass
+
+        if idempotency_key:
+            try:
+                await session.execute(
+                    Order.__table__.delete().where(Order.idempotency_key == idempotency_key)
+                )
+                await session.commit()
+                logger.info("idempotency key released after failure", extra={**log_ctx, "error": str(e)})
+            except Exception as delete_err:
+                logger.error(
+                    "idempotency key release failed — key stays locked",
+                    extra={**log_ctx, "delete_error": str(delete_err)},
+                )
+        logger.error(
+            "basket order creation failed",
+            extra={**log_ctx, "error": str(e), "error_type": type(e).__name__},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create order. Please try again.",
+        )
+
+    logger.info(
+        "basket payment initiated",
+        extra={
+            **log_ctx,
+            "order_id": order_id,
+            "tx_ref": tx_ref,
+            "amount": total_amount,
+            "item_count": len(basket_items),
+        },
+    )
+
+    return PaymentInitiateBasketResponse(
+        payment_id=str(uuid.uuid4()),
+        order_id=order_id,
+        checkout_url=result.get("checkout_url", ""),
+        amount_ngn=total_amount,
+        expires_at=expires_at,
+        item_count=len(basket_items),
         tx_ref=tx_ref,
     )
 

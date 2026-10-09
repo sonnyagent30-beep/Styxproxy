@@ -43,6 +43,16 @@ interface OrderData {
     expires_at?: string;
     status?: string;
   };
+  // For basket orders: ALL credentials created for this order.
+  // The customer paid for every item in one transaction and must see
+  // every proxy on the thank-you page.
+  credentials?: Array<{
+    styxproxy_username?: string;
+    styxproxy_password?: string;
+    upstream_proxy_ip?: string;
+    upstream_proxy_port?: number;
+    status?: string;
+  }>;
   user_message?: string | null;
   created_at?: string;
   fulfilled_at?: string;
@@ -170,6 +180,7 @@ function ThankYouContent() {
         }
 
         const cred = data.styxproxy_credential;
+        const allCreds = data.credentials;
         const orderData: OrderData = {
           order_id: data.order_id,
           status: data.status,
@@ -195,6 +206,13 @@ function ThankYouContent() {
             expires_at: data.expires_at || undefined,
             status: cred.status,
           } : undefined,
+          credentials: allCreds ? allCreds.map(c => ({
+            styxproxy_username: c.styxproxy_username,
+            styxproxy_password: c.styxproxy_password,
+            upstream_proxy_ip: c.upstream_proxy_ip,
+            upstream_proxy_port: c.upstream_proxy_port,
+            status: c.status,
+          })) : undefined,
         };
         setOrder(orderData);
 
@@ -391,10 +409,14 @@ function ThankYouContent() {
               <p className="text-[var(--muted)]">Your proxies are ready. Here are your credentials:</p>
             </div>
 
-            {/* Credentials Card */}
+            {/* Credentials Card — shows ALL proxies for basket orders */}
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Proxy Credentials</h2>
+                <h2 className="text-lg font-semibold">
+                  {order?.credentials && order.credentials.length > 1
+                    ? `Proxy Credentials (${order.credentials.length})`
+                    : 'Proxy Credentials'}
+                </h2>
                 {order?.styxproxy_credential && (
                   <button
                     onClick={() => handleCopyCredentials(order?.styxproxy_credential)}
@@ -406,7 +428,49 @@ function ThankYouContent() {
                 )}
               </div>
 
-              {order?.styxproxy_credential ? (
+              {order?.credentials && order.credentials.length > 0 ? (
+                <div className="space-y-6">
+                  {order.credentials.map((cred, idx) => (
+                    <div key={idx} className={idx > 0 ? 'pt-6 border-t border-[var(--border)]' : ''}>
+                      {order.credentials!.length > 1 && (
+                        <p className="text-sm font-medium text-[var(--primary-text)] mb-3">Proxy {idx + 1}</p>
+                      )}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm text-[var(--muted)]">Username</label>
+                          <p className="font-mono text-lg">{cred.styxproxy_username}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-[var(--muted)]">Protocol</label>
+                          <p className="font-mono text-sm">HTTP / SOCKS5</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-[var(--muted)]">Proxy Address</label>
+                          <p className="font-mono text-lg">{cred.upstream_proxy_ip}:{cred.upstream_proxy_port}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-[var(--muted)]">Password</label>
+                          <p className="font-mono text-sm">{cred.styxproxy_password || 'N/A'}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-sm text-[var(--muted)]">Full Format</label>
+                          <p className="font-mono text-base text-[var(--muted)] break-all leading-relaxed">
+                            http://{cred.styxproxy_username}:{cred.styxproxy_password || 'YOUR_PASSWORD'}@{cred.upstream_proxy_ip}:{cred.upstream_proxy_port}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-[var(--muted)]">Expires</label>
+                          <p className="font-medium">
+                            {order.expires_at
+                              ? new Date(order.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })
+                              : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : order?.styxproxy_credential ? (
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm text-[var(--muted)]">Username</label>

@@ -132,6 +132,11 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 # addresses. Residential/mobile are sold per GB — `quantity`
                 # there is the GB amount, and a single credential is correct.
                 #
+                # Basket orders (basket_items NOT NULL) carry multiple distinct
+                # products in ONE order. Each item in the basket gets its own
+                # credential(s) — the customer paid for all of them in one
+                # transaction and must receive all of them.
+                #
                 # Before this fix the loop existed but only the LAST credential
                 # was recorded on the order and only the LAST was emailed, while
                 # the order was marked `fulfilled`. So a 3-IP customer got three
@@ -139,34 +144,71 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 # that said fulfilled — delivery actively misstating what was
                 # bought.
                 created: list[tuple] = []
-                for i in range(quantity):
-                    logger.info(
-                        f"creating credential {i+1}/{quantity}",
-                        extra={**log_ctx, "proxy_type": proxy_type, "index": i},
-                    )
-                    cred_i, pw_i = await create_credential(
-                        db_session=db,
-                        order_id=order.order_id,
-                        customer_phone=order.customer_phone or "",
-                        plan_code=order.plan_code or "unknown",
-                        country=resolve_country_for_credential(order.country),
-                        proxy_type=proxy_type,
-                        quantity=1,
-                        duration_days=30,
-                        protocol="socks5",
-                        pool_type="paid",
-                        targeting_mode=order.targeting_mode or "country_chosen",
-                        city=order.city_name,
-                    )
-                    created.append((cred_i, pw_i))
+
+                if order.basket_items:
+                    # Multi-item basket: one credential per basket line item.
+                    # Each item may itself be multi-IP (DC/ISP), so we loop
+                    # over items and then over the quantity within each item.
+                    for item_idx, item in enumerate(order.basket_items):
+                        item_plan_code = item.get("plan_code", "unknown")
+                        item_proxy_type = (item.get("plan_type") or proxy_type).lower()
+                        item_country = item.get("country_code") or order.country or "NG"
+                        item_city = item.get("city_name") or order.city_name
+                        item_quantity = item.get("quantity", 1)
+
+                        for i in range(item_quantity):
+                            logger.info(
+                                f"creating credential for basket item {item_idx+1}/{len(order.basket_items)}, proxy {i+1}/{item_quantity}",
+                                extra={**log_ctx, "proxy_type": item_proxy_type, "item_index": item_idx, "plan_code": item_plan_code},
+                            )
+                            cred_i, pw_i = await create_credential(
+                                db_session=db,
+                                order_id=order.order_id,
+                                customer_phone=order.customer_phone or "",
+                                plan_code=item_plan_code,
+                                country=resolve_country_for_credential(item_country),
+                                proxy_type=item_proxy_type,
+                                quantity=1,
+                                duration_days=30,
+                                protocol="socks5",
+                                pool_type="paid",
+                                targeting_mode=order.targeting_mode or "country_chosen",
+                                city=item_city,
+                            )
+                            created.append((cred_i, pw_i))
+                else:
+                    # Single-item order (legacy): quantity is the IP count
+                    # for DC/ISP, or 1 for residential/mobile (GB is on the
+                    # credential, not a loop count).
+                    for i in range(quantity):
+                        logger.info(
+                            f"creating credential {i+1}/{quantity}",
+                            extra={**log_ctx, "proxy_type": proxy_type, "index": i},
+                        )
+                        cred_i, pw_i = await create_credential(
+                            db_session=db,
+                            order_id=order.order_id,
+                            customer_phone=order.customer_phone or "",
+                            plan_code=order.plan_code or "unknown",
+                            country=resolve_country_for_credential(order.country),
+                            proxy_type=proxy_type,
+                            quantity=1,
+                            duration_days=30,
+                            protocol="socks5",
+                            pool_type="paid",
+                            targeting_mode=order.targeting_mode or "country_chosen",
+                            city=order.city_name,
+                        )
+                        created.append((cred_i, pw_i))
 
                 # A partial create must NOT be reported as fulfilled. If the
                 # provider gave us fewer than we asked for, that is a failure the
                 # customer paid for and it has to be visible.
-                if len(created) != quantity:
+                expected_count = sum(item.get("quantity", 1) for item in order.basket_items) if order.basket_items else quantity
+                if len(created) != expected_count:
                     raise RuntimeError(
                         f"provider returned {len(created)} credential(s) for a "
-                        f"quantity-{quantity} order — refusing to mark fulfilled"
+                        f"basket with {expected_count} expected — refusing to mark fulfilled"
                     )
 
                 credential, plaintext_password = created[-1]
@@ -190,8 +232,8 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                     for c, pw in created
                 ]
                 logger.info(
-                    f"created {len(created)} credential(s) for quantity {quantity}",
-                    extra={**log_ctx, "created_count": len(created), "quantity": quantity},
+                    f"created {len(created)} credential(s) for order {order_id}",
+                    extra={**log_ctx, "created_count": len(created), "expected_count": expected_count},
                 )
 
                 # ── Deliver the credential ─────────────────────────────────

@@ -465,6 +465,10 @@ class OrderResponse(BaseModel):
     country: Optional[str]
     amount_paid_ngn: Optional[float]
     styxproxy_credential: Optional[StyxproxyCredentialBrief]
+    # For basket orders: ALL credentials created for this order.
+    # Populated when basket_items is NOT NULL. Each element is one proxy
+    # the customer paid for and must receive.
+    credentials: Optional[list[StyxproxyCredentialBrief]] = None
     created_at: datetime
     expires_at: Optional[datetime]
     customer_name: Optional[str] = None  # Only populated if customer set a name (WhatsApp/Telegram)

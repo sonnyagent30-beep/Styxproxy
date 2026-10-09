@@ -29,6 +29,14 @@ interface OrderData {
     upstream_proxy_port: number;
     expires_at: string;
   };
+  // For basket orders: ALL credentials created for this order.
+  credentials?: Array<{
+    styxproxy_username: string;
+    styxproxy_password: string;
+    upstream_proxy_ip: string;
+    upstream_proxy_port: number;
+    status?: string;
+  }>;
   max_rotations?: number;
   rotation_count?: number;
   is_renewable?: boolean;
@@ -270,11 +278,15 @@ function OrderStatusContent() {
                 </div>
               </div>
 
-              {/* Credentials */}
-              {(order.status === 'fulfilled' || order.status === 'active') && order.styxproxy_credential && (
+              {/* Credentials — shows ALL proxies for basket orders */}
+              {(order.status === 'fulfilled' || order.status === 'active') && (order.credentials && order.credentials.length > 0 || order.styxproxy_credential) && (
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide">Your Proxy Credentials</h2>
+                    <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide">
+                      {order.credentials && order.credentials.length > 1
+                        ? `Your Proxy Credentials (${order.credentials.length})`
+                        : 'Your Proxy Credentials'}
+                    </h2>
                     <span className="text-xs text-[var(--muted)]">
                       {(order.max_rotations ?? 3) - (order.rotation_count ?? 0)} rotation{(order.max_rotations ?? 3) - (order.rotation_count ?? 0) !== 1 ? 's' : ''} left
                     </span>
@@ -291,21 +303,50 @@ function OrderStatusContent() {
                         </span>
                       </div>
                     )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <CredentialField label="Username" value={order.styxproxy_credential.styxproxy_username} />
-                      <CredentialField label="Password" value={order.styxproxy_credential.styxproxy_password} sensitive />
-                      <CredentialField label="Proxy Address" value={`${order.styxproxy_credential.upstream_proxy_ip}:${order.styxproxy_credential.upstream_proxy_port}`} />
-                      <div className="bg-[var(--background)] rounded-xl p-4">
-                        <span className="text-xs text-[var(--muted)]">Protocol</span>
-                        <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
+                    {order.credentials && order.credentials.length > 0 ? (
+                      <div className="space-y-4">
+                        {order.credentials.map((cred, idx) => (
+                          <div key={idx} className={idx > 0 ? 'pt-4 border-t border-[var(--border)]' : ''}>
+                            {order.credentials!.length > 1 && (
+                              <p className="text-xs font-medium text-[var(--primary-text)] mb-2">Proxy {idx + 1}</p>
+                            )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <CredentialField label="Username" value={cred.styxproxy_username} />
+                              <CredentialField label="Password" value={cred.styxproxy_password} sensitive />
+                              <CredentialField label="Proxy Address" value={`${cred.upstream_proxy_ip}:${cred.upstream_proxy_port}`} />
+                              <div className="bg-[var(--background)] rounded-xl p-4">
+                                <span className="text-xs text-[var(--muted)]">Protocol</span>
+                                <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
+                              </div>
+                            </div>
+                            <div className="bg-[var(--background)] rounded-xl p-4 mt-3">
+                              <span className="text-xs text-[var(--muted)]">Full Format</span>
+                              <p className="font-mono text-base text-[var(--muted)] break-all leading-relaxed">
+                                http://{cred.styxproxy_username}:{cred.styxproxy_password}@{cred.upstream_proxy_ip}:{cred.upstream_proxy_port}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                    <div className="bg-[var(--background)] rounded-xl p-4">
-                      <span className="text-xs text-[var(--muted)]">Full Format</span>
-                      <p className="font-mono text-base text-[var(--muted)] break-all leading-relaxed">
-                        http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
-                      </p>
-                    </div>
+                    ) : order.styxproxy_credential ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <CredentialField label="Username" value={order.styxproxy_credential.styxproxy_username} />
+                        <CredentialField label="Password" value={order.styxproxy_credential.styxproxy_password} sensitive />
+                        <CredentialField label="Proxy Address" value={`${order.styxproxy_credential.upstream_proxy_ip}:${order.styxproxy_credential.upstream_proxy_port}`} />
+                        <div className="bg-[var(--background)] rounded-xl p-4">
+                          <span className="text-xs text-[var(--muted)]">Protocol</span>
+                          <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
+                        </div>
+                      </div>
+                    ) : null}
+                    {order.styxproxy_credential && (
+                      <div className="bg-[var(--background)] rounded-xl p-4">
+                        <span className="text-xs text-[var(--muted)]">Full Format</span>
+                        <p className="font-mono text-base text-[var(--muted)] break-all leading-relaxed">
+                          http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

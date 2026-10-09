@@ -224,76 +224,69 @@ export default function CheckoutClient() {
         }
       }
 
-      // Fire one initiate per cart item in parallel. Each item gets its OWN
-      // idempotency key: sharing one key across items made item 2+ collide
-      // with item 1's stored payload and 409.
-      const results = await Promise.allSettled(
-        cart.map((item) => {
-          const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
-            && typeof item.price_per_gb === 'number';
-          return api.initiatePayment({
-            planCode: item.plan_code,
-            // Residential/mobile are priced per GB, so quantity stays 1 (one
-            // gateway) and the GB count travels in quantity_gb. The backend
-            // multiplies price_per_gb x quantity_gb; sending GB in `quantity`
-            // made the API bill a single GB.
-            quantity: isPerGb ? 1 : item.quantity,
-            quantityGb: isPerGb ? (item.quantity_gb || item.min_gb || 5) : undefined,
-            customerEmail: trimmedEmail || undefined,
-            gateway,
-            idempotencyKey: generateIdempotencyKey(),
-            deviceId,
-          });
-        }),
-      );
+      // Send ALL cart items in ONE basket call. The backend sums the prices,
+      // creates ONE order, and returns ONE checkout_url for the total.
+      // This replaces the broken flow where we fired one initiate per item
+      // and redirected to the FIRST checkout_url, abandoning the rest.
+      const basketItems = cart.map((item) => {
+        const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
+          && typeof item.price_per_gb === 'number';
+        return {
+          planCode: item.plan_code,
+          quantity: isPerGb ? 1 : item.quantity,
+          quantityGb: isPerGb ? (item.quantity_gb || item.min_gb || 5) : undefined,
+          name: item.name,
+          countryCode: item.country_code,
+          planType: item.plan_type,
+          cityId: item.city_id,
+          cityName: item.city_name,
+        };
+      });
 
-      let firstCheckoutUrl = '';
-      let lastError = '';
-      for (let i = 0; i < results.length; i++) {
-        const r = results[i];
-        if (r.status === 'fulfilled' && r.value.data?.checkout_url) {
-          firstCheckoutUrl = r.value.data.checkout_url;
-          if (r.value.data.order_id) {
-            sessionStorage.setItem('styxproxy_order_id', r.value.data.order_id);
-            sessionStorage.setItem('styxproxy_active_tx', r.value.data.order_id);
-          }
-          const backendAmount = r.value.data.amount_ngn;
-          addToOrderHistory({
-            order_id: r.value.data.order_id,
-            tx_ref: r.value.data.order_id,
-            plan_code: cart[i].plan_code,
-            country: cart[i].country_code || 'NG',
-            amount: backendAmount,
-            status: 'pending',
-            created_at: new Date().toISOString(),
-          });
-          break;
-        }
-        if (r.status === 'rejected') {
-          lastError = r.reason?.message || 'Payment initiation failed';
-        } else if (r.status === 'fulfilled' && r.value.error) {
-          lastError = r.value.error;
-        }
-      }
+      const basketResult = await api.initiateBasketPayment({
+        items: basketItems,
+        customerEmail: trimmedEmail || undefined,
+        gateway,
+        idempotencyKey,
+        deviceId,
+      });
 
-      if (firstCheckoutUrl) {
-        // Clear the cart — payment is starting, the items are now an order.
-        // Without this the persisted cart survives the redirect and the
-        // customer sees "auto-added" products the next time they visit.
-        clearCart();
-        sessionStorage.removeItem('styxproxy_cart');
-        window.location.href = firstCheckoutUrl;
+      if (basketResult.error) {
+        clearInflightOrder();
+        setInflight(null);
+        setError(`Could not start payment. ${basketResult.error}`);
+        setLoading(false);
         return;
       }
 
-      // No checkout URL — release the in-flight lock. Without this, a failed
-      // attempt (gateway 4xx, network blip, declined init) left the lock set
-      // and every subsequent attempt on this device was refused as "already
-      // in progress" — a hard sales trap with no in-app recovery.
+      const checkoutUrl = basketResult.data?.checkout_url;
+      const orderId = basketResult.data?.order_id;
+
+      if (checkoutUrl && orderId) {
+        sessionStorage.setItem('styxproxy_order_id', orderId);
+        sessionStorage.setItem('styxproxy_active_tx', orderId);
+        const backendAmount = basketResult.data.amount_ngn;
+        addToOrderHistory({
+          order_id: orderId,
+          tx_ref: orderId,
+          plan_code: cart.map(i => i.plan_code).join(', '),
+          country: cart[0]?.country_code || 'NG',
+          amount: backendAmount,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        });
+
+        // Clear the cart — payment is starting, the items are now an order.
+        clearCart();
+        sessionStorage.removeItem('styxproxy_cart');
+        window.location.href = checkoutUrl;
+        return;
+      }
+
+      // No checkout URL — release the in-flight lock.
       clearInflightOrder();
       setInflight(null);
-
-      setError(`Could not start payment for any items. ${lastError ? `Last error: ${lastError}` : 'Please try again.'}`);
+      setError('Could not start payment. Please try again.');
       setLoading(false);
     } catch {
       clearInflightOrder();

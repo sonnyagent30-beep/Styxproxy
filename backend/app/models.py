@@ -230,6 +230,11 @@ class Order(Base):
     emails_sent: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     # Timestamp of the last renewal reminder email sent (null = never sent).
     reminder_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Multi-item cart: JSON array of {plan_code, quantity, quantity_gb, price_ngn,
+    # name, country_code, plan_type, city_id, city_name}. One order carries every
+    # cart line so a single payment covers the whole basket. NULL = single-item
+    # order (legacy / non-basket checkout).
+    basket_items: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
 
     # Relationships
     platform_account: Mapped[Optional[PlatformAccount]] = relationship("PlatformAccount", back_populates="orders")
