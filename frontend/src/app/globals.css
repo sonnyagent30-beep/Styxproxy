@@ -204,6 +204,37 @@ button {
   background: var(--hero-orb-3);
 }
 
+/* ── Blog route markers (dots + future graph nodes) ──────────────
+   The route's dark-mode colour comes from the database; light mode needs a
+   darkened variant because every live route colour is below 3:1 on #fafafa.
+   Both variants are emitted as custom properties by routeColorVars() and the
+   choice is made HERE, in CSS, because a server component cannot branch on
+   prefers-color-scheme — and light mode arrives by two routes (the media
+   query AND the .light admin class).
+
+   Declared as utilities so Tailwind's layer ordering applies; a bare class
+   would be unlayered and beat the utilities on the same element. */
+@layer utilities {
+  /* Dark mode: bright fill on near-black needs no ring (5.3–10.4:1). */
+  .route-marker {
+    background-color: var(--route-dark);
+  }
+
+  /* Light mode: darkened fill PLUS the hairline ring, so the node still reads
+     as a defined shape at 8px where the fill alone is faint on white. */
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark) .route-marker {
+      background-color: var(--route-light);
+      box-shadow: 0 0 0 1px var(--route-ring);
+    }
+  }
+
+  :root.light .route-marker {
+    background-color: var(--route-light);
+    box-shadow: 0 0 0 1px var(--route-ring);
+  }
+}
+
 /* ── Premium card depth ───────────────────────────────────────── */
 .card-depth {
   background: var(--card);

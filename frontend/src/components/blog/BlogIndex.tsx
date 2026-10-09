@@ -20,6 +20,7 @@
 
 import Link from 'next/link';
 import type { BlogCategory, BlogPost } from '@/types';
+import { routeColorVars } from '@/lib/blog-routes';
 
 interface BlogIndexProps {
   posts: BlogPost[];
@@ -86,8 +87,8 @@ export default function BlogIndex({ posts, categories }: BlogIndexProps) {
                   {cat.color && (
                     <span
                       aria-hidden="true"
-                      className="w-2 h-2 rounded-full ring-1 ring-[var(--border-strong)]"
-                      style={{ backgroundColor: cat.color }}
+                      className="route-marker w-2 h-2 rounded-full"
+                      style={routeColorVars(cat.slug, cat.color)}
                     />
                   )}
                   {cat.name}
@@ -114,8 +115,8 @@ export default function BlogIndex({ posts, categories }: BlogIndexProps) {
               {category.color && (
                 <span
                   aria-hidden="true"
-                  className="w-3 h-3 rounded-full shrink-0 ring-1 ring-[var(--border-strong)]"
-                  style={{ backgroundColor: category.color }}
+                  className="route-marker w-3 h-3 rounded-full shrink-0"
+                  style={routeColorVars(category.slug, category.color)}
                 />
               )}
               {category.name}
