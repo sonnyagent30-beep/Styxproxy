@@ -1,6 +1,6 @@
 /**
  * Shared PDF receipt generator for Styxproxy.
- * Both /thank-you and /preview use this — one source of truth.
+ * Both /thank-you and /receipt use this — one source of truth.
  * jsPDF uses standard screen coords: y=0 is top, y increases going DOWN.
  */
 

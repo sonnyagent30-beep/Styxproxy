@@ -214,7 +214,7 @@ async def _generate_receipt_link(tx_ref: str, customer_phone: str | None = None)
         if order.status not in ("paid", "fulfilling", "fulfilled", "active"):
             return ToolResult(ok=False, error="Order not confirmed yet")
 
-        url = f"{PUBLIC_URL}/preview?tx_ref={tx_ref}"
+        url = f"{PUBLIC_URL}/receipt/{tx_ref}"
         return ToolResult(ok=True, data={"url": url, "display_text": "Download receipt", "message": f"Your receipt: {url}"})
     except Exception as exc:
         return ToolResult(ok=False, error=f"Receipt generation failed: {exc}")

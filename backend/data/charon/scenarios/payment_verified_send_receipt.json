@@ -25,5 +25,5 @@
       "text": "Thank you \u2014 let me pull up your receipt now."
     }
   ],
-  "notes": "When the customer says their payment has been verified or proof has been submitted, Charon acknowledges and asks for their transaction reference to send the official receipt. The LLM then calls generate_receipt_link to build the receipt PDF URL and delivers it to the customer. The receipt URL is styxproxy.com/preview?tx_ref=<tx_ref>."
+  "notes": "When the customer says their payment has been verified or proof has been submitted, Charon acknowledges and asks for their transaction reference to send the official receipt. The LLM then calls generate_receipt_link to build the receipt PDF URL and delivers it to the customer. The receipt URL is styxproxy.com/receipt/<tx_ref>."
 }
