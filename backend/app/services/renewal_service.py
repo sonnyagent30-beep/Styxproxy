@@ -108,6 +108,11 @@ async def complete_renewal_residential_mobile(
             if proxy_item:
                 proxy_item.expires_at = new_expiry
                 proxy_item.status = "active"
+                # Repoint to the NEW credential that holds the renewed GB.
+                # Without this, proxy_item.credential_id still references the
+                # old credential — the per-item view shows stale data and the
+                # new credential is orphaned (card t_87d368e9).
+                proxy_item.credential_id = credential.id
 
         renewal.credential_id = credential.id
         renewal.expires_at = new_expiry
