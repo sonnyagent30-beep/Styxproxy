@@ -119,65 +119,6 @@ def decrypt_credential(ciphertext: Optional[bytes]) -> Optional[str]:
         return None
 
 
-# Every Fernet token is urlsafe-base64 of a 0x80 version byte followed by a
-# big-endian timestamp, so they always begin with these four characters. The
-# prefix is what lets us tell an encrypted value from a legacy plaintext one
-# without attempting a decrypt first.
-FERNET_PREFIX = b"gAAAA"
-
-
-def decrypt_credential_compat(ciphertext: Optional[bytes]) -> Optional[str]:
-    """Decrypt a stored credential, tolerating legacy raw-plaintext rows.
-
-    The `styxproxy_password` column was encrypted retroactively, but not every
-    writer went through the encrypting setter. Rows written before encryption
-    existed — and rows written afterwards by a writer that bypassed it — hold
-    raw UTF-8 plaintext. Reading those with `decrypt_credential()` alone returns
-    None, which silently locks those customers out.
-
-    The two shapes are distinguished by the Fernet token prefix rather than by
-    "decrypt failed, so it must be plaintext":
-
-    - value carries the Fernet prefix -> it IS ciphertext. Decrypt it, and on
-      failure return None and log loudly. Falling back to "treat it as
-      plaintext" here would mask a wrong/missing CRED_ENCRYPTION_KEY by
-      comparing the customer's input against the ciphertext blob — the exact
-      bug this function exists to fix.
-    - value does not -> legacy raw plaintext. Return it decoded as UTF-8.
-
-    Returns None for NULL input and for values that are neither shape.
-    """
-    if ciphertext is None:
-        return None
-    if isinstance(ciphertext, str):
-        ciphertext = ciphertext.encode("utf-8")
-    if not ciphertext:
-        return None
-
-    if ciphertext.startswith(FERNET_PREFIX):
-        return decrypt_credential(ciphertext)
-
-    try:
-        return ciphertext.decode("utf-8")
-    except UnicodeDecodeError:
-        logger.error(
-            "styxproxy_password is neither Fernet ciphertext (no %s prefix) nor "
-            "valid UTF-8 — refusing to guess. Length=%d.",
-            FERNET_PREFIX.decode(),
-            len(ciphertext),
-        )
-        return None
-
-
-def is_encrypted_credential(ciphertext: Optional[bytes]) -> bool:
-    """True if the stored value is Fernet ciphertext rather than legacy plaintext."""
-    if not ciphertext:
-        return False
-    if isinstance(ciphertext, str):
-        ciphertext = ciphertext.encode("utf-8")
-    return ciphertext.startswith(FERNET_PREFIX)
-
-
 def mask_credential(plaintext: Optional[str], visible_chars: int = 3) -> str:
     """Mask a credential for display in API responses (e.g. 'sty_********').
 
@@ -195,3 +136,74 @@ def generate_fernet_key() -> str:
     """Generate a new random Fernet key. Use this to create CRED_ENCRYPTION_KEY
     for your first deployment. Never reuse a key across environments."""
     return Fernet.generate_key().decode("ascii")
+
+
+# ─── Backwards-compatible reader ────────────────────────────────────────────────
+
+# Fernet ciphertext is base64url of a token whose first bytes are 0x80 followed
+# by a big-endian timestamp — so every Fernet token begins "gAAAA". Matching on
+# the PREFIX (rather than on "did decryption fail") is what lets us tell a
+# corrupt ciphertext apart from a legacy plaintext row.
+FERNET_PREFIX = b"gAAAA"
+
+
+def decrypt_credential_compat(stored: Optional[bytes]) -> Optional[str]:
+    """Decrypt a stored credential, tolerating legacy raw-plaintext rows.
+
+    `styxproxy_credentials.styxproxy_password` is NOT uniform. Measured on
+    production: of 36 rows, 6 hold Fernet ciphertext (``gAAAA…``), 5 hold short
+    legacy plaintext written before the column was encrypted, and 25 are NULL.
+
+    `decrypt_credential()` alone is the WRONG function to call for these rows:
+    it returns None for anything that is not valid Fernet, so it would silently
+    lock out the 5 plaintext customers — and a None here is indistinguishable
+    from "no password set", which is the exact failure mode the credential
+    column's docstring warns about.
+
+    Three-branch contract, matching ``relay_paid.decrypt_stored_password()``:
+
+    - ``None``            -> ``None`` (no password set)
+    - starts ``gAAAA``    -> it IS ciphertext, so a decrypt failure means a
+                             wrong key or a tampered value. Return ``None`` and
+                             NEVER fall back to comparing the blob as if it were
+                             the password.
+    - anything else       -> raw legacy plaintext. Decode UTF-8 and return it.
+    """
+    if stored is None:
+        return None
+
+    # Normalise: the column is LargeBinary but legacy writers stored str.
+    if isinstance(stored, str):
+        raw = stored.encode("utf-8")
+    elif isinstance(stored, (bytes, bytearray, memoryview)):
+        raw = bytes(stored)
+    else:
+        logger.error("Unexpected credential storage type %s — refusing to guess", type(stored).__name__)
+        return None
+
+    if not raw:
+        return None
+
+    if raw.startswith(FERNET_PREFIX):
+        # Definitively ciphertext. A failure here is a key/tamper problem.
+        decrypted = decrypt_credential(raw)
+        if decrypted is None:
+            logger.error(
+                "Stored credential is Fernet ciphertext but could not be decrypted "
+                "(missing/mismatched CRED_ENCRYPTION_KEY, or tampered). Refusing to "
+                "fall back to the raw blob."
+            )
+        return decrypted
+
+    # Legacy plaintext row — written before the column was encrypted.
+    try:
+        plaintext = raw.decode("utf-8")
+    except UnicodeDecodeError as e:
+        logger.error("Stored credential is neither Fernet nor valid UTF-8: %s", e)
+        return None
+
+    if not plaintext.strip():
+        return None
+
+    logger.debug("Returning legacy plaintext credential for a pre-encryption row")
+    return plaintext

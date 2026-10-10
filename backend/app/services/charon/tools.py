@@ -1091,13 +1091,13 @@ async def _create_order_tool(
 
         # Derive real customer identity based on channel
         if channel == "telegram":
-            identity = channel_user_id or f"anon_{uuid.uuid4().hex[:12]}"
+            identity = channel_user_id
             platform = "telegram"
         elif channel == "whatsapp":
-            identity = channel_user_id or f"anon_{uuid.uuid4().hex[:12]}"
+            identity = channel_user_id
             platform = "whatsapp"
         else:
-            identity = f"anon_{channel_user_id or uuid.uuid4().hex[:12]}"
+            identity = f"anon_{channel_user_id}"
             platform = "web"
 
         async with async_session() as session:
@@ -1225,6 +1225,298 @@ async def _initiate_payment_tool(
     except Exception as exc:
         logger.exception("initiate_payment tool failed")
         return ToolResult(ok=False, error=f"Payment initiation failed: {exc}")
+
+
+
+# ─── New Customer Action Tools (added 2026-10-07) ──────────────────────────
+
+
+async def _initiate_renewal_tool(
+    order_id: str,
+    customer_phone: str | None = None,
+    quantity_gb: float | None = None,
+    gateway: str = "flutterwave",
+    customer_email: str | None = None,
+) -> ToolResult:
+    """Initiate a renewal for an existing order.
+    
+    For residential/mobile: specify quantity_gb (min 5).
+    For DC/ISP: no quantity_gb needed, just extends expiry by 30 days.
+    Returns a checkout URL for payment.
+    """
+    try:
+        import uuid
+        from datetime import datetime, timedelta, timezone
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models import Order
+        from app.routers.orders import resolve_plan
+        from app.services.renewal_service import create_renewal_order
+        from app.services.flutterwave import create_flutterwave_invoice
+        from app.services.paystack import create_paystack_transaction
+
+        if not customer_phone:
+            return ToolResult(ok=False, error="No customer_phone provided")
+
+        async with async_session() as session:
+            await _set_rls_context(session, customer_phone)
+
+            stmt = select(Order).where(Order.order_id == order_id)
+            result = await session.execute(stmt)
+            order = result.scalar_one_or_none()
+
+            if not order:
+                return ToolResult(ok=False, error=f"Order {order_id} not found")
+
+            if order.customer_phone and order.customer_phone != customer_phone:
+                return ToolResult(ok=False, error="Order does not belong to this customer")
+
+            plan_type = (order.plan_type or "").lower()
+
+            if plan_type in ("residential", "mobile"):
+                if not quantity_gb or quantity_gb < 5:
+                    return ToolResult(ok=False, error="Minimum renewal is 5 GB for residential/mobile plans")
+
+                plan = await resolve_plan(session, order.plan_code or "", country=order.country)
+                if not plan:
+                    return ToolResult(ok=False, error="Cannot resolve plan for pricing")
+
+                price_per_gb = float(plan.price_per_gb or 0)
+                if price_per_gb <= 0:
+                    return ToolResult(ok=False, error="Plan has no per-GB pricing configured")
+
+                total_amount = price_per_gb * quantity_gb
+            else:
+                plan = await resolve_plan(session, order.plan_code or "", country=order.country)
+                if not plan:
+                    return ToolResult(ok=False, error="Cannot resolve plan for pricing")
+
+                total_amount = float(plan.price_ngn or 0)
+                if total_amount <= 0:
+                    return ToolResult(ok=False, error="Plan has no pricing configured")
+
+            renewal = await create_renewal_order(
+                session=session,
+                order_id=order_id,
+                quantity_gb=quantity_gb if plan_type in ("residential", "mobile") else None,
+                amount_paid_ngn=total_amount,
+                payment_reference=None,
+                tx_ref=None,
+            )
+
+            tx_ref = f"TXF-{uuid.uuid4().hex[:12].upper()}"
+            renewal.tx_ref = tx_ref
+            renewal.payment_reference = tx_ref
+            await session.commit()
+
+            callback_url = f"https://styxproxy.com/thank-you?order_id={order_id}&renewal_id={renewal.id}"
+
+            gateway_email = customer_email or order.customer_email or ""
+            if not gateway_email:
+                gateway_email = f"customer-{order_id[:8]}@styxproxy.local"
+
+            if gateway == "paystack":
+                result = await create_paystack_transaction(
+                    amount_ngn=total_amount,
+                    customer_email=gateway_email,
+                    customer_phone=order.customer_phone or "",
+                    callback_url=callback_url,
+                    description=f"Renewal for {order_id}",
+                    tx_ref=tx_ref,
+                )
+            else:
+                result = await create_flutterwave_invoice(
+                    amount=total_amount,
+                    customer_email=gateway_email,
+                    customer_phone=order.customer_phone or "",
+                    currency="NGN",
+                    tx_ref=tx_ref,
+                    callback_url=callback_url,
+                    description=f"Renewal for {order_id}",
+                )
+
+            checkout_url = result.get("checkout_url", "")
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+
+            return ToolResult(ok=True, data={
+                "renewal_id": renewal.id,
+                "order_id": order_id,
+                "checkout_url": checkout_url,
+                "amount_ngn": total_amount,
+                "currency": "NGN",
+                "expires_at": expires_at.isoformat(),
+                "tx_ref": tx_ref,
+                "plan_type": plan_type,
+                "quantity_gb": quantity_gb if plan_type in ("residential", "mobile") else None,
+                "message": f"Renewal initiated for order {order_id}. Amount: ₦{total_amount:,.0f}. Complete payment at: {checkout_url}",
+            })
+    except Exception as exc:
+        logger.exception("initiate_renewal failed")
+        return ToolResult(ok=False, error=f"Renewal initiation failed: {exc}")
+
+
+async def _check_proxy_status_tool(customer_phone: str | None = None) -> ToolResult:
+    """Check comprehensive proxy status for all active proxies.
+    
+    Returns: IP, port, protocol, expiry, remaining GB, status for each active proxy.
+    """
+    try:
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models import Order, StyxproxyCredential
+
+        if not customer_phone:
+            return ToolResult(ok=False, error="No customer_phone provided")
+
+        async with async_session() as session:
+            await _set_rls_context(session, customer_phone)
+
+            stmt = (
+                select(Order, StyxproxyCredential)
+                .join(StyxproxyCredential, StyxproxyCredential.id == Order.styxproxy_credential_id, isouter=True)
+                .where(
+                    Order.customer_phone == customer_phone,
+                    Order.status.in_(["fulfilled", "active", "fulfilling"]),
+                )
+                .order_by(StyxproxyCredential.expires_at.asc())
+                .limit(10)
+            )
+            result = await session.execute(stmt)
+            rows = result.all()
+
+            if not rows:
+                return ToolResult(ok=True, data={
+                    "active_proxies": [],
+                    "message": "No active proxies found.",
+                })
+
+            proxies = []
+            for order, cred in rows:
+                if not cred:
+                    continue
+                proxies.append({
+                    "order_id": order.order_id,
+                    "plan_type": order.plan_type,
+                    "plan_code": order.plan_code,
+                    "country": order.country,
+                    "proxy_address": str(cred.upstream_proxy_ip) if cred.upstream_proxy_ip else None,
+                    "port": cred.upstream_proxy_port,
+                    "protocol": cred.protocol,
+                    "status": cred.status,
+                    "expires_at": cred.expires_at.isoformat() if cred.expires_at else None,
+                    "data_total_gb": float(order.data_total_gb) if order.data_total_gb else None,
+                    "data_remaining_gb": float(order.data_remaining_gb) if order.data_remaining_gb else None,
+                    "gb_used": float(cred.gb_used) if cred.gb_used else 0,
+                })
+
+            return ToolResult(ok=True, data={
+                "active_proxies": proxies,
+                "total": len(proxies),
+                "message": f"{len(proxies)} active proxy(ies)",
+            })
+    except Exception as exc:
+        logger.exception("check_proxy_status failed")
+        return ToolResult(ok=False, error=f"Proxy status check failed: {exc}")
+
+
+async def _lookup_order_by_email_tool(customer_email: str) -> ToolResult:
+    """Look up orders by customer email address."""
+    try:
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models import Order
+
+        async with async_session() as session:
+            stmt = (
+                select(Order)
+                .where(Order.customer_email == customer_email)
+                .order_by(Order.created_at.desc())
+                .limit(10)
+            )
+            result = await session.execute(stmt)
+            orders = result.scalars().all()
+
+            if not orders:
+                return ToolResult(ok=True, data={
+                    "orders": [],
+                    "message": f"No orders found for email {customer_email}",
+                })
+
+            order_list = []
+            for o in orders:
+                order_list.append({
+                    "order_id": o.order_id,
+                    "tx_ref": o.tx_ref,
+                    "plan_type": o.plan_type,
+                    "plan_code": o.plan_code,
+                    "country": o.country,
+                    "quantity": o.quantity,
+                    "amount_paid_ngn": float(o.amount_paid_ngn) if o.amount_paid_ngn else None,
+                    "status": o.status,
+                    "created_at": o.created_at.isoformat() if o.created_at else None,
+                    "expires_at": o.expires_at.isoformat() if o.expires_at else None,
+                })
+
+            return ToolResult(ok=True, data={
+                "orders": order_list,
+                "total": len(order_list),
+                "message": f"Found {len(order_list)} order(s) for {customer_email}",
+            })
+    except Exception as exc:
+        logger.exception("lookup_order_by_email failed")
+        return ToolResult(ok=False, error=f"Order lookup failed: {exc}")
+
+
+async def _check_delivery_status_tool(order_id: str, customer_phone: str | None = None) -> ToolResult:
+    """Check if credentials have been delivered for an order."""
+    try:
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models import Order
+
+        if not customer_phone:
+            return ToolResult(ok=False, error="No customer_phone provided")
+
+        async with async_session() as session:
+            await _set_rls_context(session, customer_phone)
+
+            stmt = select(Order).where(Order.order_id == order_id)
+            result = await session.execute(stmt)
+            order = result.scalar_one_or_none()
+
+            if not order:
+                return ToolResult(ok=False, error=f"Order {order_id} not found")
+
+            if order.customer_phone and order.customer_phone != customer_phone:
+                return ToolResult(ok=False, error="Order does not belong to this customer")
+
+            if order.status in ("fulfilled", "active"):
+                delivery_status = "delivered"
+                message = "Your proxy credentials have been delivered."
+            elif order.status == "fulfilling":
+                delivery_status = "in_progress"
+                message = "Your proxy is being prepared. Credentials will be delivered shortly."
+            elif order.status == "paid":
+                delivery_status = "processing"
+                message = "Payment confirmed. Your proxy is being generated."
+            elif order.status == "pending":
+                delivery_status = "pending_payment"
+                message = "Payment is still pending. Once confirmed, your proxy will be generated."
+            else:
+                delivery_status = "unknown"
+                message = f"Order status: {order.status}"
+
+            return ToolResult(ok=True, data={
+                "order_id": order_id,
+                "status": order.status,
+                "delivery_status": delivery_status,
+                "emails_sent": order.emails_sent or 0,
+                "message": message,
+            })
+    except Exception as exc:
+        logger.exception("check_delivery_status failed")
+        return ToolResult(ok=False, error=f"Delivery status check failed: {exc}")
+
 
 
 # ─── Register all tools ──────────────────────────────────────────────────────
@@ -1383,128 +1675,6 @@ registry.register(ToolSpec(
     handler=_get_integration_docs,
 ))
 
-
-# ─── Renewal Tool (added 2026-10-07) ─────────────────────────────────────────
-
-
-async def _initiate_renewal_tool(
-    order_id: str,
-    quantity_gb: int | None = None,
-    gateway: str = "flutterwave",
-    customer_email: str | None = None,
-    customer_phone: str | None = None,
-) -> ToolResult:
-    """Initiate a renewal for an existing order.
-
-    For residential/mobile: customer selects GB amount (min 5 GB).
-    For DC/ISP: no GB selection, just extends expiry by 30 days.
-
-    Returns a checkout URL for payment.
-    """
-    try:
-        from sqlalchemy import select
-        from app.database import async_session
-        from app.models import Order
-        from app.routers.orders import resolve_plan
-        from app.services.renewal_service import create_renewal_order
-        from app.services.flutterwave import create_flutterwave_invoice
-        from app.services.paystack import create_paystack_transaction
-        from app.services.customer import placeholder_email_from_device
-
-        async with async_session() as session:
-            await _set_rls_context(session, customer_phone)
-
-            # Look up the order
-            stmt = select(Order).where(Order.order_id == order_id)
-            result = await session.execute(stmt)
-            order = result.scalar_one_or_none()
-
-            if not order:
-                return ToolResult(ok=False, error=f"Order {order_id} not found")
-
-            # Verify ownership
-            if customer_phone and order.customer_phone and order.customer_phone != customer_phone:
-                return ToolResult(ok=False, error="Order does not belong to this customer")
-
-            # Determine plan type and pricing
-            plan_type = (order.plan_type or "").lower()
-
-            if plan_type in ("residential", "mobile"):
-                if not quantity_gb or quantity_gb < 5:
-                    return ToolResult(ok=False, error="Minimum renewal is 5 GB")
-                plan = await resolve_plan(session, order.plan_code or "", country=order.country)
-                if not plan:
-                    return ToolResult(ok=False, error="Cannot resolve plan for pricing")
-                price_per_gb = float(plan.price_per_gb or 0)
-                if price_per_gb <= 0:
-                    return ToolResult(ok=False, error="Plan has no per-GB pricing configured")
-                total_amount = price_per_gb * quantity_gb
-            else:
-                plan = await resolve_plan(session, order.plan_code or "", country=order.country)
-                if not plan:
-                    return ToolResult(ok=False, error="Cannot resolve plan for pricing")
-                total_amount = float(plan.price_ngn or 0)
-                if total_amount <= 0:
-                    return ToolResult(ok=False, error="Plan has no pricing configured")
-
-            # Create renewal record
-            renewal = await create_renewal_order(
-                session=session,
-                order_id=order_id,
-                quantity_gb=quantity_gb if plan_type in ("residential", "mobile") else None,
-                amount_paid_ngn=total_amount,
-                tx_ref=None,
-            )
-
-            # Create payment
-            tx_ref = f"TXF-{uuid.uuid4().hex[:12].upper()}"
-            renewal.tx_ref = tx_ref
-            renewal.payment_reference = tx_ref
-            await session.commit()
-
-            callback_url = f"https://styxproxy.com/thank-you?order_id={order_id}&renewal_id={renewal.id}"
-
-            gateway_email = customer_email or order.customer_email or ""
-            if not gateway_email:
-                device_id = customer_phone or ""
-                gateway_email = placeholder_email_from_device(device_id)
-
-            if gateway == "paystack":
-                result = await create_paystack_transaction(
-                    amount_ngn=total_amount,
-                    customer_email=gateway_email,
-                    customer_phone=order.customer_phone or "",
-                    callback_url=callback_url,
-                    description=f"Renewal for {order_id}",
-                    tx_ref=tx_ref,
-                )
-            else:
-                result = await create_flutterwave_invoice(
-                    amount=total_amount,
-                    customer_email=gateway_email,
-                    customer_phone=order.customer_phone,
-                    currency="NGN",
-                    tx_ref=tx_ref,
-                    callback_url=callback_url,
-                    description=f"Renewal for {order_id}",
-                )
-
-            checkout_url = result.get("checkout_url", "")
-
-            return ToolResult(ok=True, data={
-                "renewal_id": renewal.id,
-                "order_id": order_id,
-                "checkout_url": checkout_url,
-                "amount_ngn": total_amount,
-                "currency": "NGN",
-                "tx_ref": tx_ref,
-                "message": f"Renewal initiated for order {order_id}. Total: ₦{total_amount:,.0f}. Checkout URL: {checkout_url}",
-            })
-    except Exception as exc:
-        logger.exception("initiate_renewal tool failed")
-        return ToolResult(ok=False, error=f"Renewal initiation failed: {exc}")
-
-
 registry.register(ToolSpec(
     name="initiate_renewal",
     description="Initiate a renewal for an existing order. For residential/mobile: customer selects GB amount (min 5 GB). For DC/ISP: no GB selection, just extends expiry by 30 days. Returns a checkout URL for payment. Use when customer says 'I want to renew', 'renew my proxy', 'add more data', 'extend my subscription'.",
@@ -1523,6 +1693,9 @@ registry.register(ToolSpec(
 ))
 
 
+# ─── Renewal Tool (added 2026-10-07) ─────────────────────────────────────────
+
+
 # ─── Forbidden tools (not registered — guard rails) ──────────────────────────
 
 # - refund_order
@@ -1532,3 +1705,160 @@ registry.register(ToolSpec(
 # - block_customer
 # - issue_free_trial
 # - change_pricing
+
+
+# ─── New Customer Action Tool Registrations (added 2026-10-07) ──────────────
+
+registry.register(ToolSpec(
+    name="check_proxy_status",
+    description="Check comprehensive proxy status for all active proxies. Returns IP, port, protocol, expiry, remaining GB, status. Use when customer asks 'check my proxy', 'proxy status', 'is my proxy working', 'show my proxies'.",
+    schema={
+        "type": "object",
+        "properties": {
+            "customer_phone": {"type": "string", "description": "Customer phone/identity from channel context"},
+        },
+        "required": ["customer_phone"],
+    },
+    handler=_check_proxy_status_tool,
+))
+
+registry.register(ToolSpec(
+    name="lookup_order_by_email",
+    description="Look up orders by customer email address. Use when customer provides email instead of order_id or tx_ref.",
+    schema={
+        "type": "object",
+        "properties": {
+            "customer_email": {"type": "string", "description": "Customer email address"},
+        },
+        "required": ["customer_email"],
+    },
+    handler=_lookup_order_by_email_tool,
+))
+
+registry.register(ToolSpec(
+    name="check_delivery_status",
+    description="Check if proxy credentials have been delivered for an order. Use when customer asks 'where are my credentials', 'has my proxy been delivered', 'delivery status'.",
+    schema={
+        "type": "object",
+        "properties": {
+            "order_id": {"type": "string", "description": "The order_id to check"},
+            "customer_phone": {"type": "string", "description": "Customer phone for RLS verification"},
+        },
+        "required": ["order_id"],
+    },
+    handler=_check_delivery_status_tool,
+))
+
+
+# ─── Check Order Status Tool (added 2026-10-09) ────────────────────────────
+
+
+async def _check_order_status_tool(order_id: str, customer_phone: str | None = None) -> ToolResult:
+    """Check the status of an order by order_id.
+    
+    Returns: order status, plan info, credential delivery status, payment status.
+    Use when customer asks 'what's the status of my order', 'order status',
+    'where is my order', 'track order'.
+    """
+    try:
+        from sqlalchemy import select
+        from app.database import async_session
+        from app.models import Order, StyxproxyCredential
+
+        if not customer_phone:
+            return ToolResult(ok=False, error="No customer_phone provided")
+
+        async with async_session() as session:
+            await _set_rls_context(session, customer_phone)
+
+            stmt = select(Order).where(Order.order_id == order_id)
+            result = await session.execute(stmt)
+            order = result.scalar_one_or_none()
+
+            if not order:
+                return ToolResult(ok=False, error=f"Order '{order_id}' not found")
+
+            if order.customer_phone and order.customer_phone != customer_phone:
+                return ToolResult(ok=False, error="Order does not belong to this customer")
+
+            # Get credential info if fulfilled
+            cred_info = None
+            if order.styxproxy_credential_id and order.status in ("fulfilled", "active", "fulfilling"):
+                cred_stmt = select(StyxproxyCredential).where(
+                    StyxproxyCredential.id == order.styxproxy_credential_id
+                )
+                cred_result = await session.execute(cred_stmt)
+                cred = cred_result.scalar_one_or_none()
+                if cred:
+                    cred_info = {
+                        "username": cred.styxproxy_username,
+                        "proxy_address": str(cred.upstream_proxy_ip) if cred.upstream_proxy_ip else None,
+                        "port": cred.upstream_proxy_port,
+                        "protocol": cred.protocol,
+                        "status": cred.status,
+                        "expires_at": cred.expires_at.isoformat() if cred.expires_at else None,
+                    }
+
+            # Determine status message
+            status_messages = {
+                "pending": "Payment is pending. Complete payment to activate your proxy.",
+                "paid": "Payment confirmed. Your proxy is being prepared.",
+                "fulfilling": "Your proxy is being generated. Credentials will be delivered shortly.",
+                "fulfilled": "Your proxy is active and ready to use.",
+                "active": "Your proxy is active and ready to use.",
+                "expired": "This order has expired. Renew to reactivate your proxy.",
+                "failed": "Payment failed. Please try again or contact support.",
+                "refunded": "This order has been refunded. Contact support if you have questions.",
+            }
+            status_message = status_messages.get(order.status, f"Order status: {order.status}")
+
+            # Determine delivery status
+            if order.status in ("fulfilled", "active"):
+                delivery_status = "delivered"
+            elif order.status == "fulfilling":
+                delivery_status = "in_progress"
+            elif order.status == "paid":
+                delivery_status = "processing"
+            elif order.status == "pending":
+                delivery_status = "pending_payment"
+            else:
+                delivery_status = "unknown"
+
+            return ToolResult(ok=True, data={
+                "order_id": order.order_id,
+                "tx_ref": order.tx_ref,
+                "status": order.status,
+                "plan_type": order.plan_type,
+                "plan_code": order.plan_code,
+                "country": order.country,
+                "quantity": order.quantity,
+                "amount_paid_ngn": float(order.amount_paid_ngn) if order.amount_paid_ngn else None,
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+                "expires_at": order.expires_at.isoformat() if order.expires_at else None,
+                "data_total_gb": float(order.data_total_gb) if order.data_total_gb else None,
+                "data_remaining_gb": float(order.data_remaining_gb) if order.data_remaining_gb else None,
+                "delivery_status": delivery_status,
+                "emails_sent": order.emails_sent or 0,
+                "credential": cred_info,
+                "status_message": status_message,
+            })
+    except Exception as exc:
+        logger.exception("check_order_status failed")
+        return ToolResult(ok=False, error=f"Order status check failed: {exc}")
+
+
+# ─── Check Order Status Registration (added 2026-10-09) ─────────────────────
+
+registry.register(ToolSpec(
+    name="check_order_status",
+    description="Check the status of an order by order_id. Returns order status, plan info, credential delivery status, payment status. Use when customer asks 'what's the status of my order', 'order status', 'where is my order', 'track order'.",
+    schema={
+        "type": "object",
+        "properties": {
+            "order_id": {"type": "string", "description": "The order_id to check"},
+            "customer_phone": {"type": "string", "description": "Customer phone for RLS verification"},
+        },
+        "required": ["order_id"],
+    },
+    handler=_check_order_status_tool,
+))

@@ -695,7 +695,7 @@ async def get_order_by_payment_reference(
         created_at=order.created_at,
         expires_at=order.expires_at,
         customer_name=customer_name,
-        is_renewable=order.status == "active" and order.expires_at is not None,
+        is_renewable=order.status in ("active", "fulfilled") and order.expires_at is not None,
     )
 
 
@@ -826,7 +826,7 @@ async def get_order(
                 upstream_proxy_port=cred.upstream_proxy_port,
                 status=cred.status,
             )
-    is_renewable = order.status == "active" and order.expires_at is not None
+    is_renewable = order.status in ("active", "fulfilled") and order.expires_at is not None
     return OrderResponse(
         order_id=order.order_id,
         status=order.status,

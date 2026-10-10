@@ -36,7 +36,7 @@ class DataImpulseProxy:
     expires_at: datetime
     country: str
     isp: str
-    data_remaining_gb: float
+    data_remaining_gb: Optional[float]
 
 
 # ─── HTTP Client ───────────────────────────────────────────────────────────────
@@ -143,7 +143,7 @@ async def create_dataimpulse_trial_order(
         ),
         "country": data.get("country", country),
         "isp": data.get("isp", ""),
-        "data_remaining_gb": float(data.get("data_remaining_gb", 5.0)),
+        "data_remaining_gb": float(data["data_remaining_gb"]) if data.get("data_remaining_gb") is not None else None,
     }
 
 
@@ -199,5 +199,5 @@ async def create_paid_order(
         ),
         country=data.get("country", country),
         isp=data.get("isp", ""),
-        data_remaining_gb=float(data.get("data_remaining_gb", 0.0)),
+        data_remaining_gb=float(data["data_remaining_gb"]) if data.get("data_remaining_gb") is not None else None,
     )

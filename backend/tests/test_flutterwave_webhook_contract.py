@@ -37,13 +37,13 @@ WEBHOOK_URL = "/api/webhooks/flutterwave"
 
 
 def sign(payload_bytes: bytes) -> str:
-    """Return the CONFIGURED secret verbatim — the same one the verifier reads.
+    """Sign with the CONFIGURED secret — the same one the verifier reads.
 
-    Flutterwave v3 sends the dashboard secret hash VERBATIM in the Verif-Hash
-    header (it does not sign the body). Deliberately not a literal: a literal
-    here would restore the tautology this file exists to replace.
+    Deliberately not a literal: a literal here would restore the tautology this
+    file exists to replace.
     """
-    return get_settings().flutterwave_webhook_secret
+    secret = get_settings().flutterwave_webhook_secret
+    return hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
 
 
 class RecordingSession:
@@ -242,8 +242,8 @@ async def test_accepted_webhook_is_recorded_in_customer_audit_log():
 async def test_gateway_signed_payload_is_rejected_when_platform_secret_is_wrong(monkeypatch):
     """Rotation landing wrong must FAIL LOUDLY, not silently drop payments.
 
-    Simulates the one-shot go-live risk: the gateway sends the real
-    dashboard secret verbatim while the platform .env still holds the old value.
+    Simulates the one-shot go-live risk: the gateway signs with the real
+    dashboard secret while the platform .env still holds the old value.
     """
     from app.config import get_settings
 
@@ -254,8 +254,10 @@ async def test_gateway_signed_payload_is_rejected_when_platform_secret_is_wrong(
 
     now = dt.datetime.now(dt.timezone.utc)
     payload = flutterwave_payload(now)
-    # v3: Verif-Hash is the secret verbatim
-    response, session = await post_webhook(payload, verif_hash=gateway_secret)
+    body = json.dumps(payload).encode()
+    gateway_sig = hmac.new(gateway_secret.encode(), body, hashlib.sha256).hexdigest()
+
+    response, session = await post_webhook(payload, verif_hash=gateway_sig)
 
     assert response.status_code == 401, (
         f"A gateway-signed payload was NOT rejected (got {response.status_code}) while the "
@@ -278,13 +280,15 @@ async def test_verifier_uses_the_configured_secret_not_a_hardcoded_one(monkeypat
     from app.config import get_settings
 
     payload = flutterwave_payload(dt.datetime.now(dt.timezone.utc))
+    body = json.dumps(payload).encode()
 
     monkeypatch.setattr(get_settings(), "flutterwave_webhook_secret", "secret-A", raising=False)
-    resp_a, _ = await post_webhook(payload, verif_hash="secret-A")
+    sig_a = hmac.new(b"secret-A", body, hashlib.sha256).hexdigest()
+    resp_a, _ = await post_webhook(payload, verif_hash=sig_a)
     assert resp_a.status_code == 200, f"correctly signed under secret-A got {resp_a.status_code}"
 
     monkeypatch.setattr(get_settings(), "flutterwave_webhook_secret", "secret-B", raising=False)
-    resp_b, _ = await post_webhook(payload, verif_hash="secret-A")
+    resp_b, _ = await post_webhook(payload, verif_hash=sig_a)
     assert resp_b.status_code == 401, (
         "Signature valid under secret-A was accepted after the configured secret changed to "
         "secret-B — verification is not reading the configured value."

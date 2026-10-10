@@ -26,49 +26,41 @@ async def deliver_credentials_direct(
     expires_at: datetime,
     receipt_url: Optional[str] = None,
 ) -> bool:
-    """Directly deliver credentials via Charon API (bypasses n8n webhook)."""
+    """Send a notification via Charon API that the order is active.
+
+    IMPORTANT: This function must NEVER include actual credentials in the
+    user_message. The Charon endpoint's credential guard rejects any payload
+    that contains labelled secrets (username, password, etc.) with a 422.
+    Credential delivery is handled by email in the fulfillment worker — this
+    function only sends a notification that the order is ready.
+    """
     import httpx
     from app.config import get_settings
     settings = get_settings()
     charon_url = f"{settings.api_base_url}/api/v1/charon/reply"
-    
-    message = f"""Your proxy credentials are ready!
 
-Proxy: {proxy_ip}:{proxy_port}
-Username: {styxproxy_username}
-Password: {styxproxy_password}
-Expires: {expires_at}
+    message = (
+        f"Order {order_id} ({tx_ref}) is now active. "
+        f"The customer has been emailed their proxy credentials."
+    )
 
-Receipt: {receipt_url or 'N/A'}"""
-
-    # ChatReplyRequest (app/routers/charon.py) declares `user_message` as a
-    # required str and `customer_phone` for the contact. This payload used to
-    # send `message` and `phone`, which are NOT fields on the model — every
-    # call returned 422 "user_message: Field required" and the direct-delivery
-    # fallback silently failed. Field names are a contract; drift is silent
-    # until something 422s in production.
-    #
-    # Every value is coerced to str: user_message is typed `str`, and JS-style
-    # `+` concatenation over a None or int field (proxy_port is an int) puts a
-    # non-string into it, which is the other half of "Input should be a valid
-    # string".
     payload = {
         'user_message': str(message),
         'customer_phone': str(phone or ""),
         'channel': str(channel or "internal"),
     }
-    
+
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(charon_url, json=payload)
             if resp.status_code == 200:
-                logger.info(f"Credentials delivered directly for order {order_id}")
+                logger.info(f"Notification sent directly for order {order_id}")
                 return True
             else:
-                logger.warning(f"Charon direct delivery failed: {resp.status_code} {resp.text[:200]}")
+                logger.warning(f"Charon direct notification failed: {resp.status_code} {resp.text[:200]}")
                 return False
     except Exception as e:
-        logger.error(f"Charon direct delivery error: {e}")
+        logger.error(f"Charon direct notification error: {e}")
         return False
 
 async def trigger_credentials_delivered_webhook(

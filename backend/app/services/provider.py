@@ -87,6 +87,7 @@ class ProviderProxy:
     country: str
     isp: str
     asn: str
+    data_remaining_gb: Optional[float] = None
 
 
 @dataclass
@@ -531,6 +532,7 @@ async def _create_order_simulator(
         country=country,
         isp=f"Simulated {product}",
         asn="AS00000",
+        data_remaining_gb=data.get("data_remaining_gb"),
     )
 
 

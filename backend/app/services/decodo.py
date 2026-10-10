@@ -39,7 +39,7 @@ class DecodoProxy:
     city: Optional[str] = None  # e.g. "Lagos", "Abuja"
     isp: str = ""
     asn: str = ""
-    data_remaining_gb: float = 0.0
+    data_remaining_gb: Optional[float] = None
 
 
 # ─── HTTP Client ───────────────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ async def create_order(
         city=city or data.get("city"),
         isp=data.get("isp", ""),
         asn=data.get("asn", ""),
-        data_remaining_gb=float(data.get("data_remaining_gb", 0.0)),
+        data_remaining_gb=float(data["data_remaining_gb"]) if data.get("data_remaining_gb") is not None else None,
     )
 
 
@@ -188,5 +188,5 @@ async def rotate_ip(order_id: str) -> DecodoProxy:
         city=data.get("city"),
         isp=data.get("isp", ""),
         asn=data.get("asn", ""),
-        data_remaining_gb=float(data.get("data_remaining_gb", 0.0)),
+        data_remaining_gb=float(data["data_remaining_gb"]) if data.get("data_remaining_gb") is not None else None,
     )

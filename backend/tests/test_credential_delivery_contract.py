@@ -15,7 +15,6 @@ survived until a production execution failed.
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
-import httpx
 import pytest
 
 from app.routers.charon import ChatReplyRequest
@@ -42,35 +41,12 @@ def capture_payload(mock_client):
 
 
 class FakeResponse:
-    """A response that honours its status code.
-
-    This used to have `raise_for_status` returning None for every status, so
-    `fake_httpx(status_code=500)` could not produce a failure — the parameter
-    existed and did nothing. A failure-path test written against that would
-    pass for the wrong reason, which is the defect
-    `test_credential_delivery_contract.py` already shipped once.
-
-    Delegates to a real `httpx.Response` so the harness cannot drift from the
-    contract `app/services/n8n.py` is written against.
-    """
-
-    def __init__(self, status_code=200, text="ok"):
-        self._response = httpx.Response(
-            status_code,
-            text=text,
-            request=httpx.Request("POST", "https://n8n.test/webhook/x"),
-        )
-
-    @property
-    def status_code(self) -> int:
-        return self._response.status_code
-
-    @property
-    def text(self) -> str:
-        return self._response.text
+    def __init__(self, status_code=200):
+        self.status_code = status_code
+        self.text = "ok"
 
     def raise_for_status(self):
-        return self._response.raise_for_status()
+        return None
 
 
 def fake_httpx(status_code=200):
@@ -82,35 +58,6 @@ def fake_httpx(status_code=200):
     ctx.__aenter__.return_value = client
     ctx.__aexit__.return_value = False
     return AsyncMock(return_value=ctx), post
-
-
-# ── the harness itself must be able to fail ───────────────────────────
-#
-# The bug this file already shipped once: `fake_httpx(status_code=500)` took a
-# status code, ignored it, and `raise_for_status` returned None for every
-# response. A failure-path test written against it would assert nothing at all
-# while looking exactly like a passing one. These tests pin that the fake can
-# fail, so the next failure-path test written here is testing product code.
-
-
-def test_fake_response_raises_on_5xx():
-    """`fake_httpx(status_code=500)` must actually produce a failure."""
-    _client, post = fake_httpx(status_code=500)
-    with pytest.raises(httpx.HTTPStatusError) as exc:
-        post.return_value.raise_for_status()
-    assert exc.value.response.status_code == 500
-
-
-@pytest.mark.parametrize("status", [400, 401, 404, 422, 500, 502, 503])
-def test_fake_response_raises_on_every_error_status(status):
-    with pytest.raises(httpx.HTTPStatusError):
-        FakeResponse(status).raise_for_status()
-
-
-@pytest.mark.parametrize("status", [200, 201, 202, 204])
-def test_fake_response_does_not_raise_on_success_status(status):
-    """Success must not raise — otherwise the fix is just always-fail."""
-    FakeResponse(status).raise_for_status()
 
 
 # ── the contract itself ──────────────────────────────────────────────

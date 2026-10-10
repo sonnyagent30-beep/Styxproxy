@@ -42,16 +42,17 @@ STUB_PROXY_POOL = {
 # Production already holds orders with country='Nigeria' (9) and country='UK'
 # (3), and 'UK' has reached the credential layer.
 #
-# The authoritative list is the `countries` table (197 ISO rows), so it is read
-# from the DB and cached for the process lifetime. `GENERIC` — the frontend's
-# country-less sentinel — is not an ISO code and is therefore rejected by the
-# same check.
-_FALLBACK_ISO_COUNTRIES = {
-    "AE", "AF", "AR", "BE", "BR", "CN", "DE", "GB", "GH", "NG", "US",
-}
+# The authoritative list is the `countries` table (197 ISO rows), loaded via
+# the shared loader in app.services.countries — the same loader the API
+# validator uses. Fail-closed: if the DB read fails, create_credential()
+# raises a loud error instead of silently validating against a stale set.
+# `GENERIC` — the frontend's country-less sentinel — is not an ISO code and is
+# therefore rejected by the same check.
+from app.services.countries import get_valid_countries as _get_valid_countries
 
-# Full ISO 3166-1 alpha-2 set (197 entries) — the authoritative country codes.
-# Used by resolve_country_for_credential() for the sync fallback path.
+# Full ISO 3166-1 alpha-2 set (197 entries) — used by
+# resolve_country_for_credential() for the sync fallback path (rotation /
+# re-fulfil where the order's country may hold a legacy non-ISO value).
 ISO_COUNTRY_CODES = {
     "AD", "AE", "AF", "AG", "AL", "AM", "AO", "AR", "AT", "AU", "AZ",
     "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BN", "BO",
@@ -72,31 +73,6 @@ ISO_COUNTRY_CODES = {
     "TR", "TT", "TV", "TW", "TZ", "UA", "UG", "US", "UY", "UZ", "VA",
     "VC", "VE", "VN", "VU", "WS", "XK", "YE", "ZA", "ZM", "ZW",
 }
-_valid_country_cache: Optional[set[str]] = None
-
-
-async def _valid_country_codes(db_session: AsyncSession) -> set[str]:
-    """Return the set of valid ISO country codes, read from `countries`.
-
-    Falls back to a small static set if the table cannot be read, so a
-    transient DB problem cannot reject every order.
-    """
-    global _valid_country_cache
-    if _valid_country_cache is not None:
-        return _valid_country_cache
-    try:
-        from sqlalchemy import text
-
-        rows = (await db_session.execute(text("SELECT code FROM countries"))).fetchall()
-        codes = {str(r[0]).strip().upper() for r in rows if r[0]}
-        if codes:
-            _valid_country_cache = codes
-            logger.info("Loaded %d valid country codes from the countries table", len(codes))
-            return codes
-        logger.error("countries table is empty — falling back to the static country set")
-    except Exception as e:  # noqa: BLE001 - must not block fulfilment on a read failure
-        logger.error("Could not read the countries table (%s) — using the static fallback", e)
-    return _FALLBACK_ISO_COUNTRIES
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -127,7 +103,7 @@ def resolve_country_for_credential(country: str, fallback: str = "NG") -> str:
     deny them a working proxy.
 
     The authoritative validation still happens in create_credential() via the
-    async DB-backed _valid_country_codes(); this helper only prevents the
+    shared loader in app.services.countries; this helper only prevents the
     ValueError from being raised at the call site.
     """
     code = normalize_country(country)
@@ -232,7 +208,7 @@ async def get_provider_proxy(
             # outage must not stop sales. Only a genuine screening failure
             # (fraud_score, recent abuse, open proxy) causes a retry.
             try:
-                ipq_result = await screen_ip(proxy.ip)
+                ipq_result = await screen_ip(proxy.ip, plan_type=proxy_type)
                 if not ipq_result.is_clean:
                     last_error = f"IP quality check failed: {ipq_result.fail_reason}"
                     logger.warning(
@@ -318,7 +294,7 @@ async def create_credential(
     # Validity is membership in the ISO country set, not a blocklist — see the
     # note on _valid_country_codes.
     country_norm = (country or "").strip().upper()
-    valid_codes = await _valid_country_codes(db_session)
+    valid_codes = _get_valid_countries()
     if country_norm not in valid_codes:
         raise ValueError(
             f"Refusing to create a credential with an invalid country "
@@ -456,7 +432,7 @@ async def replace_credential(
     # created — destroying a WORKING credential and leaving the customer with
     # nothing. Validate first, so a failure here leaves the old one intact.
     country_norm = (order.country or "NG").strip().upper()
-    valid_codes = await _valid_country_codes(db_session)
+    valid_codes = _get_valid_countries()
     if country_norm not in valid_codes:
         logger.error(
             "Refusing to replace credential %s for order %s: order country %r is "

@@ -19,7 +19,7 @@ from app.services.capture import (
     gateway_captured_at,
     record_capture,
 )
-from app.services.credential import create_credential, resolve_country_for_credential
+from app.services.credential import create_credential
 from app.services.credential_delivery import resolve_customer_email
 from app.services.n8n import trigger_credentials_delivered_webhook
 
@@ -192,16 +192,25 @@ async def create_flutterwave_invoice(
 
 
 async def verify_flutterwave_payment(tx_ref: str) -> dict:
-    async with httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=10.0)) as client:
-        try:
-            response = await client.get(
-                f"https://api.flutterwave.com/v3/transactions/verify/by-ref/{tx_ref}",
-                headers={"Authorization": f"Bearer {settings.flutterwave_secret_key}"},
-            )
-            response.raise_for_status()
-            return response.json().get("data", {})
-        except httpx.HTTPError:
-            raise
+    """Ask Flutterwave directly whether this reference was paid.
+
+    The path matters: the working endpoint is
+        GET /v3/transactions/verify_by_reference?tx_ref=<ref>
+    The earlier form `/v3/transactions/verify/by-ref/{ref}` 404s with an HTML
+    body, which surfaces as JSONDecodeError — so any caller written against it
+    failed silently. Keep the query-string form.
+    """
+    async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=10.0)) as client:
+        response = await client.get(
+            "https://api.flutterwave.com/v3/transactions/verify_by_reference",
+            params={"tx_ref": tx_ref},
+            headers={"Authorization": f"Bearer {settings.flutterwave_secret_key}"},
+        )
+        response.raise_for_status()
+        body = response.json()
+        if str(body.get("status", "")).lower() != "success":
+            return {}
+        return body.get("data") or {}
 
 
 # ─── Webhook processing ────────────────────────────────────────────────────────
@@ -267,7 +276,7 @@ async def process_payment_webhook(db_session, event_data: dict) -> Optional[dict
                     order_id=order.order_id,
                     customer_phone=order.customer_phone or "",
                     plan_code=order.plan_code or "unknown",
-                    country=resolve_country_for_credential(order.country),
+                    country=order.country or "NG",
                     proxy_type="isp",
                     quantity=1,
                     duration_days=30,

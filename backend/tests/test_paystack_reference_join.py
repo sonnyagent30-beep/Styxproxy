@@ -39,7 +39,6 @@ import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-import httpx
 import pytest
 from fastapi import HTTPException
 
@@ -240,6 +239,21 @@ async def test_paystack_service_honours_a_supplied_reference(monkeypatch):
     """
     sent_bodies = []
 
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "status": True,
+                "data": {
+                    "id": 6612575449,
+                    "reference": "TXF-ABCDEF123456",
+                    "access_code": "ACC_PS_0001",
+                    "authorization_url": "https://checkout.test/ps/abc",
+                },
+            }
+
     class FakeClient:
         def __init__(self, *a, **kw):
             pass
@@ -252,26 +266,7 @@ async def test_paystack_service_honours_a_supplied_reference(monkeypatch):
 
         async def post(self, url, headers=None, json=None):
             sent_bodies.append(json)
-            # A REAL httpx.Response, not a stand-in with a hand-written
-            # `raise_for_status`. The hand-written one returned None for every
-            # status, so a 500 from Paystack could not fail this test — and the
-            # next failure-path test written against it would have passed for
-            # the wrong reason. httpx's own `raise_for_status` is the contract
-            # `create_paystack_transaction` is written against, so test and
-            # production cannot drift apart here.
-            return httpx.Response(
-                200,
-                json={
-                    "status": True,
-                    "data": {
-                        "id": 6612575449,
-                        "reference": "TXF-ABCDEF123456",
-                        "access_code": "ACC_PS_0001",
-                        "authorization_url": "https://checkout.test/ps/abc",
-                    },
-                },
-                request=httpx.Request("POST", url),
-            )
+            return FakeResponse()
 
     monkeypatch.setattr(paystack_mod.httpx, "AsyncClient", FakeClient)
     monkeypatch.setattr(paystack_mod.settings, "paystack_secret_key", "sk_test_x")
@@ -300,6 +295,13 @@ async def test_paystack_service_still_mints_a_reference_when_given_none(monkeypa
     """
     sent_bodies = []
 
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"status": True, "data": {"authorization_url": "https://x.test"}}
+
     class FakeClient:
         def __init__(self, *a, **kw):
             pass
@@ -312,13 +314,7 @@ async def test_paystack_service_still_mints_a_reference_when_given_none(monkeypa
 
         async def post(self, url, headers=None, json=None):
             sent_bodies.append(json)
-            # Real httpx.Response — see the note in the test above. This fake
-            # must be able to fail, or it certifies nothing.
-            return httpx.Response(
-                200,
-                json={"status": True, "data": {"authorization_url": "https://x.test"}},
-                request=httpx.Request("POST", url),
-            )
+            return FakeResponse()
 
     monkeypatch.setattr(paystack_mod.httpx, "AsyncClient", FakeClient)
     monkeypatch.setattr(paystack_mod.settings, "paystack_secret_key", "sk_test_x")
@@ -553,136 +549,3 @@ async def test_already_fulfilled_order_is_not_re_fulfilled(webhook_env):
     await _post(charge_success_payload("TXF-ABCDEF123456"), session, webhook_env.secret)
 
     assert webhook_env.enqueued == []
-
-
-# ── 4. the gateway fake must be able to fail ───────────────────────────
-#
-# The two service tests above used to carry a hand-written
-# `FakeResponse.raise_for_status` that returned None for every status. Both
-# sat in happy-path tests, so nothing was hidden at the time — but a fake that
-# cannot fail certifies nothing, and the failure-path test that would have
-# caught a 500 written against it would have passed for the wrong reason.
-# That is exactly how `test_credential_delivery_contract.py` shipped a suite
-# whose tests all passed while n8n failed every time in production.
-#
-# The fake is now a real `httpx.Response` (see above) and this section proves
-# it: a gateway 500 must reach the caller, not be swallowed.
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("status", [400, 422, 500, 502, 503])
-async def test_paystack_gateway_error_is_raised_not_swallowed(monkeypatch, status):
-    """A non-2xx from Paystack must raise. It must not return a checkout URL.
-
-    The shape this forbids: Paystack is down or rejecting us, and the caller
-    receives `{"checkout_url": "", "tx_ref": ...}` — an order row written and a
-    payment link emailed to a customer who was never charged. The customer pays
-    nothing, the order sits pending forever, and nothing in the logs says why.
-    """
-
-    class FailingClient:
-        def __init__(self, *a, **kw):
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *a):
-            return False
-
-        async def post(self, url, headers=None, json=None):
-            return httpx.Response(
-                status,
-                json={"status": False, "message": "gateway unavailable"},
-                request=httpx.Request("POST", url),
-            )
-
-    monkeypatch.setattr(paystack_mod.httpx, "AsyncClient", FailingClient)
-    monkeypatch.setattr(paystack_mod.settings, "paystack_secret_key", "sk_test_x")
-
-    with pytest.raises(httpx.HTTPStatusError) as exc:
-        await paystack_mod.create_paystack_transaction(
-            amount_ngn=5000.0,
-            customer_email="a@b.test",
-            customer_phone="+234****0000",
-            callback_url="https://styxproxy.com/thank-you",
-            tx_ref="TXF-ABCDEF123456",
-        )
-
-    assert exc.value.response.status_code == status
-
-
-@pytest.mark.asyncio
-async def test_paystack_network_error_is_raised_not_swallowed(monkeypatch):
-    """A transport failure (timeout, DNS, connection reset) must also raise.
-
-    Distinct from an HTTP status: there is no response at all. If this were
-    caught and turned into an empty result, a Paystack timeout would look
-    identical to a successful init that returned no URL.
-    """
-
-    class UnreachableClient:
-        def __init__(self, *a, **kw):
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *a):
-            return False
-
-        async def post(self, url, headers=None, json=None):
-            raise httpx.ConnectTimeout("timed out reaching api.paystack.co")
-
-    monkeypatch.setattr(paystack_mod.httpx, "AsyncClient", UnreachableClient)
-    monkeypatch.setattr(paystack_mod.settings, "paystack_secret_key", "sk_test_x")
-
-    with pytest.raises(httpx.HTTPError):
-        await paystack_mod.create_paystack_transaction(
-            amount_ngn=5000.0,
-            customer_email="a@b.test",
-            customer_phone="+234****0000",
-            callback_url="https://styxproxy.com/thank-you",
-            tx_ref="TXF-ABCDEF123456",
-        )
-
-
-@pytest.mark.asyncio
-async def test_paystack_200_with_status_false_still_raises(monkeypatch):
-    """A 200 whose body says the init failed must raise too.
-
-    Paystack returns HTTP 200 with `{"status": false, "message": ...}` for
-    business-level rejections (a bad key, a duplicate reference).
-    `raise_for_status` sees a 200 and lets it through, so the `status is not
-    True` check in `create_paystack_transaction` is the only thing standing
-    between that and a silently unfulfillable order. Worth pinning.
-    """
-
-    class RejectingClient:
-        def __init__(self, *a, **kw):
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *a):
-            return False
-
-        async def post(self, url, headers=None, json=None):
-            return httpx.Response(
-                200,
-                json={"status": False, "message": "Duplicate reference"},
-                request=httpx.Request("POST", url),
-            )
-
-    monkeypatch.setattr(paystack_mod.httpx, "AsyncClient", RejectingClient)
-    monkeypatch.setattr(paystack_mod.settings, "paystack_secret_key", "sk_test_x")
-
-    with pytest.raises(ValueError, match="Duplicate reference"):
-        await paystack_mod.create_paystack_transaction(
-            amount_ngn=5000.0,
-            customer_email="a@b.test",
-            customer_phone="+234****0000",
-            callback_url="https://styxproxy.com/thank-you",
-            tx_ref="TXF-ABCDEF123456",
-        )

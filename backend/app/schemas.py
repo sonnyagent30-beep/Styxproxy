@@ -476,6 +476,13 @@ class OrderResponse(BaseModel):
     # S2.5 — Renewal reminder tracking
     emails_sent: Optional[int] = 0
     reminder_sent_at: Optional[datetime] = None
+    # Receipt data — plan_code, quantity, city_name, data_total_gb so the
+    # thank-you page can build a receipt from the order payload (the cart is
+    # cleared on payment and is empty by the time the customer lands here).
+    plan_code: Optional[str] = None
+    quantity: Optional[int] = None
+    city_name: Optional[str] = None
+    data_total_gb: Optional[float] = None
 
 
 # ============== Referral Schemas (Sprint 2) ==============
