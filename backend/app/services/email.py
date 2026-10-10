@@ -8,7 +8,7 @@ Provides transactional email functionality with Styxproxy brand design language:
 - Password reset and admin invites
 
 Design language matches the receipt PDF:
-- Dark theme only (maximum email client compatibility)
+- Dark theme by default, light variant via prefers-color-scheme media query
 - Green accent (#00D060)
 - Card-based layout with dividers
 - Credentials with green border
@@ -16,7 +16,8 @@ Design language matches the receipt PDF:
 All templates use:
 - Inline styles only (no CSS variables)
 - Table-based layouts (no flexbox)
-- No prefers-color-scheme media queries
+- prefers-color-scheme: light media query for light variant
+- color-scheme meta tag for client support detection
 - lang="en" on all html tags
 - Proper alt text and dimensions on images
 - Unsubscribe link and physical address in footer
@@ -125,8 +126,18 @@ def _get_logo_b64() -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-# Cache logo at module load time
+def _get_logo_b64_light() -> str:
+    """Process and return the Styxproxy light logo as base64 PNG."""
+    logo = Image.open(get_logo_path("light")).convert("RGBA")
+    resized = logo.resize(_logo_embed_size(), Image.LANCZOS)
+    buf = io.BytesIO()
+    resized.save(buf, format="PNG", optimize=True)
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+# Cache both logos at module load time
 LOGO_B64 = _get_logo_b64()
+LOGO_B64_LIGHT = _get_logo_b64_light()
 LOGO_W = _LOGO_TARGET_W
 LOGO_H = _logo_target_h()
 
@@ -151,6 +162,7 @@ LOGO_H = _logo_target_h()
 #      non-browser clients, so Gmail's image proxy could be refused outright.
 #      CID cannot be refused because the image travels inside the message.
 LOGO_CID = "styxproxy-logo"
+LOGO_CID_LIGHT = "styxproxy-logo-light"
 
 
 def _logo_attachment() -> dict:
@@ -167,16 +179,30 @@ def _logo_attachment() -> dict:
     }
 
 
+def _logo_attachment_light() -> dict:
+    """The light logo as a Resend inline attachment."""
+    return {
+        "filename": "styxproxy-logo-light.png",
+        "content": LOGO_B64_LIGHT,
+        "content_type": "image/png",
+        "content_id": LOGO_CID_LIGHT,
+    }
+
+
 def _logo_attachments_for(html: str) -> list[dict]:
-    """Attach the logo only when the HTML actually references it.
+    """Attach logos only when the HTML actually references them.
 
     Every template that renders the header carries a `cid:` reference, so this
     keeps the attachment off the handful of plain-text-only sends instead of
-    inflating them with 57 KB of unused base64.
+    inflating them with unused base64. Both dark and light logos are emitted
+    so the media-query swap can choose between them.
     """
-    if f"cid:{LOGO_CID}" not in html:
-        return []
-    return [_logo_attachment()]
+    attachments = []
+    if f"cid:{LOGO_CID}" in html:
+        attachments.append(_logo_attachment())
+    if f"cid:{LOGO_CID_LIGHT}" in html:
+        attachments.append(_logo_attachment_light())
+    return attachments
 
 
 # =============================================================================
@@ -198,6 +224,20 @@ def _get_base_styles() -> str:
             background-color: #0f0f0f;
             margin: 0;
             padding: 0;
+        }
+        @media (prefers-color-scheme: light) {
+            body {
+                color: #0f0f0f !important;
+                background-color: #ffffff !important;
+            }
+            div[style*="background-color: #0f0f0f"] { background-color: #ffffff !important; }
+            div[style*="background-color: #1a1a1a"] { background-color: #f9fafb !important; }
+            div[style*="color: #f5f5f5"] { color: #0f0f0f !important; }
+            div[style*="color: #9ca3af"] { color: #6b7280 !important; }
+            td[style*="border-bottom: 1px solid #262626"] { border-color: #e5e7eb !important; }
+            div[style*="background-color: #262626"] { background-color: #e5e7eb !important; }
+            .logo-dark { display: none !important; }
+            .logo-light { display: block !important; }
         }
     """
 
@@ -522,7 +562,8 @@ def _render_header(right_label: str, right_sublabel: str = "") -> str:
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                         <tr>
                             <td style="vertical-align: middle;">
-                                <img src="cid:{LOGO_CID}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" style="display:block;height:auto;border:0;">
+                                <img src="cid:{LOGO_CID}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" class="logo-dark" style="display:block;height:auto;border:0;">
+                                <img src="cid:{LOGO_CID_LIGHT}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" class="logo-light" style="display:none;height:auto;border:0;">
                                 <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Anonymous Proxy Service</div>
                             </td>
                             <td style="vertical-align: middle; text-align: right; padding-left: 20px;">
@@ -613,6 +654,7 @@ def _render_support_reply_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Re: {original_subject}</title>
     <style>
         {base_styles}
@@ -628,7 +670,8 @@ def _render_support_reply_email(
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                                 <td style="vertical-align: middle;">
-                                    <img src="cid:{LOGO_CID}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" style="display:block;height:auto;border:0;">
+                                    <img src="cid:{LOGO_CID}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" class="logo-dark" style="display:block;height:auto;border:0;">
+                                    <img src="cid:{LOGO_CID_LIGHT}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" class="logo-light" style="display:none;height:auto;border:0;">
                                     <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Styxproxy Support</div>
                                 </td>
                                 <td style="vertical-align: middle; text-align: right; padding-left: 20px;">
@@ -758,6 +801,7 @@ def _render_contact_form_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>New Contact Form Submission</title>
     <style>
         {base_styles}
@@ -859,6 +903,7 @@ def _render_customer_confirmation_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Message Received</title>
     <style>
         {base_styles}
@@ -950,6 +995,7 @@ def _render_charon_escalation_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Charon Escalation</title>
     <style>
         {base_styles}
@@ -1077,6 +1123,7 @@ def _render_admin_notification_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>{title}</title>
     <style>
         {base_styles}
@@ -1144,6 +1191,7 @@ def _render_admin_invite_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Admin Invite</title>
     <style>
         {base_styles}
@@ -1287,6 +1335,7 @@ def _render_password_reset_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Password Reset</title>
     <style>
         {base_styles}
@@ -1379,6 +1428,7 @@ def _render_order_confirmation_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Order Placed</title>
     <style>
         {base_styles}
@@ -1649,6 +1699,7 @@ def _render_proxy_credentials_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Your Proxy is Ready</title>
     <style>
         {base_styles}
@@ -1865,6 +1916,7 @@ def _render_refund_processed_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Refund Processed</title>
     <style>
         {base_styles}
@@ -2002,6 +2054,7 @@ def _render_credentials_rotated_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Credentials Rotated</title>
     <style>
         {base_styles}
@@ -2575,6 +2628,7 @@ def _render_renewal_reminder_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Your Proxy Expires Soon</title>
     <style>
         {base_styles}
