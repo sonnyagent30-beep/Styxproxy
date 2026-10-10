@@ -234,6 +234,23 @@ button {
     box-shadow: 0 0 0 1px var(--route-ring);
   }
 
+  /* Homepage blog list dots — same pattern as .route-marker */
+  .route-dot {
+    background-color: var(--route-dark);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark) .route-dot {
+      background-color: var(--route-light);
+      box-shadow: 0 0 0 1px var(--route-ring);
+    }
+  }
+
+  :root.light .route-dot {
+    background-color: var(--route-light);
+    box-shadow: 0 0 0 1px var(--route-ring);
+  }
+
   /* SVG graph nodes: `fill`, not `background-color`. The element carries the
      route colour as a custom property from routeColorVars(), and light mode
      substitutes the darkened variant for the same reason the dots do — every
@@ -262,6 +279,7 @@ button {
      appears — not only at the default-view decision. */
   @media (prefers-reduced-motion: reduce) {
     .route-marker,
+    .route-dot,
     .route-node {
       transition: none !important;
     }
