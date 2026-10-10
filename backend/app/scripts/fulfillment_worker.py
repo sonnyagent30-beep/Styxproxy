@@ -217,6 +217,21 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 # discoverable via styxproxy_credentials.order_id (1:N).
                 order.styxproxy_credential_id = credential.id
                 order.status = "fulfilled"
+
+                # Create proxy_items for each credential (Option A: parent order + N child proxy records)
+                from app.models import ProxyItem
+                for idx, (cred_i, _pw_i) in enumerate(created):
+                    proxy_item = ProxyItem(
+                        order_id=order.order_id,
+                        credential_id=cred_i.id,
+                        label=f"Proxy {idx + 1}",
+                        status=cred_i.status or "active",
+                        expires_at=cred_i.expires_at,
+                        plan_type=order.plan_type,
+                        plan_code=order.plan_code,
+                        country=order.country,
+                    )
+                    db.add(proxy_item)
                 await db.commit()
 
                 # All credentials, for the email. Order matters: proxy 1 of N.

@@ -469,6 +469,8 @@ class OrderResponse(BaseModel):
     # Populated when basket_items is NOT NULL. Each element is one proxy
     # the customer paid for and must receive.
     credentials: Optional[list[StyxproxyCredentialBrief]] = None
+    # Proxy items (per-item management)
+    proxy_items: Optional[list[ProxyItemResponse]] = None
     created_at: datetime
     expires_at: Optional[datetime]
     customer_name: Optional[str] = None  # Only populated if customer set a name (WhatsApp/Telegram)
@@ -2265,10 +2267,36 @@ class AnalyticsFunnelResponse(BaseModel):
 # ============== Renewal Schemas ==============
 
 
+class ProxyItemResponse(BaseModel):
+    """Proxy item response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_id: str
+    credential_id: int
+    label: str
+    status: str
+    expires_at: Optional[datetime] = None
+    plan_type: Optional[str] = None
+    plan_code: Optional[str] = None
+    country: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProxyItemListResponse(BaseModel):
+    """Response for proxy item listing."""
+
+    items: list[ProxyItemResponse]
+    total: int
+
+
 class RenewalCreateRequest(BaseModel):
     """Request to create a renewal order."""
 
     order_id: str = Field(..., min_length=1, max_length=20)
+    proxy_item_id: Optional[int] = Field(None, ge=1, description="Specific proxy item to renew. If null, renews at order level.")
     quantity_gb: Optional[float] = Field(None, ge=1, description="GB amount for residential/mobile")
     gateway: str = Field(default="flutterwave", description="Payment gateway")
     customer_email: Optional[str] = Field(None, max_length=255)

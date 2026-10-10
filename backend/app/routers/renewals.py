@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_account
 from app.database import get_session
 from app.limiter import limiter
-from app.models import Order, OrderRenewal
+from app.models import Order, OrderRenewal, ProxyItem
 from app.schemas import (
     RenewalCreateRequest,
     RenewalHistoryResponse,
@@ -122,6 +122,15 @@ async def initiate_renewal(
                 tx_ref=existing.renewal_tx_ref or "",
             )
 
+    # ── Validate proxy_item_id if provided ──
+    if body.proxy_item_id:
+        proxy_item = await session.get(ProxyItem, body.proxy_item_id)
+        if not proxy_item or proxy_item.order_id != body.order_id:
+            raise HTTPException(
+                status_code=404,
+                detail="Proxy item not found for this order",
+            )
+
     # ── Create renewal record ──
     renewal = await create_renewal_order(
         session=session,
@@ -130,6 +139,7 @@ async def initiate_renewal(
         amount_paid_ngn=total_amount,
         payment_reference=idempotency_key,
         tx_ref=None,
+        proxy_item_id=body.proxy_item_id,
     )
 
     # ── Create payment ──

@@ -5,6 +5,9 @@ For DC/ISP plans: only extends the expiry (no GB involved).
 
 Stacking rule: new expiry = renewal_date + 30 days (NOT current_expiry + 30).
 Unlimited renewals per order.
+
+When proxy_item_id is set on the renewal, only that specific proxy is
+extended. When null, the renewal is an order-level renewal (backwards compat).
 """
 
 import logging
@@ -15,7 +18,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Order, OrderRenewal, StyxproxyCredential
+from app.models import Order, OrderRenewal, ProxyItem, StyxproxyCredential
 from app.services.credential import create_credential, resolve_country_for_credential
 
 logger = logging.getLogger(__name__)
@@ -30,6 +33,7 @@ async def create_renewal_order(
     amount_paid_ngn: float,
     payment_reference: Optional[str] = None,
     tx_ref: Optional[str] = None,
+    proxy_item_id: Optional[int] = None,
 ) -> OrderRenewal:
     """Create a renewal record for an order.
 
@@ -38,6 +42,7 @@ async def create_renewal_order(
     """
     renewal = OrderRenewal(
         order_id=order_id,
+        proxy_item_id=proxy_item_id,
         renewal_tx_ref=tx_ref or f"TXR-{uuid.uuid4().hex[:12].upper()}",
         quantity_gb=quantity_gb,
         amount_paid_ngn=amount_paid_ngn,
@@ -48,8 +53,8 @@ async def create_renewal_order(
     await session.commit()
     await session.refresh(renewal)
     logger.info(
-        "Renewal order created: id=%s order_id=%s gb=%s amount=%s",
-        renewal.id, order_id, quantity_gb, amount_paid_ngn,
+        "Renewal order created: id=%s order_id=%s gb=%s amount=%s proxy_item_id=%s",
+        renewal.id, order_id, quantity_gb, amount_paid_ngn, proxy_item_id,
     )
     return renewal
 
@@ -60,6 +65,9 @@ async def complete_renewal_residential_mobile(
     order: Order,
 ) -> Optional[StyxproxyCredential]:
     """Complete a residential/mobile renewal by creating a new credential for the extra GB.
+
+    When proxy_item_id is set, creates ONE new credential for that item only.
+    When null, renews at order level (backwards compat).
 
     Returns the new credential, or None on failure.
     """
@@ -94,6 +102,13 @@ async def complete_renewal_residential_mobile(
         new_expiry = datetime.now(timezone.utc) + timedelta(days=RENEWAL_DURATION_DAYS)
         order.expires_at = new_expiry
 
+        # If per-item renewal, also update the proxy_item
+        if renewal.proxy_item_id:
+            proxy_item = await session.get(ProxyItem, renewal.proxy_item_id)
+            if proxy_item:
+                proxy_item.expires_at = new_expiry
+                proxy_item.status = "active"
+
         renewal.credential_id = credential.id
         renewal.expires_at = new_expiry
         renewal.status = "completed"
@@ -101,8 +116,8 @@ async def complete_renewal_residential_mobile(
         await session.refresh(renewal)
 
         logger.info(
-            "Renewal %s completed: credential_id=%s new_expiry=%s",
-            renewal.id, credential.id, new_expiry,
+            "Renewal %s completed: credential_id=%s new_expiry=%s proxy_item_id=%s",
+            renewal.id, credential.id, new_expiry, renewal.proxy_item_id,
         )
         return credential
 
@@ -121,18 +136,31 @@ async def complete_renewal_dc_isp(
     """Complete a DC/ISP renewal by extending the expiry.
 
     No credential creation needed — DC/ISP plans don't have GB.
+    When proxy_item_id is set, only that credential's expiry is extended.
     """
     try:
         new_expiry = datetime.now(timezone.utc) + timedelta(days=RENEWAL_DURATION_DAYS)
         order.expires_at = new_expiry
+
+        # If per-item renewal, extend only that credential's expiry
+        if renewal.proxy_item_id:
+            proxy_item = await session.get(ProxyItem, renewal.proxy_item_id)
+            if proxy_item:
+                proxy_item.expires_at = new_expiry
+                proxy_item.status = "active"
+                # Also extend the credential itself
+                cred = await session.get(StyxproxyCredential, proxy_item.credential_id)
+                if cred:
+                    cred.expires_at = new_expiry
+
         renewal.expires_at = new_expiry
         renewal.status = "completed"
         await session.commit()
         await session.refresh(renewal)
 
         logger.info(
-            "Renewal %s completed (DC/ISP): new_expiry=%s",
-            renewal.id, new_expiry,
+            "Renewal %s completed (DC/ISP): new_expiry=%s proxy_item_id=%s",
+            renewal.id, new_expiry, renewal.proxy_item_id,
         )
         return True
 

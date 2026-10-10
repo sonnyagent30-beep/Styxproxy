@@ -242,6 +242,11 @@ class Order(Base):
         "StyxproxyCredential",
         foreign_keys="[Order.styxproxy_credential_id]",
     )
+    proxy_items: Mapped[list["ProxyItem"]] = relationship(
+        "ProxyItem",
+        foreign_keys="[ProxyItem.order_id]",
+        cascade="all, delete-orphan",
+    )
 
 
 class StyxproxyCredential(Base):
@@ -1371,11 +1376,63 @@ class CharonMessage(Base):
     conversation: Mapped["CharonConversation"] = relationship("CharonConversation", back_populates="messages")
 
 
+class ProxyItem(Base):
+    """Proxy items -- one manageable proxy per row, child of an order.
+
+    Each proxy_item points to one credential. Bulk orders (basket_items or
+    quantity > 1) get one proxy_item per credential created during fulfillment.
+    Per-item renewal, expiry, and management all work through this table.
+    """
+
+    __tablename__ = "proxy_items"
+    __table_args__ = (
+        Index("idx_proxy_items_order", "order_id"),
+        Index("idx_proxy_items_credential", "credential_id"),
+        Index("idx_proxy_items_status", "status"),
+        Index("idx_proxy_items_expires", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("orders.order_id"), nullable=False
+    )
+    credential_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("styxproxy_credentials.id"), nullable=False
+    )
+    label: Mapped[str] = mapped_column(String(50), nullable=False, default="Proxy")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    plan_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    plan_code: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    # Relationships
+    order: Mapped[Optional[Order]] = relationship(
+        "Order",
+        foreign_keys="[ProxyItem.order_id]",
+    )
+    credential: Mapped[Optional["StyxproxyCredential"]] = relationship(
+        "StyxproxyCredential",
+        foreign_keys="[ProxyItem.credential_id]",
+    )
+
+
 class OrderRenewal(Base):
     """Order renewals -- tracks renewal payments for existing orders.
 
     When a customer renews, we extend the existing credential expires_at
     and data_remaining_gb. We never issue a second proxy.
+
+    When proxy_item_id is set, only that specific proxy is extended.
+    When null, the renewal is an order-level renewal (backwards compat).
     """
 
     __tablename__ = "order_renewals"
@@ -1383,11 +1440,15 @@ class OrderRenewal(Base):
         Index("idx_renewals_order", "order_id"),
         Index("idx_renewals_tx_ref", "renewal_tx_ref"),
         Index("idx_renewals_status", "status"),
+        Index("idx_renewals_proxy_item", "proxy_item_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     order_id: Mapped[str] = mapped_column(
         String(20), ForeignKey("orders.order_id"), nullable=False
+    )
+    proxy_item_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("proxy_items.id"), nullable=True
     )
     renewal_tx_ref: Mapped[str] = mapped_column(String(100), nullable=False)
     quantity_gb: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -1407,8 +1468,12 @@ class OrderRenewal(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    # Relationship
+    # Relationships
     order: Mapped[Optional[Order]] = relationship(
         "Order",
         foreign_keys="[OrderRenewal.order_id]",
+    )
+    proxy_item: Mapped[Optional[ProxyItem]] = relationship(
+        "ProxyItem",
+        foreign_keys="[OrderRenewal.proxy_item_id]",
     )

@@ -20,7 +20,7 @@ from app.auth import get_current_account
 from app.database import get_session
 from app.dependencies.idempotency import check_idempotency
 from app.limiter import limiter
-from app.models import Customer, FeatureFlag, Order, Plan, StyxproxyCredential
+from app.models import Customer, FeatureFlag, Order, Plan, ProxyItem, StyxproxyCredential
 from app.schemas import (
     OrderCancelRequest,
     OrderCancelResponse,
@@ -30,6 +30,7 @@ from app.schemas import (
     OrderResponse,
     PrecheckRequest,
     PrecheckResponse,
+    ProxyItemResponse,
     ReceiptCredentialPublic,
     ReceiptOrderResponse,
     StyxproxyCredentialBrief,
@@ -568,6 +569,137 @@ async def create_order(
     )
 
 
+# ── Per-item management endpoints ─────────────────────────────────────────
+
+@router.get("/{order_id}/proxy-items", response_model=list[ProxyItemResponse])
+async def list_order_proxy_items(
+    order_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_account),
+):
+    """List all proxy items for an order."""
+    customer = current_user["customer"]
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+    stmt = select(Order).where(Order.order_id == order_id, Order.customer_phone == customer.phone)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    pi_stmt = (
+        select(ProxyItem)
+        .where(ProxyItem.order_id == order_id)
+        .order_by(ProxyItem.id)
+    )
+    pi_result = await session.execute(pi_stmt)
+    items = pi_result.scalars().all()
+    return [ProxyItemResponse.model_validate(pi) for pi in items]
+
+
+@router.get("/proxy-items/{proxy_item_id}", response_model=ProxyItemResponse)
+async def get_proxy_item(
+    proxy_item_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_account),
+):
+    """Get a single proxy item by ID."""
+    customer = current_user["customer"]
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+
+    proxy_item = await session.get(ProxyItem, proxy_item_id)
+    if not proxy_item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proxy item not found")
+
+    # Verify ownership via parent order
+    order_stmt = select(Order).where(Order.order_id == proxy_item.order_id, Order.customer_phone == customer.phone)
+    order_result = await session.execute(order_stmt)
+    order = order_result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    return ProxyItemResponse.model_validate(proxy_item)
+
+
+@router.post("/proxy-items/{proxy_item_id}/rotate", response_model=RotateResponse)
+async def rotate_proxy_item(
+    proxy_item_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_account),
+):
+    """Rotate credentials for a specific proxy item."""
+    customer = current_user["customer"]
+    if not customer:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No customer profile found")
+
+    proxy_item = await session.get(ProxyItem, proxy_item_id)
+    if not proxy_item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Proxy item not found")
+
+    # Verify ownership via parent order
+    order_stmt = select(Order).where(Order.order_id == proxy_item.order_id, Order.customer_phone == customer.phone)
+    order_result = await session.execute(order_stmt)
+    order = order_result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
+    # Get the credential for this proxy item
+    cred = await session.get(StyxproxyCredential, proxy_item.credential_id)
+    if not cred:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found")
+
+    # Check rotation limit
+    MAX_ROTATIONS = 3
+    current_count = getattr(cred, "rotation_count", 0) or 0
+    if current_count >= MAX_ROTATIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Rotation limit reached ({MAX_ROTATIONS} per proxy)",
+        )
+
+    # Generate new credentials
+    from app.services.credential import generate_styxproxy_username, generate_styxproxy_password
+
+    new_styxproxy_username = generate_styxproxy_username()
+    new_styxproxy_password = generate_styxproxy_password()
+
+    cred.styxproxy_username = new_styxproxy_username
+    cred.set_password(new_styxproxy_password)
+    cred.rotation_count = current_count + 1
+    await session.commit()
+    await session.refresh(cred)
+
+    await log_audit_event(
+        session,
+        event_type="credentials_rotated",
+        phone=customer.phone,
+        order_id=order.order_id,
+        details={
+            "proxy_item_id": proxy_item_id,
+            "rotation_count": current_count + 1,
+            "old_username": cred.styxproxy_username,
+            "new_username": new_styxproxy_username,
+            "upstream_ip": cred.upstream_proxy_ip,
+        },
+    )
+
+    return RotateResponse(
+        order_id=order.order_id,
+        styxproxy_credential=StyxproxyCredentialBrief(
+            id=cred.id,
+            styxproxy_username=cred.styxproxy_username,
+            styxproxy_password=cred.get_password() if hasattr(cred, 'get_password') else None,
+            protocol=cred.protocol or "socks5",
+            upstream_proxy_ip=cred.upstream_proxy_ip,
+            upstream_proxy_port=cred.upstream_proxy_port,
+            status=cred.status,
+        ),
+        rotation_count=cred.rotation_count,
+        max_rotations=MAX_ROTATIONS,
+    )
+
+
 @router.get("/by-device", response_model=list[OrderResponse])
 async def list_orders_by_device(
     session: AsyncSession = Depends(get_session),
@@ -853,6 +985,20 @@ async def get_order(
                 status=cred.status,
             )
     is_renewable = order.status in ("active", "fulfilled") and order.expires_at is not None
+
+    # Fetch proxy items for per-item management
+    proxy_items = None
+    pi_stmt = (
+        select(ProxyItem)
+        .where(ProxyItem.order_id == order_id)
+        .order_by(ProxyItem.id)
+    )
+    pi_result = await session.execute(pi_stmt)
+    pi_list = pi_result.scalars().all()
+    if pi_list:
+        from app.schemas import ProxyItemResponse
+        proxy_items = [ProxyItemResponse.model_validate(pi) for pi in pi_list]
+
     return OrderResponse(
         order_id=order.order_id,
         status=order.status,
@@ -866,6 +1012,7 @@ async def get_order(
         is_renewable=is_renewable,
         rotation_count=rotation_count,
         max_rotations=max_rotations,
+        proxy_items=proxy_items,
     )
 
 
