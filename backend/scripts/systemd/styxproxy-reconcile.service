@@ -1,0 +1,11 @@
+[Unit]
+Description=Styxproxy Payment Reconciliation Sweep
+After=postgresql.service redis.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/styxproxy/backend/venv/bin/python3 /opt/styxproxy/backend/scripts/reconcile_pending_payments.py
+User=root
+WorkingDirectory=/opt/styxproxy/backend
+Environment="PYTHONUNBUFFERED=1"
+EnvironmentFile=/opt/styxproxy/.env
