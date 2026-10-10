@@ -88,9 +88,11 @@ _LONGCAT_TOOL_CALL_TAGS = re.compile(
     re.IGNORECASE
 )
 
-# Bare tool name followed by non-word, non-space (e.g. get_product_catalog立卡)
+# Bare tool name followed by non-ASCII-word or non-space (e.g. get_product_catalog立卡).
+# Uses explicit ASCII character classes instead of \b, which is Unicode-aware in
+# Python 3 and treats CJK characters as word characters (so catalog立卡 = one word).
 _LONGCAT_TOOL_CALL_BARE = re.compile(
-    r"\b(" + _TOOL_NAME_RE + r")\b(?=[^\w\s])",
+    r"(?<![a-zA-Z0-9_])(" + _TOOL_NAME_RE + r")(?![a-zA-Z0-9_])",
     re.IGNORECASE
 )
 
