@@ -358,6 +358,58 @@ button {
   }
 }
 
+/* ── A4: Chat bubble table styles ───────────────────────────────── */
+@layer utilities {
+  .charon-table {
+    border-collapse: collapse;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .charon-table-header {
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .charon-table-header .charon-table-cell {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .charon-table-row {
+    border-bottom: 1px solid var(--border);
+  }
+  .charon-table-row:last-child {
+    border-bottom: none;
+  }
+  .charon-table-cell {
+    padding: 8px 10px;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  .charon-table-cell:last-child {
+    padding-right: 6px;
+  }
+  /* Right-align numeric columns (prices) */
+  .charon-table-cell[data-numeric="true"] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Country code chip */
+  .charon-country-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    background: var(--primary);
+    color: #000;
+  }
+}
+
 /* ── Reach-out bubble ─────────────────────────────────────────── */
 @keyframes reachOut {
   0% {

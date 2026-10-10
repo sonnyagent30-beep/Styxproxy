@@ -37,6 +37,7 @@ export default function CharonWidget() {
     isTyping,
     proactiveMessage,
     setProactiveMessage,
+    charonAvailable,
   } = useCharonStore();
 
   const pathnameRef = useRef(pathname);
@@ -181,7 +182,9 @@ export default function CharonWidget() {
         </div>
       )}
 
-      {!isVisible && (
+      {/* A2: Hide FAB when Charon is offline — never show a confident
+          primary button that lands on an offline card. */}
+      {!isVisible && charonAvailable && (
         <button
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

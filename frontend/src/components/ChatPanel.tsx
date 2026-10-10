@@ -23,12 +23,34 @@ export default function ChatPanel() {
     setStreamingMessageId,
     pageContext,
     setPageContext,
+    charonAvailable,
+    setCharonAvailable,
   } = useCharonStore();
 
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // A2: Fetch health on mount to get charon_available flag
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchHealth() {
+      try {
+        const res = await fetch('/api/v1/health', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          setCharonAvailable(data.charon_available !== false);
+        }
+      } catch {
+        // If health check fails, assume available (fail-open for UX)
+        if (!cancelled) setCharonAvailable(true);
+      }
+    }
+    fetchHealth();
+    return () => { cancelled = true; };
+  }, [setCharonAvailable]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -135,6 +157,7 @@ export default function ChatPanel() {
         const decoder = new TextDecoder();
         let buffer = '';
         let fullContent = '';
+        let streamInterrupted = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -161,13 +184,22 @@ export default function ChatPanel() {
               if (parsed.tokens_used !== undefined) {
                 updateMessage(assistantId, { tokens_used: parsed.tokens_used });
               }
+              // A5: Capture interrupted signal from stream
+              if (parsed.interrupted !== undefined) {
+                streamInterrupted = parsed.interrupted;
+              }
             } catch {
               // skip non-JSON
             }
           }
         }
 
-        if (!fullContent) {
+        // A5: Mark interrupted on the message
+        if (streamInterrupted) {
+          updateMessage(assistantId, { interrupted: true });
+        }
+
+        if (!fullContent && !streamInterrupted) {
           updateMessage(assistantId, {
             content: "I'm having trouble reaching the support backend. Please email support@styxproxy.com while we resolve this.",
             isStreaming: false,
@@ -259,7 +291,18 @@ export default function ChatPanel() {
         <>
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
             {messages.map((m) => (
-              <ChatMessage key={m.id} message={m} />
+              <ChatMessage
+                key={m.id}
+                message={m}
+                onRetry={m.interrupted ? () => {
+                  const lastUserMsg = [...messages].reverse().find(
+                    (msg) => msg.role === 'user' && msg.id !== m.id
+                  );
+                  if (lastUserMsg) {
+                    void sendMessage(lastUserMsg.content);
+                  }
+                } : undefined}
+              />
             ))}
             {isTyping && streamingMessageId === null && (
               <div className="flex justify-start">
@@ -275,28 +318,55 @@ export default function ChatPanel() {
             <div ref={bottomRef} />
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="shrink-0 flex gap-2 border-t border-[var(--border)] bg-[var(--card)] p-3 rounded-b-2xl"
-          >
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              placeholder="Type a message — Enter to send"
-              className="flex-1 resize-none px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[var(--primary)] transition-colors"
-              disabled={isTyping}
-            />
-            <button
-              type="submit"
-              disabled={isTyping || !input.trim()}
-              className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          {/* A1: Offline state — replace composer with status card */}
+          {!charonAvailable ? (
+            <div className="shrink-0 border-t border-[var(--border)] bg-[var(--card)] p-4 rounded-b-2xl">
+              <div className="flex flex-col items-center text-center gap-3">
+                <p className="text-sm text-[var(--muted)]">
+                  Charon's offline right now.
+                </p>
+                <a
+                  href="https://wa.me/2347032981049"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center min-h-[44px] px-6 py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-xl text-sm transition-colors"
+                >
+                  Contact support
+                </a>
+                <a
+                  href="https://t.me/StyxproxyBot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center min-h-[44px] px-6 py-2.5 border border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)] text-[var(--foreground)] font-semibold rounded-xl text-sm transition-colors"
+                >
+                  Telegram
+                </a>
+              </div>
+            </div>
+          ) : (
+            <form
+              onSubmit={handleSubmit}
+              className="shrink-0 flex gap-2 border-t border-[var(--border)] bg-[var(--card)] p-3 rounded-b-2xl"
             >
-              Send
-            </button>
-          </form>
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                placeholder="Type a message — Enter to send"
+                className="flex-1 resize-none px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[var(--primary)] transition-colors"
+                disabled={isTyping}
+              />
+              <button
+                type="submit"
+                disabled={isTyping || !input.trim()}
+                className="px-4 py-2 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Send
+              </button>
+            </form>
+          )}
         </>
       )}
     </div>

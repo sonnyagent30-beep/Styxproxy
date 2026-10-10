@@ -92,7 +92,28 @@ function OrderStatusContent() {
   // CustomEvent that nothing listened for, so they silently did nothing.
   const setCharonOpen = useCharonStore((s) => s.setOpen);
   const setCharonProactive = useCharonStore((s) => s.setProactiveMessage);
+  const charonAvailable = useCharonStore((s) => s.charonAvailable);
+  const setCharonAvailable = useCharonStore((s) => s.setCharonAvailable);
   const openCharon = () => { setCharonProactive(null); setCharonOpen(true); };
+
+  // A2: Fetch health to get charon_available flag
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchHealth() {
+      try {
+        const res = await fetch('/api/v1/health', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          setCharonAvailable(data.charon_available !== false);
+        }
+      } catch {
+        if (!cancelled) setCharonAvailable(true);
+      }
+    }
+    fetchHealth();
+    return () => { cancelled = true; };
+  }, [setCharonAvailable]);
 
   useEffect(() => {
     cleanupStalePendingOrders();
@@ -387,12 +408,23 @@ function OrderStatusContent() {
               <div className="text-center pt-4 border-t border-[var(--border)]">
                 <p className="text-sm text-[var(--muted)]">
                   Need help with this order?{' '}
-                  <button
+                  {charonAvailable ? (
+                    <button
                       onClick={openCharon}
-                    className="text-[var(--primary-text)] hover:underline font-medium"
-                  >
-                    Chat with Charon →
-                  </button>
+                      className="text-[var(--primary-text)] hover:underline font-medium"
+                    >
+                      Chat with Charon →
+                    </button>
+                  ) : (
+                    <a
+                      href="https://wa.me/2347032981049"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--primary-text)] hover:underline font-medium"
+                    >
+                      Contact support
+                    </a>
+                  )}
                 </p>
               </div>
             </div>

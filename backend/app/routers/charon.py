@@ -235,6 +235,7 @@ class ChatReplyResponse(BaseModel):
     tool_calls: list[ToolCallRecord] = []
     tokens_used: int = 0
     error: Optional[str] = None
+    interrupted: bool = False
 
 
 class ConversationSummary(BaseModel):
@@ -421,6 +422,7 @@ Please follow up with the customer within 2 hours.
         ],
         tokens_used=result.tokens_used,
         error=result.error,
+        interrupted=result.interrupted,
     )
 
 
@@ -479,7 +481,14 @@ async def post_reply_stream(
     # full text is streamed back as delta chunks.
 
     async def event_generator():
-        """Yield SSE events: data: {"delta": "chunk"} and data: {"done": true}."""
+        """Yield SSE events: data: {"delta": "chunk"} and data: {"done": true}.
+
+        A4: Buffers markdown table blocks until the table closes, so raw
+        `| Plan | Price |` pipes don't stream in character by character.
+        A5: Emits `interrupted: true` when the stream is incomplete (dropped
+        connection, no terminator event).
+        """
+        result = None
         try:
             result = await agent.reply(
                 channel=payload.channel,
@@ -574,21 +583,46 @@ Please follow up with the customer within 2 hours.
             if result.tool_calls:
                 yield f'data: {json.dumps({"tool_calls": result.tool_calls})}\n\n'
 
-            # Simulate streaming by splitting into chunks
+            # A4: Stream with table buffering. Accumulate table lines until the
+            # table block closes, then emit the whole table at once.
             full_text = result.text
-            chunk_size = max(1, len(full_text) // 20)  # ~20 chunks
-            for i in range(0, len(full_text), chunk_size):
-                chunk = full_text[i:i + chunk_size]
-                if chunk:
-                    yield f'data: {json.dumps({"delta": chunk})}\n\n'
-                    await asyncio.sleep(0.05)  # Small delay for visual effect
+            lines = full_text.split('\n')
+            table_buf: list[str] = []
+            in_table = False
+            had_error = result.error is not None
 
-            yield f'data: {json.dumps({"done": True})}\n\n'
+            for line in lines:
+                is_table_line = line.strip().startswith('|') and line.strip().endswith('|')
+                if is_table_line:
+                    in_table = True
+                    table_buf.append(line)
+                    continue
+                elif in_table:
+                    # Table just closed — flush the buffered table
+                    table_text = '\n'.join(table_buf)
+                    table_buf = []
+                    in_table = False
+                    if table_text:
+                        yield f'data: {json.dumps({"delta": table_text + "\n"})}\n\n'
+                        await asyncio.sleep(0.05)
+                yield f'data: {json.dumps({"delta": line + "\n"})}\n\n'
+                await asyncio.sleep(0.03)
+
+            # Flush any remaining table buffer at end of stream
+            if table_buf:
+                table_text = '\n'.join(table_buf)
+                yield f'data: {json.dumps({"delta": table_text + "\n"})}\n\n'
+
+            # A5: Emit interrupted signal. Keyed on the stream/error signal,
+            # NOT on text shape. If the result had an error or the text is empty,
+            # the reply was interrupted.
+            is_interrupted = had_error or (not full_text and not result.escalated)
+            yield f'data: {json.dumps({"done": True, "interrupted": is_interrupted})}\n\n'
 
         except Exception as e:
             logger.error(f"Streaming error: {e}", exc_info=True)
-            yield f'data: {json.dumps({"error": str(e)})}\n\n'
-            yield f'data: {json.dumps({"done": True})}\n\n'
+            yield f'data: {json.dumps({"error": str(e), "interrupted": True})}\n\n'
+            yield f'data: {json.dumps({"done": True, "interrupted": True})}\n\n'
 
     return StreamingResponse(
         event_generator(),
