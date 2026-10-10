@@ -13,14 +13,6 @@ from pydantic import BaseModel
 from slowapi.util import get_remote_address
 
 
-def _is_renewable(order: Order) -> bool:
-    """Single source of truth for whether an order can be renewed.
-
-    An order is renewable when it has been paid (status "active" or "fulfilled")
-    and has a non-null expiry.  "expired" is terminal and NOT renewable.
-    """
-    return order.status in ("active", "fulfilled") and order.expires_at is not None
-
 # Reportlab imports for PDF generation
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,6 +48,15 @@ from app.services.email import (
 from app.services.provider import check_availability
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
+
+
+def _is_renewable(order: Order) -> bool:
+    """Single source of truth for whether an order can be renewed.
+
+    An order is renewable when it has been paid (status "active" or "fulfilled")
+    and has a non-null expiry.  "expired" is terminal and NOT renewable.
+    """
+    return order.status in ("active", "fulfilled") and order.expires_at is not None
 
 # ─── Plan resolution (DB-driven, Sprint 13) ──────────────────────────────────
 # Plans are managed by superadmin via /admin/plans. The FE never sends prices;
