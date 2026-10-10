@@ -70,13 +70,22 @@ export const LOGO_URL: Record<ReceiptTheme, string> = {
   light: '/header-logo-light.png',
 };
 
-/** Device colour-scheme detection for the PDF theme.
+/** Effective-site-theme detection for the PDF theme.
  *
- *  Both call sites (/receipt/[tx_ref] and /thank-you) previously omitted the
- *  theme argument entirely, so every receipt rendered dark on white paper.
- *  SSR-safe: returns `dark` when matchMedia is unavailable. */
+ *  The site theme is set as a class on `<html>` by the inline script in
+ *  layout.tsx (from localStorage `styxproxy_admin_theme`, falling back to
+ *  matchMedia). The receipt must follow what the customer SEES, not the OS
+ *  setting — otherwise a light-site customer on a dark OS gets a dark PDF.
+ *
+ *  Resolution order:
+ *    1. `<html>` class (`.light` or `.dark`) — the effective site theme.
+ *    2. `matchMedia('(prefers-color-scheme: light)')` — OS fallback.
+ *    3. `'dark'` — SSR-safe default when `document` is unavailable. */
 export function detectReceiptTheme(): ReceiptTheme {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'dark';
+  const html = document.documentElement;
+  if (html.classList.contains('light')) return 'light';
+  if (html.classList.contains('dark')) return 'dark';
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
