@@ -304,20 +304,58 @@ function ThankYouContent() {
     }
   };
 
-  const handleCopyCredentials = async (cred?: OrderData['styxproxy_credential']) => {
-    if (!cred) return;
-    const text = [
-      `Username: ${cred.styxproxy_username || ''}`,
-      `Password: ${cred.styxproxy_password || ''}`,
-      `Proxy: ${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
-      `Full: http://${cred.styxproxy_username || ''}:${cred.styxproxy_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
-    ].join('\n');
+  const handleCopyCredentials = async () => {
+    const creds = order?.credentials && order.credentials.length > 0
+      ? order.credentials
+      : order?.styxproxy_credential
+        ? [order.styxproxy_credential]
+        : [];
+    if (creds.length === 0) return;
+    const text = creds.map((cred, idx) => {
+      const header = creds.length > 1 ? `--- Proxy ${idx + 1} ---\n` : '';
+      return `${header}Username: ${cred.styxproxy_username || ''}\nPassword: ${cred.styxproxy_password || ''}\nProxy: ${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}\nFull: http://${cred.styxproxy_username || ''}:${cred.styxproxy_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`;
+    }).join('\n\n');
     try {
       await navigator.clipboard.writeText(text);
-      toast({ type: 'success', title: 'Copied!', message: 'Credentials copied to clipboard.' });
+      toast({ type: 'success', title: 'Copied!', message: creds.length > 1 ? `All ${creds.length} credentials copied to clipboard.` : 'Credentials copied to clipboard.' });
     } catch {
       toast({ type: 'error', title: 'Copy failed', message: 'Use Ctrl+C / Cmd+C instead.' });
     }
+  };
+
+  const handleDownloadCredentials = () => {
+    const creds = order?.credentials && order.credentials.length > 0
+      ? order.credentials
+      : order?.styxproxy_credential
+        ? [order.styxproxy_credential]
+        : [];
+    if (creds.length === 0) return;
+    const lines: string[] = [
+      'Styxproxy Proxy Credentials',
+      `Order: ${order?.order_id || txRef || 'N/A'}`,
+      `Generated: ${new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+      '',
+    ];
+    creds.forEach((cred, idx) => {
+      if (creds.length > 1) lines.push(`--- Proxy ${idx + 1} ---`);
+      lines.push(`Username: ${cred.styxproxy_username || ''}`);
+      lines.push(`Password: ${cred.styxproxy_password || ''}`);
+      lines.push(`Proxy: ${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`);
+      lines.push(`Protocol: HTTP / SOCKS5`);
+      lines.push(`Full: http://${cred.styxproxy_username || ''}:${cred.styxproxy_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`);
+      if (order?.expires_at) lines.push(`Expires: ${new Date(order.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`);
+      lines.push('');
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `styxproxy-credentials-${txRef || order?.order_id || 'order'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ type: 'success', title: 'Downloaded', message: `Credentials file saved (${creds.length} ${creds.length > 1 ? 'proxies' : 'proxy'}).` });
   };
 
   if (!txRef || error) {
@@ -417,13 +455,13 @@ function ThankYouContent() {
                     ? `Proxy Credentials (${order.credentials.length})`
                     : 'Proxy Credentials'}
                 </h2>
-                {order?.styxproxy_credential && (
+                {(order?.credentials?.length > 0 || order?.styxproxy_credential) && (
                   <button
-                    onClick={() => handleCopyCredentials(order?.styxproxy_credential)}
+                    onClick={handleCopyCredentials}
                     className="text-xs px-3 py-1.5 bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 text-[var(--primary-text)] border border-[var(--primary)]/30 rounded-lg transition-colors flex items-center gap-1.5"
                   >
                     <Copy className="w-3.5 h-3.5" />
-                    Copy
+                    Copy All
                   </button>
                 )}
               </div>
@@ -548,10 +586,19 @@ function ThankYouContent() {
 
             {/* Actions */}
             <div className="space-y-3">
+              {(order?.credentials?.length > 0 || order?.styxproxy_credential) && (
+                <button
+                  onClick={handleDownloadCredentials}
+                  className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <ArrowLineDown className="w-5 h-5" />
+                  Download Credentials (.txt)
+                </button>
+              )}
               {receiptItems.length > 0 && (
                 <button
                   onClick={handleDownloadPDF}
-                  className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="w-full px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   <ArrowLineDown className="w-5 h-5" />
                   Download Receipt (PDF)
