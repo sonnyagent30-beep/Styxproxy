@@ -13,14 +13,6 @@ from pydantic import BaseModel
 from slowapi.util import get_remote_address
 
 
-def _is_renewable(order: Order) -> bool:
-    """Single source of truth for whether an order can be renewed.
-
-    An order is renewable when it has been paid (status "active" or "fulfilled")
-    and has a non-null expiry.  "expired" is terminal and NOT renewable.
-    """
-    return order.status in ("active", "fulfilled") and order.expires_at is not None
-
 # Reportlab imports for PDF generation
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +22,14 @@ from app.database import get_session
 from app.dependencies.idempotency import check_idempotency
 from app.limiter import limiter
 from app.models import Customer, FeatureFlag, Order, Plan, StyxproxyCredential
+def _is_renewable(order: Order) -> bool:
+    """Single source of truth for whether an order can be renewed.
+
+    An order is renewable when it has been paid (status "active" or "fulfilled")
+    and has a non-null expiry.  "expired" is terminal and NOT renewable.
+    """
+    return order.status in ("active", "fulfilled") and order.expires_at is not None
+
 from app.schemas import (
     OrderCancelRequest,
     OrderCancelResponse,
