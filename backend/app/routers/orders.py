@@ -12,6 +12,15 @@ logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 from slowapi.util import get_remote_address
 
+
+def _is_renewable(order: Order) -> bool:
+    """Single source of truth for whether an order can be renewed.
+
+    An order is renewable when it has been paid (status "active" or "fulfilled")
+    and has a non-null expiry.  "expired" is terminal and NOT renewable.
+    """
+    return order.status in ("active", "fulfilled") and order.expires_at is not None
+
 # Reportlab imports for PDF generation
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -721,7 +730,7 @@ async def get_order_by_payment_reference(
         created_at=order.created_at,
         expires_at=order.expires_at,
         customer_name=customer_name,
-        is_renewable=order.status == "active" and order.expires_at is not None,
+        is_renewable=_is_renewable(order),
     )
 
 
@@ -852,7 +861,7 @@ async def get_order(
                 upstream_proxy_port=cred.upstream_proxy_port,
                 status=cred.status,
             )
-    is_renewable = order.status in ("active", "fulfilled") and order.expires_at is not None
+    is_renewable = _is_renewable(order)
     return OrderResponse(
         order_id=order.order_id,
         status=order.status,
