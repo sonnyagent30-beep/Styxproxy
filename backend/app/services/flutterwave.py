@@ -21,6 +21,7 @@ from app.services.capture import (
 )
 from app.services.credential import create_credential, resolve_country_for_credential
 from app.services.credential_delivery import resolve_customer_email
+from app.services.gateway_retry import retry_on_5xx
 from app.services.n8n import trigger_credentials_delivered_webhook
 
 logger = logging.getLogger(__name__)
@@ -193,15 +194,14 @@ async def create_flutterwave_invoice(
 
 async def verify_flutterwave_payment(tx_ref: str) -> dict:
     async with httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=10.0)) as client:
-        try:
+        async def _verify():
             response = await client.get(
                 f"https://api.flutterwave.com/v3/transactions/verify/by-ref/{tx_ref}",
                 headers={"Authorization": f"Bearer {settings.flutterwave_secret_key}"},
             )
             response.raise_for_status()
             return response.json().get("data", {})
-        except httpx.HTTPError:
-            raise
+        return await retry_on_5xx(_verify, operation="flutterwave verify_by_reference")
 
 
 # ─── Webhook processing ────────────────────────────────────────────────────────

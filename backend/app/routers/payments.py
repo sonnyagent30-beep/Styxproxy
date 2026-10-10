@@ -38,6 +38,29 @@ router = APIRouter(prefix="/api/payments", tags=["payments"])
 ORDER_TTL_MINUTES = 30
 
 
+def _classify_gateway_error(exc: Exception) -> tuple[int, str]:
+    """Classify a gateway exception into an HTTP status + customer-safe message.
+
+    Transient errors (5xx, 429, timeout, network) → 503 "briefly unavailable".
+    Terminal errors (4xx) → 502 "payment could not be initiated".
+    """
+    import httpx as _httpx
+
+    if isinstance(exc, _httpx.HTTPStatusError):
+        status = exc.response.status_code
+        if status in (429, 500, 502, 503, 504):
+            return 503, "Payment provider is briefly unavailable. Please retry."
+        return 502, "Payment could not be initiated. Please try again."
+
+    if isinstance(exc, (_httpx.TimeoutException, _httpx.NetworkError, _httpx.ProtocolError)):
+        return 503, "Payment provider is briefly unavailable. Please retry."
+
+    if isinstance(exc, _httpx.ConnectError):
+        return 503, "Payment provider is briefly unavailable. Please retry."
+
+    return 502, "Payment could not be initiated. Please try again."
+
+
 @router.post("/initiate", response_model=PaymentInitiateResponse, status_code=status.HTTP_201_CREATED)
 async def initiate_payment(
     request: PaymentInitiateRequest,
