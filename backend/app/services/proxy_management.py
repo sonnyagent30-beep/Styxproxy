@@ -13,6 +13,8 @@ Design notes:
 
 import secrets
 import string
+
+from app.services.credential import CREDENTIAL_USERNAME_PREFIX
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -88,7 +90,7 @@ def generate_proxy_username(phone: str) -> str:
     """Generate SOCKS5 username based on phone number (deterministic + unique suffix)."""
     phone_clean = phone.replace("+", "").replace(" ", "").replace("-", "")
     suffix = secrets.token_hex(3)  # 6 hex chars
-    return f"sty_{phone_clean[-6:]}_{suffix}"
+    return f"{CREDENTIAL_USERNAME_PREFIX}{phone_clean[-6:]}_{suffix}"
 
 
 # ─── Customer endpoints ───────────────────────────────────────────────────────

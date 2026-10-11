@@ -27,6 +27,8 @@ from app.models import Order, StyxproxyCredential
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
+CREDENTIAL_USERNAME_PREFIX = "styxproxy_"
+
 MAX_PROVIDER_RETRIES = 5
 STUB_PROXY_POOL = {
     "NG": [{"ip": "185.199.228.45", "port": 1080}],
@@ -115,16 +117,16 @@ def resolve_country_for_credential(country: str, fallback: str = "NG") -> str:
 def generate_styxproxy_username(phone: Optional[str] = None, order_id: Optional[str] = None) -> str:
     """Generate a Styxproxy proxy username.
 
-    With phone+order_id: ``sty_{last4phone}{order_suffix}{rand8}`` (used
-    historically and by tests). With no args: ``sty_{rand8}``.
+    With phone+order_id: ``styxproxy_{last4phone}{order_suffix}{rand8}`` (used
+    historically and by tests). With no args: ``styxproxy_{rand8}``.
     """
     if phone and order_id:
         phone_suffix = phone.replace("+", "").replace(" ", "")[-4:]
         order_suffix = "".join(c for c in order_id if c.isalnum())[-4:]
         rand = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        return f"sty_{phone_suffix}{order_suffix}{rand}"
+        return f"{CREDENTIAL_USERNAME_PREFIX}{phone_suffix}{order_suffix}{rand}"
     suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    return f"sty_{suffix}"
+    return f"{CREDENTIAL_USERNAME_PREFIX}{suffix}"
 
 
 def generate_styxproxy_password() -> str:

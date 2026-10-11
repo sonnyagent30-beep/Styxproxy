@@ -709,7 +709,7 @@ def _read_logs(limit: int = 1000) -> list[dict]:
          2026-10-01, and `GET /api/v1/charon/logs` and
          `GET /api/v1/charon/conversations` are UNAUTHENTICATED and return that
          text verbatim — verified live, HTTP 200 with no credentials, leaking
-         `Username: sty_e2e / Password: pw` to any caller on the internet.
+         `Username: styxproxy_e2e / Password: pw` to any caller on the internet.
 
     So screening at the read boundary is what actually closes the exposure for
     the rows that are already persisted, and it also means a future writer that

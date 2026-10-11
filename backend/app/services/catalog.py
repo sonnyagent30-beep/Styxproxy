@@ -13,6 +13,8 @@ the relay entry.
 
 import secrets
 import string
+
+from app.services.credential import CREDENTIAL_USERNAME_PREFIX
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -63,7 +65,7 @@ def get_plan_template_for(plan_type: str) -> dict:
 def generate_styxproxy_username(phone: Optional[str] = None) -> str:
     """Generate SOCKS5 username (random, no phone dependency for purchase)."""
     suffix = secrets.token_hex(4)  # 8 hex chars
-    return f"sty_{suffix}"
+    return f"{CREDENTIAL_USERNAME_PREFIX}{suffix}"
 
 
 def generate_styxproxy_password(length: int = 16) -> str:

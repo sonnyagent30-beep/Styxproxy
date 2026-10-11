@@ -49,8 +49,8 @@ class TestVerifyFlutterwaveSignature:
 class TestGenerateStyxproxyUsername:
     def test_format(self):
         username = generate_styxproxy_username("+234****5678", "ORD-123456")
-        assert username.startswith("sty_")
-        assert len(username) >= 10  # sty_ + 4 phone digits + 6 random = 11+ chars
+        assert username.startswith("styxproxy_")
+        assert len(username) >= 16  # styxproxy_ + 4 phone digits + 6 random = 20+ chars
 
     def test_phone_suffix(self):
         # Random suffix is inserted between phone suffix and random chars

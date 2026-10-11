@@ -120,7 +120,7 @@ def decrypt_credential(ciphertext: Optional[bytes]) -> Optional[str]:
 
 
 def mask_credential(plaintext: Optional[str], visible_chars: int = 3) -> str:
-    """Mask a credential for display in API responses (e.g. 'sty_********').
+    """Mask a credential for display in API responses (e.g. 'styxproxy_********').
 
     Keeps only the first few chars visible so support staff can correlate a
     credential across logs without exposing the full secret.

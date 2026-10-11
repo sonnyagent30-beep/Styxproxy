@@ -74,7 +74,7 @@ class DanteRotateResult:
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _random_username(prefix: str = "bun", length: int = 8) -> str:
+def _random_username(prefix: str = "styxproxy", length: int = 8) -> str:
     suffix = "".join(random.choices(ALPHANUM, k=length))
     return f"{prefix}_{suffix}"
 
