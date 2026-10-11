@@ -211,6 +211,87 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                         f"basket with {expected_count} expected — refusing to mark fulfilled"
                     )
 
+                # ── Post-fulfilment verification ──────────────────────────
+                # Test that the credentials actually work BEFORE telling the
+                # customer they are ready. This is the check that would have
+                # caught the class of bug where credentials are created but
+                # nothing listens on the port, or the upstream proxy is dead.
+                #
+                # We test the upstream proxy DIRECTLY (not through the local
+                # relay) using the same protocol the customer will use.
+                #
+                # In simulator mode, the upstream IPs are RFC 5737 test ranges
+                # (non-routable), so verification will fail. We skip it in
+                # simulator mode and log a warning.
+                from app.services.post_fulfillment_check import verify_credential
+
+                verification_results = []
+                all_verified = True
+
+                for cred_i, pw_i in created:
+                    # Check if we're in simulator mode (non-routable IPs)
+                    upstream_ip = cred_i.upstream_proxy_ip or ""
+                    is_simulator = (
+                        upstream_ip.startswith("198.51.100.") or  # TEST-NET-2
+                        upstream_ip.startswith("192.0.2.") or      # TEST-NET-1
+                        upstream_ip.startswith("203.0.113.")       # TEST-NET-3
+                    )
+
+                    if is_simulator:
+                        logger.warning(
+                            "Skipping post-fulfilment verification — simulator mode "
+                            "(non-routable IP %s)",
+                            extra={**log_ctx, "credential_id": cred_i.id, "upstream_ip": upstream_ip},
+                        )
+                        verification_results.append({
+                            "credential_id": cred_i.id,
+                            "ok": True,
+                            "skipped": True,
+                            "reason": "simulator_mode",
+                        })
+                        continue
+
+                    # Real mode: verify the credential
+                    result = await verify_credential(
+                        ip=cred_i.upstream_proxy_ip,
+                        port=cred_i.upstream_proxy_port,
+                        username=cred_i.styxproxy_username,
+                        password=pw_i,
+                        protocol=cred_i.protocol or "socks5",
+                    )
+
+                    verification_results.append({
+                        "credential_id": cred_i.id,
+                        "ok": result.ok,
+                        "latency_ms": result.latency_ms,
+                        "error": result.error,
+                        "detail": result.detail,
+                    })
+
+                    if not result.ok:
+                        all_verified = False
+                        logger.error(
+                            "Post-fulfilment verification FAILED for credential %s: %s — %s",
+                            cred_i.id, result.error, result.detail,
+                            extra={**log_ctx, "credential_id": cred_i.id},
+                        )
+                    else:
+                        logger.info(
+                            "Post-fulfilment verification PASSED for credential %s (latency=%sms)",
+                            cred_i.id, result.latency_ms,
+                            extra={**log_ctx, "credential_id": cred_i.id},
+                        )
+
+                if not all_verified:
+                    # At least one credential failed verification — do NOT mark
+                    # the order as fulfilled. The customer paid for working
+                    # proxies and we cannot deliver them.
+                    failed_ids = [r["credential_id"] for r in verification_results if not r["ok"]]
+                    raise RuntimeError(
+                        f"Post-fulfilment verification failed for credentials: {failed_ids}. "
+                        f"Refusing to mark order fulfilled."
+                    )
+
                 credential, plaintext_password = created[-1]
                 # `styxproxy_credential_id` is a single FK, so it keeps pointing
                 # at the last row for backwards compatibility. The full set is
