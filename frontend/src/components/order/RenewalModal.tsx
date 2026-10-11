@@ -32,6 +32,7 @@ interface RenewalModalProps {
   order: OrderData;
   onClose: () => void;
   onRenewed: (updatedOrder: OrderData) => void;
+  proxy_item_id?: number;
 }
 
 const GB_TIERS = [5, 10, 20, 50, 100];
@@ -39,7 +40,7 @@ const MIN_GB = 5;
 
 type Gateway = 'flutterwave' | 'paystack';
 
-export default function RenewalModal({ order, onClose, onRenewed }: RenewalModalProps) {
+export default function RenewalModal({ order, onClose, onRenewed, proxy_item_id }: RenewalModalProps) {
   const [selectedGb, setSelectedGb] = useState<number | null>(10);
   const [customGb, setCustomGb] = useState('');
   const [isCustom, setIsCustom] = useState(false);
@@ -77,15 +78,18 @@ export default function RenewalModal({ order, onClose, onRenewed }: RenewalModal
     setLoading(true);
 
     try {
+      const body: Record<string, unknown> = {
+        order_id: order.order_id,
+        quantity_gb: effectiveGb,
+        gateway,
+        customer_email: email || undefined,
+      };
+      if (proxy_item_id) body.proxy_item_id = proxy_item_id;
+
       const res = await fetch(`${API_BASE_URL}/api/renewals/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order_id: order.order_id,
-          quantity_gb: effectiveGb,
-          gateway,
-          customer_email: email || undefined,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();

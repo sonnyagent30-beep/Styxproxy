@@ -265,7 +265,11 @@ function OrderStatusContent() {
                   }
                   if (action.kind === 'renew') setShowRenewalModal(true);
                   if (action.kind === 'contact_support') {
-                    openCharon();
+                    if (charonAvailable) {
+                      openCharon();
+                    } else {
+                      window.open('https://wa.me/2347032981049', '_blank', 'noopener,noreferrer');
+                    }
                   }
                 }}
               />

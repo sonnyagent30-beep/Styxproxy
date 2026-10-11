@@ -29,12 +29,13 @@ export default function ActionBar({ actions, onAction }: ActionBarProps) {
           danger: 'border border-[var(--error)]/30 text-[var(--error)] hover:bg-[var(--error)]/10',
         };
 
+        const charonFirst = action.kind === 'contact_support' ? 'max-sm:order-first' : '';
         if (action.href && !action.disabled) {
           return (
             <Link
               key={action.kind + i}
               href={action.href}
-              className={`${base} ${variants[action.variant]}`}
+              className={`${base} ${variants[action.variant]} ${charonFirst}`}
               title={action.reason}
             >
               {action.label}
@@ -47,7 +48,7 @@ export default function ActionBar({ actions, onAction }: ActionBarProps) {
             key={action.kind + i}
             onClick={() => onAction?.(action)}
             disabled={action.disabled}
-            className={`${base} ${variants[action.variant]} ${action.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`${base} ${variants[action.variant]} ${charonFirst} ${action.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             title={action.reason}
           >
             {action.label}
