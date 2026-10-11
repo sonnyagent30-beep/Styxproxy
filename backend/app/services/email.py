@@ -230,12 +230,14 @@ def _get_base_styles() -> str:
                 color: #0f0f0f !important;
                 background-color: #ffffff !important;
             }
-            div[style*="background-color: #0f0f0f"] { background-color: #ffffff !important; }
-            div[style*="background-color: #1a1a1a"] { background-color: #f9fafb !important; }
-            div[style*="color: #f5f5f5"] { color: #0f0f0f !important; }
-            div[style*="color: #9ca3af"] { color: #6b7280 !important; }
+            [style*="background-color: #0f0f0f"] { background-color: #ffffff !important; }
+            [style*="background-color: #1a1a1a"] { background-color: #f9fafb !important; }
+            [style*="color: #f5f5f5"] { color: #0f0f0f !important; }
+            [style*="color: #9ca3af"] { color: #525252 !important; }
+            [style*="color: #00D060"] { color: #0b7a34 !important; }
+            [style*="color: #f59e0b"] { color: #b45309 !important; }
             td[style*="border-bottom: 1px solid #262626"] { border-color: #e5e7eb !important; }
-            div[style*="background-color: #262626"] { background-color: #e5e7eb !important; }
+            [style*="background-color: #262626"] { background-color: #e5e7eb !important; }
             .logo-dark { display: none !important; }
             .logo-light { display: block !important; }
         }
