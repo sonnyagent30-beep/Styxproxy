@@ -32,6 +32,7 @@ interface OrderData {
   };
   // For basket orders: ALL credentials created for this order.
   credentials?: Array<{
+    id: number;
     styxproxy_username: string;
     styxproxy_password: string;
     upstream_proxy_ip: string;
@@ -87,6 +88,7 @@ function OrderStatusContent() {
   const [history, setHistory] = useState<OrderHistoryEntry[]>([]);
   const [rotating, setRotating] = useState(false);
   const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [renewingProxyItemId, setRenewingProxyItemId] = useState<number | undefined>(undefined);
   // Charon: the store is the single source of truth for the widget's open
   // state. Both "Contact Support" affordances used to dispatch a window
   // CustomEvent that nothing listened for, so they silently did nothing.
@@ -263,7 +265,10 @@ function OrderStatusContent() {
                       alert('Please contact support to cancel your order.');
                     }
                   }
-                  if (action.kind === 'renew') setShowRenewalModal(true);
+                  if (action.kind === 'renew') {
+                    setRenewingProxyItemId(undefined);
+                    setShowRenewalModal(true);
+                  }
                   if (action.kind === 'contact_support') {
                     if (charonAvailable) {
                       openCharon();
@@ -280,6 +285,7 @@ function OrderStatusContent() {
                   order={order}
                   onClose={() => setShowRenewalModal(false)}
                   onRenewed={(updatedOrder) => setOrder(updatedOrder)}
+                  proxy_item_id={renewingProxyItemId}
                 />
               )}
 
@@ -379,6 +385,17 @@ function OrderStatusContent() {
                                 http://{cred.styxproxy_username}:{cred.styxproxy_password}@{cred.upstream_proxy_ip}:{cred.upstream_proxy_port}
                               </p>
                             </div>
+                            {order.is_renewable && (
+                              <button
+                                onClick={() => {
+                                  setRenewingProxyItemId(cred.id);
+                                  setShowRenewalModal(true);
+                                }}
+                                className="mt-3 w-full px-4 py-2 rounded-xl bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 text-[var(--primary-text)] border border-[var(--primary)]/30 transition-colors text-sm font-medium"
+                              >
+                                Renew This Proxy
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
