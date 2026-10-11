@@ -67,6 +67,13 @@ class Settings(BaseSettings):
 
     # ── Resend (required for email) ─────────────────────────────────────────
     resend_api_key: str = ""
+
+    # ── Resend webhook signing secret (Svix) ────────────────────────────────
+    # Required for inbound email webhook signature verification.
+    # Found in Resend dashboard → Webhooks → [endpoint] → Signing Secret.
+    # The app will NOT start without this — fail closed on unsigned webhooks.
+    resend_webhook_secret: str = ""
+
     betterstack_api_key: str = ""
     betterstack_status_page_id: str = ""
     betterstack_monitor_id: str = ""
@@ -74,6 +81,13 @@ class Settings(BaseSettings):
     from_email: str = "Styxproxy <noreply@styxproxy.com>"
     support_email: str = "support@styxproxy.com"
     admin_email: str = "admin@styxproxy.com"
+
+    # ── Inbound email notification targets (external, off styxproxy.com) ──
+    # These are the addresses that receive forwarded admin/danielayo emails.
+    # They MUST be external to styxproxy.com — forwarding to an in-domain
+    # address re-enters the Resend webhook and creates a loop.
+    admin_notify_email: str = ""
+    dannion_notify_email: str = ""
 
     # ── Alerting fallback paths ─────────────────────────────────────────────
     # Telegram Bot API — push alerts to a phone via a bot.
@@ -83,13 +97,6 @@ class Settings(BaseSettings):
     # ntfy.sh — zero-config push notification. No account needed.
     # Pick a topic name, subscribe via the ntfy phone app or web.
     ntfy_topic: str = ""
-
-    # Alerting Fallback (Telegram + ntfy)
-    # Second delivery path so Resend failure doesn't silence all alerts.
-    telegram_bot_token: str = ""
-    telegram_alert_chat_id: str = ""
-    ntfy_topic: str = ""
-
 
     # ── Provider Simulator ──────────────────────────────────────────────────
     provider_mode: str = "production"  # "production", "simulator", "auto"
@@ -232,6 +239,16 @@ class Settings(BaseSettings):
                 "OPS_JWT_SECRET is not set. "
                 "Financial ops endpoints (/refund, /reprocess) require an explicit "
                 "OPS_JWT_SECRET. Set it to a secure value: openssl rand -base64 32"
+            )
+
+
+        # SEC (P0): Resend webhook secret must be set — inbound email webhook
+        # accepts unsigned requests without it, allowing anyone to inject tickets.
+        if not self.resend_webhook_secret:
+            failures.append(
+                "RESEND_WEBHOOK_SECRET is not set. "
+                "The inbound email webhook will reject all requests until this is configured: "
+                "find it in Resend dashboard → Webhooks → [endpoint] → Signing Secret."
             )
 
         if failures:
