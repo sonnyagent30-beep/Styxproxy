@@ -255,7 +255,7 @@ export default function ChatPanel() {
           <div className="min-w-0">
             <p className="font-bold text-sm truncate">Charon</p>
             <p className="text-xs text-[var(--muted)]">
-              {isTyping ? 'Typing...' : 'Online — Chat to get started'}
+              {isTyping ? 'Typing...' : charonAvailable ? 'Online — Chat to get started' : 'Offline — contact support instead'}
             </p>
           </div>
         </div>
