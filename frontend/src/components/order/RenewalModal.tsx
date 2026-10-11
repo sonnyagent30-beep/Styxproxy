@@ -151,10 +151,12 @@ export default function RenewalModal({ order, onClose, onRenewed, proxy_item_id 
           <div className="bg-[var(--background)] rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-[var(--muted)] uppercase tracking-wide">Current Plan</p>
+                <p className="text-xs text-[var(--muted)] uppercase tracking-wide">
+                  {proxy_item_id ? 'Renewing' : 'Current Plan'}
+                </p>
                 <p className="text-sm font-semibold mt-1">
-                  {order.plan_type?.charAt(0).toUpperCase()}{order.plan_type?.slice(1)} Proxy
-                  {order.country ? ` — ${order.country}` : ''}
+                  {proxy_item_id ? `Proxy ${proxy_item_id}` : `${order.plan_type?.charAt(0).toUpperCase()}${order.plan_type?.slice(1)} Proxy`}
+                  {order.country && !proxy_item_id ? ` — ${order.country}` : ''}
                 </p>
               </div>
               {order.expires_at && (
