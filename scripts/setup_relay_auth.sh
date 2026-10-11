@@ -26,7 +26,7 @@ log() { echo "[$(date -Iseconds)] $*"; }
 # ── Generate or load relay password ─────────────────────────────────────────
 load_or_generate_password() {
     if [[ -f "$RELAY_PASSWD_SECRET" ]] && [[ "${1:-}" != "--force" ]]; then
-        log "Using existing relay password from $RELAY_PASSWD_SECRET"
+        log "Using existing relay password from $RELAY_PASSWD_SECRET" >&2
         cat "$RELAY_PASSWD_SECRET"
         return 0
     fi
@@ -40,7 +40,7 @@ load_or_generate_password() {
     chmod 600 "$RELAY_PASSWD_SECRET"
     chown root:root "$RELAY_PASSWD_SECRET"
     
-    log "Generated new relay password (32 chars)"
+    log "Generated new relay password (32 chars)" >&2
     echo "$password"
 }
 
