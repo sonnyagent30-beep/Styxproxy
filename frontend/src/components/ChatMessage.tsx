@@ -9,6 +9,35 @@ interface ChatMessageProps {
   onRetry?: () => void;
 }
 
+// ── Helpers for table cell enrichment ──────────────────────────────────────
+const COUNTRY_CODES = new Set([
+  'US', 'NG', 'GB', 'DE', 'FR', 'CA', 'BR', 'IN', 'NL', 'IT', 'ES',
+  'AU', 'JP', 'KR', 'SG', 'HK', 'AE', 'SA', 'ZA', 'EG', 'KE', 'GH',
+  'AR', 'MX', 'TR', 'PL', 'SE', 'NO', 'FI', 'DK', 'CH', 'AT', 'BE',
+  'PT', 'IE', 'NZ', 'CN', 'RU', 'UA', 'RO', 'CZ', 'HU', 'BG', 'GR',
+]);
+
+function getTextFromChildren(children: React.ReactNode): string {
+  if (typeof children === 'string' || typeof children === 'number') return String(children);
+  if (Array.isArray(children)) return children.map(getTextFromChildren).join('');
+  if (children && typeof children === 'object' && 'props' in children) {
+    const el = children as { props: { children?: React.ReactNode } };
+    return getTextFromChildren(el.props.children);
+  }
+  return '';
+}
+
+function isCountryCode(text: string): boolean {
+  const trimmed = text.trim().toUpperCase();
+  return COUNTRY_CODES.has(trimmed);
+}
+
+function isNumericCell(text: string): boolean {
+  const t = text.trim();
+  if (!t || !/\d/.test(t)) return false;
+  return /^[\d\s,.\/%-₦₹$€£A-Za-z]+$/.test(t);
+}
+
 /**
  * ChatMessage — individual message bubble for the Charon widget.
  * Renders user + assistant messages with markdown support.
@@ -53,9 +82,24 @@ export default function ChatMessage({ message, onRetry }: ChatMessageProps) {
                   th: ({ node, ...props }) => (
                     <th className="charon-table-cell font-semibold text-left" {...props} />
                   ),
-                  td: ({ node, ...props }) => (
-                    <td className="charon-table-cell" {...props} />
-                  ),
+                  td: ({ node, children, ...props }) => {
+                    const text = getTextFromChildren(children);
+                    const country = isCountryCode(text);
+                    const numeric = !country && isNumericCell(text);
+                    return (
+                      <td
+                        className="charon-table-cell"
+                        {...(numeric ? { 'data-numeric': 'true' } : {})}
+                        {...props}
+                      >
+                        {country ? (
+                          <span className="charon-country-chip">{text.trim()}</span>
+                        ) : (
+                          children
+                        )}
+                      </td>
+                    );
+                  },
                   tr: ({ node, ...props }) => (
                     <tr className="charon-table-row" {...props} />
                   ),
