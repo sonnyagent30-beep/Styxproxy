@@ -1,0 +1,247 @@
+{
+  "summary": {
+    "total_tests": 10,
+    "total_passed": 5,
+    "overall_score": 50.0,
+    "category_scores": {
+      "product": {
+        "passed": 4,
+        "total": 4,
+        "score": 1.0
+      },
+      "howto": {
+        "passed": 3,
+        "total": 3,
+        "score": 1.0
+      },
+      "general": {
+        "passed": 3,
+        "total": 3,
+        "score": 1.0
+      }
+    }
+  },
+  "results": [
+    {
+      "id": 1,
+      "question": "What's the difference between residential and datacenter proxies?",
+      "category": "product",
+      "passed": true,
+      "elapsed_ms": 3036.51,
+      "response_preview": "Residential proxies route traffic through real ISP addresses from physical devices, making them appear as regular home users. They're priced per gigabyte and ideal for social media management, ad verification, and market research. Datacenter proxies come from cloud servers in data centers, offering faster speeds and lower latency at a lower cost. They're priced per IP per month and support HTTP, HTTPS, and SOCKS5 protocols across 20+ regions.",
+      "topic_check": {
+        "found": [
+          "residential",
+          "datacenter",
+          "IP"
+        ],
+        "missing": [
+          "detection",
+          "legitimacy"
+        ],
+        "score": 0.6
+      },
+      "escalated": false,
+      "error": null
+    },
+    {
+      "id": 2,
+      "question": "Which Styxproxy plan should I choose for my needs?",
+      "category": "product",
+      "passed": true,
+      "elapsed_ms": 7320.49,
+      "response_preview": "That depends on your use case. Here's a quick breakdown:\n\n- **ISP** (\u20a66,500+/month): Best for general browsing and stability.\n- **Residential** (\u20a65,000\u2013\u20a638,000): Uses home IPs \u2014 great for scraping, sneaker bots, and tasks requiring legitimate-looking traffic.\n- **Mobile 4G** (\u20a620,000\u2013\u20a635,000): Uses mobile carrier IPs \u2014 ideal for social media automation and high-anonymity tasks.\n- **Datacenter** (\u20a63,000\u2013\u20a620,000): Fast, cheap, but easier to detect \u2014 suited for bulk tasks where anonymity isn't crit",
+      "topic_check": {
+        "found": [
+          "ISP",
+          "residential",
+          "datacenter",
+          "mobile",
+          "plan"
+        ],
+        "missing": [],
+        "score": 1.0
+      },
+      "escalated": false,
+      "error": null
+    },
+    {
+      "id": 3,
+      "question": "How do I set up proxy rotation for my requests?",
+      "category": "howto",
+      "passed": false,
+      "elapsed_ms": 3327.86,
+      "response_preview": "I don't have the details on proxy rotation setup in my knowledge base. This is a technical configuration question I'd need to escalate to the team. Would you like me to pass this to them? You can also reach styxproxy.com/contact for help with setup instructions.",
+      "topic_check": {
+        "found": [
+          "rotation"
+        ],
+        "missing": [
+          "sticky",
+          "session",
+          "time-based",
+          "smart"
+        ],
+        "score": 0.2
+      },
+      "escalated": false,
+      "error": null
+    },
+    {
+      "id": 4,
+      "question": "How do I configure proxies in my browser?",
+      "category": "howto",
+      "passed": false,
+      "elapsed_ms": 4997.55,
+      "response_preview": "I'll check if there's relevant documentation on browser proxy configuration.\n[TOOL_CALL]\n{tool => \"suggest_articles\", args => {\n  --topic \"browser proxy configuration\"\n}}\n[/TOOL_CALL]",
+      "topic_check": {
+        "found": [
+          "browser"
+        ],
+        "missing": [
+          "Chrome",
+          "Firefox",
+          "settings",
+          "credentials"
+        ],
+        "score": 0.2
+      },
+      "escalated": false,
+      "error": null
+    },
+    {
+      "id": 5,
+      "question": "Why do my accounts get banned when I'm using proxies?",
+      "category": "general",
+      "passed": false,
+      "elapsed_ms": 6266.52,
+      "response_preview": "I don't have specific information in my knowledge base about why accounts get banned when using proxies. This could depend on many factors including the platform's terms of service, proxy quality, or usage patterns.\n\nIf you're experiencing this issue, I'd recommend reaching out to the team directly for help. You can contact them at styxproxy.com/contact \u2014 they can investigate your specific situation and provide guidance.",
+      "topic_check": {
+        "found": [
+          "ban"
+        ],
+        "missing": [
+          "warm up",
+          "rate limit",
+          "location",
+          "rotate",
+          "session"
+        ],
+        "score": 0.16666666666666666
+      },
+      "escalated": false,
+      "error": null
+    },
+    {
+      "id": 6,
+      "question": "What are the benefits of paid proxy services over free ones?",
+      "category": "general",
+      "passed": true,
+      "elapsed_ms": 3693.31,
+      "response_preview": "Paid proxy services typically offer better reliability, faster speeds, dedicated IPs, higher anonymity, and consistent uptime compared to free proxies. Free proxies often have limited bandwidth, shared IPs that get flagged or banned, slower performance, and may log your data. Paid services also usually include customer support and the ability to choose specific locations. If you'd like to see our plans and pricing, I can show you the product catalog.",
+      "topic_check": {
+        "found": [
+          "free",
+          "paid",
+          "reliability",
+          "speed"
+        ],
+        "missing": [
+          "security",
+          "trial"
+        ],
+        "score": 0.6666666666666666
+      },
+      "escalated": false,
+      "error": null
+    },
+    {
+      "id": 7,
+      "question": "Tell me about ISP proxies and how they work",
+      "category": "product",
+      "passed": true,
+      "elapsed_ms": 3055.47,
+      "response_preview": "ISP proxies are IP addresses assigned by real Internet Service Providers but hosted on our infrastructure. They appear as legitimate residential or office connections to most websites and services, making them harder to detect and block compared to datacenter proxies. Despite appearing as regular consumer connections, they maintain enough speed for high-throughput workloads.\n\nThey're best suited for web scraping, automation, account creation, and sneaker sites. Prices start at \u20a66,500 per month, ",
+      "topic_check": {
+        "found": [
+          "ISP",
+          "datacenter",
+          "residential"
+        ],
+        "missing": [
+          "static",
+          "authentication"
+        ],
+        "score": 0.6
+      },
+      "escalated": false,
+      "error": null
+    },
+    {
+      "id": 8,
+      "question": "How do I use Python requests with rotating proxies?",
+      "category": "howto",
+      "passed": false,
+      "elapsed_ms": 4738.64,
+      "response_preview": "This question isn't covered in my available documentation. I don't have technical integration guides for Python requests or rotating proxy setup.\n\nI can escalate this to the team \u2014 they can provide setup instructions or point you to relevant documentation. Would you like me to do that?",
+      "topic_check": {
+        "found": [
+          "Python",
+          "requests"
+        ],
+        "missing": [
+          "rotation",
+          "session",
+          "code"
+        ],
+        "score": 0.4
+      },
+      "escalated": false,
+      "error": null
+    },
+    {
+      "id": 9,
+      "question": "What makes mobile 4G proxies different from residential?",
+      "category": "product",
+      "passed": true,
+      "elapsed_ms": 4023.42,
+      "response_preview": "Mobile 4G proxies come from real mobile carrier networks, while residential proxies come from home internet service providers. Mobile IPs score higher in trust signals because platforms recognize real carrier subscriber traffic as more legitimate. Mobile proxies are particularly effective for account creation and platforms that fingerprint mobile traffic heavily, whereas residential proxies work well for general web scraping and tasks where diverse IP coverage matters.",
+      "topic_check": {
+        "found": [
+          "mobile",
+          "4G",
+          "residential",
+          "carrier"
+        ],
+        "missing": [
+          "sticky"
+        ],
+        "score": 0.8
+      },
+      "escalated": false,
+      "error": null
+    },
+    {
+      "id": 10,
+      "question": "Can you explain common proxy mistakes that cost money?",
+      "category": "general",
+      "passed": false,
+      "elapsed_ms": 5702.3,
+      "response_preview": "I don't have specific information in the knowledge base about common proxy mistakes that cost money. This type of question would typically be covered in a general guide or FAQ about proxy usage.\n\nI can suggest relevant articles from the knowledge base, or if you'd like a more detailed answer, I can escalate this to the team. Would that help?",
+      "topic_check": {
+        "found": [
+          "mistakes",
+          "cost"
+        ],
+        "missing": [
+          "detection",
+          "rotation",
+          "pricing"
+        ],
+        "score": 0.4
+      },
+      "escalated": false,
+      "error": null
+    }
+  ]
+}

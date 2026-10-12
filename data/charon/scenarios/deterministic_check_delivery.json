@@ -1,0 +1,25 @@
+{
+  "id": "deterministic_check_delivery",
+  "name": "Check delivery status (deterministic)",
+  "trigger": [
+    "\\b(where|when|has|did).*(my|the)?.*(proxy|credential|credentials|delivery|order).*(delivered|arrived|come|sent|ready)\\b",
+    "\\b(delivery|delivered|shipping).*(status|where|when)\\b",
+    "\\bwhere.*(are|is).*(my|the)?.*(credential|credentials|proxy|proxies)\\b",
+    "\\bhave (i|we).*(received|got|been delivered)\\b",
+    "\\bmy proxy (has|was).*(delivered|sent|arrived)\\b",
+    "\\bwhen.*(will|would).*(my|the)?.*(proxy|credential).*(arrive|come|deliver|ready)\\b",
+    "\\bwhere.*(is|are).*my proxy\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "list_customer_orders",
+      "tool_params": {
+        "customer_phone": "{{customer_phone}}"
+      },
+      "response_template": "{{tool_result}}"
+    }
+  ],
+  "llm_required": false,
+  "notes": "Lists customer orders with delivery status. If an order is pending, explains the payment flow. If fulfilled, provides credential info."
+}

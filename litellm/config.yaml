@@ -1,0 +1,27 @@
+# LiteLLM proxy config for Styxproxy / Charon.
+#
+# This proxy sits between the FastAPI api container and the upstream
+# LLM provider. Only one route is exposed:
+#
+#   groq-qwen  -> Groq Qwen 3.8 27B (cloud, OpenAI-compatible)
+#
+# Reference: https://docs.litellm.ai/docs/proxy/configs
+
+model_list:
+  # Groq Qwen 3.8 27B — Charon primary. OpenAI-compatible.
+  - model_name: groq-qwen
+    litellm_params:
+      model: qwen/qwen3.8-27b
+      api_key: os.environ/GROQ_API_KEY
+      api_base: https://api.groq.com/openai/v1
+      timeout: 30
+
+# Drop LiteLLM's verbose stdout logging; we rely on api container's
+# own JSON logs.
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  telemetry: false
+  request_timeout: 60
+
+general_settings: {}

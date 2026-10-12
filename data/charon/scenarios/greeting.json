@@ -1,0 +1,15 @@
+{
+  "id": "greeting",
+  "name": "Pure greeting (no question)",
+  "trigger": [
+    "^(hi|hello|hey|howdy|hiya|yo)\\s*[!.\\s]*$",
+    "^(\\w+ ){0,3}\\b(hi|hello)\\b\\s*[!.\\s]*$"
+  ],
+  "actions": [
+    {
+      "type": "reply",
+      "text": "Hi — I'm Charon. I can help with orders, plan details, payment status, and proxy troubleshooting. What can I help you with today?"
+    }
+  ],
+  "llm_required": false
+}

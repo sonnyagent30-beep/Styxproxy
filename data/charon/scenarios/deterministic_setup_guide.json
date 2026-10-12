@@ -1,0 +1,25 @@
+{
+  "id": "deterministic_setup_guide",
+  "name": "Get setup guide (deterministic)",
+  "trigger": [
+    "\\b(how do i|how to|setup|set up|configure|config|install).*(proxy|proxies|it|this|my)\\b",
+    "\\bsetup (guide|instructions|help)\\b",
+    "\\bhow to (use|connect|start|configure)\\b",
+    "\\bget started\\b",
+    "\\bwhere.*(do i|to).*(start|begin|setup)\\b",
+    "\\bproxy (setup|configuration|config)\\b",
+    "\\bhow.*(do i|to).*(use|connect).*proxy\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "get_setup_guide",
+      "tool_params": {
+        "plan_type": "{{plan_type}}"
+      },
+      "response_template": "{{tool_result}}"
+    }
+  ],
+  "llm_required": false,
+  "notes": "Deterministically returns setup instructions. plan_type is extracted from context if available."
+}
