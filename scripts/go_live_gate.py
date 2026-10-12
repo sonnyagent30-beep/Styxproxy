@@ -81,7 +81,7 @@ class Check:
 _GIT_REF: str | None = None
 # git must run from the repo ROOT, not backend/: pathspecs and `git show` paths are
 # resolved relative to cwd, and backend/ paths would double up as backend/backend/.
-_REPO = BACKEND.parent
+_REPO = BACKEND
 _CWD = _REPO
 
 
