@@ -3,6 +3,11 @@
 Revision ID: 001_initial
 Revises:
 Create Date: 2026-07-02 00:00:00.000000
+
+FK ordering: tables are created in dependency order. The circular
+dependency between orders <-> bunche_credentials is broken by creating
+bunche_credentials first (without the FK to orders), then adding the
+deferred FK via ALTER TABLE after orders exists.
 """
 from typing import Sequence
 
@@ -17,7 +22,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # customers
+    # 1. customers (no FK)
     op.create_table(
         'customers',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
@@ -44,7 +49,7 @@ def upgrade() -> None:
         sa.Column('support_notes', sa.Text, nullable=True),
     )
 
-    # platform_accounts
+    # 2. platform_accounts (FK -> customers.id)
     op.create_table(
         'platform_accounts',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
@@ -58,7 +63,7 @@ def upgrade() -> None:
         sa.UniqueConstraint('platform', 'platform_user_id', name='uq_platform_user'),
     )
 
-    # merge_requests
+    # 3. merge_requests (FK -> platform_accounts.id, customers.id)
     op.create_table(
         'merge_requests',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
@@ -71,7 +76,37 @@ def upgrade() -> None:
         sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     )
 
-    # orders
+    # 4. bunche_credentials (FK -> customers.phone only; NO FK to orders.order_id yet)
+    op.create_table(
+        'bunche_credentials',
+        sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
+        sa.Column('bun_username', sa.String(50), unique=True, nullable=False),
+        sa.Column('password_hash', sa.Text, nullable=False),
+        sa.Column('customer_phone', sa.String(20), sa.ForeignKey('customers.phone'), nullable=True),
+        sa.Column('order_id', sa.String(20), nullable=True),
+        sa.Column('pool_type', sa.String(20), default='paid', nullable=False),
+        sa.Column('provider_name', sa.String(50), nullable=True),
+        sa.Column('provider_order_id', sa.String(100), nullable=True),
+        sa.Column('provider_username', sa.String(100), nullable=True),
+        sa.Column('provider_password', sa.String(100), nullable=True),
+        sa.Column('upstream_proxy_ip', postgresql.INET, nullable=True),
+        sa.Column('upstream_proxy_port', sa.Integer, default=1080, nullable=False),
+        sa.Column('dante_port', sa.Integer, nullable=True),
+        sa.Column('status', sa.String(20), default='active', nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('revoked_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('revoke_reason', sa.String(50), nullable=True),
+        sa.Column('last_used_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('gb_used', sa.Numeric(10, 2), default=0, nullable=False),
+    )
+    op.create_index('idx_bunche_cred_username', 'bunche_credentials', ['bun_username'])
+    op.create_index('idx_bunche_cred_customer', 'bunche_credentials', ['customer_phone'])
+    op.create_index('idx_bunche_cred_status', 'bunche_credentials', ['status'])
+    op.create_index('idx_bunche_cred_pool', 'bunche_credentials', ['pool_type'])
+    op.create_index('idx_bunche_cred_expires', 'bunche_credentials', ['expires_at'])
+
+    # 5. orders (FK -> platform_accounts.id, customers.phone, bunche_credentials.id)
     op.create_table(
         'orders',
         sa.Column('order_id', sa.String(20), primary_key=True),
@@ -109,37 +144,15 @@ def upgrade() -> None:
     op.create_index('idx_orders_expires', 'orders', ['expires_at'])
     op.create_index('idx_orders_created', 'orders', ['created_at'])
 
-    # bunche_credentials
-    op.create_table(
-        'bunche_credentials',
-        sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
-        sa.Column('bun_username', sa.String(50), unique=True, nullable=False),
-        sa.Column('password_hash', sa.Text, nullable=False),
-        sa.Column('customer_phone', sa.String(20), sa.ForeignKey('customers.phone'), nullable=True),
-        sa.Column('order_id', sa.String(20), sa.ForeignKey('orders.order_id'), nullable=True),
-        sa.Column('pool_type', sa.String(20), default='paid', nullable=False),
-        sa.Column('provider_name', sa.String(50), nullable=True),
-        sa.Column('provider_order_id', sa.String(100), nullable=True),
-        sa.Column('provider_username', sa.String(100), nullable=True),
-        sa.Column('provider_password', sa.String(100), nullable=True),
-        sa.Column('upstream_proxy_ip', postgresql.INET, nullable=True),
-        sa.Column('upstream_proxy_port', sa.Integer, default=1080, nullable=False),
-        sa.Column('dante_port', sa.Integer, nullable=True),
-        sa.Column('status', sa.String(20), default='active', nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('revoked_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('revoke_reason', sa.String(50), nullable=True),
-        sa.Column('last_used_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('gb_used', sa.Numeric(10, 2), default=0, nullable=False),
+    # 6. Deferred FK: bunche_credentials.order_id -> orders.order_id
+    #    Added after orders exists to break the circular dependency.
+    op.execute(
+        "ALTER TABLE bunche_credentials "
+        "ADD CONSTRAINT fk_bunche_credentials_order_id "
+        "FOREIGN KEY (order_id) REFERENCES orders(order_id)"
     )
-    op.create_index('idx_bunche_cred_username', 'bunche_credentials', ['bun_username'])
-    op.create_index('idx_bunche_cred_customer', 'bunche_credentials', ['customer_phone'])
-    op.create_index('idx_bunche_cred_status', 'bunche_credentials', ['status'])
-    op.create_index('idx_bunche_cred_pool', 'bunche_credentials', ['pool_type'])
-    op.create_index('idx_bunche_cred_expires', 'bunche_credentials', ['expires_at'])
 
-    # free_trials
+    # 7. free_trials (FK -> customers.phone, bunche_credentials.id)
     op.create_table(
         'free_trials',
         sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
@@ -155,7 +168,7 @@ def upgrade() -> None:
     op.create_index('idx_free_trials_phone_date', 'free_trials', ['phone', 'trial_date'])
     op.create_index('idx_free_trials_status', 'free_trials', ['status'])
 
-    # pending_trial_surveys
+    # 8. pending_trial_surveys (FK -> free_trials.id, customers.id)
     op.create_table(
         'pending_trial_surveys',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
@@ -169,7 +182,7 @@ def upgrade() -> None:
         sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     )
 
-    # customer_audit_log
+    # 9. customer_audit_log (no FK)
     op.create_table(
         'customer_audit_log',
         sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
@@ -186,7 +199,7 @@ def upgrade() -> None:
     op.create_index('idx_audit_customer', 'customer_audit_log', ['customer_hash'])
     op.create_index('idx_audit_event', 'customer_audit_log', ['event_type'])
 
-    # processed_webhooks
+    # 10. processed_webhooks (no FK)
     op.create_table(
         'processed_webhooks',
         sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
@@ -199,7 +212,7 @@ def upgrade() -> None:
     )
     op.create_index('idx_processed_webhooks_id', 'processed_webhooks', ['webhook_id'])
 
-    # admin_auth
+    # 11. admin_auth (no FK)
     op.create_table(
         'admin_auth',
         sa.Column('admin_phone', sa.String(20), primary_key=True),
@@ -217,22 +230,29 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index('idx_admin_auth_locked', table_name='admin_auth')
     op.drop_table('admin_auth')
+    op.drop_index('idx_processed_webhooks_id', table_name='processed_webhooks')
     op.drop_table('processed_webhooks')
+    op.drop_index('idx_audit_event', table_name='customer_audit_log')
+    op.drop_index('idx_audit_customer', table_name='customer_audit_log')
+    op.drop_index('idx_audit_timestamp', table_name='customer_audit_log')
     op.drop_table('customer_audit_log')
     op.drop_table('pending_trial_surveys')
+    op.drop_index('idx_free_trials_status', table_name='free_trials')
+    op.drop_index('idx_free_trials_phone_date', table_name='free_trials')
     op.drop_table('free_trials')
+    op.drop_index('idx_orders_created', table_name='orders')
+    op.drop_index('idx_orders_expires', table_name='orders')
+    op.drop_index('idx_orders_status', table_name='orders')
+    op.drop_index('idx_orders_customer', table_name='orders')
+    op.drop_table('orders')
     op.drop_index('idx_bunche_cred_expires', table_name='bunche_credentials')
     op.drop_index('idx_bunche_cred_pool', table_name='bunche_credentials')
     op.drop_index('idx_bunche_cred_status', table_name='bunche_credentials')
     op.drop_index('idx_bunche_cred_customer', table_name='bunche_credentials')
     op.drop_index('idx_bunche_cred_username', table_name='bunche_credentials')
     op.drop_table('bunche_credentials')
-    op.drop_index('idx_orders_created', table_name='orders')
-    op.drop_index('idx_orders_expires', table_name='orders')
-    op.drop_index('idx_orders_status', table_name='orders')
-    op.drop_index('idx_orders_customer', table_name='orders')
-    op.drop_table('orders')
     op.drop_table('merge_requests')
     op.drop_table('platform_accounts')
     op.drop_table('customers')
