@@ -48,15 +48,34 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # When network_mode=host (default), the api talks to host services
-      # directly on 127.0.0.1. When CHARON_LLM_HOST_NETWORK=0, the api stays
-      # in the styxproxy_local_net bridge and uses hostnames like 'postgres'.
-      DATABASE_URL: ${DATABASE_URL_HOST:-postgresql+asyncpg://${POSTGRES_USER:-styxproxy}:${POSTGRES_PASSWORD:-styxproxy}@127.0.0.1:5432/${POSTGRES_DB:-styxproxy}}
-      REDIS_URL: ${REDIS_URL_HOST:-redis://127.0.0.1:6379/0}
+      # Network model (default: bridge — works on Linux, macOS, Windows):
+      #
+      #   The api talks to postgres, redis, and litellm by container
+      #   hostname over the styxproxy_local_net bridge. This is the
+      #   default Docker behavior and works identically on all platforms.
+      #
+      # Host-network opt-in (Linux only):
+      #   If you are on Linux and need the api to share the host network
+      #   namespace (e.g. postgres/redis are installed directly on the host),
+      #   create a docker-compose.override.yml with:
+      #
+      #     services:
+      #       api:
+      #         network_mode: host
+      #         networks: !override null
+      #
+      #   Then set these env vars to use 127.0.0.1:
+      #     DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:5432/db
+      #     REDIS_URL=redis://127.0.0.1:6379/0
+      #     LITELLM_BASE_URL=http://127.0.0.1:4000
+      #
+      #   See DEVELOPMENT.md for details.
+      DATABASE_URL: ${DATABASE_URL_BRIDGE:-postgresql+asyncpg://${POSTGRES_USER:-styxproxy}:${POSTGRES_PASSWORD:-styxproxy}@postgres:5432/${POSTGRES_DB:-styxproxy}}
+      REDIS_URL: ${REDIS_URL_BRIDGE:-redis://redis:6379/0}
       # LiteLLM proxy (sidecar) wraps Ollama + cloud fallback. The api
       # always calls LiteLLM, never raw Ollama, for unified logging,
       # routing, and config-driven model swap.
-      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://127.0.0.1:4000}
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000}
       LITELLM_API_KEY: ${LITELLM_API_KEY:-sk-styxproxy-local-dev-only}
       # P0-5 (Jul 22 2026): passed to _call_cloud() in app/services/charon/llm.py
       LITELLM_CLOUD_API_KEY: ${LITELLM_CLOUD_API_KEY:-}
@@ -84,21 +103,24 @@ services:
       - ./backend/alembic:/app/alembic:ro
       - ./backend/tests:/app/tests:ro
       - ./backend/data:/app/data
-    # NOTE: no depends_on here — api runs with network_mode: host and talks
-    # to the host's postgres/redis directly. The postgres + redis services
-    # below are still defined for charon + litellm isolation, but api doesn't
-    # wait for them. Use `docker compose up -d api litellm` (skip postgres/redis
-    # services) when host services are running.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      litellm:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-    # Reconfigure DB / Redis URLs to use 127.0.0.1 when running with
-    # network_mode: host (the api reaches host services directly).
-    # If CHARON_LLM_HOST_NETWORK=0 (off), the api still runs in the
-    # styxproxy_local_net bridge and uses the original hostnames.
-    network_mode: "${CHARON_LLM_HOST_NETWORK:-host}"
+    # Bridge network (default). The api reaches postgres, redis, and
+    # litellm by container hostname. Works on Linux, macOS, and Windows.
+    #
+    # For host-network opt-in (Linux only), see DEVELOPMENT.md.
+    networks:
+      - styxproxy_local_net
 
 # LiteLLM sidecar — re-enabled 2026-07-22 after diagnosing the prior
 # "stuck on startup" was actually missing LITELLM_API_KEY env (master_key
@@ -111,10 +133,21 @@ services:
     restart: unless-stopped
     tty: true                            # uvicorn worker needs TTY to fully boot
     stdin_open: true                     # matches -it behavior that worked
-    # host network so the proxy can reach Ollama on 127.0.0.1:11434
-    # (the same trick api uses — docker0 bridge firewall blocks this
-    # gateway otherwise).
-    network_mode: host
+    # Default: bridge network (cross-platform). The api reaches litellm
+    # by hostname (http://litellm:4000).
+    #
+    # On Linux, if you need litellm to reach a host-installed Ollama on
+    # 127.0.0.1:11434, you can switch to host mode via an override file:
+    #   docker-compose.override.yml:
+    #     services:
+    #       litellm:
+    #         network_mode: host
+    #         networks: !override null
+    #
+    # On macOS/Windows, keep bridge mode and point api_base in config.yaml
+    # at http://host.docker.internal:11434 instead.
+    networks:
+      - styxproxy_local_net
     environment:
       PYTHONUNBUFFERED: "1"               # force uvicorn/info logs to flush
       LITELLM_API_KEY: ${LITELLM_API_KEY:-sk-styxproxy-local-dev-only}
