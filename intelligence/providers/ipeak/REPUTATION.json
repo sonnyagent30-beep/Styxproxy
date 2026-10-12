@@ -1,0 +1,14 @@
+{
+  "provider": "IPEAK",
+  "slug": "ipeak",
+  "verified_date": "2026-06-30",
+  "sources": ["ipleak.net"],
+  "trustpilot": "Not found",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Limited",
+  "overall": "NEUTRAL_UNKNOWN",
+  "pros": ["80M+ residential IPs"],
+  "cons": ["No Trustpilot", "Unknown HQ"],
+  "flags": [],
+  "risk_level": "MEDIUM"
+}

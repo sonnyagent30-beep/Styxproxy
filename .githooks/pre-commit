@@ -1,0 +1,48 @@
+#!/bin/bash
+# Sprint 4 pre-commit hook: gitleaks + ruff + eslint
+# Bypass with: git commit --no-verify
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Get staged files (newline-separated)
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+if [ -z "$STAGED" ]; then
+    exit 0
+fi
+
+# ── 1. gitleaks (secrets) — Sprint 1.4 ──────────────────────────────────────
+if command -v gitleaks &> /dev/null; then
+    if ! gitleaks protect --config "$REPO_ROOT/.gitleaks/gitleaks.toml" --staged --no-banner > /dev/null 2>&1; then
+        echo "FAIL: gitleaks found secrets in staged files. Aborting commit."
+        echo "Bypass with: git commit --no-verify"
+        exit 1
+    fi
+fi
+
+# ── 2. ruff (Python lint) — runs on full backend dir ─────────────────────────
+HAS_PY=$(echo "$STAGED" | grep -cE '\.py$' || true)
+if [ "$HAS_PY" -gt 0 ]; then
+    if command -v ruff &> /dev/null; then
+        echo "Running ruff check on backend/..."
+        ruff check backend/app/ --select=E,F,I
+        ruff format --check backend/app/
+    else
+        echo "WARN: ruff not installed, skipping Python lint"
+    fi
+fi
+
+# ── 3. eslint (frontend) ───────────────────────────────────────────────────────
+HAS_FE=$(echo "$STAGED" | grep -cE '^frontend/.*\.(ts|tsx|js|jsx)$' || true)
+if [ "$HAS_FE" -gt 0 ]; then
+    cd "$REPO_ROOT/frontend"
+    if [ -d node_modules ]; then
+        echo "Running eslint on staged frontend files..."
+        npx eslint --max-warnings=0 .
+    else
+        echo "WARN: frontend/node_modules not installed, skipping eslint"
+    fi
+fi
+
+echo "✓ pre-commit checks passed"

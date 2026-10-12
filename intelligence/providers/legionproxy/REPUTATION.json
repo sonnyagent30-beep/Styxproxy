@@ -1,0 +1,14 @@
+{
+  "provider": "LegionProxy",
+  "slug": "legionproxy",
+  "verified_date": "2026-06-30",
+  "sources": ["legionproxy.io"],
+  "trustpilot": "Not found",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Limited",
+  "overall": "NEUTRAL_UNKNOWN",
+  "pros": ["ISP proxies available", "Global coverage"],
+  "cons": ["No Trustpilot", "Unknown HQ", "Limited public data"],
+  "flags": [],
+  "risk_level": "MEDIUM"
+}

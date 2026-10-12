@@ -1,0 +1,19 @@
+{
+  "provider": "V-Proxies",
+  "slug": "v-proxies",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential"],
+  "pool_size": "Not disclosed",
+  "countries": "196+ countries",
+  "geo_targeting": ["Country", "City"],
+  "session_types": ["Rotating"],
+  "rotation": "Per request",
+  "sticky_sessions": "Available",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "99.97%",
+  "uptime": "99.97%",
+  "unique_features": ["196+ countries", "Very low pricing", "~$0.99/GB"],
+  "sources": ["v-proxies.com"]
+}

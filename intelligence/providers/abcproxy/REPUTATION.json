@@ -1,0 +1,24 @@
+{
+  "provider": "ABCproxy",
+  "slug": "abcproxy",
+  "website": "https://www.abcproxy.com",
+  "verified_date": "2026-06-30",
+  "sources": ["Dark web forums", "cyberbreach.io", "darkwebinformer.com"],
+  "trustpilot": "Not found on Trustpilot",
+  "trustpilot_reviews": "0",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Negative — dark web brute checker tool sold under their brand",
+  "overall": "NEGATIVE",
+  "pros": [
+    "350M+ IPs — large pool",
+    "City/postcode/ISP targeting"
+  ],
+  "cons": [
+    "⚠️ Dark web: 'abcproxy.com Brute & Checker' sold on hacking forums",
+    "Tool used for credential stuffing and CAPTCHA bypass",
+    "No Trustpilot presence",
+    "No verifiable independent reviews"
+  ],
+  "flags": ["DARK WEB MENTION — HACKING TOOL", "Reputation damage risk"],
+  "risk_level": "HIGH"
+}

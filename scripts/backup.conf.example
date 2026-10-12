@@ -1,0 +1,65 @@
+# ============================================
+# Styxproxy Backup Configuration
+# ============================================
+# Copy to /etc/styxproxy/backup.conf on VPS
+# chmod 600 — root only
+# ============================================
+
+# PostgreSQL connection
+POSTGRES_USER=styxproxy
+POSTGRES_DB=styxproxy
+# Password is read from ~/.pgpass
+# Format: hostname:port:database:username:password
+
+# ============================================
+# Backblaze B2 (Free Tier)
+# ============================================
+# 1. Sign up at backblaze.com/b2 (free, no credit card)
+# 2. Create a bucket named: styxproxy-backups
+# 3. Create an application key (keyID + applicationKey)
+# 4. Run: rclone config (see below)
+# 5. Initialize repo: restic -r b2:styxproxy-backups init
+#
+# rclone config:
+#   Name: b2
+#   Type: b2
+#   account: <keyID from B2 dashboard>
+#   key: <applicationKey from B2 dashboard>
+#
+# B2 Free Tier: 5GB storage, unlimited buckets
+# Billing: $0/month until you exceed 5GB
+# ============================================
+
+# ============================================
+# Restic Encryption Password
+# ============================================
+# Generate a strong random password:
+#   openssl rand -base64 32
+#
+# IMPORTANT: Store this in 1Password + paper copy.
+# NEVER put the actual password here.
+# Replace "your-restic-password-here" with the real password.
+# ============================================
+RESTIC_PASSWORD=your-restic-password-here
+
+# ============================================
+# Notes
+# ============================================
+# - Backups are deduplicated by Restic — only changed blocks are uploaded
+# - 5GB B2 free tier holds ~500+ hourly backups at 10k customers
+# - When B2 fills up: migrate to Hetzner Storage Box or BunnyNet
+#
+# - Hourly snapshot retention (managed by backup-hourly.sh):
+#     Keep: last 72 hourly snapshots (3 days)
+#
+# - Daily snapshot retention (managed by backup-daily.sh):
+#     Keep: last 30 daily snapshots (30 days)
+#
+# - Local retention:
+#     Keep: last 6 pg_dump files on disk (6 hours)
+#
+# - Restore procedure:
+#     /usr/local/bin/restore.sh --list          (see snapshots)
+#     /usr/local/bin/restore.sh --verify         (test latest backup)
+#     /usr/local/bin/restore.sh --restore        (overwrite DB with latest)
+# ============================================

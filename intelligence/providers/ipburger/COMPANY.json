@@ -1,0 +1,32 @@
+{
+  "slug": "ipburger",
+  "name": "IPBurger",
+  "website": "https://www.ipburger.com",
+  "description": "Premium proxy and VPN service providing highest quality proxies for web scraping, data collection, ad verification, and account management.",
+  "proxy_types": ["Residential", "Mobile", "Datacenter"],
+  "network_size": "100 million+ residential IPs",
+  "countries": "195+",
+  "cities": "2,014",
+  "mobile_ips": "9.3 million+",
+  "mobile_countries": "100+",
+  "pricing": {
+    "residential_starting": "$79/month for 10GB",
+    "pro_plan": "$249/month for 50GB",
+    "model": "Bandwidth-based (GB/month)"
+  },
+  "features": [
+    "99.95% success rate",
+    "City, state, and ISP-level targeting",
+    "SOCKS5 support",
+    "Unlimited connections and threads",
+    "No subnets (shared network)",
+    "Setup in 60 seconds"
+  ],
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://www.ipburger.com/",
+    "https://www.ipburger.com/pricing/residential/",
+    "https://www.ipburger.com/residential-proxies/",
+    "https://affmaven.com/ipburger-review/"
+  ]
+}

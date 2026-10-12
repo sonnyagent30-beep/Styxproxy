@@ -1,0 +1,47 @@
+{
+  "provider": "nodemaven",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://docs.nodemaven.com/en/articles/11770151-refund-policy",
+  "refund_policy": {
+    "status": "VERIFIED",
+    "policy_text": "Pro-rated refund: if you cancel before end of billing cycle, you receive refund for remaining unused portion of service.",
+    "money_back_days": null,
+    "conditions": ["pro-rated refund only", "must cancel before billing cycle end", "no lump sum refund"],
+    "residential_refund": "pro-rated for unused traffic only",
+    "isp_refund": "pro-rated for unused traffic only"
+  },
+  "sla": {
+    "status": "VERIFIED",
+    "uptime_percent": 99.9,
+    "refund_if_below": true,
+    "sla_text": "$1 per blacklisted IP financial guarantee verified via Pixelscan. If IP is flagged by blacklists at delivery, you get credit/refund per IP."
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "VERIFIED",
+    "methods": ["card", "paypal", "crypto"]
+  },
+  "support": {
+    "channels": ["email", "ticket"],
+    "hours": "Business hours (docs.nodemaven.com)",
+    "response_time": "Not publicly stated",
+    "status": "VERIFIED"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": true,
+    "commission_percent": null,
+    "payout_methods": ["cashback program"],
+    "notes": "Has cashback program rather than traditional affiliate commission"
+  },
+  "accepts_crypto": true,
+  "notes": "Founded 2022, USA. Backed by Multilogin founders. Quality-first approach with real-time IP filtering. $3.99/mo starting. Pixelscan guarantee is unique differentiator."
+}

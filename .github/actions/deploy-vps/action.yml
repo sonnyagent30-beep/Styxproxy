@@ -1,0 +1,14 @@
+name: Deploy to VPS via SSH
+description: Decodes base64 SSH key from env, then runs SSH deploy on the runner
+runs:
+  using: composite
+  steps:
+    - name: Deploy via SSH
+      env:
+        SSH_KEY_B64: ${{ inputs.ssh_key }}
+      shell: bash
+      run: |
+        printf '%s' "$SSH_KEY_B64" | base64 -d > ${{ github.action_path }}/gh_key
+        chmod 600 ${{ github.action_path }}/gh_key
+        echo "Key: $(wc -c < ${{ github.action_path }}/gh_key) bytes, $(ssh-keygen -lf ${{ github.action_path }}/gh_key 2>&1 | awk '{print $2}'))"
+        ssh -i ${{ github.action_path }}/gh_key -o StrictHostKeyChecking=no -o LogLevel=ERROR ${{ inputs.username }}@${{ inputs.host }} '${{ inputs.script }}'

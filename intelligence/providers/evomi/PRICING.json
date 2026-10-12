@@ -1,0 +1,23 @@
+{
+  "provider": "Evomi",
+  "slug": "evomi",
+  "website": "https://evomi.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "$0.49",
+      "unit": "per GB",
+      "notes": "Swiss-based. Ethical/residential from $0.49/GB."
+    }
+  },
+  "free_trial": "Available — contact for details",
+  "min_purchase": "Undisclosed",
+  "single_ip_available": false,
+  "billing": ["Monthly"],
+  "sources": [
+    "https://evomi.com",
+    "https://evomi.com/residential-proxies"
+  ]
+}

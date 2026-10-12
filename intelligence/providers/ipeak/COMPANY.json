@@ -1,0 +1,26 @@
+{
+  "slug": "ipeak",
+  "name": "IPEAK",
+  "website": "https://www.ippeak.com",
+  "description": "Market-leading provider of residential and ISP proxies at competitive prices, ensuring unparalleled performance and reliability.",
+  "proxy_types": ["Residential", "ISP"],
+  "network_size": "80 million+ residential IPs",
+  "countries": "195+",
+  "pricing": {
+    "model": "Subscription-based",
+    "notes": "Competitive pricing"
+  },
+  "features": [
+    "Fast and reliable connections",
+    "Quality residential proxies",
+    "ISP proxies",
+    "Global coverage",
+    "Market research capabilities",
+    "AI operations support"
+  ],
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://www.ippeak.com/pricing/residential-proxies",
+    "https://ipleak.net/"
+  ]
+}

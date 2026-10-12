@@ -1,0 +1,137 @@
+name: styxproxy-local
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-styxproxy}
+      POSTGRES_USER: ${POSTGRES_USER:-styxproxy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-styxproxy}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-styxproxy} -d ${POSTGRES_DB:-styxproxy}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - styxproxy_local_net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_local_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - styxproxy_local_net
+
+  api:
+    build:
+      context: backend
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 2
+    ports:
+      - "8000:8000"
+    environment:
+      # When network_mode=host (default), the api talks to host services
+      # directly on 127.0.0.1. When CHARON_LLM_HOST_NETWORK=0, the api stays
+      # in the styxproxy_local_net bridge and uses hostnames like 'postgres'.
+      DATABASE_URL: ${DATABASE_URL_HOST:-postgresql+asyncpg://${POSTGRES_USER:-styxproxy}:${POSTGRES_PASSWORD:-styxproxy}@127.0.0.1:5432/${POSTGRES_DB:-styxproxy}}
+      REDIS_URL: ${REDIS_URL_HOST:-redis://127.0.0.1:6379/0}
+      # LiteLLM proxy (sidecar) wraps Ollama + cloud fallback. The api
+      # always calls LiteLLM, never raw Ollama, for unified logging,
+      # routing, and config-driven model swap.
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://127.0.0.1:4000}
+      LITELLM_API_KEY: ${LITELLM_API_KEY:-sk-styxproxy-local-dev-only}
+      # P0-5 (Jul 22 2026): passed to _call_cloud() in app/services/charon/llm.py
+      LITELLM_CLOUD_API_KEY: ${LITELLM_CLOUD_API_KEY:-}
+      CHARON_LLM_PROVIDER: ${CHARON_LLM_PROVIDER:-local}
+      MINICPM_MODEL: ${MINICPM_MODEL:-minicpm5}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+      FLUTTERWAVE_SECRET_KEY: ${FLUTTERWAVE_SECRET_KEY:-}
+      FLUTTERWAVE_PUBLIC_KEY: ${FLUTTERWAVE_PUBLIC_KEY:-}
+      FLUTTERWAVE_WEBHOOK_SECRET: ${FLUTTERWAVE_WEBHOOK_SECRET:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-noreply@styxproxy.com}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-oyebiyiayomide30@gmail.com}
+      CORS_ORIGINS: '["https://styxproxy.com","https://www.styxproxy.com","https://api.styxproxy.com","http://localhost:3000"]'
+      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+      FROM_EMAIL: noreply@styxproxy.com
+      # Credential encryption (Fernet key for styxproxy_password at rest)
+      CRED_ENCRYPTION_KEY: ${CRED_ENCRYPTION_KEY:-}
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./backend/alembic:/app/alembic:ro
+      - ./backend/tests:/app/tests:ro
+      - ./backend/data:/app/data
+    # NOTE: no depends_on here — api runs with network_mode: host and talks
+    # to the host's postgres/redis directly. The postgres + redis services
+    # below are still defined for charon + litellm isolation, but api doesn't
+    # wait for them. Use `docker compose up -d api litellm` (skip postgres/redis
+    # services) when host services are running.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Reconfigure DB / Redis URLs to use 127.0.0.1 when running with
+    # network_mode: host (the api reaches host services directly).
+    # If CHARON_LLM_HOST_NETWORK=0 (off), the api still runs in the
+    # styxproxy_local_net bridge and uses the original hostnames.
+    network_mode: "${CHARON_LLM_HOST_NETWORK:-host}"
+
+# LiteLLM sidecar — re-enabled 2026-07-22 after diagnosing the prior
+# "stuck on startup" was actually missing LITELLM_API_KEY env (master_key
+# validation halted the boot silently). Verified by running
+# `docker run --rm -e LITELLM_API_KEY=...` — Uvicorn booted clean.
+# Routes local Ollama + cloud MiniMax-M2 behind one OpenAI-compatible
+# surface; the api calls LITELLM_BASE_URL instead of Ollama directly.
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    restart: unless-stopped
+    tty: true                            # uvicorn worker needs TTY to fully boot
+    stdin_open: true                     # matches -it behavior that worked
+    # host network so the proxy can reach Ollama on 127.0.0.1:11434
+    # (the same trick api uses — docker0 bridge firewall blocks this
+    # gateway otherwise).
+    network_mode: host
+    environment:
+      PYTHONUNBUFFERED: "1"               # force uvicorn/info logs to flush
+      LITELLM_API_KEY: ${LITELLM_API_KEY:-sk-styxproxy-local-dev-only}
+      DATABASE_URL: ${LITELLM_DATABASE_URL:-}
+    volumes:
+      - ./backend/litellm/config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  styxproxy_local_net:
+    driver: bridge
+
+volumes:
+  postgres_local_data:
+  redis_local_data:

@@ -1,0 +1,54 @@
+services:
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: styxproxy-grafana
+    restart: unless-stopped
+    ports:
+      # loopback only — Docker publishes bypass UFW, so 0.0.0.0 exposed this publicly
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      # dashboard JSON — was missing, which broke provisioning entirely
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://grafana.styxproxy.com
+      - GF_SERVER_DOMAIN=grafana.styxproxy.com
+      # nginx terminates TLS; tell Grafana to trust the forwarded proto
+      - GF_SERVER_PROTOCOL=http
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false
+      - GF_NEWS_NEWS_FEED_ENABLED=false
+    networks:
+      - monitoring
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: styxproxy-loki
+    restart: unless-stopped
+    ports:
+      # loopback only — this was fully readable from the public internet
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - loki-data:/loki
+      - ./loki-config.yaml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+
+volumes:
+  grafana-data:
+    external: true
+    name: monitoring_grafana-data
+  loki-data:
+    external: true
+    name: monitoring_loki-data
+
+networks:
+  monitoring:
+    name: monitoring_monitoring
+    external: true

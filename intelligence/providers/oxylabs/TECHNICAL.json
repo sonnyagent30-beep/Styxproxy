@@ -1,0 +1,20 @@
+{
+  "provider": "Oxylabs",
+  "slug": "oxylabs",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "Mobile", "ISP", "Datacenter"],
+  "pool_size": "175M+ residential",
+  "countries": "195+ countries",
+  "geo_targeting": ["Country", "Region", "City", "ASN", "Carrier", "ZIP"],
+  "session_types": ["Rotating", "Sticky"],
+  "rotation": "Per request or sticky",
+  "sticky_sessions": "Yes — up to 30 days",
+  "api": "REST API, Scraper API",
+  "auth_methods": ["Username/password", "IP whitelist"],
+  "sla": "99.95%",
+  "uptime": "99.95%",
+  "unique_features": ["Web Scraper IDE", "SERP API", "AI-powered routing", "Enterprise focus"],
+  "sources": ["oxylabs.io"],
+  "warning": "Scamalytics 64 — all IPs flagged as high risk"
+}

@@ -1,0 +1,24 @@
+{
+  "provider": "froxy",
+  "scamalytics": {
+    "found": false,
+    "fraud_score": null,
+    "risk_level": null,
+    "notes": "No specific Scamalytics data found"
+  },
+  "trustpilot": {
+    "found": true,
+    "rating": 4.8,
+    "reviews": null,
+    "sentiment": "positive",
+    "notes": "Self-reported 4.8/5 on Trustpilot. Many users praise ease of use and customer support"
+  },
+  "reddit": {
+    "found": true,
+    "mentions": 2,
+    "sentiment": "neutral",
+    "notes": "Mixed discussions - some users report issues with proxy bans on specific sites. Budget-friendly option according to RapidSeedbox"
+  },
+  "overall_reputation": "positive",
+  "last_updated": "2026-06-30"
+}

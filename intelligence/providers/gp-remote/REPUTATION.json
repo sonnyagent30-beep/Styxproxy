@@ -1,0 +1,24 @@
+{
+  "provider": "gp-remote",
+  "scamalytics": {
+    "found": false,
+    "fraud_score": null,
+    "risk_level": null,
+    "notes": "No Scamalytics data found - appears to be a technical tool, not a proxy provider"
+  },
+  "trustpilot": {
+    "found": false,
+    "rating": null,
+    "reviews": null,
+    "sentiment": null,
+    "notes": "No Trustpilot page found for gp-remote as a proxy provider"
+  },
+  "reddit": {
+    "found": false,
+    "mentions": 0,
+    "sentiment": "neutral",
+    "notes": "No discussions found. Search results show GlobalProtect VPN tools instead. Provider status unclear"
+  },
+  "overall_reputation": "unknown",
+  "last_updated": "2026-06-30"
+}

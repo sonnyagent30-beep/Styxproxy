@@ -1,0 +1,179 @@
+{
+  "name": "Trial Reset Daily Midnight",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 * * *"
+            }
+          ]
+        }
+      },
+      "id": "wf10-trigger",
+      "name": "Cron: Midnight Lagos",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "free_trials",
+        "columns": "ft.id, ft.platform_account_id, ft.status,\n                    ft.fulfilled_at, ft.total_hours,\n                    pa.platform, pa.platform_user_id",
+        "conditions": "ft.status = 'active'\n                    AND ft.total_hours > 0\n                    AND ft.fulfilled_at IS NOT NULL\n                    AND ft.fulfilled_at + (ft.total_hours * INTERVAL '1 hour') < NOW()",
+        "options": {
+          "join": "INNER JOIN platform_accounts pa ON pa.id = ft.platform_account_id"
+        }
+      },
+      "id": "wf10-find",
+      "name": "Find Expired Active Trials",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": "free_trials",
+        "columns": "status",
+        "values": "'expired'",
+        "conditions": "status = 'active' AND total_hours > 0 AND fulfilled_at IS NOT NULL AND fulfilled_at + (total_hours * INTERVAL '1 hour') < NOW()"
+      },
+      "id": "wf10-expire",
+      "name": "Mark Trials Expired",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Count how many trials were expired this run\nconst rows = $input.all();\nconst count = rows.length;\nconst messages = rows.map(r => {\n    const t = r.json;\n    return `${t.platform}:${t.platform_user_id?.slice(0,8) || 'unknown'} expired`;\n});\n\nreturn [{ json: {\n    expired_count: count,\n    details: JSON.stringify({ action: 'midnight_reset', expired_count: count, trials: messages })\n}}];"
+      },
+      "id": "wf10-aggregate",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "customer_audit_log",
+        "columns": "event_type, workflow, status, details, timestamp",
+        "values": "'trial_reset', 'trial-reset-daily', 'success', '{{ $json.details }}', NOW()"
+      },
+      "id": "wf10-audit",
+      "name": "Audit Log",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udd04 Midnight Reset Complete\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\nExpired trials marked: {{ $json.expired_count }}\n\nAll systems ready for day {{ $now | date: 'YYYY-MM-DD' }}."
+      },
+      "id": "wf10-confirm",
+      "name": "Send Confirmation",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Cron: Midnight Lagos": {
+      "main": [
+        [
+          {
+            "node": "Find Expired Active Trials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Expired Active Trials": {
+      "main": [
+        [
+          {
+            "node": "Mark Trials Expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Trials Expired": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit Log": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": [
+    "trial",
+    "cron",
+    "reset",
+    "midnight"
+  ]
+}

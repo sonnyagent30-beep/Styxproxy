@@ -1,0 +1,38 @@
+{
+  "provider": "Bright Data",
+  "slug": "bright-data",
+  "website": "https://brightdata.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "CONTACT_SALES",
+  "pricing_model": "Pay-As-You-Go + Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "Custom (enterprise)",
+      "unit": "per GB",
+      "notes": "No public pricing — requires sales contact"
+    },
+    "isp_ipv4": {
+      "price": "Custom (enterprise)",
+      "unit": "per IP per month",
+      "notes": "Pay-as-you-go available. No public price — contact sales."
+    },
+    "datacenter_ipv4": {
+      "price": "Custom",
+      "unit": "per IP per month",
+      "notes": "No public pricing"
+    },
+    "mobile_ipv4": {
+      "price": "Custom",
+      "unit": "per GB",
+      "notes": "No public pricing"
+    }
+  },
+  "free_trial": "7-day free trial available",
+  "min_purchase": "Undisclosed",
+  "single_ip_available": false,
+  "billing": ["Monthly", "Pay-as-you-go"],
+  "sources": [
+    "https://brightdata.com/pricing/proxy-network/isp-proxies",
+    "https://brightdata.com/proxy-types"
+  ]
+}

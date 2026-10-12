@@ -1,0 +1,14 @@
+{
+  "provider": "IPFoxy",
+  "slug": "ipfoxy",
+  "verified_date": "2026-06-30",
+  "sources": ["ipfoxy.com"],
+  "trustpilot": "Not found",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Limited",
+  "overall": "NEUTRAL_UNKNOWN",
+  "pros": ["Enterprise ISP focus"],
+  "cons": ["No Trustpilot", "Opaque pricing", "Unknown HQ"],
+  "flags": [],
+  "risk_level": "MEDIUM"
+}

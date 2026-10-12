@@ -1,0 +1,25 @@
+{
+  "provider": "FloppyData",
+  "slug": "floppydata",
+  "website": "https://floppydata.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "$0.60",
+      "unit": "per GB",
+      "notes": "195+ countries. Dubai-based (FLOPPYDATA-FZCO). Launched 2024."
+    },
+    "mobile_ipv4": {
+      "price": "$2.00",
+      "unit": "per GB",
+      "notes": "Mobile proxies"
+    }
+  },
+  "free_trial": "Contact sales",
+  "min_purchase": "Undisclosed",
+  "single_ip_available": false,
+  "billing": ["Monthly", "Annual"],
+  "sources": ["https://floppydata.com"]
+}

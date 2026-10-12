@@ -1,0 +1,131 @@
+{
+  "name": "Telegram Free Trial Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "telegram-free-trial",
+        "responseMode": "lastNode"
+      },
+      "id": "tg-trigger",
+      "name": "Telegram Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Telegram message\nconst data = $input.item.json;\nconst msg = data.message || {};\nreturn {\n  json: {\n    chatId: msg.chat?.id?.toString() || '',\n    text: (msg.text || '').toLowerCase().trim(),\n    firstName: msg.chat?.first_name || 'there'\n  }\n};"
+      },
+      "id": "tg-parse",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        470,
+        300
+      ]
+    },
+    {
+      "id": "tg-if-trial",
+      "name": "Switch Trial Request",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        690,
+        300
+      ],
+      "parameters": {
+        "rules": [
+          {
+            "outputKey": "output_0",
+            "conditions": {
+              "options": {
+                "caseSensitive": false,
+                "leftValue": "",
+                "typeValidation": "loose"
+              },
+              "conditions": [
+                {
+                  "id": "is-trial",
+                  "leftValue": "={{$json.text}}",
+                  "rightValue": "free trial",
+                  "operator": {
+                    "type": "string",
+                    "operation": "contains"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "outputCount": 1,
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendMessage",
+        "chatId": "={{$json.chatId}}",
+        "text": "\ud83c\udf89 Free Trial ready!\n\nComplete surveys to get free proxy time.\nEach survey = 2 hours, up to 12 surveys = 24 hours!\n\nReply 'done' when you finish a survey.",
+        "additionalFields": {},
+        "options": {}
+      },
+      "id": "tg-reply",
+      "name": "Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        910,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Message": {
+      "main": [
+        [
+          {
+            "node": "If Trial Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Trial Request": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

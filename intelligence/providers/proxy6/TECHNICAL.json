@@ -1,0 +1,19 @@
+{
+  "provider": "Proxy6",
+  "slug": "proxy6",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5", "MTProto"],
+  "ip_types": ["Datacenter IPv4", "Datacenter IPv6", "Mobile"],
+  "pool_size": "Not disclosed",
+  "countries": "100+ countries",
+  "geo_targeting": ["Country", "City"],
+  "session_types": ["Static (dedicated)"],
+  "rotation": "None — dedicated IPs",
+  "sticky_sessions": "Permanent until revoked",
+  "api": "REST API",
+  "auth_methods": ["Username/password", "IP whitelist"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["IPv4 + IPv6 + MTProto", "Single IP purchase", "Instant setup"],
+  "sources": ["proxy6.net"]
+}

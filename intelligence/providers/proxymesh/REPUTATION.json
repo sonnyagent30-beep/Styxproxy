@@ -1,0 +1,21 @@
+{
+  "slug": "proxymesh",
+  "provider_name": "ProxyMesh",
+  "research_date": "2026-06-30",
+  "scamalytics": {
+    "fraud_score": null,
+    "risk_level": "No specific Scamalytics data found"
+  },
+  "trustpilot": {
+    "rating": 2.8,
+    "review_count": 8,
+    "url": "https://www.trustpilot.com/review/proxymesh.com",
+    "notes": "Low trust score based on limited reviews"
+  },
+  "reddit": {
+    "sentiment": "Neutral",
+    "notes": "Limited Reddit presence"
+  },
+  "overall_reputation": "Below Average",
+  "notes": "HTTP proxy service providing rotating anonymous IP proxy servers. Elite level 1 anonymity. Limited reviews and trustpilot rating of 2.8."
+}

@@ -1,0 +1,34 @@
+{
+  "provider": "ProxyOn",
+  "slug": "proxyon",
+  "website": "https://proxyon.io",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Pay-as-you-go",
+  "products": {
+    "residential_ipv4": {
+      "price": "$1.75",
+      "unit": "per GB",
+      "notes": "Residential proxies. Pay-as-you-go. No subscription required."
+    },
+    "datacenter_ipv4": {
+      "price": "$1.50",
+      "unit": "per IP per 30 days",
+      "notes": "Static datacenter IPv4. Billed per IP per month."
+    },
+    "mobile_ipv4": {
+      "price": "$1.75",
+      "unit": "per GB",
+      "notes": "Mobile 4G/LTE proxies."
+    },
+    "isp_ipv4": {
+      "price": "$1.75",
+      "unit": "per GB",
+      "notes": "ISP proxies."
+    }
+  },
+  "free_trial": "Not specified",
+  "billing": ["Pay-as-you-go"],
+  "notes": ["US-based, founded ~2025", "Simple pricing model"],
+  "sources": ["https://proxyon.io/pricing"]
+}

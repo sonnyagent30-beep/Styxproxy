@@ -1,0 +1,19 @@
+{
+  "provider": "ProxyRack",
+  "slug": "proxyrack",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "Datacenter"],
+  "pool_size": "2M+ residential",
+  "countries": "140+ countries",
+  "geo_targeting": ["Country", "City", "ASN"],
+  "session_types": ["Rotating", "Sticky"],
+  "rotation": "Per request or time-based",
+  "sticky_sessions": "Yes",
+  "api": "REST API",
+  "auth_methods": ["Username/password", "IP whitelist"],
+  "sla": "99.9%",
+  "uptime": "99.9%",
+  "unique_features": ["Since 2014", "Starter API", "Packet monitoring"],
+  "sources": ["proxyrack.com"]
+}

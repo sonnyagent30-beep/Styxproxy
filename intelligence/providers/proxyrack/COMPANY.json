@@ -1,0 +1,44 @@
+{
+  "slug": "proxyrack",
+  "name": "ProxyRack",
+  "website": "https://www.proxyrack.com/",
+  "description": "Premier proxy provider with over 2 million unique IPs from around the globe. Offers residential, datacenter, mobile, ISP, and residential VPN products.",
+  "founding_year": 2014,
+  "headquarters": "Hong Kong, China",
+  "locations": [
+    "140+ proxy locations worldwide"
+  ],
+  "company_type": "Private",
+  "employees": "11-50",
+  "funding_status": "Unfunded",
+  "proxy_types": [
+    "Residential",
+    "Datacenter",
+    "ISP",
+    "Mobile",
+    "Residential VPN"
+  ],
+  "pricing": {
+    "residential": "$49.95",
+    "datacenter": "$50"
+  },
+  "key_features": [
+    "2M+ unique IPs",
+    "Unmetered bandwidth",
+    "HTTP and SOCKS5 support",
+    "Chrome extension",
+    "140+ locations"
+  ],
+  "competitors_count": 117,
+  "sources": [
+    {
+      "title": "ProxyRack - Tracxn",
+      "url": "https://tracxn.com/d/companies/proxyrack/__lm4Bk6R3_5YMCGWIUqdhkqyAGT0klN272D4i0N8GYK0"
+    },
+    {
+      "title": "ProxyRack Himalayas",
+      "url": "https://himalayas.app/companies/proxyrack"
+    }
+  ],
+  "data_created": "2026-06-30"
+}

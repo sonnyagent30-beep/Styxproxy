@@ -1,0 +1,11 @@
+{
+  "provider": "ProxyMesh",
+  "slug": "proxymesh",
+  "website": "https://proxymesh.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "UNVERIFIED",
+  "pricing_model": "Subscription",
+  "products": {},
+  "notes": ["Could not verify current pricing. Trustpilot 2.8 (below average).", "Historical data suggests HTTP proxies starting ~$0.50/IP/mo but current status unknown.", "Recommend verification before use."],
+  "sources": []
+}

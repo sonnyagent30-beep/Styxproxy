@@ -1,0 +1,25 @@
+{
+  "provider": "Geonix",
+  "slug": "geonix",
+  "website": "https://geonix.com",
+  "verified_date": "2026-06-30",
+  "sources": ["geonix.com", "G2"],
+  "trustpilot": "Not found on Trustpilot",
+  "trustpilot_reviews": "0",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Limited — new player",
+  "overall": "NEUTRAL_UNKNOWN",
+  "pros": [
+    "Multiple proxy types",
+    "Pay-as-you-go pricing",
+    "210+ countries"
+  ],
+  "cons": [
+    "No Trustpilot presence",
+    "Unknown founding year",
+    "Unknown HQ",
+    "Cannot verify IP quality"
+  ],
+  "flags": ["No independent verification", "Unknown HQ"],
+  "risk_level": "MEDIUM"
+}

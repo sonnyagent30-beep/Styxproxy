@@ -1,0 +1,46 @@
+{
+  "provider": "2extract",
+  "last_verified": "2026-06-30",
+  "verification_source": "Phase 2 research (inactive/unverified)",
+  "refund_policy": {
+    "status": "NOT_FOUND",
+    "policy_text": "No active website confirmed. Provider flagged as likely inactive. No refund policy verifiable.",
+    "money_back_days": null,
+    "conditions": ["unknown — provider appears inactive"],
+    "residential_refund": "unknown",
+    "isp_refund": "unknown"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No active service confirmed"
+  },
+  "kyc": {
+    "required": null,
+    "tier": "unknown",
+    "what_triggers_kyc": "unknown"
+  },
+  "payment_methods": {
+    "status": "NOT_FOUND",
+    "methods": []
+  },
+  "support": {
+    "channels": [],
+    "hours": null,
+    "response_time": null,
+    "status": "NOT_FOUND"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": false,
+    "commission_percent": null,
+    "payout_methods": null
+  },
+  "accepts_crypto": null,
+  "notes": "FLAGGED FOR REMOVAL. Provider appears inactive — no verifiable website, social presence, or recent reviews. Do not recommend to customers. Remove from active provider list."
+}

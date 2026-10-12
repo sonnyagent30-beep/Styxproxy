@@ -1,0 +1,86 @@
+{
+  "slug": "bright-data",
+  "technical_features": {
+    "proxy_types": {
+      "residential": {
+        "available": true,
+        "ip_pool": "400M+",
+        "countries": "195+",
+        "description": "Monthly residential IPs"
+      },
+      "isp": {
+        "available": true,
+        "description": "ISP static residential"
+      },
+      "datacenter": {
+        "available": true,
+        "description": "Datacenter proxy servers"
+      },
+      "mobile": {
+        "available": true,
+        "description": "Mobile proxy network"
+      }
+    },
+    "protocols": {
+      "http": true,
+      "https": true,
+      "socks5": true
+    },
+    "authentication": {
+      "user_pass": true,
+      "ip_whitelist": true,
+      "api_key": true,
+      "customer_id": true
+    },
+    "api": {
+      "web_unlocker_api": {
+        "available": true,
+        "success_rate": "98%",
+        "features": [
+          "Proxy rotation",
+          "Anti-bot challenge handling",
+          "CAPTCHA solving",
+          "Automatic proxy network selection"
+        ]
+      },
+      "proxy_manager": {
+        "available": true,
+        "description": "Centralized proxy control and optimization"
+      },
+      "public_api": true,
+      "open_source_code": true,
+      "mcp_server": true,
+      "description": "AI integrations via Web MCP"
+    },
+    "session_control": {
+      "full_session_control": true,
+      "geo_targeting": "Full control"
+    },
+    "infrastructure": {
+      "proxy_manager": "Centralized control",
+      "network_size": "400M+ monthly IPs"
+    }
+  },
+  "targeting": {
+    "geo_levels": ["country", "state", "city", "zip", "isp", "carrier", "asn"],
+    "country_coverage": "195+"
+  },
+  "integration": {
+    "scraping_automation": true,
+    "custom_scraper": {
+      "available": true,
+      "description": "AI-powered web extraction for any site"
+    },
+    "datasets": {
+      "available": true,
+      "description": "Ready-to-use datasets"
+    },
+    "enterprise_focus": true
+  },
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://brightdata.com/",
+    "https://docs.brightdata.com/proxy-networks/introduction",
+    "https://brightdata.mintlify.app/scraping-automation/web-unlocker/introduction"
+  ]
+}

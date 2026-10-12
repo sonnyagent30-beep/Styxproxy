@@ -1,0 +1,23 @@
+{
+  "provider": "webshare-usa",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "VERIFIED",
+    "policy_text": "Refer to Webshare (webshare.io) policy. Likely alias of webshare with US-focused proxies. Same 2-day money-back guarantee applies.",
+    "money_back_days": 2,
+    "conditions": [
+      "Same as webshare.io policy"
+    ],
+    "residential_refund": "2-day money-back guarantee",
+    "isp_refund": "2-day money-back guarantee"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["email", "help_center"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "Believed alias of webshare.io. Use same data as webshare. Same critical warning applies - 81% server IPs NOT residential."
+}

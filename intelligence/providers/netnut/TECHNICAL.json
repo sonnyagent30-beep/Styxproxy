@@ -1,0 +1,19 @@
+{
+  "provider": "NetNut",
+  "slug": "netnut",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "ISP", "Mobile"],
+  "pool_size": "20M+ residential",
+  "countries": "100+ countries",
+  "geo_targeting": ["Country", "State", "City", "ASN", "Carrier"],
+  "session_types": ["Rotating", "Sticky"],
+  "rotation": "Per request or sticky",
+  "sticky_sessions": "Yes",
+  "api": "REST API, Direct API",
+  "auth_methods": ["Username/password"],
+  "sla": "99.5%",
+  "uptime": "99.5%",
+  "unique_features": ["Direct ISP connectivity — no relaying", "NASDAQ-listed (ALAR)", "Fastest speeds claimed"],
+  "sources": ["netnut.io"]
+}

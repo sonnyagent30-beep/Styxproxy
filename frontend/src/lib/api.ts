@@ -1,0 +1,1403 @@
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { getDeviceId } from '@/lib/device-id';
+import type {
+  Order,
+  OrderPaymentStatus,
+  CatalogResponse,
+  PaymentInitiateResponse, 
+  AdminStats,
+  Customer,
+  ApiResponse,
+  PaginatedResponse,
+  FunnelData,
+  AnalyticsEvent,
+  StyxproxyCredential,
+  CharonConversation,
+  CharonLogEntry,
+  LearnedFile,
+  LearnedFilesResponse,
+  LearnContentResponse,
+  LearnRequest,
+  LearnResponse,
+  AdminLoginRequest,
+  AdminLoginResponse,
+  AdminSetupRequest,
+  AdminSetupTOTPResponse,
+  AdminSetupResponse,
+  AdminSetupCheckInviteResponse,
+  AdminMeResponse,
+  AdminTeamMember,
+  AdminMyPermissionsResponse,
+  AdminAllPermissionsResponse,
+  AdminGrantPermissionRequest,
+  AdminGrantPermissionResponse,
+  AdminRevokePermissionResponse,
+  AdminTotpStatusResponse,
+  AdminTotpElevateRequest,
+  AdminTotpElevateResponse,
+  AdminInviteCreateRequest,
+  AdminInviteCreateResponse,
+  AdminInvitesListResponse,
+  KnowledgeFile,
+  AllKnowledgeFilesResponse,
+  UpdateKnowledgeRequest,
+  UpdateKnowledgeResponse,
+  EvalQuestion,
+  EvalSetResponse,
+  EvalResult,
+  EvalRunResponse,
+  CharonEscalation,
+  OrderDetail,
+  CredentialDetail,
+  BlogPost,
+  BlogPostCreate,
+  BlogPostUpdate,
+  BlogPostsResponse,
+  BlogCategory,
+  BlogCategoriesResponse,
+  ChannelFeatureFlags,
+  Plan,
+  PlanCreate,
+  PlanUpdate,
+  PlanSetting,
+  ContactSubmission,
+  ContactSubmissionsResponse,
+  Escalation,
+  EscalationsResponse,
+  SupportThread,
+  SupportThreadDetail,
+  SupportThreadsResponse,
+  SupportThreadStatus,
+  Admin,
+  AdminCreateRequest,
+  AdminRoleUpdateRequest,
+  AdminAuditLog,
+  AdminAuditLogResponse,
+  ProviderCost,
+  ProviderCostsResponse,
+  SystemSetting,
+  SystemSettingsResponse,
+  GlobalSearchResult,
+  GlobalSearchResponse,
+  MetricsOverview,
+  AdminRole,
+  RlsPolicyResponse,
+  RlsPolicyListResponse,
+  RlsPolicyToggleRequest,
+  RlsPolicyToggleResponse,
+  RlsRolloutPhase,
+  RlsRolloutPlanResponse,
+  RlsSafeStatus,
+  RenewalInitiateResponse,
+  RenewalHistoryResponse,
+  RenewalResponse,
+} from '@/types';
+
+// API base URL resolution:
+//   - In the browser: relative URL ('') — same-origin fetch hits Next.js, which
+//     then proxies to the BE via next.config.ts rewrites.
+//   - On the server (SSR/RSC): must use the absolute BE URL. Hitting localhost
+//     during SSR is unreliable on Vercel — the rewrite fires but the outbound
+//     HTTPS to api.styxproxy.com from the lambda can fail with fetch failed,
+//     so the page renders with no data (Jul 24: this caused the blog page
+//     to show 'No posts found' even though curl from outside returned 17).
+//
+// NEXT_PUBLIC_API_URL is inlined at build time by Next.js for both client
+// and server bundles. Empty/undefined → use relative URLs (same-origin).
+// Relative URLs let Next.js rewrites proxy /api/* → backend, avoiding
+// cross-origin issues on mobile browsers.
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || '';
+
+class ApiClient {
+  private baseUrl: string;
+  private adminToken: string | null = null;
+
+  constructor(baseUrl: string = API_BASE_URL) {
+    this.baseUrl = baseUrl;
+  }
+
+  // Store admin token
+  setAdminToken(token: string | null) {
+    this.adminToken = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem('admin_token', token);
+      } else {
+        localStorage.removeItem('admin_token');
+      }
+    }
+  }
+
+  getAdminToken(): string | null {
+    if (this.adminToken) return this.adminToken;
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('admin_token');
+    }
+    return null;
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<ApiResponse<T>> {
+    try {
+      // Add admin token to headers if available
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string>),
+      };
+
+      // Anonymous device identity — lets the backend auto-provision an
+      // account for checkout without any collected PII.
+      if (typeof window !== 'undefined') {
+        try {
+          headers['X-Device-Id'] = getDeviceId();
+        } catch { /* non-browser or storage blocked */ }
+      }
+      
+      const adminToken = this.getAdminToken();
+      // Attach Bearer token to admin API endpoints.
+      // Covers: /admin/..., /api/admin/..., /api/me/... (RBAC self-service),
+      // /api/blog/admin/... (blog router mounts admin endpoints there).
+      const isAdminEndpoint =
+        endpoint.startsWith('/admin') ||
+        endpoint.startsWith('/api/admin') ||
+        endpoint.startsWith('/api/v1/admin') ||
+        endpoint.startsWith('/api/me') ||
+        endpoint.startsWith('/api/blog/admin');
+      if (adminToken && isAdminEndpoint) {
+        headers['Authorization'] = `Bearer ${adminToken}`;
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        // Ensure error is always a string — guard against structured objects
+        // (e.g. Pydantic/GraphQL errors like {type, loc, msg, input, ctx})
+        const rawError = errorData.detail || errorData.message || JSON.stringify(errorData);
+        // FastAPI validation errors return detail as an array of objects:
+        // [{loc: [...], msg: "...", type: "..."}, ...]
+        // String(array) produces "[object Object],[object Object]" — unreadable.
+        if (Array.isArray(rawError)) {
+          const messages = rawError.map((item: any) => {
+            if (typeof item === 'string') return item;
+            if (item && item.msg) return item.msg;
+            return JSON.stringify(item);
+          });
+          return { error: messages.join('. ') };
+        }
+        return {
+          error: typeof rawError === 'string' ? rawError : String(rawError)
+        };
+      }
+
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      return { 
+        error: error instanceof Error ? error.message : 'Unknown error occurred' 
+      };
+    }
+  }
+
+  // Catalog (BE-driven) — single source of truth for plan templates
+  // Replaces hardcoded products.ts where possible.
+  async getCatalog(): Promise<ApiResponse<CatalogResponse>> {
+    return this.request<CatalogResponse>('/catalog');
+  }
+
+  // Payment status polling — used by /thank-you page
+  // Returns the next_action state machine for the frontend to render.
+  async getOrderPaymentStatus(orderId: string): Promise<ApiResponse<OrderPaymentStatus>> {
+    return this.request<OrderPaymentStatus>(`/orders/${orderId}/status`);
+  }
+
+  // Orders
+  async createOrder(
+    planCode: string,
+    country: string,
+    quantity: number = 1,
+    opts?: { quantity_gb?: number; city_id?: number | null; city_name?: string | null; rotation_mode?: string; payment_reference?: string; customer_email?: string },
+  ): Promise<ApiResponse<Order>> {
+    return this.request<Order>('/api/orders/create', {
+      method: 'POST',
+      body: JSON.stringify({
+        plan_code: planCode,
+        country,
+        quantity,
+        quantity_gb: opts?.quantity_gb,
+        city_id: opts?.city_id ?? undefined,
+        city_name: opts?.city_name ?? undefined,
+        rotation_mode: opts?.rotation_mode ?? undefined,
+        payment_reference: opts?.payment_reference ?? undefined,
+        customer_email: opts?.customer_email ?? undefined,
+      }),
+    });
+  }
+
+  async getOrder(orderId: string): Promise<ApiResponse<Order>> {
+    return this.request<Order>(`/orders/${orderId}`);
+  }
+
+  async cancelOrder(orderId: string, reason: string): Promise<ApiResponse<{ order_id: string; status: string; refund_processed: boolean }>> {
+    return this.request(`/orders/${orderId}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async reportDeadProxy(orderId: string, screenshotUrl: string, issueDescription: string): Promise<ApiResponse<{ order_id: string; ban_reported: boolean; status: string; replacement_estimate_hours: number }>> {
+    return this.request(`/orders/${orderId}/report-dead`, {
+      method: 'POST',
+      body: JSON.stringify({
+        screenshot_url: screenshotUrl,
+        issue_description: issueDescription,
+      }),
+    });
+  }
+
+  // Payments
+  //
+  // Single options object, NOT positional args. The previous 11-positional
+  // signature had exactly one caller which omitted `order_id`, so every later
+  // argument shifted by one and the API silently mischarged (per-GB price sent
+  // as the GB count, idempotency UUID sent as the quantity). Nothing threw —
+  // the cart just billed 1/5 of the right amount. Positional args across a
+  // network boundary will break again the next time someone inserts one.
+  async initiatePayment(opts: {
+    planCode: string;
+    quantity: number;
+    quantityGb?: number;
+    customerPhone?: string;
+    customerEmail?: string;
+    gateway?: 'flutterwave' | 'paystack' | 'crypto' | 'stripe' | 'paynow';
+    idempotencyKey?: string;
+    deviceId?: string;
+  }): Promise<ApiResponse<PaymentInitiateResponse>> {
+    const headers: Record<string, string> = {};
+    if (opts.idempotencyKey) {
+      headers['Idempotency-Key'] = opts.idempotencyKey;
+    }
+    return this.request<PaymentInitiateResponse>('/api/payments/initiate', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        plan_code: opts.planCode,
+        quantity: opts.quantity,
+        quantity_gb: opts.quantityGb || undefined,
+        customer_phone: opts.customerPhone || undefined,
+        customer_email: opts.customerEmail || undefined,
+        gateway: opts.gateway || 'flutterwave',
+        // Anonymous checkout support: the backend needs SOME stable identity.
+        device_id: opts.deviceId || undefined,
+      }),
+    });
+  }
+
+  async fetchGateways(): Promise<ApiResponse<{
+    gateways: Record<string, {
+      available: boolean;
+      label: string;
+      icon: string;
+      description: string;
+    }>;
+  }>> {
+    return this.request('/api/payments/gateways');
+  }
+
+  // Orders
+  // Bug walk theme-B fix: precheck endpoint wired into FE checkout.
+  // Used by /order/checkout to warn customers if plan is unavailable
+  // before they hit the payment button.
+  async precheckOrder(
+    planCode: string,
+    country: string,
+    quantity: number = 1,
+    opts?: { quantity_gb?: number; city_id?: number | null; city_name?: string | null },
+  ): Promise<ApiResponse<{
+    available: boolean;
+    reason?: string;
+    price_ngn?: number;
+    estimated_delivery_seconds: number;
+  }>> {
+    return this.request('/api/orders/precheck', {
+      method: 'POST',
+      body: JSON.stringify({
+        plan_code: planCode,
+        country,
+        quantity,
+        quantity_gb: opts?.quantity_gb,
+        city_id: opts?.city_id ?? undefined,
+        city_name: opts?.city_name ?? undefined,
+      }),
+    });
+  }
+
+  // Trials
+  async claimTrial(disclaimerAccepted: boolean): Promise<ApiResponse<{ trial_id: number; status: string; styxproxy_credential: { styxproxy_username: string; upstream_proxy_ip: string; upstream_proxy_port: number; expires_at: string } }>> {
+    return this.request('/api/trials/claim', {
+      method: 'POST',
+      body: JSON.stringify({ disclaimer_accepted: disclaimerAccepted }),
+    });
+  }
+
+  // Admin
+  async getAdminStats(): Promise<ApiResponse<AdminStats>> {
+    return this.request<AdminStats>('/api/admin/stats');
+  }
+
+  async getAdminHealth(): Promise<ApiResponse<{
+    status: string;
+    admin: boolean;
+    circuit_breakers: Record<string, { failures: number; state: string; tripped_at: string | null }>;
+  }>> {
+    return this.request('/api/admin/health');
+  }
+
+  // Analytics
+  async getAnalyticsFunnel(): Promise<ApiResponse<FunnelData>> {
+    return this.request<FunnelData>('/api/admin/analytics/funnel');
+  }
+
+  async getAnalyticsEvents(page: number = 1, limit: number = 30, eventName?: string): Promise<ApiResponse<{ events: AnalyticsEvent[]; total: number }>> {
+    const offset = (page - 1) * limit;
+    const params = new URLSearchParams(`limit=${limit}&offset=${offset}`);
+    if (eventName && eventName !== 'all') params.set('event_name', eventName);
+    return this.request<{ events: AnalyticsEvent[]; total: number }>(
+      `/api/admin/analytics/events?${params.toString()}`
+    );
+  }
+
+  async getOrders(page: number = 1, limit: number = 20): Promise<ApiResponse<PaginatedResponse<Order>>> {
+    return this.request<PaginatedResponse<Order>>(`/api/admin/orders?page=${page}&limit=${limit}`);
+  }
+
+  async getCustomers(page: number = 1, limit: number = 20): Promise<ApiResponse<PaginatedResponse<Customer>>> {
+    return this.request<PaginatedResponse<Customer>>(`/api/admin/customers?page=${page}&limit=${limit}`);
+  }
+
+  async blockCustomer(customerId: string, reason: string): Promise<ApiResponse<{ blocked: boolean }>> {
+    return this.request(`/api/admin/customers/${customerId}/block`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  // ============== Bulk Customer Operations ==============
+
+  async bulkBlockCustomers(customerIds: string[], reason: string = 'Blocked by admin'): Promise<ApiResponse<{ success: boolean; processed: number; failed: number }>> {
+    return this.request('/api/admin/customers/bulk-block', {
+      method: 'POST',
+      body: JSON.stringify({ customer_ids: customerIds, reason }),
+    });
+  }
+
+  async bulkUnblockCustomers(customerIds: string[]): Promise<ApiResponse<{ success: boolean; processed: number; failed: number }>> {
+    return this.request('/api/admin/customers/bulk-unblock', {
+      method: 'POST',
+      body: JSON.stringify({ customer_ids: customerIds }),
+    });
+  }
+
+  getCustomersExportUrl(): string {
+    return `${this.baseUrl}/api/admin/customers/export`;
+  }
+
+  getOrdersExportUrl(filters?: { status?: string; customer_phone?: string }): string {
+    const params = new URLSearchParams();
+    if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
+    if (filters?.customer_phone) params.append('customer_phone', filters.customer_phone);
+    const qs = params.toString();
+    return `${this.baseUrl}/api/admin/orders/export${qs ? '?' + qs : ''}`;
+  }
+
+  // Charon Admin
+  async getCharonConversations(page: number = 1, limit: number = 20): Promise<ApiResponse<{ conversations: CharonConversation[]; total: number; limit: number; offset: number }>> {
+    return this.request(`/api/v1/charon/conversations?page=${page}&limit=${limit}`);
+  }
+
+  async getCharonLogs(
+    limit: number = 100,
+    offset: number = 0,
+    conversationId?: string,
+    channel?: string,
+    escalated?: boolean,
+    dateFrom?: string,
+    dateTo?: string
+  ): Promise<ApiResponse<{ logs: CharonLogEntry[]; total: number; limit: number; offset: number }>> {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (conversationId) params.append('conversation_id', conversationId);
+    if (channel) params.append('channel', channel);
+    if (escalated !== undefined) params.append('escalated', String(escalated));
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    return this.request(`/api/v1/charon/logs?${params.toString()}`);
+  }
+
+  getCharonStreamUrl(): string {
+    return `${this.baseUrl}/api/v1/charon/stream`;
+  }
+
+  // Learned Files Management
+  async getLearnedFiles(): Promise<ApiResponse<LearnedFilesResponse>> {
+    return this.request<LearnedFilesResponse>('/api/admin/charon/learned');
+  }
+
+  async getLearnedFileContent(filename: string): Promise<ApiResponse<LearnContentResponse>> {
+    return this.request<LearnContentResponse>(`/api/admin/charon/learned/${encodeURIComponent(filename)}`);
+  }
+
+  async deleteLearnedFile(filename: string): Promise<ApiResponse<{ ok: boolean; message: string }>> {
+    return this.request('/api/admin/charon/learned', {
+      method: 'DELETE',
+      body: JSON.stringify({ filename }),
+    });
+  }
+
+  // ============== Charon Knowledge (all files: knowledge + learned) ==============
+
+  async getAllKnowledgeFiles(): Promise<ApiResponse<AllKnowledgeFilesResponse>> {
+    return this.request<AllKnowledgeFilesResponse>('/api/admin/charon/knowledge');
+  }
+
+  async getKnowledgeFile(filename: string): Promise<ApiResponse<LearnContentResponse>> {
+    return this.request<LearnContentResponse>(`/api/admin/charon/knowledge/${encodeURIComponent(filename)}`);
+  }
+
+  async updateKnowledgeFile(filename: string, data: UpdateKnowledgeRequest): Promise<ApiResponse<UpdateKnowledgeResponse>> {
+    return this.request<UpdateKnowledgeResponse>(`/api/admin/charon/knowledge/${encodeURIComponent(filename)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createKnowledgeFile(filename: string, data: UpdateKnowledgeRequest): Promise<ApiResponse<UpdateKnowledgeResponse>> {
+    return this.request<UpdateKnowledgeResponse>(`/api/admin/charon/knowledge/${encodeURIComponent(filename)}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ============== Charon Q/A Evaluation ==============
+
+  async getEvalSet(): Promise<ApiResponse<EvalSetResponse>> {
+    return this.request<EvalSetResponse>('/api/admin/charon/eval');
+  }
+
+  async runEval(): Promise<ApiResponse<EvalRunResponse>> {
+    return this.request<EvalRunResponse>('/api/admin/charon/eval/run', { method: 'POST' });
+  }
+
+  async learnContent(data: LearnRequest): Promise<ApiResponse<LearnResponse>> {
+    return this.request<LearnResponse>('/api/v1/charon/learn', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Health
+  async healthCheck(): Promise<ApiResponse<{ status: string; version: string; database: string; timestamp: string }>> {
+    return this.request('/health');
+  }
+
+  // ============== Admin Auth ==============
+  
+  // Check if admin is already set up
+  async checkAdminSetupStatus(): Promise<ApiResponse<{ setup_required: boolean }>> {
+    return this.request('/api/admin/auth/status');
+  }
+
+  // Step 1: check if invite code is valid
+  async checkInviteCode(code: string): Promise<ApiResponse<{ valid: boolean; email?: string; role?: string }>> {
+    return this.request('/api/admin/auth/setup/check', {
+      method: 'POST',
+      body: JSON.stringify({ invite_code: code }),
+    });
+  }
+
+  // Initial admin setup — step 2: submit credentials → returns TOTP secret + backup codes
+  async setupAdmin(data: AdminSetupRequest): Promise<ApiResponse<AdminSetupTOTPResponse>> {
+    return this.request<AdminSetupTOTPResponse>('/api/admin/auth/setup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Complete admin setup — step 2: verify TOTP code
+  async setupAdminComplete(data: { temp_token: string; totp_code: string }): Promise<ApiResponse<AdminSetupResponse>> {
+    return this.request<AdminSetupResponse>('/api/admin/auth/setup/complete', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Admin login (email-based)
+  async adminLogin(data: AdminLoginRequest): Promise<ApiResponse<AdminLoginResponse>> {
+    return this.request<AdminLoginResponse>('/api/admin/auth/login/email', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Admin setup step 0: validate invite code before showing credentials step
+  async adminSetupCheckInvite(data: { invite_code: string }): Promise<ApiResponse<AdminSetupCheckInviteResponse>> {
+    return this.request<AdminSetupCheckInviteResponse>('/api/admin/auth/setup/check', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Admin setup step 1: invite + credentials → TOTP secret
+  async adminSetupStep1(data: AdminSetupRequest): Promise<ApiResponse<AdminSetupTOTPResponse>> {
+    return this.request<AdminSetupTOTPResponse>('/api/admin/auth/setup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Admin setup step 2: TOTP code → access token
+  async adminSetupStep2(data: { temp_token: string; totp_code: string }): Promise<ApiResponse<AdminSetupResponse>> {
+    return this.request<AdminSetupResponse>('/api/admin/auth/setup/complete', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Get current admin info
+  async getAdminMe(): Promise<ApiResponse<AdminMeResponse>> {
+    return this.request<AdminMeResponse>('/api/admin/auth/me');
+  }
+
+  // Admin logout
+  async adminLogout(): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/auth/logout', {
+      method: 'POST',
+    });
+  }
+
+  // Get admin team (SuperAdmin only)
+  async getAdminTeam(): Promise<ApiResponse<{ members: AdminTeamMember[] }>> {
+    return this.request('/api/admin/auth/team');
+  }
+
+  // Create admin invite (SuperAdmin only)
+  async createAdminInvite(data: AdminInviteCreateRequest): Promise<ApiResponse<AdminInviteCreateResponse>> {
+    return this.request<AdminInviteCreateResponse>('/api/admin/auth/invites', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Sprint 14 — RBAC + TOTP step-up
+  async getMyPermissions(): Promise<ApiResponse<AdminMyPermissionsResponse>> {
+    return this.request<AdminMyPermissionsResponse>('/api/me/permissions');
+  }
+
+  async getAllPermissions(): Promise<ApiResponse<AdminAllPermissionsResponse>> {
+    return this.request<AdminAllPermissionsResponse>('/api/admin/permissions');
+  }
+
+  async grantPermission(
+    adminEmail: string,
+    permissionCode: string,
+  ): Promise<ApiResponse<AdminGrantPermissionResponse>> {
+    return this.request<AdminGrantPermissionResponse>('/api/admin/permissions/grant', {
+      method: 'POST',
+      body: JSON.stringify({
+        admin_email: adminEmail,
+        permission_code: permissionCode,
+      }),
+    });
+  }
+
+  async revokePermission(
+    adminEmail: string,
+    permissionCode: string,
+  ): Promise<ApiResponse<AdminRevokePermissionResponse>> {
+    return this.request<AdminRevokePermissionResponse>('/api/admin/permissions/revoke', {
+      method: 'POST',
+      body: JSON.stringify({
+        admin_email: adminEmail,
+        permission_code: permissionCode,
+      }),
+    });
+  }
+
+  // Permission Change Requests (S14)
+  async getPermissionRequests(
+    status?: 'pending' | 'approved' | 'rejected' | 'expired',
+  ): Promise<ApiResponse<{ requests: any[]; total: number }>> {
+    const params = status ? '?status=' + status : '';
+    return this.request('/api/admin/permission-requests' + params);
+  }
+
+  async createPermissionRequest(data: {
+    permission_code: string;
+    desired_state: boolean;
+    justification: string;
+    target_email?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.request('/api/admin/permission-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async actionPermissionRequest(
+    requestId: string,
+    action: 'approve' | 'reject',
+    reviewer_notes?: string,
+  ): Promise<ApiResponse<unknown>> {
+    return this.request('/api/admin/permission-requests/' + requestId + '/action', {
+      method: 'POST',
+      body: JSON.stringify({ action, reviewer_notes }),
+    });
+  }
+
+  async getTotpStatus(): Promise<ApiResponse<AdminTotpStatusResponse>> {
+    return this.request<AdminTotpStatusResponse>('/api/me/totp/status');
+  }
+
+  async elevateTotp(
+    totpCode: string,
+    rememberDevice: boolean = false,
+  ): Promise<ApiResponse<AdminTotpElevateResponse>> {
+    return this.request<AdminTotpElevateResponse>('/api/me/totp/elevate', {
+      method: 'POST',
+      body: JSON.stringify({
+        totp_code: totpCode,
+        remember_device: rememberDevice,
+      }),
+    });
+  }
+
+  // Change admin PIN
+  async changeAdminPin(currentPin: string, newPin: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_pin: currentPin, new_pin: newPin }),
+    });
+  }
+
+  // Toggle TOTP
+  async toggleAdminTOTP(action: 'enable' | 'disable', totpCode?: string): Promise<ApiResponse<{ totp_enabled: boolean; message: string }>> {
+    return this.request('/api/admin/auth/change-totp', {
+      method: 'POST',
+      body: JSON.stringify({ action, totp_code: totpCode }),
+    });
+  }
+
+  // Get TOTP provisioning info (QR code + secret)
+  async getTotpProvision(): Promise<ApiResponse<{ qr_code_url: string; secret: string; backup_codes: string[]; otpauth_url?: string; totp_secret?: string }>> {
+    return this.request('/api/admin/auth/totp/provision');
+  }
+
+  // ============== Blog ==============
+
+  // Get all published blog posts (public) - supports optional tag filter
+  async getBlogPosts(page: number = 1, limit: number = 10, tag?: string, category?: string): Promise<ApiResponse<BlogPostsResponse>> {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (tag) params.set('tag', tag);
+    if (category) params.set('category', category);
+    return this.request<BlogPostsResponse>(`/api/blog/posts?${params.toString()}`);
+  }
+
+  // Get single blog post by slug (public)
+  async getBlogPost(slug: string): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/blog/posts/${slug}`);
+  }
+
+  // Get all blog posts for admin (includes unpublished)
+  async getAdminBlogPosts(page: number = 1, limit: number = 20): Promise<ApiResponse<BlogPostsResponse>> {
+    return this.request<BlogPostsResponse>(`/api/blog/admin/posts?page=${page}&limit=${limit}`);
+  }
+
+  // Create blog post (admin)
+  async createBlogPost(data: BlogPostCreate): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>('/api/blog/admin/posts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update blog post (admin)
+  async updateBlogPost(id: string, data: BlogPostUpdate): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/blog/admin/posts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Delete blog post (admin)
+  async deleteBlogPost(id: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/blog/admin/posts/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Blog post workflow actions
+  async publishPost(id: string): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/blog/admin/posts/${id}/publish`, {
+      method: 'POST',
+    });
+  }
+
+  async unpublishPost(id: string): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/blog/admin/posts/${id}/unpublish`, {
+      method: 'POST',
+    });
+  }
+
+  async approvePost(id: string): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/blog/admin/posts/${id}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectPost(id: string, reason: string): Promise<ApiResponse<BlogPost>> {
+    return this.request<BlogPost>(`/api/blog/admin/posts/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  // ============== Blog Categories ==============
+
+  // Get all categories (public)
+  async getBlogCategories(): Promise<ApiResponse<BlogCategoriesResponse>> {
+    return this.request<BlogCategoriesResponse>('/api/blog/categories');
+  }
+
+  // Get single category (public)
+  async getBlogCategory(slug: string): Promise<ApiResponse<BlogCategory>> {
+    return this.request<BlogCategory>(`/api/blog/categories/${slug}`);
+  }
+
+  // Get all categories for admin
+  async getAdminBlogCategories(): Promise<ApiResponse<BlogCategoriesResponse>> {
+    return this.request<BlogCategoriesResponse>('/api/blog/admin/categories');
+  }
+
+  // Create category (admin)
+  async createBlogCategory(data: { name: string; description?: string; color?: string }): Promise<ApiResponse<BlogCategory>> {
+    return this.request<BlogCategory>('/api/blog/admin/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Update category (admin)
+  async updateBlogCategory(id: string, data: { name?: string; description?: string; color?: string }): Promise<ApiResponse<BlogCategory>> {
+    return this.request<BlogCategory>(`/api/blog/admin/categories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Delete category (admin)
+  async deleteBlogCategory(id: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/blog/admin/categories/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ============== Channel Feature Flags ==============
+
+  // Get channel feature flags (public - no auth required)
+  async getChannelFeatureFlags(): Promise<ApiResponse<ChannelFeatureFlags>> {
+    return this.request<ChannelFeatureFlags>('/api/admin/features/channels');
+  }
+
+  // Update channel feature flags (admin only)
+  async updateChannelFeatureFlags(data: ChannelFeatureFlags): Promise<ApiResponse<ChannelFeatureFlags>> {
+    return this.request<ChannelFeatureFlags>('/api/admin/features/channels', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ============== Checkout Status ==============
+
+  // Get checkout status (public - no auth required)
+  async getCheckoutStatus(): Promise<ApiResponse<{ disabled: boolean; message?: string }>> {
+    return this.request<{ disabled: boolean; message?: string }>('/api/public/checkout-status');
+  }
+
+  // ============== Plans (Admin) ==============
+
+  async getPlans(page: number = 1, limit: number = 20, filters?: {
+    plan_type?: string;
+    country?: string;
+    is_active?: boolean;
+  }): Promise<ApiResponse<PaginatedResponse<Plan>>> {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (filters?.plan_type) params.append('plan_type', filters.plan_type);
+    if (filters?.country) params.append('country', filters.country);
+    if (filters?.is_active !== undefined) params.append('is_active', String(filters.is_active));
+    return this.request<PaginatedResponse<Plan>>(`/api/admin/plans?${params.toString()}`);
+  }
+
+  async getPlan(planId: number): Promise<ApiResponse<Plan>> {
+    return this.request<Plan>(`/api/admin/plans/${planId}`);
+  }
+
+  async createPlan(data: PlanCreate): Promise<ApiResponse<Plan>> {
+    return this.request<Plan>('/api/admin/plans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updatePlan(planId: number, data: PlanUpdate): Promise<ApiResponse<Plan>> {
+    return this.request<Plan>(`/api/admin/plans/${planId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deletePlan(planId: number): Promise<ApiResponse<{ status: string; plan_id: number }>> {
+    return this.request(`/api/admin/plans/${planId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ============== Plan Settings (Admin) ==============
+
+  // Returns PlanSettingsDisplay[] directly (no {settings} wrapper)
+  async getPlanSettings(): Promise<ApiResponse<any[]>> {
+    return this.request('/api/admin/plan-settings');
+  }
+
+  async updatePlanSettings(
+    id: number,
+    data: {
+      plan_type: string;
+      setting_value: {
+        price_per_gb?: number;
+        price_per_ip?: number;
+        available_countries: string[];
+        gb_tiers?: string[];
+        supports_city: boolean;
+        rotation_modes: string[];
+      };
+      is_active: boolean;
+    }
+  ): Promise<ApiResponse<PlanSetting>> {
+    return this.request(`/api/admin/plan-settings/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+
+  // ============== Country Plan Types (Admin) ==============
+
+  async getAdminCountries(): Promise<ApiResponse<{ countries: Array<{
+    code: string;
+    name: string | null;
+    plan_types: Record<string, { enabled: boolean; is_special: boolean; price_per_ip: number | null; price_per_gb: number | null }>;
+  }> }>> {
+    return this.request('/api/admin/countries');
+  }
+
+  async updateCountryPlanType(
+    code: string,
+    planType: string,
+    data: { enabled?: boolean; is_special?: boolean; price_per_ip?: number; price_per_gb?: number }
+  ): Promise<ApiResponse<{ status: string }>> {
+    return this.request(`/api/admin/countries/${code}/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async removeCountryFromProduct(code: string, planType: string): Promise<ApiResponse<{ status: string }>> {
+    return this.request(`/api/admin/countries/${code}/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled: false }),
+    });
+  }
+
+  async toggleCountry(code: string, enabled: boolean): Promise<ApiResponse<{ status: string; country: string; enabled: boolean }>> {
+    return this.request(`/api/admin/countries/${code}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ enabled }),
+    });
+  }
+
+  // ============== Catalog Templates (Admin) ==============
+
+  async getCatalogTemplates(): Promise<ApiResponse<CatalogTemplate[]>> {
+    return this.request('/api/admin/catalog/templates');
+  }
+
+  async updateCatalogTemplate(
+    planType: string,
+    availableCountries: string[]
+  ): Promise<ApiResponse<CatalogTemplate>> {
+    return this.request(`/api/admin/catalog/templates/${planType}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ available_countries: availableCountries }),
+    });
+  }
+
+  // ============== Support Threads =============
+
+  async getSupportThreads(status?: string, page = 1, limit = 20): Promise<ApiResponse<SupportThreadsResponse>> {
+    let url = `/api/v1/admin/support/threads?page=${page}&limit=${limit}`;
+    if (status && status !== 'all') url += `&status=${status}`;
+    return this.request<SupportThreadsResponse>(url);
+  }
+
+  async getSupportThread(threadId: string): Promise<ApiResponse<SupportThreadDetail>> {
+    return this.request<SupportThreadDetail>(`/api/v1/admin/support/threads/${threadId}`);
+  }
+
+  async replySupportThread(threadId: string, replyHtml: string, adminName = 'Dannion'): Promise<ApiResponse<{ status: string; message_id: string; thread_id: string }>> {
+    return this.request(`/api/v1/admin/support/threads/${threadId}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ reply_html: replyHtml, admin_name: adminName }),
+    });
+  }
+
+  async closeSupportThread(threadId: string): Promise<ApiResponse<{ status: string }>> {
+    return this.request(`/api/v1/admin/support/threads/${threadId}/close`, { method: 'POST' });
+  }
+
+  async reopenSupportThread(threadId: string): Promise<ApiResponse<{ status: string }>> {
+    return this.request(`/api/v1/admin/support/threads/${threadId}/reopen`, { method: 'POST' });
+  }
+
+  // ============== Public Support Tickets ==============
+
+  async createSupportTicket(data: {
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+    order_id?: string;
+  }): Promise<ApiResponse<{ ticket_id: string; status: string; message: string }>> {
+    return this.request<{ ticket_id: string; status: string; message: string }>('/api/v1/support/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async lookupSupportTickets(email: string): Promise<ApiResponse<{ tickets: Array<{ id: string; subject: string; status: string; order_id: string | null; last_message_at: string | null; created_at: string | null }> }>> {
+    return this.request<{ tickets: Array<{ id: string; subject: string; status: string; order_id: string | null; last_message_at: string | null; created_at: string | null }> }>(
+      `/api/v1/support/tickets/lookup?email=${encodeURIComponent(email)}`,
+    );
+  }
+
+  // ============== Contact Submissions =============
+
+  async getContactSubmissions(page = 1, limit = 20, status?: string): Promise<ApiResponse<ContactSubmissionsResponse>> {
+    const params = new URLSearchParams();
+    params.append('page', String(page));
+    params.append('limit', String(limit));
+    if (status) params.append('status', status);
+    return this.request<ContactSubmissionsResponse>(`/api/admin/contact-submissions?${params.toString()}`);
+  }
+
+  async replyContactSubmission(id: string, adminNotes: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.request(`/api/admin/contact-submissions/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_notes: adminNotes }),
+    });
+  }
+
+  async updateContactSubmission(id: string, status: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.request(`/api/admin/contact-submissions/${id}?status=${status}`, {
+      method: 'PATCH',
+    });
+  }
+
+  // ============== Charon Escalations =============
+
+  async getEscalations(status?: string, page = 1, limit = 20): Promise<ApiResponse<EscalationsResponse>> {
+    let url = `/api/admin/escalations?page=${page}&limit=${limit}`;
+    if (status) url += `&status=${status}`;
+    return this.request<EscalationsResponse>(url);
+  }
+
+  async respondEscalation(id: string, adminNotes: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.request(`/api/admin/escalations/${id}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ admin_notes: adminNotes }),
+    });
+  }
+
+  async updateEscalation(id: string, status: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.request(`/api/admin/escalations/${id}?status=${status}`, {
+      method: 'PATCH',
+    });
+  }
+
+  // ============== Admin Team Management (Full CRUD) ==============
+
+  async getAdmins(page: number = 1, limit: number = 20): Promise<ApiResponse<{ admins: Admin[]; pagination: { page: number; limit: number; total_items: number; total_pages: number; has_next: boolean; has_prev: boolean } }>> {
+    return this.request(`/api/admin/admins?page=${page}&limit=${limit}`);
+  }
+
+  async createAdmin(data: AdminCreateRequest): Promise<ApiResponse<{ admin: Admin; message: string }>> {
+    return this.request('/api/admin/admins', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAdminRole(email: string, role: AdminRole): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/admins/role', {
+      method: 'PATCH',
+      body: JSON.stringify({ email, role }),
+    });
+  }
+
+  async lockAdmin(email: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/admins/${encodeURIComponent(email)}/lock`, {
+      method: 'POST',
+    });
+  }
+
+  async unlockAdmin(email: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/admins/${encodeURIComponent(email)}/unlock`, {
+      method: 'POST',
+    });
+  }
+
+  async deactivateAdmin(email: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/admins/${encodeURIComponent(email)}/deactivate`, {
+      method: 'POST',
+    });
+  }
+
+  // ============== Audit Log ==============
+
+  async getAuditLogs(params?: {
+    action?: string;
+    admin_email?: string;
+    date_from?: string;
+    date_to?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<AdminAuditLogResponse>> {
+    const searchParams = new URLSearchParams();
+    if (params?.action) searchParams.append('action', params.action);
+    if (params?.admin_email) searchParams.append('admin_email', params.admin_email);
+    if (params?.date_from) searchParams.append('date_from', params.date_from);
+    if (params?.date_to) searchParams.append('date_to', params.date_to);
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
+    return this.request(`/api/admin/audit-log?${searchParams.toString()}`);
+  }
+
+  // ============== Provider Costs ==============
+
+  async getProviderCosts(): Promise<ApiResponse<ProviderCostsResponse>> {
+    return this.request('/api/admin/providers/costs');
+  }
+
+  // ============== System Settings ==============
+
+  async getSettings(): Promise<ApiResponse<SystemSettingsResponse>> {
+    return this.request('/api/admin/settings');
+  }
+
+  async updateSetting(key: string, value: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ key, value }),
+    });
+  }
+
+  async createSetting(key: string, value: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/settings', {
+      method: 'POST',
+      body: JSON.stringify({ key, value }),
+    });
+  }
+
+  // ============== Global Search ==============
+
+  async globalSearch(q: string): Promise<ApiResponse<GlobalSearchResponse>> {
+    return this.request(`/api/admin/search?q=${encodeURIComponent(q)}`);
+  }
+
+  // ============== Maintenance Mode ==============
+
+  async getMaintenanceStatus(): Promise<ApiResponse<{
+    enabled: boolean;
+    ready_at: string | null;
+    message: string | null;
+  }>> {
+    return this.request('/api/admin/maintenance');
+  }
+
+  async toggleMaintenance(payload: {
+    enabled?: boolean;
+    ready_at?: string | null;
+    message?: string | null;
+  }): Promise<ApiResponse<{
+    enabled: boolean;
+    ready_at: string | null;
+    message: string | null;
+  }>> {
+    return this.request('/api/admin/maintenance/toggle', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // ============== Metrics Overview ==============
+
+  async getMetricsOverview(): Promise<ApiResponse<MetricsOverview>> {
+    return this.request('/api/admin/metrics/overview');
+  }
+
+  // ============== Charon Stats (superadmin ops) ==============
+
+  async getCharonStats(): Promise<ApiResponse<{
+    total_conversations: number;
+    total_messages: number;
+    by_model: Record<string, number>;
+    cloud_up: boolean;
+    local_up: boolean;
+    last_error?: string | null;
+  }>> {
+    return this.request('/api/admin/charon/stats');
+  }
+
+  async resetCharon(): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/charon/reset', { method: 'POST' });
+  }
+
+  // ============== System Health (deep) ==============
+
+  async getSystemHealth(): Promise<ApiResponse<{
+    status: string;
+    services: {
+      database: string;
+      redis: string;
+      groq: { status: string; latency_ms?: number; error?: string | null };
+    };
+    charon_routing: { primary: string; fallback: string };
+    charon_available: boolean;
+  }>> {
+    return this.request('/api/v1/health');
+  }
+
+  // ============== Admin Invites (for team page) ==============
+
+  async getAdminInvites(): Promise<ApiResponse<{ invites: Array<{ id: number; email?: string; role: string; invite_code: string; expires_at: string; max_uses: number; uses: number; created_by: string }> }>> {
+    return this.request('/api/admin/auth/invites');
+  }
+
+  async deleteAdminInvite(inviteId: number): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/auth/invites/${inviteId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateTeamMemberRole(phone: string, role: AdminRole): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/auth/team/role', {
+      method: 'PATCH',
+      body: JSON.stringify({ phone, role }),
+    });
+  }
+
+  async lockTeamMember(phone: string, action: 'lock' | 'unlock'): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/auth/team/${action}`, {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+  }
+
+  async updateIPAllowlist(email: string, allowedIps: string[]): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/auth/team/${encodeURIComponent(email)}/ip-allowlist`, {
+      method: 'PUT',
+      body: JSON.stringify({ allowed_ips: allowedIps }),
+    });
+  }
+
+  // ============== Credential management ==============
+
+  async getCredentials(page = 1, limit = 20, filters?: { status?: string; customer_id?: string }): Promise<ApiResponse<{ data: CredentialDetail[]; pagination: { page: number; limit: number; total_items: number; total_pages: number; has_next: boolean; has_prev: boolean } }>> {
+    const searchParams = new URLSearchParams();
+    searchParams.append('page', String(page));
+    searchParams.append('limit', String(limit));
+    if (filters?.status) searchParams.append('status', filters.status);
+    if (filters?.customer_id) searchParams.append('customer_id', filters.customer_id);
+    return this.request(`/api/admin/credentials?${searchParams.toString()}`);
+  }
+
+  async getCredentialDetail(id: string): Promise<ApiResponse<CredentialDetail>> {
+    return this.request<CredentialDetail>(`/api/admin/credentials/${encodeURIComponent(id)}`);
+  }
+
+  async rotateCredential(id: string, reason: string): Promise<ApiResponse<{ success: boolean; message: string; credential?: CredentialDetail }>> {
+    return this.request(`/api/admin/credentials/${encodeURIComponent(id)}/replace`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async updateCredential(id: string, payload: { status?: string; notes?: string }): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    return this.request(`/api/admin/credentials/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // ============== Order management ==============
+
+  async lookupOrder(data: { order_id?: string; tx_ref?: string }): Promise<ApiResponse<OrderDetail>> {
+    return this.request<OrderDetail>('/api/admin/orders/lookup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async refundOrder(orderId: string, reason: string): Promise<ApiResponse<{ success: boolean; message: string; refund_ref?: string }>> {
+    return this.request(`/api/admin/orders/${encodeURIComponent(orderId)}/refund`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async updateOrderStatus(orderId: string, payload: { status: string; notes?: string }): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    return this.request(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async createAdminOrder(payload: Record<string, unknown>): Promise<ApiResponse<{ success: boolean; order?: Order; message: string }>> {
+    return this.request('/api/admin/orders', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // ============== TOTP provisioning (admin profile) ==============
+
+  async getTotpProvision(): Promise<ApiResponse<{ qr_code_url: string; secret: string; backup_codes: string[]; otpauth_url?: string; totp_secret?: string }>> {
+    return this.request('/api/admin/auth/change-totp', { method: 'GET' });
+  }
+
+  // ============== Escalation response (alias) ==============
+
+  /** @deprecated use respondEscalation */
+  async respondToEscalation(id: string, adminNotes: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.respondEscalation(id, adminNotes);
+  }
+
+  // ============== RLS / Row-Level Security (Sprint 15) ==============
+
+  async getRlsPolicies(): Promise<ApiResponse<RlsPolicyListResponse>> {
+    return this.request<RlsPolicyListResponse>('/api/admin/rls/policies');
+  }
+
+  async getRlsStatus(): Promise<ApiResponse<RlsSafeStatus>> {
+    return this.request<RlsSafeStatus>('/api/admin/rls/status');
+  }
+
+  async getRlsRolloutPlan(): Promise<ApiResponse<RlsRolloutPlanResponse>> {
+    return this.request<RlsRolloutPlanResponse>('/api/admin/rls/rollout-plan');
+  }
+
+  async toggleRlsPolicy(
+    table_name: string,
+    enable: boolean,
+    notes?: string,
+  ): Promise<ApiResponse<RlsPolicyToggleResponse>> {
+    return this.request<RlsPolicyToggleResponse>(
+      '/api/admin/rls/policies/toggle',
+      {
+        method: 'POST',
+        body: JSON.stringify({ table_name, enable, notes }),
+      },
+    );
+  }
+
+  async refreshRlsPolicies(): Promise<ApiResponse<{ added: Array<{ table: string; now_enabled: boolean }>; count_added: number }>> {
+    return this.request('/api/admin/rls/policies/refresh', { method: 'POST' });
+  }
+
+  // ============== Local token clear ==============
+
+
+  // ============== Secrets Vault ==============
+
+  async getSecretsVault(): Promise<ApiResponse<{ groups: Record<string, { key: string; masked: string; set: boolean }[]>; other: { key: string; masked: string; set: boolean }[]; env_path: string }>> {
+    return this.request('/api/admin/secrets');
+  }
+
+  async saveSecret(key: string, value: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/secrets', {
+      method: 'PUT',
+      body: JSON.stringify({ key, value }),
+    });
+  }
+
+  async deleteSecret(key: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request(`/api/admin/secrets/${key}`, { method: 'DELETE' });
+  }
+
+  async restartApi(): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/api/admin/secrets/restart', { method: 'POST' });
+  }
+
+  clearAdminToken(): void {
+    if (typeof window !== 'undefined') {
+      this.adminToken = null;
+      window.localStorage.removeItem('styx_admin_token');
+      window.sessionStorage.removeItem('styx_admin_token');
+    }
+  }
+
+  // ============== Renewals ==============
+
+  async initiateRenewal(data: {
+    order_id: string;
+    quantity_gb?: number;
+    gateway?: string;
+    customer_email?: string;
+    idempotency_key?: string;
+  }): Promise<ApiResponse<RenewalInitiateResponse>> {
+    const headers: Record<string, string> = {};
+    if (data.idempotency_key) {
+      headers['Idempotency-Key'] = data.idempotency_key;
+    }
+    return this.request<RenewalInitiateResponse>('/api/renewals/initiate', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        order_id: data.order_id,
+        quantity_gb: data.quantity_gb,
+        gateway: data.gateway || 'flutterwave',
+        customer_email: data.customer_email,
+      }),
+    });
+  }
+
+  async getRenewalsForOrder(orderId: string): Promise<ApiResponse<RenewalHistoryResponse>> {
+    return this.request<RenewalHistoryResponse>(`/api/renewals/order/${orderId}`);
+  }
+
+  async getRenewal(renewalId: number): Promise<ApiResponse<RenewalResponse>> {
+    return this.request<RenewalResponse>(`/api/renewals/${renewalId}`);
+  }
+}
+
+export const api = new ApiClient();
+export default api;

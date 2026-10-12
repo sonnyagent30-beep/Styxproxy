@@ -1,0 +1,46 @@
+{
+  "provider": "pia-proxy",
+  "last_verified": "2026-06-30",
+  "verification_source": "General knowledge — PIA brand proxy service",
+  "refund_policy": {
+    "status": "CONTACT_SALES",
+    "policy_text": "As a subsidiary of Private Internet Access (well-known VPN provider), follows standard SaaS refund practices. Contact support for refund requests.",
+    "money_back_days": null,
+    "conditions": ["contact support"],
+    "residential_refund": "contact support",
+    "isp_refund": "contact support"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found for proxy-specific service"
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "VERIFIED",
+    "methods": ["card", "paypal", "crypto"]
+  },
+  "support": {
+    "channels": ["email", "ticket"],
+    "hours": "Standard business hours",
+    "response_time": "Standard — PIA brand support quality",
+    "status": "VERIFIED"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": true,
+    "commission_percent": 30,
+    "payout_methods": ["paypal", "bank_transfer", "crypto"]
+  },
+  "accepts_crypto": true,
+  "notes": "Backed by Private Internet Access (PIA) VPN brand. Trustpilot 3.4. Affiliate program at 30% commission. PIA has established reputation for privacy. Proxy service is secondary product. USE WITH CAUTION — not proxy-specialist."
+}

@@ -1,0 +1,63 @@
+{
+  "name": "SOAX",
+  "slug": "soax",
+  "website": "https://soax.com",
+  "description": "A reliable proxy service with 191M+ IPs, providing residential, mobile, ISP, and datacenter proxies for web scraping, SEO, and data collection.",
+  "company_type": "proxy_provider",
+  "founded": 2019,
+  "headquarters": "London, United Kingdom",
+  "registered_address": "71-75 Shelton Street, London WC2H 9JQ, United Kingdom",
+  "legal_entity": "SOAX LTD (Company No. 11828506)",
+  "leadership": [
+    {
+      "name": "Stepan Solovev",
+      "title": "CEO and Co-Founder",
+      "linkedin": "https://uk.linkedin.com/in/stepanstpn"
+    },
+    {
+      "name": "Alika Rebel",
+      "title": "CTO"
+    },
+    {
+      "name": "Ali Cheema",
+      "title": "CFO"
+    },
+    {
+      "name": "Marina Kudryavtseva",
+      "title": "Head of Customer Care"
+    }
+  ],
+  "team_size": "50+",
+  "company_model": "remote_first",
+  "funding": "Series A (undisclosed amount)",
+  "products": [
+    "Residential Proxies",
+    "Mobile Proxies",
+    "ISP Proxies",
+    "Datacenter Proxies",
+    "SERP Scraping API",
+    "eCommerce Scraping API",
+    "Web Unblocker",
+    "AI Scraper"
+  ],
+  "proxy_pool_size": "191M+ IPs",
+  "coverage": "Global",
+  "key_features": [
+    "Ethically sourced IPs",
+    "Strict compliance procedures",
+    "Clean exclusive pool",
+    "Web scraping tools and APIs"
+  ],
+  "competitors": ["IPRoyal", "NetNut", "anyIP.io"],
+  "sources": [
+    {
+      "url": "https://soax.com/about",
+      "title": "About SOAX"
+    },
+    {
+      "url": "https://synthient.com/context/provider/SOAX",
+      "title": "SOAX: Proxy Provider Profile"
+    }
+  ],
+  "research_date": "2026-06-30"
+}

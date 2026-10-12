@@ -1,0 +1,21 @@
+{
+  "provider": "proxify",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "NOT_FOUND",
+    "policy_text": "Subject to Return/Refund Policy. Specific terms should be reviewed in legal documentation. Contact support@proxify.io.",
+    "money_back_days": null,
+    "conditions": [],
+    "residential_refund": "No refund policy found",
+    "isp_refund": "No refund policy found"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "SLA available at status.proxify.cloud" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["email", "help_center", "status_page"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "Anonymous HTTP proxy service. Available at proxify.io, proxify.cloud, proxify.ai, proxify.com."
+}

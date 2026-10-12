@@ -1,0 +1,19 @@
+{
+  "provider": "Webshare",
+  "slug": "webshare",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Static Residential", "Datacenter"],
+  "pool_size": "~750K datacenter + static residential",
+  "countries": "40+ countries",
+  "geo_targeting": ["Country", "State", "City"],
+  "session_types": ["Static (dedicated)", "Rotating residential"],
+  "rotation": "Rotating available for residential",
+  "sticky_sessions": "Yes — for static IPs",
+  "api": "REST API",
+  "auth_methods": ["Username/password", "IP whitelist"],
+  "sla": "99.97%",
+  "uptime": "99.97%",
+  "unique_features": ["Acquired by Oxylabs 2022", "1Gbit ports", "10-50 sub-users on plans"],
+  "sources": ["webshare.io"]
+}

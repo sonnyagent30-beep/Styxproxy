@@ -1,0 +1,318 @@
+{
+  "categories": [
+    {
+      "slug": "guides",
+      "name": "Guides",
+      "description": "Step-by-step walkthroughs for setting up and configuring proxies.",
+      "color": "#0AD25A"
+    },
+    {
+      "slug": "comparisons",
+      "name": "Comparisons",
+      "description": "Head-to-head breakdowns to help you pick the right proxy type or protocol.",
+      "color": "#3B9DFF"
+    },
+    {
+      "slug": "proxy-types",
+      "name": "Proxy Types",
+      "description": "What each proxy type actually is, how it works, and when to use it.",
+      "color": "#A855F7"
+    },
+    {
+      "slug": "best-practices",
+      "name": "Best Practices",
+      "description": "Operational advice for staying unblocked, rotating cleanly, and buying well.",
+      "color": "#F59E0B"
+    },
+    {
+      "slug": "nigeria",
+      "name": "Nigeria",
+      "description": "Local market context, use cases, and automation for Nigerian businesses.",
+      "color": "#10B981"
+    }
+  ],
+  "tags": [
+    {
+      "slug": "residential-proxies",
+      "name": "Residential Proxies"
+    },
+    {
+      "slug": "datacenter-proxies",
+      "name": "Datacenter Proxies"
+    },
+    {
+      "slug": "isp-proxies",
+      "name": "ISP Proxies"
+    },
+    {
+      "slug": "mobile-proxies",
+      "name": "Mobile Proxies"
+    },
+    {
+      "slug": "socks5",
+      "name": "SOCKS5"
+    },
+    {
+      "slug": "http-proxies",
+      "name": "HTTP Proxies"
+    },
+    {
+      "slug": "authentication",
+      "name": "Authentication"
+    },
+    {
+      "slug": "setup",
+      "name": "Setup"
+    },
+    {
+      "slug": "rotation",
+      "name": "Rotation"
+    },
+    {
+      "slug": "ban-avoidance",
+      "name": "Ban Avoidance"
+    },
+    {
+      "slug": "web-scraping",
+      "name": "Web Scraping"
+    },
+    {
+      "slug": "social-media",
+      "name": "Social Media"
+    },
+    {
+      "slug": "ad-verification",
+      "name": "Ad Verification"
+    },
+    {
+      "slug": "automation",
+      "name": "Automation"
+    },
+    {
+      "slug": "buying-guide",
+      "name": "Buying Guide"
+    },
+    {
+      "slug": "pricing",
+      "name": "Pricing"
+    },
+    {
+      "slug": "nigeria",
+      "name": "Nigeria"
+    },
+    {
+      "slug": "beginners",
+      "name": "Beginners"
+    }
+  ],
+  "posts": [
+    {
+      "slug": "first-proxy-setup",
+      "title": "Setting Up Your First Proxy in 5 Minutes",
+      "category": "guides",
+      "tags": [
+        "setup",
+        "beginners",
+        "authentication",
+        "http-proxies"
+      ],
+      "excerpt": "A complete walkthrough from sign-up to your first proxied request, with browser and code examples you can copy and run in under five minutes.",
+      "meta_description": "Set up your first proxy in 5 minutes. Step-by-step guide covering sign-up, credentials, browser config and your first proxied request."
+    },
+    {
+      "slug": "how-to-configure-socks5-proxies",
+      "title": "How to Configure SOCKS5 Proxies in 5 Minutes",
+      "category": "guides",
+      "tags": [
+        "socks5",
+        "setup",
+        "beginners"
+      ],
+      "excerpt": "Configure your Styxproxy SOCKS5 credentials across five popular applications, with the exact connection strings and settings to paste into each one.",
+      "meta_description": "How to configure SOCKS5 proxies in 5 minutes. Exact connection strings for browsers, Python, curl and popular desktop apps."
+    },
+    {
+      "slug": "proxy-authentication-methods",
+      "title": "Proxy Authentication Methods Explained: IP Whitelist vs Username/Password",
+      "category": "guides",
+      "tags": [
+        "authentication",
+        "setup",
+        "socks5",
+        "http-proxies"
+      ],
+      "excerpt": "IP whitelisting or username and password? The two mainstream proxy authentication methods compared, and how to pick the one that fits your setup.",
+      "meta_description": "Proxy authentication explained: IP whitelist vs username and password. Compare both methods and pick the right one for your workflow."
+    },
+    {
+      "slug": "residential-vs-datacenter",
+      "title": "Residential vs Datacenter Proxies: Which One Do You Actually Need?",
+      "category": "comparisons",
+      "tags": [
+        "residential-proxies",
+        "datacenter-proxies",
+        "buying-guide"
+      ],
+      "excerpt": "Speed, cost and detection risk compared in depth, so you stop overpaying for residential IPs on the jobs a datacenter proxy handles perfectly well.",
+      "meta_description": "Residential vs datacenter proxies compared: speed, price, and block rates. Learn which proxy type your workload actually needs."
+    },
+    {
+      "slug": "residential-vs-datacenter-proxies",
+      "title": "Residential vs Datacenter Proxies: Which Should You Choose?",
+      "category": "comparisons",
+      "tags": [
+        "residential-proxies",
+        "datacenter-proxies",
+        "buying-guide"
+      ],
+      "excerpt": "A quick side-by-side of residential and datacenter proxies, covering the cost and detection trade-offs that matter when you choose between them.",
+      "meta_description": "Residential vs datacenter proxies: a quick comparison of cost, speed and detection risk to help you choose the right proxy type."
+    },
+    {
+      "slug": "http-vs-socks5-vs-https-proxies",
+      "title": "HTTP vs SOCKS5 vs HTTPS Proxies: Complete Comparison",
+      "category": "comparisons",
+      "tags": [
+        "http-proxies",
+        "socks5",
+        "authentication"
+      ],
+      "excerpt": "HTTP, HTTPS, and SOCKS5 are not interchangeable names for the same thing. Here is what each protocol actually does and when to reach for it.",
+      "meta_description": "HTTP vs SOCKS5 vs HTTPS proxies compared. Understand what each protocol does, how they differ, and which one fits your use case."
+    },
+    {
+      "slug": "free-trial-vs-paid",
+      "title": "Free Trial vs Paid Proxies: What's the Catch?",
+      "category": "comparisons",
+      "tags": [
+        "buying-guide",
+        "pricing",
+        "beginners"
+      ],
+      "excerpt": "Free proxy lists look tempting until you count the real cost in bans, leaked traffic and lost hours. Here is what you are actually paying for.",
+      "meta_description": "Free trial vs paid proxies: the real trade-offs in speed, security and reliability, and when a free proxy actually costs you more."
+    },
+    {
+      "slug": "isp-proxy",
+      "title": "What is an ISP Proxy?",
+      "category": "proxy-types",
+      "tags": [
+        "isp-proxies",
+        "residential-proxies",
+        "datacenter-proxies"
+      ],
+      "excerpt": "ISP proxies pair residential legitimacy with datacenter speed. Here is how that combination works, what it costs, and the jobs it wins outright.",
+      "meta_description": "What is an ISP proxy? How ISP proxies combine residential trust with datacenter speed, what they cost, and when to use them."
+    },
+    {
+      "slug": "mobile-4g-proxies",
+      "title": "Mobile 4G Proxies: The Underdog of Ad Verification",
+      "category": "proxy-types",
+      "tags": [
+        "mobile-proxies",
+        "ad-verification",
+        "residential-proxies"
+      ],
+      "excerpt": "Ad fraud teams reach for residential IPs by default and miss what carrier-grade NAT gives mobile proxies for verification work at real scale.",
+      "meta_description": "Mobile 4G proxies for ad verification: why carrier IPs beat residential proxies for detecting ad fraud and geo-targeted campaigns."
+    },
+    {
+      "slug": "4g-mobile-proxies-social-media",
+      "title": "4G Mobile Proxies: Why They Are King for Social Media Automation",
+      "category": "proxy-types",
+      "tags": [
+        "mobile-proxies",
+        "social-media",
+        "ban-avoidance"
+      ],
+      "excerpt": "Platforms fingerprint datacenter IPs the moment they touch an auth flow. Mobile proxies sit in a trust class of their own, and that is why they hold up.",
+      "meta_description": "Why 4G mobile proxies are best for social media automation. Avoid shadowbans when managing multiple Instagram or TikTok accounts."
+    },
+    {
+      "slug": "proxy-rotation",
+      "title": "Proxy Rotation: What It Is and Why It Matters",
+      "category": "best-practices",
+      "tags": [
+        "rotation",
+        "ban-avoidance",
+        "web-scraping"
+      ],
+      "excerpt": "Rate limits, CAPTCHAs and bans all trace back to one IP doing too much. Rotation explained, plus how to choose a sensible rotation interval.",
+      "meta_description": "Proxy rotation explained: what it is, why it prevents bans and CAPTCHAs, and how to choose the right rotation interval for your job."
+    },
+    {
+      "slug": "avoiding-bans",
+      "title": "Avoiding Proxy Bans: 5 Rules That Actually Work",
+      "category": "best-practices",
+      "tags": [
+        "ban-avoidance",
+        "rotation",
+        "web-scraping",
+        "social-media"
+      ],
+      "excerpt": "Five rules that actually keep you unblocked, drawn from the specific mistakes that get scrapers, sneaker bots and social accounts banned most often.",
+      "meta_description": "Avoid proxy bans with 5 rules that work: rotation discipline, request pacing, fingerprint hygiene and proxy type selection."
+    },
+    {
+      "slug": "choosing-provider",
+      "title": "How to Choose a Proxy Provider: 7 Questions to Ask",
+      "category": "best-practices",
+      "tags": [
+        "buying-guide",
+        "pricing",
+        "authentication"
+      ],
+      "excerpt": "Seven questions that separate a proxy provider worth paying for from one that will quietly waste your budget, your afternoon and your patience.",
+      "meta_description": "How to choose a proxy provider: 7 questions on IP sourcing, pricing, support and refunds to ask before you buy."
+    },
+    {
+      "slug": "styxproxy-plans",
+      "title": "Styxproxy Plans Explained: Which Tier Fits Your Workload",
+      "category": "best-practices",
+      "tags": [
+        "pricing",
+        "buying-guide",
+        "isp-proxies"
+      ],
+      "excerpt": "A plain breakdown of every Styxproxy tier so you can match a plan to your real workload instead of guessing at bandwidth and overpaying monthly.",
+      "meta_description": "Styxproxy plans explained. Compare ISP, Residential, Mobile and Datacenter tiers and match the right plan to your workload."
+    },
+    {
+      "slug": "nigeria-proxy-market",
+      "title": "Nigeria Proxy Market: Why Local IPs Matter for Some Use Cases",
+      "category": "nigeria",
+      "tags": [
+        "nigeria",
+        "residential-proxies",
+        "web-scraping",
+        "ad-verification"
+      ],
+      "excerpt": "Over 200 million people and a fast-growing digital economy make Nigerian IPs essential for some jobs, and completely unnecessary for others.",
+      "meta_description": "Nigeria proxy market guide: when local Nigerian IPs matter, which use cases need them, and how to source residential IPs in Nigeria."
+    },
+    {
+      "slug": "web-scraping-nigeria-guide",
+      "title": "Web Scraping in Nigeria: A Practical Guide for 2026",
+      "category": "nigeria",
+      "tags": [
+        "web-scraping",
+        "nigeria",
+        "automation"
+      ],
+      "excerpt": "How to collect public data from Nigerian e-commerce, classifieds and news platforms at scale without getting your collector blocked on day one.",
+      "meta_description": "Web scraping in Nigeria: a practical 2026 guide to collecting data from local e-commerce and classifieds sites without getting blocked."
+    },
+    {
+      "slug": "web-automation-stack-nigerian-businesses",
+      "title": "Building an Affordable Web Automation Stack for Nigerian Businesses",
+      "category": "nigeria",
+      "tags": [
+        "automation",
+        "nigeria",
+        "web-scraping"
+      ],
+      "excerpt": "The minimum viable automation stack for a small Nigerian business, and how it saves you ten hours every week without hiring a single developer.",
+      "meta_description": "Build an affordable web automation stack for your Nigerian business. Save 10+ hours a week on lead capture and price monitoring."
+    }
+  ]
+}

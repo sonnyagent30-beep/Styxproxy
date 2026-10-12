@@ -1,0 +1,22 @@
+{
+  "slug": "oxylabs",
+  "provider_name": "Oxylabs",
+  "research_date": "2026-06-30",
+  "scamalytics": {
+    "fraud_score": 62,
+    "risk_level": "Medium-High Risk",
+    "source": "https://scamalytics.com/ip/isp/oxylabs",
+    "notes": "Scamalytics shows high levels of web traffic with suspected fraudulent activity. Risk score 62/100 means approximately 62% suspected fraudulent."
+  },
+  "trustpilot": {
+    "rating": 3.7,
+    "review_count": 724,
+    "url": "https://www.trustpilot.com/review/oxylabs.io"
+  },
+  "reddit": {
+    "sentiment": "Mixed",
+    "notes": "Some complaints about location switching issues and captchas. Generally seen as legitimate but premium pricing."
+  },
+  "overall_reputation": "Mixed",
+  "notes": "Large enterprise proxy provider (175M+ residential, 2M datacenter). Founded 2015, Lithuania. Mixed reviews - praised for support but some service quality complaints."
+}

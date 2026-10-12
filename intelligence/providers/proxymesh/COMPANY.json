@@ -1,0 +1,23 @@
+{
+  "slug": "proxymesh",
+  "name": "ProxyMesh",
+  "website": "https://proxymesh.com/",
+  "description": "ProxyMesh rotating anonymous proxy servers provide changing IP addresses to avoid IP bans and rate limits.",
+  "services": [
+    "Rotating HTTP proxies",
+    "Anonymous proxy servers"
+  ],
+  "features": {
+    "proxy_type": "Rotating HTTP",
+    "anti_ban": true,
+    "rate_limit_bypass": true
+  },
+  "target_audience": ["Web scrapers", "Data crawlers"],
+  "sources": [
+    {
+      "title": "ProxyMesh HTTP Proxy | Rotating Anonymous IP Proxy Servers",
+      "url": "https://proxymesh.com/"
+    }
+  ],
+  "research_date": "2026-06-30"
+}

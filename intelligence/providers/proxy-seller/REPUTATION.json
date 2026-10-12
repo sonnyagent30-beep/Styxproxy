@@ -1,0 +1,20 @@
+{
+  "slug": "proxy-seller",
+  "provider_name": "Proxy-Seller",
+  "research_date": "2026-06-30",
+  "scamalytics": {
+    "fraud_score": null,
+    "risk_level": "No specific Scamalytics data found"
+  },
+  "trustpilot": {
+    "rating": 3.9,
+    "review_count": 126,
+    "url": "https://www.trustpilot.com/review/proxy-seller.com"
+  },
+  "reddit": {
+    "sentiment": "Positive",
+    "notes": "Often recommended for Reddit proxy use cases. Known for good variety of locations and subnets."
+  },
+  "overall_reputation": "Good",
+  "notes": "Cyprus-based provider with 10+ years in market, 500K+ clients. Offers ISP proxies, residential, mobile, datacenter. Praised for diverse country selection and auto-renewal features."
+}

@@ -1,0 +1,249 @@
+'use client';
+
+/* eslint-disable react-hooks/set-state-in-effect */
+
+import { useEffect, useState } from 'react';
+
+const DEVICE_ID_KEY = 'styxproxy_device_id';
+const INFLIGHT_KEY = 'styxproxy_inflight_order';
+const ORDERS_KEY = 'styxproxy_orders';
+
+/**
+ * Generate a UUIDv4 (uses crypto.randomUUID if available, fallback to manual).
+ */
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+    return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
+  }
+  // Fallback for very old browsers (non-cryptographic)
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.floor(Math.random() * 16);
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+function _legacyGenerateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * Get or create the device ID for this browser.
+ * Anonymous identity — UUID stored in localStorage.
+ * Survives tab close, cleared only when user clears site data.
+ */
+export function getDeviceId(): string {
+  if (typeof window === 'undefined') return '';
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = generateUUID();
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
+export function useDeviceId(): string | null {
+  const [id, setId] = useState<string | null>(null);
+  useEffect(() => {
+    setId(getDeviceId());
+  }, []);
+  return id;
+}
+
+/**
+ * In-flight order tracking — prevents double payments at the frontend layer.
+ *
+ * When a customer clicks "Pay", we record (tx_ref, device_id, plan_code, created_at)
+ * in localStorage. If they click "Pay" again within 5 minutes:
+ *   - read the existing record
+ *   - return the existing tx_ref (don't create a new order)
+ *   - show a toast: "Payment in progress for order ORD-XXXX"
+ *
+ * After 5 minutes (or webhook confirmation), the record is cleared.
+ */
+export type InflightOrder = {
+  tx_ref: string;
+  plan_code: string;
+  created_at: number; // unix ms
+  device_id: string;
+};
+
+export function getInflightOrder(): InflightOrder | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(INFLIGHT_KEY);
+  if (!raw) return null;
+  try {
+    const order = JSON.parse(raw) as InflightOrder;
+    // Expire after 5 minutes — assume abandoned/aborted
+    if (Date.now() - order.created_at > 5 * 60 * 1000) {
+      localStorage.removeItem(INFLIGHT_KEY);
+      return null;
+    }
+    return order;
+  } catch {
+    return null;
+  }
+}
+
+export function setInflightOrder(order: InflightOrder): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(INFLIGHT_KEY, JSON.stringify(order));
+}
+
+export function clearInflightOrder(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(INFLIGHT_KEY);
+}
+
+/**
+ * Try to start an order — returns the existing tx_ref if there's an in-flight one
+ * for the same plan_code, or starts a new one.
+ *
+ * Returns: { tx_ref: string, is_resume: boolean }
+ *   is_resume=true means we reused an existing in-flight order
+ */
+export function tryStartOrder(plan_code: string, generateTxRef: () => string): {
+  tx_ref: string;
+  is_resume: boolean;
+} {
+  const deviceId = getDeviceId();
+  const inflight = getInflightOrder();
+
+  if (inflight && inflight.device_id === deviceId && inflight.plan_code === plan_code) {
+    return { tx_ref: inflight.tx_ref, is_resume: true };
+  }
+
+  // Different plan or no inflight — start fresh
+  const tx_ref = generateTxRef();
+  setInflightOrder({
+    tx_ref,
+    plan_code,
+    created_at: Date.now(),
+    device_id: deviceId,
+  });
+  return { tx_ref, is_resume: false };
+}
+
+/**
+ * Order history — list of orders placed from this device.
+ * Lets customers come back and find past orders without login.
+ */
+export type OrderHistoryEntry = {
+  tx_ref: string;
+  order_id: string;
+  plan_code: string;
+  country: string;
+  amount: number;
+  status: string;
+  created_at: string; // ISO
+};
+
+export function getOrderHistory(): OrderHistoryEntry[] {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(ORDERS_KEY);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as OrderHistoryEntry[];
+  } catch {
+    return [];
+  }
+}
+
+export function addToOrderHistory(entry: OrderHistoryEntry): void {
+  if (typeof window === 'undefined') return;
+  const history = getOrderHistory();
+  // De-dupe by tx_ref, keep newest first
+  const filtered = history.filter((o) => o.tx_ref !== entry.tx_ref);
+  filtered.unshift(entry);
+  // Cap at 50
+  const capped = filtered.slice(0, 50);
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(capped));
+}
+
+export function clearOrderHistory(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(ORDERS_KEY);
+}
+
+export function removeFromHistory(txRef: string): void {
+  if (typeof window === 'undefined') return;
+  const history = getOrderHistory();
+  const filtered = history.filter((o) => o.tx_ref !== txRef);
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(filtered));
+}
+
+export function updateHistoryEntry(txRef: string, updates: Partial<OrderHistoryEntry>): void {
+  if (typeof window === 'undefined') return;
+  const history = getOrderHistory();
+  const idx = history.findIndex((o) => o.tx_ref === txRef);
+  if (idx >= 0) {
+    history[idx] = { ...history[idx], ...updates };
+    localStorage.setItem(ORDERS_KEY, JSON.stringify(history));
+  }
+}
+
+/**
+ * Remove stale orders from localStorage based on status.
+ *
+ * Spec (confirmed by Dannion):
+ *   - fulfilled / active: keep forever
+ *   - pending / processing: delete after 30 minutes (abandoned payments)
+ *   - failed / expired / cancelled: delete after 3 days
+ *   - refunded: delete after 15 days
+ */
+export function cleanupStalePendingOrders(): void {
+  if (typeof window === 'undefined') return;
+  const history = getOrderHistory();
+  const now = Date.now();
+  const THIRTY_MIN = 30 * 60 * 1000;
+  const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+  const FIFTEEN_DAYS = 15 * 24 * 60 * 60 * 1000;
+
+  const filtered = history.filter((o) => {
+    const created = new Date(o.created_at).getTime();
+    const age = now - created;
+
+    // Always keep fulfilled and active
+    if (o.status === 'fulfilled' || o.status === 'active') return true;
+
+    // Pending / processing: drop after 30 minutes
+    if (o.status === 'pending' || o.status === 'processing') {
+      return age <= THIRTY_MIN;
+    }
+
+    // Refunded: drop after 15 days
+    if (o.status === 'refunded') {
+      return age <= FIFTEEN_DAYS;
+    }
+
+    // Failed / expired / cancelled: drop after 3 days
+    if (
+      o.status === 'failed' ||
+      o.status === 'payment_failed' ||
+      o.status === 'failed_manual_review' ||
+      o.status === 'failed_unfulfilled' ||
+      o.status === 'paid_unfulfilled' ||
+      o.status === 'expired' ||
+      o.status === 'cancelled'
+    ) {
+      return age <= THREE_DAYS;
+    }
+
+    // Unknown status: keep (safer than dropping)
+    return true;
+  });
+
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(filtered));
+}

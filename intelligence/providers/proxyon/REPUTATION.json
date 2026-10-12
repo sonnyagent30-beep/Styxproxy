@@ -1,0 +1,29 @@
+{
+  "slug": "proxyon",
+  "last_updated": "2026-06-30",
+  "trustpilot": {
+    "rating": "4.0",
+    "reviews_count": "Not publicly disclosed",
+    "source": "Proxy DB review",
+    "notes": "Residential proxies have 99% success rate and 1.9s response time"
+  },
+  "scamalytics": {
+    "status": "Not applicable - this is a proxy provider, not a target for fraud checks",
+    "note": "Proxy providers themselves are not scored on Scamalytics"
+  },
+  "reddit": {
+    "sentiment": "Mixed",
+    "key_issues": [
+      "Limited targeting options",
+      "Datacenter minimum order is 10 despite ability to set to 1"
+    ],
+    "positive": "High success rate on residential proxies"
+  },
+  "general_reputation": {
+    "status": "Generally positive",
+    "established": "2025",
+    "origin": "United States",
+    "note": "Newer provider with competitive pricing starting at $5"
+  },
+  "risk_assessment": "LOW"
+}

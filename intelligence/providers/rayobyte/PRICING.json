@@ -1,0 +1,35 @@
+{
+  "provider": "Rayobyte",
+  "slug": "rayobyte",
+  "website": "https://rayobyte.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_rotating": {
+      "price": "$9.00",
+      "unit": "per GB",
+      "notes": "Residential rotating proxies. 130M+ IPs. Ethics-first sourcing."
+    },
+    "datacenter_ipv4": {
+      "price": "$3.00",
+      "unit": "per IP per month",
+      "notes": "Static datacenter IPv4. Country-specific plans. USA, UK, Germany, and 20+ other countries available."
+    },
+    "isp_ipv4": {
+      "price": "Contact sales",
+      "unit": "per IP per month",
+      "notes": "ISP static proxies. Pricing requires sales consultation."
+    },
+    "mobile_ipv4": {
+      "price": "Contact sales",
+      "unit": "per GB",
+      "notes": "Mobile 4G/LTE proxies available."
+    }
+  },
+  "free_trial": "Free trial available",
+  "min_purchase": "Undisclosed",
+  "billing": ["Monthly", "Annual (5-15% discount)"],
+  "notes": ["Formerly Blazing SEO. US-based (Nebraska). Award-winning.", "130M+ residential IPs", "Trustpilot 4.1"],
+  "sources": ["https://rayobyte.com/pricing/"]
+}

@@ -1,0 +1,24 @@
+{
+  "provider": "bright-data",
+  "scamalytics": {
+    "found": false,
+    "fraud_score": null,
+    "risk_level": null,
+    "notes": "No specific Scamalytics data found for this provider"
+  },
+  "trustpilot": {
+    "found": true,
+    "rating": 4.8,
+    "reviews": null,
+    "sentiment": "positive",
+    "notes": "Rated 'Excellent' with 4.8/5 on Trustpilot. Analyzed 1,600+ reviews showing fewer billing issues, faster support than competitors"
+  },
+  "reddit": {
+    "found": true,
+    "mentions": 5,
+    "sentiment": "positive",
+    "notes": "Generally positive reviews. Compared favorably to Oxylabs in reviews. Major industry player since 2014 (formerly Luminati Networks)"
+  },
+  "overall_reputation": "positive",
+  "last_updated": "2026-06-30"
+}

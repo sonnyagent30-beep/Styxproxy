@@ -1,0 +1,19 @@
+{
+  "provider": "ProxyLite",
+  "slug": "proxylite",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS"],
+  "ip_types": ["Residential"],
+  "pool_size": "72M+ residential",
+  "countries": "Not disclosed",
+  "geo_targeting": ["Country"],
+  "session_types": ["Rotating"],
+  "rotation": "Per request",
+  "sticky_sessions": "Limited",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["72M+ IPs", "Multi-accounting focus"],
+  "sources": ["proxylite.com"]
+}

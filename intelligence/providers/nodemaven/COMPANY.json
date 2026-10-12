@@ -1,0 +1,21 @@
+{
+  "slug": "nodemaven",
+  "name": "NodeMaven",
+  "website": "https://nodemaven.com/",
+  "description": "Premium proxy provider specializing in high-quality residential, mobile, and ISP proxies with IP filtering. First provider to prioritize IP quality over quantity.",
+  "founded": 2023,
+  "headquarters": "Estonia",
+  "type": "Privately Held",
+  "employees": "2-10",
+  "key_differentiator": "IP quality over quantity - pre-filtered residential IPs, every IP passes quality filter",
+  "proxy_network": {
+    "residential_ips": "30M+",
+    "countries": "190+"
+  },
+  "use_cases": ["web scraping", "automation", "ad verification", "social media management", "business automation"],
+  "sources": [
+    "https://www.linkedin.com/company/nodemaven",
+    "https://nodemaven.com/about-us/",
+    "https://grokipedia.com/page/NodeMaven"
+  ]
+}

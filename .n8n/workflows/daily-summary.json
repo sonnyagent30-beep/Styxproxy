@@ -1,0 +1,344 @@
+{
+  "name": "Daily Summary",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "55 23 * * *"
+            }
+          ]
+        }
+      },
+      "id": "ds-trigger",
+      "name": "Cron: 23:55 Lagos",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "COUNT(*) FILTER (WHERE DATE(fulfilled_at) = CURRENT_DATE) as orders_today",
+        "conditions": "DATE(fulfilled_at) = CURRENT_DATE"
+      },
+      "id": "ds-orders",
+      "name": "Count Orders Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "COALESCE(SUM(amount_paid), 0) FILTER (WHERE DATE(fulfilled_at) = CURRENT_DATE) as revenue_today",
+        "conditions": "DATE(fulfilled_at) = CURRENT_DATE"
+      },
+      "id": "ds-revenue",
+      "name": "Calculate Revenue Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "COUNT(*) FILTER (WHERE DATE(fulfilled_at) = CURRENT_DATE AND status = 'refunded') as refunds_today",
+        "conditions": "DATE(fulfilled_at) = CURRENT_DATE"
+      },
+      "id": "ds-refunds",
+      "name": "Count Refunds Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE AND status = 'cancelled') as errors_today",
+        "conditions": "DATE(created_at) = CURRENT_DATE AND status = 'cancelled'"
+      },
+      "id": "ds-errors",
+      "name": "Count Errors Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE) as new_customers_today",
+        "conditions": "DATE(created_at) = CURRENT_DATE"
+      },
+      "id": "ds-new-customers",
+      "name": "Count New Customers",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE) as trials_today",
+        "conditions": "DATE(created_at) = CURRENT_DATE"
+      },
+      "id": "ds-trials",
+      "name": "Count Trials Today",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        200,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Aggregate all metrics\nconst inputs = $input.all();\n\nconst data = {\n  orders: inputs[0]?.json?.orders_today || 0,\n  revenue: inputs[1]?.json?.revenue_today || 0,\n  refunds: inputs[2]?.json?.refunds_today || 0,\n  errors: inputs[3]?.json?.errors_today || 0,\n  critical: inputs[3]?.json?.critical_errors_today || 0,\n  newCustomers: inputs[4]?.json?.new_customers_today || 0,\n  trials: inputs[5]?.json?.trials_today || 0\n};\n\nreturn [{ json: data }];"
+      },
+      "id": "ds-aggregate",
+      "name": "Aggregate Metrics",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        400,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "daily_summary",
+        "columns": "date, orders_today, revenue_today, refunds_today, errors_today, critical_errors_today, new_customers_today, trials_today",
+        "values": "CURRENT_DATE, {{$json.orders}}, {{$json.revenue}}, {{$json.refunds}}, {{$json.errors}}, {{$json.critical}}, {{$json.newCustomers}}, {{$json.trials}}"
+      },
+      "id": "ds-save",
+      "name": "Save to daily_summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [
+        600,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true
+          },
+          "conditions": [
+            {
+              "id": "low-revenue",
+              "leftValue": "={{$json.revenue}}",
+              "rightValue": 50000,
+              "operation": "less"
+            },
+            {
+              "id": "high-errors",
+              "leftValue": "={{$json.errors}}",
+              "rightValue": 5,
+              "operation": "greater"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutputs": [
+            "always"
+          ]
+        }
+      },
+      "id": "ds-alert-check",
+      "name": "Alert Check",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        800,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udcca Styxproxy Daily Summary\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n\ud83d\uded2 Orders: {{$json.orders}}\n\ud83d\udcb0 Revenue: \u20a6{{$json.revenue}}\n\ud83d\udcb3 Refunds: {{$json.refunds}}\n\u26a0\ufe0f Errors: {{$json.errors}} ({{$json.critical}} critical)\n\ud83d\udc65 New Customers: {{$json.newCustomers}}\n\ud83c\udf81 Free Trials: {{$json.trials}}\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+        "extraOptions": {}
+      },
+      "id": "ds-send-normal",
+      "name": "Send Normal Summary",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "message": "\ud83d\udea8 Styxproxy Daily Alert\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n\u26a0\ufe0f Issues detected:\n{{#if $json.revenue < 50000}}\ud83d\udcb0 Low revenue: \u20a6{{$json.revenue}} (< \u20a650k)\n{{/if}}{{#if $json.errors > 5}}\u26a0\ufe0f High errors: {{$json.errors}}\n{{/if}}{{#if $json.critical > 0}}\ud83d\udd34 Critical: {{$json.critical}}\n{{/if}}\n\n\ud83d\udcca Full Summary:\nOrders: {{$json.orders}}\nRevenue: \u20a6{{$json.revenue}}\nRefunds: {{$json.refunds}}\nErrors: {{$json.errors}}\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+        "extraOptions": {}
+      },
+      "id": "ds-send-alert",
+      "name": "Send Alert Summary",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "Cron: 23:55 Lagos": {
+      "main": [
+        [
+          {
+            "node": "Count Orders Today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Orders Today": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Revenue Today": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Refunds Today": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Errors Today": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count New Customers": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Trials Today": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Metrics": {
+      "main": [
+        [
+          {
+            "node": "Save to daily_summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to daily_summary": {
+      "main": [
+        [
+          {
+            "node": "Alert Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Check": {
+      "main": [
+        [
+          {
+            "node": "Send Alert Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Normal Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  },
+  "staticData": null,
+  "tags": [
+    "summary",
+    "cron",
+    "admin"
+  ]
+}

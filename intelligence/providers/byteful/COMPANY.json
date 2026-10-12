@@ -1,0 +1,54 @@
+{
+  "slug": "byteful",
+  "name": "Byteful",
+  "website": "https://byteful.com/",
+  "description": "Formerly Ping Proxies. Residential proxy service provider offering residential, ISP, and datacenter proxies. Founded 2020, USA-based.",
+  "company_info": {
+    "founded": "2020",
+    "headquarters": "USA",
+    "company_type": "Proxy Service Provider",
+    "specialization": "Residential Proxies, ISP Proxies, Datacenter Proxies, Mobile Proxies",
+    "former_name": "Ping Proxies"
+  },
+  "network": {
+    "ip_pool_size": "35M+ (advertised: 200K+)",
+    "countries": "40+",
+    "bandwidth": "100 Gbps",
+    "proxy_types": ["Residential", "ISP", "Datacenter", "Mobile"]
+  },
+  "pricing": {
+    "residential": {
+      "starting": "$3.25/GB"
+    },
+    "enterprise": {
+      "as_low_as": "$2/GB"
+    },
+    "model": "Pay per GB",
+    "notes": "Formerly Ping Proxies, rebranded in April 2026"
+  },
+  "features": [
+    "35M+ residential IPs",
+    "40+ country coverage",
+    "100 Gbps bandwidth",
+    "Low-latency proxy service",
+    "Ultra-fast speeds",
+    "Geo-targeting features",
+    "Dedicated account manager (enterprise)",
+    "Unlimited IPs available"
+  ],
+  "use_cases": [
+    "SEO monitoring",
+    "Ad verification",
+    "Market research",
+    "Web intelligence",
+    "Web scraping",
+    "Automation"
+  ],
+  "sources": [
+    "https://byteful.com/",
+    "https://byteful.com/pricing",
+    "https://www.g2.com/products/byteful/reviews",
+    "https://proxylook.com/providers/ping-proxies"
+  ],
+  "research_date": "2026-06-30"
+}

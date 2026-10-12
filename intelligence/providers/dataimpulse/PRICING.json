@@ -1,0 +1,33 @@
+{
+  "provider": "DataImpulse",
+  "slug": "dataimpulse",
+  "website": "https://dataimpulse.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Pay-as-you-go (non-expiring traffic)",
+  "products": {
+    "residential_ipv4": {
+      "price": "$1.00",
+      "unit": "per GB",
+      "notes": "Non-expiring traffic. Minimum $5 for 5GB."
+    },
+    "datacenter_ipv4": {
+      "price": "$5.00",
+      "unit": "per 5 GB datacenter traffic",
+      "notes": "Non-expiring"
+    },
+    "mobile_ipv4": {
+      "price": "$2.50",
+      "unit": "per 2.5 GB mobile traffic",
+      "notes": "Non-expiring"
+    }
+  },
+  "free_trial": "$1.99 for 400 MB for 3 days",
+  "min_purchase": "$5",
+  "single_ip_available": false,
+  "billing": ["Pay-as-you-go only"],
+  "sources": [
+    "https://dataimpulse.com/residential-proxies/",
+    "https://hostadvice.com/proxy-servers/dataimpulse-review/"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "provider": "LegionProxy",
+  "slug": "legionproxy",
+  "website": "https://legionproxy.io",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "$0.60",
+      "unit": "per GB",
+      "notes": "Commercial residential and ISP proxies. Global coverage."
+    }
+  },
+  "free_trial": "Not available",
+  "sources": ["https://legionproxy.io"]
+}

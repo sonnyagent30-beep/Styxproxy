@@ -1,0 +1,28 @@
+{
+  "slug": "geonix",
+  "name": "Geonix",
+  "website": "https://geonix.io",
+  "also_known_as": ["Proxy-Seller"],
+  "description": "A powerful and affordable proxy solution for businesses and individuals, providing access to an extensive network of Residential and Datacenter IPs.",
+  "proxy_types": ["Residential", "Datacenter", "Mobile", "ISP"],
+  "network_size": "15 million+ IPs",
+  "countries": "210+",
+  "pricing": {
+    "starting_price": "$0.9",
+    "model": "Per GB / subscription"
+  },
+  "features": [
+    "IP rotation",
+    "Broad global coverage",
+    "Precise targeting capabilities",
+    "200+ countries coverage",
+    "High-quality IP pools"
+  ],
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://www.g2.com/products/geonix/reviews",
+    "https://geonix.com/",
+    "https://www.stupidproxy.com/residential-proxies/",
+    "https://proxy-db.com/provider/geonix"
+  ]
+}

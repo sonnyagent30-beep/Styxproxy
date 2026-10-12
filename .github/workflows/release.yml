@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tagged_version=${VERSION#v}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          python3 << 'PYEOF'
+          import subprocess, re
+
+          tag = "${{ github.ref_name }}"
+          try:
+              prev_tag = subprocess.check_output(
+                  ["git", "describe", "--abbrev=0", "--tags", "^" + tag],
+                  text=True, stderr=subprocess.DEVNULL
+              ).strip()
+          except subprocess.CalledProcessError:
+              prev_tag = subprocess.check_output(
+                  ["git", "rev-list", "--max-parents=0", "HEAD"],
+                  text=True
+              ).strip()[:7]
+
+          commits = subprocess.check_output(
+              ["git", "log", f"{prev_tag}..HEAD", "--format=%s", "--reverse"],
+              text=True
+          ).strip().split("\n")
+
+          sections = {"breaking": [], "added": [], "fixed": [], "other": []}
+          for commit in commits:
+              commit = commit.strip()
+              if not commit:
+                  continue
+              m = re.match(r'^(fix|feat|chore|docs|style|refactor|perf|test|build|ci|revert)(\([^)]+\))?!?:\s*(.+)', commit, re.I)
+              if m:
+                  kind, msg = m.group(1).lower(), m.group(3)
+                  full = m.group(0)
+                  if "breaking" in msg.lower() or "!" in full:
+                      sections["breaking"].append(msg)
+                  elif kind == "feat":
+                      sections["added"].append(msg)
+                  elif kind == "fix":
+                      sections["fixed"].append(msg)
+                  else:
+                      sections["other"].append(commit)
+              else:
+                  sections["other"].append(commit)
+
+          def fmt(items, prefix):
+              return "\n".join(f"{prefix} {i}" for i in items) if items else ""
+
+          parts = []
+          if sections["breaking"]:
+              parts.append("### Breaking Changes\n" + fmt(sections["breaking"], "-"))
+          if sections["added"]:
+              parts.append("### Added\n" + fmt(sections["added"], "-"))
+          if sections["fixed"]:
+              parts.append("### Fixed\n" + fmt(sections["fixed"], "-"))
+          if sections["other"]:
+              parts.append("### Other\n" + fmt(sections["other"], "-"))
+
+          changelog = "## What is Changed\n\n" + "\n\n".join(p for p in parts if p.split("\n", 1)[1].strip())
+
+          with open("CHANGELOG.md", "w") as f:
+              f.write(changelog)
+          print(f"CHANGELOG.md written, {len([c for c in commits if c.strip()])} commits since {prev_tag}")
+          PYEOF
+
+          echo "changelog_file=CHANGELOG.md" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          body_path: ${{ steps.changelog.outputs.changelog_file }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

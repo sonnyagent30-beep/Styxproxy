@@ -1,0 +1,21 @@
+{
+  "slug": "proxylite",
+  "provider_name": "ProxyLite",
+  "research_date": "2026-06-30",
+  "scamalytics": {
+    "fraud_score": null,
+    "risk_level": "No specific Scamalytics data found"
+  },
+  "trustpilot": {
+    "rating": null,
+    "review_count": null,
+    "url": "https://www.trustpilot.com/review/proxylite.com",
+    "notes": "Limited public review data"
+  },
+  "reddit": {
+    "sentiment": "Neutral",
+    "notes": "Limited Reddit presence"
+  },
+  "overall_reputation": "Unknown",
+  "notes": "72M+ Global IPs. Award-winning proxy service provider. Note: there are multiple services named Proxylite - this appears to be proxylite.com (not proxylite.ru)"
+}

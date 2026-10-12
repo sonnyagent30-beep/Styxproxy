@@ -1,0 +1,21 @@
+{
+  "slug": "proxyempire",
+  "provider_name": "ProxyEmpire",
+  "research_date": "2026-06-30",
+  "scamalytics": {
+    "fraud_score": null,
+    "risk_level": "No specific Scamalytics data found"
+  },
+  "trustpilot": {
+    "rating": null,
+    "review_count": null,
+    "url": "https://www.trustpilot.com/review/proxyempire.io",
+    "notes": "Limited public review data available"
+  },
+  "reddit": {
+    "sentiment": "Neutral",
+    "notes": "Moderate presence in discussions"
+  },
+  "overall_reputation": "Average",
+  "notes": "Residential and mobile proxy provider with 170+ country coverage. Offers geo-targeting at no extra cost. EWDCI Certified."
+}

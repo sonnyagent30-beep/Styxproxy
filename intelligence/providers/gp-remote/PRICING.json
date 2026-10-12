@@ -1,0 +1,15 @@
+{
+  "provider": "GP-Remote",
+  "slug": "gp-remote",
+  "website": "https://gp-remote.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "UNVERIFIED",
+  "pricing_model": "Unknown",
+  "products": {},
+  "free_trial": "Unknown",
+  "min_purchase": "Unknown",
+  "single_ip_available": "Unknown",
+  "billing": [],
+  "sources": [],
+  "warning": "Provider could not be verified online. No company matching this name found."
+}

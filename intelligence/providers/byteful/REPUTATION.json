@@ -1,0 +1,24 @@
+{
+  "provider": "byteful",
+  "scamalytics": {
+    "found": false,
+    "fraud_score": null,
+    "risk_level": null,
+    "notes": "No specific Scamalytics data found"
+  },
+  "trustpilot": {
+    "found": true,
+    "rating": 4.8,
+    "reviews": null,
+    "sentiment": "positive",
+    "notes": "Self-reported 4.8/5 on Trustpilot. Founded 2020 as Ping Proxies, rebranded to Byteful in 2026"
+  },
+  "reddit": {
+    "found": false,
+    "mentions": 0,
+    "sentiment": "neutral",
+    "notes": "No major Reddit discussions found"
+  },
+  "overall_reputation": "positive",
+  "last_updated": "2026-06-30"
+}

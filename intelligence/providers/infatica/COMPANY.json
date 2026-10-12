@@ -1,0 +1,41 @@
+{
+  "slug": "infatica",
+  "name": "Infatica",
+  "website": "https://infatica.io/",
+  "description": "Singapore-based web data provider offering residential, mobile, and datacenter proxies with 40M+ IPs globally",
+  "founded": 2019,
+  "headquarters": "Singapore",
+  "proxy_types": [
+    "Residential Proxies",
+    "Premium IPv6 Residential",
+    "Static ISP Proxies",
+    "Datacenter Proxies",
+    "Mobile Proxies",
+    "Web Scraping API"
+  ],
+  "ip_pool_size": "40+ million",
+  "geo_coverage": "195+ countries",
+  "features": [
+    "HTTP and SOCKS5 protocols",
+    "Automatic IP rotation",
+    "Country/state-level targeting",
+    "Enterprise-grade proxy services"
+  ],
+  "use_cases": [
+    "Price Aggregation",
+    "Cybersecurity",
+    "Brand Protection",
+    "Data Collection",
+    "Web Scraping"
+  ],
+  "pricing_starting": "$0.30/GB",
+  "target_market": "Enterprise, Mid-market",
+  "competitors": ["Bright Data", "Oxylabs", "Smartproxy"],
+  "reviews": {
+    "trustpilot": "Mixed reviews, some positive feedback on reliability"
+  },
+  "data_sources": {
+    "Residential IPs from real user devices",
+    "P2P network model"
+  }
+}

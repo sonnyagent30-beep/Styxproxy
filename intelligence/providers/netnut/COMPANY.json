@@ -1,0 +1,23 @@
+{
+  "slug": "netnut",
+  "name": "NetNut",
+  "website": "https://netnut.io/",
+  "description": "High quality residential proxy service for web scraping and data collection. Provides over 85 million residential proxies and 5M mobile proxies.",
+  "founded": 2017,
+  "headquarters": "Tel Aviv, Israel",
+  "type": "Privately Held",
+  "parent_company": "Alarum Technologies",
+  "employees": "51-200",
+  "key_differentiator": "Direct ISP partnerships via DiviNetworks (not P2P peer-to-peer), focus on speed and stability",
+  "proxy_network": {
+    "residential_ips": "20M+",
+    "mobile_ips": "5M+",
+    "countries": "100+"
+  },
+  "use_cases": ["web scraping", "market research", "ad verification", "SEO monitoring"],
+  "sources": [
+    "https://www.linkedin.com/company/netnut",
+    "https://tracxn.com/d/companies/netnut",
+    "https://www.cbinsights.com/company/netnut"
+  ]
+}

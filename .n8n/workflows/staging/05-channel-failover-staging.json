@@ -1,0 +1,289 @@
+{
+  "name": "Channel Failover Staging Monitor",
+  "tags": ["staging", "resilience", "health-check"],
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Health Check Cron (Every 5 min)",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check Baileys runtime health\n// Uses BAILEYS_RUNTIME_URL from env\n\nconst https = require('https');\nconst bailerysUrl = process.env.BAILEYS_RUNTIME_URL || 'http://localhost:3001';\n\nconst url = new URL(bailerysUrl + '/health');\n\nconst options = {\n  hostname: url.hostname,\n  port: url.port || 80,\n  path: url.pathname,\n  method: 'GET',\n  timeout: 5000\n};\n\nreturn new Promise((resolve) => {\n  const req = https.request(options, (res) => {\n    let data = '';\n    res.on('data', chunk => data += chunk);\n    res.on('end', () => {\n      try {\n        const json = JSON.parse(data);\n        resolve({ \n          status: res.statusCode, \n          channel: 'baileys', \n          available: res.statusCode === 200,\n          response: json\n        });\n      } catch {\n        resolve({ status: res.statusCode, channel: 'baileys', available: res.statusCode === 200 });\n      }\n    });\n  });\n  req.on('error', () => resolve({ status: 0, channel: 'baileys', available: false, error: 'connection failed' }));\n  req.on('timeout', () => { req.destroy(); resolve({ status: 0, channel: 'baileys', available: false, error: 'timeout' }); });\n  req.end();\n});"
+      },
+      "id": "check-baileys",
+      "name": "Check Baileys Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check Telegram Bot API status\n// Uses TELEGRAM_BOT_TOKEN_STAGING env var\n\nconst https = require('https');\nconst token = process.env.TELEGRAM_BOT_TOKEN_STAGING;\n\nif (!token) {\n  return { channel: 'telegram', available: false, error: 'no token configured' };\n}\n\nconst options = {\n  hostname: 'api.telegram.org',\n  port: 443,\n  path: '/bot' + token + '/getMe',\n  method: 'GET',\n  timeout: 5000\n};\n\nreturn new Promise((resolve) => {\n  const req = https.request(options, (res) => {\n    let data = '';\n    res.on('data', chunk => data += chunk);\n    res.on('end', () => {\n      try {\n        const json = JSON.parse(data);\n        resolve({ \n          status: res.statusCode, \n          channel: 'telegram', \n          available: json.ok === true,\n          bot_info: json.result\n        });\n      } catch {\n        resolve({ status: res.statusCode, channel: 'telegram', available: false });\n      }\n    });\n  });\n  req.on('error', () => resolve({ status: 0, channel: 'telegram', available: false, error: 'connection failed' }));\n  req.on('timeout', () => { req.destroy(); resolve({ status: 0, channel: 'telegram', available: false, error: 'timeout' }); });\n  req.end();\n});"
+      },
+      "id": "check-telegram",
+      "name": "Check Telegram Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Store health status in Redis with staging: prefix\n// Key format: staging:channel:health:{channel}\n\nconst bailerys = $input.all()[0].json;\nconst telegram = $input.all()[1].json;\n\nconst timestamp = new Date().toISOString();\n\n// Prepare Redis keys for both channels\nreturn [\n  {\n    json: {\n      channel: 'baileys',\n      health_key: 'staging:channel:health:baileys',\n      status: bailerys.available,\n      status_code: bailerys.status,\n      timestamp,\n      error: bailerys.error || null\n    }\n  },\n  {\n    json: {\n      channel: 'telegram',\n      health_key: 'staging:channel:health:telegram',\n      status: telegram.available,\n      status_code: telegram.status,\n      timestamp,\n      error: telegram.error || null\n    }\n  }\n];"
+      },
+      "id": "prep-health",
+      "name": "Prepare Health Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "rule": "set",
+        "key": "{{$json.health_key}}",
+        "value": "{{$json.status}}",
+        "options": {
+          "ttl": 600
+        }
+      },
+      "id": "store-health",
+      "name": "Store Health in Redis",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [910, 300],
+      "notes": "Store channel health with staging: prefix and 10min TTL"
+    },
+    {
+      "parameters": {
+        "rule": "get",
+        "key": "staging:channel:health:baileys",
+        "options": {}
+      },
+      "id": "get-baileys-hist",
+      "name": "Get Baileys History",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1130, 200]
+    },
+    {
+      "parameters": {
+        "rule": "get",
+        "key": "staging:channel:health:telegram",
+        "options": {}
+      },
+      "id": "get-telegram-hist",
+      "name": "Get Telegram History",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1130, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Determine if channel is down > 5 minutes\n// If current check fails AND previous check was also failure, trigger alert\n\nconst currentBaileys = $input.all()[0].json;\nconst currentTelegram = $input.all()[1].json;\nconst histBaileys = $input.all()[2].json.value === 'false';\nconst histTelegram = $input.all()[3].json.value === 'false';\n\nconst now = Date.now();\nconst FIVE_MINUTES = 5 * 60 * 1000;\n\nconst shouldAlertBaileys = !currentBaileys.available && histBaileys;\nconst shouldAlertTelegram = !currentTelegram.available && histTelegram;\n\n// Calculate downtime duration (approximate - depends on poll frequency)\nconst baileysDown = !currentBaileys.available;\nconst telegramDown = !currentTelegram.available;\n\nreturn [\n  {\n    json: {\n      channel: 'baileys',\n      current_status: currentBaileys.available,\n      previous_status: histBaileys,\n      is_down: baileysDown,\n      alert_triggered: shouldAlertBaileys,\n      timestamp: new Date().toISOString()\n    }\n  },\n  {\n    json: {\n      channel: 'telegram',\n      current_status: currentTelegram.available,\n      previous_status: histTelegram,\n      is_down: telegramDown,\n      alert_triggered: shouldAlertTelegram,\n      timestamp: new Date().toISOString()\n    }\n  }\n];"
+      },
+      "id": "analyze-health",
+      "name": "Analyze Health Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "id": "cond-baileys-alert",
+              "leftValue": "={{$json.alert_triggered}}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-baileys-alert",
+      "name": "If Baileys Alert",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1570, 150]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [
+            {
+              "id": "cond-telegram-alert",
+              "leftValue": "={{$json.alert_triggered}}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-telegram-alert",
+      "name": "If Telegram Alert",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1570, 450]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build alert payload for channel failure\nconst channel = $input.item.json.channel;\n\nconst alertMessage = {\n  alert_type: 'channel_failure',\n  channel: channel,\n  environment: 'staging',\n  message: `⚠️ ALERT: ${channel.toUpperCase()} channel is DOWN in STAGING!`,\n  timestamp: new Date().toISOString(),\n  action_required: `Check ${channel} integration and restart if needed`\n};\n\nreturn { json: alertMessage };"
+      },
+      "id": "build-alert",
+      "name": "Build Alert Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1790, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "{{$env.STAGING_ERROR_ALERT_WEBHOOK_URL}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "alert_type",
+              "value": "={{$json.alert_type}}"
+            },
+            {
+              "name": "channel",
+              "value": "={{$json.channel}}"
+            },
+            {
+              "name": "environment",
+              "value": "={{$json.environment}}"
+            },
+            {
+              "name": "message",
+              "value": "={{$json.message}}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{$json.timestamp}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-alert",
+      "name": "Send Alert Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2010, 300],
+      "notes": "POSTs to error-alert.json webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log health check result\nconsole.log('Staging health check completed:', {\n  baileys: $input.all()[0].json,\n  telegram: $input.all()[1].json\n});\n\nreturn { json: { logged: true } };"
+      },
+      "id": "log-health",
+      "name": "Log Health Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2230, 300]
+    }
+  ],
+  "connections": {
+    "Health Check Cron (Every 5 min)": {
+      "main": [
+        [
+          { "node": "Check Baileys Status", "type": "main", "index": 0 },
+          { "node": "Check Telegram Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check Baileys Status": {
+      "main": [
+        [{ "node": "Prepare Health Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Telegram Status": {
+      "main": [
+        [{ "node": "Prepare Health Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepare Health Data": {
+      "main": [
+        [{ "node": "Store Health in Redis", "type": "main", "index": 0 }]
+      ]
+    },
+    "Store Health in Redis": {
+      "main": [
+        [
+          { "node": "Get Baileys History", "type": "main", "index": 0 },
+          { "node": "Get Telegram History", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Get Baileys History": {
+      "main": [
+        [{ "node": "Analyze Health Status", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Telegram History": {
+      "main": [
+        [{ "node": "Analyze Health Status", "type": "main", "index": 0 }]
+      ]
+    },
+    "Analyze Health Status": {
+      "main": [
+        [{ "node": "If Baileys Alert", "type": "main", "index": 0 }],
+        [{ "node": "If Telegram Alert", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Baileys Alert": {
+      "main": [
+        [{ "node": "Build Alert Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "If Telegram Alert": {
+      "main": [
+        [{ "node": "Build Alert Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Alert Payload": {
+      "main": [
+        [{ "node": "Send Alert Webhook", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Alert Webhook": {
+      "main": [
+        [{ "node": "Log Health Check", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log Health Check": {
+      "main": []
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "timezone": "Africa/Lagos"
+  }
+}

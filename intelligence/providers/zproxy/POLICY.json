@@ -1,0 +1,23 @@
+{
+  "provider": "zproxy",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "NOT_FOUND",
+    "policy_text": "Refund for down proxies (server-side issues only). Does not apply to proxies used on clothing/sneaker websites, creating accounts, bot failures, or bans not directly related to proxy servers.",
+    "money_back_days": null,
+    "conditions": [
+      "Down proxies (server-side only)"
+    ],
+    "residential_refund": "Down server refund only",
+    "isp_refund": "Down server refund only"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["website"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "Unknown small provider. Limited refund - only for down servers. Excludes bot failures and account bans."
+}

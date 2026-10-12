@@ -1,0 +1,34 @@
+{
+  "provider": "naproxy",
+  "slug": "naproxy",
+  "website": "https://www.naproxy.com",
+  "last_updated": "2026-06-30",
+  "refund_policy": {
+    "status": "limited",
+    "notes": "No explicit refund policy page found. Support team can assist with wrong account payments (transfer to correct account).",
+    "url": "https://www.naproxy.com/blog/wrong-account/"
+  },
+  "terms_of_service": {
+    "status": "not_found",
+    "notes": "No explicit Terms of Service page found."
+  },
+  "acceptable_use_policy": {
+    "status": "not_found",
+    "notes": "No explicit Acceptable Use Policy found."
+  },
+  "support": {
+    "notes": "Has Chrome extension for proxy configuration. Over 90 million IPs in 200+ countries. Blog posts cover payment issues."
+  },
+  "data": {
+    "sources": [
+      {
+        "type": "web_search",
+        "query": "site:naproxy.com policy refund terms"
+      },
+      {
+        "type": "web_search",
+        "query": "NaProxy payment refund"
+      }
+    ]
+  }
+}

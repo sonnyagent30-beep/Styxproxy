@@ -1,0 +1,32 @@
+{
+  "provider": "Proxy6",
+  "slug": "proxy6",
+  "website": "https://proxy6.net",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription (per IP)",
+  "products": {
+    "datacenter_ipv4": {
+      "price": "$1.20",
+      "unit": "per IP per month",
+      "notes": "IPv4 shared proxies from $1.20/IP/mo"
+    },
+    "datacenter_ipv6": {
+      "price": "$0.10",
+      "unit": "per IP per month",
+      "notes": "IPv6 proxies from $0.10/IP/mo"
+    },
+    "mobile_ipv4": {
+      "price": "$5.00",
+      "unit": "per IP per month",
+      "notes": "Mobile IPv4 proxies"
+    }
+  },
+  "free_trial": "Not available",
+  "min_purchase": "1 IP",
+  "single_ip_available": true,
+  "billing": ["Monthly"],
+  "sources": [
+    "https://proxy6.net"
+  ]
+}

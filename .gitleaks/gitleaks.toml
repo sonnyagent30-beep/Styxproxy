@@ -1,0 +1,29 @@
+title = "Styxproxy Gitleaks Config"
+[extend]
+useDefault = true
+[[allowlists]]
+description = "Path-based allowlist"
+paths = [
+  '''node_modules/''',
+  '''.next/''',
+  '''dist/''',
+  '''build/''',
+  '''\.env\.example$''',
+  '''\.env\.sample$''',
+  '''package-lock\.json$''',
+  '''yarn\.lock$''',
+  '''pnpm-lock\.yaml$''',
+  '''_test\.py$''',
+  '''_tests\.py$''',
+  '''test_.*\.py$''',
+  '''conftest\.py$''',
+]
+[[allowlists]]
+description = "Regex-based allowlist"
+regexes = [
+  '''test_api_key=''',
+  '''test_secret=''',
+  '''example\.com''',
+  '''your-.*-here''',
+  '''change-me''',
+]

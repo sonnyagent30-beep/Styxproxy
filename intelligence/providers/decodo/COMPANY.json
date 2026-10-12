@@ -1,0 +1,74 @@
+{
+  "slug": "decodo",
+  "name": "Decodo",
+  "legalName": "Decodo (formerly Smartproxy)",
+  "website": "https://decodo.com/",
+  "aboutUrl": "https://decodo.com/about",
+  "pricingUrl": "https://decodo.com/proxies/residential-proxies/pricing",
+  "description": "Decodo (formerly Smartproxy) is a leading proxy service provider offering residential, datacenter, mobile, and ISP proxies. The company rebranded from Smartproxy to Decodo in 2025. They provide a pool of 125M+ IPs with advanced geo-targeting capabilities including country, continent, state, city, and ZIP code level targeting.",
+  "companyInfo": {
+    "founded": "2018",
+    "rebranded": "2025",
+    "formerName": "Smartproxy",
+    "headquarters": "Not publicly disclosed",
+    "ipPoolSize": "125M+",
+    "geoCoverage": "Global"
+  },
+  "products": [
+    {
+      "type": "Residential Proxies",
+      "description": " rotating residential proxies",
+      "startingPrice": "$2/GB"
+    },
+    {
+      "type": "Datacenter Proxies",
+      "description": "Datacenter proxy servers",
+      "startingPrice": "$10/mo"
+    },
+    {
+      "type": "Dedicated Datacenter Proxies",
+      "description": "Dedicated DC proxies",
+      "startingPrice": "$7.5/mo"
+    },
+    {
+      "type": "Mobile Proxies",
+      "description": "Mobile proxy network"
+    },
+    {
+      "type": "ISP Proxies",
+      "description": "Static ISP proxies"
+    }
+  ],
+  "pricing": {
+    "residential": {
+      "entry": "$2/GB (high volume)",
+      "small": "$3.75/GB (3 GB)",
+      "medium": "~$2.50/GB (20 GB)",
+      "enterprise": "$2/GB (100+ GB)"
+    },
+    "datacenter": "From $10/mo",
+    "dedicatedDc": "From $7.5/mo"
+  },
+  "features": [
+    "125M+ IP pool",
+    "Advanced geo-targeting (country, state, city, ZIP)",
+    "Unlimited concurrent sessions",
+    "Free trial available",
+    "Pay as you go option",
+    "n8n integration"
+  ],
+  "useCases": [
+    "Web scraping",
+    "Ecommerce intelligence",
+    "Ad verification",
+    "SEO monitoring",
+    "Social media management",
+    "Online privacy"
+  ],
+  "sources": [
+    "https://decodo.com/",
+    "https://decodo.com/about",
+    "https://decodo.com/proxies/residential-proxies/pricing"
+  ],
+  "researchDate": "2026-06-30"
+}

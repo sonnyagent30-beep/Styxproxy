@@ -1,0 +1,33 @@
+{
+  "provider": "Webshare",
+  "slug": "webshare",
+  "website": "https://www.webshare.io",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "datacenter_ipv4": {
+      "price": "$1.00",
+      "unit": "per IP per month",
+      "notes": "Shared datacenter IPv4 — 1Gbit ports. Acquired by Oxylabs 2022."
+    },
+    "static_residential": {
+      "price": "$3.00",
+      "unit": "per IP per month",
+      "notes": "Private static residential proxies"
+    },
+    "rotating_residential": {
+      "price": "$8.00",
+      "unit": "per GB",
+      "notes": "Rotating residential"
+    }
+  },
+  "free_trial": "Not available",
+  "min_purchase": "1 IP",
+  "single_ip_available": true,
+  "billing": ["Monthly"],
+  "sources": [
+    "https://www.webshare.io",
+    "https://webshare.io/pricing"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "provider": "ipfoxy",
+  "slug": "ipfoxy",
+  "website": "https://www.ipfoxy.com",
+  "last_updated": "2026-06-30",
+  "refund_policy": {
+    "status": "no_refunds",
+    "policy_text": "IPFoxy shall not provide refunds or credits for any reason.",
+    "url": "https://www.ipfoxy.com/service-agreement/",
+    "notes": "Services are provided on a prepaid basis. After IPFoxy agent is officially sold, no refund or replacement service is accepted due to abuse prevention. Contact customer service for use issues."
+  },
+  "terms_of_service": {
+    "status": "found",
+    "url": "https://www.ipfoxy.com/service-agreement/",
+    "summary": "Payment Rules and Refund Policy: Services provided on prepaid basis with no refunds for any reason."
+  },
+  "acceptable_use_policy": {
+    "status": "not_found",
+    "notes": "No explicit Acceptable Use Policy found."
+  },
+  "support": {
+    "contact_url": "https://www.ipfoxy.com/help/en/docs/QtkT2v",
+    "notes": "Online customer service available for use-related issues. Help center provides guides."
+  },
+  "data": {
+    "sources": [
+      {
+        "type": "web_search",
+        "query": "site:ipfoxy.com refund policy terms support"
+      },
+      {
+        "type": "web_search",
+        "query": "IPFoxy payment refund policy"
+      }
+    ]
+  }
+}

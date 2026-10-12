@@ -1,0 +1,20 @@
+{
+  "provider": "Froxy",
+  "slug": "froxy",
+  "website": "https://froxy.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "$0.80",
+      "unit": "per GB",
+      "notes": "120M+ IP pool. 200+ locations. Flexible — pause/resume subscription."
+    }
+  },
+  "free_trial": "Available",
+  "min_purchase": "Undisclosed",
+  "single_ip_available": false,
+  "billing": ["Monthly"],
+  "sources": ["https://froxy.com"]
+}

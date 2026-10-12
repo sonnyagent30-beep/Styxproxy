@@ -1,0 +1,14 @@
+{
+  "provider": "LumiProxy",
+  "slug": "lumiproxy",
+  "verified_date": "2026-06-30",
+  "sources": ["lumiproxy.com"],
+  "trustpilot": "4.87/5 (self-reported)",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Limited",
+  "overall": "POSITIVE_WITH_CAUTION",
+  "pros": ["High self-reported rating", "Rotating residential"],
+  "cons": ["Self-reported only — no independent verification", "Unknown HQ"],
+  "flags": ["Self-reported Trustpilot score"],
+  "risk_level": "MEDIUM"
+}

@@ -1,0 +1,30 @@
+{
+  "slug": "rayobyte",
+  "last_updated": "2026-06-30",
+  "trustpilot": {
+    "rating": "4.1",
+    "reviews_count": "Not publicly disclosed",
+    "source": "Various reviews",
+    "notes": "Positive reputation with average Trustpilot score of 4.1 stars"
+  },
+  "scamalytics": {
+    "status": "Not applicable - this is a proxy provider, not a target for fraud checks",
+    "note": "Proxy providers themselves are not scored on Scamalytics"
+  },
+  "reddit": {
+    "sentiment": "Generally positive with room for improvement",
+    "key_themes": [
+      "Solid budget option",
+      "Datacenter proxies work pretty great",
+      "May need to replace IPs when they fail on specific targets"
+    ],
+    "source": "r/proxies discussions"
+  },
+  "general_reputation": {
+    "status": "Positive",
+    "established": "2015",
+    "products": "Datacenter proxies - rotating, dedicated, semi-dedicated",
+    "note": "Web proxy service with three datacenter proxy types"
+  },
+  "risk_assessment": "LOW"
+}

@@ -1,0 +1,31 @@
+{
+  "provider": "abcproxy",
+  "research_date": "2026-06-30",
+  "refund_policy": {
+    "status": "case_by_case",
+    "description": "Refund policies handled case-by-case rather than published as blanket guarantee.",
+    "details": "No published refund guarantee. Contact support for individual cases.",
+    "source": "https://www.proxyhorizon.com/proxies/abcproxy"
+  },
+  "sla": {
+    "status": "not_confirmed",
+    "notes": "No published SLA terms found in public documentation."
+  },
+  "kyc": {
+    "status": "no_kyc",
+    "description": "No KYC required for service use.",
+    "details": "Instant crypto top-up available."
+  },
+  "payment_terms": {
+    "methods": "Crypto accepted",
+    "trial": "no_free_trial",
+    "notes": "No free trial - customers expected to start on small paid pack to evaluate."
+  },
+  "support": {
+    "channels": ["live chat", "Telegram", "email"],
+    "response_time": "typical reply under 5 minutes",
+    "source": "https://abc-proxy.com/contact"
+  },
+  "terms_url": null,
+  "privacy_url": "https://www.abcproxy.com/privacy_policy"
+}

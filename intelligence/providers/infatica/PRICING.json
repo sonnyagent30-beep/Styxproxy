@@ -1,0 +1,22 @@
+{
+  "provider": "Infatica",
+  "slug": "infatica",
+  "website": "https://infatica.io",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "$0.30",
+      "unit": "per GB",
+      "notes": "Dynamic residential proxies. Enterprise-grade."
+    },
+    "datacenter_ipv4": {
+      "price": "Contact sales",
+      "unit": "N/A",
+      "notes": "No public pricing"
+    }
+  },
+  "free_trial": "Contact sales",
+  "sources": ["https://infatica.io/pricing"]
+}

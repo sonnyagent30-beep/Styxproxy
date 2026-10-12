@@ -1,0 +1,25 @@
+{
+  "provider": "SpaceProxy",
+  "slug": "spaceproxy",
+  "website": "https://spaceproxy.net",
+  "verified_date": "2026-06-30",
+  "sources": ["Trustpilot", "spaceproxy.net"],
+  "trustpilot": "5.0/5 ⚠️ FAKE REVIEWS UNDER INVESTIGATION",
+  "trustpilot_reviews": "Multiple — flagged for suspicious activity",
+  "scamalytics_score": "No ISP page",
+  "reddit_sentiment": "Limited",
+  "overall": "NEGATIVE",
+  "pros": [
+    "IPv4 and IPv6 available",
+    "167K+ client base",
+    "Russia-based —不受西方制裁"
+  ],
+  "cons": [
+    "⚠️ Trustpilot FAKE REVIEWS under investigation",
+    "Russia jurisdiction — legal risk",
+    "No residential proxies",
+    "Cannot verify IP quality"
+  ],
+  "flags": ["FAKE REVIEWS — HIGH RISK", "Russia jurisdiction"],
+  "risk_level": "HIGH"
+}

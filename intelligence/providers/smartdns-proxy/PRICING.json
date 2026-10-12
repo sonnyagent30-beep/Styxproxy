@@ -1,0 +1,19 @@
+{
+  "provider": "SmartDNS Proxy",
+  "slug": "smartdns-proxy",
+  "website": "https://smartdnsproxy.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription (streaming-focused)",
+  "products": {
+    "streaming_proxy": {
+      "price": "$4.90",
+      "unit": "per month",
+      "notes": "Streaming service unblocking. NOT a general anonymity proxy. Focuses on Netflix, Hulu, Disney+, etc. Separate plans for different streaming services."
+    }
+  },
+  "free_trial": "Not available",
+  "min_purchase": "Monthly",
+  "notes": ["New York, US", "Streaming-only proxy - not suitable for general web scraping", "Trustpilot 3.57 (5,779 reviews)", "Limited refund policy"],
+  "sources": ["https://smartdnsproxy.com"]
+}

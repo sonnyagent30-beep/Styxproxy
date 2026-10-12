@@ -1,0 +1,20 @@
+{
+  "provider": "PIA Proxy",
+  "slug": "pia-proxy",
+  "website": "https://piaproxys5.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "VERIFIED",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "$3.00",
+      "unit": "per GB",
+      "notes": "SOCKS5 residential proxies. Owned by Kape Technologies (also owns ExpressVPN, CyberGhost)."
+    }
+  },
+  "free_trial": "Not available",
+  "min_purchase": "Undisclosed",
+  "single_ip_available": false,
+  "billing": ["Monthly"],
+  "sources": ["https://piaproxys5.com"]
+}

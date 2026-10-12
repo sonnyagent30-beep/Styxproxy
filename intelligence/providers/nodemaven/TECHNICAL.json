@@ -1,0 +1,19 @@
+{
+  "provider": "NodeMaven",
+  "slug": "nodemaven",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["ISP (Static)"],
+  "pool_size": "Not disclosed — quality over quantity",
+  "countries": "Multiple (exact not disclosed)",
+  "geo_targeting": ["Country", "City", "ASN"],
+  "session_types": ["Static (dedicated)"],
+  "rotation": "None — dedicated",
+  "sticky_sessions": "Permanent",
+  "api": "REST API",
+  "auth_methods": ["Username/password", "IP whitelist"],
+  "sla": "99.9%",
+  "uptime": "99.9%",
+  "unique_features": ["Quality over quantity", "Estonia-based", "Founded 2023", "2-10 employees"],
+  "sources": ["nodemaven.com"]
+}

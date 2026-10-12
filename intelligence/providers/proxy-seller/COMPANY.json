@@ -1,0 +1,24 @@
+{
+  "slug": "proxy-seller",
+  "name": "Proxy-Seller",
+  "website": "https://proxy-seller.com/",
+  "description": "Your Reliable Paid Proxy Provider. For more than 10 years, we have been providing HTTPs and SOCKS5 proxy service, earning the trust of over 500,000 clients.",
+  "services": [
+    "HTTPs proxies",
+    "SOCKS5 proxies",
+    "Private proxies"
+  ],
+  "features": {
+    "proxy_types": ["HTTPs", "SOCKS5"],
+    "client_count": "500,000+",
+    "years_in_business": "10+"
+  },
+  "target_audience": ["Developers", "Marketers", "Web scrapers"],
+  "sources": [
+    {
+      "title": "Buy Proxy - Fast Private SOCKS5 & HTTPs Proxy Servers",
+      "url": "https://proxy-seller.com/"
+    }
+  ],
+  "research_date": "2026-06-30"
+}

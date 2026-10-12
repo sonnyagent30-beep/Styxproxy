@@ -1,0 +1,26 @@
+{
+  "slug": "proxylite",
+  "name": "ProxyLite",
+  "website": "https://www.proxylite.com/",
+  "description": "72M+ Global IPs with Proxylite, an award-winning proxy service provider offering top-notch data collection, extraction, and multi-accounting infrastructure.",
+  "services": [
+    "Residential proxies",
+    "Data collection",
+    "Data extraction",
+    "Multi-accounting infrastructure"
+  ],
+  "features": {
+    "ip_pool_size": "72M+ global IPs",
+    "award_winning": true,
+    "instant_delivery": true,
+    "money_back_guarantee": true
+  },
+  "target_audience": ["Businesses", "Individuals", "Data collectors"],
+  "sources": [
+    {
+      "title": "ProxyLite - Residential Proxies and Web Scraping",
+      "url": "https://www.proxylite.com/"
+    }
+  ],
+  "research_date": "2026-06-30"
+}

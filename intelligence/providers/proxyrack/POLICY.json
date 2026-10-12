@@ -1,0 +1,46 @@
+{
+  "provider": "proxyrack",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://help.proxyrack.com/en/articles/5735959-what-is-your-refund-policy",
+  "refund_policy": {
+    "status": "VERIFIED",
+    "policy_text": "Customer satisfaction priority. If not completely satisfied or experiencing issues, contact support via dashboard chat or email support@proxyrack.com to request a refund.",
+    "money_back_days": null,
+    "conditions": ["contact via dashboard chat or email", "satisfaction-based discretion"],
+    "residential_refund": "case-by-case via support",
+    "isp_refund": "case-by-case via support"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found"
+  },
+  "kyc": {
+    "required": true,
+    "tier": "full",
+    "what_triggers_kyc": "ID requested for account verification. BlackhatWorld reports: identity mishandling concerns. USE WITH CAUTION for KYC."
+  },
+  "payment_methods": {
+    "status": "VERIFIED",
+    "methods": ["card", "paypal", "crypto"]
+  },
+  "support": {
+    "channels": ["dashboard_chat", "email"],
+    "hours": "Not stated",
+    "response_time": "Varies — some reports of slow response",
+    "status": "VERIFIED"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": true,
+    "commission_percent": 10,
+    "payout_methods": ["paypal", "bank_transfer"]
+  },
+  "accepts_crypto": true,
+  "notes": "KYC FLAG: ID verification requested. BlackHatWorld reports account suspension issues and identity mishandling. Trustpilot 4.5 but with serious negative reviews about suspensions. USE WITH CAUTION. Founded 2014, 2M+ IPs, 140+ countries. Thread-based pricing."
+}

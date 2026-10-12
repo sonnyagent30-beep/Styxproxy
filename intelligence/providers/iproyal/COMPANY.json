@@ -1,0 +1,31 @@
+{
+  "slug": "iproyal",
+  "name": "IPRoyal",
+  "website": "https://iproyal.com",
+  "description": "Premium proxy service provider offering IPv6 and IPv4 proxies with datacenter speed and residential proxy anonymity. No contracts, non-expiring traffic.",
+  "proxy_types": ["Residential", "Datacenter", "Mobile", "ISP", "IPv4", "IPv6", "Sneaker"],
+  "network_size": "500,000+ unique IPs (own residential pool via Pawns app)",
+  "countries": "Global",
+  "pricing": {
+    "starting_price": "$1.39/proxy",
+    "model": "Per proxy / subscription",
+    "notes": "No contracts, non-expiring traffic"
+  },
+  "features": [
+    "No contracts required",
+    "Non-expiring traffic",
+    "Easy self-service",
+    "Datacenter speed with residential anonymity",
+    "7*24h service support",
+    "Exclusive account managers for enterprise",
+    "Customized solutions",
+    "Pawns app for residential proxy pool"
+  ],
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://iproyal.com/",
+    "https://www.iproyal.net/en-us",
+    "https://proxyway.com/reviews/iproyal-proxies",
+    "https://earthweb.com/iproyal/"
+  ]
+}

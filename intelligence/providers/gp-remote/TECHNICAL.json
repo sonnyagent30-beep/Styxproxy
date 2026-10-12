@@ -1,0 +1,16 @@
+{
+  "slug": "gp-remote",
+  "technical_features": {
+    "status": "not_found",
+    "notes": "Unable to identify GP-Remote as a proxy service provider through web research. No matching company found.",
+    "possible_reasons": [
+      "Small/niche provider without significant web presence",
+      "Different naming convention or brand name",
+      "No longer in operation",
+      "May be a regional provider with limited reach"
+    ],
+    "recommendation": "Additional research needed via alternative sources or direct inquiry"
+  },
+  "research_date": "2026-06-30",
+  "sources": []
+}

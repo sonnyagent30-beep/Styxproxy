@@ -1,0 +1,64 @@
+{
+  "slug": "floppydata",
+  "name": "FloppyData",
+  "legalName": "FLOPPYDATA-FZCO",
+  "website": "https://floppydata.com/",
+  "aboutUrl": "https://floppydata.com/about-floppydata/",
+  "pricingUrl": "https://floppydata.com/pricing/",
+  "description": "FloppyData is a budget-to-mid tier proxy provider launched in 2024, operating from Dubai, UAE (Digital Park). They offer residential, mobile, and datacenter proxies with aggressive per-gigabyte pricing starting at $0.6/GB, targeting web scraping, SEO, social media, and data protection use cases.",
+  "companyInfo": {
+    "founded": "2024",
+    "headquarters": "Dubai, UAE (Digital Park)",
+    "legalEntity": "FLOPPYDATA-FZCO",
+    "ipPoolSize": "Not publicly disclosed",
+    "geoCoverage": "195+ countries"
+  },
+  "products": [
+    {
+      "type": "Residential Proxies",
+      "description": "Premium residential proxies",
+      "startingPrice": "$0.6/GB"
+    },
+    {
+      "type": "Mobile Proxies",
+      "description": "Mobile proxy network"
+    },
+    {
+      "type": "Datacenter Proxies",
+      "description": "Datacenter proxy servers"
+    }
+  ],
+  "pricing": {
+    "residential": {
+      "entry": "$0.6/GB",
+      "standard": "$2.95/GB",
+      "notes": "Pricing based on data usage, number of IPs, and time. Contact sales for tailored quotes."
+    },
+    "transparent": true,
+    "contracts": "No long-term contracts required",
+    "plans": "Monthly and annual available"
+  },
+  "features": [
+    "195+ country coverage",
+    "High-speed proxies",
+    "99.99% uptime guarantee",
+    "Transparent pricing",
+    "No long-term contracts",
+    "User-friendly dashboard",
+    "Instant access"
+  ],
+  "useCases": [
+    "Web scraping",
+    "SEO monitoring",
+    "Social media management",
+    "Data protection",
+    "Privacy-focused browsing",
+    "Email platforms access while traveling"
+  ],
+  "sources": [
+    "https://floppydata.com/",
+    "https://floppydata.com/pricing/",
+    "https://floppydata.com/about-floppydata/"
+  ],
+  "researchDate": "2026-06-30"
+}

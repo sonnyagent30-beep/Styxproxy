@@ -1,0 +1,31 @@
+{
+  "slug": "soax",
+  "last_updated": "2026-06-30",
+  "trustpilot": {
+    "rating": "4.2",
+    "reviews_count": "148",
+    "source": "Trustpilot",
+    "notes": "Replies to 75% of negative reviews typically within 2 weeks"
+  },
+  "scamalytics": {
+    "status": "Not applicable - this is a proxy provider, not a target for fraud checks",
+    "note": "Proxy providers themselves are not scored on Scamalytics"
+  },
+  "reddit": {
+    "sentiment": "Positive",
+    "key_themes": [
+      "Best residential Reddit proxy provider per some sources",
+      "155M+ residential IPs - exceptional pool size",
+      "60-minute retainer time - unmatched",
+      "Exceptional speed and zero downtime rate"
+    ],
+    "sources": "TechRadar, various proxy review sites"
+  },
+  "general_reputation": {
+    "status": "Positive - mid-range provider",
+    "established": "Multiple years",
+    "products": "Residential (155M+), mobile (33M+), USA ISP (2.6M+), datacenter",
+    "note": "Vast pool, city and ASN/ISP targeting. KYC required"
+  },
+  "risk_assessment": "LOW"
+}

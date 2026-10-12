@@ -1,0 +1,317 @@
+{
+  "name": "Order Status Notifier",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "order-status",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "order-status"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "orders",
+        "columns": "order_id, status, tx_ref, plan_type, plan_code, country, quantity, amount_paid_ngn, customer_email, customer_phone, created_at, fulfilled_at, expires_at, styxproxy_credential_id, platform_account_id",
+        "conditions": "order_id = '{{$json.body.order_id}}'"
+      },
+      "id": "os-lookup-order",
+      "name": "Lookup Order",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [470, 300],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "platform_accounts",
+        "columns": "platform, platform_user_id, device_id, extra_data, customer_id",
+        "conditions": "id = '{{$json.platform_account_id}}'"
+      },
+      "id": "os-lookup-account",
+      "name": "Lookup Platform Account",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [470, 50],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": "customers",
+        "columns": "phone, name",
+        "conditions": "id = '{{$json.customer_id}}'"
+      },
+      "id": "os-lookup-customer",
+      "name": "Lookup Customer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [470, -200],
+      "credentials": {
+        "postgres": {
+          "id": "ueXVnR6L5H3W86fV",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.customer_email}}",
+              "rightValue": "",
+              "operation": "notEmpty"
+            }
+          ]
+        }
+      },
+      "id": "os-has-email",
+      "name": "Has Email?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [690, 50]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.platform}}",
+              "rightValue": "telegram",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "os-is-telegram",
+      "name": "Is Telegram?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [690, -50]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.platform}}",
+              "rightValue": "whatsapp",
+              "operation": "equals"
+            }
+          ]
+        }
+      },
+      "id": "os-is-whatsapp",
+      "name": "Is WhatsApp?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [690, 150]
+    },
+    {
+      "parameters": {
+        "message": "Order Status Update - Order: {{$json.order_id}} Status: {{$json.status}} Plan: {{$json.plan_code}} Country: {{$json.country}} Amount: \u20a6{{$json.amount_paid_ngn}} Check: https://styxproxy.com/order/status/{{$json.order_id}}",
+        "chatId": "={{$json.platform_user_id}}"
+      },
+      "id": "os-notify-telegram",
+      "name": "Notify Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [910, -50],
+      "credentials": {
+        "telegramApi": {
+          "id": "NefXsQHoi4QHc8dk",
+          "name": "Telegram Bot API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "Order Status Update - Order: {{$json.order_id}} Status: {{$json.status}} Plan: {{$json.plan_code}} Check: https://styxproxy.com/order/status/{{$json.order_id}}",
+        "extraOptions": {}
+      },
+      "id": "os-notify-whatsapp",
+      "name": "Notify WhatsApp",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [910, 150]
+    },
+    {
+      "parameters": {
+        "fromEmail": "Styxproxy Notifications <notify@styxproxy.com>",
+        "toEmail": "={{$json.customer_email}}",
+        "subject": "Order {{$json.order_id}} Status Update: {{$json.status}}",
+        "text": "Order Status Update\n\nOrder ID: {{$json.order_id}}\nStatus: {{$json.status}}\nPlan: {{$json.plan_code}}\nCountry: {{$json.country}}\nAmount: \u20a6{{$json.amount_paid_ngn}}\n\nCheck your order: https://styxproxy.com/order/status/{{$json.order_id}}\n\nNeed help? Reply to this email or chat with support.",
+        "options": {}
+      },
+      "id": "os-notify-email",
+      "name": "Notify Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [910, 50],
+      "credentials": {
+        "resendApi": {
+          "id": "resend-styxproxy",
+          "name": "Resend API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.customer_phone}}",
+              "rightValue": "",
+              "operation": "notEmpty"
+            }
+          ]
+        }
+      },
+      "id": "os-has-phone",
+      "name": "Has Phone?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [690, 250]
+    },
+    {
+      "parameters": {
+        "message": "Order Status Update - Order: {{$json.order_id}} Status: {{$json.status}} Check: https://styxproxy.com/order/status/{{$json.order_id}}",
+        "from": "+14155238886",
+        "to": "={{$json.customer_phone}}"
+      },
+      "id": "os-notify-sms",
+      "name": "Notify SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [910, 250],
+      "credentials": {
+        "twilioApi": {
+          "id": "twilio-styxproxy",
+          "name": "Twilio API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Lookup Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Order": {
+      "main": [
+        [
+          {
+            "node": "Lookup Platform Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Platform Account": {
+      "main": [
+        [
+          {
+            "node": "Has Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Email?": {
+      "main": [
+        [
+          {
+            "node": "Notify Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Telegram?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Telegram?": {
+      "main": [
+        [
+          {
+            "node": "Notify Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Notify WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Phone?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Phone?": {
+      "main": [
+        [
+          {
+            "node": "Notify SMS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Africa/Lagos"
+  }
+}

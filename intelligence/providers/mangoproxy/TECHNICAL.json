@@ -1,0 +1,19 @@
+{
+  "provider": "MangoProxy",
+  "slug": "mangoproxy",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS"],
+  "ip_types": ["Residential"],
+  "pool_size": "90M+ residential",
+  "countries": "Globally",
+  "geo_targeting": ["Country", "City"],
+  "session_types": ["Rotating"],
+  "rotation": "Per request",
+  "sticky_sessions": "Available",
+  "api": "REST API + Built-in scraper",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["90M+ IPs", "Includes API scraper", "Founded 2023"],
+  "sources": ["mangoproxy.com"]
+}

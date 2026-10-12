@@ -1,0 +1,21 @@
+{
+  "slug": "pia-proxy",
+  "name": "Private Internet Access (PIA)",
+  "website": "https://www.privateinternetaccess.com/",
+  "description": "Commercial VPN service provider known for strong privacy protections. Note: PIA is primarily a VPN service, not a traditional proxy provider. Acquired by Kape Technologies in 2019.",
+  "founded": 2010,
+  "headquarters": "United States (original), now owned by Kape Technologies",
+  "type": "Subsidiary",
+  "parent_company": "Kape Technologies",
+  "parent_company_headquarters": "UK/Isle of Man",
+  "founder": "Andrew Lee",
+  "ceo": "Ted Kim",
+  "key_differentiator": "Strict no-logs policy, open-source software, RAM-only servers, 10+ years industry experience",
+  "services": ["VPN", "no-logs privacy", "open-source apps"],
+  "ownership_note": "Kape Technologies also owns CyberGhost, ExpressVPN, ZenMate, and Intego",
+  "sources": [
+    "https://en.wikipedia.org/wiki/Private_Internet_Access",
+    "https://en.wikipedia.org/wiki/Kape_Technologies",
+    "https://www.privateinternetaccess.com/"
+  ]
+}

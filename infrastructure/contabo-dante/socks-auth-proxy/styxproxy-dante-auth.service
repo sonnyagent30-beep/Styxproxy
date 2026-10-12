@@ -1,0 +1,24 @@
+[Unit]
+Description=Styxproxy SOCKS5 Auth Proxy (port 1081)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/styxproxy-dante/socks-auth-proxy
+Environment="DANTE_HOST=127.0.0.1"
+Environment="DANTE_PORT=1080"
+Environment="LISTEN_HOST=0.0.0.0"
+Environment="LISTEN_PORT=1081"
+Environment="USERS_FILE=/etc/dante/users.json"
+Environment="VPS_LABEL=interserver-secondary"
+Environment="PUBLIC_IP=162.35.184.69"
+Environment="LOG_LEVEL=INFO"
+ExecStart=/usr/bin/python3 -u /opt/styxproxy-dante/socks-auth-proxy/app.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/styxproxy-dante-auth.log
+StandardError=append:/var/log/styxproxy-dante-auth.err.log
+
+[Install]
+WantedBy=multi-user.target

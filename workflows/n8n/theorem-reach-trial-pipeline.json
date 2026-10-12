@@ -1,0 +1,257 @@
+{
+  "name": "Styxproxy — TheoremReach Trial Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "theorem-reach-trial",
+        "rawBody": false,
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "trigger-theorem-reach",
+      "name": "TheoremReach Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "webhookId": "theorem-reach-trial"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.BACKEND_BASE_URL}}/api/platform/accounts/by-device/{{$json.body.device_id}}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "lookup-platform-account",
+      "name": "Lookup Platform Account",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "account-found",
+              "leftValue": "{{ $json.found }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-account-found",
+      "name": "Account Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.BACKEND_BASE_URL}}/api/trials/from-survey",
+        "method": "POST",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "device_id",
+              "value": "{{ $json.body.device_id }}"
+            },
+            {
+              "name": "survey_id",
+              "value": "{{ $json.body.survey_id }}"
+            },
+            {
+              "name": "reward_usd",
+              "value": "{{ $json.body.reward_usd }}"
+            },
+            {
+              "name": "country",
+              "value": "{{ $json.body.country || 'Nigeria' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "create-trial-credentials",
+      "name": "Create Trial Credentials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [700, -100]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.phone }}",
+        "message": [
+          {
+            "text": "🎉 Your free trial is ready!\n\n🔐 Proxy: {{ $json.proxy_ip }}:{{ $json.proxy_port }}\n👤 Username: {{ $json.bun_username }}\n🔑 Password: {{ $json.bun_password }}\n\n⏱️ Trial expires: {{ $json.expires_at }}\n\nNeed help? Reply to this message or email support@styxproxy.com"
+          }
+        ],
+        "options": {
+          "sessionExistsVectorStore": "={{ $json.channel }}"
+        }
+      },
+      "id": "send-whatsapp-message",
+      "name": "Send WhatsApp Credentials",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [920, -180]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.phone }}",
+        "text": "🎉 Your free trial is ready!\n\n🔐 Proxy: {{ $json.proxy_ip }}:{{ $json.proxy_port }}\n👤 Username: {{ $json.bun_username }}\n🔑 Password: {{ $json.bun_password }}\n\n⏱️ Trial expires: {{ $json.expires_at }}\n\nNeed help? Reply to this message or email support@styxproxy.com",
+        "telegramApiVersion": "BotApi"
+      },
+      "id": "send-telegram-message",
+      "name": "Send Telegram Credentials",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [920, 20]
+    },
+    {
+      "parameters": {
+        "channel": "slack",
+        "channelType": "slack",
+        "text": [
+          {
+            "text": "⚠️ Trial delivery failed for device_id={{ $json.body.device_id }}\n\nError: {{ $json.error }}\nSurvey: {{ $json.body.survey_id }}"
+          }
+        ],
+        "options": {}
+      },
+      "id": "slack-ops-alert",
+      "name": "Alert Ops (Slack)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [920, 180]
+    },
+    {
+      "parameters": {
+        "message": [
+          {
+            "text": "❌ Trial pipeline failed for device_id={{ $json.body.device_id }}: {{ $json.message }}"
+          }
+        ],
+        "options": {}
+      },
+      "id": "telegram-ops-alert",
+      "name": "Alert Ops (Telegram)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [920, 340]
+    }
+  ],
+  "connections": {
+    "TheoremReach Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Lookup Platform Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Platform Account": {
+      "main": [
+        [
+          {
+            "node": "Account Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Account Found?": {
+      "main": [
+        [
+          {
+            "node": "Create Trial Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert Ops (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Trial Credentials": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Credentials",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Telegram Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Credentials": {
+      "main": [
+        []
+      ]
+    },
+    "Send Telegram Credentials": {
+      "main": [
+        []
+      ]
+    },
+    "Alert Ops (Slack)": {
+      "main": [
+        [
+          {
+            "node": "Alert Ops (Telegram)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Ops (Telegram)": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": ["styxproxy", "theorem-reach", "trial", "s2.3"],
+  "meta": {
+    "styxproxy_version": "s2.3",
+    "description": "TheoremReach survey completion → DataImpulse trial credentials → WhatsApp/Telegram delivery",
+    "owner": "developer",
+    "sprint": "sprint-2",
+    "depends_on": ["t_a781e998", "t_acd544c5"]
+  }
+}

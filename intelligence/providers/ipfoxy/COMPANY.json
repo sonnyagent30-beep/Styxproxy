@@ -1,0 +1,25 @@
+{
+  "slug": "ipfoxy",
+  "name": "IPFoxy",
+  "website": "https://www.ipfoxy.com",
+  "description": "Enterprise-grade international proxy service provider offering reliable residential proxy services with both static and rotating dedicated proxies.",
+  "proxy_types": ["Residential", "Static Residential", "Rotating Residential"],
+  "network_size": "Not publicly disclosed",
+  "countries": "Global",
+  "pricing": {
+    "model": "Subscription-based",
+    "notes": "Premium pricing for enterprise clients"
+  },
+  "features": [
+    "Static IPs for stable connections",
+    "Rotating IPs for automation",
+    "Enterprise-grade reliability",
+    "Seamless real user environment simulation",
+    "Both dedicated and shared options"
+  ],
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://www.ipfoxy.com/",
+    "https://www.ipfoxy.com/pricing/residential"
+  ]
+}

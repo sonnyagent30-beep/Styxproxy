@@ -1,0 +1,43 @@
+{
+  "slug": "rayobyte",
+  "name": "Rayobyte",
+  "website": "https://rayobyte.com/",
+  "description": "US-based proxy provider formerly known as Blazing SEO Proxies. Offers residential, datacenter, ISP, and mobile proxies with ethical sourcing.",
+  "founding_year": 2015,
+  "former_name": "Blazing SEO Proxies",
+  "rebrand_year": 2021,
+  "headquarters": "Lincoln, Nebraska, USA",
+  "address": "233 S. 13th St, Suite 1100, Lincoln, NE",
+  "company_type": "Private",
+  "founder": "Neil Emeigh",
+  "employees": "50+",
+  "funding_status": "Bootstrapped",
+  "certifications": [
+    "EWDCI Certified (Ethical Web Data Collection Initiative)"
+  ],
+  "proxy_types": [
+    "Residential",
+    "Datacenter",
+    "ISP",
+    "Mobile"
+  ],
+  "ip_count": "40M+ residential",
+  "data_processed": "20+ petabytes/month",
+  "key_features": [
+    "Ethical peer-to-peer network",
+    "Fully consented IPs",
+    "Strong KYC controls",
+    "US-based operations"
+  ],
+  "sources": [
+    {
+      "title": "Rayobyte Review - ProxyLook",
+      "url": "https://proxylook.com/providers/rayobyte"
+    },
+    {
+      "title": "Rayobyte Review - ProxyHorizon",
+      "url": "https://www.proxyhorizon.com/proxies/rayobyte"
+    }
+  ],
+  "data_created": "2026-06-30"
+}

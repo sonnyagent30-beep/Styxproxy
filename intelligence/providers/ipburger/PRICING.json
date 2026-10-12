@@ -1,0 +1,25 @@
+{
+  "provider": "IPBurger",
+  "slug": "ipburger",
+  "website": "https://www.ipburger.com",
+  "verified_date": "2026-06-30",
+  "verification_status": "CONTACT_SALES",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "Contact sales",
+      "unit": "per GB",
+      "notes": "100M+ residential IPs. 2,014 cities. No public pricing."
+    },
+    "isp_ipv4": {
+      "price": "Contact sales",
+      "unit": "per IP per month",
+      "notes": "ISP proxies — no public pricing"
+    }
+  },
+  "free_trial": "Contact sales",
+  "min_purchase": "Undisclosed",
+  "single_ip_available": false,
+  "billing": ["Monthly"],
+  "sources": ["https://www.ipburger.com"]
+}

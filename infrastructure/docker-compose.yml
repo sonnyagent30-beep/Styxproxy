@@ -1,0 +1,253 @@
+# Styxproxy — Docker Compose
+# ─────────────────────────────────────────────────────────────
+# Services: api, n8n, postgres, redis, pgbouncer, sentry, nginx
+# Usage:   docker compose up -d
+# Env:     cp .env.production.example .env && edit .env
+# ─────────────────────────────────────────────────────────────
+
+name: styxproxy
+
+services:
+
+  # ── Database ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      POSTGRES_DB: styxproxy
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d styxproxy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - styxproxy_net
+
+  # ── Cache / Queue ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - styxproxy_net
+
+  # ── PgBouncer — connection pooling for n8n + FastAPI ────
+  # Both n8n and FastAPI route DB connections through pgbouncer.
+  # Transaction pooling: default_pool_size=40 supports 300-500 concurrent
+  # DB-backed requests vs. the prior limit of ~30 (pool_size=20 + overflow=10).
+  pgbouncer:
+    image: pgbouncer/pgbouncer:latest
+    restart: unless-stopped
+    mem_limit: 128m
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:***@postgres:5432/styxproxy"
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 40
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      MAX_DB_CONNECTIONS: 100
+      AUTH_TYPE: md5
+      AUTH_FILE: /etc/pgbouncer/userlist.txt
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+      - pgbouncer_data:/var/log/pgbouncer
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgbouncer -V"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - styxproxy_net
+
+  # ── API Backend ────────────────────────────────────────────
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 2
+    environment:
+      # FastAPI connects through PgBouncer (transaction pooling).
+      # Previously routed directly to postgres; pgbouncer at default_pool_size=40
+      # now handles 300-500 concurrent DB-backed requests.
+      DATABASE_URL: postgres+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:5432/styxproxy
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+
+      # Payment
+      FLUTTERWAVE_SECRET_KEY: ${FLUTTERWAVE_SECRET_KEY}
+      FLUTTERWAVE_WEBHOOK_SECRET: ${FLUTTERWAVE_WEBHOOK_SECRET}
+
+      # WhatsApp
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+
+      # LLM
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY}
+
+      # Auth — JWT for platform accounts, ADMIN_TOKEN for admin endpoints
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required — openssl rand -base64 32}
+
+      CORS_ORIGINS: ${CORS_ORIGINS}
+
+      # Sentry
+      SENTRY_DSN: ${SENTRY_DSN}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_TRACES_SAMPLE_RATE: "${SENTRY_TRACES_SAMPLE_RATE:-0.1}"
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - styxproxy_net
+
+  # ── n8n Workflow Automation ────────────────────────────────
+  # n8n connects to PostgreSQL via PgBouncer (transaction pooling)
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    mem_limit: 1g
+    environment:
+      DB_TYPE: postgresdb
+      # n8n → PgBouncer → PostgreSQL
+      DB_POSTGRESDB_HOSTNAME: pgbouncer
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: styxproxy
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_POSTGRES_DB: styxproxy
+      EXECUTIONS_MODE: ${EXECUTIONS_MODE:-regular}
+      EXECUTIONS_TIMEOUT: ${EXECUTIONS_TIMEOUT:-300}
+      GENERIC_TIMEZONE: Africa/Lagos
+      N8N_LOG_LEVEL: ${N8N_LOG_LEVEL:-info}
+
+      # Sentry — n8n workflow error tracking
+      SENTRY_DSN: ${SENTRY_DSN}
+      SENTRY_DSN_URL: ${SENTRY_DSN}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      # LLM
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - styxproxy_net
+
+  # ── Sentry — Error Tracking + APM ────────────────────────
+  # Self-hosted Sentry on-premise
+  sentry:
+    image: sentry:${SENTRY_VERSION:-latest}
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      SENTRY_ORG: ${SENTRY_ORG:-Styxproxy}
+      SENTRY_PROJECT: ${SENTRY_PROJECT:-styxproxy-api}
+      SENTRY_PROJECT_N8N: ${SENTRY_PROJECT_N8N:-styxproxy-n8n}
+      SENTRY_URL: ${SENTRY_URL:-http://sentry:9000}
+      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY:?SENTRY_SECRET_KEY is required}
+      SENTRY_EMAIL_HOST: ${SENTRY_EMAIL_HOST:-smtp}
+      SENTRY_EMAIL_PORT: ${SENTRY_EMAIL_PORT:-1025}
+      SENTRY_EMAIL_USE_TLS: "false"
+      SENTRY_EMAIL_FROM: ${SENTRY_EMAIL_FROM:-no-reply@styxproxy.com}
+      SENTRY_DB_USER: ${POSTGRES_USER}
+      SENTRY_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      SENTRY_DB_NAME: sentry
+      SENTRY_DB_HOST: postgres
+      SENTRY_REDIS_HOST: redis
+      SENTRY_REDIS_PORT: 6379
+      SENTRY_REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - sentry_data:/var/lib/sentry/data
+    networks:
+      - styxproxy_net
+
+  # ── Reverse Proxy + SSL ───────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl-params.conf:/etc/nginx/snippets/ssl-params.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/html:/usr/share/nginx/html:ro
+      - certbot_data:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    depends_on:
+      - api
+      - n8n
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - styxproxy_net
+
+  # ── Certbot (run manually for SSL) ───────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    restart: "no"
+    volumes:
+      - certbot_data:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+
+networks:
+  styxproxy_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+  pgbouncer_data:
+  sentry_data:
+  certbot_data:
+  certbot_www:

@@ -1,0 +1,25 @@
+{
+  "provider": "proxy-cheap",
+  "last_verified": "2026-06-30",
+  "verification_source": "web_search",
+  "refund_policy": {
+    "status": "CONTACT_SALES",
+    "policy_text": "14-day money-back guarantee. Refund requests within 14 days from purchase. Case-by-case depending on usage and circumstances.",
+    "money_back_days": 14,
+    "conditions": [
+      "Within 14 days of purchase",
+      "Proxy not used on restricted websites",
+      "Case-by-case basis"
+    ],
+    "residential_refund": "14-day money-back guarantee",
+    "isp_refund": "14-day money-back guarantee"
+  },
+  "sla": { "status": "NOT_FOUND", "uptime_percent": null, "refund_if_below": null, "sla_text": "No public SLA document found" },
+  "kyc": { "required": false, "tier": "none", "what_triggers_kyc": null },
+  "payment_methods": { "status": "PARTIAL", "methods": [] },
+  "support": { "channels": ["email", "support_portal"], "hours": null, "response_time": null, "status": "NOT_FOUND" },
+  "reseller_program": { "exists": false, "discount": null, "min_volume": null },
+  "affiliate_program": { "exists": false, "commission_percent": null, "payout_methods": null },
+  "accepts_crypto": true,
+  "notes": "Budget residential/mobile proxies. $1.50-3/GB. Contact sales for pricing."
+}

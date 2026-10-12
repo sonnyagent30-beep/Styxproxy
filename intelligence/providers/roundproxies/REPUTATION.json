@@ -1,0 +1,32 @@
+{
+  "slug": "roundproxies",
+  "last_updated": "2026-06-30",
+  "trustpilot": {
+    "rating": "4.7",
+    "reviews_count": "Not specified",
+    "source": "Trustpilot",
+    "assessment": "Rated Excellent",
+    "notes": "4.4 rating mentioned in other reviews, 4.7 in main Trustpilot"
+  },
+  "scamalytics": {
+    "trust_score": "99/100",
+    "source": "GridInSoft",
+    "global_rank": "#3,358,971"
+  },
+  "reddit": {
+    "sentiment": "Positive",
+    "key_themes": [
+      "Extensive proxy network - 180M+ Residential, 3M+ Datacenter",
+      "195+ regions",
+      "110M+ IPs mentioned",
+      "Good for web scraping"
+    ]
+  },
+  "general_reputation": {
+    "status": "Positive - highly rated",
+    "established": "Multiple years",
+    "products": "Residential, ISP, datacenter, mobile proxies",
+    "note": "Premium proxy solution with comprehensive network"
+  },
+  "risk_assessment": "LOW"
+}

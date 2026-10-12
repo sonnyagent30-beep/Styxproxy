@@ -1,0 +1,19 @@
+{
+  "provider": "ProxyOn",
+  "slug": "proxyon",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP", "HTTPS", "SOCKS5"],
+  "ip_types": ["Residential", "Datacenter"],
+  "pool_size": "Not disclosed",
+  "countries": "Not disclosed",
+  "geo_targeting": ["Country"],
+  "session_types": ["Rotating"],
+  "rotation": "Per request",
+  "sticky_sessions": "Available",
+  "api": "REST API",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["Pay-as-you-go model", "New provider (~2025)"],
+  "sources": ["proxyon.io"]
+}

@@ -1,0 +1,19 @@
+{
+  "provider": "ProxyLite",
+  "slug": "proxylite",
+  "website": "https://proxylite.io",
+  "verified_date": "2026-06-30",
+  "verification_status": "CONTACT_SALES",
+  "pricing_model": "Subscription",
+  "products": {
+    "residential_ipv4": {
+      "price": "Contact sales",
+      "unit": "per GB",
+      "notes": "No public pricing available."
+    }
+  },
+  "free_trial": "Not available",
+  "min_purchase": "Undisclosed",
+  "notes": ["No verified pricing found", "Limited public data available"],
+  "sources": []
+}

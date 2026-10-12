@@ -1,0 +1,36 @@
+{
+  "slug": "mangoproxy",
+  "name": "MangoProxy",
+  "website": "https://mangoproxy.com/",
+  "description": "Modern residential proxy service launched in 2023 with 90M+ IPs globally, combined with API scraper for data collection",
+  "founded": 2023,
+  "headquarters": "Not publicly disclosed",
+  "proxy_types": [
+    "Residential Proxies",
+    "ISP Proxies",
+    "Datacenter Proxies"
+  ],
+  "ip_pool_size": "90+ million",
+  "geo_coverage": "220+ countries",
+  "features": [
+    "Automatic IP rotation",
+    "Session control",
+    "Granular geo-targeting",
+    "API scraper included",
+    "24/7/365 support"
+  ],
+  "use_cases": [
+    "Data Scraping",
+    "Competitor Analysis",
+    "Brand Protection",
+    "Automation"
+  ],
+  "pricing_starting": "$79/month",
+  "target_market": "Individual and business users",
+  "reviews": {
+    "reviews_io": "Positive reviews noted"
+  },
+  "data_sources": {
+    "Residential IPs from real devices"
+  }
+}

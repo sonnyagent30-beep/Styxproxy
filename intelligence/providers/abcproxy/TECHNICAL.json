@@ -1,0 +1,77 @@
+{
+  "slug": "abcproxy",
+  "technical_features": {
+    "proxy_types": {
+      "residential": {
+        "available": true,
+        "ip_pool": "350M+",
+        "countries": "200+",
+        "regions": "190+",
+        "targeting": {
+          "country": true,
+          "city": true,
+          "postcode": true,
+          "isp": true
+        }
+      },
+      "isp": {
+        "available": true,
+        "static": true
+      },
+      "datacenter": {
+        "available": true
+      },
+      "mobile": {
+        "available": true
+      },
+      "socks5": {
+        "available": true,
+        "description": "Premium SOCKS5 network with individual IPs"
+      }
+    },
+    "protocols": {
+      "http": true,
+      "https": true,
+      "socks5": true
+    },
+    "authentication": {
+      "user_pass": true,
+      "ip_whitelist": true,
+      "api_auth": true
+    },
+    "api": {
+      "proxy_api": true,
+      "serp_api": true,
+      "endpoint_format": "SOCKS5, HTTP(S)",
+      "sub_accounts": true,
+      "targeting_control": true
+    },
+    "session_control": {
+      "rotating": true,
+      "sticky": true,
+      "lifetime_ips": "Available for SOCKS5 - hold IP for session lifetime"
+    },
+    "infrastructure": {
+      "pool_refresh": "Regularly refreshed",
+      "ethical_sourcing": true
+    }
+  },
+  "targeting": {
+    "geo_levels": ["country", "region", "city", "postcode", "isp", "carrier"],
+    "country_coverage": "200+",
+    "region_coverage": "190+"
+  },
+  "integration": {
+    "browser_tools": true,
+    "team_dashboards": true,
+    "automation_systems": true,
+    "instant_crypto_topup": true,
+    "no_kyc": true
+  },
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://abc-proxy.com/",
+    "https://www.abcproxy.com/proxy-api",
+    "https://abc-proxy.com/getproxy/api.html"
+  ]
+}

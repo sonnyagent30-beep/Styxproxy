@@ -1,0 +1,70 @@
+{
+  "slug": "evomi",
+  "name": "Evomi",
+  "legalName": "Evomi",
+  "website": "https://evomi.com/",
+  "aboutUrl": "https://evomi.com/company/about-us",
+  "pricingUrl": "https://evomi.com/pricing",
+  "description": "Evomi is a Swiss-based proxy service provider specializing in residential proxies for web scraping and data intelligence. Founded in 2023, they emphasize ethical sourcing and compliance, offering premium residential proxies at market-beating prices starting at $0.49/GB.",
+  "companyInfo": {
+    "founded": "2023",
+    "headquarters": "Switzerland",
+    "ipPoolSize": "Not publicly disclosed",
+    "geoCoverage": "150+ countries"
+  },
+  "products": [
+    {
+      "type": "Residential Proxies",
+      "description": "Premium residential proxies",
+      "startingPrice": "$0.49/GB"
+    },
+    {
+      "type": "Mobile Proxies",
+      "description": "Mobile proxy network"
+    },
+    {
+      "type": "Datacenter Proxies",
+      "description": "Datacenter proxy servers"
+    },
+    {
+      "type": "ISP Proxies",
+      "description": "Static ISP proxies"
+    },
+    {
+      "type": "SOCKS5 Proxies",
+      "description": "SOCKS5 protocol support"
+    }
+  ],
+  "pricing": {
+    "residential": {
+      "entry": "$0.49/GB",
+      "small": "$0.99/GB (15 GB)",
+      "medium": "$0.79/GB (100 GB)",
+      "volume": "Custom pricing available"
+    },
+    "freeTrial": "Available"
+  },
+  "features": [
+    "Swiss-based company",
+    "Ethical proxy sourcing",
+    "Money-back guarantee",
+    "24/7 expert support",
+    "SOCKS5 UDP support",
+    "Customizable proxy options",
+    "Advanced geo-targeting"
+  ],
+  "useCases": [
+    "Web scraping",
+    "Ecommerce competition intelligence",
+    "Price monitoring",
+    "Ad verification",
+    "SEO monitoring",
+    "Data collection"
+  ],
+  "sources": [
+    "https://evomi.com/",
+    "https://evomi.com/pricing",
+    "https://evomi.com/company/about-us"
+  ],
+  "researchDate": "2026-06-30"
+}

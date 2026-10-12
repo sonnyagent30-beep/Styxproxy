@@ -1,0 +1,46 @@
+{
+  "provider": "proxy6",
+  "last_verified": "2026-06-30",
+  "verification_source": "https://www.techuseful.com/proxy6-review/",
+  "refund_policy": {
+    "status": "VERIFIED",
+    "policy_text": "24-hour test period available before committing. No explicit money-back guarantee after purchase. All payments strictly non-refundable per ProxyEmpire model.",
+    "money_back_days": 0,
+    "conditions": ["24hr test before purchase", "no refund after purchase"],
+    "residential_refund": "no refund after purchase",
+    "isp_refund": "no refund after purchase"
+  },
+  "sla": {
+    "status": "NOT_FOUND",
+    "uptime_percent": null,
+    "refund_if_below": null,
+    "sla_text": "No public SLA document found"
+  },
+  "kyc": {
+    "required": false,
+    "tier": "none",
+    "what_triggers_kyc": null
+  },
+  "payment_methods": {
+    "status": "VERIFIED",
+    "methods": ["card", "paypal", "crypto"]
+  },
+  "support": {
+    "channels": ["email", "ticket"],
+    "hours": "Not stated",
+    "response_time": "Varies — Trustpilot 1.5/5 indicates poor support",
+    "status": "VERIFIED"
+  },
+  "reseller_program": {
+    "exists": false,
+    "discount": null,
+    "min_volume": null
+  },
+  "affiliate_program": {
+    "exists": true,
+    "commission_percent": null,
+    "payout_methods": ["not publicly stated"]
+  },
+  "accepts_crypto": true,
+  "notes": "TRUSTPILOT 1.5/5 — WORST RATED PROVIDER. Complaints about blacklisted IPs and rude support. IPv4/IPv6 specialist. AVOID. Non-refundable policy is business risk for resellers."
+}

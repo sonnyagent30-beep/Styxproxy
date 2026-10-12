@@ -1,0 +1,24 @@
+{
+  "slug": "proxy6",
+  "name": "Proxy6",
+  "website": "https://proxy6.net/",
+  "description": "Proxy IPv4 suitable for work with any sites and services. Our cheap fast proxies allow you to work in a network comfortably and safely. You can access sites that are not allowed to view in your country.",
+  "services": [
+    "IPv4 proxies",
+    "IPv6 proxies",
+    "MTproto proxies"
+  ],
+  "features": {
+    "proxy_types": ["IPv4", "IPv6", "MTproto"],
+    "geo_restriction_bypass": true,
+    "fast_proxies": true
+  },
+  "target_audience": ["Users needing geo-restriction bypass", "General web users"],
+  "sources": [
+    {
+      "title": "Buy proxy. Personal anonymous IPv4/IPv6, MTproto...",
+      "url": "https://proxy6.net/"
+    }
+  ],
+  "research_date": "2026-06-30"
+}

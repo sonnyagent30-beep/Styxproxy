@@ -1,0 +1,70 @@
+{
+  "slug": "711proxy",
+  "technical_features": {
+    "proxy_types": {
+      "residential": {
+        "rotating": {
+          "available": true,
+          "ip_pool": "100M+",
+          "countries": "200+",
+          "rotation_types": ["auto-rotation", "sticky sessions"],
+          "sticky_session_duration": "5min - 180min",
+          "success_rate": "99.7%"
+        },
+        "static": {
+          "available": true,
+          "description": "ISP static residential IPs"
+        }
+      },
+      "socks5": {
+        "available": true
+      }
+    },
+    "protocols": {
+      "http": true,
+      "https": true,
+      "socks5": true
+    },
+    "authentication": {
+      "user_pass": true,
+      "ip_whitelist": true,
+      "api_auth": true
+    },
+    "api": {
+      "endpoint_rotation": true,
+      "instant_ip_change": true,
+      "documentation": "Integration examples for Python, Node.js, Java, PHP, Go, C++"
+    },
+    "session_control": {
+      "sticky_sessions": true,
+      "duration_range": "5-180 minutes",
+      "auto_rotation": true
+    },
+    "bandwidth": {
+      "premium_bandwidth": "200Mbps - 1Gbps",
+      "unlimited_concurrent_requests": true,
+      "no_throttling": true,
+      "no_overage_charges": true
+    },
+    "infrastructure": {
+      "uptime": "99.9%",
+      "network_size": "400+ networks",
+      "ip_verification": "Rigorous compliance audit process"
+    }
+  },
+  "targeting": {
+    "geo_levels": ["country", "region", "city", "isp"],
+    "country_coverage": "200+"
+  },
+  "integration": {
+    "api_access": true,
+    "reseller_api": true,
+    "proxy_trials": true
+  },
+  "research_date": "2026-06-30",
+  "sources": [
+    "https://www.711proxy.com/",
+    "https://sourceforge.net/software/product/711Proxy/",
+    "https://www.iplocation.net/711proxy-review-2026"
+  ]
+}

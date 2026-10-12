@@ -1,0 +1,32 @@
+{
+  "slug": "v-proxies",
+  "last_updated": "2026-06-30",
+  "trustpilot": {
+    "rating": "Not found",
+    "reviews_count": "Not available",
+    "source": "Trustpilot search",
+    "notes": "Limited public review data available"
+  },
+  "scamalytics": {
+    "status": "Not applicable - this is a proxy provider, not a target for fraud checks",
+    "note": "Proxy providers themselves are not scored on Scamalytics"
+  },
+  "reddit": {
+    "sentiment": "Limited discussion",
+    "key_themes": [
+      "Mentioned as high-speed residential proxy network",
+      "Rotating residential proxies with global geo-targeting",
+      "Sticky sessions, SOCKS5/HTTP(S) support",
+      "Unlimited concurrency",
+      "Starting at $0.99/GB"
+    ]
+  },
+  "general_reputation": {
+    "status": "Limited data - newer provider",
+    "established": "Recent",
+    "products": "Residential proxies",
+    "note": "Built for developers, businesses, automation workflows"
+  },
+  "risk_assessment": "UNKNOWN - LIMITED DATA",
+  "caveats": "Limited public reputation data. Exercise normal caution for newer providers."
+}

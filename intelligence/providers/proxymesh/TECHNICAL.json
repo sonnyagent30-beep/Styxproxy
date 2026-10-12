@@ -1,0 +1,19 @@
+{
+  "provider": "ProxyMesh",
+  "slug": "proxymesh",
+  "verified_date": "2026-06-30",
+  "protocols": ["HTTP"],
+  "ip_types": ["Rotating HTTP"],
+  "pool_size": "Not disclosed",
+  "countries": "100+ locations",
+  "geo_targeting": ["Country"],
+  "session_types": ["Rotating HTTP"],
+  "rotation": "Every request",
+  "sticky_sessions": "No",
+  "api": "None (username:pass@proxy:port)",
+  "auth_methods": ["Username/password"],
+  "sla": "Unknown",
+  "uptime": "Unknown",
+  "unique_features": ["Rotating HTTP specialist", "Anti-ban/rate-limit bypass"],
+  "sources": ["proxymesh.com"]
+}

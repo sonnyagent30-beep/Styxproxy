@@ -1,0 +1,303 @@
+{
+  "total": 42,
+  "providers": [
+    {
+      "name": "2extract",
+      "website": "https://www.2extract.com",
+      "type": "Ethical Residential Proxy",
+      "countries": "Global",
+      "source_url": "https://www.2extract.com/"
+    },
+    {
+      "name": "711Proxy",
+      "website": "https://www.711proxy.com",
+      "type": "ISP/Static Residential",
+      "countries": "200+ countries",
+      "source_url": "https://www.711proxy.com/"
+    },
+    {
+      "name": "ABCproxy",
+      "website": "https://www.abcproxy.com",
+      "type": "ISP/Static Residential",
+      "countries": "200+ countries",
+      "source_url": "https://www.abcproxy.com/"
+    },
+    {
+      "name": "Bright Data",
+      "website": "https://brightdata.com",
+      "type": "Residential Proxy",
+      "countries": "195 countries",
+      "source_url": "https://brightdata.com/proxy-types/residential-proxies"
+    },
+    {
+      "name": "Byteful",
+      "website": "https://byteful.com",
+      "type": "Ethical Residential Proxy",
+      "countries": "Global",
+      "source_url": "https://byteful.com/"
+    },
+    {
+      "name": "DataImpulse",
+      "website": "https://dataimpulse.com",
+      "type": "Residential Proxy",
+      "countries": "Global",
+      "source_url": "https://dataimpulse.com/blog/most-trusted-residential-proxy-providers/"
+    },
+    {
+      "name": "Decodo",
+      "website": "https://decodo.com",
+      "type": "Residential, Datacenter, SERP Scraping",
+      "countries": "195+ countries",
+      "source_url": "https://soax.com/blog/top-proxy-provider"
+    },
+    {
+      "name": "Evomi",
+      "website": "https://evomi.com",
+      "type": "Ethical Residential Proxy",
+      "countries": "Global",
+      "source_url": "https://evomi.com/"
+    },
+    {
+      "name": "FloppyData",
+      "website": "https://floppydata.com",
+      "type": "ISP/Static Residential",
+      "countries": "195+ countries",
+      "source_url": "https://floppydata.com/"
+    },
+    {
+      "name": "Froxy",
+      "website": "https://froxy.com",
+      "type": "Ethical Residential Proxy",
+      "countries": "190+ countries",
+      "source_url": "https://froxy.com/en/residential-proxies"
+    },
+    {
+      "name": "GP-Remote",
+      "website": "https://gp-remote.com",
+      "type": "Residential",
+      "countries": "Global",
+      "source_url": "https://www.reddit.com/r/VPNAlternatives/comments/16xiyr3/best_proxies_reddit_proxy_recommendations/"
+    },
+    {
+      "name": "Geonix",
+      "website": "https://geonix.io",
+      "type": "Residential Proxy",
+      "countries": "Multiple",
+      "source_url": "https://proxy-seller.com/blog/10-best-residential-proxy-providers/"
+    },
+    {
+      "name": "IPBurger",
+      "website": "https://www.ipburger.com",
+      "type": "ISP/Static Residential",
+      "countries": "Global",
+      "source_url": "https://www.ipburger.com/"
+    },
+    {
+      "name": "IPEAK",
+      "website": "https://www.ippeak.com",
+      "type": "Ethical Residential Proxy",
+      "countries": "Global",
+      "source_url": "https://www.ippeak.com/"
+    },
+    {
+      "name": "IPFoxy",
+      "website": "https://www.ipfoxy.com",
+      "type": "ISP/Static Residential",
+      "countries": "Global",
+      "source_url": "https://www.ipfoxy.com/"
+    },
+    {
+      "name": "IPRoyal",
+      "website": "https://iproyal.com",
+      "type": "Residential Proxy",
+      "countries": "170+ countries",
+      "source_url": "https://iproyal.com/blog/best-residential-proxy-providers/"
+    },
+    {
+      "name": "Infatica",
+      "website": "https://infatica.io",
+      "type": "Residential, Datacenter",
+      "countries": "190+ countries",
+      "source_url": "https://www.reddit.com/r/proxies/comments/1sv5zti/best_residential_proxy_provider_in_2026/"
+    },
+    {
+      "name": "LegionProxy",
+      "website": "https://legionproxy.io",
+      "type": "ISP/Static Residential",
+      "countries": "Global",
+      "source_url": "https://legionproxy.io/"
+    },
+    {
+      "name": "LumiProxy",
+      "website": "https://www.lumiproxy.com",
+      "type": "ISP/Static Residential",
+      "countries": "Global",
+      "source_url": "https://www.lumiproxy.com/"
+    },
+    {
+      "name": "MangoProxy",
+      "website": "https://mangoproxy.com",
+      "type": "Ethical Residential Proxy",
+      "countries": "Multiple",
+      "source_url": "https://mangoproxy.com/blog/ethical-residential-proxies-2026/"
+    },
+    {
+      "name": "NaProxy",
+      "website": "https://www.naproxy.com",
+      "type": "ISP/Static Residential",
+      "countries": "Global (90M+ IPs)",
+      "source_url": "https://www.naproxy.com/"
+    },
+    {
+      "name": "NetNut",
+      "website": "https://netnut.io",
+      "type": "Residential Proxy",
+      "countries": "Global",
+      "source_url": "https://proxy-seller.com/blog/10-best-residential-proxy-providers/"
+    },
+    {
+      "name": "NodeMaven",
+      "website": "https://nodemaven.com",
+      "type": "ISP Proxies",
+      "countries": "Global",
+      "source_url": "https://nodemaven.com/blog/best-isp-proxy-providers/"
+    },
+    {
+      "name": "OkeyProxy",
+      "website": "https://www.okeyproxy.com",
+      "type": "ISP/Static Residential",
+      "countries": "Global",
+      "source_url": "https://www.okeyproxy.com/en"
+    },
+    {
+      "name": "Oxylabs",
+      "website": "https://oxylabs.io",
+      "type": "Residential Proxy",
+      "countries": "195+ countries",
+      "source_url": "https://www.zyte.com/learn/best-proxy-providers-for-web-scraping/"
+    },
+    {
+      "name": "PIA Proxy",
+      "website": "https://piaproxys5.com",
+      "type": "Ethical Residential Proxy (SOCKS5)",
+      "countries": "Multiple",
+      "source_url": "https://piaproxys5.com/"
+    },
+    {
+      "name": "Proxy-Seller",
+      "website": "https://proxy-seller.com",
+      "type": "Residential Proxy",
+      "countries": "100+ countries",
+      "source_url": "https://proxy-seller.com/blog/10-best-residential-proxy-providers/"
+    },
+    {
+      "name": "Proxy6",
+      "website": "https://proxy6.net",
+      "type": "Residential, Datacenter, IPv6",
+      "countries": "190+ countries",
+      "source_url": "https://www.trustpilot.com/review/proxy6.net"
+    },
+    {
+      "name": "ProxyEmpire",
+      "website": "https://proxyempire.io",
+      "type": "Residential Proxy",
+      "countries": "Global",
+      "source_url": "https://proxyempire.io/"
+    },
+    {
+      "name": "ProxyLite",
+      "website": "https://www.proxylite.com",
+      "type": "ISP/Static Residential",
+      "countries": "Global (70M+ IPs)",
+      "source_url": "https://www.proxylite.com"
+    },
+    {
+      "name": "ProxyMesh",
+      "website": "https://proxymesh.com",
+      "type": "Rotating Proxy",
+      "countries": "10+ countries",
+      "source_url": "https://www.reddit.com/r/VPNAlternatives/comments/16xiyr3/best_proxies_reddit_proxy_recommendations/"
+    },
+    {
+      "name": "ProxyOn",
+      "website": "https://proxyon.io",
+      "type": "Residential Proxy",
+      "countries": "Multiple",
+      "source_url": "https://proxyon.io/blog/best-datacenter-proxy"
+    },
+    {
+      "name": "ProxyRack",
+      "website": "https://proxyrack.com",
+      "type": "Residential, Datacenter",
+      "countries": "190+ countries",
+      "source_url": "https://www.linkedin.com/posts/proxyrack_best-residential-proxy-providers-in-2026-activity-7439238952403984384-_BsJ"
+    },
+    {
+      "name": "Proxys.io",
+      "website": "https://proxys.io",
+      "type": "Residential, Datacenter",
+      "countries": "Global",
+      "source_url": "https://www.trustpilot.com/review/proxys.io"
+    },
+    {
+      "name": "Rayobyte",
+      "website": "https://rayobyte.com",
+      "type": "Ethical Residential Proxy",
+      "countries": "Global",
+      "source_url": "https://rayobyte.com/"
+    },
+    {
+      "name": "RoundProxies",
+      "website": "https://roundproxies.com",
+      "type": "Residential, Datacenter",
+      "countries": "Global",
+      "source_url": "https://roundproxies.com/blog/best-webshare-alternatives/"
+    },
+    {
+      "name": "SOAX",
+      "website": "https://soax.com",
+      "type": "Residential Proxy",
+      "countries": "Global",
+      "source_url": "https://proxy-seller.com/blog/10-best-residential-proxy-providers/"
+    },
+    {
+      "name": "SmartDNS Proxy",
+      "website": "https://smartdnsproxy.com",
+      "type": "DNS Proxy",
+      "countries": "Global",
+      "source_url": "https://at.trustpilot.com/review/smartdnsproxy.com"
+    },
+    {
+      "name": "Smartproxy",
+      "website": "https://smartproxy.com",
+      "type": "Residential, Datacenter",
+      "countries": "195+ countries",
+      "source_url": "https://blog.apify.com/best-proxy-providers/"
+    },
+    {
+      "name": "SpaceProxy",
+      "website": "https://spaceproxy.net",
+      "type": "Residential, Datacenter",
+      "countries": "Global",
+      "source_url": "https://www.trustpilot.com/review/spaceproxy.net"
+    },
+    {
+      "name": "V-Proxies",
+      "website": "https://v-proxies.com",
+      "type": "Residential Proxy",
+      "countries": "Global",
+      "source_url": "https://www.freecustom.email/blog/best-residential-proxy-providers-2026"
+    },
+    {
+      "name": "Webshare",
+      "website": "https://www.webshare.io",
+      "type": "ISP/Static Residential",
+      "countries": "Global",
+      "source_url": "https://www.webshare.io/"
+    }
+  ],
+  "discovery_date": "2026-06-30",
+  "phase": 1,
+  "checkpoint": 1,
+  "checkpoint_note": "Phase 1 complete - 43 providers discovered"
+}

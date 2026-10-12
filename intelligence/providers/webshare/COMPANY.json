@@ -1,0 +1,37 @@
+{
+  "slug": "webshare",
+  "name": "Webshare",
+  "description": "Webshare is a fast, affordable, and highly dependable proxy server provider for enterprise class Internet data aggregation and analysis applications.",
+  "website": "https://www.webshare.io/",
+  "founded": 2018,
+  "headquarters": "Walnut, California, United States",
+  "industry": "Proxy Services / Web Scraping Infrastructure",
+  "employees": "19 (estimated)",
+  "revenue": "$2.9M annually (estimated)",
+  "products": [
+    "Proxy Server (Datacenter proxies)",
+    "Static Residential (ISP proxies)",
+    "Rotating Residential proxies"
+  ],
+  "competitors": [
+    "Bright Data",
+    "Oxylabs",
+    "Smartproxy",
+    "ScrapingPro"
+  ],
+  "acquisitions": [
+    {
+      "acquiredBy": "Oxylabs",
+      "date": "Late 2022",
+      "details": "Acquired by Oxylabs, industry leader in proxy services"
+    }
+  ],
+  "notes": "Webshare has grown to support over 60,000 paying customers including Fortune 500 companies. Known for budget-friendly pricing without compromising quality. Network covers 195 countries. Trusted by Ad Verification & Monitoring service providers.",
+  "sources": [
+    "https://www.webshare.io/",
+    "https://tracxn.com/d/companies/webshare/",
+    "https://levinguyen.com/blog/webshare-io-reviews/",
+    "https://privacysavvy.com/reviews/proxy-service/webshare/"
+  ],
+  "lastUpdated": "2026-06-30"
+}
