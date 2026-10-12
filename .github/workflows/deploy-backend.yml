@@ -42,14 +42,13 @@ jobs:
       - name: Install ruff
         run: pip install "ruff==0.8.4"
       - name: Lint check
-        run: ruff check backend/app/ --select=E,F,I || true
+        run: ruff check backend/app/ --select=E,F,I
       - name: Format check
-        run: ruff format --check backend/app/ || true
+        run: ruff format --check backend/app/
 
   backend-security:
     name: Backend security (bandit)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -59,7 +58,7 @@ jobs:
       - name: Install bandit
         run: pip install bandit
       - name: Bandit security scan
-        run: bandit -r backend/app/ -ll || true
+        run: bandit -r backend/app/ -ll
 
   backend-deps-audit:
     name: Backend dependency audit (pip-audit)
@@ -73,8 +72,7 @@ jobs:
       - name: Install pip-audit
         run: pip install pip-audit
       - name: pip-audit dependency check
-        run: pip-audit --requirement backend/requirements.txt -f json 2>/dev/null || true
-        continue-on-error: true
+        run: pip-audit --requirement backend/requirements.txt -f json 2>/dev/null
 
   backend-test:
     name: Backend tests (pytest)
@@ -129,7 +127,7 @@ jobs:
           SENTRY_DSN: ""
         run: |
           cd backend
-          alembic upgrade head || true
+          alembic upgrade head
       - name: Run pytest
         env:
           DATABASE_URL: postgresql+asyncpg://styxproxy:styxproxy@localhost:5432/styxproxy_test
@@ -146,7 +144,7 @@ jobs:
           SENTRY_DSN: ""
         run: |
           cd backend
-          pytest tests/ -v --tb=short || true
+          pytest tests/ -v --tb=short
 
   deploy-backend:
     name: Deploy Backend to Production
@@ -228,10 +226,8 @@ jobs:
 
             echo "=== Step 5: Run migrations as postgres ==="
             cd /opt/styxproxy/backend
-            # Run alembic (best-effort)
-            set +e
-            /opt/styxproxy/backend/venv/bin/alembic upgrade heads 2>&1 | tail -20
-            set -e
+            # Run alembic (hard gate — fail deploy if migration fails)
+            /opt/styxproxy/backend/venv/bin/alembic upgrade heads
             
             # Add any missing columns that alembic might not handle
             sudo -u postgres psql -d styxproxy -c "
