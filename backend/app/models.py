@@ -1128,6 +1128,37 @@ class PermissionChangeRequest(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class RefundApproval(Base):
+    """Two-person rule for large refunds (Theme C).
+
+    When an admin requests a refund above the configured threshold,
+    a row is created here with status='pending'. A second admin (typically
+    a superadmin) must approve or reject via the admin panel. The refund
+    is only processed after approval.
+    """
+
+    __tablename__ = "refund_approvals"
+    __table_args__ = (
+        Index("idx_refund_approvals_status", "status"),
+        Index("idx_refund_approvals_order", "order_id"),
+        Index("idx_refund_approvals_requested_by", "requested_by"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_id: Mapped[str] = mapped_column(String(20), ForeignKey("orders.order_id"), nullable=False)
+    requested_by: Mapped[str] = mapped_column(String(255), nullable=False)
+    requested_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)  # pending | approved | rejected
+    reviewed_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewer_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+
 class RlsPolicy(Base):
     """Single source of truth for which tables have RLS enabled (Theme C).
 
