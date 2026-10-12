@@ -6,9 +6,11 @@ import Link from 'next/link';
 import StatusBanner from '@/components/order/StatusBanner';
 import ActionBar from '@/components/order/ActionBar';
 import OrderTimeline from '@/components/order/OrderTimeline';
+import RenewalModal from '@/components/order/RenewalModal';
 import { getActionsForStatus, getTimelineSteps, getStatusGroup } from '@/lib/order-status';
 import { getOrderHistory, type OrderHistoryEntry, cleanupStalePendingOrders, clearOrderHistory, removeFromHistory } from '@/lib/device-id';
 import { Eye, EyeSlash, Copy, Clock, Check, ArrowRight, WarningCircle, MagnifyingGlass, X } from '@phosphor-icons/react';
+import { useCharonStore } from '@/store/charon-store';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.styxproxy.com';
 
@@ -28,6 +30,15 @@ interface OrderData {
     upstream_proxy_port: number;
     expires_at: string;
   };
+  // For basket orders: ALL credentials created for this order.
+  credentials?: Array<{
+    id: number;
+    styxproxy_username: string;
+    styxproxy_password: string;
+    upstream_proxy_ip: string;
+    upstream_proxy_port: number;
+    status?: string;
+  }>;
   max_rotations?: number;
   rotation_count?: number;
   is_renewable?: boolean;
@@ -76,6 +87,35 @@ function OrderStatusContent() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<OrderHistoryEntry[]>([]);
   const [rotating, setRotating] = useState(false);
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [renewingProxyItemId, setRenewingProxyItemId] = useState<number | undefined>(undefined);
+  // Charon: the store is the single source of truth for the widget's open
+  // state. Both "Contact Support" affordances used to dispatch a window
+  // CustomEvent that nothing listened for, so they silently did nothing.
+  const setCharonOpen = useCharonStore((s) => s.setOpen);
+  const setCharonProactive = useCharonStore((s) => s.setProactiveMessage);
+  const charonAvailable = useCharonStore((s) => s.charonAvailable);
+  const setCharonAvailable = useCharonStore((s) => s.setCharonAvailable);
+  const openCharon = () => { setCharonProactive(null); setCharonOpen(true); };
+
+  // A2: Fetch health to get charon_available flag
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchHealth() {
+      try {
+        const res = await fetch('/api/v1/health', { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          setCharonAvailable(data.charon_available !== false);
+        }
+      } catch {
+        if (!cancelled) setCharonAvailable(true);
+      }
+    }
+    fetchHealth();
+    return () => { cancelled = true; };
+  }, [setCharonAvailable]);
 
   useEffect(() => {
     cleanupStalePendingOrders();
@@ -152,10 +192,32 @@ function OrderStatusContent() {
     expires: order.expires_at,
   }) : [];
 
+  // Return to the lookup form. There was NO way back once a result rendered —
+  // the page became a dead end (only the header nav remained, and the lookup
+  // card is hidden while a result is shown). Clears the result, the error and
+  // the input so the reader lands on a clean search.
+  const handleBack = () => {
+    setOrder(null);
+    setError(null);
+    setSearchInput('');
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <section className="flex-1 px-4 pt-16 pb-16">
         <div className="max-w-2xl mx-auto">
+          {/* Back to search — only meaningful once a result is on screen */}
+          {order && (
+            <button
+              type="button"
+              onClick={handleBack}
+              className="inline-flex items-center gap-2 mb-4 text-sm font-medium text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" aria-hidden="true" />
+              Back to search
+            </button>
+          )}
+
           {/* Search Card */}
           <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
             <h1 className="text-2xl font-bold mb-4">Order Status</h1>
@@ -203,11 +265,29 @@ function OrderStatusContent() {
                       alert('Please contact support to cancel your order.');
                     }
                   }
+                  if (action.kind === 'renew') {
+                    setRenewingProxyItemId(undefined);
+                    setShowRenewalModal(true);
+                  }
                   if (action.kind === 'contact_support') {
-                    window.dispatchEvent(new CustomEvent('open-chat-widget', { detail: { context: 'support', orderId: order.order_id } }));
+                    if (charonAvailable) {
+                      openCharon();
+                    } else {
+                      window.open('https://wa.me/2347032981049', '_blank', 'noopener,noreferrer');
+                    }
                   }
                 }}
               />
+
+              {/* Renewal Modal */}
+              {showRenewalModal && (
+                <RenewalModal
+                  order={order}
+                  onClose={() => setShowRenewalModal(false)}
+                  onRenewed={(updatedOrder) => setOrder(updatedOrder)}
+                  proxy_item_id={renewingProxyItemId}
+                />
+              )}
 
               {/* Order Details */}
               <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
@@ -258,11 +338,15 @@ function OrderStatusContent() {
                 </div>
               </div>
 
-              {/* Credentials */}
-              {(order.status === 'fulfilled' || order.status === 'active') && order.styxproxy_credential && (
+              {/* Credentials — shows ALL proxies for basket orders */}
+              {(order.status === 'fulfilled' || order.status === 'active') && (order.credentials && order.credentials.length > 0 || order.styxproxy_credential) && (
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide">Your Proxy Credentials</h2>
+                    <h2 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide">
+                      {order.credentials && order.credentials.length > 1
+                        ? `Your Proxy Credentials (${order.credentials.length})`
+                        : 'Your Proxy Credentials'}
+                    </h2>
                     <span className="text-xs text-[var(--muted)]">
                       {(order.max_rotations ?? 3) - (order.rotation_count ?? 0)} rotation{(order.max_rotations ?? 3) - (order.rotation_count ?? 0) !== 1 ? 's' : ''} left
                     </span>
@@ -279,21 +363,61 @@ function OrderStatusContent() {
                         </span>
                       </div>
                     )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <CredentialField label="Username" value={order.styxproxy_credential.styxproxy_username} />
-                      <CredentialField label="Password" value={order.styxproxy_credential.styxproxy_password} sensitive />
-                      <CredentialField label="Proxy Address" value={`${order.styxproxy_credential.upstream_proxy_ip}:${order.styxproxy_credential.upstream_proxy_port}`} />
-                      <div className="bg-[var(--background)] rounded-xl p-4">
-                        <span className="text-xs text-[var(--muted)]">Protocol</span>
-                        <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
+                    {order.credentials && order.credentials.length > 0 ? (
+                      <div className="space-y-4">
+                        {order.credentials.map((cred, idx) => (
+                          <div key={idx} className={idx > 0 ? 'pt-4 border-t border-[var(--border)]' : ''}>
+                            {order.credentials!.length > 1 && (
+                              <p className="text-xs font-medium text-[var(--primary-text)] mb-2">Proxy {idx + 1}</p>
+                            )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <CredentialField label="Username" value={cred.styxproxy_username} />
+                              <CredentialField label="Password" value={cred.styxproxy_password} sensitive />
+                              <CredentialField label="Proxy Address" value={`${cred.upstream_proxy_ip}:${cred.upstream_proxy_port}`} />
+                              <div className="bg-[var(--background)] rounded-xl p-4">
+                                <span className="text-xs text-[var(--muted)]">Protocol</span>
+                                <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
+                              </div>
+                            </div>
+                            <div className="bg-[var(--background)] rounded-xl p-4 mt-3">
+                              <span className="text-xs text-[var(--muted)]">Full Format</span>
+                              <p className="font-mono text-base text-[var(--muted)] break-all leading-relaxed">
+                                http://{cred.styxproxy_username}:{cred.styxproxy_password}@{cred.upstream_proxy_ip}:{cred.upstream_proxy_port}
+                              </p>
+                            </div>
+                            {order.is_renewable && (
+                              <button
+                                onClick={() => {
+                                  setRenewingProxyItemId(cred.id);
+                                  setShowRenewalModal(true);
+                                }}
+                                className="mt-3 w-full px-4 py-2 rounded-xl bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 text-[var(--primary-text)] border border-[var(--primary)]/30 transition-colors text-sm font-medium"
+                              >
+                                Renew This Proxy
+                              </button>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                    <div className="bg-[var(--background)] rounded-xl p-4">
-                      <span className="text-xs text-[var(--muted)]">Full Format</span>
-                      <p className="font-mono text-base text-[var(--muted)] break-all leading-relaxed">
-                        http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
-                      </p>
-                    </div>
+                    ) : order.styxproxy_credential ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <CredentialField label="Username" value={order.styxproxy_credential.styxproxy_username} />
+                        <CredentialField label="Password" value={order.styxproxy_credential.styxproxy_password} sensitive />
+                        <CredentialField label="Proxy Address" value={`${order.styxproxy_credential.upstream_proxy_ip}:${order.styxproxy_credential.upstream_proxy_port}`} />
+                        <div className="bg-[var(--background)] rounded-xl p-4">
+                          <span className="text-xs text-[var(--muted)]">Protocol</span>
+                          <p className="font-mono text-sm font-medium">HTTP / SOCKS5</p>
+                        </div>
+                      </div>
+                    ) : null}
+                    {order.styxproxy_credential && (
+                      <div className="bg-[var(--background)] rounded-xl p-4">
+                        <span className="text-xs text-[var(--muted)]">Full Format</span>
+                        <p className="font-mono text-base text-[var(--muted)] break-all leading-relaxed">
+                          http://{order.styxproxy_credential.styxproxy_username}:{order.styxproxy_credential.styxproxy_password}@{order.styxproxy_credential.upstream_proxy_ip}:{order.styxproxy_credential.upstream_proxy_port}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -305,12 +429,23 @@ function OrderStatusContent() {
               <div className="text-center pt-4 border-t border-[var(--border)]">
                 <p className="text-sm text-[var(--muted)]">
                   Need help with this order?{' '}
-                  <button
-                    onClick={() => window.dispatchEvent(new CustomEvent('open-chat-widget', { detail: { context: 'support', orderId: order.order_id } }))}
-                    className="text-[var(--primary-text)] hover:underline font-medium"
-                  >
-                    Chat with Charon →
-                  </button>
+                  {charonAvailable ? (
+                    <button
+                      onClick={openCharon}
+                      className="text-[var(--primary-text)] hover:underline font-medium"
+                    >
+                      Chat with Charon →
+                    </button>
+                  ) : (
+                    <a
+                      href="https://wa.me/2347032981049"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--primary-text)] hover:underline font-medium"
+                    >
+                      Contact support
+                    </a>
+                  )}
                 </p>
               </div>
             </div>

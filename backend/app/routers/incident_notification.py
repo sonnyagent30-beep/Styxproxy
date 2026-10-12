@@ -14,6 +14,7 @@ import structlog
 from fastapi import APIRouter, Header, HTTPException, Request, status
 
 from app.config import get_settings
+from app.services.alerting import send_alert_with_fallback, get_alerting_status
 
 logger = structlog.get_logger()
 
@@ -72,6 +73,21 @@ async def betterstack_incident_webhook(
         incident_id=incident_data["incident_id"],
     )
 
+    # Dispatch alert via fallback chain if this is a down/degraded event
+    if status_str in ("down", "degraded"):
+        alert_subject = f"🚨 {monitor_name} is {status_str.upper()}"
+        alert_message = cause or f"Monitor {monitor_name} reported status: {status_str}"
+        alert_details = {
+            "Monitor": monitor_name,
+            "Status": status_str,
+            "Cause": cause or "N/A",
+            "Incident ID": incident_data["incident_id"] or "N/A",
+            "Monitor URL": incident_data["monitor_url"] or "N/A",
+        }
+        # Fire-and-forget: don't block the webhook response on alert delivery
+        import asyncio
+        asyncio.create_task(send_alert_with_fallback(alert_subject, alert_message, alert_details))
+
     return {"received": True, "status": status_str, "monitor": monitor_name}
 
 
@@ -117,3 +133,21 @@ async def trigger_incident_check(
     except Exception as e:
         logger.warning("betterstack_trigger_error", error=str(e))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+
+@router.get("/incidents/alerting-status")
+async def alerting_status():
+    """Report which alerting paths are configured and ready."""
+    return await get_alerting_status()
+
+
+@router.post("/incidents/test-alert")
+async def test_alert():
+    """Send a test alert through the full fallback chain."""
+    result = await send_alert_with_fallback(
+        subject="Test Alert",
+        message="This is a test of the Styxproxy alerting fallback system.",
+        details={"Source": "manual_test", "Purpose": "verify_fallback_paths"},
+    )
+    return result

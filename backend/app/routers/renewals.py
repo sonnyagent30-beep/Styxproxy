@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_account
 from app.database import get_session
 from app.limiter import limiter
-from app.models import Order, Renewal
+from app.models import Order, OrderRenewal
 from app.schemas import (
     RenewalCreateRequest,
     RenewalHistoryResponse,
@@ -27,10 +27,10 @@ from app.schemas import (
     RenewalResponse,
 )
 from app.services.renewal_service import (
-    complete_renewal,
     create_renewal_order,
     get_renewals_for_order,
 )
+from app.services.renewal_complete import complete_renewal
 from app.services.flutterwave import create_flutterwave_invoice
 from app.services.paystack import create_paystack_transaction
 from app.services.customer import get_or_create_customer, placeholder_email_from_device
@@ -108,7 +108,7 @@ async def initiate_renewal(
     if idempotency_key:
         existing = (
             await session.execute(
-                select(Renewal).where(Renewal.payment_reference == idempotency_key)
+                select(OrderRenewal).where(OrderRenewal.payment_reference == idempotency_key)
             )
         ).scalars().first()
         if existing:
@@ -119,7 +119,7 @@ async def initiate_renewal(
                 amount_ngn=float(existing.amount_paid_ngn),
                 currency="NGN",
                 expires_at=existing.created_at + timedelta(minutes=ORDER_TTL_MINUTES),
-                tx_ref=existing.tx_ref or "",
+                tx_ref=existing.renewal_tx_ref or "",
             )
 
     # ── Create renewal record ──
@@ -133,14 +133,14 @@ async def initiate_renewal(
     )
 
     # ── Create payment ──
-    tx_ref = f"TXF-{uuid.uuid4().hex[:12].upper()}"
-    renewal.tx_ref = tx_ref
+    tx_ref = f"TXR-{uuid.uuid4().hex[:12].upper()}"
+    renewal.renewal_tx_ref = tx_ref
     renewal.payment_reference = tx_ref
     await session.commit()
 
     callback_url = f"https://styxproxy.com/thank-you?order_id={body.order_id}&renewal_id={renewal.id}"
 
-    gateway_email = body.customer_email or order.customer_email or ""
+    gateway_email = body.customer_email or ""
     if not gateway_email:
         device_id = current_user.get("device_id") or ""
         gateway_email = placeholder_email_from_device(device_id)
@@ -154,12 +154,13 @@ async def initiate_renewal(
                 callback_url=callback_url,
                 description=f"Renewal for {body.order_id}",
                 tx_ref=tx_ref,
+                device_id=current_user.get("device_id") or "",
             )
         else:
             result = await create_flutterwave_invoice(
                 amount=total_amount,
                 customer_email=gateway_email,
-                customer_phone=order.customer_phone,
+                customer_phone=order.customer_phone or "",
                 currency="NGN",
                 tx_ref=tx_ref,
                 callback_url=callback_url,
@@ -219,7 +220,7 @@ async def get_renewal(
 ):
     """Get a single renewal by ID."""
     renewal = (
-        await session.execute(select(Renewal).where(Renewal.id == renewal_id))
+        await session.execute(select(OrderRenewal).where(OrderRenewal.id == renewal_id))
     ).scalar_one_or_none()
 
     if not renewal:

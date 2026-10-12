@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 from pydantic import BaseModel
 from slowapi.util import get_remote_address
 
+
 # Reportlab imports for PDF generation
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +22,14 @@ from app.database import get_session
 from app.dependencies.idempotency import check_idempotency
 from app.limiter import limiter
 from app.models import Customer, FeatureFlag, Order, Plan, StyxproxyCredential
+def _is_renewable(order: Order) -> bool:
+    """Single source of truth for whether an order can be renewed.
+
+    An order is renewable when it has been paid (status "active" or "fulfilled")
+    and has a non-null expiry.  "expired" is terminal and NOT renewable.
+    """
+    return order.status in ("active", "fulfilled") and order.expires_at is not None
+
 from app.schemas import (
     OrderCancelRequest,
     OrderCancelResponse,
@@ -660,6 +669,7 @@ async def get_order_by_payment_reference(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
     cred_brief = None
+    all_creds_brief = None
     if order.styxproxy_credential_id:
         cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         cred_result = await session.execute(cred_stmt)
@@ -674,6 +684,30 @@ async def get_order_by_payment_reference(
                 upstream_proxy_port=cred.upstream_proxy_port,
                 status=cred.status,
             )
+
+    # For basket orders: fetch ALL credentials linked to this order.
+    # The customer paid for every item in one transaction and must see
+    # every proxy on the thank-you page and in order lookup.
+    if order.basket_items:
+        creds_stmt = (
+            select(StyxproxyCredential)
+            .where(StyxproxyCredential.order_id == order.order_id)
+            .order_by(StyxproxyCredential.id)
+        )
+        creds_result = await session.execute(creds_stmt)
+        all_creds = creds_result.scalars().all()
+        all_creds_brief = [
+            StyxproxyCredentialBrief(
+                id=c.id,
+                styxproxy_username=c.styxproxy_username,
+                styxproxy_password=c.get_password() if hasattr(c, 'get_password') else None,
+                protocol=c.protocol or "socks5",
+                upstream_proxy_ip=c.upstream_proxy_ip,
+                upstream_proxy_port=c.upstream_proxy_port,
+                status=c.status,
+            )
+            for c in all_creds
+        ]
 
     # customer_name lookup (optional — anonymous orders don't have it
     # available if customer.row was deleted)
@@ -692,10 +726,11 @@ async def get_order_by_payment_reference(
         country=order.country,
         amount_paid_ngn=order.amount_paid_ngn,
         styxproxy_credential=cred_brief,
+        credentials=all_creds_brief,
         created_at=order.created_at,
         expires_at=order.expires_at,
         customer_name=customer_name,
-        is_renewable=order.status == "active" and order.expires_at is not None,
+        is_renewable=_is_renewable(order),
     )
 
 
@@ -808,6 +843,7 @@ async def get_order(
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     cred_brief = None
+    all_creds_brief = None
     rotation_count = 0
     max_rotations = 3
     if order.styxproxy_credential_id:
@@ -826,7 +862,30 @@ async def get_order(
                 upstream_proxy_port=cred.upstream_proxy_port,
                 status=cred.status,
             )
-    is_renewable = order.status == "active" and order.expires_at is not None
+
+    # For basket orders: fetch ALL credentials linked to this order.
+    if order.basket_items:
+        creds_stmt = (
+            select(StyxproxyCredential)
+            .where(StyxproxyCredential.order_id == order.order_id)
+            .order_by(StyxproxyCredential.id)
+        )
+        creds_result = await session.execute(creds_stmt)
+        all_creds = creds_result.scalars().all()
+        all_creds_brief = [
+            StyxproxyCredentialBrief(
+                id=c.id,
+                styxproxy_username=c.styxproxy_username,
+                styxproxy_password=c.get_password() if hasattr(c, 'get_password') else None,
+                protocol=c.protocol or "socks5",
+                upstream_proxy_ip=c.upstream_proxy_ip,
+                upstream_proxy_port=c.upstream_proxy_port,
+                status=c.status,
+            )
+            for c in all_creds
+        ]
+
+    is_renewable = _is_renewable(order)
     return OrderResponse(
         order_id=order.order_id,
         status=order.status,
@@ -834,6 +893,7 @@ async def get_order(
         country=order.country,
         amount_paid_ngn=order.amount_paid_ngn,
         styxproxy_credential=cred_brief,
+        credentials=all_creds_brief,
         created_at=order.created_at,
         expires_at=order.expires_at,
         customer_name=customer.name if customer and customer.name else None,

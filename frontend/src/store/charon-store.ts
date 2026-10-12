@@ -22,6 +22,8 @@ export interface CharonMessage {
   escalated?: boolean;
   tool_calls?: ToolCall[];
   tokens_used?: number;
+  /** True if the reply was interrupted (dropped stream, error) */
+  interrupted?: boolean;
 }
 
 export interface PageContext {
@@ -77,6 +79,10 @@ interface CharonStore {
   pageContext: PageContext;
   setPageContext: (ctx: PageContext) => void;
 
+  // Availability (from /api/v1/health — charon_available flag)
+  charonAvailable: boolean;
+  setCharonAvailable: (available: boolean) => void;
+
   // Reset
   reset: () => void;
 }
@@ -116,6 +122,9 @@ export const useCharonStore = create<CharonStore>()((set) => ({
 
   pageContext: {},
   setPageContext: (ctx) => set({ pageContext: ctx }),
+
+  charonAvailable: true,
+  setCharonAvailable: (available: boolean) => set({ charonAvailable: available }),
 
   reset: () =>
     set({

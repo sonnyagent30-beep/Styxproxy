@@ -82,17 +82,16 @@ class IPQResult:
         # and the per-plan datacenter rule never fired. That is the rule the
         # plan-aware gate was built around, so `allow_datacenter` was inert.
         #
-        # The consequence is concrete: a residential plan would accept a
-        # datacenter address — the exact defect the rule exists to catch — and a
-        # DC/ISP plan would have been rejected for `vpn=True` instead of being
-        # allowed as a datacenter product, which is what blocked DC/ISP.
-        #
-        # Read the string, and keep the legacy boolean as a fallback in case a
-        # future API version restores it.
-        _connection_type = str(data.get("connection_type") or "").strip().lower()
-        is_datacenter = bool(data.get("datacenter", False)) or (
-            "data center" in _connection_type or "datacenter" in _connection_type
-        )
+        # DECISION (Manager, 2026-10-11): leave the rule as documented dead
+        # code. Do NOT wire up `connection_type` as a substitute — the field
+        # is not equivalent (it also classifies Corporate as Data Center),
+        # and enforcing it would reject ~28% of 80.249 and ~40% of 109.74
+        # simulator stock that currently passes. Pre-launch, with no real
+        # traffic to measure against, fail-closed on good stock is the worse
+        # failure mode. The vpn/fraud rules still catch the DC stock that
+        # matters. Revisit when real supplier keys are live and we can
+        # measure the real pool's connection_type distribution.
+        is_datacenter = bool(data.get("datacenter", False))
         recent_abuse = bool(data.get("recent_abuse", False))
         abuse_velocity = data.get("abuse_velocity", "none")
         country_code = data.get("country_code", "")

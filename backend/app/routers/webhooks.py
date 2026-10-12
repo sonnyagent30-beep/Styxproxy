@@ -32,6 +32,7 @@ from app.services.flutterwave import (
     is_webhook_processed,
     mark_webhook_processed,
     process_payment_webhook,
+    verify_flutterwave_payment,
     verify_flutterwave_signature,
 )
 
@@ -42,40 +43,6 @@ router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
 # Maximum age of a webhook payload before we consider it a replay attack.
 # 5 minutes = 300s gives generous headroom for clock drift + retry latency.
 MAX_PAYLOAD_AGE_SECONDS = 300
-
-
-def _is_payload_fresh(payload: dict, timestamp_key: str = "created_at") -> bool:
-    """Return True if the webhook payload is recent enough to be from a live event.
-
-    Generic replay-window check for all providers. Looks for a timestamp
-    in the payload and rejects if older than MAX_PAYLOAD_AGE_SECONDS.
-    """
-    # Try common timestamp locations
-    data = payload.get("data", payload)
-    
-    created_at_raw = None
-    if isinstance(data, dict):
-        created_at_raw = data.get(timestamp_key) or data.get("created") or data.get("createdAt")
-    
-    if not created_at_raw:
-        # Try top-level
-        created_at_raw = payload.get(timestamp_key) or payload.get("created") or payload.get("createdAt")
-    
-    if not created_at_raw or not isinstance(created_at_raw, str):
-        return False
-    
-    try:
-        cleaned = created_at_raw.replace("Z", "+00:00")
-        created_at = _dt.datetime.fromisoformat(cleaned)
-    except (ValueError, TypeError):
-        return False
-    
-    if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=_dt.timezone.utc)
-    
-    now = _dt.datetime.now(_dt.timezone.utc)
-    age = (now - created_at).total_seconds()
-    return 0 <= age <= MAX_PAYLOAD_AGE_SECONDS
 
 
 def _is_payload_fresh_epoch(payload: dict) -> bool:
@@ -127,14 +94,12 @@ async def flutterwave_webhook(
     if not verif_hash and not flutterwave_signature:
         logger.warning("missing both Verif-Hash and flutterwave-signature headers", extra=log_ctx)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing signature header")
-    if not verify_flutterwave_signature(
+    signature_ok = verify_flutterwave_signature(
         payload_bytes,
         verif_hash=verif_hash,
         flutterwave_signature=flutterwave_signature,
         secret=settings.flutterwave_webhook_secret,
-    ):
-        logger.warning("invalid Flutterwave signature", extra=log_ctx)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Flutterwave signature")
+    )
 
     try:
         payload = json.loads(payload_bytes)
@@ -143,24 +108,105 @@ async def flutterwave_webhook(
 
     event_type = payload.get("event", "")
     event_data = payload.get("data", {})
+
+    if not signature_ok:
+        # The configured Secret Hash did not match what Flutterwave signed with.
+        # A webhook proves who sent the message; it does not prove the payment.
+        # So instead of refusing a payment we can confirm by other means, ask
+        # Flutterwave directly about this reference and require BOTH the
+        # gateway's own "successful" status AND an amount that matches the
+        # order — otherwise a replayed tx_ref could fulfil a cheaper order.
+        logger.warning(
+            "Flutterwave signature mismatch — falling back to gateway verify "
+            "(verif_present=%s verif_len=%s tx_ref=%s)",
+            verif_hash is not None,
+            len(verif_hash) if verif_hash else 0,
+            event_data.get("tx_ref"),
+        )
+
+        tx_ref_fb = str(event_data.get("tx_ref") or "")
+        if event_type != "charge.completed" or not tx_ref_fb:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Flutterwave signature")
+
+        try:
+            verified = await verify_flutterwave_payment(tx_ref_fb)
+        except Exception as exc:  # noqa: BLE001 — network/parse failure must not 500
+            logger.error("Gateway verify failed for %s: %s", tx_ref_fb, exc)
+            verified = {}
+
+        if str(verified.get("status", "")).lower() != "successful":
+            logger.warning("Gateway verify did not confirm %s (status=%s)", tx_ref_fb, verified.get("status"))
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Flutterwave signature")
+
+        # Amount must match the order we are about to fulfil.
+        from app.models import Order as _OrderFB
+        # `.first()`, never `scalar_one_or_none()`: the same tx_ref can appear on
+        # more than one order row (a retried checkout reuses the reference), and
+        # scalar_one_or_none raises on multiple rows -> 500 on a valid payment.
+        _order_fb = (
+            await session.execute(
+                select(_OrderFB)
+                .where(_OrderFB.payment_reference == tx_ref_fb)
+                .order_by(_OrderFB.created_at.desc())
+            )
+        ).scalars().first()
+        if _order_fb is None:
+            logger.warning("Gateway verify: no order for tx_ref %s", tx_ref_fb)
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Flutterwave signature")
+
+        try:
+            gw_amount = float(verified.get("amount") or 0)
+            expected = float(_order_fb.amount_paid_ngn or 0)
+        except (TypeError, ValueError):
+            gw_amount, expected = 0.0, -1.0
+
+        if expected <= 0 or abs(gw_amount - expected) > 0.01:
+            logger.error(
+                "Gateway verify amount mismatch for %s: gateway=%s order=%s",
+                tx_ref_fb, gw_amount, expected,
+            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Flutterwave signature")
+
+        # Confirmed by the gateway — rewrite the event data from Flutterwave's
+        # own record so downstream fulfilment uses authoritative values.
+        event_data = {
+            **event_data,
+            "status": "successful",
+            "amount": verified.get("amount", event_data.get("amount")),
+            "currency": verified.get("currency", event_data.get("currency")),
+            "id": verified.get("id", event_data.get("id")),
+            "tx_ref": tx_ref_fb,
+        }
+        payload = {**payload, "data": event_data}
+        logger.info(
+            "Gateway verify CONFIRMED %s (amount=%s) — processing despite signature mismatch",
+            tx_ref_fb, gw_amount,
+        )
     webhook_id = str(event_data.get("id", ""))
     tx_ref = event_data.get("tx_ref", "")
     log_ctx.update({"event": event_type, "tx_ref": tx_ref, "webhook_id": webhook_id})
 
-    # Replay window check
-    if not _is_payload_fresh(payload):
-        logger.warning("webhook outside replay window", extra=log_ctx)
-        await log_audit_event(session, event_type="flutterwave_webhook_replay_rejected", details=log_ctx)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Webhook payload outside replay window")
-
-    # Duplicate check — reject ALL duplicates regardless of age
+    # Duplicate check — idempotency table is the sole replay guard.
+    # Payload-age checks were removed: Flutterwave retries unacknowledged
+    # webhooks roughly every 30 minutes, so a 5-minute freshness window
+    # rejected every legitimate retry with 400. The idempotency table
+    # (processed_webhooks) already prevents double-processing — a duplicate
+    # returns 200 "already_processed" without re-fulfilling the order.
     if webhook_id and await is_webhook_processed(session, webhook_id):
         logger.info("duplicate webhook — already processed", extra=log_ctx)
         return {"status": "already_processed", "webhook_id": webhook_id}
 
     # Order expiry check
     from app.models import Order
-    order = (await session.execute(select(Order).where(Order.payment_reference == tx_ref))).scalar_one_or_none()
+    # `.first()` with a deterministic order — a tx_ref can be present on more
+    # than one order row, and scalar_one_or_none() turns that into a 500.
+    order = (
+        await session.execute(
+            select(Order)
+            .where(Order.payment_reference == tx_ref)
+            .order_by(Order.created_at.desc())
+        )
+    ).scalars().first()
     if order and order.status == "expired":
         logger.warning("order expired — rejecting webhook", extra={**log_ctx, "order_id": order.order_id})
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order has expired")
@@ -284,7 +330,15 @@ async def paystack_webhook(
     # unfulfillable, and the only way an already-created straggler can still be
     # matched and fulfilled.
     from app.models import Order
-    order = (await session.execute(select(Order).where(Order.payment_reference == tx_ref))).scalar_one_or_none()
+    # `.first()` with a deterministic order — a tx_ref can be present on more
+    # than one order row, and scalar_one_or_none() turns that into a 500.
+    order = (
+        await session.execute(
+            select(Order)
+            .where(Order.payment_reference == tx_ref)
+            .order_by(Order.created_at.desc())
+        )
+    ).scalars().first()
     if order is None and event_data.get("id") is not None:
         provider_tx_id = str(event_data["id"])
         order = (
@@ -440,7 +494,15 @@ async def nowpayments_ipn(
 
     # Order expiry check
     from app.models import Order
-    order = (await session.execute(select(Order).where(Order.payment_reference == tx_ref))).scalar_one_or_none()
+    # `.first()` with a deterministic order — a tx_ref can be present on more
+    # than one order row, and scalar_one_or_none() turns that into a 500.
+    order = (
+        await session.execute(
+            select(Order)
+            .where(Order.payment_reference == tx_ref)
+            .order_by(Order.created_at.desc())
+        )
+    ).scalars().first()
     if order and order.status == "expired":
         logger.warning("order expired — rejecting NOWPayments webhook", extra={**log_ctx, "order_id": order.order_id})
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order has expired")

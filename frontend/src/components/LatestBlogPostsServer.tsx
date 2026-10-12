@@ -1,18 +1,25 @@
-import LatestBlogPosts from '@/components/LatestBlogPosts';
+import LatestBlogPostsGraph from '@/components/LatestBlogPostsGraph';
 import { api } from '@/lib/api';
-import type { BlogPost } from '@/types';
+import type { BlogCategory, BlogPost } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LatestBlogPostsServer() {
   let posts: BlogPost[] = [];
+  let categories: BlogCategory[] = [];
   try {
-    const result = await api.getBlogPosts(1, 3);
-    if (result.data?.posts) {
-      posts = result.data.posts;
+    const [postsResult, categoriesResult] = await Promise.all([
+      api.getBlogPosts(1, 6),
+      api.getBlogCategories(),
+    ]);
+    if (postsResult.data?.posts) {
+      posts = postsResult.data.posts;
+    }
+    if (categoriesResult.data?.categories) {
+      categories = categoriesResult.data.categories;
     }
   } catch {
     // render nothing on error
   }
-  return <LatestBlogPosts initialPosts={posts} />;
+  return <LatestBlogPostsGraph initialPosts={posts} categories={categories} />;
 }

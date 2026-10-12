@@ -34,6 +34,7 @@ from app.routers import (
     maintenance,
     ops,
     orders,
+    renewals,
     payment_status,
     payments,
     permissions,
@@ -47,6 +48,7 @@ from app.routers import (
     webhooks,
     admin_secrets,
     support,
+    stats,
 )
 
 settings = get_settings()
@@ -413,6 +415,7 @@ app.include_router(health)
 app.include_router(platform)
 app.include_router(proxies)
 app.include_router(orders)
+app.include_router(renewals.router)
 app.include_router(payments)
 app.include_router(webhooks)
 app.include_router(admin_secrets.router)
@@ -439,4 +442,5 @@ app.include_router(costs)
 app.include_router(analytics)
 app.include_router(charon_ab)
 app.include_router(renewals.router)
+app.include_router(stats.router)
 app.include_router(ops, prefix="")

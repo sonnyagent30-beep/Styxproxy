@@ -340,7 +340,10 @@ async def create_credential(
     # 2. Generate branded credentials locally
     styxproxy_username = generate_styxproxy_username()
     styxproxy_password = generate_styxproxy_password()
-    socks_port = random.randint(9000, 9999)
+    # socks_port is deprecated — customers connect directly to upstream IP:port.
+    # The local relay is internal-only and not in the customer delivery path.
+    # Setting to NULL so it is clear this field is not used.
+    socks_port = None
 
     # 3. Build the DB record
     # NOTE: styxproxy_password is stored encrypted (Fernet ciphertext, see

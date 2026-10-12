@@ -634,7 +634,7 @@ export default function PricingClient() {
         <p className="mb-10 text-lg text-[var(--muted)]">Start in seconds. No signup required.</p>
         <Link href="/order"
           className="inline-block px-12 py-5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-black text-lg transition-all duration-200 hover:shadow-[0_0_40px_rgba(10,210,90,0.35)]">
-          Get Instant
+          Get Proxy
         </Link>
       </div>
     </section>

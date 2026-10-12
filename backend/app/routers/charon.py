@@ -146,6 +146,7 @@ class ChatReplyRequest(BaseModel):
     customer_phone: Optional[str] = Field(default=None, description="Customer phone for escalation notifications")
     customer_name: Optional[str] = Field(default=None, description="Customer name for escalation notifications")
     page_context: Optional[dict] = Field(default=None, description="Page context for escalation notifications")
+    channel_user_id: Optional[str] = Field(default=None, description="Channel user ID for tool authorization (e.g. device ID for web)")
 
     @field_validator("channel", mode="before")
     @classmethod
@@ -234,6 +235,7 @@ class ChatReplyResponse(BaseModel):
     tool_calls: list[ToolCallRecord] = []
     tokens_used: int = 0
     error: Optional[str] = None
+    interrupted: bool = False
 
 
 class ConversationSummary(BaseModel):
@@ -313,6 +315,9 @@ async def post_reply(
         history=history,
         customer_email=payload.customer_email,
         customer_phone=payload.customer_phone,
+        customer_name=payload.customer_name,
+        channel_user_id=payload.channel_user_id,
+        page_context=payload.page_context,
     )
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -417,6 +422,7 @@ Please follow up with the customer within 2 hours.
         ],
         tokens_used=result.tokens_used,
         error=result.error,
+        interrupted=result.interrupted,
     )
 
 
@@ -467,27 +473,23 @@ async def post_reply_stream(
         Message(role=m.role, content=m.content) for m in payload.history if m.role in ("system", "user", "assistant")
     ]
 
-    # Check if native LLM streaming is available
-    from app.services.charon.llm import stream_llm
+    # NOTE: The stream_llm fast path was removed. It sent the bare user
+    # message to the LLM with no system prompt, no tools, no RAG and no
+    # history, so the LLM always answered directly and the tool-calling loop
+    # in agent.reply() was never reached. That is why tools never triggered
+    # from the frontend. Every request now goes through agent.reply() and the
+    # full text is streamed back as delta chunks.
 
     async def event_generator():
-        """Yield SSE events: data: {"delta": "chunk"} and data: {"done": true}."""
+        """Yield SSE events: data: {"delta": "chunk"} and data: {"done": true}.
+
+        A4: Buffers markdown table blocks until the table closes, so raw
+        `| Plan | Price |` pipes don't stream in character by character.
+        A5: Emits `interrupted: true` when the stream is incomplete (dropped
+        connection, no terminator event).
+        """
+        result = None
         try:
-            # Try native streaming first
-            llm_stream = stream_llm(
-                messages=[{"role": "user", "content": payload.user_message}],
-                max_tokens=500,
-            )
-            got_chunks = False
-            async for chunk in llm_stream:
-                got_chunks = True
-                yield f'data: {json.dumps({"delta": chunk})}\n\n'
-
-            if got_chunks:
-                yield f'data: {json.dumps({"done": True})}\n\n'
-                return
-
-            # Fallback: get full response and simulate streaming
             result = await agent.reply(
                 channel=payload.channel,
                 conversation_id=payload.conversation_id or "",
@@ -496,6 +498,7 @@ async def post_reply_stream(
                 customer_email=payload.customer_email,
                 customer_phone=payload.customer_phone,
                 customer_name=payload.customer_name,
+                channel_user_id=payload.channel_user_id,
                 page_context=payload.page_context,
             )
 
@@ -576,21 +579,50 @@ Please follow up with the customer within 2 hours.
                 tokens_used=result.tokens_used,
             )
 
-            # Simulate streaming by splitting into chunks
-            full_text = result.text
-            chunk_size = max(1, len(full_text) // 20)  # ~20 chunks
-            for i in range(0, len(full_text), chunk_size):
-                chunk = full_text[i:i + chunk_size]
-                if chunk:
-                    yield f'data: {json.dumps({"delta": chunk})}\n\n'
-                    await asyncio.sleep(0.05)  # Small delay for visual effect
+            # Emit tool_calls event so the frontend can show tool activity
+            if result.tool_calls:
+                yield f'data: {json.dumps({"tool_calls": result.tool_calls})}\n\n'
 
-            yield f'data: {json.dumps({"done": True})}\n\n'
+            # A4: Stream with table buffering. Accumulate table lines until the
+            # table block closes, then emit the whole table at once.
+            full_text = result.text
+            lines = full_text.split('\n')
+            table_buf: list[str] = []
+            in_table = False
+            had_error = result.error is not None
+
+            for line in lines:
+                is_table_line = line.strip().startswith('|') and line.strip().endswith('|')
+                if is_table_line:
+                    in_table = True
+                    table_buf.append(line)
+                    continue
+                elif in_table:
+                    # Table just closed — flush the buffered table
+                    table_text = '\n'.join(table_buf)
+                    table_buf = []
+                    in_table = False
+                    if table_text:
+                        yield f'data: {json.dumps({"delta": table_text + "\n"})}\n\n'
+                        await asyncio.sleep(0.05)
+                yield f'data: {json.dumps({"delta": line + "\n"})}\n\n'
+                await asyncio.sleep(0.03)
+
+            # Flush any remaining table buffer at end of stream
+            if table_buf:
+                table_text = '\n'.join(table_buf)
+                yield f'data: {json.dumps({"delta": table_text + "\n"})}\n\n'
+
+            # A5: Emit interrupted signal. Keyed on the stream/error signal,
+            # NOT on text shape. If the result had an error or the text is empty,
+            # the reply was interrupted.
+            is_interrupted = had_error or (not full_text and not result.escalated)
+            yield f'data: {json.dumps({"done": True, "interrupted": is_interrupted})}\n\n'
 
         except Exception as e:
             logger.error(f"Streaming error: {e}", exc_info=True)
-            yield f'data: {json.dumps({"error": str(e)})}\n\n'
-            yield f'data: {json.dumps({"done": True})}\n\n'
+            yield f'data: {json.dumps({"error": str(e), "interrupted": True})}\n\n'
+            yield f'data: {json.dumps({"done": True, "interrupted": True})}\n\n'
 
     return StreamingResponse(
         event_generator(),
@@ -1470,7 +1502,7 @@ async def get_analytics(
                 )
                 .where(CharonConversation.started_at >= since)
                 .group_by(func.date_trunc("day", CharonConversation.started_at))
-                .order_by("day")
+                .order_by(func.date_trunc("day", CharonConversation.started_at))
             )
             daily = [{"day": d.isoformat() if hasattr(d, "isoformat") else str(d), "count": c} for d, c in daily_result.all()]
             

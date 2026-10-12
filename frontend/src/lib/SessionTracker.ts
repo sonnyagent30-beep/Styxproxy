@@ -15,7 +15,7 @@ import { DEMO_POSTS } from '@/data/blog-posts';
 const PRICING_PAGES = ['/pricing', '/how-it-works', '/'];
 const PRODUCT_PAGES = ['/products', '/residential', '/mobile', '/isp', '/datacenter'];
 const BLOG_PAGES = ['/blog'];
-const PAYMENT_PAGES = ['/order', '/thank-you', '/preview', '/receipt'];
+const PAYMENT_PAGES = ['/order', '/thank-you', '/receipt'];
 
 // ── Theme keywords per page — used to give Charon page-level context ─────────
 

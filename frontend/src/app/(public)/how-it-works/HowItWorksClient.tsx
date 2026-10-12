@@ -132,7 +132,7 @@ export default function HowItWorksClient() {
               href="/order"
               className="min-w-[200px] px-8 py-4 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-semibold text-center transition-all duration-200 hover:shadow-[0_0_40px_rgba(10,210,90,0.35)]"
             >
-              Order Now
+              Get Proxy
             </Link>
             <Link
               href="/products"
@@ -245,7 +245,7 @@ export default function HowItWorksClient() {
           href="/order"
           className="inline-block px-12 py-5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-black text-lg transition-all duration-200 hover:shadow-[0_0_40px_rgba(10,210,90,0.35)]"
         >
-          Get Instant
+          Get Proxy
         </Link>
       </div>
     </section>

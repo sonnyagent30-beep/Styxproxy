@@ -315,6 +315,51 @@ class ApiClient {
     return this.request('/api/payments/gateways');
   }
 
+  // Basket payment — send ALL cart items in ONE call so the backend
+  // charges the SUM and creates ONE order carrying every item.
+  // This replaces the broken flow where the FE fired one initiate per
+  // item and redirected to the first checkout_url, abandoning the rest.
+  async initiateBasketPayment(opts: {
+    items: Array<{
+      planCode: string;
+      quantity: number;
+      quantityGb?: number;
+      name?: string;
+      countryCode?: string;
+      planType?: string;
+      cityId?: number;
+      cityName?: string;
+    }>;
+    customerEmail?: string;
+    gateway?: 'flutterwave' | 'paystack';
+    idempotencyKey?: string;
+    deviceId?: string;
+  }): Promise<ApiResponse<PaymentInitiateResponse>> {
+    const headers: Record<string, string> = {};
+    if (opts.idempotencyKey) {
+      headers['Idempotency-Key'] = opts.idempotencyKey;
+    }
+    return this.request<PaymentInitiateResponse>('/api/payments/initiate-basket', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        items: opts.items.map(item => ({
+          plan_code: item.planCode,
+          quantity: item.quantity,
+          quantity_gb: item.quantityGb || undefined,
+          name: item.name || undefined,
+          country_code: item.countryCode || undefined,
+          plan_type: item.planType || undefined,
+          city_id: item.cityId || undefined,
+          city_name: item.cityName || undefined,
+        })),
+        customer_email: opts.customerEmail || undefined,
+        gateway: opts.gateway || 'flutterwave',
+        device_id: opts.deviceId || undefined,
+      }),
+    });
+  }
+
   // Orders
   // Bug walk theme-B fix: precheck endpoint wired into FE checkout.
   // Used by /order/checkout to warn customers if plan is unavailable

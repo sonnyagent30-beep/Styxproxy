@@ -204,6 +204,88 @@ button {
   background: var(--hero-orb-3);
 }
 
+/* ── Blog route markers (dots + future graph nodes) ──────────────
+   The route's dark-mode colour comes from the database; light mode needs a
+   darkened variant because every live route colour is below 3:1 on #fafafa.
+   Both variants are emitted as custom properties by routeColorVars() and the
+   choice is made HERE, in CSS, because a server component cannot branch on
+   prefers-color-scheme — and light mode arrives by two routes (the media
+   query AND the .light admin class).
+
+   Declared as utilities so Tailwind's layer ordering applies; a bare class
+   would be unlayered and beat the utilities on the same element. */
+@layer utilities {
+  /* Dark mode: bright fill on near-black needs no ring (5.3–10.4:1). */
+  .route-marker {
+    background-color: var(--route-dark);
+  }
+
+  /* Light mode: darkened fill PLUS the hairline ring, so the node still reads
+     as a defined shape at 8px where the fill alone is faint on white. */
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark) .route-marker {
+      background-color: var(--route-light);
+      box-shadow: 0 0 0 1px var(--route-ring);
+    }
+  }
+
+  :root.light .route-marker {
+    background-color: var(--route-light);
+    box-shadow: 0 0 0 1px var(--route-ring);
+  }
+
+  /* Homepage blog list dots — same pattern as .route-marker */
+  .route-dot {
+    background-color: var(--route-dark);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark) .route-dot {
+      background-color: var(--route-light);
+      box-shadow: 0 0 0 1px var(--route-ring);
+    }
+  }
+
+  :root.light .route-dot {
+    background-color: var(--route-light);
+    box-shadow: 0 0 0 1px var(--route-ring);
+  }
+
+  /* SVG graph nodes: `fill`, not `background-color`. The element carries the
+     route colour as a custom property from routeColorVars(), and light mode
+     substitutes the darkened variant for the same reason the dots do — every
+     live route colour is below 3:1 on white. */
+  .route-node {
+    fill: var(--route-dark);
+    stroke: var(--route-ring);
+    stroke-width: 0;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark) .route-node {
+      fill: var(--route-light);
+      stroke-width: 1;
+    }
+  }
+
+  :root.light .route-node {
+    fill: var(--route-light);
+    stroke-width: 1;
+  }
+
+  /* The graph defaults to the list under reduced-motion, but if the reader
+     opts into it anyway the transitions must not animate. The media query is
+     the user telling us motion is a problem, so honour it wherever motion
+     appears — not only at the default-view decision. */
+  @media (prefers-reduced-motion: reduce) {
+    .route-marker,
+    .route-dot,
+    .route-node {
+      transition: none !important;
+    }
+  }
+}
+
 /* ── Premium card depth ───────────────────────────────────────── */
 .card-depth {
   background: var(--card);
@@ -262,7 +344,7 @@ button {
   animation: charon-glow 3s ease-in-out infinite;
 }
 
-/* Outer ring */
+/* Single ring — one clean pulse reads as intentional, not decorative */
 .charon-halo--1 {
   animation: charon-ring 3s ease-in-out infinite;
   background: transparent;
@@ -270,24 +352,15 @@ button {
   transform-origin: center;
 }
 
-/* Inner ring */
-.charon-halo--2 {
-  animation: charon-ring 3s ease-in-out infinite;
-  animation-delay: 1.5s;
-  background: transparent;
-  border: 1.5px solid rgba(10, 210, 90, 0.35);
-  transform-origin: center;
-}
-
 @keyframes charon-glow {
   0%, 100% {
     box-shadow:
       0 0 0 0 rgba(10, 210, 90, 0.5),
-      0 2px 12px rgba(10, 210, 90, 0.35);
+      0 2px 8px rgba(10, 210, 90, 0.25);
   }
   50% {
     box-shadow:
-      0 0 0 10px rgba(10, 210, 90, 0),
+      0 0 0 4px rgba(10, 210, 90, 0),
       0 2px 20px rgba(10, 210, 90, 0.55);
   }
 }
@@ -300,6 +373,58 @@ button {
   50% {
     transform: scale(1.5);
     opacity: 0;
+  }
+}
+
+/* ── A4: Chat bubble table styles ───────────────────────────────── */
+@layer utilities {
+  .charon-table {
+    border-collapse: collapse;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  .charon-table-header {
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .charon-table-header .charon-table-cell {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .charon-table-row {
+    border-bottom: 1px solid var(--border);
+  }
+  .charon-table-row:last-child {
+    border-bottom: none;
+  }
+  .charon-table-cell {
+    padding: 8px 10px;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  .charon-table-cell:last-child {
+    padding-right: 6px;
+  }
+  /* Right-align numeric columns (prices) */
+  .charon-table-cell[data-numeric="true"] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Country code chip */
+  .charon-country-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    background: var(--primary);
+    color: #000;
   }
 }
 

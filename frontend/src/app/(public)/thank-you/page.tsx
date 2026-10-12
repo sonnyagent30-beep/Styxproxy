@@ -26,6 +26,10 @@ interface OrderData {
   is_renewable?: boolean;
   rotation_count?: number;
   max_rotations?: number;
+  plan_code?: string;
+  quantity?: number;
+  city_name?: string | null;
+  data_total_gb?: number;
   // Full details for the BUYER on this page only — it is rendered right after
   // their own payment from the order-status poll keyed to their order. This is
   // deliberately NOT the public receipt shape: generateReceiptPDF receives a
@@ -39,6 +43,16 @@ interface OrderData {
     expires_at?: string;
     status?: string;
   };
+  // For basket orders: ALL credentials created for this order.
+  // The customer paid for every item in one transaction and must see
+  // every proxy on the thank-you page.
+  credentials?: Array<{
+    styxproxy_username?: string;
+    styxproxy_password?: string;
+    upstream_proxy_ip?: string;
+    upstream_proxy_port?: number;
+    status?: string;
+  }>;
   user_message?: string | null;
   created_at?: string;
   fulfilled_at?: string;
@@ -69,7 +83,6 @@ function ThankYouContent() {
   }, [orderId, txRef]);
 
   const [order, setOrder] = useState<OrderData | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [attempts, setAttempts] = useState(0);
@@ -88,20 +101,32 @@ function ThankYouContent() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState('');
 
-  // Load cart from sessionStorage
-  useEffect(() => {
-    const stored = sessionStorage.getItem('styxproxy_cart');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setCart(parsed);
-        }
-      } catch (e) {
-        // Invalid cart
-      }
-    }
-  }, []);
+  // Build receipt items from the order payload.
+  //
+  // The cart is cleared at checkout (CheckoutClient.tsx) — it is NOT the
+  // source of truth after payment. The order is. The backend returns
+  // plan_code, quantity, city_name, plan_type, country, and amount_paid_ngn
+  // on the by-payment-reference endpoint. We build a CartItem-shaped array
+  // from those fields so the existing PDF generator (generateReceiptPDF)
+  // works unchanged.
+  const receiptItems: CartItem[] = [];
+  if (order) {
+    const isPerGb = (order.plan_type === 'RESIDENTIAL' || order.plan_type === 'MOBILE')
+      && typeof order.data_total_gb === 'number';
+    receiptItems.push({
+      plan_code: order.plan_code || 'unknown',
+      name: order.plan_code
+        ? order.plan_code.split('-').slice(0, 2).join(' ')
+        : (order.plan_type || 'Proxy'),
+      flag: order.country || '',
+      price_ngn: order.amount_paid_ngn || 0,
+      quantity: isPerGb ? 1 : (order.quantity || 1),
+      country_code: order.country || 'NG',
+      plan_type: (order.plan_type as CartItem['plan_type']) || 'DC',
+      ...(isPerGb ? { quantity_gb: order.data_total_gb as number } : {}),
+      ...(order.city_name ? { city_name: order.city_name } : {}),
+    });
+  }
 
   // Poll for order status using PaymentStatusPoller
   //
@@ -155,6 +180,7 @@ function ThankYouContent() {
         }
 
         const cred = data.styxproxy_credential;
+        const allCreds = data.credentials;
         const orderData: OrderData = {
           order_id: data.order_id,
           status: data.status,
@@ -166,6 +192,10 @@ function ThankYouContent() {
           is_renewable: data.is_renewable,
           rotation_count: data.rotation_count,
           max_rotations: data.max_rotations,
+          plan_code: data.plan_code,
+          quantity: data.quantity,
+          city_name: data.city_name,
+          data_total_gb: data.data_total_gb,
           created_at: data.created_at,
           expires_at: data.expires_at || undefined,
           styxproxy_credential: cred ? {
@@ -176,6 +206,13 @@ function ThankYouContent() {
             expires_at: data.expires_at || undefined,
             status: cred.status,
           } : undefined,
+          credentials: allCreds ? allCreds.map(c => ({
+            styxproxy_username: c.styxproxy_username,
+            styxproxy_password: c.styxproxy_password,
+            upstream_proxy_ip: c.upstream_proxy_ip,
+            upstream_proxy_port: c.upstream_proxy_port,
+            status: c.status,
+          })) : undefined,
         };
         setOrder(orderData);
 
@@ -185,10 +222,6 @@ function ThankYouContent() {
           setLoading(false);
           setNextAction('redirect_to_proxy_details');
           import('@/lib/device-id').then(({ clearInflightOrder }) => clearInflightOrder());
-          // Clear the cart — the order is complete, the items are no longer needed.
-          // This is a safety net in case the cart wasn't cleared at checkout.
-          setCart([]);
-          sessionStorage.removeItem('styxproxy_cart');
           return;
         }
         if (s === 'expired' || s === 'cancelled' || s === 'refunded') {
@@ -254,14 +287,8 @@ function ThankYouContent() {
     }
   };
 
-  const cartTotal = cart.reduce((sum, item) => {
-    const isPerGb = (item.plan_type === 'RESIDENTIAL' || item.plan_type === 'MOBILE')
-      && typeof item.price_per_gb === 'number';
-    return sum + (isPerGb ? item.price_ngn : item.price_ngn * item.quantity);
-  }, 0);
-
   const handleDownloadPDF = async () => {
-    if (order && cart.length > 0) {
+    if (order && receiptItems.length > 0) {
       // Project to status-only before generating. The PDF is an emailed,
       // forwardable, storable artefact — it must not contain proxy credentials,
       // even though this page shows them to the buyer in the browser.
@@ -273,24 +300,62 @@ function ThankYouContent() {
       };
       // created_at is already in order from the poll response — pass it through
       // so the PDF receipt shows the real order date, not the download date.
-      await generateReceiptPDF(receiptSafeOrder, cart, txRef!, `styxproxy-receipt-${txRef}.pdf`, detectReceiptTheme());
+      await generateReceiptPDF(receiptSafeOrder, receiptItems, txRef!, `styxproxy-receipt-${txRef}.pdf`, detectReceiptTheme());
     }
   };
 
-  const handleCopyCredentials = async (cred?: OrderData['styxproxy_credential']) => {
-    if (!cred) return;
-    const text = [
-      `Username: ${cred.styxproxy_username || ''}`,
-      `Password: ${cred.styxproxy_password || ''}`,
-      `Proxy: ${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
-      `Full: http://${cred.styxproxy_username || ''}:${cred.styxproxy_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`,
-    ].join('\n');
+  const handleCopyCredentials = async () => {
+    const creds = order?.credentials && order.credentials.length > 0
+      ? order.credentials
+      : order?.styxproxy_credential
+        ? [order.styxproxy_credential]
+        : [];
+    if (creds.length === 0) return;
+    const text = creds.map((cred, idx) => {
+      const header = creds.length > 1 ? `--- Proxy ${idx + 1} ---\n` : '';
+      return `${header}Username: ${cred.styxproxy_username || ''}\nPassword: ${cred.styxproxy_password || ''}\nProxy: ${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}\nFull: http://${cred.styxproxy_username || ''}:${cred.styxproxy_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`;
+    }).join('\n\n');
     try {
       await navigator.clipboard.writeText(text);
-      toast({ type: 'success', title: 'Copied!', message: 'Credentials copied to clipboard.' });
+      toast({ type: 'success', title: 'Copied!', message: creds.length > 1 ? `All ${creds.length} credentials copied to clipboard.` : 'Credentials copied to clipboard.' });
     } catch {
       toast({ type: 'error', title: 'Copy failed', message: 'Use Ctrl+C / Cmd+C instead.' });
     }
+  };
+
+  const handleDownloadCredentials = () => {
+    const creds = order?.credentials && order.credentials.length > 0
+      ? order.credentials
+      : order?.styxproxy_credential
+        ? [order.styxproxy_credential]
+        : [];
+    if (creds.length === 0) return;
+    const lines: string[] = [
+      'Styxproxy Proxy Credentials',
+      `Order: ${order?.order_id || txRef || 'N/A'}`,
+      `Generated: ${new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+      '',
+    ];
+    creds.forEach((cred, idx) => {
+      if (creds.length > 1) lines.push(`--- Proxy ${idx + 1} ---`);
+      lines.push(`Username: ${cred.styxproxy_username || ''}`);
+      lines.push(`Password: ${cred.styxproxy_password || ''}`);
+      lines.push(`Proxy: ${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`);
+      lines.push(`Protocol: HTTP / SOCKS5`);
+      lines.push(`Full: http://${cred.styxproxy_username || ''}:${cred.styxproxy_password || ''}@${cred.upstream_proxy_ip || ''}:${cred.upstream_proxy_port || ''}`);
+      if (order?.expires_at) lines.push(`Expires: ${new Date(order.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`);
+      lines.push('');
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `styxproxy-credentials-${txRef || order?.order_id || 'order'}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ type: 'success', title: 'Downloaded', message: `Credentials file saved (${creds.length} ${creds.length > 1 ? 'proxies' : 'proxy'}).` });
   };
 
   if (!txRef || error) {
@@ -382,22 +447,68 @@ function ThankYouContent() {
               <p className="text-[var(--muted)]">Your proxies are ready. Here are your credentials:</p>
             </div>
 
-            {/* Credentials Card */}
+            {/* Credentials Card — shows ALL proxies for basket orders */}
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Proxy Credentials</h2>
-                {order?.styxproxy_credential && (
+                <h2 className="text-lg font-semibold">
+                  {order?.credentials && order.credentials.length > 1
+                    ? `Proxy Credentials (${order.credentials.length})`
+                    : 'Proxy Credentials'}
+                </h2>
+                {(order?.credentials?.length > 0 || order?.styxproxy_credential) && (
                   <button
-                    onClick={() => handleCopyCredentials(order?.styxproxy_credential)}
+                    onClick={handleCopyCredentials}
                     className="text-xs px-3 py-1.5 bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 text-[var(--primary-text)] border border-[var(--primary)]/30 rounded-lg transition-colors flex items-center gap-1.5"
                   >
                     <Copy className="w-3.5 h-3.5" />
-                    Copy
+                    Copy All
                   </button>
                 )}
               </div>
 
-              {order?.styxproxy_credential ? (
+              {order?.credentials && order.credentials.length > 0 ? (
+                <div className="space-y-6">
+                  {order.credentials.map((cred, idx) => (
+                    <div key={idx} className={idx > 0 ? 'pt-6 border-t border-[var(--border)]' : ''}>
+                      {order.credentials!.length > 1 && (
+                        <p className="text-sm font-medium text-[var(--primary-text)] mb-3">Proxy {idx + 1}</p>
+                      )}
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm text-[var(--muted)]">Username</label>
+                          <p className="font-mono text-lg">{cred.styxproxy_username}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-[var(--muted)]">Protocol</label>
+                          <p className="font-mono text-sm">HTTP / SOCKS5</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-[var(--muted)]">Proxy Address</label>
+                          <p className="font-mono text-lg">{cred.upstream_proxy_ip}:{cred.upstream_proxy_port}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-[var(--muted)]">Password</label>
+                          <p className="font-mono text-sm">{cred.styxproxy_password || 'N/A'}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-sm text-[var(--muted)]">Full Format</label>
+                          <p className="font-mono text-base text-[var(--muted)] break-all leading-relaxed">
+                            http://{cred.styxproxy_username}:{cred.styxproxy_password || 'YOUR_PASSWORD'}@{cred.upstream_proxy_ip}:{cred.upstream_proxy_port}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-[var(--muted)]">Expires</label>
+                          <p className="font-medium">
+                            {order.expires_at
+                              ? new Date(order.expires_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })
+                              : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : order?.styxproxy_credential ? (
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm text-[var(--muted)]">Username</label>
@@ -432,7 +543,7 @@ function ThankYouContent() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {cart.map((item, idx) => (
+                  {receiptItems.map((item, idx) => (
                     <div key={item.plan_code} className="p-3 rounded-lg bg-[var(--card-hover)]">
                       <div className="flex items-center gap-2 mb-2">
                         <Flag countryCode={item.country_code} size={20} />
@@ -455,7 +566,7 @@ function ThankYouContent() {
                 </div>
                 <div>
                   <span className="text-[var(--muted)]">Amount Paid</span>
-                  <p className="font-medium">₦{cartTotal.toLocaleString('en-NG')}</p>
+                  <p className="font-medium">₦{(order?.amount_paid_ngn || 0).toLocaleString('en-NG')}</p>
                 </div>
                 <div>
                   <span className="text-[var(--muted)]">Status</span>
@@ -463,17 +574,31 @@ function ThankYouContent() {
                 </div>
                 <div>
                   <span className="text-[var(--muted)]">Items</span>
-                  <p className="font-medium">{cart.reduce((s, i) => s + i.quantity, 0)} proxies</p>
+                  <p className="font-medium">
+                    {(() => {
+                      const qty = order?.quantity || receiptItems.reduce((s, i) => s + i.quantity, 0);
+                      return `${qty || 1} ${(qty || 1) > 1 ? 'proxies' : 'proxy'}`;
+                    })()}
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Actions */}
             <div className="space-y-3">
-              {cart.length > 0 && (
+              {(order?.credentials?.length > 0 || order?.styxproxy_credential) && (
+                <button
+                  onClick={handleDownloadCredentials}
+                  className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                  <ArrowLineDown className="w-5 h-5" />
+                  Download Credentials (.txt)
+                </button>
+              )}
+              {receiptItems.length > 0 && (
                 <button
                   onClick={handleDownloadPDF}
-                  className="w-full px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="w-full px-6 py-3 border border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)] font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   <ArrowLineDown className="w-5 h-5" />
                   Download Receipt (PDF)

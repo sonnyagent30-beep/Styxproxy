@@ -48,6 +48,20 @@ export async function POST(request: NextRequest) {
       safe.page_context = payload.page_context;
     }
 
+    // Forward customer identity fields for tool authorization
+    if (typeof payload.channel_user_id === 'string' && payload.channel_user_id) {
+      safe.channel_user_id = payload.channel_user_id.slice(0, 128);
+    }
+    if (typeof payload.customer_email === 'string' && payload.customer_email) {
+      safe.customer_email = payload.customer_email.slice(0, 256);
+    }
+    if (typeof payload.customer_phone === 'string' && payload.customer_phone) {
+      safe.customer_phone = payload.customer_phone.slice(0, 32);
+    }
+    if (typeof payload.customer_name === 'string' && payload.customer_name) {
+      safe.customer_name = payload.customer_name.slice(0, 128);
+    }
+
     // Forward to FastAPI without forwarding the customer's IP.
     if (!BACKEND) {
       return NextResponse.json(

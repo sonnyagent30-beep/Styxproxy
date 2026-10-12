@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Customer, Order
 from app.services.email import send_renewal_reminder_email
+from app.services.order_status import is_live_order, LIVE_ORDER_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +59,10 @@ async def check_and_send_renewal_reminder(
     Returns:
         True if a reminder was sent, False otherwise.
     """
-    # Only active orders with an expiry date qualify
-    if order.status != "active" or not order.expires_at:
+    # Only live orders with an expiry date qualify.
+    # "active" and "fulfilled" both mean the customer has a usable proxy —
+    # the webhook sets "fulfilled", admin re-fulfill sets "active".
+    if not is_live_order(order.status) or not order.expires_at:
         return False
 
     now = datetime.now(timezone.utc)
@@ -158,7 +161,7 @@ async def send_daily_renewal_reminders(session: AsyncSession) -> dict:
         select(Order)
         .where(
             and_(
-                Order.status == "active",
+                Order.status.in_(LIVE_ORDER_STATUSES),
                 Order.expires_at.isnot(None),
                 Order.expires_at <= warning_cutoff,
                 Order.expires_at >= now,  # not already expired

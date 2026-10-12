@@ -666,7 +666,7 @@ export default function ProductsClient() {
                   <span className="text-sm font-normal text-gray-500">/mo</span>
                 </div>
               </div>
-              <Link href="/order" className="btn-primary">Order Now</Link>
+              <Link href="/order" className="btn-primary">Get Proxy</Link>
               <button 
                 onClick={() => toggleExpand(product.key)}
                 className="btn-ghost"
@@ -813,7 +813,7 @@ export default function ProductsClient() {
           <p className="mb-10 text-lg" style={{ color: 'var(--muted)' }}>Start in seconds. No signup required.</p>
           <Link href="/order"
             className="inline-block px-12 py-5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-black font-black text-lg transition-all duration-200 hover:shadow-[0_0_40px_rgba(10,210,90,0.35)]">
-            Get Instant
+            Get Proxy
           </Link>
         </div>
       </div>
