@@ -15,6 +15,7 @@ import sentry_sdk
 
 from app.services.charon.page_templates import get_page_prompt_addition
 from app.services.charon.ab_framework import get_variant, get_page_context_variant, record_outcome
+from app.services.charon.credential_guard import inspect_text, redact_mapping
 from app.services.charon.escalation_persist import persist_escalation_sync
 from . import knowledge, scenarios, tools
 from .llm import LLMResponse, call_llm
@@ -32,6 +33,7 @@ class Reply:
     tokens_used: int = 0
     raw: dict | None = None
     experiment_variant: str | None = None
+    interrupted: bool = False
 
 
 @dataclass
@@ -56,9 +58,79 @@ _THINK_BLOCKS = [
     ),
 ]
 _FENCED_CODE = re.compile(r"```[a-zA-Z0-9_+\-]*?\n.*?```", re.DOTALL)
-_TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$", re.MULTILINE)
-_TABLE_SEPARATOR = re.compile(r"^\s*\|?[\s:\-|]+\|?\s*$", re.MULTILINE)
 _BLANK_RUN = re.compile(r"\n{3,}")
+
+# ─── Tool Call Stripper (A3) ──────────────────────────────────────────────────
+# Known tool names from the registry. Used to detect malformed tool calls
+# that leak internal tool names to customers.
+_KNOWN_TOOL_NAMES = [
+    "get_product_catalog", "lookup_order", "list_customer_orders",
+    "check_data_remaining", "detect_renewal", "get_referral_info",
+    "get_setup_guide", "get_troubleshooting", "create_order",
+    "initiate_payment", "retry_payment", "escalate_bulk_inquiry",
+    "compare_plans", "generate_order_link", "generate_receipt_link",
+    "get_customer_context", "check_order_status", "check_proxy_status",
+    "check_delivery_status", "lookup_order_by_email", "lookup_payment_status",
+    "initiate_renewal", "suggest_articles",
+]
+
+_TOOL_NAME_RE = "|".join(re.escape(name) for name in _KNOWN_TOOL_NAMES)
+
+# Well-formed: <tool_name>\n...content</tool_name>
+_LONGCAT_TOOL_CALL = re.compile(
+    r"<(" + _TOOL_NAME_RE + r")>\s*\n.*?</\1>",
+    re.DOTALL | re.IGNORECASE
+)
+
+# Any tag containing a tool name (opening or closing, malformed)
+_LONGCAT_TOOL_CALL_TAGS = re.compile(
+    r"</?(" + _TOOL_NAME_RE + r")>",
+    re.IGNORECASE
+)
+
+# Bare tool name followed by non-ASCII-word or non-space (e.g. get_product_catalog立卡).
+# Uses explicit ASCII character classes instead of \b, which is Unicode-aware in
+# Python 3 and treats CJK characters as word characters (so catalog立卡 = one word).
+_LONGCAT_TOOL_CALL_BARE = re.compile(
+    r"(?<![a-zA-Z0-9_])(" + _TOOL_NAME_RE + r")(?![a-zA-Z0-9_])",
+    re.IGNORECASE
+)
+
+# Any closing tag that is NOT a known HTML tag (catches </th>, </table>, etc.)
+_HTML_TAGS = frozenset([
+    "b", "i", "em", "strong", "code", "pre", "p", "br", "hr", "div", "span",
+    "a", "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",
+])
+
+_LONGCAT_TOOL_CALL_CLOSE_GENERAL = re.compile(
+    r"</(\w+)>",
+    re.IGNORECASE
+)
+
+
+def _strip_tool_calls(text: str) -> str:
+    """Strip tool call artifacts from customer-facing text.
+
+    Runs on EVERY response path. The model emits malformed tool calls that
+    leak internal tool names (observed: get_product_catalog立卡 / ...</th>).
+    This function catches all forms and replaces them with a status affordance.
+    """
+    if not text:
+        return text
+    # Well-formed: <tool_name>\n...</tool_name>
+    text = _LONGCAT_TOOL_CALL.sub(" Looking up plans\u2026 ", text)
+    # Any tag containing a tool name
+    text = _LONGCAT_TOOL_CALL_TAGS.sub(" Looking up plans\u2026 ", text)
+    # Bare tool name followed by non-word, non-space
+    text = _LONGCAT_TOOL_CALL_BARE.sub(" Looking up plans\u2026 ", text)
+    # Any closing tag that is not a known HTML tag
+    def _replace_close(match):
+        tag = match.group(1).lower()
+        if tag in _HTML_TAGS:
+            return match.group(0)
+        return " Looking up plans\u2026 "
+    text = _LONGCAT_TOOL_CALL_CLOSE_GENERAL.sub(_replace_close, text)
+    return text
 
 
 def _clean_reply(text: str) -> str:
@@ -67,41 +139,11 @@ def _clean_reply(text: str) -> str:
     out = text
     for pat in _THINK_BLOCKS:
         out = pat.sub("", out)
+    # A3: Run tool-call stripper on EVERY path
+    out = _strip_tool_calls(out)
     out = _FENCED_CODE.sub("", out)
-    lines = out.splitlines()
-    cleaned: list[str] = []
-    table_buf: list[str] = []
-
-    def flush_table() -> None:
-        if not table_buf:
-            return
-        rows: list[list[str]] = []
-        for row in table_buf:
-            if _TABLE_SEPARATOR.match(row):
-                continue
-            cells = [c.strip() for c in row.strip().strip("|").split("|")]
-            rows.append(cells)
-        if not rows:
-            table_buf.clear()
-            return
-        if len(rows) >= 2:
-            header = " / ".join(rows[0])
-            cleaned.append(f"{header}:")
-            for r in rows[1:]:
-                pairs = [f"{a} {b}".strip() for a, b in zip(rows[0], r) if a and b]
-                cleaned.append("  • " + "; ".join(pairs))
-        elif len(rows) == 1:
-            cleaned.append("  • " + " | ".join(rows[0]))
-        table_buf.clear()
-
-    for line in lines:
-        if _TABLE_ROW.match(line):
-            table_buf.append(line)
-        else:
-            flush_table()
-            cleaned.append(line)
-    flush_table()
-    out = "\n".join(cleaned)
+    # A4: Let markdown tables through — do NOT flatten them.
+    # The frontend (ReactMarkdown + remarkGfm) renders tables natively.
     out = _BLANK_RUN.sub("\n\n", out).strip()
     return out
 
@@ -195,12 +237,28 @@ DOMAIN_KNOWLEDGE = """
 - Price comparison → Datacenter
 
 ### Setup Quick Reference
-- Proxy address: `proxy.styxproxy.com:PORT`
+- Proxy address: `YOUR_PROXY_IP:PORT`
 - Auth: Styxproxy username + password
 - Protocols: HTTP, HTTPS, SOCKS5 all supported
 - Test proxy: visit https://ipinfo.io to confirm it's active
 - Sticky sessions: available on residential (same IP for 5-30 min)
 - Static IPs: ISP and Datacenter plans
+
+### Renewal Flow
+When a customer wants to renew their proxy:
+1. Identify the customer (by phone/email from channel context)
+2. Use `list_customer_orders` to show their proxies, or `detect_renewal` to find expiring ones
+3. Ask which proxy they want to renew and how much data (min 5 GB for residential/mobile)
+4. Use `initiate_renewal` with the order_id and quantity_gb
+5. Give them the checkout URL and confirm the renewal details
+6. After payment, the renewal is processed automatically — same IP if available, new expiry from renewal date
+
+Renewal rules:
+- Residential/mobile: customer selects GB amount (5, 10, 20, 50 GB tiers or custom, min 5 GB)
+- DC/ISP: no GB selection, just extends expiry by 30 days
+- Renewals stack from the renewal date (not current expiry)
+- Unlimited renewals per order
+- Same IP is kept if still available; otherwise a new one is assigned
 """
 
 # ─── Sales Intelligence ─────────────────────────────────────────────────────
@@ -239,7 +297,7 @@ You are in **sales mode** on a messaging app. Your goal is to help customers buy
 After EVERY answer, suggest a relevant next step:
 - After explaining a plan → "Want me to create that order?"
 - After troubleshooting → "Need a fresh proxy? I can set that up"
-- After order lookup → "Need to renew? I can help with that"
+- After order lookup → "Need to renew? I can help with that — just tell me which proxy and how much data"
 - After payment → "Your proxy will be ready in minutes. Want setup instructions?"
 
 ### Charon Capabilities (when asked "what can you do")
@@ -250,7 +308,7 @@ After EVERY answer, suggest a relevant next step:
 - 💳 **Payment** — checkout link, retry failed payments
 - 📦 **Order lookup** — status, credentials, history
 - 📊 **Data usage** — check remaining GB on residential/mobile
-- 🔄 **Renewals** — expiring soon? Renew now
+- 🔄 **Renewals** — expiring soon? I can renew your proxy right here — just tell me which one and how much data
 - 🛠️ **Setup guides** — how to configure any plan
 - 🐛 **Troubleshooting** — common issues and fixes
 - 👥 **Referrals** — earn ₦500 for each friend you refer
@@ -350,7 +408,33 @@ async def reply(
     """End-to-end Charon reply."""
     conversation_id = conversation_id or str(uuid.uuid4())
     variant = get_variant(conversation_id)
-    
+
+    # Defence in depth. `app/routers/charon.py` already screens
+    # `ChatReplyRequest.user_message` before calling in, and that is the choke
+    # point for HTTP traffic. This is the SECOND gate, at the point where the text
+    # is provably both persisted and LLM-bound, so a future non-HTTP caller
+    # (a proactive trigger, a new router, a script) cannot reintroduce the leak
+    # by skipping the router. Redaction is idempotent, so double application is
+    # a no-op rather than a double-mangle.
+    guard = inspect_text(user_message)
+    if guard.has_secret:
+        logger.warning(
+            "credential_guard: redacted labelled secret value(s) before "
+            "persist+LLM: labels=%s conversation_id=%s",
+            sorted(guard.secret_labels),
+            conversation_id,
+        )
+        user_message = guard.redacted
+    if history:
+        history = [
+            Message(role=m.role, content=inspect_text(m.content).redacted)
+            if m.role in ("user", "assistant")
+            else m
+            for m in history
+        ]
+    if page_context:
+        page_context = redact_mapping(page_context)
+
     # Persist user message
     await _persist_message(conversation_id, channel, "user", user_message, page_context=page_context)
     
@@ -415,7 +499,7 @@ async def reply(
     # ── 1. Scenario matcher ──────────────────────────────────────────
     scenario = scenarios.match(user_message)
     if scenario:
-        reply_action, escalate = _run_scenario(scenario, messages, conversation_id=conversation_id, customer_email=customer_email, customer_phone=customer_phone, customer_message=user_message, history_summary="")
+        reply_action, escalate = await _run_scenario(scenario, messages, conversation_id=conversation_id, customer_email=customer_email, customer_phone=customer_phone, customer_message=user_message, history_summary="")
         log_ctx["scenario_id"] = scenario.id
         log_ctx["response"] = reply_action.text
         log_ctx["escalated"] = escalate
@@ -567,33 +651,322 @@ async def reply(
     log_ctx["error"] = llm_resp.error
     log_ctx["escalated"] = True
     _persist_log(log_ctx)
-    
+
     await _persist_message(conversation_id, channel, "assistant", fallback, tokens_used=0)
-    
-    return Reply(text=fallback, escalated=True, error=llm_resp.error)
+
+    # ── Persist the escalation BEFORE returning ────────────────────
+    # The fallback text promises "I'll let them know you asked" — so the
+    # escalation MUST be written to the DB. Previously this path set
+    # escalated=True, wrote a log and a message, and returned WITHOUT
+    # calling persist_escalation_sync(). The stats counter incremented,
+    # the API response said escalated=true, and the DB got nothing.
+    # Customers were told a human had been notified when nobody was.
+    try:
+        from app.services.charon.escalation_persist import persist_escalation_sync
+        persist_escalation_sync(
+            conversation_id=conversation_id,
+            customer_email=customer_email,
+            customer_phone=customer_phone,
+            customer_message=user_message,
+            history_summary="",
+            scenario_id="llm_failure",
+            reason=f"LLM error: {llm_resp.error}",
+        )
+    except Exception as esc_err:
+        # The escalation write failed. The customer still gets the fallback
+        # message, but we must log loudly so the gap is visible.
+        logger.error(
+            "ESCALATION PERSIST FAILED — customer was told 'I'll let them know' "
+            "but the escalation was NOT saved: %s",
+            esc_err,
+            extra={**log_ctx, "conversation_id": conversation_id},
+        )
+
+    return Reply(text=fallback, escalated=True, error=llm_resp.error, interrupted=True)
 
 
-def _run_scenario(scenario: scenarios.Scenario, messages: list[Message], *, conversation_id: str | None = None, customer_email: str | None = None, customer_phone: str | None = None, customer_message: str = "", history_summary: str = "") -> tuple[Any, bool]:
+def _extract_plan_type(message: str) -> str | None:
+    """Extract plan type from message text."""
+    msg = message.lower()
+    for pt in ("residential", "mobile", "isp", "datacenter"):
+        if pt in msg:
+            return pt
+    if " dc " in msg or msg.startswith("dc ") or msg.endswith(" dc"):
+        return "datacenter"
+    return None
+
+
+def _extract_issue(message: str) -> str | None:
+    """Extract troubleshooting issue keyword from message text."""
+    msg = message.lower()
+    issues = {
+        "auth_failed": ("auth", "login", "401", "407", "unauthorized", "password"),
+        "ip_banned": ("banned", "blocked", "blacklist", "403", "forbidden"),
+        "slow_speed": ("slow", "lag", "latency", "timeout", "timed out"),
+        "connection_refused": ("refused", "econnrefused", "connection refused"),
+        "not_working": ("not working", "doesn't work", "broken", "dead", "down"),
+        "expired": ("expired", "expiry", "expiration", "expiring"),
+    }
+    for issue, keywords in issues.items():
+        for kw in keywords:
+            if kw in msg:
+                return issue
+    return None
+
+
+def _format_tool_result(tool_name: str, data: Any, template: str | None = None) -> str:
+    """Format a tool result into a customer-facing reply string."""
+    if not isinstance(data, dict):
+        return str(data)
+
+    if tool_name == "check_order_status":
+        status = data.get("status", "unknown")
+        lines = [f"Order status: {status}"]
+        if data.get("status_message"):
+            lines.append(data["status_message"])
+        if data.get("plan_type"):
+            lines.append(f"Plan: {data['plan_type']} ({data.get('plan_code', '?')})")
+        if data.get("amount_paid_ngn"):
+            lines.append(f"Amount paid: ₦{data['amount_paid_ngn']:,.0f}")
+        if data.get("delivery_status"):
+            lines.append(f"Delivery: {data['delivery_status']}")
+        cred = data.get("credential")
+        if cred:
+            lines.append(
+                f"Proxy: {cred.get('proxy_address', '?')}:{cred.get('port', '?')}"
+            )
+            lines.append(f"Username: {cred.get('username', '?')}")
+        return "\n".join(lines)
+
+    if tool_name == "check_proxy_status":
+        proxies = data.get("active_proxies", [])
+        if not proxies:
+            return data.get("message", "No active proxies found.")
+        lines = ["Here are your active proxies:"]
+        for p in proxies:
+            lines.append(
+                f"  • {p.get('plan_type', '?')} — "
+                f"{p.get('proxy_address', '?')}:{p.get('port', '?')} "
+                f"({p.get('protocol', '?')}) — Status: {p.get('status', '?')}"
+            )
+            if p.get("expires_at"):
+                lines.append(f"    Expires: {p['expires_at']}")
+            if p.get("data_remaining_gb") is not None:
+                lines.append(
+                    f"    Data remaining: {p['data_remaining_gb']:.1f}GB / "
+                    f"{p.get('data_total_gb', '?')}GB"
+                )
+        return "\n".join(lines)
+
+    if tool_name == "check_delivery_status":
+        status = data.get("delivery_status", "unknown")
+        message = data.get("message", "")
+        lines = [f"Delivery status: {status}"]
+        if message:
+            lines.append(message)
+        if data.get("emails_sent"):
+            lines.append(f"Confirmation emails sent: {data['emails_sent']}")
+        return "\n".join(lines)
+
+    if tool_name == "list_customer_orders":
+        orders = data.get("orders", [])
+        if not orders:
+            return data.get("message", "No orders found.")
+        lines = ["Here are your orders:"]
+        for o in orders:
+            lines.append(
+                f"  • {o.get('plan_type', '?')} ({o.get('plan_code', '?')}) — "
+                f"{o.get('status', '?')} — ₦{o.get('amount', 0):,.0f}"
+            )
+            if o.get("created_at"):
+                lines.append(f"    Ordered: {o['created_at']}")
+        return "\n".join(lines)
+
+    if tool_name == "lookup_order":
+        status = data.get("status", "unknown")
+        lines = [f"Order status: {status}"]
+        if data.get("status_message"):
+            lines.append(data["status_message"])
+        cred = data.get("credential")
+        if cred:
+            lines.append(
+                f"Proxy: {cred.get('proxy_address', '?')}:{cred.get('port', '?')}"
+            )
+            lines.append(f"Username: {cred.get('username', '?')}")
+        return "\n".join(lines)
+
+    if tool_name == "detect_renewal":
+        expiring = data.get("expiring_soon", [])
+        if not expiring:
+            return data.get("message", "No proxies expiring soon.")
+        lines = [f"You have {len(expiring)} proxy(s) expiring soon:"]
+        for e in expiring:
+            lines.append(
+                f"  • {e.get('plan_type', '?')} — expires in "
+                f"{e.get('days_left', '?')} days"
+            )
+        lines.append(
+            "\nWant me to renew one? Tell me which one and how much data "
+            "(min 5 GB for residential/mobile)."
+        )
+        return "\n".join(lines)
+
+    if tool_name == "check_data_remaining":
+        active = data.get("active_data_plans", [])
+        if not active:
+            return data.get("message", "No active data plans found.")
+        total_rem = data.get("total_remaining_gb", 0)
+        total_alloc = data.get("total_allocated_gb", 0)
+        pct = round(total_rem / total_alloc * 100, 1) if total_alloc > 0 else 0
+        return f"Data remaining: {total_rem:.1f}GB / {total_alloc:.1f}GB ({pct}%)"
+
+    if tool_name == "get_product_catalog":
+        plans = data.get("plans", [])
+        if not plans:
+            return "No plans available."
+        lines = ["Available plans:"]
+        for p in plans[:10]:
+            if p.get("price_per_gb"):
+                price = f"₦{p['price_per_gb']:,.0f}/GB"
+            elif p.get("price_per_ip"):
+                price = f"₦{p['price_per_ip']:,.0f}/IP"
+            else:
+                price = "Contact us"
+            lines.append(
+                f"  • {p.get('type', '?')} ({p.get('country', '?')}) — {price}"
+            )
+        return "\n".join(lines)
+
+    if tool_name == "get_setup_guide":
+        if isinstance(data, dict) and "setup" in data:
+            lines = [data.get("description", "")]
+            lines.append("\nSetup steps:")
+            for step in data.get("setup", []):
+                lines.append(f"  • {step}")
+            tips = data.get("tips")
+            if tips:
+                lines.append("\nTips:")
+                for tip in tips:
+                    lines.append(f"  • {tip}")
+            return "\n".join(lines)
+        elif isinstance(data, dict) and "guides" in data:
+            lines = [data.get("message", "Here are the available setup guides:")]
+            for pt, guide in data.get("guides", {}).items():
+                lines.append(f"\n▶ {pt.capitalize()}:")
+                lines.append(f"  {guide.get('description', '')}")
+                for step in guide.get("setup", []):
+                    lines.append(f"  • {step}")
+            return "\n".join(lines)
+        return str(data)
+
+    if tool_name == "get_troubleshooting":
+        if isinstance(data, dict) and "steps" in data:
+            symptoms = data.get("symptoms", [])
+            header = f"Issue: {symptoms[0]}" if symptoms else "Troubleshooting"
+            lines = [header, "\nSteps to fix:"]
+            for step in data.get("steps", []):
+                lines.append(f"  • {step}")
+            return "\n".join(lines)
+        return str(data)
+
+    # Default
+    if isinstance(data, dict) and "message" in data:
+        return data["message"]
+    return json.dumps(data, default=str)
+
+
+async def _run_scenario(
+    scenario: scenarios.Scenario,
+    messages: list[Message],
+    *,
+    conversation_id: str | None = None,
+    customer_email: str | None = None,
+    customer_phone: str | None = None,
+    customer_message: str = "",
+    history_summary: str = "",
+) -> tuple[Any, bool]:
+    """Execute a scenario's actions and return (reply_text, escalated).
+
+    Supports three action types:
+    - reply: static text (with {{tx_ref_or_unknown}} substitution)
+    - escalate: emit an escalation record
+    - tool: call a registered tool and format the result
+    """
     tx_ref = _extract_tx_ref(messages)
     escalated = False
     reply_text = ""
+    tool_results: list[dict] = []
+
     for action in scenario.actions:
         if action.type == "reply" and action.text:
             if "{{tx_ref_or_unknown}}" in (action.text or ""):
-                action.text = action.text.replace("{{tx_ref_or_unknown}}", tx_ref or "unknown")
+                action.text = action.text.replace(
+                    "{{tx_ref_or_unknown}}", tx_ref or "unknown"
+                )
             reply_text = action.text or ""
         elif action.type == "escalate":
             escalated = True
-            _emit_escalation(scenario, action, tx_ref, conversation_id=conversation_id, customer_email=customer_email, customer_phone=customer_phone, customer_message=customer_message, history_summary=history_summary)
+            _emit_escalation(
+                scenario, action, tx_ref,
+                conversation_id=conversation_id,
+                customer_email=customer_email,
+                customer_phone=customer_phone,
+                customer_message=customer_message,
+                history_summary=history_summary,
+            )
         elif action.type == "tool":
-            pass
+            tool_name = action.tool_name
+            if not tool_name or tool_name not in tools.registry.tools:
+                logger.warning(
+                    "scenario %s: tool %r not registered",
+                    scenario.id, tool_name,
+                )
+                continue
+
+            # Resolve template variables in tool_params
+            params = dict(action.tool_params or {})
+            plan_type = _extract_plan_type(customer_message)
+            issue = _extract_issue(customer_message)
+            for key, val in params.items():
+                if isinstance(val, str):
+                    val = val.replace("{{customer_phone}}", customer_phone or "")
+                    val = val.replace("{{tx_ref}}", tx_ref or "")
+                    val = val.replace("{{customer_email}}", customer_email or "")
+                    val = val.replace("{{plan_type}}", plan_type or "")
+                    val = val.replace("{{issue}}", issue or "")
+                    params[key] = val
+
+            # Call the tool
+            result = await tools.registry.call(tool_name, **params)
+            tool_results.append({
+                "tool": tool_name,
+                "params": params,
+                "result": result.to_dict(),
+            })
+
+            if result.ok:
+                formatted = _format_tool_result(
+                    tool_name, result.data, action.response_template
+                )
+                if formatted:
+                    reply_text = formatted
+            else:
+                logger.warning(
+                    "scenario %s: tool %s failed: %s",
+                    scenario.id, tool_name, result.error,
+                )
+                reply_text = (
+                    f"I couldn't complete that automatically. "
+                    f"{result.error or 'Unknown error'}. "
+                    f"Let me connect you with the team at styxproxy.com/contact."
+                )
+
     if not reply_text:
         reply_text = (
             "I am not sure I can answer that automatically. The team can help at "
             "styxproxy.com/contact or support@styxproxy.com."
         )
     return type("R", (), {"text": reply_text})(), escalated
-
 
 def _emit_escalation(
     scenario: scenarios.Scenario,
@@ -701,7 +1074,7 @@ async def _try_tool_call_loop(
                     tool_params["customer_name"] = customer_name
 
             # Inject customer_phone for read tools (RLS context)
-            if tool_name in ("lookup_order", "lookup_payment_status", "generate_order_link", "generate_receipt_link", "get_customer_context", "list_customer_orders", "check_data_remaining", "get_referral_info", "detect_renewal", "escalate_bulk_inquiry"):
+            if tool_name in ("lookup_order", "lookup_payment_status", "generate_order_link", "generate_receipt_link", "get_customer_context", "list_customer_orders", "check_data_remaining", "get_referral_info", "detect_renewal", "escalate_bulk_inquiry", "initiate_renewal", "check_order_status", "check_proxy_status", "check_delivery_status", "lookup_order_by_email"):
                 if customer_phone and "customer_phone" not in tool_params:
                     tool_params["customer_phone"] = customer_phone
 
@@ -802,6 +1175,18 @@ async def _try_tool_call_loop(
 def _safe_parse_tool_json(content: str) -> dict | None:
     import re as _re
     text = content.strip()
+    # Handle longcat_tool_call format: toolname\nparams
+    for match in _LONGCAT_TOOL_CALL.finditer(text):
+        tool_name = match.group(1).strip()
+        params_raw = match.group(3).strip()
+        params = {}
+        if params_raw:
+            try:
+                import json as _json
+                params = _json.loads(params_raw)
+            except Exception:
+                pass
+        return {'tool': tool_name, 'params': params}
     # Handle <tool_call>...</tool_call> XML format
     for match in _re.finditer(r'<tool_call>(.*?)</tool_call>', text, _re.DOTALL):
         inner = match.group(1).strip()
@@ -846,15 +1231,25 @@ def _safe_parse_tool_json(content: str) -> dict | None:
 
 
 def _persist_log(ctx: dict) -> None:
+    """Append one conversation record to the JSONL log.
+
+    `ctx` carries `user_message`, and this file is served back verbatim by the
+    unauthenticated `GET /charon/logs` and `GET /charon/conversations`. So the
+    value is screened HERE, at the write, rather than relying on every future
+    caller having passed through the router's ingress guard first. This is the
+    second of the two gates; `_read_logs` screens on the way out as well, which
+    is what protects the records already on disk.
+    """
+    safe = redact_mapping(ctx)
     log_dir = os.getenv("CHARON_LOG_DIR", "/tmp")
     log_path = os.path.join(log_dir, "charon.log")
     try:
         os.makedirs(log_dir, exist_ok=True)
         with open(log_path, "a") as fh:
-            fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), **ctx}) + "\n")
+            fh.write(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), **safe}) + "\n")
     except OSError:
         pass
-    logger.info("charon.reply", extra={"charon": ctx})
+    logger.info("charon.reply", extra={"charon": safe})
 
 
 async def _persist_message(
@@ -1010,7 +1405,12 @@ async def check_proactive_triggers(
         try:
             renew_result = await tools.registry.call("detect_renewal", customer_phone=customer_phone)
             if renew_result.ok and renew_result.data.get("expiring_soon"):
-                return "Your proxy expires soon. Want to renew?"
+                n = len(renew_result.data["expiring_soon"])
+                if n == 1:
+                    expiring = renew_result.data["expiring_soon"][0]
+                    return f"Your {expiring.get('plan_type', 'proxy')} proxy expires in {expiring.get('days_left', '?')} days. Want me to renew it now?"
+                else:
+                    return f"You have {n} proxies expiring soon. Want me to renew them now?"
         except Exception:
             pass
 

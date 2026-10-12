@@ -202,7 +202,8 @@ async def _try_all_providers(messages: list[dict], max_tokens: int) -> LLMRespon
         return LLMResponse(content="", model="", error="LONGCAT_API_KEY not set")
 
     longcat_model = os.getenv("LONGCAT_MODEL", "LongCat-2.0-Preview")
-    longcat_base = os.getenv("LONGCAT_BASE_URL", "https://api.longcat.ai/openai/v1").rstrip("/")
+    from app.config import get_settings
+    longcat_base = get_settings().longcat_base_url.rstrip("/")
 
     max_retries = _get_max_retries()
     timeout = _get_timeout()
@@ -295,7 +296,8 @@ async def stream_llm(
         return
 
     longcat_model = os.getenv("LONGCAT_MODEL", "LongCat-2.0-Preview")
-    longcat_base = os.getenv("LONGCAT_BASE_URL", "https://api.longcat.ai/openai/v1").rstrip("/")
+    from app.config import get_settings
+    longcat_base = get_settings().longcat_base_url.rstrip("/")
     timeout = _get_timeout()
 
     headers = {

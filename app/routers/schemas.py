@@ -119,7 +119,15 @@ class TrialStatusEnum(str, Enum):
 
 # ============== Validators ==============
 
-VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN", "AE", "MX", "PK", "ID"}
+# Re-exported from app.schemas — the single source of truth. This module used to
+# carry its OWN hardcoded copy of the same 17-country set, so precheck (which
+# imports PrecheckRequest from here) and the rest of the app could disagree
+# about the same string. Importing it means there is exactly one set.
+from app.schemas import (  # noqa: F401  (re-exported for backwards compatibility)
+    VALID_COUNTRIES,
+    load_valid_countries,
+    validate_country,
+)
 
 
 def validate_phone(phone: str) -> str:
@@ -128,13 +136,6 @@ def validate_phone(phone: str) -> str:
     if not re.match(r"^\+?234[0-9]{10}$|^234[0-9]{10}$|^[0-9]{10,15}$", cleaned):
         raise ValueError("Invalid phone number format")
     return cleaned
-
-
-def validate_country(country: str) -> str:
-    """Validate country code."""
-    if country.upper() not in VALID_COUNTRIES:
-        raise ValueError(f"Country must be one of: {', '.join(sorted(VALID_COUNTRIES))}")
-    return country.upper()
 
 
 def validate_password_strength(password: str) -> str:
@@ -276,27 +277,6 @@ class MergeRequestResponse(BaseModel):
     source_account_id: UUID
     target_account_id: UUID
     created_at: datetime
-
-
-# ============== Products Schemas ==============
-
-
-class ProductResponse(BaseModel):
-    """Product response."""
-
-    plan_code: str
-    plan_type: str
-    country: str
-    price_ngn: float
-    quantity: int
-    duration_days: int
-    features: list[str]
-
-
-class ProductsResponse(BaseModel):
-    """Products list response."""
-
-    products: list[ProductResponse]
 
 
 # ============== Plans Schemas ==============
@@ -641,6 +621,61 @@ class PaymentStatusResponse(BaseModel):
     status: str
     amount: float
     currency: str
+
+
+# ── Basket (multi-item) payment ─────────────────────────────────────────────
+
+class BasketItemRequest(BaseModel):
+    """One line item in a basket checkout."""
+
+    plan_code: str = Field(..., min_length=1, max_length=50)
+    quantity: int = Field(default=1, ge=1)
+    quantity_gb: Optional[int] = Field(None, ge=1, le=10000)
+    name: Optional[str] = Field(None, max_length=200)
+    country_code: Optional[str] = Field(None, max_length=10)
+    plan_type: Optional[str] = Field(None, max_length=20)
+    city_id: Optional[int] = None
+    city_name: Optional[str] = Field(None, max_length=100)
+
+
+class PaymentInitiateBasketRequest(BaseModel):
+    """Request to initiate payment for multiple items in one call.
+
+    The backend sums all item prices into ONE gateway charge and creates ONE
+    order carrying every item. This replaces the broken flow where the FE
+    fired one initiate per item and redirected to the first checkout_url,
+    abandoning the rest.
+    """
+
+    items: list[BasketItemRequest] = Field(..., min_length=1, max_length=20)
+    customer_phone: Optional[str] = Field(None, min_length=10, max_length=20)
+    customer_email: Optional[str] = Field(None, max_length=255)
+    callback_url: Optional[str] = Field(None, max_length=200)
+    idempotency_key: Optional[str] = Field(default=None, max_length=64)
+    device_id: Optional[str] = Field(default=None, max_length=64)
+    gateway: str = Field(default="flutterwave", pattern="^(flutterwave|paystack)$")
+
+    @field_validator("customer_email")
+    @classmethod
+    def validate_email(cls, v):
+        if v is None or v == "":
+            return None
+        v = v.strip().lower()
+        if "@" not in v or " " in v or len(v) > 255:
+            raise ValueError("invalid email")
+        return v
+
+
+class PaymentInitiateBasketResponse(BaseModel):
+    """Response from basket payment initiation."""
+
+    payment_id: str
+    order_id: str
+    checkout_url: str
+    amount_ngn: float
+    expires_at: datetime
+    item_count: int
+    tx_ref: str = ""
 
 
 # ============== Credentials Schemas ==============

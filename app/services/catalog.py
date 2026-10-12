@@ -129,6 +129,45 @@ def build_upstream_password(
 # ─── Catalog API ──────────────────────────────────────────────────────────────
 
 
+# ─── Sellable country: ONE definition, shared by /api/catalog and /api/countries ──
+#
+# `country_plan_types` is the only table the admin dashboard writes when it
+# enables or disables a (country, plan_type). It is therefore the authoritative
+# answer to "what can we sell", and both public catalog endpoints read it here
+# so they cannot drift apart the way /api/products and /api/countries did.
+#
+# The legacy `plans` table is deliberately NOT consulted for this. It is
+# abandoned (the dashboard stopped writing it) and rows left in it are stale by
+# definition; unioning them back in would let a disabled country reappear on
+# the public homepage, which is the exact failure this replaces.
+
+ENABLED_COUNTRY_PLAN_TYPES_SQL = text(
+    "SELECT country_code, plan_type, is_special, price_per_ip, price_per_gb "
+    "FROM country_plan_types WHERE enabled"
+)
+
+
+async def load_enabled_country_plan_types(session: AsyncSession) -> list[dict]:
+    """Every (country, plan_type) pair the admin dashboard has enabled.
+
+    Shared by the catalog builder and the public country list so that there is
+    one query defining sellability rather than two that can disagree.
+    """
+    result = await session.execute(ENABLED_COUNTRY_PLAN_TYPES_SQL)
+    return [dict(row) for row in result.mappings().all()]
+
+
+async def list_enabled_country_codes(session: AsyncSession) -> list[str]:
+    """Sorted, de-duplicated, upper-cased country codes enabled for sale."""
+    rows = await load_enabled_country_plan_types(session)
+    codes = {
+        (row.get("country_code") or "").upper()
+        for row in rows
+        if row.get("country_code")
+    }
+    return sorted(codes)
+
+
 class _VirtualPlan:
     """Duck-typed stand-in for a Plan row, synthesized from country_plan_types.
 
@@ -206,10 +245,7 @@ async def list_catalog(session: AsyncSession) -> dict:
     # The /admin/plans dashboard writes prices here. For any (country, plan_type)
     # enabled there with NO matching Plan row, synthesize a virtual plan so the
     # public catalog reflects the dashboard without a second write path.
-    cpt_rows = (await session.execute(text(
-        "SELECT country_code, plan_type, is_special, price_per_ip, price_per_gb "
-        "FROM country_plan_types WHERE enabled"
-    ))).mappings().all()
+    cpt_rows = await load_enabled_country_plan_types(session)
     existing_pairs = {(p.country.upper(), p.plan_type.upper()) for p in plans}
     for row in cpt_rows:
         if (row["country_code"].upper(), row["plan_type"].upper()) in existing_pairs:
@@ -510,7 +546,8 @@ async def create_order_with_credential(
     # Create styxproxy_credential
     credential = StyxproxyCredential(
         styxproxy_username=our_username,
-        styxproxy_password=our_password.encode("utf-8"),
+        # Encrypted by set_password() below — do NOT pass styxproxy_password
+        # plaintext here or the credential is written unencrypted.
         customer_phone=customer_phone,
         order_id=order_id,
         pool_type=plan_type,
@@ -534,6 +571,9 @@ async def create_order_with_credential(
         location_changes_reset_at=datetime.now(timezone.utc).date(),
         rotation_mode_changes_reset_at=datetime.now(timezone.utc).date(),
     )
+    # Encrypt before persistence. set_password() refuses to write plaintext when
+    # CRED_ENCRYPTION_KEY is missing, which is the point of the encrypted column.
+    credential.set_password(our_password)
     session.add(credential)
     await session.flush()
 
@@ -576,12 +616,12 @@ async def create_order_with_credential(
     from app.services.proxy_management import (
         PROXY_PORT_HTTP,
         PROXY_PORT_SOCKS5,
-        PROXY_PUBLIC_HOST,
         build_curl_http_example,
         build_curl_socks5_example,
         build_python_socks5_example,
     )
 
+    proxy_host = credential.upstream_proxy_ip or ""
     return {
         "order_id": order_id,
         "plan_type": plan_type,
@@ -593,14 +633,14 @@ async def create_order_with_credential(
         "status": "active",
         "styxproxy_username": our_username,
         "styxproxy_password": our_password,
-        "proxy_host": PROXY_PUBLIC_HOST,
+        "proxy_host": proxy_host,
         "proxy_port_socks5": PROXY_PORT_SOCKS5,
         "proxy_port_http": PROXY_PORT_HTTP,
         "protocol": "socks5",
         "expires_at": expires_at.isoformat() if expires_at else None,
-        "curl_socks5_example": build_curl_socks5_example(our_username, our_password),
-        "curl_http_example": build_curl_http_example(our_username, our_password),
-        "python_socks5_example": build_python_socks5_example(our_username, our_password),
+        "curl_socks5_example": build_curl_socks5_example(our_username, our_password, proxy_host),
+        "curl_http_example": build_curl_http_example(our_username, our_password, proxy_host),
+        "python_socks5_example": build_python_socks5_example(our_username, our_password, proxy_host),
         "assigned_static_ip": None,  # populated on first use (relay reports back)
         "credential_id": credential.id,
     }

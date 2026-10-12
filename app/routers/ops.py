@@ -20,8 +20,8 @@ from app.models import (
     StyxproxyCredential,
 )
 from app.services.audit import write_audit_log
-from app.services.flutterwave import _flutterwave_refund
 from app.services.ops_auth import require_ops_role
+from app.services.refunds import GatewayRefundError, refund_at_gateway
 
 settings = get_settings()
 
@@ -183,31 +183,39 @@ async def ops_refund_order(
 
     admin_email = jwt_payload.get("sub", "ops-service")
 
-    # Call Flutterwave refund
-    tx_ref = order.payment_reference or ""
-    amount = float(order.amount_paid_ngn or 0)
+    # Refund AT THE GATEWAY and carry the gateway's response through. The old
+    # code threw the result away (`_ = await _flutterwave_refund(...)`) and
+    # flipped the status regardless of what the gateway actually said, so a
+    # `refunded` order carried no evidence any money moved.
     try:
-        if tx_ref and amount > 0:
-            _ = await _flutterwave_refund(tx_ref, amount, settings.flutterwave_secret_key)
-        else:
-            raise ValueError("No payment reference or amount to refund")
-    except Exception as e:
-        # Log the failed attempt and re-raise so caller knows
+        refund = await refund_at_gateway(order, reason=reason or "Ops refund")
+    except GatewayRefundError as e:
+        # Log the failed attempt and re-raise so caller knows. The order is NOT
+        # marked refunded and stays actionable.
         await write_audit_log(
             db_session=session,
             admin_email=admin_email,
             action="ops_refund_failed",
             resource_type="order",
             resource_id=order_id,
-            details={"reason": reason, "error": str(e), "tx_ref": tx_ref},
+            details={
+                "reason": reason,
+                "error": str(e),
+                "reference": order.tx_ref or order.payment_reference,
+                "order_status_unchanged": order.status,
+            },
             request=request,
         )
-        raise HTTPException(status_code=502, detail=f"Flutterwave refund failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Gateway refund failed: {e}")
 
-    # Mark order refunded
+    # Mark order refunded — the gateway confirmed.
     order.status = "refunded"
     order.refund_requested = True
     order.refund_reason = reason
+    order.gateway_refund_id = refund.gateway_refund_id
+    order.gateway_refund_status = refund.gateway_status
+    order.gateway_refund_amount = refund.amount_ngn
+    order.gateway_refunded_at = datetime.now(timezone.utc)
     await session.commit()
 
     # Audit log
@@ -217,11 +225,25 @@ async def ops_refund_order(
         action="ops_refund",
         resource_type="order",
         resource_id=order_id,
-        details={"reason": reason, "tx_ref": tx_ref, "amount": amount},
+        details={
+            "reason": reason,
+            "tx_ref": refund.reference,
+            "provider": refund.provider,
+            "gateway_refund_id": refund.gateway_refund_id,
+            "gateway_refund_status": refund.gateway_status,
+            "amount": refund.amount_ngn,
+        },
         request=request,
     )
 
-    return {"status": "refunded", "tx_ref": tx_ref}
+    return {
+        "status": "refunded",
+        "tx_ref": refund.reference,
+        "provider": refund.provider,
+        "gateway_refund_id": refund.gateway_refund_id,
+        "gateway_refund_status": refund.gateway_status,
+        "amount": refund.amount_ngn,
+    }
 
 
 @router.post("/orders/{order_id}/reprocess")
@@ -231,10 +253,16 @@ async def ops_reprocess_order(
     session: AsyncSession = Depends(get_session),
     jwt_payload: dict = Depends(require_ops_role("ops-control")),
 ) -> dict[str, Any]:
-    """Re-trigger fulfillment for failed_unfulfilled orders.
+    """Re-trigger fulfillment for a paid order whose fulfillment failed.
 
     Re-runs create_credential() and marks order fulfilled on success.
     Marks order failed_unfulfilled again on error. Logs to admin_audit_log.
+
+    Accepts BOTH terminal failure statuses. The previous guard was
+    `if order.status != "failed_unfulfilled"`, which refused
+    `failed_manual_review` — the status the webhook sets for a non-provider
+    exception. So the endpoint refused the exact failure class it exists to
+    recover, and a paid order in that state could not be requeued at all.
     """
     from app.services.credential import create_credential
 
@@ -244,8 +272,44 @@ async def ops_reprocess_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.status != "failed_unfulfilled":
-        raise HTTPException(status_code=400, detail=f"Cannot reprocess order with status '{order.status}'")
+    REPROCESSABLE = {"failed_unfulfilled", "failed_manual_review", "paid", "pending"}
+    # `paid` is included deliberately. A payment that was captured but never
+    # fulfilled can legitimately sit at `paid` — that is exactly what a job which
+    # died before creating a credential leaves behind. Excluding it meant the
+    # recovery endpoint refused the status a stranded payment actually lands in,
+    # so two orders (NGN 12,000) were unreachable through our own tooling.
+    #
+    # `pending` is included for the same reason: capture evidence may exist even
+    # though the status was never advanced. The capture evidence is checked
+    # below, so this does not open a path to reprocessing an unpaid order.
+    if order.status not in REPROCESSABLE:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot reprocess order with status '{order.status}'. "
+                f"Reprocessable statuses: {sorted(REPROCESSABLE)}"
+            ),
+        )
+
+    # Never reprocess an order we have no evidence was paid for. Without this,
+    # adding `pending` to the set above would let an abandoned checkout mint a
+    # free credential.
+    _has_capture = (
+        getattr(order, "captured_at", None) is not None
+        or getattr(order, "gateway_status", None) == "successful"
+        or (order.amount_paid_ngn or 0) > 0
+        or bool(getattr(order, "payment_reference", None))
+    )
+    if not _has_capture:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Refusing to reprocess order '{order.order_id}': no capture evidence "
+                f"(no captured_at, no successful gateway_status, no amount, no "
+                f"payment reference). Reprocessing could mint a credential for an "
+                f"order that was never paid."
+            ),
+        )
 
     admin_email = jwt_payload.get("sub", "ops-service")
 

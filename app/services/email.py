@@ -8,7 +8,7 @@ Provides transactional email functionality with Styxproxy brand design language:
 - Password reset and admin invites
 
 Design language matches the receipt PDF:
-- Dark theme only (maximum email client compatibility)
+- Dark theme by default, light variant via prefers-color-scheme media query
 - Green accent (#00D060)
 - Card-based layout with dividers
 - Credentials with green border
@@ -16,7 +16,8 @@ Design language matches the receipt PDF:
 All templates use:
 - Inline styles only (no CSS variables)
 - Table-based layouts (no flexbox)
-- No prefers-color-scheme media queries
+- prefers-color-scheme: light media query for light variant
+- color-scheme meta tag for client support detection
 - lang="en" on all html tags
 - Proper alt text and dimensions on images
 - Unsubscribe link and physical address in footer
@@ -82,21 +83,126 @@ settings = get_settings()
 # =============================================================================
 
 
+# Email header logo geometry.
+#
+# styxproxy_logo_dark.png is 181x64 (aspect 2.828). The <img> tags used to
+# hard-code height="58" against a computed 200px width — a 17% vertical squash
+# in the header of all 11 templates, which is what read as "the logo is broken".
+#
+# Fix: render the embedded bitmap at an EXACT-aspect integer size and derive
+# every declared dimension from the source, so the attributes can never
+# disagree with the image again. 362x128 is exactly 2x native (181x2, 64x2):
+# exact aspect, no rounding, and 2x for retina.
+#
+# CSS width stays 200px, so the logo renders at the size it always did.
+_LOGO_TARGET_W = 200   # CSS display width
+_LOGO_SCALE = 2        # embed at 2x native for retina
+
+
+def _logo_embed_size() -> tuple[int, int]:
+    """Embedded bitmap size: 2x the native asset, exact aspect by construction."""
+    with Image.open(get_logo_path("dark")) as probe:
+        src_w, src_h = probe.size
+    return src_w * _LOGO_SCALE, src_h * _LOGO_SCALE
+
+
+def _logo_target_h() -> int:
+    """Declared CSS height for the logo, from the source aspect.
+
+    Uses the same int() truncation as the browser's proportional layout, so the
+    declared pair is as close to the true aspect as integer pixels allow.
+    """
+    with Image.open(get_logo_path("dark")) as probe:
+        src_w, src_h = probe.size
+    return int(src_h * _LOGO_TARGET_W / src_w)
+
+
 def _get_logo_b64() -> str:
     """Process and return the Styxproxy logo as base64 PNG."""
     logo = Image.open(get_logo_path("dark")).convert("RGBA")
-    # Resize for email header — 200px wide is enough for header logo
-    target_w = 200
-    ratio = target_w / logo.size[0]
-    target_h = int(logo.size[1] * ratio)
-    resized = logo.resize((target_w, target_h), Image.LANCZOS)
+    resized = logo.resize(_logo_embed_size(), Image.LANCZOS)
     buf = io.BytesIO()
     resized.save(buf, format="PNG", optimize=True)
     return base64.b64encode(buf.getvalue()).decode()
 
 
-# Cache logo at module load time
+def _get_logo_b64_light() -> str:
+    """Process and return the Styxproxy light logo as base64 PNG."""
+    logo = Image.open(get_logo_path("light")).convert("RGBA")
+    resized = logo.resize(_logo_embed_size(), Image.LANCZOS)
+    buf = io.BytesIO()
+    resized.save(buf, format="PNG", optimize=True)
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+# Cache both logos at module load time
 LOGO_B64 = _get_logo_b64()
+LOGO_B64_LIGHT = _get_logo_b64_light()
+LOGO_W = _LOGO_TARGET_W
+LOGO_H = _logo_target_h()
+
+# ── Inline (CID) delivery ────────────────────────────────────────────────────
+#
+# The logo was embedded as `data:image/png;base64,…` directly in the <img src>.
+# Gmail strips data: URIs from HTML mail as a security policy, so in Gmail the
+# logo rendered as a broken-image placeholder with the alt text — which is what
+# customers actually saw. It is not a size limit and not an encoding bug: the
+# base64 round-trips byte-for-byte and the PNG magic is intact. Gmail simply
+# refuses to load data: URIs.
+#
+# The standard transactional-email pattern is a CID attachment: send the image
+# as a Resend attachment carrying a `content_id`, and reference it from the HTML
+# as `cid:<content_id>`. Gmail renders that inline.
+#
+# CID is preferred over a hosted URL here for two reasons:
+#   1. No external fetch. A remote image is a third-party request the client can
+#      block or proxy, and a cold image proxy fetch is the classic cause of the
+#      "logo shows on the second open" bug.
+#   2. `https://styxproxy.com/header-logo-dark.png` currently answers 403 to
+#      non-browser clients, so Gmail's image proxy could be refused outright.
+#      CID cannot be refused because the image travels inside the message.
+LOGO_CID = "styxproxy-logo"
+LOGO_CID_LIGHT = "styxproxy-logo-light"
+
+
+def _logo_attachment() -> dict:
+    """The logo as a Resend inline attachment.
+
+    Returns the shape Resend expects in its `attachments` array. `filename` and
+    `content_type` are explicit so the client knows what it is receiving.
+    """
+    return {
+        "filename": "styxproxy-logo.png",
+        "content": LOGO_B64,
+        "content_type": "image/png",
+        "content_id": LOGO_CID,
+    }
+
+
+def _logo_attachment_light() -> dict:
+    """The light logo as a Resend inline attachment."""
+    return {
+        "filename": "styxproxy-logo-light.png",
+        "content": LOGO_B64_LIGHT,
+        "content_type": "image/png",
+        "content_id": LOGO_CID_LIGHT,
+    }
+
+
+def _logo_attachments_for(html: str) -> list[dict]:
+    """Attach logos only when the HTML actually references them.
+
+    Every template that renders the header carries a `cid:` reference, so this
+    keeps the attachment off the handful of plain-text-only sends instead of
+    inflating them with unused base64. Both dark and light logos are emitted
+    so the media-query swap can choose between them.
+    """
+    attachments = []
+    if f"cid:{LOGO_CID}" in html:
+        attachments.append(_logo_attachment())
+    if f"cid:{LOGO_CID_LIGHT}" in html:
+        attachments.append(_logo_attachment_light())
+    return attachments
 
 
 # =============================================================================
@@ -118,6 +224,22 @@ def _get_base_styles() -> str:
             background-color: #0f0f0f;
             margin: 0;
             padding: 0;
+        }
+        @media (prefers-color-scheme: light) {
+            body {
+                color: #0f0f0f !important;
+                background-color: #ffffff !important;
+            }
+            [style*="background-color: #0f0f0f"] { background-color: #ffffff !important; }
+            [style*="background-color: #1a1a1a"] { background-color: #f9fafb !important; }
+            [style^="color: #f5f5f5"], [style*="; color: #f5f5f5"] { color: #0f0f0f !important; }
+            [style^="color: #9ca3af"], [style*="; color: #9ca3af"] { color: #525252 !important; }
+            [style^="color: #00D060"], [style*="; color: #00D060"] { color: #0b7a34 !important; }
+            [style^="color: #f59e0b"], [style*="; color: #f59e0b"] { color: #b45309 !important; }
+            td[style*="border-bottom: 1px solid #262626"] { border-color: #e5e7eb !important; }
+            [style*="background-color: #262626"] { background-color: #e5e7eb !important; }
+            .logo-dark { display: none !important; }
+            .logo-light { display: block !important; }
         }
     """
 
@@ -222,6 +344,10 @@ async def _send_via_resend(
                     "subject": subject,
                     "html": html,
                     "text": text,
+                    # Inline logo. Gmail strips data: URIs, so the header logo
+                    # must travel as a CID attachment. Empty when the HTML has
+                    # no cid: reference, so plain sends stay small.
+                    "attachments": _logo_attachments_for(html),
                     "headers": {
                         "List-Unsubscribe": f"<{unsub_url}>",
                         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -350,6 +476,8 @@ async def send_email(
                 "subject": subject,
                 "html": html,
                 "text": text,
+                # Inline logo — see _logo_attachment(). Gmail strips data: URIs.
+                "attachments": _logo_attachments_for(html),
             }
 
             # Add optional headers
@@ -436,7 +564,8 @@ def _render_header(right_label: str, right_sublabel: str = "") -> str:
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                         <tr>
                             <td style="vertical-align: middle;">
-                                <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy" width="200" height="58" style="display:block;">
+                                <img src="cid:{LOGO_CID}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" class="logo-dark" style="display:block;height:auto;border:0;">
+                                <img src="cid:{LOGO_CID_LIGHT}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" class="logo-light" style="display:none;height:auto;border:0;">
                                 <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Anonymous Proxy Service</div>
                             </td>
                             <td style="vertical-align: middle; text-align: right; padding-left: 20px;">
@@ -527,6 +656,7 @@ def _render_support_reply_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Re: {original_subject}</title>
     <style>
         {base_styles}
@@ -542,7 +672,8 @@ def _render_support_reply_email(
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                                 <td style="vertical-align: middle;">
-                                    <img src="data:image/png;base64,{LOGO_B64}" alt="Styxproxy" width="200" height="58" style="display:block;">
+                                    <img src="cid:{LOGO_CID}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" class="logo-dark" style="display:block;height:auto;border:0;">
+                                    <img src="cid:{LOGO_CID_LIGHT}" alt="Styxproxy" width="{LOGO_W}" height="{LOGO_H}" class="logo-light" style="display:none;height:auto;border:0;">
                                     <div style="font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Styxproxy Support</div>
                                 </td>
                                 <td style="vertical-align: middle; text-align: right; padding-left: 20px;">
@@ -672,6 +803,7 @@ def _render_contact_form_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>New Contact Form Submission</title>
     <style>
         {base_styles}
@@ -773,6 +905,7 @@ def _render_customer_confirmation_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Message Received</title>
     <style>
         {base_styles}
@@ -864,6 +997,7 @@ def _render_charon_escalation_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Charon Escalation</title>
     <style>
         {base_styles}
@@ -991,6 +1125,7 @@ def _render_admin_notification_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>{title}</title>
     <style>
         {base_styles}
@@ -1058,6 +1193,7 @@ def _render_admin_invite_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Admin Invite</title>
     <style>
         {base_styles}
@@ -1201,6 +1337,7 @@ def _render_password_reset_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Password Reset</title>
     <style>
         {base_styles}
@@ -1293,6 +1430,7 @@ def _render_order_confirmation_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Order Placed</title>
     <style>
         {base_styles}
@@ -1415,6 +1553,82 @@ Need help? Contact us at styxproxy.com
 # =============================================================================
 
 
+def _render_credential_block(
+    cred: dict,
+    index: int | None = None,
+    total: int | None = None,
+    receipt_url: str | None = None,
+) -> str:
+    """Render ONE credential block for the credentials email.
+
+    Extracted so a multi-proxy order can render N blocks. Each block is a
+    self-contained table with the username, password, address, protocol and
+    expiry for a single proxy.
+    """
+    username = cred.get("styxproxy_username", "")
+    password = cred.get("styxproxy_password", "")
+    ip = cred.get("proxy_ip", "")
+    port = cred.get("proxy_port", "")
+    proto = (cred.get("protocol") or "socks5").upper()
+    exp = cred.get("expires_at")
+    exp_str = exp.strftime("%Y-%m-%d %H:%M UTC") if hasattr(exp, "strftime") else "N/A"
+    full = f"http://{username}:{password}@{ip}:{port}"
+
+    label = (
+        f'<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; '
+        f'letter-spacing: 1px; color: #00D060; margin-bottom: 12px;">'
+        f'PROXY {index} OF {total}</div>'
+        if index else
+        '<div style="font-size: 11px; font-weight: 700; text-transform: uppercase; '
+        'letter-spacing: 1px; color: #00D060; margin-bottom: 12px;">'
+        'YOUR PROXY CREDENTIALS</div>'
+    )
+
+    def row(label_txt: str, value: str, mono: bool = True) -> str:
+        fam = ("font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;"
+               if mono else "")
+        return (
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">'
+            '<tr><td style="padding: 10px 0; border-bottom: 1px solid #262626;">'
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">'
+            '<tr>'
+            f'<td style="font-size: 10px; font-weight: 600; text-transform: uppercase; '
+            f'letter-spacing: 0.5px; color: #9ca3af;">{label_txt}</td>'
+            f'<td style="{fam} font-size: 13px; font-weight: 600; color: #00D060; '
+            f'text-align: right; word-break: break-all;">{value}</td>'
+            '</tr></table></td></tr></table>'
+        )
+
+    receipt = (
+        f'<div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; '
+        f'border: 1px solid #00D060; border-radius: 3px;">'
+        f'<div style="font-size: 12px; color: #00D060; margin-bottom: 8px;">'
+        f'<strong>DOWNLOAD RECEIPT</strong></div>'
+        f'<a href="{receipt_url}" style="color: #00D060; font-size: 13px; '
+        f'text-decoration: underline;">Click here to download your receipt</a></div>'
+        if receipt_url else ""
+    )
+
+    return (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        'style="background-color: #0f0f0f; border: 1px solid #00D060; border-radius: 3px; '
+        'padding: 16px; margin: 16px 0;"><tr><td>'
+        f'{label}'
+        + row("Username", username)
+        + row("Password", password)
+        + row("Proxy Address", f"{ip}:{port}")
+        + row("Protocol", proto)
+        + row("Full Format", f"{full[:50]}...")
+        + row("Expires", exp_str)
+        + '<div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; '
+          'border-left: 4px solid #f59e0b; border-radius: 0 3px 3px 0;">'
+          '<div style="font-size: 12px; color: #f59e0b;"><strong>Security:</strong> '
+          'Keep these credentials confidential. Do not share them with anyone.</div></div>'
+        + receipt
+        + '</td></tr></table>'
+    )
+
+
 def _render_proxy_credentials_email(
     customer_name: str,
     order_id: str,
@@ -1431,10 +1645,54 @@ def _render_proxy_credentials_email(
     expires_at: datetime,
     payment_method: str = "Card / Bank / USSD / QR",
     receipt_url: str | None = None,
+    credentials: list[dict] | None = None,
 ) -> EmailContent:
-    """Render proxy credentials email (order paid + active) - table-based layout."""
+    """Render proxy credentials email (order paid + active) - table-based layout.
+
+    ``credentials`` is an optional list of dicts for MULTI-PROXY orders (DC/ISP
+    sell by IP count). When given, one credential block is rendered per entry —
+    previously a 3-IP order emailed a single set while the line item claimed
+    quantity 3, so the customer was told they had three proxies and given one.
+    When omitted, the single set of kwargs is used, which keeps every existing
+    caller working.
+    """
     expires_str = expires_at.strftime("%Y-%m-%d %H:%M UTC") if expires_at else "N/A"
     full_format = f"http://{styxproxy_username}:{styxproxy_password}@{proxy_ip}:{proxy_port}"
+
+    _creds = credentials if credentials else [{
+        "styxproxy_username": styxproxy_username,
+        "styxproxy_password": styxproxy_password,
+        "proxy_ip": proxy_ip,
+        "proxy_port": proxy_port,
+        "protocol": protocol,
+        "expires_at": expires_at,
+    }]
+    _multi = len(_creds) > 1
+    credentials_text = "\n\n".join(
+        (
+            (f"--- Proxy {n+1} of {len(_creds)} ---\n" if _multi else "")
+            + f"Username: {c.get('styxproxy_username','')}\n"
+            f"Password: {c.get('styxproxy_password','')}\n"
+            f"Proxy: {c.get('proxy_ip','')}:{c.get('proxy_port','')}\n"
+            f"Protocol: {(c.get('protocol') or 'socks5').upper()}\n"
+            f"Full Format: http://{c.get('styxproxy_username','')}:"
+            f"{c.get('styxproxy_password','')}@{c.get('proxy_ip','')}:{c.get('proxy_port','')}\n"
+            + (
+                f"Expires: {c['expires_at'].strftime('%Y-%m-%d %H:%M UTC')}"
+                if hasattr(c.get('expires_at'), 'strftime') else "Expires: N/A"
+            )
+        )
+        for n, c in enumerate(_creds)
+    )
+    credential_blocks = "".join(
+        _render_credential_block(
+            c,
+            index=(n + 1) if _multi else None,
+            total=len(_creds) if _multi else None,
+            receipt_url=receipt_url if n == len(_creds) - 1 else None,
+        )
+        for n, c in enumerate(_creds)
+    )
 
     base_styles = _get_base_styles()
 
@@ -1443,6 +1701,7 @@ def _render_proxy_credentials_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Your Proxy is Ready</title>
     <style>
         {base_styles}
@@ -1533,91 +1792,7 @@ def _render_proxy_credentials_email(
                     </tr>
                 </table>
 
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #0f0f0f; border: 1px solid #00D060; border-radius: 3px; padding: 16px; margin: 16px 0;">
-                    <tr>
-                        <td>
-                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #00D060; margin-bottom: 16px;">YOUR PROXY CREDENTIALS</div>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Username</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{styxproxy_username}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Password</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{styxproxy_password}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Proxy Address</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{proxy_ip}:{proxy_port}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Protocol</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right;">{protocol.upper()}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Full Format</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 11px; font-weight: 600; color: #00D060; text-align: right; word-break: break-all;">{full_format[:50]}...</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                <tr>
-                                    <td style="padding: 10px 0; border-bottom: 1px solid #262626;">
-                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Expires</td>
-                                                <td style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; font-weight: 600; color: #00D060; text-align: right;">{expires_str}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            <div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; border-left: 4px solid #f59e0b; border-radius: 0 3px 3px 0;">
-                                <div style="font-size: 12px; color: #f59e0b;">
-                                    <strong>Security:</strong> Keep these credentials confidential. Do not share them with anyone.
-                                </div>
-                            </div>
-                            {f'<div style="margin-top: 12px; padding: 12px; background-color: #1a1a1a; border: 1px solid #00D060; border-radius: 3px;"><div style="font-size: 12px; color: #00D060; margin-bottom: 8px;"><strong>DOWNLOAD RECEIPT</strong></div><a href="{receipt_url}" style="color: #00D060; font-size: 13px; text-decoration: underline;">Click here to download your receipt</a></div>' if receipt_url else ''}
-                        </td>
-                    </tr>
-                </table>
+                {credential_blocks}
 
                 {_render_support_footer()}
             </div>
@@ -1642,12 +1817,7 @@ Quantity: {quantity}
 Amount Paid: {currency} {amount:,.2f}
 
 === YOUR PROXY CREDENTIALS ===
-Username: {styxproxy_username}
-Password: {styxproxy_password}
-Proxy: {proxy_ip}:{proxy_port}
-Protocol: {protocol.upper()}
-Full Format: {full_format}
-Expires: {expires_str}
+{credentials_text}
 ================================
 
 You can now use your proxy immediately.
@@ -1688,10 +1858,15 @@ async def send_order_active_email(
     expires_at: datetime,
     payment_method: str = "Card / Bank / USSD / QR",
     receipt_url: str | None = None,
+    credentials: list[dict] | None = None,
 ) -> EmailResult:
     """Send order confirmation + credentials in ONE email when order is paid and proxy is active.
 
     This is the most important email - it looks nearly identical to the receipt PDF.
+
+    ``credentials`` renders one block per proxy for multi-proxy (DC/ISP) orders.
+    Without it a 3-IP order emailed a single credential while the line item said
+    quantity 3 — the customer was told they had three proxies and given one.
     """
     content = _render_proxy_credentials_email(
         customer_name=customer_name,
@@ -1709,6 +1884,7 @@ async def send_order_active_email(
         expires_at=expires_at,
         payment_method=payment_method,
         receipt_url=receipt_url,
+        credentials=credentials,
     )
     recipient = EmailRecipient(email=customer_email, name=customer_name)
 
@@ -1742,6 +1918,7 @@ def _render_refund_processed_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Refund Processed</title>
     <style>
         {base_styles}
@@ -1879,6 +2056,7 @@ def _render_credentials_rotated_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Credentials Rotated</title>
     <style>
         {base_styles}
@@ -2452,6 +2630,7 @@ def _render_renewal_reminder_email(
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
     <title>Your Proxy Expires Soon</title>
     <style>
         {base_styles}

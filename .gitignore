@@ -2,3 +2,16 @@ venv/
 __pycache__/
 *.pyc
 .env
+
+# Secret backups
+.env.bak*
+
+# Code edit backups
+*.bak*
+.bak*
+
+# Backup directories
+.backup-*
+
+# Deploy tracking
+.deploy-manifest

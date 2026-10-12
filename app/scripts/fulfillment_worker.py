@@ -41,6 +41,7 @@ logger = logging.getLogger("fulfillment-worker")
 # because this module is the historical home and its tests import these names
 # from here; keeping the aliases means moving the implementation did not break
 # callers or the suite.
+from app.models import StyxproxyCredential  # noqa: E402
 from app.services.credential_delivery import (  # noqa: E402
     PLACEHOLDER_EMAIL_DOMAINS,
     is_placeholder_email as _is_placeholder_email,
@@ -132,6 +133,11 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 # addresses. Residential/mobile are sold per GB — `quantity`
                 # there is the GB amount, and a single credential is correct.
                 #
+                # Basket orders (basket_items NOT NULL) carry multiple distinct
+                # products in ONE order. Each item in the basket gets its own
+                # credential(s) — the customer paid for all of them in one
+                # transaction and must receive all of them.
+                #
                 # Before this fix the loop existed but only the LAST credential
                 # was recorded on the order and only the LAST was emailed, while
                 # the order was marked `fulfilled`. So a 3-IP customer got three
@@ -139,34 +145,152 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 # that said fulfilled — delivery actively misstating what was
                 # bought.
                 created: list[tuple] = []
-                for i in range(quantity):
-                    logger.info(
-                        f"creating credential {i+1}/{quantity}",
-                        extra={**log_ctx, "proxy_type": proxy_type, "index": i},
-                    )
-                    cred_i, pw_i = await create_credential(
-                        db_session=db,
-                        order_id=order.order_id,
-                        customer_phone=order.customer_phone or "",
-                        plan_code=order.plan_code or "unknown",
-                        country=resolve_country_for_credential(order.country),
-                        proxy_type=proxy_type,
-                        quantity=1,
-                        duration_days=30,
-                        protocol="socks5",
-                        pool_type="paid",
-                        targeting_mode=order.targeting_mode or "country_chosen",
-                        city=order.city_name,
-                    )
-                    created.append((cred_i, pw_i))
+
+                if order.basket_items:
+                    # Multi-item basket: one credential per basket line item.
+                    # Each item may itself be multi-IP (DC/ISP), so we loop
+                    # over items and then over the quantity within each item.
+                    for item_idx, item in enumerate(order.basket_items):
+                        item_plan_code = item.get("plan_code", "unknown")
+                        item_proxy_type = (item.get("plan_type") or proxy_type).lower()
+                        item_country = item.get("country_code") or order.country or "NG"
+                        item_city = item.get("city_name") or order.city_name
+                        item_quantity = item.get("quantity", 1)
+
+                        for i in range(item_quantity):
+                            logger.info(
+                                f"creating credential for basket item {item_idx+1}/{len(order.basket_items)}, proxy {i+1}/{item_quantity}",
+                                extra={**log_ctx, "proxy_type": item_proxy_type, "item_index": item_idx, "plan_code": item_plan_code},
+                            )
+                            cred_i, pw_i = await create_credential(
+                                db_session=db,
+                                order_id=order.order_id,
+                                customer_phone=order.customer_phone or "",
+                                plan_code=item_plan_code,
+                                country=resolve_country_for_credential(item_country),
+                                proxy_type=item_proxy_type,
+                                quantity=1,
+                                duration_days=30,
+                                protocol="socks5",
+                                pool_type="paid",
+                                targeting_mode=order.targeting_mode or "country_chosen",
+                                city=item_city,
+                            )
+                            created.append((cred_i, pw_i))
+                else:
+                    # Single-item order (legacy): quantity is the IP count
+                    # for DC/ISP, or 1 for residential/mobile (GB is on the
+                    # credential, not a loop count).
+                    for i in range(quantity):
+                        logger.info(
+                            f"creating credential {i+1}/{quantity}",
+                            extra={**log_ctx, "proxy_type": proxy_type, "index": i},
+                        )
+                        cred_i, pw_i = await create_credential(
+                            db_session=db,
+                            order_id=order.order_id,
+                            customer_phone=order.customer_phone or "",
+                            plan_code=order.plan_code or "unknown",
+                            country=resolve_country_for_credential(order.country),
+                            proxy_type=proxy_type,
+                            quantity=1,
+                            duration_days=30,
+                            protocol="socks5",
+                            pool_type="paid",
+                            targeting_mode=order.targeting_mode or "country_chosen",
+                            city=order.city_name,
+                        )
+                        created.append((cred_i, pw_i))
 
                 # A partial create must NOT be reported as fulfilled. If the
                 # provider gave us fewer than we asked for, that is a failure the
                 # customer paid for and it has to be visible.
-                if len(created) != quantity:
+                expected_count = sum(item.get("quantity", 1) for item in order.basket_items) if order.basket_items else quantity
+                if len(created) != expected_count:
                     raise RuntimeError(
                         f"provider returned {len(created)} credential(s) for a "
-                        f"quantity-{quantity} order — refusing to mark fulfilled"
+                        f"basket with {expected_count} expected — refusing to mark fulfilled"
+                    )
+
+                # ── Post-fulfilment verification ──────────────────────────
+                # Test that the credentials actually work BEFORE telling the
+                # customer they are ready. This is the check that would have
+                # caught the class of bug where credentials are created but
+                # nothing listens on the port, or the upstream proxy is dead.
+                #
+                # We test the upstream proxy DIRECTLY (not through the local
+                # relay) using the same protocol the customer will use.
+                #
+                # In simulator mode, the upstream IPs are RFC 5737 test ranges
+                # (non-routable), so verification will fail. We skip it in
+                # simulator mode and log a warning.
+                from app.services.post_fulfillment_check import verify_credential
+
+                verification_results = []
+                all_verified = True
+
+                for cred_i, pw_i in created:
+                    # Check if we're in simulator mode (non-routable IPs)
+                    upstream_ip = cred_i.upstream_proxy_ip or ""
+                    is_simulator = (
+                        upstream_ip.startswith("198.51.100.") or  # TEST-NET-2
+                        upstream_ip.startswith("192.0.2.") or      # TEST-NET-1
+                        upstream_ip.startswith("203.0.113.")       # TEST-NET-3
+                    )
+
+                    if is_simulator:
+                        logger.warning(
+                            "Skipping post-fulfilment verification — simulator mode "
+                            "(non-routable IP %s)",
+                            extra={**log_ctx, "credential_id": cred_i.id, "upstream_ip": upstream_ip},
+                        )
+                        verification_results.append({
+                            "credential_id": cred_i.id,
+                            "ok": True,
+                            "skipped": True,
+                            "reason": "simulator_mode",
+                        })
+                        continue
+
+                    # Real mode: verify the credential
+                    result = await verify_credential(
+                        ip=cred_i.upstream_proxy_ip,
+                        port=cred_i.upstream_proxy_port,
+                        username=cred_i.styxproxy_username,
+                        password=pw_i,
+                        protocol=cred_i.protocol or "socks5",
+                    )
+
+                    verification_results.append({
+                        "credential_id": cred_i.id,
+                        "ok": result.ok,
+                        "latency_ms": result.latency_ms,
+                        "error": result.error,
+                        "detail": result.detail,
+                    })
+
+                    if not result.ok:
+                        all_verified = False
+                        logger.error(
+                            "Post-fulfilment verification FAILED for credential %s: %s — %s",
+                            cred_i.id, result.error, result.detail,
+                            extra={**log_ctx, "credential_id": cred_i.id},
+                        )
+                    else:
+                        logger.info(
+                            "Post-fulfilment verification PASSED for credential %s (latency=%sms)",
+                            cred_i.id, result.latency_ms,
+                            extra={**log_ctx, "credential_id": cred_i.id},
+                        )
+
+                if not all_verified:
+                    # At least one credential failed verification — do NOT mark
+                    # the order as fulfilled. The customer paid for working
+                    # proxies and we cannot deliver them.
+                    failed_ids = [r["credential_id"] for r in verification_results if not r["ok"]]
+                    raise RuntimeError(
+                        f"Post-fulfilment verification failed for credentials: {failed_ids}. "
+                        f"Refusing to mark order fulfilled."
                     )
 
                 credential, plaintext_password = created[-1]
@@ -190,8 +314,8 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                     for c, pw in created
                 ]
                 logger.info(
-                    f"created {len(created)} credential(s) for quantity {quantity}",
-                    extra={**log_ctx, "created_count": len(created), "quantity": quantity},
+                    f"created {len(created)} credential(s) for order {order_id}",
+                    extra={**log_ctx, "created_count": len(created), "expected_count": expected_count},
                 )
 
                 # ── Deliver the credential ─────────────────────────────────
@@ -425,6 +549,19 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             except Exception as e:
                 fulfillment_error = str(e)
                 order.status = "failed_manual_review"
+                # Revoke any credential created before the failure
+                if order.styxproxy_credential_id:
+                    try:
+                        cred = await db.get(StyxproxyCredential, order.styxproxy_credential_id)
+                        if cred and cred.status != "revoked":
+                            cred.status = "revoked"
+                            cred.revoked_at = datetime.now(timezone.utc)
+                            cred.revoke_reason = "fulfillment_failed_manual_review"
+                    except Exception as revoke_err:
+                        logger.warning(
+                            "credential revocation failed on failed_manual_review",
+                            extra={**log_ctx, "error": str(revoke_err)},
+                        )
                 await db.commit()
                 logger.error(
                     "fulfillment failed (other)",
@@ -454,6 +591,29 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             except Exception as e:
                 logger.error(f"audit log failed: {e}", extra=log_ctx)
 
+            # A job that captured money and delivered nothing must NEVER report
+            # success to RQ. Returning a dict here made RQ log "Job OK" while the
+            # order sat at `paid` with no credential — which is how two orders
+            # (NGN 12,000) sat stranded, one for 9 hours, with every signal green
+            # and no alert. Raise on any non-terminal outcome so RQ records
+            # `failed`, and mark the order so it is recoverable rather than
+            # silently parked at `paid`.
+            if order.status not in ("fulfilled", "active"):
+                _err = fulfillment_error or delivery_error or order.status
+                logger.error(
+                    "fulfillment did not complete — raising so RQ records FAILED",
+                    extra={**log_ctx, "order_status": order.status, "error": _err},
+                )
+                try:
+                    if order.status in ("paid", "pending"):
+                        order.status = "failed_unfulfilled"
+                        await db.commit()
+                except Exception:
+                    logger.exception("could not mark order failed_unfulfilled", extra=log_ctx)
+                raise RuntimeError(
+                    f"fulfillment incomplete for {order_id}: status={order.status} error={_err}"
+                )
+
             return {
                 "status": order.status,
                 "order_id": order_id,
@@ -466,9 +626,20 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 "delivery_error": delivery_error,
             }
 
+        except RuntimeError:
+            # Already logged and already marked. Re-raise so RQ records failure.
+            raise
         except Exception:
             logger.exception("unhandled exception in fulfillment worker")
-            return {"status": "error", "error": traceback.format_exc()}
+            # Mark the order so a paid-but-unfulfilled state is visible and
+            # recoverable instead of sitting at `paid` forever.
+            try:
+                if order.status in ("paid", "pending"):
+                    order.status = "failed_unfulfilled"
+                    await db.commit()
+            except Exception:
+                logger.exception("could not mark order failed_unfulfilled", extra=log_ctx)
+            raise
 
 
 # ── RQ Worker bootstrap ──────────────────────────────────────────────────────
@@ -484,13 +655,38 @@ if __name__ == "__main__":
     # ── Load valid countries at startup ────────────────────────────────────
     # The worker does not boot app.main, so the FastAPI lifespan never runs.
     # create_credential() calls get_valid_countries() which raises if the set
-    # is not loaded — without this, every order would fail with RuntimeError.
-    from app.services.countries import load_valid_countries
+    # is not loaded — so this must run before any job is served.
+    #
+    # This uses a RAW asyncpg connection rather than asyncio.run() over the
+    # module-level SQLAlchemy engine. That distinction is the whole point:
+    # asyncio.run() creates a new event loop, opens the SHARED engine's pool on
+    # it, and then CLOSES that loop. engine.dispose() was never called, so the
+    # pooled connections stayed bound to a dead loop — and the first job RQ ran
+    # on its own loop grabbed one and died with
+    # "Future attached to a different loop". Every first-job-after-restart
+    # failed, silently. A raw connection never touches the pool, so it cannot
+    # poison it.
+    async def _load_countries() -> set[str]:
+        import asyncpg
+
+        dsn = (settings.database_url or "").replace("postgresql+asyncpg://", "postgresql://")
+        conn = await asyncpg.connect(dsn)
+        try:
+            rows = await conn.fetch("SELECT code FROM countries")
+        finally:
+            await conn.close()
+        return {str(r["code"]).strip().upper() for r in rows if r["code"]}
 
     try:
-        codes = asyncio.run(load_valid_countries())
-        logger.info("Loaded %d valid country codes at startup", len(codes))
-    except RuntimeError as e:
+        from app.services.countries import set_valid_countries
+
+        _codes = asyncio.run(_load_countries())
+        if not _codes:
+            logger.error("FATAL: countries table is empty — refusing to start")
+            sys.exit(1)
+        set_valid_countries(_codes)
+        logger.info("Loaded %d valid country codes at startup", len(_codes))
+    except Exception as e:
         logger.error("FATAL: could not load valid countries — %s", e)
         sys.exit(1)
 

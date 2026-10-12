@@ -77,11 +77,11 @@ async def record_outcome(
     """Persist experiment outcome to DB (async, fire-and-forget on caller)."""
     try:
         import asyncpg, os
-        database_url = os.environ.get(
-            "DATABASE_URL",
-            "postgresql+asyncpg://styxproxy_app:Ku3xHibr3qjcbGNSmQ5ZOAwNViCbm4lO@127.0.0.1:5432/styxproxy",
-        )
-        dsn = database_url.replace("postgresql+asyncpg://", "")
+        database_url = os.environ.get("DATABASE_URL", "")
+        if not database_url:
+            logger.error("DATABASE_URL not set — cannot record experiment outcome")
+            return
+        dsn = database_url.replace("postgresql+asyncpg://", "postgresql://")
         pool = await asyncpg.create_pool(dsn, min_size=1, max_size=2, command_timeout=10)
         async with pool.acquire() as conn:
             await conn.execute(
@@ -113,11 +113,11 @@ async def get_experiment_stats() -> dict:
     """Return per-variant counts and resolution rates."""
     try:
         import asyncpg, os
-        database_url = os.environ.get(
-            "DATABASE_URL",
-            "postgresql+asyncpg://styxproxy_app:Ku3xHibr3qjcbGNSmQ5ZOAwNViCbm4lO@127.0.0.1:5432/styxproxy",
-        )
-        dsn = database_url.replace("postgresql+asyncpg://", "")
+        database_url = os.environ.get("DATABASE_URL", "")
+        if not database_url:
+            logger.error("DATABASE_URL not set — cannot get experiment stats")
+            return {"experiment_id": EXPERIMENT_ID, "error": "DATABASE_URL not set"}
+        dsn = database_url.replace("postgresql+asyncpg://", "postgresql://")
         pool = await asyncpg.create_pool(dsn, min_size=1, max_size=2, command_timeout=10)
         async with pool.acquire() as conn:
             rows = await conn.fetch(

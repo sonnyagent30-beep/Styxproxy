@@ -14,6 +14,7 @@ from app.auth import admin_only
 from app.database import get_session
 from app.models import SupportMessage, SupportThread
 from app.services.email import send_support_reply_email
+from app.utils.html_sanitize import sanitize_html
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +194,7 @@ async def get_support_thread(
                 to_email=m.to_email,
                 subject=m.subject,
                 body_text=m.body_text,
-                body_html=m.body_html,
+                body_html=sanitize_html(m.body_html) if m.body_html else None,
                 resend_id=m.resend_id,
                 in_reply_to=m.in_reply_to,
                 references=m.references,

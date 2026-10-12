@@ -87,6 +87,7 @@ class ProviderProxy:
     country: str
     isp: str
     asn: str
+    data_remaining_gb: Optional[float] = None
 
 
 @dataclass
@@ -487,6 +488,8 @@ async def _create_order_simulator(
     country: str,
     proxy_type: str,
     quantity: int,
+    targeting_mode: str = "country_chosen",
+    city: Optional[str] = None,
 ) -> ProviderProxy:
     """Create order via local provider simulator."""
     product_map = {
@@ -505,6 +508,8 @@ async def _create_order_simulator(
                 "country": country,
                 "quantity": quantity,
                 "plan_code": plan_code,
+                "targeting_mode": targeting_mode,
+                "city": city,
             },
         )
         data = resp.json()
@@ -527,6 +532,7 @@ async def _create_order_simulator(
         country=country,
         isp=f"Simulated {product}",
         asn="AS00000",
+        data_remaining_gb=data.get("data_remaining_gb"),
     )
 
 
@@ -536,10 +542,11 @@ async def create_order(
     proxy_type: str,
     quantity: int,
     city: Optional[str] = None,
+    targeting_mode: str = "country_chosen",
 ) -> ProviderProxy:
     """Create a raw proxy order with the appropriate provider."""
     # ALWAYS use simulator - hardcoded for testing
-    result = await _create_order_simulator(plan_code, country, proxy_type, quantity)
+    result = await _create_order_simulator(plan_code, country, proxy_type, quantity, targeting_mode=targeting_mode, city=city)
     if result and result.ip:
         return result
     raise RuntimeError("Simulator returned no proxy")

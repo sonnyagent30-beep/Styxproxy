@@ -99,14 +99,17 @@ async def write_audit_log(
     """
     import json
 
-    # Extract IP address from request headers
+    # Extract IP address from the transport peer, NOT from X-Forwarded-For.
+    # nginx sets XFF with $proxy_add_x_forwarded_for which PRESERVES a
+    # client-supplied header, so the leftmost XFF value is attacker-controlled.
+    # The audit log must record the true peer address. When uvicorn runs with
+    # --proxy-headers, request.client.host reflects the real peer (nginx's
+    # $remote_addr via X-Real-IP). Without it, the peer is 127.0.0.1 for every
+    # proxied request — still not forgeable, just less useful.
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
     if request:
-        forwarded_for = request.headers.get("x-forwarded-for")
-        if forwarded_for:
-            ip_address = forwarded_for.split(",")[0].strip()
-        elif request.client:
+        if request.client:
             ip_address = request.client.host
         user_agent = request.headers.get("user-agent")
 

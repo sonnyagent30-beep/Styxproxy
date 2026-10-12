@@ -1,6 +1,7 @@
 """Tests for schemas module."""
 import pytest
 from pydantic import ValidationError
+from app import schemas
 from app.schemas import (
     validate_phone,
     validate_country,
@@ -12,6 +13,15 @@ from app.schemas import (
     ErrorResponse,
     PlatformEnum,
 )
+
+
+@pytest.fixture(autouse=True)
+def _populate_valid_countries():
+    """Ensure valid countries are populated for tests that don't boot the app."""
+    from app.services.countries import set_valid_countries
+    set_valid_countries({"NG", "GB", "US"})
+    yield
+    set_valid_countries(None)
 
 
 class TestValidatePhone:
@@ -46,7 +56,7 @@ class TestValidateCountry:
         assert validate_country("NG") == "NG"
 
     def test_valid_uk(self):
-        assert validate_country("UK") == "UK"
+        assert validate_country("UK") == "GB"
 
     def test_valid_us(self):
         assert validate_country("US") == "US"

@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Order, StyxproxyCredential
 from app.schemas_payment_status import OrderPaymentStatus, PaymentStatusCredential
+from app.services.order_status import is_live_order
 from app.services.proxy_management import (
     PROXY_PORT_HTTP,
     PROXY_PORT_SOCKS5,
@@ -43,7 +44,7 @@ def _compute_next_action(order: Order, payment_status: str) -> tuple[str, str, O
     Note: 'fulfilled' is the legacy name from the Flutterwave webhook path; 'active'
     is set by admin re-fulfill + my new catalog flow. Both mean "ready to use".
     """
-    if order.status in ("active", "fulfilled"):
+    if is_live_order(order.status):
         return (
             "redirect_to_proxy_details",
             "✅ Payment confirmed! Your proxy is ready. Connecting you now…",
@@ -136,35 +137,32 @@ async def get_order_payment_status(
     # Compute next action
     next_action, user_message, next_action_url = _compute_next_action(order, payment_status)
 
-    # If order is active OR fulfilled, populate credential
+    # If order is live (active or fulfilled), populate credential
     credential_payload: Optional[PaymentStatusCredential] = None
-    if order.status in ("active", "fulfilled") and order.styxproxy_credential_id:
+    if is_live_order(order.status) and order.styxproxy_credential_id:
         cred_result = await session.execute(
             select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
         )
         cred = cred_result.scalar_one_or_none()
         if cred:
-            # Decode password (bytea)
-            plaintext_pw = ""
-            if cred.styxproxy_password:
-                plaintext_pw = (
-                    cred.styxproxy_password.decode("utf-8", errors="replace")
-                    if isinstance(cred.styxproxy_password, bytes)
-                    else str(cred.styxproxy_password)
-                )
+            # Decrypt via the model accessor — it handles both Fernet ciphertext
+            # and legacy raw-plaintext rows. Decoding the column directly would
+            # hand the customer a 120-char "gAAAA..." blob as their password.
+            plaintext_pw = cred.get_password() or ""
 
+            proxy_host = cred.upstream_proxy_ip or ""
             credential_payload = PaymentStatusCredential(
                 credential_id=cred.id,
                 styxproxy_username=cred.styxproxy_username,
                 styxproxy_password=plaintext_pw,
-                proxy_host=PROXY_PUBLIC_HOST,
+                proxy_host=proxy_host,
                 proxy_port_socks5=PROXY_PORT_SOCKS5,
                 proxy_port_http=PROXY_PORT_HTTP,
                 protocol=cred.protocol or "socks5",
                 assigned_static_ip=str(cred.assigned_static_ip) if cred.assigned_static_ip else None,
-                curl_socks5_example=build_curl_socks5_example(cred.styxproxy_username, plaintext_pw),
-                curl_http_example=build_curl_http_example(cred.styxproxy_username, plaintext_pw),
-                python_socks5_example=build_python_socks5_example(cred.styxproxy_username, plaintext_pw),
+                curl_socks5_example=build_curl_socks5_example(cred.styxproxy_username, plaintext_pw, proxy_host),
+                curl_http_example=build_curl_http_example(cred.styxproxy_username, plaintext_pw, proxy_host),
+                python_socks5_example=build_python_socks5_example(cred.styxproxy_username, plaintext_pw, proxy_host),
                 manage_url=f"/manage/proxy/{cred.id}",
             )
 

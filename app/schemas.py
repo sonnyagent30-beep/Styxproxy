@@ -112,7 +112,51 @@ class TrialStatusEnum(str, Enum):
 
 # ============== Validators ==============
 
-VALID_COUNTRIES = {"NG", "UK", "GB", "US", "DE", "JP", "AU", "BR", "SG", "KR", "FR", "CA", "IN", "AE", "MX", "PK", "ID"}
+# Valid country codes, read from the `countries` table at application startup.
+#
+# Populated once by load_valid_countries() during app startup (see app/main.py
+# lifespan). The fallback below is INTENTIONALLY EMPTY — a non-empty fallback
+# silently disagrees with the catalog (the old 11-country set had 6 countries
+# that were selectable in the UI but 422'd at precheck, and 'UK' which is not
+# ISO 3166). An empty set fails closed: any validator that runs before the
+# loader raises a loud RuntimeError instead of silently validating against a
+# stale list.
+#
+# Every country validator in the app reads this global, so if it is empty when
+# validate_country() is called, the loader has not run — that is a boot-order
+# bug, not a validation failure.
+VALID_COUNTRIES: set[str] = set()  # populated by load_valid_countries(); empty until then
+
+
+async def load_valid_countries() -> set[str]:
+    """Populate VALID_COUNTRIES from the `countries` table.
+
+    Called from the FastAPI lifespan so every validator in the app — this module
+    and app/routers/schemas.py, which re-exports from here — reads one source of
+    truth. Returns the set it installed.
+
+    Raises RuntimeError if the table cannot be read — the fallback is an empty
+    set, which would cause every order to be rejected. A hard failure here is
+    correct: the country table is populated at deploy time by seed_countries.py,
+    so an empty table means the seed never ran. An operator must fix the data,
+    not have the app silently work with a stale list.
+    """
+    global VALID_COUNTRIES
+    from sqlalchemy import text
+
+    from app.database import engine
+
+    async with engine.connect() as conn:
+        rows = (await conn.execute(text("SELECT code FROM countries"))).fetchall()
+    codes = {str(r[0]).strip().upper() for r in rows if r[0]}
+    if not codes:
+        raise RuntimeError(
+            "The `countries` table is empty — seed_countries.py has not run. "
+            "Populate it before starting the app: "
+            "/opt/styxproxy/backend/venv/bin/python3 /opt/styxproxy/backend/scripts/seed_countries.py"
+        )
+    VALID_COUNTRIES = codes
+    return codes
 
 
 def validate_phone(phone: str) -> str:
@@ -124,10 +168,29 @@ def validate_phone(phone: str) -> str:
 
 
 def validate_country(country: str) -> str:
-    """Validate country code."""
-    if country.upper() not in VALID_COUNTRIES:
+    """Validate country code against the ISO set loaded from the DB.
+
+    Also normalises the common non-ISO spelling: the business, the marketing
+    copy and the frontend all say "UK", but the ISO code is GB. Accepting it
+    here keeps the customer-facing label working while every downstream consumer
+    (the provider, the credential guard) sees the canonical GB.
+
+    Raises RuntimeError if VALID_COUNTRIES is empty — the loader has not run,
+    which is a boot-order bug. Raises ValueError if the country is not in the
+    loaded set.
+    """
+    if not VALID_COUNTRIES:
+        raise RuntimeError(
+            "VALID_COUNTRIES is empty — load_valid_countries() has not run yet. "
+            "This is a boot-order bug: the FastAPI lifespan must load the country "
+            "set before any validator can run. Check app/main.py lifespan ordering."
+        )
+    code = (country or "").strip().upper()
+    if code == "UK":
+        code = "GB"
+    if code not in VALID_COUNTRIES:
         raise ValueError(f"Country must be one of: {', '.join(sorted(VALID_COUNTRIES))}")
-    return country.upper()
+    return code
 
 
 # ============== Base Schemas ==============
@@ -223,27 +286,6 @@ class MergeRequestResponse(BaseModel):
     source_account_id: UUID
     target_account_id: UUID
     created_at: datetime
-
-
-# ============== Products Schemas ==============
-
-
-class ProductResponse(BaseModel):
-    """Product response."""
-
-    plan_code: str
-    plan_type: str
-    country: str
-    price_ngn: float
-    quantity: int
-    duration_days: int
-    features: list[str]
-
-
-class ProductsResponse(BaseModel):
-    """Products list response."""
-
-    products: list[ProductResponse]
 
 
 # ============== Plans Schemas ==============
@@ -355,10 +397,22 @@ class StyxproxyCredentialBrief(BaseModel):
 
     id: int
     styxproxy_username: str = Field(..., alias="styxproxy_username", serialization_alias="styxproxy_username")
+    styxproxy_password: Optional[str] = None  # Customer-facing password (decrypted for support)
     protocol: str
     upstream_proxy_ip: Optional[str]
     upstream_proxy_port: int
     status: str
+
+    @field_validator('styxproxy_password', mode='before')
+    @classmethod
+    def decrypt_password(cls, v):
+        """Decrypt the binary password column to plaintext for support use."""
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            from app.services.crypto import decrypt_credential_compat
+            return decrypt_credential_compat(v)
+        return v
 
 
 class OrderCreateRequest(BaseModel):
@@ -400,6 +454,24 @@ class OrderCreateRequest(BaseModel):
         return v
 
 
+class ProxyItemResponse(BaseModel):
+    """Proxy item response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_id: str
+    credential_id: int
+    label: str
+    status: str
+    expires_at: Optional[datetime] = None
+    plan_type: Optional[str] = None
+    plan_code: Optional[str] = None
+    country: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class OrderResponse(BaseModel):
     """Order response."""
 
@@ -411,6 +483,11 @@ class OrderResponse(BaseModel):
     country: Optional[str]
     amount_paid_ngn: Optional[float]
     styxproxy_credential: Optional[StyxproxyCredentialBrief]
+    proxy_items: Optional[list[ProxyItemResponse]] = None
+    # For basket orders: ALL credentials created for this order.
+    # Populated when basket_items is NOT NULL. Each element is one proxy
+    # the customer paid for and must receive.
+    credentials: Optional[list[StyxproxyCredentialBrief]] = None
     created_at: datetime
     expires_at: Optional[datetime]
     customer_name: Optional[str] = None  # Only populated if customer set a name (WhatsApp/Telegram)
@@ -422,6 +499,13 @@ class OrderResponse(BaseModel):
     # S2.5 — Renewal reminder tracking
     emails_sent: Optional[int] = 0
     reminder_sent_at: Optional[datetime] = None
+    # Receipt data — plan_code, quantity, city_name, data_total_gb so the
+    # thank-you page can build a receipt from the order payload (the cart is
+    # cleared on payment and is empty by the time the customer lands here).
+    plan_code: Optional[str] = None
+    quantity: Optional[int] = None
+    city_name: Optional[str] = None
+    data_total_gb: Optional[float] = None
 
 
 # ============== Referral Schemas (Sprint 2) ==============
@@ -986,6 +1070,7 @@ class AdminCredentialResponse(BaseModel):
 
     id: int
     styxproxy_username: str = Field(validation_alias="styxproxy_username")
+    styxproxy_password: Optional[str] = None  # Customer-facing password (decrypted for support)
     customer_phone: Optional[str]
     order_id: Optional[str]
     pool_type: str
@@ -993,6 +1078,17 @@ class AdminCredentialResponse(BaseModel):
     upstream_proxy_ip: Optional[str]
     status: str
     expires_at: Optional[datetime]
+
+    @field_validator('styxproxy_password', mode='before')
+    @classmethod
+    def decrypt_password(cls, v):
+        """Decrypt the binary password column to plaintext for support use."""
+        if v is None:
+            return None
+        if isinstance(v, bytes):
+            from app.services.crypto import decrypt_credential_compat
+            return decrypt_credential_compat(v)
+        return v
 
 
 class AdminCredentialsResponse(BaseModel):
@@ -2190,3 +2286,52 @@ class AnalyticsFunnelResponse(BaseModel):
     total_events: int
     period_start: datetime
     period_end: datetime
+
+
+# ============== Renewal Schemas ==============
+
+
+class RenewalCreateRequest(BaseModel):
+    """Request to create a renewal order."""
+
+    order_id: str = Field(..., min_length=1, max_length=20)
+    quantity_gb: Optional[float] = Field(None, ge=1, description="GB amount for residential/mobile")
+    gateway: str = Field(default="flutterwave", description="Payment gateway")
+    customer_email: Optional[str] = Field(None, max_length=255)
+    idempotency_key: Optional[str] = Field(None, max_length=100)
+
+
+class RenewalInitiateResponse(BaseModel):
+    """Response after initiating a renewal payment."""
+
+    renewal_id: int
+    order_id: str
+    checkout_url: str
+    amount_ngn: float
+    currency: str = "NGN"
+    expires_at: datetime
+    tx_ref: str
+
+
+class RenewalResponse(BaseModel):
+    """Renewal record response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_id: str
+    quantity_gb: Optional[float] = None
+    amount_paid_ngn: float
+    payment_reference: Optional[str] = None
+    tx_ref: Optional[str] = None
+    status: str
+    credential_id: Optional[int] = None
+    expires_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class RenewalHistoryResponse(BaseModel):
+    """Response for renewal history listing."""
+
+    renewals: list[RenewalResponse]
+    total: int

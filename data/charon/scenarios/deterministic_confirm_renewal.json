@@ -1,0 +1,27 @@
+{
+  "id": "deterministic_confirm_renewal",
+  "name": "Confirm and execute renewal (deterministic)",
+  "trigger": [
+    "^(yes|yeah|yep|sure|ok|okay|confirm|go ahead|proceed|do it|let'?s do it|please do)\\b",
+    "\\bconfirm (the |my |this )?renewal\\b",
+    "\\bgo ahead with (the |my )?renewal\\b",
+    "\\bproceed with (the |my )?renewal\\b",
+    "\\bi'?m ready to pay\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "detect_renewal",
+      "tool_params": {
+        "customer_phone": "{{customer_phone}}"
+      },
+      "response_template": "pending_renewal"
+    },
+    {
+      "type": "reply",
+      "text": "I'm preparing your renewal payment link now. One moment..."
+    }
+  ],
+  "llm_required": false,
+  "notes": "Handles confirmation of a pending renewal. After confirmation, the actual initiate_renewal tool is called with the order_id and quantity_gb. This scenario only fires after a pending renewal context is established."
+}

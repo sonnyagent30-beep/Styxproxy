@@ -245,7 +245,36 @@ class Order(Base):
     replacement_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     refund_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     refund_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # gateway_refund_id is declared in the capture block above — it is owned by
+    # gate item 2's migration (20261001_order_capture_columns) so the two cards
+    # cannot produce conflicting ADD COLUMNs for the same name. Its semantics:
+    # the gateway's OWN refund id for this order, written only after the gateway
+    # confirms the money movement. NULL means "we never got a gateway
+    # confirmation" — which, before the column existed, was indistinguishable
+    # from "refunded" (all 46 legacy `refunded` rows are NULL there:
+    # administrative status flips, not refunds).
+    #
+    # The three refund-evidence columns below are item 3's own (t_f765263b),
+    # added in 20261001_refund_gateway_evidence.
+    gateway_refund_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    gateway_refund_amount: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    gateway_refunded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    referred_by_phone: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    referral_name_used: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    referral_credit_earned_ngn: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True, default=0)
+    referral_credit_used_ngn: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True, default=0)
+    referral_abuse_flagged: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True, default=False)
+    referral_abuse_reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    client_reference: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    basket_items: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    proxy_items: Mapped[list["ProxyItem"]] = relationship(
+        "ProxyItem",
+        foreign_keys="[ProxyItem.order_id]",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     fulfilled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     cost_usd: Mapped[Optional[float]] = mapped_column(Numeric(10, 4), nullable=True)
@@ -253,6 +282,8 @@ class Order(Base):
     # Sprint 13 — city picker (residential/mobile orders)
     city_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("cities.id", ondelete="SET NULL"), nullable=True)
     city_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # Targeting mode: country_chosen | city_chosen | random
+    targeting_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="country_chosen")
     # Referral: tx_ref of the referee's payment that earned the referrer a credit (Sprint 2)
     referral_tx_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     # S2.5 — Renewal reminder tracking
@@ -300,13 +331,18 @@ class StyxproxyCredential(Base):
     def get_password(self) -> Optional[str]:
         """Decrypt and return the plaintext proxy password.
 
-        Returns None if the password is not set, encryption is not configured,
-        or decryption fails (wrong key / tampered ciphertext).
+        Tolerates legacy rows that hold raw UTF-8 plaintext (written before the
+        column was encrypted, or by a writer that bypassed set_password), so
+        those customers are not locked out.
+
+        Returns None if the password is not set, or if it is ciphertext that
+        cannot be decrypted (missing/mismatched CRED_ENCRYPTION_KEY, or a
+        tampered value).
         """
         # Imported lazily to avoid a circular import at module load time.
-        from app.services.crypto import decrypt_credential
+        from app.services.crypto import decrypt_credential_compat
 
-        return decrypt_credential(self.styxproxy_password)
+        return decrypt_credential_compat(self.styxproxy_password)
 
     def set_password(self, plaintext: str) -> None:
         """Encrypt and store the proxy password.
@@ -364,10 +400,6 @@ class StyxproxyCredential(Base):
     # Bandwidth alerting (alert customer when usage exceeds N% of plan)
     bandwidth_alert_pct: Mapped[int] = mapped_column(Integer, default=80, nullable=False)
 
-    # Last seen (for activity feeds)
-    last_ip_country: Mapped[Optional[str]] = mapped_column(String(2), nullable=True)
-    last_ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)  # IPv6 max 45 chars
-
     # ─── Rotation mode + static IP pinning (added Jul 30) ────────────────
     # rotating = pool, IP changes per request (Rayobyte -country-XX password)
     # static   = pinned IP via Rayobyte -session-XXXX-country-XX password
@@ -386,6 +418,12 @@ class StyxproxyCredential(Base):
     order: Mapped[Optional[Order]] = relationship(
         "Order",
         foreign_keys="[StyxproxyCredential.order_id]",
+    )
+
+    proxy_items: Mapped[list["ProxyItem"]] = relationship(
+        "ProxyItem",
+        foreign_keys="[ProxyItem.credential_id]",
+        cascade="all, delete-orphan",
     )
     # NOTE: StyxproxyCredential has no back-reference to FreeTrial
     # FreeTrial → StyxproxyCredential via FreeTrial.styxproxy_credential_id FK
@@ -913,6 +951,61 @@ class Country(Base):
     )
 
 
+class CountryPlanType(Base):
+    """Sellable (country, plan_type) matrix — the ONE definition of what we sell.
+
+    This table had NO ORM model and NO migration, even though it is the
+    authoritative answer to "what is sellable" and is read by
+    `services/catalog.py`, `routers/orders.py`, `routers/admin.py` and the
+    Charon tools. Production has it (created out-of-band by hand), so every
+    read path worked there — but a fresh database built from this repository
+    had no such table and `GET /api/catalog` / `GET /api/countries` raised
+    `UndefinedTable`.
+
+    The existing tests could not catch that because every one of them fakes
+    the session, so the missing table never surfaced as a failure.
+
+    Declaring it here is what makes it appear: `main.py`'s lifespan runs
+    `Base.metadata.create_all` on every boot, and `create_all` is the ONLY
+    provisioning path that actually works in this repository —
+    `alembic upgrade head` fails on the very first revision (`001_initial`
+    creates `orders` with FKs to tables it has not created yet), so the
+    migration chain cannot provision a clean database at all.
+
+    Every column, default, constraint name and index name below is copied
+    from the live production table (`\\d+ country_plan_types`) rather than
+    invented. Index names are declared explicitly because `create_all` would
+    otherwise generate `ix_country_plan_types_*` and leave the production
+    names (`idx_cpt_enabled` / `idx_cpt_plan_type`) as a second, divergent set.
+
+    `cpt_unique` is load-bearing, not cosmetic: `routers/admin.py` upserts
+    with a bare `ON CONFLICT DO NOTHING`, which needs a unique constraint on
+    (country_code, plan_type) to resolve to.
+    """
+
+    __tablename__ = "country_plan_types"
+    __table_args__ = (
+        UniqueConstraint("country_code", "plan_type", name="cpt_unique"),
+        Index("idx_cpt_enabled", "enabled"),
+        Index("idx_cpt_plan_type", "plan_type"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    country_code: Mapped[str] = mapped_column(String(2), nullable=False)
+    plan_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+    price_per_ip: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    price_per_gb: Mapped[Optional[float]] = mapped_column(Numeric(12, 2), nullable=True)
+    provider_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    is_special: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
+
+
 class Post(Base):
     """Blog posts table - CMS for blog articles with approval workflow."""
 
@@ -1434,3 +1527,170 @@ class AdminWebhookLog(Base):
     success: Mapped[bool] = mapped_column(Boolean, nullable=False)
     attempts: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ProxyItem(Base):
+    """Proxy items -- one manageable proxy per row, child of an order.
+
+    Each proxy_item points to one credential. Bulk orders (basket_items or
+    quantity > 1) get one proxy_item per credential created during fulfillment.
+    Per-item renewal, expiry, and management all work through this table.
+    """
+
+    __tablename__ = "proxy_items"
+    __table_args__ = (
+        Index("idx_proxy_items_order", "order_id"),
+        Index("idx_proxy_items_credential", "credential_id"),
+        Index("idx_proxy_items_status", "status"),
+        Index("idx_proxy_items_expires", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("orders.order_id"), nullable=False
+    )
+    credential_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("styxproxy_credentials.id"), nullable=False
+    )
+    label: Mapped[str] = mapped_column(String(50), nullable=False, default="Proxy")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    plan_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    plan_code: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    # Relationships
+    order: Mapped[Optional[Order]] = relationship(
+        "Order",
+        foreign_keys="[ProxyItem.order_id]",
+    )
+    credential: Mapped[Optional["StyxproxyCredential"]] = relationship(
+        "StyxproxyCredential",
+        foreign_keys="[ProxyItem.credential_id]",
+    )
+
+class OrderRenewal(Base):
+    """Order renewals -- tracks renewal payments for existing orders.
+
+    When a customer renews, we extend the existing credential expires_at
+    and data_remaining_gb. We never issue a second proxy.
+    """
+
+    __tablename__ = "order_renewals"
+    __table_args__ = (
+        Index("idx_renewals_order", "order_id"),
+        Index("idx_renewals_tx_ref", "renewal_tx_ref"),
+        Index("idx_renewals_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("orders.order_id"), nullable=False
+    )
+    renewal_tx_ref: Mapped[str] = mapped_column(String(100), nullable=False)
+    proxy_item_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("proxy_items.id"), nullable=True, index=True
+    )
+    quantity_gb: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount_paid_ngn: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    fulfilled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Relationship
+    order: Mapped[Optional[Order]] = relationship(
+        "Order",
+        foreign_keys="[OrderRenewal.order_id]",
+    )
+
+
+class DanteUser(Base):
+    """Dante SOCKS proxy user accounts (Theme C).
+
+    Each customer who buys a Styxproxy plan gets a Dante user account
+    on the Contabo fleet. The table tracks credentials, port range,
+    expiry, and bandwidth usage. The dante_auth service (port 1081)
+    looks up users here to authenticate.
+
+    bytes_used is updated by dante-auth on each connection (writes
+    sampled to avoid hot-row contention). Bytes reset is handled by
+    the plan renewal cron (Theme C future work).
+    """
+
+    __tablename__ = "dante_users"
+    __table_args__ = (
+        Index("idx_dante_users_customer", "customer_id"),
+        Index("idx_dante_users_active", "is_active"),
+        Index("idx_dante_users_expires", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    customer_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    username: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    port_range_low: Mapped[int] = mapped_column(Integer, default=10000, nullable=False)
+    port_range_high: Mapped[int] = mapped_column(Integer, default=60000, nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    bytes_used: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class Renewal(Base):
+    """Renewals table — tracks renewal orders for existing proxy subscriptions.
+
+    Each renewal is linked to an original order. For residential/mobile plans,
+    a new credential is created for the extra GB. For DC/ISP plans, only the
+    expiry is extended (no GB involved).
+
+    Status values: pending, completed, failed, refunded
+    """
+
+    __tablename__ = "renewals"
+    __table_args__ = (
+        Index("idx_renewals_order_id", "order_id"),
+        Index("idx_renewals_payment_reference", "payment_reference"),
+        Index("idx_renewals_tx_ref", "tx_ref"),
+        Index("idx_renewals_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_id: Mapped[str] = mapped_column(
+        String(20), ForeignKey("orders.order_id"), nullable=False
+    )
+    quantity_gb: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+    amount_paid_ngn: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    payment_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    tx_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    credential_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("styxproxy_credentials.id"), nullable=True
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    order: Mapped[Optional["Order"]] = relationship(
+        "Order", foreign_keys="[Renewal.order_id]"
+    )
+    credential: Mapped[Optional["StyxproxyCredential"]] = relationship(
+        "StyxproxyCredential", foreign_keys="[Renewal.credential_id]"
+    )

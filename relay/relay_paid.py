@@ -13,6 +13,7 @@ PAID customer relay on Interserver.
 Customer → :1080/:8080 (this relay) → upstream provider → internet
 """
 
+import hashlib
 import asyncio
 import base64
 import logging
@@ -31,6 +32,15 @@ sys.path.insert(0, "/opt/styxproxy/backend")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("styxproxy-relay")
+
+def _redact_ip(peer):
+    """Redact client IP from log output. Returns a safe-to-log string."""
+    if not peer:
+        return "unknown"
+    ip = peer[0] if isinstance(peer, tuple) else str(peer)
+    h = hashlib.sha256(ip.encode()).hexdigest()[:12]
+    return f"[redacted:{h}]"
+
 
 LISTEN_HOST = os.getenv("LISTEN_HOST", "0.0.0.0")
 LISTEN_PORT_SOCKS = int(os.getenv("LISTEN_PORT_SOCKS", "1080"))
@@ -334,7 +344,7 @@ async def _send_http_connect_to_upstream(upstream: dict, target_host: str, targe
 
 
 async def _handle_socks5_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, auth: RelayAuth):
-    client_peer = writer.get_extra_info("peername")
+    client_peer = _redact_ip(writer.get_extra_info("peername"))
     try:
         user = await _authenticate(reader, writer, auth)
         if not user:
@@ -412,7 +422,7 @@ async def _handle_socks5_client(reader: asyncio.StreamReader, writer: asyncio.St
 
 async def _handle_http_connect_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, auth: RelayAuth):
     """HTTP CONNECT proxy handler."""
-    client_peer = writer.get_extra_info("peername")
+    client_peer = _redact_ip(writer.get_extra_info("peername"))
     try:
         # Read request line
         line = await reader.readline()

@@ -92,7 +92,7 @@ class OrderCreateResponse(BaseModel):
     # Connection details (same shape as ProxyFullDetails so customer can copy/paste)
     styxproxy_username: str
     styxproxy_password: str  # plaintext — store now, shown once
-    proxy_host: str = "proxy.styxproxy.com"
+    proxy_host: str = ""
     proxy_port_socks5: int = 1080
     proxy_port_http: int = 8080
     protocol: str = "socks5"

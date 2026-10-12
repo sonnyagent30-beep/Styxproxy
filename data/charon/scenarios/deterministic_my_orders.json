@@ -1,0 +1,26 @@
+{
+  "id": "deterministic_my_orders",
+  "name": "List my orders (deterministic)",
+  "trigger": [
+    "\\b(my|show|list|view|all).*(order|orders|purchase|purchases|subscription|subscriptions)\\b",
+    "\\bwhat.*(did i|have i|am i).*(buy|bought|order|ordered|purchase|purchased|get)\\b",
+    "\\border history\\b",
+    "\\bmy purchases\\b",
+    "\\bshow (me )?my orders\\b",
+    "\\blist (my|all) (orders|proxies)\\b",
+    "\\bwhat proxies do i have\\b",
+    "\\bwhat did i order\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "list_customer_orders",
+      "tool_params": {
+        "customer_phone": "{{customer_phone}}"
+      },
+      "response_template": "{{tool_result}}"
+    }
+  ],
+  "llm_required": false,
+  "notes": "Deterministically lists all orders for the customer using list_customer_orders. RLS-gated by customer_phone."
+}

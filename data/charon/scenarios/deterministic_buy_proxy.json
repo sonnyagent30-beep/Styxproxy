@@ -1,0 +1,27 @@
+{
+  "id": "deterministic_buy_proxy",
+  "name": "Buy proxy / create order (deterministic)",
+  "trigger": [
+    "\\b(i want to|i need to|help me|get me|set me up|buy|order|purchase)\\s+(a|an|the|my)?\\s*(proxy|proxies|subscription|plan)\\b",
+    "\\b(buy|order|get|purchase)\\s+(a|an|the|my)?\\s*(proxy|proxies|subscription|plan)\\b",
+    "\\b(i want|i need|give me|get me)\\s+(residential|mobile|isp|datacenter|dc)\\s+proxy\\b",
+    "\\bhow.*(to|do i|can i).*(buy|order|get|purchase).*proxy\\b",
+    "\\bset me up\\s+(with|a|an)\\b",
+    "\\bcreate\\s+(an?\\s+)?(order|proxy)\\b",
+    "\\bmake\\s+(an?\\s+)?order\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "get_product_catalog",
+      "tool_params": {},
+      "response_template": "{{tool_result}}"
+    },
+    {
+      "type": "reply",
+      "text": "Here are the available plans above. Which one would you like? Tell me the plan type (residential, mobile, isp, or datacenter) and country, and I'll set it up for you."
+    }
+  ],
+  "llm_required": false,
+  "notes": "Shows product catalog and asks customer to choose. Actual order creation (create_order) is a write operation requiring explicit confirmation."
+}

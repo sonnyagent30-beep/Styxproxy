@@ -29,6 +29,7 @@ class ScenarioAction:
     text: str | None = None
     tool_name: str | None = None
     tool_params: dict | None = None
+    response_template: str | None = None
     summary_template: str | None = None
     reason: str | None = None
 
