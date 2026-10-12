@@ -1,0 +1,19 @@
+[Unit]
+Description=Grafana Alloy — log shipper to Loki
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/styxproxy/alloy
+ExecStart=/opt/styxproxy/alloy/alloy run --server.http-listen-port=12345 /opt/styxproxy/alloy/config.alloy
+Restart=on-failure
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
+Environment="LOKI_URL=https://logs-prod-XXX.grafana.net/loki/api/v1/push"
+Environment="LOKI_USERNAME=your_loki_user"
+Environment="LOKI_PASSWORD=your_loki_password"
+
+[Install]
+WantedBy=multi-user.target

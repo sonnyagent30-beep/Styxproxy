@@ -1,0 +1,30 @@
+{
+  "id": "deterministic_payment_link",
+  "name": "Generate payment link (deterministic)",
+  "trigger": [
+    "\\b(payment link|pay link|checkout link|pay now|pay for|generate.*link.*pay)\\b",
+    "\\b(i want to pay|i need to pay|help me pay|how do i pay|how to pay)\\b",
+    "\\b(generate|create|get|send).*(payment|checkout|pay).*(link|url)\\b",
+    "\\bpending payment\\b",
+    "\\bpay for (my|the|a) (order|proxy|plan)\\b",
+    "\\bcomplete (my|the) payment\\b",
+    "\\bfinish (my|the) payment\\b",
+    "\\bi.*(want|need|ready).*(to pay|payment)\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "list_customer_orders",
+      "tool_params": {
+        "customer_phone": "{{customer_phone}}"
+      },
+      "response_template": "{{tool_result}}"
+    },
+    {
+      "type": "reply",
+      "text": "I can see your orders above. Which one would you like to pay for? Share the order ID or transaction reference and I'll generate your payment link right away."
+    }
+  ],
+  "llm_required": false,
+  "notes": "Lists customer's pending orders and asks them to pick one. The actual payment link generation (initiate_payment) is a write operation that requires explicit confirmation in the next step."
+}

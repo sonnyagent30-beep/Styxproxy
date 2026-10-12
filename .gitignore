@@ -37,3 +37,11 @@ postman/reports/
 frontend/.netlify/
 .netlify
 .vercel
+
+# Production-specific additions (from deployed backend)
+.env.bak*
+*.bak*
+.bak*
+.backup-*
+.deploy-manifest
+.env.local

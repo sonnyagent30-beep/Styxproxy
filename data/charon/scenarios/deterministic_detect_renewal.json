@@ -1,0 +1,32 @@
+{
+  "id": "deterministic_detect_renewal",
+  "name": "Check for expiring proxies (deterministic)",
+  "trigger": [
+    "\\b(renew|renewal|renew my|extend|expir|expiring|expiration|expires|left).*(proxy|proxies|subscription|plan|data|gb)?\\b",
+    "\\bmy proxy.*(expir|expiring|expires|about to expire|running out|almost done)\\b",
+    "\\bhow much (data|gb|time|days).*(left|remaining)\\b",
+    "\\bwhen.*(does|will|is).*(my|the)?.*(proxy|subscription|plan).*(expir|end|finish)\\b",
+    "\\brenew (my|the|a) proxy\\b",
+    "\\brenew (my|the|a) subscription\\b",
+    "\\bextend (my|the|a) (subscription|plan|proxy)\\b",
+    "\\badd more (data|gb)\\b",
+    "\\btop up\\b",
+    "\\btop-up\\b",
+    "\\bi want to renew\\b",
+    "\\bneed to renew\\b",
+    "\\bproxy.*expir\\b",
+    "\\bsubscription.*expir\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "detect_renewal",
+      "tool_params": {
+        "customer_phone": "{{customer_phone}}"
+      },
+      "response_template": "{{tool_result}}"
+    }
+  ],
+  "llm_required": false,
+  "notes": "Deterministically checks for expiring proxies. If any are expiring within 7 days, Charon offers to renew. The renewal itself requires confirmation via a separate flow."
+}

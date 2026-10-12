@@ -1,0 +1,18 @@
+{
+  "id": "escalate_human",
+  "name": "Customer asks for a human / agent / live support",
+  "trigger": [
+    "(talk|chat|speak|connect).*(human|person|agent|someone|real person|live agent|live person|support team|customer service)",
+    "(need|want|require|ask for|request).*(human|agent|rep|representative|live person|live agent)",
+    "\\b(real human|real person|live agent|live person|human agent|human support|human representative)\\b",
+    "\\b(can|could) (i|we) (talk|chat|speak) (to|with) (a |an )?(human|person|agent|someone|rep)\\b",
+    "\\b(escalate|transfer|connect) (me|us) (to|with) (a |an )?(human|agent|person|rep)\\b"
+  ],
+  "actions": [
+    {
+      "type": "reply",
+      "text": "Connecting you with the team. Use the contact form at styxproxy.com/contact, or email support@styxproxy.com. We reply during business hours, usually within the same day."
+    }
+  ],
+  "llm_required": false
+}

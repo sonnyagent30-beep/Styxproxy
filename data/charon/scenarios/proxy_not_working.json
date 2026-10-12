@@ -1,0 +1,38 @@
+{
+  "id": "proxy_not_working",
+  "name": "Proxy not working / dead proxy",
+  "trigger": [
+    "my proxy is not working",
+    "proxy is not working",
+    "my proxy isn.?t working",
+    "proxy isn.?t working",
+    "proxy is dead",
+    "proxy is down",
+    "my proxy is down",
+    "the proxy is not working",
+    "proxy not working",
+    "ip is not working",
+    "the ip is not working",
+    "my ip is blocked",
+    "proxy is blocked",
+    "the proxy is blocked",
+    "proxy stopped working",
+    "my proxy stopped working",
+    "credentials not working",
+    "login failed",
+    "can.?t connect",
+    "connection refused",
+    "proxy ip banned",
+    "proxy ban",
+    "i.?m banned",
+    "got banned",
+    "getting banned"
+  ],
+  "actions": [
+    {
+      "type": "reply",
+      "text": "I\u2019m sorry to hear that. Let me look up your order \u2014 could you share your Flutterwave transaction reference (tx_ref) so I can check your proxy status and run a health check?"
+    }
+  ],
+  "notes": "Charon asks for the tx_ref. When the customer provides it, the LLM calls lookup_order to check status and credentials. If the order is fulfilled and credentials exist, Charon advises on troubleshooting steps. If credentials are expired or revoked, Charon explains and offers to escalate for a ban claim or refund. If the order is not found, Charon asks for the tx_ref again."
+}

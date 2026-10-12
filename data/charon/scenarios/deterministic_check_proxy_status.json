@@ -1,0 +1,27 @@
+{
+  "id": "deterministic_check_proxy_status",
+  "name": "Check proxy status (deterministic)",
+  "trigger": [
+    "\\b(check|show|what.*status).*(my|the)?.*(proxy|proxies|ip|ips)\\b",
+    "\\b(proxy|proxies).*(status|active|dead|down|health)\\b",
+    "\\b(is|are).*(my|the)?.*(proxy|proxies|ip).*(active|dead|up|down)\\b",
+    "\\bhow.*(many|much).*(proxy|proxies|ip|ips).*(i have|active)\\b",
+    "\\bmy proxy (is|looks|seems).*(dead|down|slow|banned)\\b",
+    "\\bcheck (my|the) proxy\\b",
+    "\\bcheck (my|the) proxies\\b",
+    "\\bproxy health\\b",
+    "\\bproxy check\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "check_proxy_status",
+      "tool_params": {
+        "customer_phone": "{{customer_phone}}"
+      },
+      "response_template": "{{tool_result}}"
+    }
+  ],
+  "llm_required": false,
+  "notes": "Deterministically calls check_proxy_status with customer_phone from channel context. Returns formatted proxy list."
+}

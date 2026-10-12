@@ -1,0 +1,28 @@
+{
+  "id": "deterministic_troubleshooting",
+  "name": "Troubleshooting (deterministic)",
+  "trigger": [
+    "\\b(proxy|proxies|it|connection|ip).*(not working|doesn'?t work|broken|failed|error|issue|problem)\\b",
+    "\\b(can'?t|cannot|unable to|couldn'?t).*(connect|login|authenticate|use|access)\\b",
+    "\\b(connection|connect|login|auth).*(refused|failed|error|timeout|timed out)\\b",
+    "\\b(proxy|ip|connection).*(refused|timeout|timed out|failed)\\b",
+    "\\b(401|403|407|502|503|500).*(error|unauthorized|forbidden|bad gateway)\\b",
+    "\\bproxy.*(slow|lagging|lag|latency)\\b",
+    "\\bgetting banned\\b",
+    "\\bip.*(blocked|banned|blacklisted)\\b",
+    "\\bcredential.*(expired|invalid|wrong|revoked)\\b",
+    "\\bhelp.*(fix|resolve|troubleshoot|debug)\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "get_troubleshooting",
+      "tool_params": {
+        "issue": "{{issue}}"
+      },
+      "response_template": "{{tool_result}}"
+    }
+  ],
+  "llm_required": false,
+  "notes": "Deterministically returns troubleshooting steps. The issue keyword is inferred from the message."
+}

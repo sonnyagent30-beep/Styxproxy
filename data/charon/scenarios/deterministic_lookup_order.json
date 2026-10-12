@@ -1,0 +1,26 @@
+{
+  "id": "deterministic_lookup_order",
+  "name": "Look up order by tx_ref (deterministic)",
+  "trigger": [
+    "\\b(check|track|find|look up|status|where).*(my|the)?.*(order|payment|transaction|txn|tx)\\b",
+    "\\b(order|payment|transaction|txn|tx).*(status|where|track)\\b",
+    "\\bwhere.*(is|are).*(my|the)?.*(order|proxy|payment|credential|credentials|delivery)\\b",
+    "\\btrack (my|the) (order|payment|delivery)\\b",
+    "\\border status\\b",
+    "\\bpayment status\\b",
+    "\\bmy order (is|status)\\b",
+    "\\bwhat.*(happened|going on|status).*(with|to).*(my|the)?.*(order|payment|proxy)\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "lookup_order",
+      "tool_params": {
+        "tx_ref": "{{tx_ref}}"
+      },
+      "response_template": "{{tool_result}}"
+    }
+  ],
+  "llm_required": false,
+  "notes": "Deterministically looks up order by tx_ref extracted from the message. Uses the _TX_REF_PATTERN to find the reference."
+}

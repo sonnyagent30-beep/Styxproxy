@@ -1,0 +1,26 @@
+{
+  "id": "deterministic_data_remaining",
+  "name": "Check data remaining (deterministic)",
+  "trigger": [
+    "\\b(how much|remaining|left|usage|used).*(data|gb|bandwidth|traffic)\\b",
+    "\\b(data|gb|bandwidth).*(remaining|left|usage|used)\\b",
+    "\\bhow much (data|gb).*(left|remaining)\\b",
+    "\\bdata usage\\b",
+    "\\bbandwidth usage\\b",
+    "\\bcheck (my|the) data\\b",
+    "\\bcheck (my|the) bandwidth\\b",
+    "\\bhow much (data|gb) do i have left\\b"
+  ],
+  "actions": [
+    {
+      "type": "tool",
+      "tool_name": "check_data_remaining",
+      "tool_params": {
+        "customer_phone": "{{customer_phone}}"
+      },
+      "response_template": "{{tool_result}}"
+    }
+  ],
+  "llm_required": false,
+  "notes": "Deterministically checks remaining data for residential/mobile proxies."
+}
