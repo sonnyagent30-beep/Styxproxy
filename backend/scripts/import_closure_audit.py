@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import ast
 import sys
-import sysconfig
 from pathlib import Path
 
 # Distribution name -> import name, for declared deps whose import name differs.

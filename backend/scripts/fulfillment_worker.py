@@ -72,7 +72,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 logger.info(f"[{job_id}] Order {order_id} already fulfilled — skipping")
                 return {"status": "already_fulfilled"}
 
-            amount = data_payload.get("amount", 0)
+            # amount extracted but not used in this path
 
             # ── Fulfill ──────────────────────────────────────────────────
             fulfillment_error = None

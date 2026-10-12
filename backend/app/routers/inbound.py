@@ -223,10 +223,11 @@ async def _forward_to_dannion(
 ) -> bool:
     """Forward the inbound email to Dannion's personal inbox."""
     try:
-        if DANIELAYO_EMAIL.lower() in LOCAL_ADDRESSES:
+        dest = DANNION_NOTIFY_EMAIL
+        if not dest or dest.lower() in LOCAL_ADDRESSES:
             logger.warning(
-                f"Refusing to forward to {DANIELAYO_EMAIL}: this domain "
-                "receives for that address, so the forward would loop back in."
+                f"Refusing to forward to Dannion: notification address not set "
+                "or is in-domain (would loop)."
             )
             return False
         forward_subject = f"[Dannion] {subject}"
@@ -243,13 +244,13 @@ async def _forward_to_dannion(
 </html>
 """
         result = await send_email(
-            to=DANIELAYO_EMAIL,
+            to=dest,
             subject=forward_subject,
             html=forward_html,
             text=body_text,
         )
         if result.success:
-            logger.info(f"Forwarded inbound email to Dannion: {DANIELAYO_EMAIL}")
+            logger.info(f"Forwarded inbound email to Dannion: {dest}")
             return True
         else:
             logger.error(f"Failed to forward email to Dannion: {result.error}")
@@ -301,6 +302,11 @@ DMARC_EMAIL = "dmarc@styxproxy.com"
 # loop hop, not a delivery.
 LOCAL_ADDRESSES = {SUPPORT_EMAIL, ADMIN_EMAIL, DANIELAYO_EMAIL, DMARC_EMAIL}
 FORWARD_PREFIXES = ("[Support]", "[Dannion]")
+
+# External notification targets — MUST be off styxproxy.com to avoid loops.
+# These are where admin@ and danielayo@ emails get forwarded for notification.
+ADMIN_NOTIFY_EMAIL = "sonnyagent30@gmail.com"
+DANNION_NOTIFY_EMAIL = "sonnyagent30@gmail.com"
 
 
 def _is_loop_message(from_email: str, subject: str, to_addresses: list[str]) -> bool:
@@ -521,12 +527,13 @@ async def _forward_to_admin(
 ) -> bool:
     """Forward the inbound email to admin."""
     try:
-        # Refuse a destination we also receive for — the forward would re-enter
-        # this webhook and feed the loop.
-        if ADMIN_EMAIL.lower() in LOCAL_ADDRESSES:
+        # Use external notification address — forwarding to in-domain addresses
+        # would re-enter the webhook and create a loop.
+        dest = ADMIN_NOTIFY_EMAIL
+        if not dest or dest.lower() in LOCAL_ADDRESSES:
             logger.warning(
-                f"Refusing to forward to {ADMIN_EMAIL}: this domain receives "
-                "for that address, so the forward would loop back in."
+                f"Refusing to forward to admin: notification address not set "
+                "or is in-domain (would loop)."
             )
             return False
         # Build a simple forward email
@@ -547,14 +554,14 @@ async def _forward_to_admin(
 """
 
         result = await send_email(
-            to=ADMIN_EMAIL,
+            to=dest,
             subject=forward_subject,
             html=forward_html,
             text=body_text,
         )
 
         if result.success:
-            logger.info(f"Forwarded inbound email to admin: {ADMIN_EMAIL}")
+            logger.info(f"Forwarded inbound email to admin: {dest}")
             return True
         else:
             logger.error(f"Failed to forward email to admin: {result.error}")

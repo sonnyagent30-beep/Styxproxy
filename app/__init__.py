@@ -1,1 +1,0 @@
-"""Styxproxy Backend Application Package."""

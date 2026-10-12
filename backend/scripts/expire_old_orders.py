@@ -20,6 +20,7 @@ async def expire_old_orders():
     sys.path.insert(0, "/opt/styxproxy/backend")
     
     from sqlalchemy import text
+
     from app.database import async_session as AsyncSessionLocal
     
     async with AsyncSessionLocal() as db:

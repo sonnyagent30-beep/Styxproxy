@@ -5,6 +5,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 
 from dotenv import dotenv_values
+
 env = dotenv_values("/opt/styxproxy/.env")
 for k, v in env.items():
     if k and v:
@@ -13,11 +14,10 @@ for k, v in env.items():
 os.chdir("/opt/styxproxy/backend")
 sys.path.insert(0, "/opt/styxproxy/backend")
 
-from app.database import async_session
-from app.models import Order, StyxproxyCredential
-from app.services.order_status import is_live_order
-from app.services.renewal import send_daily_renewal_reminders, RENEWAL_WARNING_DAYS
 from sqlalchemy import text
+
+from app.database import async_session
+from app.services.renewal import RENEWAL_WARNING_DAYS, send_daily_renewal_reminders
 
 
 async def setup_and_test():
@@ -110,7 +110,7 @@ async def setup_and_test():
             {"phone": test_phone}
         )
         await session.commit()
-        print(f"\nCleaned up test order and customer")
+        print("\nCleaned up test order and customer")
 
 
 asyncio.run(setup_and_test())

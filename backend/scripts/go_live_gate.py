@@ -205,7 +205,7 @@ def check_admin_refund_calls_gateway() -> Check:
     body = fns.get("_process_refund")
     if body is None:
         return Check("3", title, None, "_process_refund() not found in routers/admin.py")
-    low = body.lower()
+    # Strip the `async def _process_refund(...)` signature line before matching.
     # Strip the `async def _process_refund(...)` signature line before matching.
     # Without this the check self-satisfies on its OWN name: the substring
     # "refund(" appears inside "_process_refund(", so a refund that calls no

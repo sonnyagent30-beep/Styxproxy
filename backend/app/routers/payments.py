@@ -38,6 +38,7 @@ router = APIRouter(prefix="/api/payments", tags=["payments"])
 ORDER_TTL_MINUTES = 30
 
 
+
 def _classify_gateway_error(exc: Exception) -> tuple[int, str]:
     """Classify a gateway exception into an HTTP status + customer-safe message.
 
@@ -472,6 +473,33 @@ async def initiate_payment(
     )
 
 
+PLAN_CODE_COLUMN_MAX = 50  # orders.plan_code is varchar(50)
+
+
+def _summarise_basket_plan_code(basket_items: list[dict]) -> str:
+    """Fit a multi-item basket into the varchar(50) `plan_code` column.
+
+    A 4-item basket already produces 49 characters, so a 5th item overflows and
+    the INSERT raises — which reaches the customer as a 500 on a valid cart.
+    Prefer as many complete codes as fit, then fall back to a count so the
+    summary is never silently wrong about what was bought.
+    """
+    codes = [str(i.get("plan_code") or "") for i in basket_items]
+    joined = ", ".join(codes)
+    if len(joined) <= PLAN_CODE_COLUMN_MAX:
+        return joined
+    kept: list[str] = []
+    for code in codes:
+        candidate = ", ".join(kept + [code])
+        if len(candidate) + 8 > PLAN_CODE_COLUMN_MAX:  # leave room for "+N more"
+            break
+        kept.append(code)
+    remaining = len(codes) - len(kept)
+    if remaining > 0:
+        return f"{', '.join(kept)}, +{remaining} more"
+    return joined[:PLAN_CODE_COLUMN_MAX]
+
+
 # ============== Basket (multi-item) payment ─────────────────────────────────
 
 @router.post("/initiate-basket", response_model=PaymentInitiateBasketResponse, status_code=status.HTTP_201_CREATED)
@@ -685,7 +713,12 @@ async def initiate_basket_payment(
         customer_phone=customer.phone,
         customer_email=request.customer_email or "",
         plan_type=basket_items[0]["plan_type"].lower() if basket_items else None,
-        plan_code=", ".join(item["plan_code"] for item in basket_items),
+        # `orders.plan_code` is varchar(50). Joining every item code into it
+        # overflows on a 5+ item basket and the INSERT fails, surfacing as a
+        # 500 "Failed to create order" on a perfectly valid cart. The per-item
+        # truth lives in `basket_items` (JSONB), so this column is a summary —
+        # truncate it rather than lose the order.
+        plan_code=_summarise_basket_plan_code(basket_items),
         country=basket_items[0]["country_code"] if basket_items else None,
         quantity=sum(item["quantity"] for item in basket_items),
         data_total_gb=sum(item["quantity_gb"] or 0 for item in basket_items if item["quantity_gb"]),

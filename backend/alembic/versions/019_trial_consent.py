@@ -17,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "019_trial_consent"
-down_revision = "018_charon_chunks_and_dante_users"
+down_revision = "018_charon_chunks_dante"
 branch_labels = None
 depends_on = None
 

@@ -454,6 +454,24 @@ class OrderCreateRequest(BaseModel):
         return v
 
 
+class ProxyItemResponse(BaseModel):
+    """Proxy item response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_id: str
+    credential_id: int
+    label: str
+    status: str
+    expires_at: Optional[datetime] = None
+    plan_type: Optional[str] = None
+    plan_code: Optional[str] = None
+    country: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class OrderResponse(BaseModel):
     """Order response."""
 
@@ -465,6 +483,7 @@ class OrderResponse(BaseModel):
     country: Optional[str]
     amount_paid_ngn: Optional[float]
     styxproxy_credential: Optional[StyxproxyCredentialBrief]
+    proxy_items: Optional[list[ProxyItemResponse]] = None
     # For basket orders: ALL credentials created for this order.
     # Populated when basket_items is NOT NULL. Each element is one proxy
     # the customer paid for and must receive.
@@ -480,6 +499,13 @@ class OrderResponse(BaseModel):
     # S2.5 — Renewal reminder tracking
     emails_sent: Optional[int] = 0
     reminder_sent_at: Optional[datetime] = None
+    # Receipt data — plan_code, quantity, city_name, data_total_gb so the
+    # thank-you page can build a receipt from the order payload (the cart is
+    # cleared on payment and is empty by the time the customer lands here).
+    plan_code: Optional[str] = None
+    quantity: Optional[int] = None
+    city_name: Optional[str] = None
+    data_total_gb: Optional[float] = None
 
 
 # ============== Referral Schemas (Sprint 2) ==============

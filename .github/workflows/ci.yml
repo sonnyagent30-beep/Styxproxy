@@ -74,6 +74,7 @@ jobs:
           WHATSAPP_ACCESS_TOKEN: test-wa-token
           WHATSAPP_PHONE_NUMBER_ID: test-phone-id
           MINIMAX_API_KEY: test-minimax-key
+          RESEND_WEBHOOK_SECRET: test-resend
         run: |
           cd backend
           alembic upgrade head
@@ -90,6 +91,7 @@ jobs:
           WHATSAPP_ACCESS_TOKEN: test-wa-token
           WHATSAPP_PHONE_NUMBER_ID: test-phone-id
           MINIMAX_API_KEY: test-minimax-key
+          RESEND_WEBHOOK_SECRET: test-resend
           TESTING: "1"
           LOG_LEVEL: DEBUG
         run: |

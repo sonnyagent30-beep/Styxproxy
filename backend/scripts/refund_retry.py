@@ -15,8 +15,9 @@ async def retry_failed_refunds():
     sys.path.insert(0, "/opt/styxproxy/backend")
     
     from sqlalchemy import text
-    from app.database import async_session as AsyncSessionLocal
+
     from app.config import get_settings
+    from app.database import async_session as AsyncSessionLocal
     
     settings = get_settings()
     

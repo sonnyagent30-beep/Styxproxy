@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision: str = "003_add_admin_invites_feature_flags"
+revision: str = "003_admin_invites_flags"
 down_revision: Union[str, Sequence[str], None] = "002_add_protocol"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

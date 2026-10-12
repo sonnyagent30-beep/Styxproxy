@@ -23,7 +23,7 @@ Create Date: 2026-10-09 12:00:00.000000
 from alembic import op
 
 revision = "20261009_basket_items"
-down_revision = "20261001_refund_gateway_evidence"
+down_revision = "20261001_country_plan_types"
 branch_labels = None
 depends_on = None
 

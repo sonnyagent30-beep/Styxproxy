@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision: str = "004_add_posts"
-down_revision: Union[str, Sequence[str], None] = "003_add_admin_invites_feature_flags"
+down_revision: Union[str, Sequence[str], None] = "003_admin_invites_flags"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -603,15 +603,18 @@ Please follow up with the customer within 2 hours.
                     table_buf = []
                     in_table = False
                     if table_text:
-                        yield f'data: {json.dumps({"delta": table_text + "\n"})}\n\n'
+                        _tbl = json.dumps({"delta": table_text + "\n"})
+                        yield f'data: {_tbl}\n\n'
                         await asyncio.sleep(0.05)
-                yield f'data: {json.dumps({"delta": line + "\n"})}\n\n'
+                _ln = json.dumps({"delta": line + "\n"})
+                yield f'data: {_ln}\n\n'
                 await asyncio.sleep(0.03)
 
             # Flush any remaining table buffer at end of stream
             if table_buf:
                 table_text = '\n'.join(table_buf)
-                yield f'data: {json.dumps({"delta": table_text + "\n"})}\n\n'
+                _tbl2 = json.dumps({"delta": table_text + "\n"})
+                yield f'data: {_tbl2}\n\n'
 
             # A5: Emit interrupted signal. Keyed on the stream/error signal,
             # NOT on text shape. If the result had an error or the text is empty,

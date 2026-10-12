@@ -1,4 +1,5 @@
 import sys
+
 sys.path.insert(0, "/root/Styxproxy/backend")
 try:
     from app.main import app

@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build_backend = "setuptools.build_meta"
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
@@ -46,6 +46,7 @@ dev = [
     "ruff==0.8.4",
     "black==25.1.0",
     "pre-commit==4.0.1",
+    "PyJWT>=2.9.0",
 ]
 
 [tool.ruff]
@@ -58,6 +59,7 @@ select = ["E", "F", "I"]
 ignore = [
     "E203",  # whitespace before punctuation, stylistic
     "E402",  # module-level import not at top (allowed in this codebase)
+    "E501",  # line too long — many long strings/templates in this codebase
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -70,6 +72,8 @@ ignore = [
 "app/routers/admin.py" = ["E501"]      # long route decorator lines
 "app/routers/permissions.py" = ["E501"] # long dict line
 "app/services/flutterwave.py" = ["E501"]  # long failure_message line
+"app/services/email.py" = ["E501"]       # HTML email templates are inherently long
+"app/services/charon/tools.py" = ["E501"]  # long tool description strings
 "app/schemas.py" = ["E402"]           # uuid import mid-file
 "app/routers/schemas.py" = ["E402"]   # uuid import mid-file
 

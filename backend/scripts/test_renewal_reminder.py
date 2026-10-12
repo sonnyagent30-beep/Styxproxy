@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 # Load .env properly (dotenv handles special characters)
 from dotenv import dotenv_values
+
 env = dotenv_values("/opt/styxproxy/.env")
 for k, v in env.items():
     if k and v:
@@ -20,25 +21,25 @@ os.chdir("/opt/styxproxy/backend")
 sys.path.insert(0, "/opt/styxproxy/backend")
 
 from app.database import async_session
-from app.models import Order, StyxproxyCredential
 from app.services.order_status import is_live_order
-from app.services.renewal import send_daily_renewal_reminders, RENEWAL_WARNING_DAYS
+from app.services.renewal import RENEWAL_WARNING_DAYS, send_daily_renewal_reminders
+
 
 async def test_is_live_order():
     """Unit test: the predicate accepts both active and fulfilled."""
-    assert is_live_order("active") == True, "active should be live"
-    assert is_live_order("fulfilled") == True, "fulfilled should be live"
-    assert is_live_order("pending") == False, "pending should not be live"
-    assert is_live_order("expired") == False, "expired should not be live"
-    assert is_live_order("cancelled") == False, "cancelled should not be live"
-    assert is_live_order(None) == False, "None should not be live"
+    assert is_live_order("active"), "active should be live"
+    assert is_live_order("fulfilled"), "fulfilled should be live"
+    assert not is_live_order("pending"), "pending should not be live"
+    assert not is_live_order("expired"), "expired should not be live"
+    assert not is_live_order("cancelled"), "cancelled should not be live"
+    assert not is_live_order(None), "None should not be live"
     print("PASS: is_live_order predicate works correctly")
 
 async def test_end_to_end():
     """Integration test: create a fulfilled order in the warning window, run timer."""
     async with async_session() as session:
         # First, check if test order already exists (from previous run)
-        from sqlalchemy import select, text
+        from sqlalchemy import text
         result = await session.execute(
             text("SELECT order_id FROM orders WHERE order_id LIKE 'TEST-RENEW-%'")
         )

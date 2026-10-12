@@ -65,6 +65,11 @@ structlog.configure(
     wrapper_class=structlog.make_filtering_bound_logger(logging.getLevelName(settings.log_level)),
 )
 
+# Configure stdlib logging so extra= fields are rendered.
+# Without this, the default root logger format drops all extra fields.
+from app.logging_config import configure_logging
+configure_logging(level=settings.log_level)
+
 logger = structlog.get_logger()
 
 

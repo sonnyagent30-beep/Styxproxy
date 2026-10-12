@@ -41,6 +41,7 @@ logger = logging.getLogger("fulfillment-worker")
 # because this module is the historical home and its tests import these names
 # from here; keeping the aliases means moving the implementation did not break
 # callers or the suite.
+from app.models import StyxproxyCredential  # noqa: E402
 from app.services.credential_delivery import (  # noqa: E402
     PLACEHOLDER_EMAIL_DOMAINS,
     is_placeholder_email as _is_placeholder_email,
@@ -556,6 +557,19 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             except Exception as e:
                 fulfillment_error = str(e)
                 order.status = "failed_manual_review"
+                # Revoke any credential created before the failure
+                if order.styxproxy_credential_id:
+                    try:
+                        cred = await db.get(StyxproxyCredential, order.styxproxy_credential_id)
+                        if cred and cred.status != "revoked":
+                            cred.status = "revoked"
+                            cred.revoked_at = datetime.now(timezone.utc)
+                            cred.revoke_reason = "fulfillment_failed_manual_review"
+                    except Exception as revoke_err:
+                        logger.warning(
+                            "credential revocation failed on failed_manual_review",
+                            extra={**log_ctx, "error": str(revoke_err)},
+                        )
                 await db.commit()
                 logger.error(
                     "fulfillment failed (other)",

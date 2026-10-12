@@ -232,10 +232,10 @@ def _get_base_styles() -> str:
             }
             [style*="background-color: #0f0f0f"] { background-color: #ffffff !important; }
             [style*="background-color: #1a1a1a"] { background-color: #f9fafb !important; }
-            [style*="color: #f5f5f5"] { color: #0f0f0f !important; }
-            [style*="color: #9ca3af"] { color: #525252 !important; }
-            [style*="color: #00D060"] { color: #0b7a34 !important; }
-            [style*="color: #f59e0b"] { color: #b45309 !important; }
+            [style^="color: #f5f5f5"], [style*="; color: #f5f5f5"] { color: #0f0f0f !important; }
+            [style^="color: #9ca3af"], [style*="; color: #9ca3af"] { color: #525252 !important; }
+            [style^="color: #00D060"], [style*="; color: #00D060"] { color: #0b7a34 !important; }
+            [style^="color: #f59e0b"], [style*="; color: #f59e0b"] { color: #b45309 !important; }
             td[style*="border-bottom: 1px solid #262626"] { border-color: #e5e7eb !important; }
             [style*="background-color: #262626"] { background-color: #e5e7eb !important; }
             .logo-dark { display: none !important; }

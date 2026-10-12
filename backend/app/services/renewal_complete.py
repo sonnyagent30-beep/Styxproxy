@@ -12,7 +12,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Order, OrderRenewal, StyxproxyCredential
+from app.models import Order, OrderRenewal, ProxyItem, StyxproxyCredential
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,13 @@ async def complete_renewal(
     # Extend order expiry (always)
     order.expires_at = new_expiry
 
+    # If per-item renewal, update the proxy_item
+    if renewal.proxy_item_id:
+        proxy_item = await session.get(ProxyItem, renewal.proxy_item_id)
+        if proxy_item:
+            proxy_item.expires_at = new_expiry
+            proxy_item.status = "active"
+
     # Extend data expiry for per-GB plans
     if renewal.quantity_gb > 0:
         # Add GB to remaining data
@@ -103,12 +110,13 @@ async def complete_renewal(
 
     await session.commit()
     logger.info(
-        "Renewal %s completed: order=%s cred=%d new_expiry=%s +%dGB",
+        "Renewal %s completed: order=%s cred=%d new_expiry=%s +%dGB proxy_item_id=%s",
         renewal.id,
         order.order_id,
         cred.id,
         new_expiry.isoformat(),
         renewal.quantity_gb,
+        renewal.proxy_item_id,
     )
 
     return renewal

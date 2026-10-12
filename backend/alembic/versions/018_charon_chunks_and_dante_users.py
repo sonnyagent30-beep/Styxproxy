@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision = "018_charon_chunks_and_dante_users"
+revision = "018_charon_chunks_dante"
 down_revision = "017_rls_policy_and_totp_sessions"
 branch_labels = None
 depends_on = None

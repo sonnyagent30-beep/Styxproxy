@@ -53,6 +53,7 @@ def main() -> int:
         return 0
 
     import sqlalchemy as sa
+
     from alembic.migration import MigrationContext
     from alembic.operations import Operations
 
