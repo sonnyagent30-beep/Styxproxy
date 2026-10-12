@@ -44,3 +44,4 @@ frontend/.netlify/
 .bak*
 .backup-*
 .deploy-manifest
+.env.local
