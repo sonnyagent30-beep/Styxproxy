@@ -7,8 +7,9 @@ Usage:
 Run daily via cron or the Hermes cron system. Reads DATABASE_URL from
 environment (defaults to the docker-compose value for local dev).
 
-Each run scans all active orders expiring within 3 days and sends a
-renewal reminder email to the customer if one has not already been sent today.
+Each run scans all live orders expiring within 3 days and sends a
+renewal reminder to the customer via Charon (WhatsApp/Telegram) if one
+has not already been sent today.
 """
 
 import asyncio
