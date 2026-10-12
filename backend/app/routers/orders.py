@@ -30,7 +30,7 @@ def _is_renewable(order: Order) -> bool:
     An order is renewable when it has been paid (status "active" or "fulfilled")
     and has a non-null expiry.  "expired" is terminal and NOT renewable.
     """
-    return order.status in ("active", "fulfilled") and order.expires_at is not None
+    return is_live_order(order.status) and order.expires_at is not None
 
 
 from app.schemas import (
@@ -57,6 +57,7 @@ from app.services.email import (
     send_order_confirmation_email,
     send_refund_request_notification,
 )
+from app.services.order_status import is_live_order
 from app.services.provider import check_availability
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
@@ -538,7 +539,7 @@ async def create_order(
                 )
             except Exception as e:
                 logger.warning(f'Failed to send order confirmation email to {customer_email}: {e}')
-    elif order.status == "active":
+    elif is_live_order(order.status):
         # Send ONE combined email: order details + credentials together
         if customer_email:
             cred = None
@@ -885,7 +886,7 @@ async def get_order_by_payment_reference(
         created_at=order.created_at,
         expires_at=order.expires_at,
         customer_name=customer_name,
-        is_renewable=order.status == "active" and order.expires_at is not None,
+        is_renewable=_is_renewable(order),
     )
 
 
@@ -946,7 +947,7 @@ async def lookup_order(
     
     # Determine credential delivery status
     delivery_status = None
-    if order.status in ("fulfilled", "active") and order.styxproxy_credential_id:
+    if is_live_order(order.status) and order.styxproxy_credential_id:
         delivery_status = "delivered"
     elif order.status == "paid":
         delivery_status = "pending"
@@ -954,7 +955,7 @@ async def lookup_order(
         delivery_status = "failed"
     
     # Build user-friendly message
-    if order.status in ("fulfilled", "active"):
+    if is_live_order(order.status):
         message = "Your proxy is ready. Check your email for credentials."
     elif order.status == "paid":
         message = "Payment received — your proxy is being provisioned."
@@ -979,7 +980,7 @@ async def lookup_order(
         currency="NGN",
         created_at=order.created_at,
         expires_at=order.expires_at,
-        is_fulfilled=order.status in ("fulfilled", "active"),
+        is_fulfilled=is_live_order(order.status),
         credential_delivery_status=delivery_status,
         message=message,
     )
@@ -1016,7 +1017,7 @@ async def get_order(
                 upstream_proxy_port=cred.upstream_proxy_port,
                 status=cred.status,
             )
-    is_renewable = order.status in ("active", "fulfilled") and order.expires_at is not None
+    is_renewable = _is_renewable(order)
 
     # Fetch proxy items for per-item management
     proxy_items = None

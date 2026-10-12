@@ -28,6 +28,7 @@ sys.path.insert(0, "/opt/styxproxy/backend")
 from app.config import get_settings
 from app.database import async_session as AsyncSessionLocal
 from app.services.n8n import trigger_credentials_delivered_webhook
+from app.services.order_status import is_live_order
 from app.services.refunds import GatewayRefundError, refund_at_gateway
 
 logging.basicConfig(
@@ -83,7 +84,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
                 return {"status": "order_not_found"}
 
             # Already fulfilled
-            if order.status in ("fulfilled", "active"):
+            if is_live_order(order.status):
                 logger.info("order already fulfilled — skipping", extra=log_ctx)
                 return {"status": "already_fulfilled"}
 
@@ -606,7 +607,7 @@ async def fulfill_order_job(tx_ref: str, order_id: str, data_payload: dict, job_
             # and no alert. Raise on any non-terminal outcome so RQ records
             # `failed`, and mark the order so it is recoverable rather than
             # silently parked at `paid`.
-            if order.status not in ("fulfilled", "active"):
+            if not is_live_order(order.status):
                 _err = fulfillment_error or delivery_error or order.status
                 logger.error(
                     "fulfillment did not complete — raising so RQ records FAILED",

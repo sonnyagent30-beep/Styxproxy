@@ -28,6 +28,7 @@ from app.services.capture import (
     gateway_captured_at,
     record_capture,
 )
+from app.services.order_status import is_live_order
 from app.services.flutterwave import (
     is_webhook_processed,
     mark_webhook_processed,
@@ -213,7 +214,7 @@ async def flutterwave_webhook(
 
     # ── charge.completed (successful) → enqueue fulfillment ──
     if event_type == "charge.completed" and (event_data.get("status") == "successful"):
-        if order and order.status not in ("fulfilled", "active"):
+        if order and not is_live_order(order.status):
             order.status = "paid"
             # amount_paid_ngn is the INVOICE amount and is populated on every
             # row, including cancelled/expired/refunded ones. It is not evidence
@@ -394,7 +395,7 @@ async def paystack_webhook(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="No order matches this payment reference",
             )
-        if order.status not in ("fulfilled", "active"):
+        if not is_live_order(order.status):
             order.status = "paid"
             # NOTE: amount_paid_ngn records the INVOICE amount and is populated
             # on every row, including cancelled/expired/refunded ones. It is not
@@ -508,7 +509,7 @@ async def nowpayments_ipn(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order has expired")
 
     if payment_status in ("finished", "confirmed"):
-        if order and order.status not in ("fulfilled", "active"):
+        if order and not is_live_order(order.status):
             order.status = "paid"
             # NOWPayments settles in crypto, so there is no single fiat figure
             # the gateway "charged" in naira. Amounts here are the crypto amount
