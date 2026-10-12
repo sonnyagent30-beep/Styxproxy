@@ -33,6 +33,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
+from app.services.order_status import is_live_order, LIVE_ORDER_STATUSES
+
 logger = logging.getLogger(__name__)
 
 
@@ -134,7 +136,7 @@ async def _lookup_order_tx_ref(tx_ref: str, customer_phone: str | None = None) -
                 )
 
             creds = None
-            if order.styxproxy_credential_id and order.status in ("fulfilled", "active", "fulfilling"):
+            if order.styxproxy_credential_id and is_live_order(order.status):
                 cred_stmt = select(StyxproxyCredential).where(StyxproxyCredential.id == order.styxproxy_credential_id)
                 cred_result = await session.execute(cred_stmt)
                 cred = cred_result.scalar_one_or_none()
@@ -153,7 +155,7 @@ async def _lookup_order_tx_ref(tx_ref: str, customer_phone: str | None = None) -
                 status_message = "Payment is pending."
             elif order.status == "paid":
                 status_message = "Payment confirmed but proxy not yet generated."
-            elif order.status in ("fulfilled", "active", "fulfilling"):
+            elif is_live_order(order.status) or order.status == "fulfilling":
                 status_message = "Proxy is ready."
 
             return ToolResult(
@@ -211,7 +213,7 @@ async def _generate_receipt_link(tx_ref: str, customer_phone: str | None = None)
 
         if not order:
             return ToolResult(ok=False, error=f"Order '{tx_ref}' not found")
-        if order.status not in ("paid", "fulfilling", "fulfilled", "active"):
+        if order.status not in ("paid", "fulfilling") and not is_live_order(order.status):
             return ToolResult(ok=False, error="Order not confirmed yet")
 
         url = f"{PUBLIC_URL}/receipt/{tx_ref}"
@@ -295,7 +297,7 @@ async def _get_customer_context_tool(customer_phone: str | None = None) -> ToolR
             # Spend summary
             stmt_s = select(func.count(Order.order_id), func.coalesce(func.sum(Order.amount_paid_ngn), 0)).where(
                 Order.customer_phone == customer_phone,
-                Order.status.in_(["paid", "fulfilling", "fulfilled", "active"]),
+                Order.status.in_(["paid", "fulfilling", *LIVE_ORDER_STATUSES]),
             )
             result_s = await session.execute(stmt_s)
             order_count, total_spend = result_s.one()
@@ -306,7 +308,7 @@ async def _get_customer_context_tool(customer_phone: str | None = None) -> ToolR
                 .join(Order, Order.styxproxy_credential_id == StyxproxyCredential.id)
                 .where(
                     Order.customer_phone == customer_phone,
-                    Order.status.in_(["fulfilled", "active"]),
+                    Order.status.in_(LIVE_ORDER_STATUSES),
                     StyxproxyCredential.status == "active",
                 )
                 .order_by(StyxproxyCredential.expires_at.asc())
@@ -557,7 +559,7 @@ async def _list_customer_orders_tool(customer_phone: str | None = None) -> ToolR
             order_list = []
             for o in orders:
                 cred_info = None
-                if o.styxproxy_credential_id and o.status in ("fulfilled", "active", "fulfilling"):
+                if o.styxproxy_credential_id and (is_live_order(o.status) or o.status == "fulfilling"):
                     cred_stmt = select(StyxproxyCredential).where(
                         StyxproxyCredential.id == o.styxproxy_credential_id
                     )
@@ -618,7 +620,7 @@ async def _check_data_remaining_tool(customer_phone: str | None = None) -> ToolR
                 .join(StyxproxyCredential, StyxproxyCredential.id == Order.styxproxy_credential_id, isouter=True)
                 .where(
                     Order.customer_phone == customer_phone,
-                    Order.status.in_(["fulfilled", "active", "fulfilling"]),
+                    Order.status.in_([*LIVE_ORDER_STATUSES, "fulfilling"]),
                     Order.plan_type.in_(["residential", "mobile"]),
                 )
                 .order_by(StyxproxyCredential.expires_at.asc())
@@ -749,7 +751,7 @@ async def _detect_renewal_tool(customer_phone: str | None = None) -> ToolResult:
                 .join(StyxproxyCredential, StyxproxyCredential.id == Order.styxproxy_credential_id)
                 .where(
                     Order.customer_phone == customer_phone,
-                    Order.status.in_(["fulfilled", "active"]),
+                    Order.status.in_(LIVE_ORDER_STATUSES),
                     StyxproxyCredential.status == "active",
                     StyxproxyCredential.expires_at <= threshold,
                 )
