@@ -19,7 +19,7 @@ import sys
 # Ensure the app package is importable (backend/ on the PYTHONPATH)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from app.database import get_session_context
+from app.database import async_session
 from app.services.renewal import send_daily_renewal_reminders
 
 logging.basicConfig(
@@ -32,7 +32,7 @@ logger = logging.getLogger("renewal_cron")
 async def main() -> None:
     logger.info("Starting daily renewal reminder run")
 
-    async with get_session_context() as session:
+    async with async_session() as session:
         summary = await send_daily_renewal_reminders(session)
 
     logger.info(
